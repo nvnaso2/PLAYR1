@@ -55,9 +55,10 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash } from "lucide-react";
+import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2 } from "lucide-react";
 import type { Drill, DrillCategory, DifficultyLevel, DrillMetric } from "@shared/schema";
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, METRIC_TYPES } from "@shared/schema";
+import { useUpload } from "@/hooks/use-upload";
 
 type AdminUser = {
   id: string;
@@ -72,8 +73,8 @@ const drillFormSchema = z.object({
   description: z.string().optional(),
   category: z.enum(DRILL_CATEGORIES),
   difficulty: z.enum(DIFFICULTY_LEVELS),
-  videoUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")),
-  thumbnailUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")),
+  videoUrl: z.string().optional().refine((val) => !val || val.startsWith("/objects/") || val.startsWith("http"), "Must be a valid URL or uploaded file"),
+  thumbnailUrl: z.string().optional().refine((val) => !val || val.startsWith("/objects/") || val.startsWith("http"), "Must be a valid URL or uploaded file"),
   duration: z.number().int().positive().optional(),
   equipment: z.string().optional(),
   tips: z.string().optional(),
@@ -93,6 +94,48 @@ function DrillForm({
 }) {
   const { toast } = useToast();
   const isEditing = !!drill;
+  
+  const { uploadFile: uploadVideoFile, isUploading: isUploadingVideo } = useUpload({
+    onSuccess: (response) => {
+      form.setValue("videoUrl", response.objectPath);
+      toast({ title: "Video uploaded successfully" });
+    },
+    onError: (error) => {
+      toast({ title: "Failed to upload video", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const { uploadFile: uploadThumbnailFile, isUploading: isUploadingThumbnail } = useUpload({
+    onSuccess: (response) => {
+      form.setValue("thumbnailUrl", response.objectPath);
+      toast({ title: "Thumbnail uploaded successfully" });
+    },
+    onError: (error) => {
+      toast({ title: "Failed to upload thumbnail", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith("video/")) {
+        toast({ title: "Please select a video file", variant: "destructive" });
+        return;
+      }
+      await uploadVideoFile(file);
+    }
+  };
+
+  const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith("image/")) {
+        toast({ title: "Please select an image file", variant: "destructive" });
+        return;
+      }
+      await uploadThumbnailFile(file);
+    }
+  };
 
   const form = useForm<DrillFormData>({
     resolver: zodResolver(drillFormSchema),
@@ -258,10 +301,25 @@ function DrillForm({
           name="videoUrl"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Video URL</FormLabel>
-              <FormControl>
-                <Input placeholder="https://youtube.com/..." {...field} data-testid="input-drill-video-url" />
-              </FormControl>
+              <FormLabel>Video</FormLabel>
+              <div className="flex gap-2">
+                <FormControl>
+                  <Input placeholder="https://youtube.com/... or upload a file" {...field} data-testid="input-drill-video-url" />
+                </FormControl>
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept="video/*"
+                    onChange={handleVideoUpload}
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    disabled={isUploadingVideo}
+                    data-testid="input-drill-video-upload"
+                  />
+                  <Button type="button" variant="outline" disabled={isUploadingVideo} data-testid="button-drill-video-upload">
+                    {isUploadingVideo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                  </Button>
+                </div>
+              </div>
               <FormMessage />
             </FormItem>
           )}
@@ -272,10 +330,25 @@ function DrillForm({
           name="thumbnailUrl"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Thumbnail URL</FormLabel>
-              <FormControl>
-                <Input placeholder="https://..." {...field} data-testid="input-drill-thumbnail-url" />
-              </FormControl>
+              <FormLabel>Thumbnail</FormLabel>
+              <div className="flex gap-2">
+                <FormControl>
+                  <Input placeholder="https://... or upload a file" {...field} data-testid="input-drill-thumbnail-url" />
+                </FormControl>
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleThumbnailUpload}
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    disabled={isUploadingThumbnail}
+                    data-testid="input-drill-thumbnail-upload"
+                  />
+                  <Button type="button" variant="outline" disabled={isUploadingThumbnail} data-testid="button-drill-thumbnail-upload">
+                    {isUploadingThumbnail ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                  </Button>
+                </div>
+              </div>
               <FormMessage />
             </FormItem>
           )}

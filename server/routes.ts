@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
+import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema } from "@shared/schema";
 import { z } from "zod";
 
@@ -12,6 +13,9 @@ export async function registerRoutes(
   // Setup authentication
   await setupAuth(app);
   registerAuthRoutes(app);
+
+  // Setup object storage for file uploads
+  registerObjectStorageRoutes(app);
 
   // ===== DRILLS =====
   
