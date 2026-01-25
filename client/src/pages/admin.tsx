@@ -55,9 +55,9 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield } from "lucide-react";
-import type { Drill, DrillCategory, DifficultyLevel } from "@shared/schema";
-import { DRILL_CATEGORIES, DIFFICULTY_LEVELS } from "@shared/schema";
+import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash } from "lucide-react";
+import type { Drill, DrillCategory, DifficultyLevel, DrillMetric } from "@shared/schema";
+import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, METRIC_TYPES } from "@shared/schema";
 
 type AdminUser = {
   id: string;
@@ -491,12 +491,260 @@ function UserForm({
   );
 }
 
+// Drill Metrics Configuration Component
+function MetricsConfigDialog({ 
+  drill, 
+  open, 
+  onOpenChange 
+}: { 
+  drill: Drill; 
+  open: boolean; 
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { toast } = useToast();
+  const [newMetricName, setNewMetricName] = useState("");
+  const [newMetricLabel, setNewMetricLabel] = useState("");
+  const [newMetricType, setNewMetricType] = useState<"number" | "calculated">("number");
+  const [newMetricUnit, setNewMetricUnit] = useState("");
+  const [newMetricFormula, setNewMetricFormula] = useState("");
+  const [editingMetric, setEditingMetric] = useState<DrillMetric | null>(null);
+
+  const { data: metrics, isLoading } = useQuery<DrillMetric[]>({
+    queryKey: ['/api/drills', drill.id, 'metrics'],
+    queryFn: async () => {
+      const res = await fetch(`/api/drills/${drill.id}/metrics`);
+      if (!res.ok) throw new Error('Failed to fetch metrics');
+      return res.json();
+    },
+    enabled: open,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (data: { name: string; label: string; type: string; unit?: string; formula?: string }) => {
+      return await apiRequest("POST", `/api/drills/${drill.id}/metrics`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/drills', drill.id, 'metrics'] });
+      toast({ title: "Metric added successfully" });
+      setNewMetricName("");
+      setNewMetricLabel("");
+      setNewMetricUnit("");
+      setNewMetricFormula("");
+      setNewMetricType("number");
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to add metric", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<DrillMetric> }) => {
+      return await apiRequest("PUT", `/api/drill-metrics/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/drills', drill.id, 'metrics'] });
+      toast({ title: "Metric updated successfully" });
+      setEditingMetric(null);
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to update metric", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("DELETE", `/api/drill-metrics/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/drills', drill.id, 'metrics'] });
+      toast({ title: "Metric deleted" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to delete metric", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const handleAddMetric = () => {
+    if (!newMetricName || !newMetricLabel) return;
+    createMutation.mutate({
+      name: newMetricName.toLowerCase().replace(/\s+/g, '_'),
+      label: newMetricLabel,
+      type: newMetricType,
+      unit: newMetricUnit || undefined,
+      formula: newMetricType === "calculated" ? newMetricFormula : undefined,
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Settings2 className="w-5 h-5" />
+            Configure Metrics: {drill.title}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          {/* Current Metrics */}
+          <div>
+            <h3 className="font-medium mb-3">Current Metrics</h3>
+            {isLoading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            ) : !metrics?.length ? (
+              <p className="text-sm text-muted-foreground py-4 text-center border rounded-md">
+                No metrics configured. Add metrics below to track specific measurements for this drill.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {metrics.map((metric) => (
+                  <div key={metric.id} className="flex items-center justify-between p-3 border rounded-md">
+                    <div className="flex items-center gap-3">
+                      {metric.type === "calculated" ? (
+                        <Calculator className="w-4 h-4 text-primary" />
+                      ) : (
+                        <Hash className="w-4 h-4 text-muted-foreground" />
+                      )}
+                      <div>
+                        <div className="font-medium">{metric.label}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {metric.type === "calculated" ? (
+                            <span>Formula: {metric.formula}</span>
+                          ) : (
+                            <span>Type: {metric.type}{metric.unit && ` • Unit: ${metric.unit}`}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="icon" variant="ghost" data-testid={`button-delete-metric-${metric.id}`}>
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Metric</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete "{metric.label}"? This will also remove all recorded values for this metric.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => deleteMutation.mutate(metric.id)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Add New Metric */}
+          <div className="border-t pt-4">
+            <h3 className="font-medium mb-3">Add New Metric</h3>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium">Label</label>
+                  <Input
+                    placeholder="e.g., Shot Attempts"
+                    value={newMetricLabel}
+                    onChange={(e) => {
+                      setNewMetricLabel(e.target.value);
+                      setNewMetricName(e.target.value);
+                    }}
+                    data-testid="input-metric-label"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Type</label>
+                  <Select value={newMetricType} onValueChange={(v: "number" | "calculated") => setNewMetricType(v)}>
+                    <SelectTrigger data-testid="select-metric-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="number">Number (user enters value)</SelectItem>
+                      <SelectItem value="calculated">Calculated (auto-computed)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {newMetricType === "number" && (
+                <div>
+                  <label className="text-sm font-medium">Unit (optional)</label>
+                  <Input
+                    placeholder="e.g., shots, seconds, %"
+                    value={newMetricUnit}
+                    onChange={(e) => setNewMetricUnit(e.target.value)}
+                    data-testid="input-metric-unit"
+                  />
+                </div>
+              )}
+
+              {newMetricType === "calculated" && (
+                <div>
+                  <label className="text-sm font-medium">Formula</label>
+                  <Input
+                    placeholder="e.g., shots_made / shot_attempts * 100"
+                    value={newMetricFormula}
+                    onChange={(e) => setNewMetricFormula(e.target.value)}
+                    data-testid="input-metric-formula"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Use metric names (lowercase with underscores) in your formula. Example: shots_made / shot_attempts * 100
+                  </p>
+                </div>
+              )}
+
+              <Button
+                onClick={handleAddMetric}
+                disabled={!newMetricLabel || createMutation.isPending}
+                className="w-full"
+                data-testid="button-add-metric"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                {createMutation.isPending ? "Adding..." : "Add Metric"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function AdminPage() {
   const { toast } = useToast();
   const { isAdmin, isLoading: adminLoading } = useAdmin();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
   const [editingDrill, setEditingDrill] = useState<Drill | null>(null);
+  const [configuringMetricsDrill, setConfiguringMetricsDrill] = useState<Drill | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("drills");
@@ -719,6 +967,16 @@ export default function AdminPage() {
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1">
+                              <Button 
+                                size="icon" 
+                                variant="ghost"
+                                onClick={() => setConfiguringMetricsDrill(drill)}
+                                data-testid={`button-configure-metrics-${drill.id}`}
+                                title="Configure Metrics"
+                              >
+                                <Settings2 className="w-4 h-4" />
+                              </Button>
+
                               <Dialog open={editingDrill?.id === drill.id} onOpenChange={(open) => !open && setEditingDrill(null)}>
                                 <DialogTrigger asChild>
                                   <Button 
@@ -889,6 +1147,15 @@ export default function AdminPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Metrics Configuration Dialog */}
+      {configuringMetricsDrill && (
+        <MetricsConfigDialog
+          drill={configuringMetricsDrill}
+          open={!!configuringMetricsDrill}
+          onOpenChange={(open) => !open && setConfiguringMetricsDrill(null)}
+        />
+      )}
     </div>
   );
 }

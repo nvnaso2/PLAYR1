@@ -91,13 +91,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createDrill(drill: InsertDrill): Promise<Drill> {
-    const [newDrill] = await db.insert(drills).values(drill).returning();
+    const [newDrill] = await db.insert(drills).values(drill as any).returning();
     return newDrill;
   }
 
   async updateDrill(id: string, drill: Partial<InsertDrill>): Promise<Drill | undefined> {
     const [updated] = await db.update(drills)
-      .set(drill)
+      .set(drill as any)
       .where(eq(drills.id, id))
       .returning();
     return updated;
@@ -221,13 +221,13 @@ export class DatabaseStorage implements IStorage {
 
   async upsertUserProfile(profile: InsertUserProfile): Promise<UserProfile> {
     const [result] = await db.insert(userProfiles)
-      .values(profile)
+      .values(profile as any)
       .onConflictDoUpdate({
         target: userProfiles.userId,
         set: {
           ...profile,
           updatedAt: new Date()
-        }
+        } as any
       })
       .returning();
     return result;
@@ -444,7 +444,7 @@ export class DatabaseStorage implements IStorage {
       .from(trainingLogs)
       .where(eq(trainingLogs.userId, userId));
 
-    const drillIds = [...new Set(logs.map(l => l.drillId))];
+    const drillIds = Array.from(new Set(logs.map(l => l.drillId)));
     
     if (drillIds.length === 0) return [];
 
@@ -484,13 +484,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createDrillMetric(metric: InsertDrillMetric): Promise<DrillMetric> {
-    const [newMetric] = await db.insert(drillMetrics).values(metric).returning();
+    const [newMetric] = await db.insert(drillMetrics).values(metric as any).returning();
     return newMetric;
   }
 
   async updateDrillMetric(id: string, metric: Partial<InsertDrillMetric>): Promise<DrillMetric | undefined> {
     const [updated] = await db.update(drillMetrics)
-      .set(metric)
+      .set(metric as any)
       .where(eq(drillMetrics.id, id))
       .returning();
     return updated;

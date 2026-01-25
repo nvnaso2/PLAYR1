@@ -68,6 +68,10 @@ shared/
 - `POST /api/drills` - Create drill (admin only)
 - `PUT /api/drills/:id` - Update drill (admin only)
 - `DELETE /api/drills/:id` - Delete drill (admin only)
+- `GET /api/drills/:id/metrics` - Get drill metrics configuration
+- `POST /api/drills/:id/metrics` - Create drill metric (admin only)
+- `PUT /api/drill-metrics/:id` - Update drill metric (admin only)
+- `DELETE /api/drill-metrics/:id` - Delete drill metric (admin only)
 - `GET /api/admin/check` - Check if current user is admin
 - `GET /api/admin/users` - List all users (admin only)
 - `POST /api/admin/users` - Create new user (admin only)
@@ -75,6 +79,8 @@ shared/
 - `GET /api/drills/my-drills` - User's drills with personal bests
 - `GET /api/training-logs` - User's training logs
 - `POST /api/training-logs` - Create training log
+- `GET /api/training-logs/:id/metrics` - Get training log metrics
+- `POST /api/training-logs/:id/metrics` - Save training log metrics
 - `GET /api/profile` - User profile
 - `PUT /api/profile` - Update profile
 - `GET /api/videos` - User's videos
@@ -90,7 +96,9 @@ shared/
 - `sessions` - Session storage
 - `user_profiles` - Extended user data (age, location, skill level, isAdmin flag)
 - `drills` - Training drills
+- `drill_metrics` - Custom measurement fields per drill (e.g., Shot Attempts, Shots Made, Shooting %)
 - `training_logs` - User training sessions
+- `training_log_metrics` - Metric values recorded per training log
 - `user_videos` - Uploaded training videos
 - `drill_progress` - Aggregated drill progress
 - `benchmarks` - Community averages by age
