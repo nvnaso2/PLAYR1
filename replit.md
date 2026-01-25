@@ -92,11 +92,8 @@ shared/
 - `benchmarks` - Community averages by age
 
 ## Admin Access
-- Admin users are identified by `isAdmin: true` in their user_profiles record
-- To make a user an admin, update their profile in the database:
-  ```sql
-  UPDATE user_profiles SET is_admin = true WHERE user_id = 'USER_ID_HERE';
-  ```
+- Admin users are configured via the `ADMIN_USER_IDS` environment variable
+- Set `ADMIN_USER_IDS` to a comma-separated list of user IDs (e.g., `12345,67890`)
 - Admin navigation appears in sidebar only for admin users
 - Non-admin users attempting to access /admin see an access denied message
 

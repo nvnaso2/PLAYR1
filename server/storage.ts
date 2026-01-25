@@ -92,27 +92,15 @@ export class DatabaseStorage implements IStorage {
     return true;
   }
 
-  // Admin
+  // Admin - uses ADMIN_USER_IDS environment variable
   async isUserAdmin(userId: string): Promise<boolean> {
-    const [profile] = await db.select()
-      .from(userProfiles)
-      .where(eq(userProfiles.userId, userId));
-    return profile?.isAdmin === true;
+    const adminIds = process.env.ADMIN_USER_IDS?.split(',').map(id => id.trim()) || [];
+    return adminIds.includes(userId);
   }
 
   async setUserAdmin(userId: string, isAdmin: boolean): Promise<boolean> {
-    const [existing] = await db.select()
-      .from(userProfiles)
-      .where(eq(userProfiles.userId, userId));
-    
-    if (existing) {
-      await db.update(userProfiles)
-        .set({ isAdmin, updatedAt: new Date() })
-        .where(eq(userProfiles.userId, userId));
-    } else {
-      await db.insert(userProfiles)
-        .values({ userId, isAdmin });
-    }
+    // Admin status is now managed via ADMIN_USER_IDS environment variable
+    // This method is kept for interface compatibility but doesn't modify anything
     return true;
   }
 
