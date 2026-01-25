@@ -6,6 +6,7 @@ import {
   drillProgress, type DrillProgress, type InsertDrillProgress,
   benchmarks, type Benchmark
 } from "@shared/schema";
+import { users } from "@shared/models/auth";
 import { db } from "./db";
 import { eq, desc, and, sql, gte } from "drizzle-orm";
 
