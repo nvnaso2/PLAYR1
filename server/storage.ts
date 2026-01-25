@@ -4,7 +4,9 @@ import {
   userProfiles, type UserProfile, type InsertUserProfile,
   userVideos, type UserVideo, type InsertUserVideo,
   drillProgress, type DrillProgress, type InsertDrillProgress,
-  benchmarks, type Benchmark
+  benchmarks, type Benchmark,
+  drillMetrics, type DrillMetric, type InsertDrillMetric,
+  trainingLogMetrics, type TrainingLogMetric, type InsertTrainingLogMetric
 } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
@@ -57,6 +59,16 @@ export interface IStorage {
 
   // Benchmarks
   getBenchmarks(): Promise<Benchmark[]>;
+
+  // Drill Metrics
+  getDrillMetrics(drillId: string): Promise<DrillMetric[]>;
+  createDrillMetric(metric: InsertDrillMetric): Promise<DrillMetric>;
+  updateDrillMetric(id: string, metric: Partial<InsertDrillMetric>): Promise<DrillMetric | undefined>;
+  deleteDrillMetric(id: string): Promise<boolean>;
+  
+  // Training Log Metrics
+  getTrainingLogMetrics(trainingLogId: string): Promise<TrainingLogMetric[]>;
+  saveTrainingLogMetrics(trainingLogId: string, metrics: Array<{ metricId: string; value: number }>): Promise<TrainingLogMetric[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -461,6 +473,56 @@ export class DatabaseStorage implements IStorage {
   // Benchmarks
   async getBenchmarks(): Promise<Benchmark[]> {
     return await db.select().from(benchmarks);
+  }
+
+  // Drill Metrics
+  async getDrillMetrics(drillId: string): Promise<DrillMetric[]> {
+    return await db.select()
+      .from(drillMetrics)
+      .where(eq(drillMetrics.drillId, drillId))
+      .orderBy(drillMetrics.sortOrder);
+  }
+
+  async createDrillMetric(metric: InsertDrillMetric): Promise<DrillMetric> {
+    const [newMetric] = await db.insert(drillMetrics).values(metric).returning();
+    return newMetric;
+  }
+
+  async updateDrillMetric(id: string, metric: Partial<InsertDrillMetric>): Promise<DrillMetric | undefined> {
+    const [updated] = await db.update(drillMetrics)
+      .set(metric)
+      .where(eq(drillMetrics.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteDrillMetric(id: string): Promise<boolean> {
+    await db.delete(drillMetrics).where(eq(drillMetrics.id, id));
+    return true;
+  }
+
+  // Training Log Metrics
+  async getTrainingLogMetrics(trainingLogId: string): Promise<TrainingLogMetric[]> {
+    return await db.select()
+      .from(trainingLogMetrics)
+      .where(eq(trainingLogMetrics.trainingLogId, trainingLogId));
+  }
+
+  async saveTrainingLogMetrics(trainingLogId: string, metrics: Array<{ metricId: string; value: number }>): Promise<TrainingLogMetric[]> {
+    // Delete existing metrics for this training log first
+    await db.delete(trainingLogMetrics).where(eq(trainingLogMetrics.trainingLogId, trainingLogId));
+    
+    if (metrics.length === 0) return [];
+    
+    // Insert new metrics
+    const values = metrics.map(m => ({
+      trainingLogId,
+      metricId: m.metricId,
+      value: String(m.value)
+    }));
+    
+    const inserted = await db.insert(trainingLogMetrics).values(values).returning();
+    return inserted;
   }
 }
 
