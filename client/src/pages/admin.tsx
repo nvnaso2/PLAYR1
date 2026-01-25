@@ -362,10 +362,140 @@ function DrillForm({
   );
 }
 
+const userFormSchema = z.object({
+  email: z.string().email("Must be a valid email"),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
+  isAdmin: z.boolean().default(false),
+});
+
+type UserFormData = z.infer<typeof userFormSchema>;
+
+function UserForm({ 
+  onSuccess, 
+  onCancel 
+}: { 
+  onSuccess: () => void;
+  onCancel: () => void;
+}) {
+  const { toast } = useToast();
+
+  const form = useForm<UserFormData>({
+    resolver: zodResolver(userFormSchema),
+    defaultValues: {
+      email: "",
+      firstName: "",
+      lastName: "",
+      isAdmin: false,
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (data: UserFormData) => {
+      return await apiRequest("POST", "/api/admin/users", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      toast({ title: "User created successfully" });
+      onSuccess();
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to create user", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const onSubmit = (data: UserFormData) => {
+    createMutation.mutate(data);
+  };
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="email"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Email *</FormLabel>
+              <FormControl>
+                <Input placeholder="user@example.com" {...field} data-testid="input-user-email" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="firstName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>First Name</FormLabel>
+                <FormControl>
+                  <Input placeholder="John" {...field} data-testid="input-user-firstname" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="lastName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Last Name</FormLabel>
+                <FormControl>
+                  <Input placeholder="Doe" {...field} data-testid="input-user-lastname" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <FormField
+          control={form.control}
+          name="isAdmin"
+          render={({ field }) => (
+            <FormItem className="flex items-center gap-2">
+              <FormControl>
+                <input
+                  type="checkbox"
+                  checked={field.value}
+                  onChange={field.onChange}
+                  className="w-4 h-4"
+                  data-testid="checkbox-user-admin"
+                />
+              </FormControl>
+              <FormLabel className="!mt-0">Grant admin access</FormLabel>
+            </FormItem>
+          )}
+        />
+
+        <div className="flex justify-end gap-2 pt-4">
+          <Button type="button" variant="outline" onClick={onCancel} data-testid="button-cancel-user">
+            Cancel
+          </Button>
+          <Button type="submit" disabled={createMutation.isPending} data-testid="button-save-user">
+            {createMutation.isPending ? "Creating..." : "Create User"}
+          </Button>
+        </div>
+      </form>
+    </Form>
+  );
+}
+
 export default function AdminPage() {
   const { toast } = useToast();
   const { isAdmin, isLoading: adminLoading } = useAdmin();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
   const [editingDrill, setEditingDrill] = useState<Drill | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState<string>("all");
@@ -672,11 +802,28 @@ export default function AdminPage() {
           </div>
 
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0 pb-4">
               <CardTitle className="flex items-center gap-2">
                 <Users className="w-5 h-5" />
                 User Management
               </CardTitle>
+              <Dialog open={isCreateUserOpen} onOpenChange={setIsCreateUserOpen}>
+                <DialogTrigger asChild>
+                  <Button data-testid="button-add-user">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add User
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add New User</DialogTitle>
+                  </DialogHeader>
+                  <UserForm 
+                    onSuccess={() => setIsCreateUserOpen(false)} 
+                    onCancel={() => setIsCreateUserOpen(false)}
+                  />
+                </DialogContent>
+              </Dialog>
             </CardHeader>
             <CardContent>
               {usersLoading ? (

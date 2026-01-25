@@ -148,6 +148,37 @@ export async function registerRoutes(
     }
   });
 
+  // Create new user (admin only)
+  const createUserSchema = z.object({
+    email: z.string().email("Must be a valid email"),
+    firstName: z.string().optional(),
+    lastName: z.string().optional(),
+    isAdmin: z.boolean().optional().default(false),
+  });
+
+  app.post("/api/admin/users", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const parsed = createUserSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid input" });
+      }
+      const { email, firstName, lastName, isAdmin: makeAdmin } = parsed.data;
+      const newUser = await storage.createUser({
+        email,
+        firstName: firstName || undefined,
+        lastName: lastName || undefined,
+        isAdmin: makeAdmin,
+      });
+      res.status(201).json(newUser);
+    } catch (error: any) {
+      console.error("Error creating user:", error);
+      if (error.code === '23505') {
+        return res.status(400).json({ message: "A user with this email already exists" });
+      }
+      res.status(500).json({ message: "Failed to create user" });
+    }
+  });
+
   // ===== TRAINING LOGS =====
 
   // Get user's training logs

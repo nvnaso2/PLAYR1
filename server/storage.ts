@@ -24,6 +24,7 @@ export interface IStorage {
   isUserAdmin(userId: string): Promise<boolean>;
   setUserAdmin(userId: string, isAdmin: boolean): Promise<boolean>;
   getAllUsers(): Promise<Array<{ id: string; email: string | null; firstName: string | null; lastName: string | null; isAdmin: boolean }>>;
+  createUser(userData: { email: string; firstName?: string; lastName?: string; isAdmin?: boolean }): Promise<{ id: string; email: string | null; firstName: string | null; lastName: string | null; isAdmin: boolean }>;
 
   // Training Logs
   getTrainingLogs(userId: string): Promise<TrainingLog[]>;
@@ -141,6 +142,33 @@ export class DatabaseStorage implements IStorage {
         isAdmin: isEnvAdmin || (profile?.isAdmin === true),
       };
     });
+  }
+
+  async createUser(userData: { email: string; firstName?: string; lastName?: string; isAdmin?: boolean }): Promise<{ id: string; email: string | null; firstName: string | null; lastName: string | null; isAdmin: boolean }> {
+    const [newUser] = await db.insert(users)
+      .values({
+        email: userData.email,
+        firstName: userData.firstName || null,
+        lastName: userData.lastName || null,
+      })
+      .returning();
+    
+    // If isAdmin is set, create a user profile with admin flag
+    if (userData.isAdmin) {
+      await db.insert(userProfiles)
+        .values({
+          userId: newUser.id,
+          isAdmin: true,
+        });
+    }
+    
+    return {
+      id: newUser.id,
+      email: newUser.email,
+      firstName: newUser.firstName,
+      lastName: newUser.lastName,
+      isAdmin: userData.isAdmin || false,
+    };
   }
 
   // Training Logs

@@ -69,6 +69,9 @@ shared/
 - `PUT /api/drills/:id` - Update drill (admin only)
 - `DELETE /api/drills/:id` - Delete drill (admin only)
 - `GET /api/admin/check` - Check if current user is admin
+- `GET /api/admin/users` - List all users (admin only)
+- `POST /api/admin/users` - Create new user (admin only)
+- `PUT /api/admin/users/:id/admin` - Toggle user admin status (admin only)
 - `GET /api/training-logs` - User's training logs
 - `POST /api/training-logs` - Create training log
 - `GET /api/profile` - User profile
@@ -92,10 +95,14 @@ shared/
 - `benchmarks` - Community averages by age
 
 ## Admin Access
-- Admin users are configured via the `ADMIN_USER_IDS` environment variable
-- Set `ADMIN_USER_IDS` to a comma-separated list of user IDs (e.g., `12345,67890`)
+- Admin status is determined by: 1) `ADMIN_USER_IDS` environment variable (bootstrap), or 2) `isAdmin` field in user_profiles table
+- Set `ADMIN_USER_IDS` to a comma-separated list of user IDs for initial bootstrap admins
 - Admin navigation appears in sidebar only for admin users
 - Non-admin users attempting to access /admin see an access denied message
+
+### Admin Dashboard Features
+- **Drills Tab**: Create, edit, delete, and feature drills
+- **Users Tab**: View all users, create new users, toggle admin status for any user
 
 ## Running the App
 - Development: `npm run dev`
