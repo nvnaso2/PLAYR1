@@ -22,6 +22,7 @@ export interface IStorage {
   // Admin
   isUserAdmin(userId: string): Promise<boolean>;
   setUserAdmin(userId: string, isAdmin: boolean): Promise<boolean>;
+  getAllUsers(): Promise<Array<{ id: string; email: string | null; firstName: string | null; lastName: string | null; isAdmin: boolean }>>;
 
   // Training Logs
   getTrainingLogs(userId: string): Promise<TrainingLog[]>;
@@ -92,16 +93,53 @@ export class DatabaseStorage implements IStorage {
     return true;
   }
 
-  // Admin - uses ADMIN_USER_IDS environment variable
+  // Admin - checks both env var (bootstrap) and database field
   async isUserAdmin(userId: string): Promise<boolean> {
-    const adminIds = process.env.ADMIN_USER_IDS?.split(',').map(id => id.trim()) || [];
-    return adminIds.includes(userId);
+    // Check environment variable first (bootstrap admins)
+    const envAdminIds = process.env.ADMIN_USER_IDS?.split(',').map(id => id.trim()) || [];
+    if (envAdminIds.includes(userId)) {
+      return true;
+    }
+    // Then check database
+    const [profile] = await db.select()
+      .from(userProfiles)
+      .where(eq(userProfiles.userId, userId));
+    return profile?.isAdmin === true;
   }
 
   async setUserAdmin(userId: string, isAdmin: boolean): Promise<boolean> {
-    // Admin status is now managed via ADMIN_USER_IDS environment variable
-    // This method is kept for interface compatibility but doesn't modify anything
+    const [existing] = await db.select()
+      .from(userProfiles)
+      .where(eq(userProfiles.userId, userId));
+    
+    if (existing) {
+      await db.update(userProfiles)
+        .set({ isAdmin, updatedAt: new Date() })
+        .where(eq(userProfiles.userId, userId));
+    } else {
+      await db.insert(userProfiles)
+        .values({ userId, isAdmin });
+    }
     return true;
+  }
+
+  // User management
+  async getAllUsers(): Promise<Array<{ id: string; email: string | null; firstName: string | null; lastName: string | null; isAdmin: boolean }>> {
+    const allUsers = await db.select().from(users);
+    const profiles = await db.select().from(userProfiles);
+    const envAdminIds = process.env.ADMIN_USER_IDS?.split(',').map(id => id.trim()) || [];
+    
+    return allUsers.map(user => {
+      const profile = profiles.find(p => p.userId === user.id);
+      const isEnvAdmin = envAdminIds.includes(user.id);
+      return {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        isAdmin: isEnvAdmin || (profile?.isAdmin === true),
+      };
+    });
   }
 
   // Training Logs

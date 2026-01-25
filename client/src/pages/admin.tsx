@@ -53,9 +53,19 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield } from "lucide-react";
 import type { Drill, DrillCategory, DifficultyLevel } from "@shared/schema";
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS } from "@shared/schema";
+
+type AdminUser = {
+  id: string;
+  email: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  isAdmin: boolean;
+};
 
 const drillFormSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -359,9 +369,32 @@ export default function AdminPage() {
   const [editingDrill, setEditingDrill] = useState<Drill | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [activeTab, setActiveTab] = useState("drills");
 
   const { data: drills, isLoading } = useQuery<Drill[]>({
     queryKey: ['/api/drills'],
+  });
+
+  const { data: users, isLoading: usersLoading } = useQuery<AdminUser[]>({
+    queryKey: ['/api/admin/users'],
+    enabled: isAdmin,
+  });
+
+  const toggleAdminMutation = useMutation({
+    mutationFn: async ({ userId, isAdmin }: { userId: string; isAdmin: boolean }) => {
+      return await apiRequest("PUT", `/api/admin/users/${userId}/admin`, { isAdmin });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      toast({ title: "User permissions updated" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to update user", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
   });
 
   const deleteMutation = useMutation({
@@ -426,181 +459,289 @@ export default function AdminPage() {
   const categoryCount = (category: string) => 
     drills?.filter(d => d.category === category).length || 0;
 
+  const adminCount = users?.filter(u => u.isAdmin).length || 0;
+  const regularCount = users?.filter(u => !u.isAdmin).length || 0;
+
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-3xl font-bold" data-testid="text-admin-title">Admin Dashboard</h1>
-          <p className="text-muted-foreground">Manage drills, categories, and content</p>
+          <p className="text-muted-foreground">Manage drills, users, and permissions</p>
         </div>
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2" data-testid="button-add-drill">
-              <Plus className="w-4 h-4" />
-              Add Drill
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Create New Drill</DialogTitle>
-            </DialogHeader>
-            <DrillForm 
-              onSuccess={() => setIsCreateOpen(false)} 
-              onCancel={() => setIsCreateOpen(false)}
-            />
-          </DialogContent>
-        </Dialog>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-        {DRILL_CATEGORIES.map((cat) => (
-          <Card 
-            key={cat} 
-            className={`cursor-pointer transition-all hover-elevate ${filterCategory === cat ? 'ring-2 ring-primary' : ''}`}
-            onClick={() => setFilterCategory(filterCategory === cat ? "all" : cat)}
-          >
-            <CardContent className="p-3 text-center">
-              <div className="text-2xl font-bold text-primary">{categoryCount(cat)}</div>
-              <div className="text-xs text-muted-foreground capitalize">
-                {cat.replace("-", " ")}
-              </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="drills" className="gap-2" data-testid="tab-drills">
+            <Video className="w-4 h-4" />
+            Drills
+          </TabsTrigger>
+          <TabsTrigger value="users" className="gap-2" data-testid="tab-users">
+            <Users className="w-4 h-4" />
+            Users
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="drills" className="space-y-6">
+          <div className="flex items-center justify-end">
+            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+              <DialogTrigger asChild>
+                <Button className="gap-2" data-testid="button-add-drill">
+                  <Plus className="w-4 h-4" />
+                  Add Drill
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Create New Drill</DialogTitle>
+                </DialogHeader>
+                <DrillForm 
+                  onSuccess={() => setIsCreateOpen(false)} 
+                  onCancel={() => setIsCreateOpen(false)}
+                />
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+            {DRILL_CATEGORIES.map((cat) => (
+              <Card 
+                key={cat} 
+                className={`cursor-pointer transition-all hover-elevate ${filterCategory === cat ? 'ring-2 ring-primary' : ''}`}
+                onClick={() => setFilterCategory(filterCategory === cat ? "all" : cat)}
+              >
+                <CardContent className="p-3 text-center">
+                  <div className="text-2xl font-bold text-primary">{categoryCount(cat)}</div>
+                  <div className="text-xs text-muted-foreground capitalize">
+                    {cat.replace("-", " ")}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0 pb-4">
+              <CardTitle className="flex items-center gap-2">
+                <Video className="w-5 h-5" />
+                Drill Library ({filteredDrills.length})
+              </CardTitle>
+              <Input 
+                placeholder="Search drills..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="max-w-xs"
+                data-testid="input-search-drills"
+              />
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="space-y-2">
+                  {[1,2,3].map(i => <Skeleton key={i} className="h-12 w-full" />)}
+                </div>
+              ) : filteredDrills.length === 0 ? (
+                <p className="text-center py-8 text-muted-foreground">No drills found</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Title</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead>Difficulty</TableHead>
+                        <TableHead>Featured</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredDrills.map((drill) => (
+                        <TableRow key={drill.id}>
+                          <TableCell className="font-medium" data-testid={`text-drill-title-${drill.id}`}>
+                            {drill.title}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary" className="capitalize">
+                              {drill.category.replace("-", " ")}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="capitalize">
+                              {drill.difficulty}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => toggleFeaturedMutation.mutate({ 
+                                id: drill.id, 
+                                isFeatured: !drill.isFeatured 
+                              })}
+                              data-testid={`button-toggle-featured-${drill.id}`}
+                            >
+                              {drill.isFeatured ? (
+                                <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                              ) : (
+                                <StarOff className="w-4 h-4 text-muted-foreground" />
+                              )}
+                            </Button>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <Dialog open={editingDrill?.id === drill.id} onOpenChange={(open) => !open && setEditingDrill(null)}>
+                                <DialogTrigger asChild>
+                                  <Button 
+                                    size="icon" 
+                                    variant="ghost"
+                                    onClick={() => setEditingDrill(drill)}
+                                    data-testid={`button-edit-drill-${drill.id}`}
+                                  >
+                                    <Pencil className="w-4 h-4" />
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                                  <DialogHeader>
+                                    <DialogTitle>Edit Drill</DialogTitle>
+                                  </DialogHeader>
+                                  {editingDrill && (
+                                    <DrillForm 
+                                      drill={editingDrill}
+                                      onSuccess={() => setEditingDrill(null)} 
+                                      onCancel={() => setEditingDrill(null)}
+                                    />
+                                  )}
+                                </DialogContent>
+                              </Dialog>
+
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button 
+                                    size="icon" 
+                                    variant="ghost"
+                                    data-testid={`button-delete-drill-${drill.id}`}
+                                  >
+                                    <Trash2 className="w-4 h-4 text-destructive" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete Drill</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to delete "{drill.title}"? This action cannot be undone.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => deleteMutation.mutate(drill.id)}
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                      data-testid={`button-confirm-delete-${drill.id}`}
+                                    >
+                                      Delete
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </CardContent>
           </Card>
-        ))}
-      </div>
+        </TabsContent>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0 pb-4">
-          <CardTitle className="flex items-center gap-2">
-            <Video className="w-5 h-5" />
-            Drill Library ({filteredDrills.length})
-          </CardTitle>
-          <Input 
-            placeholder="Search drills..." 
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="max-w-xs"
-            data-testid="input-search-drills"
-          />
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="space-y-2">
-              {[1,2,3].map(i => <Skeleton key={i} className="h-12 w-full" />)}
-            </div>
-          ) : filteredDrills.length === 0 ? (
-            <p className="text-center py-8 text-muted-foreground">No drills found</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Difficulty</TableHead>
-                    <TableHead>Featured</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredDrills.map((drill) => (
-                    <TableRow key={drill.id}>
-                      <TableCell className="font-medium" data-testid={`text-drill-title-${drill.id}`}>
-                        {drill.title}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className="capitalize">
-                          {drill.category.replace("-", " ")}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="capitalize">
-                          {drill.difficulty}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => toggleFeaturedMutation.mutate({ 
-                            id: drill.id, 
-                            isFeatured: !drill.isFeatured 
-                          })}
-                          data-testid={`button-toggle-featured-${drill.id}`}
-                        >
-                          {drill.isFeatured ? (
-                            <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                          ) : (
-                            <StarOff className="w-4 h-4 text-muted-foreground" />
-                          )}
-                        </Button>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Dialog open={editingDrill?.id === drill.id} onOpenChange={(open) => !open && setEditingDrill(null)}>
-                            <DialogTrigger asChild>
-                              <Button 
-                                size="icon" 
-                                variant="ghost"
-                                onClick={() => setEditingDrill(drill)}
-                                data-testid={`button-edit-drill-${drill.id}`}
-                              >
-                                <Pencil className="w-4 h-4" />
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                              <DialogHeader>
-                                <DialogTitle>Edit Drill</DialogTitle>
-                              </DialogHeader>
-                              {editingDrill && (
-                                <DrillForm 
-                                  drill={editingDrill}
-                                  onSuccess={() => setEditingDrill(null)} 
-                                  onCancel={() => setEditingDrill(null)}
-                                />
-                              )}
-                            </DialogContent>
-                          </Dialog>
+        <TabsContent value="users" className="space-y-6">
+          <div className="grid grid-cols-2 gap-4 max-w-md">
+            <Card>
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-primary">{adminCount}</div>
+                <div className="text-sm text-muted-foreground">Admins</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold">{regularCount}</div>
+                <div className="text-sm text-muted-foreground">Regular Users</div>
+              </CardContent>
+            </Card>
+          </div>
 
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button 
-                                size="icon" 
-                                variant="ghost"
-                                data-testid={`button-delete-drill-${drill.id}`}
-                              >
-                                <Trash2 className="w-4 h-4 text-destructive" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Drill</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Are you sure you want to delete "{drill.title}"? This action cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => deleteMutation.mutate(drill.id)}
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                  data-testid={`button-confirm-delete-${drill.id}`}
-                                >
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                User Management
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {usersLoading ? (
+                <div className="space-y-2">
+                  {[1,2,3].map(i => <Skeleton key={i} className="h-12 w-full" />)}
+                </div>
+              ) : !users?.length ? (
+                <p className="text-center py-8 text-muted-foreground">No users found</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>User</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Role</TableHead>
+                        <TableHead className="text-right">Admin Access</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {users.map((user) => (
+                        <TableRow key={user.id}>
+                          <TableCell className="font-medium" data-testid={`text-user-name-${user.id}`}>
+                            {user.firstName && user.lastName 
+                              ? `${user.firstName} ${user.lastName}` 
+                              : user.firstName || "User"}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {user.email || "No email"}
+                          </TableCell>
+                          <TableCell>
+                            {user.isAdmin ? (
+                              <Badge className="gap-1">
+                                <Shield className="w-3 h-3" />
+                                Admin
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary">User</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <span className="text-sm text-muted-foreground">
+                                {user.isAdmin ? "Admin" : "User"}
+                              </span>
+                              <Switch
+                                checked={user.isAdmin}
+                                onCheckedChange={(checked) => 
+                                  toggleAdminMutation.mutate({ userId: user.id, isAdmin: checked })
+                                }
+                                disabled={toggleAdminMutation.isPending}
+                                data-testid={`switch-admin-${user.id}`}
+                              />
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
