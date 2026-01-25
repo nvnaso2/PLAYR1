@@ -3,26 +3,94 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ThemeProvider } from "@/components/theme-provider";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { useAuth } from "@/hooks/use-auth";
+import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/app-sidebar";
+
+import Landing from "@/pages/landing";
+import Dashboard from "@/pages/dashboard";
+import Drills from "@/pages/drills";
+import DrillPage from "@/pages/drill";
+import TrainingLog from "@/pages/training-log";
+import Progress from "@/pages/progress";
+import Videos from "@/pages/videos";
+import Profile from "@/pages/profile";
 import NotFound from "@/pages/not-found";
+import { Skeleton } from "@/components/ui/skeleton";
+
+function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
+  const style = {
+    "--sidebar-width": "16rem",
+    "--sidebar-width-icon": "3rem",
+  };
+
+  return (
+    <SidebarProvider style={style as React.CSSProperties}>
+      <div className="flex h-screen w-full">
+        <AppSidebar />
+        <SidebarInset className="flex-1 flex flex-col overflow-hidden">
+          <header className="flex items-center justify-between gap-4 p-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40">
+            <SidebarTrigger data-testid="button-sidebar-toggle" />
+            <ThemeToggle />
+          </header>
+          <main className="flex-1 overflow-y-auto">
+            {children}
+          </main>
+        </SidebarInset>
+      </div>
+    </SidebarProvider>
+  );
+}
+
+function LoadingScreen() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="text-center space-y-4">
+        <Skeleton className="h-16 w-16 rounded-full mx-auto" />
+        <Skeleton className="h-4 w-32 mx-auto" />
+      </div>
+    </div>
+  );
+}
 
 function Router() {
+  const { user, isLoading, isAuthenticated } = useAuth();
+
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
+
+  if (!isAuthenticated) {
+    return <Landing />;
+  }
+
   return (
-    <Switch>
-      {/* Add pages below */}
-      {/* <Route path="/" component={Home}/> */}
-      {/* Fallback to 404 */}
-      <Route component={NotFound} />
-    </Switch>
+    <AuthenticatedLayout>
+      <Switch>
+        <Route path="/" component={Dashboard} />
+        <Route path="/drills" component={Drills} />
+        <Route path="/drill/:id" component={DrillPage} />
+        <Route path="/log" component={TrainingLog} />
+        <Route path="/progress" component={Progress} />
+        <Route path="/videos" component={Videos} />
+        <Route path="/profile" component={Profile} />
+        <Route component={NotFound} />
+      </Switch>
+    </AuthenticatedLayout>
   );
 }
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
+      <ThemeProvider defaultTheme="dark" storageKey="handlz-theme">
+        <TooltipProvider>
+          <Toaster />
+          <Router />
+        </TooltipProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

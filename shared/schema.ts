@@ -29,7 +29,6 @@ export const userProfiles = pgTable("user_profiles", {
   userId: varchar("user_id").notNull().unique(),
   displayName: varchar("display_name"),
   age: integer("age"),
-  location: varchar("location"),
   city: varchar("city"),
   state: varchar("state"),
   country: varchar("country").default("USA"),

@@ -1,16 +1,252 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
+import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema } from "@shared/schema";
+import { z } from "zod";
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // put application routes here
-  // prefix all routes with /api
+  // Setup authentication
+  await setupAuth(app);
+  registerAuthRoutes(app);
 
-  // use storage to perform CRUD operations on the storage interface
-  // e.g. storage.insertUser(user) or storage.getUserByUsername(username)
+  // ===== DRILLS =====
+  
+  // Get all drills
+  app.get("/api/drills", async (req, res) => {
+    try {
+      const drills = await storage.getDrills();
+      res.json(drills);
+    } catch (error) {
+      console.error("Error fetching drills:", error);
+      res.status(500).json({ message: "Failed to fetch drills" });
+    }
+  });
+
+  // Get featured drills
+  app.get("/api/drills/featured", async (req, res) => {
+    try {
+      const drills = await storage.getFeaturedDrills();
+      res.json(drills);
+    } catch (error) {
+      console.error("Error fetching featured drills:", error);
+      res.status(500).json({ message: "Failed to fetch featured drills" });
+    }
+  });
+
+  // Get single drill
+  app.get("/api/drills/:id", async (req, res) => {
+    try {
+      const drill = await storage.getDrillById(req.params.id);
+      if (!drill) {
+        return res.status(404).json({ message: "Drill not found" });
+      }
+      res.json(drill);
+    } catch (error) {
+      console.error("Error fetching drill:", error);
+      res.status(500).json({ message: "Failed to fetch drill" });
+    }
+  });
+
+  // Create drill (admin only - for seeding)
+  app.post("/api/drills", isAuthenticated, async (req: any, res) => {
+    try {
+      const data = insertDrillSchema.parse(req.body);
+      const drill = await storage.createDrill(data);
+      res.status(201).json(drill);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error creating drill:", error);
+      res.status(500).json({ message: "Failed to create drill" });
+    }
+  });
+
+  // ===== TRAINING LOGS =====
+
+  // Get user's training logs
+  app.get("/api/training-logs", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const logs = await storage.getTrainingLogs(userId);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching training logs:", error);
+      res.status(500).json({ message: "Failed to fetch training logs" });
+    }
+  });
+
+  // Get recent training logs
+  app.get("/api/training-logs/recent", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const logs = await storage.getRecentTrainingLogs(userId, 10);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching recent logs:", error);
+      res.status(500).json({ message: "Failed to fetch recent logs" });
+    }
+  });
+
+  // Create training log
+  app.post("/api/training-logs", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const data = insertTrainingLogSchema.parse({ ...req.body, userId });
+      const log = await storage.createTrainingLog(data);
+      res.status(201).json(log);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error creating training log:", error);
+      res.status(500).json({ message: "Failed to create training log" });
+    }
+  });
+
+  // ===== USER PROFILE =====
+
+  // Get user profile
+  app.get("/api/profile", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const profile = await storage.getUserProfile(userId);
+      if (!profile) {
+        return res.json(null);
+      }
+      res.json(profile);
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+      res.status(500).json({ message: "Failed to fetch profile" });
+    }
+  });
+
+  // Update user profile
+  app.put("/api/profile", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const data = insertUserProfileSchema.parse({ ...req.body, userId });
+      const profile = await storage.upsertUserProfile(data);
+      res.json(profile);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error updating profile:", error);
+      res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
+
+  // ===== USER VIDEOS =====
+
+  // Get user's videos
+  app.get("/api/videos", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const videos = await storage.getUserVideos(userId);
+      res.json(videos);
+    } catch (error) {
+      console.error("Error fetching videos:", error);
+      res.status(500).json({ message: "Failed to fetch videos" });
+    }
+  });
+
+  // Create video
+  app.post("/api/videos", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const data = insertUserVideoSchema.parse({ ...req.body, userId });
+      const video = await storage.createUserVideo(data);
+      res.status(201).json(video);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error creating video:", error);
+      res.status(500).json({ message: "Failed to create video" });
+    }
+  });
+
+  // Delete video
+  app.delete("/api/videos/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      await storage.deleteUserVideo(req.params.id, userId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting video:", error);
+      res.status(500).json({ message: "Failed to delete video" });
+    }
+  });
+
+  // ===== PROGRESS =====
+
+  // Get user's drill progress
+  app.get("/api/progress", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const progress = await storage.getDrillProgress(userId);
+      res.json(progress);
+    } catch (error) {
+      console.error("Error fetching progress:", error);
+      res.status(500).json({ message: "Failed to fetch progress" });
+    }
+  });
+
+  // ===== STATS =====
+
+  // Get overview stats
+  app.get("/api/stats/overview", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const stats = await storage.getUserStats(userId);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching stats:", error);
+      res.status(500).json({ message: "Failed to fetch stats" });
+    }
+  });
+
+  // Get weekly stats
+  app.get("/api/stats/weekly", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const stats = await storage.getWeeklyStats(userId);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching weekly stats:", error);
+      res.status(500).json({ message: "Failed to fetch weekly stats" });
+    }
+  });
+
+  // Get category stats
+  app.get("/api/stats/by-category", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const stats = await storage.getCategoryStats(userId);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching category stats:", error);
+      res.status(500).json({ message: "Failed to fetch category stats" });
+    }
+  });
+
+  // ===== BENCHMARKS =====
+
+  // Get benchmarks
+  app.get("/api/benchmarks", async (req, res) => {
+    try {
+      const benchmarks = await storage.getBenchmarks();
+      res.json(benchmarks);
+    } catch (error) {
+      console.error("Error fetching benchmarks:", error);
+      res.status(500).json({ message: "Failed to fetch benchmarks" });
+    }
+  });
 
   return httpServer;
 }
