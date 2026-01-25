@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
-import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema } from "@shared/schema";
+import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(
@@ -371,6 +371,91 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching benchmarks:", error);
       res.status(500).json({ message: "Failed to fetch benchmarks" });
+    }
+  });
+
+  // ===== DRILL METRICS (Admin only) =====
+
+  // Get drill metrics for a specific drill
+  app.get("/api/drills/:id/metrics", async (req, res) => {
+    try {
+      const metrics = await storage.getDrillMetrics(req.params.id);
+      res.json(metrics);
+    } catch (error) {
+      console.error("Error fetching drill metrics:", error);
+      res.status(500).json({ message: "Failed to fetch drill metrics" });
+    }
+  });
+
+  // Create drill metric (admin only)
+  app.post("/api/drills/:id/metrics", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const data = insertDrillMetricSchema.parse({ ...req.body, drillId: req.params.id });
+      const metric = await storage.createDrillMetric(data);
+      res.status(201).json(metric);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error creating drill metric:", error);
+      res.status(500).json({ message: "Failed to create drill metric" });
+    }
+  });
+
+  // Update drill metric (admin only)
+  app.put("/api/drill-metrics/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const data = insertDrillMetricSchema.partial().parse(req.body);
+      const metric = await storage.updateDrillMetric(req.params.id, data);
+      if (!metric) {
+        return res.status(404).json({ message: "Metric not found" });
+      }
+      res.json(metric);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error updating drill metric:", error);
+      res.status(500).json({ message: "Failed to update drill metric" });
+    }
+  });
+
+  // Delete drill metric (admin only)
+  app.delete("/api/drill-metrics/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      await storage.deleteDrillMetric(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting drill metric:", error);
+      res.status(500).json({ message: "Failed to delete drill metric" });
+    }
+  });
+
+  // ===== TRAINING LOG METRICS =====
+
+  // Get metrics for a training log
+  app.get("/api/training-logs/:id/metrics", isAuthenticated, async (req: any, res) => {
+    try {
+      const metrics = await storage.getTrainingLogMetrics(req.params.id);
+      res.json(metrics);
+    } catch (error) {
+      console.error("Error fetching training log metrics:", error);
+      res.status(500).json({ message: "Failed to fetch metrics" });
+    }
+  });
+
+  // Save metrics for a training log
+  app.post("/api/training-logs/:id/metrics", isAuthenticated, async (req: any, res) => {
+    try {
+      const { metrics } = req.body;
+      if (!Array.isArray(metrics)) {
+        return res.status(400).json({ message: "metrics must be an array" });
+      }
+      const saved = await storage.saveTrainingLogMetrics(req.params.id, metrics);
+      res.json(saved);
+    } catch (error) {
+      console.error("Error saving training log metrics:", error);
+      res.status(500).json({ message: "Failed to save metrics" });
     }
   });
 
