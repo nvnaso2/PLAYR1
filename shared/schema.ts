@@ -63,6 +63,7 @@ export const videoLibrary = pgTable("video_library", {
   thumbnailUrl: varchar("thumbnail_url"),
   duration: integer("duration"), // in seconds
   category: varchar("category").$type<DrillCategory>(),
+  difficulty: varchar("difficulty").$type<DifficultyLevel>(),
   tags: text("tags").array(),
   createdAt: timestamp("created_at").defaultNow()
 });

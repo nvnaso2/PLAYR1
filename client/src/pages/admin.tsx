@@ -573,6 +573,7 @@ const videoFormSchema = z.object({
   thumbnailUrl: z.string().optional(),
   duration: z.number().int().positive().optional(),
   category: z.string().optional(),
+  difficulty: z.string().optional(),
   tags: z.string().optional(),
 });
 
@@ -643,6 +644,7 @@ function VideoLibraryForm({
       thumbnailUrl: video?.thumbnailUrl || "",
       duration: video?.duration || undefined,
       category: video?.category || "",
+      difficulty: video?.difficulty || "",
       tags: video?.tags?.join(", ") || "",
     },
   });
@@ -838,6 +840,31 @@ function VideoLibraryForm({
                     {DRILL_CATEGORIES.map((cat) => (
                       <SelectItem key={cat} value={cat}>
                         {cat.replace("-", " ").replace(/\b\w/g, l => l.toUpperCase())}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="difficulty"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Level</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger data-testid="select-video-difficulty">
+                      <SelectValue placeholder="Select level" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {DIFFICULTY_LEVELS.map((level) => (
+                      <SelectItem key={level} value={level}>
+                        {level.charAt(0).toUpperCase() + level.slice(1)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -1513,11 +1540,18 @@ export default function AdminPage() {
                       </div>
                       <CardContent className="p-4">
                         <h3 className="font-medium truncate" data-testid={`text-video-title-${video.id}`}>{video.title}</h3>
-                        {video.category && (
-                          <Badge variant="secondary" className="mt-2 capitalize">
-                            {video.category.replace("-", " ")}
-                          </Badge>
-                        )}
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {video.category && (
+                            <Badge variant="secondary" className="capitalize">
+                              {video.category.replace("-", " ")}
+                            </Badge>
+                          )}
+                          {video.difficulty && (
+                            <Badge variant="outline" className="capitalize">
+                              {video.difficulty}
+                            </Badge>
+                          )}
+                        </div>
                         <div className="flex justify-end gap-1 mt-3">
                           <Dialog open={editingVideo?.id === video.id} onOpenChange={(open) => !open && setEditingVideo(null)}>
                             <DialogTrigger asChild>
