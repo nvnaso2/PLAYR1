@@ -43,6 +43,7 @@ export interface IStorage {
   // Progress
   getDrillProgress(userId: string): Promise<DrillProgress[]>;
   updateDrillProgress(userId: string, drillId: string, duration: number, score?: number): Promise<DrillProgress>;
+  getUserDrillsWithPersonalBests(userId: string, limit?: number): Promise<Array<Drill & { personalBest: number | null; totalSessions: number }>>;
 
   // Stats
   getUserStats(userId: string): Promise<{
@@ -289,6 +290,49 @@ export class DatabaseStorage implements IStorage {
         .returning();
       return created;
     }
+  }
+
+  async getUserDrillsWithPersonalBests(userId: string, limit: number = 4): Promise<Array<Drill & { personalBest: number | null; totalSessions: number }>> {
+    // Get user's drill progress ordered by most recently practiced with drill data in a single query
+    const progressWithDrills = await db.select({
+      drill: drills,
+      bestScore: drillProgress.bestScore,
+      totalSessions: drillProgress.totalSessions,
+    })
+      .from(drillProgress)
+      .innerJoin(drills, eq(drillProgress.drillId, drills.id))
+      .where(eq(drillProgress.userId, userId))
+      .orderBy(desc(drillProgress.lastPracticedAt))
+      .limit(limit);
+
+    const result: Array<Drill & { personalBest: number | null; totalSessions: number }> = progressWithDrills.map(p => ({
+      ...p.drill,
+      personalBest: p.bestScore,
+      totalSessions: p.totalSessions || 0
+    }));
+
+    // If we have fewer than limit items, fill with featured drills
+    if (result.length < limit) {
+      const existingIds = result.map(d => d.id);
+      const remainingLimit = limit - result.length;
+      
+      const featuredDrills = await db.select()
+        .from(drills)
+        .where(eq(drills.isFeatured, true))
+        .limit(remainingLimit + 5); // Get extra in case of overlap
+      
+      for (const drill of featuredDrills) {
+        if (!existingIds.includes(drill.id) && result.length < limit) {
+          result.push({
+            ...drill,
+            personalBest: null,
+            totalSessions: 0
+          });
+        }
+      }
+    }
+
+    return result;
   }
 
   // Stats

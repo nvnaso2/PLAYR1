@@ -310,6 +310,19 @@ export async function registerRoutes(
     }
   });
 
+  // Get user's drills with personal bests
+  app.get("/api/drills/my-drills", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const limit = parseInt(req.query.limit as string) || 4;
+      const drillsWithBests = await storage.getUserDrillsWithPersonalBests(userId, limit);
+      res.json(drillsWithBests);
+    } catch (error) {
+      console.error("Error fetching user drills:", error);
+      res.status(500).json({ message: "Failed to fetch drills" });
+    }
+  });
+
   // ===== STATS =====
 
   // Get overview stats

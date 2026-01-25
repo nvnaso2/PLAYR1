@@ -72,6 +72,7 @@ shared/
 - `GET /api/admin/users` - List all users (admin only)
 - `POST /api/admin/users` - Create new user (admin only)
 - `PUT /api/admin/users/:id/admin` - Toggle user admin status (admin only)
+- `GET /api/drills/my-drills` - User's drills with personal bests
 - `GET /api/training-logs` - User's training logs
 - `POST /api/training-logs` - Create training log
 - `GET /api/profile` - User profile

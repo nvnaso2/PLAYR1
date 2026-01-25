@@ -25,6 +25,8 @@ import {
 import type { Drill, TrainingLog, UserProfile } from "@shared/schema";
 import bannerImage from "@assets/Top_1769377436234.png";
 
+type DrillWithPersonalBest = Drill & { personalBest: number | null; totalSessions: number };
+
 const categories = [
   { 
     category: "ball-handling" as const, 
@@ -97,6 +99,10 @@ export default function Dashboard() {
 
   const { data: featuredDrills, isLoading: drillsLoading } = useQuery<Drill[]>({
     queryKey: ['/api/drills/featured'],
+  });
+
+  const { data: myDrills, isLoading: myDrillsLoading } = useQuery<DrillWithPersonalBest[]>({
+    queryKey: ['/api/drills/my-drills'],
   });
 
   const { data: stats } = useQuery<{
@@ -186,6 +192,62 @@ export default function Dashboard() {
           testId="stats-streak"
         />
       </div>
+
+      <section>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-xl font-semibold">My Drills</h2>
+            <p className="text-sm text-muted-foreground">Your recent drills with personal bests</p>
+          </div>
+          <Link href="/progress">
+            <Button variant="ghost" className="gap-1" data-testid="link-view-progress">
+              View Progress
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </Link>
+        </div>
+        
+        {myDrillsLoading ? (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[...Array(4)].map((_, i) => (
+              <Card key={i}>
+                <Skeleton className="aspect-video" />
+                <CardContent className="p-4 space-y-2">
+                  <Skeleton className="h-5 w-3/4" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-1/2" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : myDrills && myDrills.length > 0 ? (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {myDrills.slice(0, 4).map((drill) => (
+              <DrillCard 
+                key={drill.id} 
+                drill={drill} 
+                personalBest={drill.personalBest}
+                totalSessions={drill.totalSessions}
+              />
+            ))}
+          </div>
+        ) : (
+          <Card>
+            <CardContent className="p-8 text-center">
+              <Target className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
+              <h3 className="font-semibold mb-2">Start Training to Track Progress</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Log your first training session to see your drills and personal bests here.
+              </p>
+              <Link href="/drills">
+                <Button variant="outline" data-testid="button-browse-drills-empty">
+                  Browse Drills
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        )}
+      </section>
 
       <section>
         <div className="flex items-center justify-between mb-6">

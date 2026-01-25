@@ -1,11 +1,13 @@
 import { Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Play, Clock, Target } from "lucide-react";
+import { Play, Clock, Target, Trophy } from "lucide-react";
 import type { Drill } from "@shared/schema";
 
 interface DrillCardProps {
   drill: Drill;
+  personalBest?: number | null;
+  totalSessions?: number;
 }
 
 const difficultyColors = {
@@ -25,7 +27,7 @@ const categoryLabels: Record<string, string> = {
   "workouts": "Workouts",
 };
 
-export function DrillCard({ drill }: DrillCardProps) {
+export function DrillCard({ drill, personalBest, totalSessions }: DrillCardProps) {
   const formatDuration = (seconds?: number | null) => {
     if (!seconds) return "N/A";
     const mins = Math.floor(seconds / 60);
@@ -55,11 +57,19 @@ export function DrillCard({ drill }: DrillCardProps) {
               <Play className="w-6 h-6 text-primary-foreground fill-current ml-1" />
             </div>
           </div>
-          <div className="absolute top-3 left-3">
+          <div className="absolute top-3 left-3 flex gap-2">
             <Badge className={difficultyColors[drill.difficulty || 'beginner']}>
               {drill.difficulty || 'beginner'}
             </Badge>
           </div>
+          {personalBest !== undefined && personalBest !== null && (
+            <div className="absolute top-3 right-3">
+              <Badge className="bg-yellow-500/90 text-yellow-950 flex items-center gap-1" data-testid={`badge-personal-best-${drill.id}`}>
+                <Trophy className="w-3 h-3" />
+                PB: {personalBest}/10
+              </Badge>
+            </div>
+          )}
         </div>
         <CardContent className="p-4">
           <div className="flex items-start justify-between gap-2 mb-2">
@@ -79,6 +89,12 @@ export function DrillCard({ drill }: DrillCardProps) {
               <Target className="w-3.5 h-3.5" />
               {categoryLabels[drill.category] || drill.category}
             </div>
+            {totalSessions !== undefined && totalSessions > 0 && (
+              <div className="flex items-center gap-1" data-testid={`text-sessions-${drill.id}`}>
+                <Play className="w-3.5 h-3.5" />
+                {totalSessions} {totalSessions === 1 ? 'session' : 'sessions'}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
