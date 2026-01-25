@@ -69,9 +69,17 @@ shared/
 - `PUT /api/drills/:id` - Update drill (admin only)
 - `DELETE /api/drills/:id` - Delete drill (admin only)
 - `GET /api/drills/:id/metrics` - Get drill metrics configuration
-- `POST /api/drills/:id/metrics` - Create drill metric (admin only)
+- `POST /api/drills/:id/metrics` - Assign metric templates to drill (admin only)
 - `PUT /api/drill-metrics/:id` - Update drill metric (admin only)
 - `DELETE /api/drill-metrics/:id` - Delete drill metric (admin only)
+- `GET /api/video-library` - List all videos in library (admin only)
+- `POST /api/video-library` - Add video to library (admin only)
+- `PUT /api/video-library/:id` - Update video (admin only)
+- `DELETE /api/video-library/:id` - Delete video (admin only)
+- `GET /api/metric-templates` - List all metric templates (admin only)
+- `POST /api/metric-templates` - Create metric template (admin only)
+- `PUT /api/metric-templates/:id` - Update metric template (admin only)
+- `DELETE /api/metric-templates/:id` - Delete metric template (admin only)
 - `GET /api/admin/check` - Check if current user is admin
 - `GET /api/admin/users` - List all users (admin only)
 - `POST /api/admin/users` - Create new user (admin only)
@@ -96,7 +104,9 @@ shared/
 - `sessions` - Session storage
 - `user_profiles` - Extended user data (age, location, skill level, isAdmin flag)
 - `drills` - Training drills
-- `drill_metrics` - Custom measurement fields per drill (e.g., Shot Attempts, Shots Made, Shooting %)
+- `video_library` - Centralized video storage for admin-uploaded training videos
+- `metric_templates` - Reusable metric definitions (e.g., Shot Attempts, Shots Made, Shooting %)
+- `drill_metrics` - Join table linking drills to metric templates
 - `training_logs` - User training sessions
 - `training_log_metrics` - Metric values recorded per training log
 - `user_videos` - Uploaded training videos
@@ -110,8 +120,28 @@ shared/
 - Non-admin users attempting to access /admin see an access denied message
 
 ### Admin Dashboard Features
-- **Drills Tab**: Create, edit, delete, and feature drills with video/thumbnail uploads
-- **Users Tab**: View all users, create new users, toggle admin status for any user
+The admin dashboard has four tabs for managing content:
+
+1. **Video Library Tab**: Centralized video management
+   - Upload training videos with thumbnails
+   - Assign categories and tags to videos
+   - Videos are stored in object storage and can be reused across drills
+
+2. **Metrics Tab**: Reusable metric template configuration
+   - Create metric templates (e.g., "Shot Attempts", "Shots Made", "Shooting %")
+   - Support for number type (user enters value) and calculated type (auto-computed via formula)
+   - Formulas can reference other metrics and formula inputs
+   - Templates can be assigned to multiple drills
+
+3. **Drills Tab**: Create and manage training drills
+   - Select videos from the centralized Video Library
+   - Configure which metric templates apply to each drill
+   - Set featured drills, difficulty levels, categories
+
+4. **Users Tab**: User and permission management
+   - View all users
+   - Create new users
+   - Toggle admin status for any user
 
 ## File Uploads (Object Storage)
 - Admins can upload video and thumbnail files directly using Replit's App Storage

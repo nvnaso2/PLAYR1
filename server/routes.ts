@@ -185,8 +185,8 @@ export async function registerRoutes(
 
   // ===== VIDEO LIBRARY (Admin only) =====
 
-  // Get all videos in library
-  app.get("/api/video-library", async (req, res) => {
+  // Get all videos in library (admin only)
+  app.get("/api/video-library", isAuthenticated, isAdmin, async (req: any, res) => {
     try {
       const videos = await storage.getVideoLibrary();
       res.json(videos);
@@ -196,8 +196,8 @@ export async function registerRoutes(
     }
   });
 
-  // Get single video from library
-  app.get("/api/video-library/:id", async (req, res) => {
+  // Get single video from library (admin only)
+  app.get("/api/video-library/:id", isAuthenticated, isAdmin, async (req: any, res) => {
     try {
       const video = await storage.getVideoLibraryById(req.params.id);
       if (!video) {
@@ -256,8 +256,8 @@ export async function registerRoutes(
 
   // ===== METRIC TEMPLATES (Admin only) =====
 
-  // Get all metric templates
-  app.get("/api/metric-templates", async (req, res) => {
+  // Get all metric templates (admin only)
+  app.get("/api/metric-templates", isAuthenticated, isAdmin, async (req: any, res) => {
     try {
       const templates = await storage.getMetricTemplates();
       res.json(templates);
@@ -267,8 +267,8 @@ export async function registerRoutes(
     }
   });
 
-  // Get single metric template
-  app.get("/api/metric-templates/:id", async (req, res) => {
+  // Get single metric template (admin only)
+  app.get("/api/metric-templates/:id", isAuthenticated, isAdmin, async (req: any, res) => {
     try {
       const template = await storage.getMetricTemplateById(req.params.id);
       if (!template) {
