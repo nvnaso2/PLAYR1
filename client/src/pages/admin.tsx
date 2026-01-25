@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -589,6 +589,8 @@ function VideoLibraryForm({
 }) {
   const { toast } = useToast();
   const isEditing = !!video;
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const thumbnailInputRef = useRef<HTMLInputElement>(null);
   
   const { uploadFile: uploadVideoFile, isUploading: isUploadingVideo } = useUpload({
     onSuccess: (response) => {
@@ -738,21 +740,26 @@ function VideoLibraryForm({
               <FormLabel>Video</FormLabel>
               <div className="flex gap-2">
                 <FormControl>
-                  <Input placeholder="Upload a video file" {...field} data-testid="input-video-url" />
+                  <Input placeholder="Upload a video file" {...field} readOnly data-testid="input-video-url" />
                 </FormControl>
-                <div className="relative">
-                  <input
-                    type="file"
-                    accept="video/*"
-                    onChange={handleVideoUpload}
-                    className="absolute inset-0 opacity-0 cursor-pointer"
-                    disabled={isUploadingVideo}
-                    data-testid="input-video-file-upload"
-                  />
-                  <Button type="button" variant="outline" disabled={isUploadingVideo} data-testid="button-video-upload">
-                    {isUploadingVideo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                  </Button>
-                </div>
+                <input
+                  ref={videoInputRef}
+                  type="file"
+                  accept="video/*"
+                  onChange={handleVideoUpload}
+                  className="hidden"
+                  disabled={isUploadingVideo}
+                  data-testid="input-video-file-upload"
+                />
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  disabled={isUploadingVideo}
+                  onClick={() => videoInputRef.current?.click()}
+                  data-testid="button-video-upload"
+                >
+                  {isUploadingVideo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                </Button>
               </div>
               <FormMessage />
             </FormItem>
@@ -767,21 +774,26 @@ function VideoLibraryForm({
               <FormLabel>Thumbnail</FormLabel>
               <div className="flex gap-2">
                 <FormControl>
-                  <Input placeholder="Upload a thumbnail" {...field} data-testid="input-video-thumbnail" />
+                  <Input placeholder="Upload a thumbnail" {...field} readOnly data-testid="input-video-thumbnail" />
                 </FormControl>
-                <div className="relative">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleThumbnailUpload}
-                    className="absolute inset-0 opacity-0 cursor-pointer"
-                    disabled={isUploadingThumbnail}
-                    data-testid="input-thumbnail-file-upload"
-                  />
-                  <Button type="button" variant="outline" disabled={isUploadingThumbnail} data-testid="button-thumbnail-upload">
-                    {isUploadingThumbnail ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                  </Button>
-                </div>
+                <input
+                  ref={thumbnailInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleThumbnailUpload}
+                  className="hidden"
+                  disabled={isUploadingThumbnail}
+                  data-testid="input-thumbnail-file-upload"
+                />
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  disabled={isUploadingThumbnail}
+                  onClick={() => thumbnailInputRef.current?.click()}
+                  data-testid="button-thumbnail-upload"
+                >
+                  {isUploadingThumbnail ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                </Button>
               </div>
               <FormMessage />
             </FormItem>
