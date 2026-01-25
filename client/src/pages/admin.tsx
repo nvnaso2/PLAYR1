@@ -55,10 +55,11 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2 } from "lucide-react";
-import type { Drill, DrillCategory, DifficultyLevel, DrillMetric } from "@shared/schema";
+import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check } from "lucide-react";
+import type { Drill, DrillCategory, DifficultyLevel, DrillMetric, VideoLibrary, MetricTemplate } from "@shared/schema";
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, METRIC_TYPES } from "@shared/schema";
 import { useUpload } from "@/hooks/use-upload";
+import { Checkbox } from "@/components/ui/checkbox";
 
 type AdminUser = {
   id: string;
@@ -564,50 +565,102 @@ function UserForm({
   );
 }
 
-// Drill Metrics Configuration Component
-function MetricsConfigDialog({ 
-  drill, 
-  open, 
-  onOpenChange 
+// Video Library Form Component
+const videoFormSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  description: z.string().optional(),
+  videoUrl: z.string().min(1, "Video URL is required"),
+  thumbnailUrl: z.string().optional(),
+  duration: z.number().int().positive().optional(),
+  category: z.string().optional(),
+  tags: z.string().optional(),
+});
+
+type VideoFormData = z.infer<typeof videoFormSchema>;
+
+function VideoLibraryForm({ 
+  video, 
+  onSuccess, 
+  onCancel 
 }: { 
-  drill: Drill; 
-  open: boolean; 
-  onOpenChange: (open: boolean) => void;
+  video?: VideoLibrary; 
+  onSuccess: () => void;
+  onCancel: () => void;
 }) {
   const { toast } = useToast();
-  const [newMetricName, setNewMetricName] = useState("");
-  const [newMetricLabel, setNewMetricLabel] = useState("");
-  const [newMetricType, setNewMetricType] = useState<"number" | "calculated">("number");
-  const [newMetricUnit, setNewMetricUnit] = useState("");
-  const [newMetricFormula, setNewMetricFormula] = useState("");
-  const [editingMetric, setEditingMetric] = useState<DrillMetric | null>(null);
-
-  const { data: metrics, isLoading } = useQuery<DrillMetric[]>({
-    queryKey: ['/api/drills', drill.id, 'metrics'],
-    queryFn: async () => {
-      const res = await fetch(`/api/drills/${drill.id}/metrics`);
-      if (!res.ok) throw new Error('Failed to fetch metrics');
-      return res.json();
+  const isEditing = !!video;
+  
+  const { uploadFile: uploadVideoFile, isUploading: isUploadingVideo } = useUpload({
+    onSuccess: (response) => {
+      form.setValue("videoUrl", response.objectPath);
+      toast({ title: "Video uploaded successfully" });
     },
-    enabled: open,
+    onError: (error) => {
+      toast({ title: "Failed to upload video", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const { uploadFile: uploadThumbnailFile, isUploading: isUploadingThumbnail } = useUpload({
+    onSuccess: (response) => {
+      form.setValue("thumbnailUrl", response.objectPath);
+      toast({ title: "Thumbnail uploaded successfully" });
+    },
+    onError: (error) => {
+      toast({ title: "Failed to upload thumbnail", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith("video/")) {
+        toast({ title: "Please select a video file", variant: "destructive" });
+        return;
+      }
+      await uploadVideoFile(file);
+    }
+  };
+
+  const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith("image/")) {
+        toast({ title: "Please select an image file", variant: "destructive" });
+        return;
+      }
+      await uploadThumbnailFile(file);
+    }
+  };
+
+  const form = useForm<VideoFormData>({
+    resolver: zodResolver(videoFormSchema),
+    defaultValues: {
+      title: video?.title || "",
+      description: video?.description || "",
+      videoUrl: video?.videoUrl || "",
+      thumbnailUrl: video?.thumbnailUrl || "",
+      duration: video?.duration || undefined,
+      category: video?.category || "",
+      tags: video?.tags?.join(", ") || "",
+    },
   });
 
   const createMutation = useMutation({
-    mutationFn: async (data: { name: string; label: string; type: string; unit?: string; formula?: string }) => {
-      return await apiRequest("POST", `/api/drills/${drill.id}/metrics`, data);
+    mutationFn: async (data: VideoFormData) => {
+      const payload = {
+        ...data,
+        tags: data.tags ? data.tags.split(",").map(s => s.trim()).filter(Boolean) : [],
+      };
+      return await apiRequest("POST", "/api/video-library", payload);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/drills', drill.id, 'metrics'] });
-      toast({ title: "Metric added successfully" });
-      setNewMetricName("");
-      setNewMetricLabel("");
-      setNewMetricUnit("");
-      setNewMetricFormula("");
-      setNewMetricType("number");
+      queryClient.invalidateQueries({ queryKey: ['/api/video-library'] });
+      toast({ title: "Video added successfully" });
+      onSuccess();
     },
     onError: (error: any) => {
       toast({ 
-        title: "Failed to add metric", 
+        title: "Failed to add video", 
         description: error.message,
         variant: "destructive" 
       });
@@ -615,13 +668,277 @@ function MetricsConfigDialog({
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Partial<DrillMetric> }) => {
-      return await apiRequest("PUT", `/api/drill-metrics/${id}`, data);
+    mutationFn: async (data: VideoFormData) => {
+      const payload = {
+        ...data,
+        tags: data.tags ? data.tags.split(",").map(s => s.trim()).filter(Boolean) : [],
+      };
+      return await apiRequest("PUT", `/api/video-library/${video!.id}`, payload);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/drills', drill.id, 'metrics'] });
-      toast({ title: "Metric updated successfully" });
-      setEditingMetric(null);
+      queryClient.invalidateQueries({ queryKey: ['/api/video-library'] });
+      toast({ title: "Video updated successfully" });
+      onSuccess();
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to update video", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const onSubmit = (data: VideoFormData) => {
+    if (isEditing) {
+      updateMutation.mutate(data);
+    } else {
+      createMutation.mutate(data);
+    }
+  };
+
+  const isPending = createMutation.isPending || updateMutation.isPending;
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="title"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Title</FormLabel>
+              <FormControl>
+                <Input placeholder="Video title" {...field} data-testid="input-video-title" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="description"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Description</FormLabel>
+              <FormControl>
+                <Textarea placeholder="Video description" {...field} data-testid="input-video-description" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="videoUrl"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Video</FormLabel>
+              <div className="flex gap-2">
+                <FormControl>
+                  <Input placeholder="Upload a video file" {...field} data-testid="input-video-url" />
+                </FormControl>
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept="video/*"
+                    onChange={handleVideoUpload}
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    disabled={isUploadingVideo}
+                    data-testid="input-video-file-upload"
+                  />
+                  <Button type="button" variant="outline" disabled={isUploadingVideo} data-testid="button-video-upload">
+                    {isUploadingVideo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                  </Button>
+                </div>
+              </div>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="thumbnailUrl"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Thumbnail</FormLabel>
+              <div className="flex gap-2">
+                <FormControl>
+                  <Input placeholder="Upload a thumbnail" {...field} data-testid="input-video-thumbnail" />
+                </FormControl>
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleThumbnailUpload}
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    disabled={isUploadingThumbnail}
+                    data-testid="input-thumbnail-file-upload"
+                  />
+                  <Button type="button" variant="outline" disabled={isUploadingThumbnail} data-testid="button-thumbnail-upload">
+                    {isUploadingThumbnail ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                  </Button>
+                </div>
+              </div>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="duration"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Duration (seconds)</FormLabel>
+                <FormControl>
+                  <Input 
+                    type="number" 
+                    placeholder="120" 
+                    {...field}
+                    onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                    value={field.value || ""}
+                    data-testid="input-video-duration"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="category"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Category</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger data-testid="select-video-category">
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {DRILL_CATEGORIES.map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        {cat.replace("-", " ").replace(/\b\w/g, l => l.toUpperCase())}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <FormField
+          control={form.control}
+          name="tags"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Tags (comma separated)</FormLabel>
+              <FormControl>
+                <Input placeholder="dribbling, beginner, handles" {...field} data-testid="input-video-tags" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="flex justify-end gap-2 pt-4">
+          <Button type="button" variant="outline" onClick={onCancel} data-testid="button-cancel-video">
+            Cancel
+          </Button>
+          <Button type="submit" disabled={isPending} data-testid="button-save-video">
+            {isPending ? "Saving..." : isEditing ? "Update Video" : "Add Video"}
+          </Button>
+        </div>
+      </form>
+    </Form>
+  );
+}
+
+// Metric Template Form Component
+const metricFormSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  label: z.string().min(1, "Label is required"),
+  type: z.enum(["number", "percentage", "time", "calculated"]),
+  unit: z.string().optional(),
+  formula: z.string().optional(),
+  formulaInputs: z.string().optional(),
+  category: z.string().optional(),
+});
+
+type MetricFormData = z.infer<typeof metricFormSchema>;
+
+function MetricTemplateForm({ 
+  template, 
+  onSuccess, 
+  onCancel 
+}: { 
+  template?: MetricTemplate; 
+  onSuccess: () => void;
+  onCancel: () => void;
+}) {
+  const { toast } = useToast();
+  const isEditing = !!template;
+  
+  const form = useForm<MetricFormData>({
+    resolver: zodResolver(metricFormSchema),
+    defaultValues: {
+      name: template?.name || "",
+      label: template?.label || "",
+      type: (template?.type as "number" | "percentage" | "time" | "calculated") || "number",
+      unit: template?.unit || "",
+      formula: template?.formula || "",
+      formulaInputs: template?.formulaInputs?.join(", ") || "",
+      category: template?.category || "",
+    },
+  });
+
+  const watchType = form.watch("type");
+
+  const createMutation = useMutation({
+    mutationFn: async (data: MetricFormData) => {
+      const payload = {
+        ...data,
+        name: data.name.toLowerCase().replace(/\s+/g, '_'),
+        formulaInputs: data.formulaInputs ? data.formulaInputs.split(",").map(s => s.trim()).filter(Boolean) : [],
+      };
+      return await apiRequest("POST", "/api/metric-templates", payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/metric-templates'] });
+      toast({ title: "Metric template created" });
+      onSuccess();
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to create metric", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: MetricFormData) => {
+      const payload = {
+        ...data,
+        name: data.name.toLowerCase().replace(/\s+/g, '_'),
+        formulaInputs: data.formulaInputs ? data.formulaInputs.split(",").map(s => s.trim()).filter(Boolean) : [],
+      };
+      return await apiRequest("PUT", `/api/metric-templates/${template!.id}`, payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/metric-templates'] });
+      toast({ title: "Metric template updated" });
+      onSuccess();
     },
     onError: (error: any) => {
       toast({ 
@@ -632,33 +949,227 @@ function MetricsConfigDialog({
     },
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      return await apiRequest("DELETE", `/api/drill-metrics/${id}`);
+  const onSubmit = (data: MetricFormData) => {
+    if (isEditing) {
+      updateMutation.mutate(data);
+    } else {
+      createMutation.mutate(data);
+    }
+  };
+
+  const isPending = createMutation.isPending || updateMutation.isPending;
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="label"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Label</FormLabel>
+                <FormControl>
+                  <Input 
+                    placeholder="e.g., Shot Attempts" 
+                    {...field} 
+                    onChange={(e) => {
+                      field.onChange(e);
+                      if (!isEditing) {
+                        form.setValue("name", e.target.value);
+                      }
+                    }}
+                    data-testid="input-metric-label" 
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="type"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Type</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger data-testid="select-metric-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="number">Number</SelectItem>
+                    <SelectItem value="percentage">Percentage</SelectItem>
+                    <SelectItem value="time">Time</SelectItem>
+                    <SelectItem value="calculated">Calculated</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        {watchType !== "calculated" && (
+          <FormField
+            control={form.control}
+            name="unit"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Unit (optional)</FormLabel>
+                <FormControl>
+                  <Input placeholder="e.g., shots, seconds, %" {...field} data-testid="input-metric-unit" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+
+        {watchType === "calculated" && (
+          <>
+            <FormField
+              control={form.control}
+              name="formula"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Formula</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., shots_made / shot_attempts * 100" {...field} data-testid="input-metric-formula" />
+                  </FormControl>
+                  <p className="text-xs text-muted-foreground">
+                    Use metric names (lowercase with underscores) in your formula
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="formulaInputs"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Formula Inputs (comma separated)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="shots_made, shot_attempts" {...field} data-testid="input-metric-formula-inputs" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </>
+        )}
+
+        <FormField
+          control={form.control}
+          name="category"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Category (optional)</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl>
+                  <SelectTrigger data-testid="select-metric-category">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="">None</SelectItem>
+                  {DRILL_CATEGORIES.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat.replace("-", " ").replace(/\b\w/g, l => l.toUpperCase())}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="flex justify-end gap-2 pt-4">
+          <Button type="button" variant="outline" onClick={onCancel} data-testid="button-cancel-metric">
+            Cancel
+          </Button>
+          <Button type="submit" disabled={isPending} data-testid="button-save-metric">
+            {isPending ? "Saving..." : isEditing ? "Update Metric" : "Create Metric"}
+          </Button>
+        </div>
+      </form>
+    </Form>
+  );
+}
+
+// Drill Metrics Configuration Component (now uses metric templates)
+type DrillMetricWithTemplate = DrillMetric & { template: MetricTemplate };
+
+function MetricsConfigDialog({ 
+  drill, 
+  open, 
+  onOpenChange 
+}: { 
+  drill: Drill; 
+  open: boolean; 
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { toast } = useToast();
+  const [selectedTemplates, setSelectedTemplates] = useState<string[]>([]);
+
+  const { data: drillMetrics, isLoading: metricsLoading } = useQuery<DrillMetricWithTemplate[]>({
+    queryKey: ['/api/drills', drill.id, 'metrics'],
+    queryFn: async () => {
+      const res = await fetch(`/api/drills/${drill.id}/metrics`);
+      if (!res.ok) throw new Error('Failed to fetch metrics');
+      return res.json();
+    },
+    enabled: open,
+  });
+
+  const { data: allTemplates, isLoading: templatesLoading } = useQuery<MetricTemplate[]>({
+    queryKey: ['/api/metric-templates'],
+    enabled: open,
+  });
+
+  // Update selected templates when drill metrics load
+  useState(() => {
+    if (drillMetrics) {
+      setSelectedTemplates(drillMetrics.map(m => m.metricTemplateId));
+    }
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async (templateIds: string[]) => {
+      return await apiRequest("POST", `/api/drills/${drill.id}/metrics`, { metricTemplateIds: templateIds });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/drills', drill.id, 'metrics'] });
-      toast({ title: "Metric deleted" });
+      toast({ title: "Metrics updated successfully" });
+      onOpenChange(false);
     },
     onError: (error: any) => {
       toast({ 
-        title: "Failed to delete metric", 
+        title: "Failed to update metrics", 
         description: error.message,
         variant: "destructive" 
       });
     },
   });
 
-  const handleAddMetric = () => {
-    if (!newMetricName || !newMetricLabel) return;
-    createMutation.mutate({
-      name: newMetricName.toLowerCase().replace(/\s+/g, '_'),
-      label: newMetricLabel,
-      type: newMetricType,
-      unit: newMetricUnit || undefined,
-      formula: newMetricType === "calculated" ? newMetricFormula : undefined,
-    });
+  const handleToggleTemplate = (templateId: string) => {
+    setSelectedTemplates(prev => 
+      prev.includes(templateId) 
+        ? prev.filter(id => id !== templateId)
+        : [...prev, templateId]
+    );
   };
+
+  const handleSave = () => {
+    saveMutation.mutate(selectedTemplates);
+  };
+
+  const isLoading = metricsLoading || templatesLoading;
+  const currentTemplateIds = drillMetrics?.map(m => m.metricTemplateId) || [];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -671,139 +1182,77 @@ function MetricsConfigDialog({
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Current Metrics */}
-          <div>
-            <h3 className="font-medium mb-3">Current Metrics</h3>
-            {isLoading ? (
-              <div className="space-y-2">
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-              </div>
-            ) : !metrics?.length ? (
-              <p className="text-sm text-muted-foreground py-4 text-center border rounded-md">
-                No metrics configured. Add metrics below to track specific measurements for this drill.
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {metrics.map((metric) => (
-                  <div key={metric.id} className="flex items-center justify-between p-3 border rounded-md">
+          <p className="text-sm text-muted-foreground">
+            Select which metric templates to use for tracking progress on this drill.
+          </p>
+
+          {isLoading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : !allTemplates?.length ? (
+            <div className="text-center py-8 border rounded-md">
+              <Ruler className="w-12 h-12 mx-auto text-muted-foreground mb-2" />
+              <p className="text-muted-foreground">No metric templates available.</p>
+              <p className="text-sm text-muted-foreground">Create templates in the Metrics tab first.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {allTemplates.map((template) => {
+                const isSelected = selectedTemplates.includes(template.id) || 
+                  (selectedTemplates.length === 0 && currentTemplateIds.includes(template.id));
+                return (
+                  <div 
+                    key={template.id} 
+                    className={`flex items-center justify-between p-3 border rounded-md cursor-pointer hover-elevate ${isSelected ? 'ring-2 ring-primary bg-primary/5' : ''}`}
+                    onClick={() => handleToggleTemplate(template.id)}
+                    data-testid={`template-select-${template.id}`}
+                  >
                     <div className="flex items-center gap-3">
-                      {metric.type === "calculated" ? (
+                      <Checkbox 
+                        checked={isSelected}
+                        onCheckedChange={() => handleToggleTemplate(template.id)}
+                      />
+                      {template.type === "calculated" ? (
                         <Calculator className="w-4 h-4 text-primary" />
                       ) : (
                         <Hash className="w-4 h-4 text-muted-foreground" />
                       )}
                       <div>
-                        <div className="font-medium">{metric.label}</div>
+                        <div className="font-medium">{template.label}</div>
                         <div className="text-xs text-muted-foreground">
-                          {metric.type === "calculated" ? (
-                            <span>Formula: {metric.formula}</span>
+                          {template.type === "calculated" ? (
+                            <span>Formula: {template.formula}</span>
                           ) : (
-                            <span>Type: {metric.type}{metric.unit && ` • Unit: ${metric.unit}`}</span>
+                            <span>Type: {template.type}{template.unit && ` • Unit: ${template.unit}`}</span>
                           )}
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button size="icon" variant="ghost" data-testid={`button-delete-metric-${metric.id}`}>
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete Metric</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to delete "{metric.label}"? This will also remove all recorded values for this metric.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => deleteMutation.mutate(metric.id)}
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                            >
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
+                    {template.category && (
+                      <Badge variant="secondary" className="capitalize text-xs">
+                        {template.category.replace("-", " ")}
+                      </Badge>
+                    )}
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Add New Metric */}
-          <div className="border-t pt-4">
-            <h3 className="font-medium mb-3">Add New Metric</h3>
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-sm font-medium">Label</label>
-                  <Input
-                    placeholder="e.g., Shot Attempts"
-                    value={newMetricLabel}
-                    onChange={(e) => {
-                      setNewMetricLabel(e.target.value);
-                      setNewMetricName(e.target.value);
-                    }}
-                    data-testid="input-metric-label"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Type</label>
-                  <Select value={newMetricType} onValueChange={(v: "number" | "calculated") => setNewMetricType(v)}>
-                    <SelectTrigger data-testid="select-metric-type">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="number">Number (user enters value)</SelectItem>
-                      <SelectItem value="calculated">Calculated (auto-computed)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {newMetricType === "number" && (
-                <div>
-                  <label className="text-sm font-medium">Unit (optional)</label>
-                  <Input
-                    placeholder="e.g., shots, seconds, %"
-                    value={newMetricUnit}
-                    onChange={(e) => setNewMetricUnit(e.target.value)}
-                    data-testid="input-metric-unit"
-                  />
-                </div>
-              )}
-
-              {newMetricType === "calculated" && (
-                <div>
-                  <label className="text-sm font-medium">Formula</label>
-                  <Input
-                    placeholder="e.g., shots_made / shot_attempts * 100"
-                    value={newMetricFormula}
-                    onChange={(e) => setNewMetricFormula(e.target.value)}
-                    data-testid="input-metric-formula"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Use metric names (lowercase with underscores) in your formula. Example: shots_made / shot_attempts * 100
-                  </p>
-                </div>
-              )}
-
-              <Button
-                onClick={handleAddMetric}
-                disabled={!newMetricLabel || createMutation.isPending}
-                className="w-full"
-                data-testid="button-add-metric"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                {createMutation.isPending ? "Adding..." : "Add Metric"}
-              </Button>
+                );
+              })}
             </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSave} 
+              disabled={saveMutation.isPending}
+              data-testid="button-save-drill-metrics"
+            >
+              {saveMutation.isPending ? "Saving..." : "Save Metrics"}
+            </Button>
           </div>
         </div>
       </DialogContent>
@@ -816,11 +1265,15 @@ export default function AdminPage() {
   const { isAdmin, isLoading: adminLoading } = useAdmin();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
+  const [isCreateVideoOpen, setIsCreateVideoOpen] = useState(false);
+  const [isCreateMetricOpen, setIsCreateMetricOpen] = useState(false);
   const [editingDrill, setEditingDrill] = useState<Drill | null>(null);
+  const [editingVideo, setEditingVideo] = useState<VideoLibrary | null>(null);
+  const [editingMetric, setEditingMetric] = useState<MetricTemplate | null>(null);
   const [configuringMetricsDrill, setConfiguringMetricsDrill] = useState<Drill | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState<string>("all");
-  const [activeTab, setActiveTab] = useState("drills");
+  const [activeTab, setActiveTab] = useState("videos");
 
   const { data: drills, isLoading } = useQuery<Drill[]>({
     queryKey: ['/api/drills'],
@@ -829,6 +1282,50 @@ export default function AdminPage() {
   const { data: users, isLoading: usersLoading } = useQuery<AdminUser[]>({
     queryKey: ['/api/admin/users'],
     enabled: isAdmin,
+  });
+
+  const { data: videoLibrary, isLoading: videosLoading } = useQuery<VideoLibrary[]>({
+    queryKey: ['/api/video-library'],
+    enabled: isAdmin,
+  });
+
+  const { data: metricTemplates, isLoading: metricsLoading } = useQuery<MetricTemplate[]>({
+    queryKey: ['/api/metric-templates'],
+    enabled: isAdmin,
+  });
+
+  const deleteVideoMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("DELETE", `/api/video-library/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/video-library'] });
+      toast({ title: "Video deleted successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to delete video", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const deleteMetricMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("DELETE", `/api/metric-templates/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/metric-templates'] });
+      toast({ title: "Metric template deleted" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to delete metric", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
   });
 
   const toggleAdminMutation = useMutation({
@@ -923,7 +1420,15 @@ export default function AdminPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList>
+        <TabsList className="flex-wrap">
+          <TabsTrigger value="videos" className="gap-2" data-testid="tab-videos">
+            <Film className="w-4 h-4" />
+            Video Library
+          </TabsTrigger>
+          <TabsTrigger value="metrics" className="gap-2" data-testid="tab-metrics">
+            <Ruler className="w-4 h-4" />
+            Metrics
+          </TabsTrigger>
           <TabsTrigger value="drills" className="gap-2" data-testid="tab-drills">
             <Video className="w-4 h-4" />
             Drills
@@ -933,6 +1438,282 @@ export default function AdminPage() {
             Users
           </TabsTrigger>
         </TabsList>
+
+        {/* Video Library Tab */}
+        <TabsContent value="videos" className="space-y-6">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <h2 className="text-xl font-semibold">Video Library</h2>
+              <p className="text-sm text-muted-foreground">Upload and manage training videos to use in drills</p>
+            </div>
+            <Dialog open={isCreateVideoOpen} onOpenChange={setIsCreateVideoOpen}>
+              <DialogTrigger asChild>
+                <Button className="gap-2" data-testid="button-add-video">
+                  <Plus className="w-4 h-4" />
+                  Add Video
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Add Video to Library</DialogTitle>
+                </DialogHeader>
+                <VideoLibraryForm 
+                  onSuccess={() => setIsCreateVideoOpen(false)} 
+                  onCancel={() => setIsCreateVideoOpen(false)}
+                />
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          <Card>
+            <CardContent className="pt-6">
+              {videosLoading ? (
+                <div className="space-y-2">
+                  {[1,2,3].map(i => <Skeleton key={i} className="h-20 w-full" />)}
+                </div>
+              ) : !videoLibrary?.length ? (
+                <div className="text-center py-12">
+                  <Film className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground">No videos uploaded yet.</p>
+                  <p className="text-sm text-muted-foreground">Click "Add Video" to upload your first training video.</p>
+                </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {videoLibrary.map((video) => (
+                    <Card key={video.id} className="overflow-hidden">
+                      <div className="aspect-video bg-muted relative">
+                        {video.thumbnailUrl ? (
+                          <img 
+                            src={video.thumbnailUrl} 
+                            alt={video.title} 
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Film className="w-12 h-12 text-muted-foreground" />
+                          </div>
+                        )}
+                        {video.duration && (
+                          <Badge className="absolute bottom-2 right-2">
+                            {Math.floor(video.duration / 60)}:{(video.duration % 60).toString().padStart(2, '0')}
+                          </Badge>
+                        )}
+                      </div>
+                      <CardContent className="p-4">
+                        <h3 className="font-medium truncate" data-testid={`text-video-title-${video.id}`}>{video.title}</h3>
+                        {video.category && (
+                          <Badge variant="secondary" className="mt-2 capitalize">
+                            {video.category.replace("-", " ")}
+                          </Badge>
+                        )}
+                        <div className="flex justify-end gap-1 mt-3">
+                          <Dialog open={editingVideo?.id === video.id} onOpenChange={(open) => !open && setEditingVideo(null)}>
+                            <DialogTrigger asChild>
+                              <Button 
+                                size="icon" 
+                                variant="ghost"
+                                onClick={() => setEditingVideo(video)}
+                                data-testid={`button-edit-video-${video.id}`}
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                              <DialogHeader>
+                                <DialogTitle>Edit Video</DialogTitle>
+                              </DialogHeader>
+                              {editingVideo && (
+                                <VideoLibraryForm 
+                                  video={editingVideo}
+                                  onSuccess={() => setEditingVideo(null)} 
+                                  onCancel={() => setEditingVideo(null)}
+                                />
+                              )}
+                            </DialogContent>
+                          </Dialog>
+
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button 
+                                size="icon" 
+                                variant="ghost"
+                                data-testid={`button-delete-video-${video.id}`}
+                              >
+                                <Trash2 className="w-4 h-4 text-destructive" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Video</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete "{video.title}"? This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => deleteVideoMutation.mutate(video.id)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  data-testid={`button-confirm-delete-video-${video.id}`}
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Metric Templates Tab */}
+        <TabsContent value="metrics" className="space-y-6">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <h2 className="text-xl font-semibold">Metric Templates</h2>
+              <p className="text-sm text-muted-foreground">Create reusable metrics to track progress across drills</p>
+            </div>
+            <Dialog open={isCreateMetricOpen} onOpenChange={setIsCreateMetricOpen}>
+              <DialogTrigger asChild>
+                <Button className="gap-2" data-testid="button-add-metric-template">
+                  <Plus className="w-4 h-4" />
+                  Add Metric
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Create Metric Template</DialogTitle>
+                </DialogHeader>
+                <MetricTemplateForm 
+                  onSuccess={() => setIsCreateMetricOpen(false)} 
+                  onCancel={() => setIsCreateMetricOpen(false)}
+                />
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          <Card>
+            <CardContent className="pt-6">
+              {metricsLoading ? (
+                <div className="space-y-2">
+                  {[1,2,3].map(i => <Skeleton key={i} className="h-12 w-full" />)}
+                </div>
+              ) : !metricTemplates?.length ? (
+                <div className="text-center py-12">
+                  <Ruler className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground">No metric templates created yet.</p>
+                  <p className="text-sm text-muted-foreground">Create metrics to track shot attempts, completion rates, and more.</p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Label</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Unit/Formula</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {metricTemplates.map((template) => (
+                      <TableRow key={template.id}>
+                        <TableCell className="font-medium" data-testid={`text-metric-label-${template.id}`}>
+                          <div className="flex items-center gap-2">
+                            {template.type === "calculated" ? (
+                              <Calculator className="w-4 h-4 text-primary" />
+                            ) : (
+                              <Hash className="w-4 h-4 text-muted-foreground" />
+                            )}
+                            {template.label}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="capitalize">
+                            {template.type}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {template.type === "calculated" ? template.formula : template.unit || "—"}
+                        </TableCell>
+                        <TableCell>
+                          {template.category ? (
+                            <Badge variant="secondary" className="capitalize">
+                              {template.category.replace("-", " ")}
+                            </Badge>
+                          ) : "—"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Dialog open={editingMetric?.id === template.id} onOpenChange={(open) => !open && setEditingMetric(null)}>
+                              <DialogTrigger asChild>
+                                <Button 
+                                  size="icon" 
+                                  variant="ghost"
+                                  onClick={() => setEditingMetric(template)}
+                                  data-testid={`button-edit-metric-${template.id}`}
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent className="max-w-lg">
+                                <DialogHeader>
+                                  <DialogTitle>Edit Metric Template</DialogTitle>
+                                </DialogHeader>
+                                {editingMetric && (
+                                  <MetricTemplateForm 
+                                    template={editingMetric}
+                                    onSuccess={() => setEditingMetric(null)} 
+                                    onCancel={() => setEditingMetric(null)}
+                                  />
+                                )}
+                              </DialogContent>
+                            </Dialog>
+
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button 
+                                  size="icon" 
+                                  variant="ghost"
+                                  data-testid={`button-delete-metric-${template.id}`}
+                                >
+                                  <Trash2 className="w-4 h-4 text-destructive" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete Metric Template</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Are you sure you want to delete "{template.label}"? This may affect drills using this metric.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => deleteMetricMutation.mutate(template.id)}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    data-testid={`button-confirm-delete-metric-${template.id}`}
+                                  >
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="drills" className="space-y-6">
           <div className="flex items-center justify-end">
