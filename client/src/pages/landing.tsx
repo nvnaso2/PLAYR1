@@ -88,7 +88,7 @@ export default function Landing() {
                 <Badge variant="secondary" className="text-sm">
                   The Netflix for Basketball Training
                 </Badge>
-                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-serif font-bold tracking-tight">
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight">
                   Master Your{" "}
                   <span className="text-primary">Game</span>
                 </h1>
@@ -173,7 +173,7 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <Badge variant="secondary" className="mb-4">Features</Badge>
-            <h2 className="text-3xl sm:text-4xl font-serif font-bold mb-4">
+            <h2 className="text-3xl sm:text-4xl font-bold mb-4">
               Everything You Need to{" "}
               <span className="text-primary">Level Up</span>
             </h2>
@@ -221,7 +221,7 @@ export default function Landing() {
             <div className="order-1 lg:order-2 space-y-8">
               <div>
                 <Badge variant="secondary" className="mb-4">How It Works</Badge>
-                <h2 className="text-3xl sm:text-4xl font-serif font-bold mb-4">
+                <h2 className="text-3xl sm:text-4xl font-bold mb-4">
                   Train Like a{" "}
                   <span className="text-primary">Pro</span>
                 </h2>
@@ -266,7 +266,7 @@ export default function Landing() {
             <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/60 to-black/40" />
             <div className="absolute inset-0 flex items-center">
               <div className="px-8 sm:px-12 max-w-xl">
-                <h2 className="text-2xl sm:text-3xl font-serif font-bold text-white mb-4">
+                <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">
                   Ready to Transform Your Game?
                 </h2>
                 <p className="text-white/80 mb-6">
