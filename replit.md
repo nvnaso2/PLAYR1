@@ -17,6 +17,7 @@ A "Netflix for basketball drills" platform for Handlz weighted basketballs. User
 4. **Personal Videos**: Upload and manage training videos
 5. **Community Benchmarks**: Compare performance against players your age
 6. **User Profiles**: Location-based profiles with skill level tracking
+7. **Admin Dashboard**: Full CRUD operations for drill management (admin users only)
 
 ## Project Structure
 ```
@@ -37,9 +38,11 @@ client/src/
 │   ├── training-log.tsx
 │   ├── progress.tsx   # Stats & charts
 │   ├── videos.tsx     # User videos
-│   └── profile.tsx    # User profile
+│   ├── profile.tsx    # User profile
+│   └── admin.tsx      # Admin dashboard (drill management)
 ├── hooks/
 │   ├── use-auth.ts    # Authentication hook
+│   ├── use-admin.ts   # Admin status hook
 │   └── use-toast.ts
 └── lib/
     ├── queryClient.ts
@@ -62,6 +65,10 @@ shared/
 - `GET /api/drills` - List all drills
 - `GET /api/drills/featured` - Featured drills
 - `GET /api/drills/:id` - Single drill
+- `POST /api/drills` - Create drill (admin only)
+- `PUT /api/drills/:id` - Update drill (admin only)
+- `DELETE /api/drills/:id` - Delete drill (admin only)
+- `GET /api/admin/check` - Check if current user is admin
 - `GET /api/training-logs` - User's training logs
 - `POST /api/training-logs` - Create training log
 - `GET /api/profile` - User profile
@@ -77,12 +84,21 @@ shared/
 ## Database Schema
 - `users` - Auth users (Replit Auth)
 - `sessions` - Session storage
-- `user_profiles` - Extended user data (age, location, skill level)
+- `user_profiles` - Extended user data (age, location, skill level, isAdmin flag)
 - `drills` - Training drills
 - `training_logs` - User training sessions
 - `user_videos` - Uploaded training videos
 - `drill_progress` - Aggregated drill progress
 - `benchmarks` - Community averages by age
+
+## Admin Access
+- Admin users are identified by `isAdmin: true` in their user_profiles record
+- To make a user an admin, update their profile in the database:
+  ```sql
+  UPDATE user_profiles SET is_admin = true WHERE user_id = 'USER_ID_HERE';
+  ```
+- Admin navigation appears in sidebar only for admin users
+- Non-admin users attempting to access /admin see an access denied message
 
 ## Running the App
 - Development: `npm run dev`
