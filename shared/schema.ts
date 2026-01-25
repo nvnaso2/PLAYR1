@@ -54,6 +54,34 @@ export const drills = pgTable("drills", {
   createdAt: timestamp("created_at").defaultNow()
 });
 
+// Metric types for drill configuration
+export const METRIC_TYPES = ["number", "calculated"] as const;
+export type MetricType = typeof METRIC_TYPES[number];
+
+// Drill metrics configuration - defines what measurements a drill uses
+export const drillMetrics = pgTable("drill_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  drillId: varchar("drill_id").notNull(),
+  name: varchar("name").notNull(), // e.g., "Shot Attempts", "Shots Made"
+  label: varchar("label").notNull(), // Display label
+  type: varchar("type").$type<MetricType>().notNull().default("number"),
+  unit: varchar("unit"), // e.g., "shots", "seconds", "%"
+  formula: varchar("formula"), // For calculated fields, e.g., "shotsMade / shotAttempts * 100"
+  formulaInputs: text("formula_inputs").array(), // IDs of metrics used in formula
+  sortOrder: integer("sort_order").default(0),
+  isRequired: boolean("is_required").default(false),
+  createdAt: timestamp("created_at").defaultNow()
+});
+
+// Training log metric values - stores actual values for each metric per training log
+export const trainingLogMetrics = pgTable("training_log_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  trainingLogId: varchar("training_log_id").notNull(),
+  metricId: varchar("metric_id").notNull(),
+  value: decimal("value", { precision: 10, scale: 2 }),
+  createdAt: timestamp("created_at").defaultNow()
+});
+
 // Training logs - users track their drill practice
 export const trainingLogs = pgTable("training_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -115,7 +143,17 @@ export const userProfilesRelations = relations(userProfiles, ({ many }) => ({
 export const drillsRelations = relations(drills, ({ many }) => ({
   trainingLogs: many(trainingLogs),
   userVideos: many(userVideos),
-  drillProgress: many(drillProgress)
+  drillProgress: many(drillProgress),
+  metrics: many(drillMetrics)
+}));
+
+export const drillMetricsRelations = relations(drillMetrics, ({ one }) => ({
+  drill: one(drills, { fields: [drillMetrics.drillId], references: [drills.id] })
+}));
+
+export const trainingLogMetricsRelations = relations(trainingLogMetrics, ({ one }) => ({
+  trainingLog: one(trainingLogs, { fields: [trainingLogMetrics.trainingLogId], references: [trainingLogs.id] }),
+  metric: one(drillMetrics, { fields: [trainingLogMetrics.metricId], references: [drillMetrics.id] })
 }));
 
 export const trainingLogsRelations = relations(trainingLogs, ({ one }) => ({
@@ -128,6 +166,8 @@ export const insertDrillSchema = createInsertSchema(drills).omit({ id: true, cre
 export const insertTrainingLogSchema = createInsertSchema(trainingLogs).omit({ id: true, completedAt: true });
 export const insertUserVideoSchema = createInsertSchema(userVideos).omit({ id: true, createdAt: true });
 export const insertDrillProgressSchema = createInsertSchema(drillProgress).omit({ id: true, updatedAt: true });
+export const insertDrillMetricSchema = createInsertSchema(drillMetrics).omit({ id: true, createdAt: true });
+export const insertTrainingLogMetricSchema = createInsertSchema(trainingLogMetrics).omit({ id: true, createdAt: true });
 
 // Types
 export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
@@ -141,3 +181,7 @@ export type UserVideo = typeof userVideos.$inferSelect;
 export type InsertDrillProgress = z.infer<typeof insertDrillProgressSchema>;
 export type DrillProgress = typeof drillProgress.$inferSelect;
 export type Benchmark = typeof benchmarks.$inferSelect;
+export type InsertDrillMetric = z.infer<typeof insertDrillMetricSchema>;
+export type DrillMetric = typeof drillMetrics.$inferSelect;
+export type InsertTrainingLogMetric = z.infer<typeof insertTrainingLogMetricSchema>;
+export type TrainingLogMetric = typeof trainingLogMetrics.$inferSelect;
