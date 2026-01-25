@@ -1,5 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import { useAdmin } from "@/hooks/use-admin";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,7 +38,8 @@ import {
   HandMetal,
   Shield,
   Brain,
-  Flame
+  Flame,
+  Settings
 } from "lucide-react";
 import logoLandscape from "@assets/Handlz_Landscape_1769377307158.png";
 
@@ -62,6 +64,7 @@ const categoryItems = [
 export function AppSidebar() {
   const [location] = useLocation();
   const { user, logout } = useAuth();
+  const { isAdmin } = useAdmin();
 
   const getInitials = () => {
     if (!user) return "U";
@@ -118,6 +121,31 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {isAdmin && (
+          <>
+            <SidebarSeparator />
+            <SidebarGroup>
+              <SidebarGroupLabel>Admin</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton 
+                      asChild 
+                      isActive={location === "/admin"}
+                      data-testid="link-nav-admin"
+                    >
+                      <Link href="/admin">
+                        <Settings className="w-4 h-4" />
+                        <span>Admin Dashboard</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
+        )}
 
         <SidebarSeparator />
 
