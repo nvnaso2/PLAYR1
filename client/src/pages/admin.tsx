@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -74,6 +75,7 @@ const drillFormSchema = z.object({
   description: z.string().optional(),
   category: z.enum(DRILL_CATEGORIES),
   difficulty: z.enum(DIFFICULTY_LEVELS),
+  videoLibraryId: z.string().optional(),
   videoUrl: z.string().optional().refine((val) => !val || val.startsWith("/objects/") || val.startsWith("http"), "Must be a valid URL or uploaded file"),
   thumbnailUrl: z.string().optional().refine((val) => !val || val.startsWith("/objects/") || val.startsWith("http"), "Must be a valid URL or uploaded file"),
   duration: z.number().int().positive().optional(),
@@ -138,6 +140,11 @@ function DrillForm({
     }
   };
 
+  // Fetch video library for video selector
+  const { data: videoLibraryList } = useQuery<VideoLibrary[]>({
+    queryKey: ['/api/video-library'],
+  });
+
   const form = useForm<DrillFormData>({
     resolver: zodResolver(drillFormSchema),
     defaultValues: {
@@ -145,6 +152,7 @@ function DrillForm({
       description: drill?.description || "",
       category: drill?.category || "ball-handling",
       difficulty: drill?.difficulty || "beginner",
+      videoLibraryId: drill?.videoLibraryId || "",
       videoUrl: drill?.videoUrl || "",
       thumbnailUrl: drill?.thumbnailUrl || "",
       duration: drill?.duration || undefined,
@@ -153,6 +161,23 @@ function DrillForm({
       isFeatured: drill?.isFeatured || false,
     },
   });
+
+  // Handle video library selection - auto-populate video details
+  const handleVideoLibrarySelect = (videoId: string) => {
+    form.setValue("videoLibraryId", videoId);
+    if (videoId && videoLibraryList) {
+      const selectedVideo = videoLibraryList.find(v => v.id === videoId);
+      if (selectedVideo) {
+        form.setValue("videoUrl", selectedVideo.videoUrl);
+        if (selectedVideo.thumbnailUrl) {
+          form.setValue("thumbnailUrl", selectedVideo.thumbnailUrl);
+        }
+        if (selectedVideo.duration) {
+          form.setValue("duration", selectedVideo.duration);
+        }
+      }
+    }
+  };
 
   const createMutation = useMutation({
     mutationFn: async (data: DrillFormData) => {
@@ -299,10 +324,42 @@ function DrillForm({
 
         <FormField
           control={form.control}
+          name="videoLibraryId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Select Video from Library</FormLabel>
+              <Select 
+                onValueChange={(value) => handleVideoLibrarySelect(value)} 
+                defaultValue={field.value}
+              >
+                <FormControl>
+                  <SelectTrigger data-testid="select-drill-video-library">
+                    <SelectValue placeholder="Choose a video from the library" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="">None (manual entry)</SelectItem>
+                  {videoLibraryList?.map((video) => (
+                    <SelectItem key={video.id} value={video.id}>
+                      {video.title} {video.category && `(${video.category.replace("-", " ")})`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormDescription>
+                Select a video from your library or enter a URL manually below
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
           name="videoUrl"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Video</FormLabel>
+              <FormLabel>Video URL</FormLabel>
               <div className="flex gap-2">
                 <FormControl>
                   <Input placeholder="https://youtube.com/... or upload a file" {...field} data-testid="input-drill-video-url" />

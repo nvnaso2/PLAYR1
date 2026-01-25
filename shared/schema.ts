@@ -45,6 +45,7 @@ export const drills = pgTable("drills", {
   description: text("description"),
   category: varchar("category").$type<DrillCategory>().notNull(),
   difficulty: varchar("difficulty").$type<DifficultyLevel>().notNull().default("beginner"),
+  videoLibraryId: varchar("video_library_id"), // Reference to video library
   videoUrl: varchar("video_url"),
   thumbnailUrl: varchar("thumbnail_url"),
   duration: integer("duration"), // in seconds
