@@ -1,23 +1,46 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
+import { isAuthenticated } from "../auth/replitAuth";
+import { storage } from "../../storage";
+
+// Allowed content types for uploads
+const ALLOWED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime", "video/x-msvideo"];
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+const ALLOWED_CONTENT_TYPES = [...ALLOWED_VIDEO_TYPES, ...ALLOWED_IMAGE_TYPES];
+
+// Max file sizes in bytes (100MB for videos, 10MB for images)
+const MAX_VIDEO_SIZE = 100 * 1024 * 1024;
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
+
+/**
+ * Admin check middleware for upload routes
+ */
+const isAdmin = async (req: Request, res: Response, next: NextFunction) => {
+  const user = req.user as any;
+  if (!user?.claims?.sub) {
+    return res.status(401).json({ error: "Not authenticated" });
+  }
+  const admin = await storage.isUserAdmin(user.claims.sub);
+  if (!admin) {
+    return res.status(403).json({ error: "Admin access required for uploads" });
+  }
+  next();
+};
 
 /**
  * Register object storage routes for file uploads.
  *
- * This provides example routes for the presigned URL upload flow:
- * 1. POST /api/uploads/request-url - Get a presigned URL for uploading
- * 2. The client then uploads directly to the presigned URL
- *
- * IMPORTANT: These are example routes. Customize based on your use case:
- * - Add authentication middleware for protected uploads
- * - Add file metadata storage (save to database after upload)
- * - Add ACL policies for access control
+ * Security:
+ * - Uploads require authentication and admin privileges
+ * - Content types are validated against allowlist
+ * - File sizes are validated before issuing presigned URLs
  */
 export function registerObjectStorageRoutes(app: Express): void {
   const objectStorageService = new ObjectStorageService();
 
   /**
    * Request a presigned URL for file upload.
+   * Requires authentication and admin privileges.
    *
    * Request body (JSON):
    * {
@@ -31,17 +54,31 @@ export function registerObjectStorageRoutes(app: Express): void {
    *   "uploadURL": "https://storage.googleapis.com/...",
    *   "objectPath": "/objects/uploads/uuid"
    * }
-   *
-   * IMPORTANT: The client should NOT send the file to this endpoint.
-   * Send JSON metadata only, then upload the file directly to uploadURL.
    */
-  app.post("/api/uploads/request-url", async (req, res) => {
+  app.post("/api/uploads/request-url", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const { name, size, contentType } = req.body;
 
-      if (!name) {
+      // Validate required fields
+      if (!name || !contentType) {
         return res.status(400).json({
-          error: "Missing required field: name",
+          error: "Missing required fields: name and contentType are required",
+        });
+      }
+
+      // Validate content type
+      if (!ALLOWED_CONTENT_TYPES.includes(contentType)) {
+        return res.status(400).json({
+          error: `Invalid content type. Allowed types: ${ALLOWED_CONTENT_TYPES.join(", ")}`,
+        });
+      }
+
+      // Validate file size
+      const maxSize = ALLOWED_VIDEO_TYPES.includes(contentType) ? MAX_VIDEO_SIZE : MAX_IMAGE_SIZE;
+      if (size && size > maxSize) {
+        const maxMB = maxSize / (1024 * 1024);
+        return res.status(400).json({
+          error: `File too large. Maximum size: ${maxMB}MB`,
         });
       }
 

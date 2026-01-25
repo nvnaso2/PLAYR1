@@ -160,9 +160,18 @@ export const trainingLogsRelations = relations(trainingLogs, ({ one }) => ({
   drill: one(drills, { fields: [trainingLogs.drillId], references: [drills.id] })
 }));
 
+// URL validation helper - accepts http(s) URLs or /objects/ paths
+const urlOrObjectPath = z.string().optional().refine(
+  (val) => !val || val.startsWith("http://") || val.startsWith("https://") || val.startsWith("/objects/"),
+  { message: "Must be a valid URL or object storage path" }
+);
+
 // Insert schemas
 export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertDrillSchema = createInsertSchema(drills).omit({ id: true, createdAt: true });
+export const insertDrillSchema = createInsertSchema(drills).omit({ id: true, createdAt: true }).extend({
+  videoUrl: urlOrObjectPath,
+  thumbnailUrl: urlOrObjectPath,
+});
 export const insertTrainingLogSchema = createInsertSchema(trainingLogs).omit({ id: true, completedAt: true });
 export const insertUserVideoSchema = createInsertSchema(userVideos).omit({ id: true, createdAt: true });
 export const insertDrillProgressSchema = createInsertSchema(drillProgress).omit({ id: true, updatedAt: true });
