@@ -51,8 +51,33 @@ export async function registerRoutes(
     }
   });
 
-  // Create drill (admin only - for seeding)
-  app.post("/api/drills", isAuthenticated, async (req: any, res) => {
+  // Admin middleware
+  const isAdmin = async (req: any, res: any, next: any) => {
+    if (!req.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    const userId = req.user.claims.sub;
+    const admin = await storage.isUserAdmin(userId);
+    if (!admin) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    next();
+  };
+
+  // Check if current user is admin
+  app.get("/api/admin/check", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const isAdmin = await storage.isUserAdmin(userId);
+      res.json({ isAdmin });
+    } catch (error) {
+      console.error("Error checking admin status:", error);
+      res.status(500).json({ message: "Failed to check admin status" });
+    }
+  });
+
+  // Create drill (admin only)
+  app.post("/api/drills", isAuthenticated, isAdmin, async (req: any, res) => {
     try {
       const data = insertDrillSchema.parse(req.body);
       const drill = await storage.createDrill(data);
@@ -63,6 +88,35 @@ export async function registerRoutes(
       }
       console.error("Error creating drill:", error);
       res.status(500).json({ message: "Failed to create drill" });
+    }
+  });
+
+  // Update drill (admin only)
+  app.put("/api/drills/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const data = insertDrillSchema.partial().parse(req.body);
+      const drill = await storage.updateDrill(req.params.id, data);
+      if (!drill) {
+        return res.status(404).json({ message: "Drill not found" });
+      }
+      res.json(drill);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error updating drill:", error);
+      res.status(500).json({ message: "Failed to update drill" });
+    }
+  });
+
+  // Delete drill (admin only)
+  app.delete("/api/drills/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      await storage.deleteDrill(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting drill:", error);
+      res.status(500).json({ message: "Failed to delete drill" });
     }
   });
 

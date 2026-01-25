@@ -16,6 +16,12 @@ export interface IStorage {
   getFeaturedDrills(): Promise<Drill[]>;
   getDrillsByCategory(category: string): Promise<Drill[]>;
   createDrill(drill: InsertDrill): Promise<Drill>;
+  updateDrill(id: string, drill: Partial<InsertDrill>): Promise<Drill | undefined>;
+  deleteDrill(id: string): Promise<boolean>;
+  
+  // Admin
+  isUserAdmin(userId: string): Promise<boolean>;
+  setUserAdmin(userId: string, isAdmin: boolean): Promise<boolean>;
 
   // Training Logs
   getTrainingLogs(userId: string): Promise<TrainingLog[]>;
@@ -71,6 +77,43 @@ export class DatabaseStorage implements IStorage {
   async createDrill(drill: InsertDrill): Promise<Drill> {
     const [newDrill] = await db.insert(drills).values(drill).returning();
     return newDrill;
+  }
+
+  async updateDrill(id: string, drill: Partial<InsertDrill>): Promise<Drill | undefined> {
+    const [updated] = await db.update(drills)
+      .set(drill)
+      .where(eq(drills.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteDrill(id: string): Promise<boolean> {
+    await db.delete(drills).where(eq(drills.id, id));
+    return true;
+  }
+
+  // Admin
+  async isUserAdmin(userId: string): Promise<boolean> {
+    const [profile] = await db.select()
+      .from(userProfiles)
+      .where(eq(userProfiles.userId, userId));
+    return profile?.isAdmin === true;
+  }
+
+  async setUserAdmin(userId: string, isAdmin: boolean): Promise<boolean> {
+    const [existing] = await db.select()
+      .from(userProfiles)
+      .where(eq(userProfiles.userId, userId));
+    
+    if (existing) {
+      await db.update(userProfiles)
+        .set({ isAdmin, updatedAt: new Date() })
+        .where(eq(userProfiles.userId, userId));
+    } else {
+      await db.insert(userProfiles)
+        .values({ userId, isAdmin });
+    }
+    return true;
   }
 
   // Training Logs
