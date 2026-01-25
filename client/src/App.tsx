@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -8,6 +9,8 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/hooks/use-auth";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
+import { Button } from "@/components/ui/button";
+import { Eye, EyeOff } from "lucide-react";
 
 import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
@@ -55,14 +58,14 @@ function LoadingScreen() {
   );
 }
 
-function Router() {
+function Router({ previewLanding }: { previewLanding: boolean }) {
   const { user, isLoading, isAuthenticated } = useAuth();
 
   if (isLoading) {
     return <LoadingScreen />;
   }
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated || previewLanding) {
     return <Landing />;
   }
 
@@ -83,12 +86,24 @@ function Router() {
 }
 
 function App() {
+  const [previewLanding, setPreviewLanding] = useState(false);
+
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="dark" storageKey="handlz-theme">
         <TooltipProvider>
           <Toaster />
-          <Router />
+          <Router previewLanding={previewLanding} />
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setPreviewLanding(!previewLanding)}
+            className="fixed bottom-4 right-4 z-50 gap-2 bg-background/80 backdrop-blur"
+            data-testid="button-preview-toggle"
+          >
+            {previewLanding ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+            {previewLanding ? "View App" : "View Landing"}
+          </Button>
         </TooltipProvider>
       </ThemeProvider>
     </QueryClientProvider>
