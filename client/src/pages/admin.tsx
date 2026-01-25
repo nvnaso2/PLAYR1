@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -329,8 +329,8 @@ function DrillForm({
             <FormItem>
               <FormLabel>Select Video from Library</FormLabel>
               <Select 
-                onValueChange={(value) => handleVideoLibrarySelect(value)} 
-                defaultValue={field.value}
+                onValueChange={(value) => handleVideoLibrarySelect(value === "none" ? "" : value)} 
+                defaultValue={field.value || "none"}
               >
                 <FormControl>
                   <SelectTrigger data-testid="select-drill-video-library">
@@ -338,7 +338,7 @@ function DrillForm({
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectItem value="">None (manual entry)</SelectItem>
+                  <SelectItem value="none">None (manual entry)</SelectItem>
                   {videoLibraryList?.map((video) => (
                     <SelectItem key={video.id} value={video.id}>
                       {video.title} {video.category && `(${video.category.replace("-", " ")})`}
@@ -632,6 +632,7 @@ const videoFormSchema = z.object({
   category: z.string().optional(),
   difficulty: z.string().optional(),
   tags: z.string().optional(),
+  linkedDrillId: z.string().optional(),
 });
 
 type VideoFormData = z.infer<typeof videoFormSchema>;
@@ -649,6 +650,16 @@ function VideoLibraryForm({
   const isEditing = !!video;
   const videoInputRef = useRef<HTMLInputElement>(null);
   const thumbnailInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch drills to allow linking
+  const { data: drillsList } = useQuery<Drill[]>({
+    queryKey: ['/api/drills'],
+  });
+
+  // Find the drill currently linked to this video
+  const currentLinkedDrill = video?.id 
+    ? drillsList?.find(d => d.videoLibraryId === video.id) 
+    : undefined;
   
   const { uploadFile: uploadVideoFile, isUploading: isUploadingVideo } = useUpload({
     onSuccess: (response) => {
@@ -703,6 +714,39 @@ function VideoLibraryForm({
       category: video?.category || "",
       difficulty: video?.difficulty || "",
       tags: video?.tags?.join(", ") || "",
+      linkedDrillId: currentLinkedDrill?.id || "",
+    },
+  });
+
+  // Update default value when currentLinkedDrill is loaded
+  useEffect(() => {
+    if (currentLinkedDrill?.id) {
+      form.setValue("linkedDrillId", currentLinkedDrill.id);
+    }
+  }, [currentLinkedDrill?.id, form]);
+
+  // Mutation to link a drill to this video
+  const linkDrillMutation = useMutation({
+    mutationFn: async ({ drillId, videoId }: { drillId: string; videoId: string }) => {
+      // Update the drill to point to this video
+      return await apiRequest("PUT", `/api/drills/${drillId}`, { 
+        videoLibraryId: videoId,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/drills'] });
+    },
+  });
+
+  // Mutation to unlink a drill from this video
+  const unlinkDrillMutation = useMutation({
+    mutationFn: async (drillId: string) => {
+      return await apiRequest("PUT", `/api/drills/${drillId}`, { 
+        videoLibraryId: null,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/drills'] });
     },
   });
 
@@ -750,11 +794,28 @@ function VideoLibraryForm({
     },
   });
 
-  const onSubmit = (data: VideoFormData) => {
+  const onSubmit = async (data: VideoFormData) => {
+    const { linkedDrillId, ...videoData } = data;
+    
     if (isEditing) {
-      updateMutation.mutate(data);
+      updateMutation.mutate(videoData, {
+        onSuccess: async () => {
+          // Handle drill linking changes
+          const previousDrillId = currentLinkedDrill?.id;
+          
+          // If drill was changed, unlink the previous drill
+          if (previousDrillId && previousDrillId !== linkedDrillId) {
+            await unlinkDrillMutation.mutateAsync(previousDrillId);
+          }
+          
+          // Link the new drill if selected
+          if (linkedDrillId && linkedDrillId !== "none" && linkedDrillId !== previousDrillId && video?.id) {
+            await linkDrillMutation.mutateAsync({ drillId: linkedDrillId, videoId: video.id });
+          }
+        }
+      });
     } else {
-      createMutation.mutate(data);
+      createMutation.mutate(videoData);
     }
   };
 
@@ -945,6 +1006,40 @@ function VideoLibraryForm({
             </FormItem>
           )}
         />
+
+        {isEditing && (
+          <FormField
+            control={form.control}
+            name="linkedDrillId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Link to Drill</FormLabel>
+                <Select 
+                  onValueChange={field.onChange} 
+                  defaultValue={field.value || "none"}
+                >
+                  <FormControl>
+                    <SelectTrigger data-testid="select-video-linked-drill">
+                      <SelectValue placeholder="Select a drill to link" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {drillsList?.map((drill) => (
+                      <SelectItem key={drill.id} value={drill.id}>
+                        {drill.title} ({drill.category.replace("-", " ")})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormDescription>
+                  Connect this video to an existing drill
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
 
         <div className="flex justify-end gap-2 pt-4">
           <Button type="button" variant="outline" onClick={onCancel} data-testid="button-cancel-video">
