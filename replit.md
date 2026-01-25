@@ -110,8 +110,17 @@ shared/
 - Non-admin users attempting to access /admin see an access denied message
 
 ### Admin Dashboard Features
-- **Drills Tab**: Create, edit, delete, and feature drills
+- **Drills Tab**: Create, edit, delete, and feature drills with video/thumbnail uploads
 - **Users Tab**: View all users, create new users, toggle admin status for any user
+
+## File Uploads (Object Storage)
+- Admins can upload video and thumbnail files directly using Replit's App Storage
+- Upload flow uses presigned URLs for secure direct-to-storage uploads
+- Supported video types: MP4, WebM, QuickTime, AVI (max 100MB)
+- Supported image types: JPEG, PNG, GIF, WebP (max 10MB)
+- Files are served from `/objects/` paths
+- API: `POST /api/uploads/request-url` (requires auth + admin)
+- API: `GET /objects/{*objectPath}` (serves uploaded files)
 
 ## Running the App
 - Development: `npm run dev`
