@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
-import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema } from "@shared/schema";
+import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertMetricTemplateSchema } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(
@@ -180,6 +180,174 @@ export async function registerRoutes(
         return res.status(400).json({ message: "A user with this email already exists" });
       }
       res.status(500).json({ message: "Failed to create user" });
+    }
+  });
+
+  // ===== VIDEO LIBRARY (Admin only) =====
+
+  // Get all videos in library
+  app.get("/api/video-library", async (req, res) => {
+    try {
+      const videos = await storage.getVideoLibrary();
+      res.json(videos);
+    } catch (error) {
+      console.error("Error fetching video library:", error);
+      res.status(500).json({ message: "Failed to fetch video library" });
+    }
+  });
+
+  // Get single video from library
+  app.get("/api/video-library/:id", async (req, res) => {
+    try {
+      const video = await storage.getVideoLibraryById(req.params.id);
+      if (!video) {
+        return res.status(404).json({ message: "Video not found" });
+      }
+      res.json(video);
+    } catch (error) {
+      console.error("Error fetching video:", error);
+      res.status(500).json({ message: "Failed to fetch video" });
+    }
+  });
+
+  // Create video in library (admin only)
+  app.post("/api/video-library", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const data = insertVideoLibrarySchema.parse(req.body);
+      const video = await storage.createVideoLibraryItem(data);
+      res.status(201).json(video);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error creating video:", error);
+      res.status(500).json({ message: "Failed to create video" });
+    }
+  });
+
+  // Update video in library (admin only)
+  app.put("/api/video-library/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const data = insertVideoLibrarySchema.partial().parse(req.body);
+      const video = await storage.updateVideoLibraryItem(req.params.id, data);
+      if (!video) {
+        return res.status(404).json({ message: "Video not found" });
+      }
+      res.json(video);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error updating video:", error);
+      res.status(500).json({ message: "Failed to update video" });
+    }
+  });
+
+  // Delete video from library (admin only)
+  app.delete("/api/video-library/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      await storage.deleteVideoLibraryItem(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting video:", error);
+      res.status(500).json({ message: "Failed to delete video" });
+    }
+  });
+
+  // ===== METRIC TEMPLATES (Admin only) =====
+
+  // Get all metric templates
+  app.get("/api/metric-templates", async (req, res) => {
+    try {
+      const templates = await storage.getMetricTemplates();
+      res.json(templates);
+    } catch (error) {
+      console.error("Error fetching metric templates:", error);
+      res.status(500).json({ message: "Failed to fetch metric templates" });
+    }
+  });
+
+  // Get single metric template
+  app.get("/api/metric-templates/:id", async (req, res) => {
+    try {
+      const template = await storage.getMetricTemplateById(req.params.id);
+      if (!template) {
+        return res.status(404).json({ message: "Metric template not found" });
+      }
+      res.json(template);
+    } catch (error) {
+      console.error("Error fetching metric template:", error);
+      res.status(500).json({ message: "Failed to fetch metric template" });
+    }
+  });
+
+  // Create metric template (admin only)
+  app.post("/api/metric-templates", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const data = insertMetricTemplateSchema.parse(req.body);
+      const template = await storage.createMetricTemplate(data);
+      res.status(201).json(template);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error creating metric template:", error);
+      res.status(500).json({ message: "Failed to create metric template" });
+    }
+  });
+
+  // Update metric template (admin only)
+  app.put("/api/metric-templates/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const data = insertMetricTemplateSchema.partial().parse(req.body);
+      const template = await storage.updateMetricTemplate(req.params.id, data);
+      if (!template) {
+        return res.status(404).json({ message: "Metric template not found" });
+      }
+      res.json(template);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error updating metric template:", error);
+      res.status(500).json({ message: "Failed to update metric template" });
+    }
+  });
+
+  // Delete metric template (admin only)
+  app.delete("/api/metric-templates/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      await storage.deleteMetricTemplate(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting metric template:", error);
+      res.status(500).json({ message: "Failed to delete metric template" });
+    }
+  });
+
+  // Set drill metrics (link metric templates to a drill)
+  app.post("/api/drills/:id/metrics", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { metricTemplateIds } = req.body;
+      if (!Array.isArray(metricTemplateIds)) {
+        return res.status(400).json({ message: "metricTemplateIds must be an array" });
+      }
+      const metrics = await storage.setDrillMetrics(req.params.id, metricTemplateIds);
+      res.json(metrics);
+    } catch (error) {
+      console.error("Error setting drill metrics:", error);
+      res.status(500).json({ message: "Failed to set drill metrics" });
+    }
+  });
+
+  // Get drill metrics with templates
+  app.get("/api/drills/:id/metrics", async (req, res) => {
+    try {
+      const metrics = await storage.getDrillMetricsWithTemplates(req.params.id);
+      res.json(metrics);
+    } catch (error) {
+      console.error("Error fetching drill metrics:", error);
+      res.status(500).json({ message: "Failed to fetch drill metrics" });
     }
   });
 

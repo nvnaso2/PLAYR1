@@ -54,20 +54,41 @@ export const drills = pgTable("drills", {
   createdAt: timestamp("created_at").defaultNow()
 });
 
+// Video library for admin-uploaded training videos
+export const videoLibrary = pgTable("video_library", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: varchar("title").notNull(),
+  description: text("description"),
+  videoUrl: varchar("video_url").notNull(),
+  thumbnailUrl: varchar("thumbnail_url"),
+  duration: integer("duration"), // in seconds
+  category: varchar("category").$type<DrillCategory>(),
+  tags: text("tags").array(),
+  createdAt: timestamp("created_at").defaultNow()
+});
+
 // Metric types for drill configuration
 export const METRIC_TYPES = ["number", "calculated"] as const;
 export type MetricType = typeof METRIC_TYPES[number];
 
-// Drill metrics configuration - defines what measurements a drill uses
-export const drillMetrics = pgTable("drill_metrics", {
+// Metric templates - reusable metric definitions (not tied to specific drills)
+export const metricTemplates = pgTable("metric_templates", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  drillId: varchar("drill_id").notNull(),
   name: varchar("name").notNull(), // e.g., "Shot Attempts", "Shots Made"
   label: varchar("label").notNull(), // Display label
   type: varchar("type").$type<MetricType>().notNull().default("number"),
   unit: varchar("unit"), // e.g., "shots", "seconds", "%"
-  formula: varchar("formula"), // For calculated fields, e.g., "shotsMade / shotAttempts * 100"
-  formulaInputs: text("formula_inputs").array(), // IDs of metrics used in formula
+  formula: varchar("formula"), // For calculated fields
+  formulaInputs: text("formula_inputs").array(), // Names of metrics used in formula
+  category: varchar("category").$type<DrillCategory>(), // Optional category association
+  createdAt: timestamp("created_at").defaultNow()
+});
+
+// Drill metrics - links drills to their chosen metric templates
+export const drillMetrics = pgTable("drill_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  drillId: varchar("drill_id").notNull(),
+  metricTemplateId: varchar("metric_template_id").notNull(),
   sortOrder: integer("sort_order").default(0),
   isRequired: boolean("is_required").default(false),
   createdAt: timestamp("created_at").defaultNow()
@@ -147,13 +168,18 @@ export const drillsRelations = relations(drills, ({ many }) => ({
   metrics: many(drillMetrics)
 }));
 
+export const metricTemplatesRelations = relations(metricTemplates, ({ many }) => ({
+  drillMetrics: many(drillMetrics)
+}));
+
 export const drillMetricsRelations = relations(drillMetrics, ({ one }) => ({
-  drill: one(drills, { fields: [drillMetrics.drillId], references: [drills.id] })
+  drill: one(drills, { fields: [drillMetrics.drillId], references: [drills.id] }),
+  metricTemplate: one(metricTemplates, { fields: [drillMetrics.metricTemplateId], references: [metricTemplates.id] })
 }));
 
 export const trainingLogMetricsRelations = relations(trainingLogMetrics, ({ one }) => ({
   trainingLog: one(trainingLogs, { fields: [trainingLogMetrics.trainingLogId], references: [trainingLogs.id] }),
-  metric: one(drillMetrics, { fields: [trainingLogMetrics.metricId], references: [drillMetrics.id] })
+  metricTemplate: one(metricTemplates, { fields: [trainingLogMetrics.metricId], references: [metricTemplates.id] })
 }));
 
 export const trainingLogsRelations = relations(trainingLogs, ({ one }) => ({
@@ -172,6 +198,14 @@ export const insertDrillSchema = createInsertSchema(drills).omit({ id: true, cre
   videoUrl: urlOrObjectPath,
   thumbnailUrl: urlOrObjectPath,
 });
+export const insertVideoLibrarySchema = createInsertSchema(videoLibrary).omit({ id: true, createdAt: true }).extend({
+  videoUrl: z.string().refine(
+    (val) => val.startsWith("http://") || val.startsWith("https://") || val.startsWith("/objects/"),
+    { message: "Must be a valid URL or object storage path" }
+  ),
+  thumbnailUrl: urlOrObjectPath,
+});
+export const insertMetricTemplateSchema = createInsertSchema(metricTemplates).omit({ id: true, createdAt: true });
 export const insertTrainingLogSchema = createInsertSchema(trainingLogs).omit({ id: true, completedAt: true });
 export const insertUserVideoSchema = createInsertSchema(userVideos).omit({ id: true, createdAt: true });
 export const insertDrillProgressSchema = createInsertSchema(drillProgress).omit({ id: true, updatedAt: true });
@@ -183,6 +217,10 @@ export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
 export type UserProfile = typeof userProfiles.$inferSelect;
 export type InsertDrill = z.infer<typeof insertDrillSchema>;
 export type Drill = typeof drills.$inferSelect;
+export type InsertVideoLibrary = z.infer<typeof insertVideoLibrarySchema>;
+export type VideoLibrary = typeof videoLibrary.$inferSelect;
+export type InsertMetricTemplate = z.infer<typeof insertMetricTemplateSchema>;
+export type MetricTemplate = typeof metricTemplates.$inferSelect;
 export type InsertTrainingLog = z.infer<typeof insertTrainingLogSchema>;
 export type TrainingLog = typeof trainingLogs.$inferSelect;
 export type InsertUserVideo = z.infer<typeof insertUserVideoSchema>;

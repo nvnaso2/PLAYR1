@@ -6,7 +6,9 @@ import {
   drillProgress, type DrillProgress, type InsertDrillProgress,
   benchmarks, type Benchmark,
   drillMetrics, type DrillMetric, type InsertDrillMetric,
-  trainingLogMetrics, type TrainingLogMetric, type InsertTrainingLogMetric
+  trainingLogMetrics, type TrainingLogMetric, type InsertTrainingLogMetric,
+  videoLibrary, type VideoLibrary, type InsertVideoLibrary,
+  metricTemplates, type MetricTemplate, type InsertMetricTemplate
 } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
@@ -60,8 +62,24 @@ export interface IStorage {
   // Benchmarks
   getBenchmarks(): Promise<Benchmark[]>;
 
-  // Drill Metrics
+  // Video Library
+  getVideoLibrary(): Promise<VideoLibrary[]>;
+  getVideoLibraryById(id: string): Promise<VideoLibrary | undefined>;
+  createVideoLibraryItem(video: InsertVideoLibrary): Promise<VideoLibrary>;
+  updateVideoLibraryItem(id: string, video: Partial<InsertVideoLibrary>): Promise<VideoLibrary | undefined>;
+  deleteVideoLibraryItem(id: string): Promise<boolean>;
+
+  // Metric Templates
+  getMetricTemplates(): Promise<MetricTemplate[]>;
+  getMetricTemplateById(id: string): Promise<MetricTemplate | undefined>;
+  createMetricTemplate(template: InsertMetricTemplate): Promise<MetricTemplate>;
+  updateMetricTemplate(id: string, template: Partial<InsertMetricTemplate>): Promise<MetricTemplate | undefined>;
+  deleteMetricTemplate(id: string): Promise<boolean>;
+
+  // Drill Metrics (links drills to metric templates)
   getDrillMetrics(drillId: string): Promise<DrillMetric[]>;
+  getDrillMetricsWithTemplates(drillId: string): Promise<Array<DrillMetric & { template: MetricTemplate }>>;
+  setDrillMetrics(drillId: string, metricTemplateIds: string[]): Promise<DrillMetric[]>;
   createDrillMetric(metric: InsertDrillMetric): Promise<DrillMetric>;
   updateDrillMetric(id: string, metric: Partial<InsertDrillMetric>): Promise<DrillMetric | undefined>;
   deleteDrillMetric(id: string): Promise<boolean>;
@@ -475,12 +493,102 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(benchmarks);
   }
 
+  // Video Library
+  async getVideoLibrary(): Promise<VideoLibrary[]> {
+    return await db.select().from(videoLibrary).orderBy(desc(videoLibrary.createdAt));
+  }
+
+  async getVideoLibraryById(id: string): Promise<VideoLibrary | undefined> {
+    const [video] = await db.select().from(videoLibrary).where(eq(videoLibrary.id, id));
+    return video;
+  }
+
+  async createVideoLibraryItem(video: InsertVideoLibrary): Promise<VideoLibrary> {
+    const [newVideo] = await db.insert(videoLibrary).values(video as any).returning();
+    return newVideo;
+  }
+
+  async updateVideoLibraryItem(id: string, video: Partial<InsertVideoLibrary>): Promise<VideoLibrary | undefined> {
+    const [updated] = await db.update(videoLibrary)
+      .set(video as any)
+      .where(eq(videoLibrary.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteVideoLibraryItem(id: string): Promise<boolean> {
+    await db.delete(videoLibrary).where(eq(videoLibrary.id, id));
+    return true;
+  }
+
+  // Metric Templates
+  async getMetricTemplates(): Promise<MetricTemplate[]> {
+    return await db.select().from(metricTemplates).orderBy(metricTemplates.name);
+  }
+
+  async getMetricTemplateById(id: string): Promise<MetricTemplate | undefined> {
+    const [template] = await db.select().from(metricTemplates).where(eq(metricTemplates.id, id));
+    return template;
+  }
+
+  async createMetricTemplate(template: InsertMetricTemplate): Promise<MetricTemplate> {
+    const [newTemplate] = await db.insert(metricTemplates).values(template as any).returning();
+    return newTemplate;
+  }
+
+  async updateMetricTemplate(id: string, template: Partial<InsertMetricTemplate>): Promise<MetricTemplate | undefined> {
+    const [updated] = await db.update(metricTemplates)
+      .set(template as any)
+      .where(eq(metricTemplates.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteMetricTemplate(id: string): Promise<boolean> {
+    await db.delete(metricTemplates).where(eq(metricTemplates.id, id));
+    return true;
+  }
+
   // Drill Metrics
   async getDrillMetrics(drillId: string): Promise<DrillMetric[]> {
     return await db.select()
       .from(drillMetrics)
       .where(eq(drillMetrics.drillId, drillId))
       .orderBy(drillMetrics.sortOrder);
+  }
+
+  async getDrillMetricsWithTemplates(drillId: string): Promise<Array<DrillMetric & { template: MetricTemplate }>> {
+    const results = await db.select({
+      drillMetric: drillMetrics,
+      template: metricTemplates,
+    })
+      .from(drillMetrics)
+      .innerJoin(metricTemplates, eq(drillMetrics.metricTemplateId, metricTemplates.id))
+      .where(eq(drillMetrics.drillId, drillId))
+      .orderBy(drillMetrics.sortOrder);
+    
+    return results.map(r => ({
+      ...r.drillMetric,
+      template: r.template
+    }));
+  }
+
+  async setDrillMetrics(drillId: string, metricTemplateIds: string[]): Promise<DrillMetric[]> {
+    // Delete existing drill metrics
+    await db.delete(drillMetrics).where(eq(drillMetrics.drillId, drillId));
+    
+    if (metricTemplateIds.length === 0) return [];
+    
+    // Insert new drill metrics
+    const values = metricTemplateIds.map((id, index) => ({
+      drillId,
+      metricTemplateId: id,
+      sortOrder: index,
+      isRequired: false,
+    }));
+    
+    const inserted = await db.insert(drillMetrics).values(values).returning();
+    return inserted;
   }
 
   async createDrillMetric(metric: InsertDrillMetric): Promise<DrillMetric> {
