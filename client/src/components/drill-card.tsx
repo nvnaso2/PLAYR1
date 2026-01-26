@@ -47,6 +47,12 @@ export function DrillCard({ drill, personalBest, totalSessions }: DrillCardProps
               alt={drill.title}
               className="w-full h-full object-cover"
             />
+          ) : drill.pdfUrl ? (
+            <img 
+              src={drill.pdfUrl} 
+              alt={drill.title}
+              className="w-full h-full object-cover"
+            />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-accent/20">
               <Target className="w-12 h-12 text-primary/50" />
