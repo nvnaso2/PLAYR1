@@ -69,8 +69,8 @@ const categories = [
     drillCount: 31
   },
   { 
-    category: "basketball-iq" as const, 
-    title: "Basketball IQ", 
+    category: "coaches-room" as const, 
+    title: "Coaches Room", 
     description: "Understand reads, spacing, and game situations.",
     icon: <Brain className="w-6 h-6" />,
     color: "#ec4899",

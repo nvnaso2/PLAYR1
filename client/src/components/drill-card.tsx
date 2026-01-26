@@ -23,7 +23,7 @@ const categoryLabels: Record<string, string> = {
   "passing": "Passing",
   "finishing": "Finishing",
   "defense": "Defense",
-  "basketball-iq": "Basketball IQ",
+  "coaches-room": "Coaches Room",
   "workouts": "Workouts",
 };
 
