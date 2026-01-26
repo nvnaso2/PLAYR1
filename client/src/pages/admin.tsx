@@ -298,10 +298,19 @@ function DrillForm({
   });
 
   const onSubmit = (data: DrillFormData) => {
+    // Convert null values to empty strings for optional URL fields
+    const cleanedData = {
+      ...data,
+      videoUrl: data.videoUrl || "",
+      thumbnailUrl: data.thumbnailUrl || "",
+      pdfUrl: data.pdfUrl || "",
+      videoLibraryId: data.videoLibraryId || "",
+      pdfLibraryId: data.pdfLibraryId || "",
+    };
     if (isEditing) {
-      updateMutation.mutate(data);
+      updateMutation.mutate(cleanedData);
     } else {
-      createMutation.mutate(data);
+      createMutation.mutate(cleanedData);
     }
   };
 
