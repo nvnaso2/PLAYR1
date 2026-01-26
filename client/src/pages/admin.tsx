@@ -1472,7 +1472,7 @@ function PdfLibraryForm({
                 <input
                   ref={pdfInputRef}
                   type="file"
-                  accept="application/pdf,image/*,.pdf"
+                  accept="*/*"
                   onChange={handlePdfUpload}
                   className="hidden"
                   disabled={isUploadingPdf}
