@@ -205,8 +205,8 @@ export const trainingLogsRelations = relations(trainingLogs, ({ one }) => ({
   drill: one(drills, { fields: [trainingLogs.drillId], references: [drills.id] })
 }));
 
-// URL validation helper - accepts http(s) URLs or /objects/ paths
-const urlOrObjectPath = z.string().optional().refine(
+// URL validation helper - accepts http(s) URLs or /objects/ paths (null/undefined allowed)
+const urlOrObjectPath = z.string().nullish().refine(
   (val) => !val || val.startsWith("http://") || val.startsWith("https://") || val.startsWith("/objects/"),
   { message: "Must be a valid URL or object storage path" }
 );
