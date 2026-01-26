@@ -6,10 +6,12 @@ import { storage } from "../../storage";
 // Allowed content types for uploads
 const ALLOWED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime", "video/x-msvideo"];
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
-const ALLOWED_CONTENT_TYPES = [...ALLOWED_VIDEO_TYPES, ...ALLOWED_IMAGE_TYPES];
+const ALLOWED_PDF_TYPES = ["application/pdf"];
+const ALLOWED_CONTENT_TYPES = [...ALLOWED_VIDEO_TYPES, ...ALLOWED_IMAGE_TYPES, ...ALLOWED_PDF_TYPES];
 
-// Max file sizes in bytes (100MB for videos, 10MB for images)
+// Max file sizes in bytes (100MB for videos, 50MB for PDFs, 10MB for images)
 const MAX_VIDEO_SIZE = 100 * 1024 * 1024;
+const MAX_PDF_SIZE = 50 * 1024 * 1024;
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 
 /**
@@ -74,7 +76,11 @@ export function registerObjectStorageRoutes(app: Express): void {
       }
 
       // Validate file size
-      const maxSize = ALLOWED_VIDEO_TYPES.includes(contentType) ? MAX_VIDEO_SIZE : MAX_IMAGE_SIZE;
+      const maxSize = ALLOWED_VIDEO_TYPES.includes(contentType) 
+        ? MAX_VIDEO_SIZE 
+        : ALLOWED_PDF_TYPES.includes(contentType) 
+          ? MAX_PDF_SIZE 
+          : MAX_IMAGE_SIZE;
       if (size && size > maxSize) {
         const maxMB = maxSize / (1024 * 1024);
         return res.status(400).json({
