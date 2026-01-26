@@ -402,14 +402,17 @@ export default function VideosPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Related Drill (Optional)</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select 
+                        onValueChange={(val) => field.onChange(val === "__none__" ? "" : val)} 
+                        value={field.value || "__none__"}
+                      >
                         <FormControl>
                           <SelectTrigger data-testid="select-drill">
                             <SelectValue placeholder="Select a drill" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="">None</SelectItem>
+                          <SelectItem value="__none__">None</SelectItem>
                           {drills?.map(drill => (
                             <SelectItem key={drill.id} value={drill.id}>
                               {drill.title}
