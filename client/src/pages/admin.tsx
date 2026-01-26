@@ -2064,15 +2064,17 @@ export default function AdminPage() {
     },
   });
 
-  // Reset workout form when opening/closing or editing
+  // Open workout dialog - defer form updates to avoid render loops
   const openWorkoutDialog = (workout?: Workout) => {
+    setIsCreateWorkoutOpen(true);
     if (workout) {
       setEditingWorkout(workout);
-      workoutForm.reset({
-        name: workout.name,
-        description: workout.description || "",
-        category: workout.category || "",
-      });
+      // Use setTimeout to defer form reset after dialog opens
+      setTimeout(() => {
+        workoutForm.setValue("name", workout.name);
+        workoutForm.setValue("description", workout.description || "");
+        workoutForm.setValue("category", workout.category || "");
+      }, 0);
       // Fetch the workout's drills
       fetch(`/api/workouts/${workout.id}`)
         .then(res => res.json())
@@ -2082,21 +2084,19 @@ export default function AdminPage() {
         .catch(() => setWorkoutDrillIds([]));
     } else {
       setEditingWorkout(null);
-      workoutForm.reset({
-        name: "",
-        description: "",
-        category: "",
-      });
       setWorkoutDrillIds([]);
+      setTimeout(() => {
+        workoutForm.setValue("name", "");
+        workoutForm.setValue("description", "");
+        workoutForm.setValue("category", "");
+      }, 0);
     }
-    setIsCreateWorkoutOpen(true);
   };
 
   const closeWorkoutDialog = () => {
     setIsCreateWorkoutOpen(false);
     setEditingWorkout(null);
     setWorkoutDrillIds([]);
-    workoutForm.reset();
   };
 
   const createWorkoutMutation = useMutation({
