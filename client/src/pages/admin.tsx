@@ -435,7 +435,7 @@ function DrillForm({
                 <div className="relative">
                   <input
                     type="file"
-                    accept="video/*,application/pdf"
+                    accept="video/*,application/pdf,image/*,.pdf"
                     onChange={handleVideoUpload}
                     className="absolute inset-0 opacity-0 cursor-pointer"
                     disabled={isUploadingVideo}
@@ -1036,7 +1036,7 @@ function VideoLibraryForm({
                 <input
                   ref={videoInputRef}
                   type="file"
-                  accept="video/*,application/pdf"
+                  accept="video/*,application/pdf,image/*,.pdf"
                   onChange={handleVideoUpload}
                   className="hidden"
                   disabled={isUploadingVideo}
@@ -1469,7 +1469,7 @@ function PdfLibraryForm({
                 <input
                   ref={pdfInputRef}
                   type="file"
-                  accept="application/pdf"
+                  accept="application/pdf,image/*,.pdf"
                   onChange={handlePdfUpload}
                   className="hidden"
                   disabled={isUploadingPdf}
