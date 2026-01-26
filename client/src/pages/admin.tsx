@@ -56,7 +56,8 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText, Play } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText, Play, ChevronDown } from "lucide-react";
 import type { Drill, DrillCategory, DifficultyLevel, DrillMetric, VideoLibrary, PdfLibrary, MetricTemplate } from "@shared/schema";
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, METRIC_TYPES } from "@shared/schema";
 import { useUpload } from "@/hooks/use-upload";
@@ -590,60 +591,72 @@ function DrillForm({
           )}
         />
 
-        {/* Metrics Configuration Section */}
-        <div className="border rounded-md p-4 space-y-3">
-          <div className="flex items-center gap-2">
+        {/* Metrics Configuration Section - Dropdown Multi-Select */}
+        <FormItem>
+          <FormLabel className="flex items-center gap-2">
             <Ruler className="w-4 h-4 text-primary" />
-            <span className="font-medium">Tracking Metrics</span>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Select which metrics to track when users log this drill
-          </p>
-          
-          {!metricTemplates?.length ? (
-            <div className="text-center py-4 text-muted-foreground text-sm">
-              No metric templates available. Create them in the Metrics tab.
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
-              {metricTemplates.map((template) => {
-                const isSelected = selectedMetricIds.includes(template.id);
-                return (
-                  <div 
-                    key={template.id} 
-                    className={`flex items-center gap-2 p-2 border rounded cursor-pointer hover-elevate ${isSelected ? 'ring-1 ring-primary bg-primary/5' : ''}`}
-                    onClick={() => handleToggleMetric(template.id)}
-                    data-testid={`checkbox-metric-${template.id}`}
-                  >
-                    <Checkbox 
-                      checked={isSelected}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1">
-                        {template.type === "calculated" ? (
-                          <Calculator className="w-3 h-3 text-primary flex-shrink-0" />
-                        ) : (
-                          <Hash className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-                        )}
-                        <span className="text-sm font-medium truncate">{template.label}</span>
+            Tracking Metrics
+          </FormLabel>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full justify-between font-normal"
+                data-testid="dropdown-metrics"
+              >
+                {selectedMetricIds.length === 0 ? (
+                  <span className="text-muted-foreground">Select metrics to track...</span>
+                ) : (
+                  <span>{selectedMetricIds.length} metric{selectedMetricIds.length !== 1 ? 's' : ''} selected</span>
+                )}
+                <ChevronDown className="w-4 h-4 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[300px] p-0" align="start">
+              {!metricTemplates?.length ? (
+                <div className="p-4 text-center text-muted-foreground text-sm">
+                  No metric templates available. Create them in the Metrics tab.
+                </div>
+              ) : (
+                <div className="max-h-64 overflow-y-auto p-1">
+                  {metricTemplates.map((template) => {
+                    const isSelected = selectedMetricIds.includes(template.id);
+                    return (
+                      <div 
+                        key={template.id} 
+                        className={`flex items-center gap-2 p-2 rounded cursor-pointer hover-elevate ${isSelected ? 'bg-primary/10' : ''}`}
+                        onClick={() => handleToggleMetric(template.id)}
+                        data-testid={`checkbox-metric-${template.id}`}
+                      >
+                        <Checkbox 
+                          checked={isSelected}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1">
+                            {template.type === "calculated" ? (
+                              <Calculator className="w-3 h-3 text-primary flex-shrink-0" />
+                            ) : (
+                              <Hash className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                            )}
+                            <span className="text-sm font-medium truncate">{template.label}</span>
+                          </div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            {template.type}{template.unit && ` (${template.unit})`}
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-xs text-muted-foreground truncate">
-                        {template.type}{template.unit && ` (${template.unit})`}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          
-          {selectedMetricIds.length > 0 && (
-            <div className="text-xs text-muted-foreground">
-              {selectedMetricIds.length} metric{selectedMetricIds.length !== 1 ? 's' : ''} selected
-            </div>
-          )}
-        </div>
+                    );
+                  })}
+                </div>
+              )}
+            </PopoverContent>
+          </Popover>
+          <FormDescription>
+            Select which metrics users will track when logging this drill
+          </FormDescription>
+        </FormItem>
 
         <div className="flex gap-2 justify-end pt-4">
           <Button type="button" variant="outline" onClick={onCancel} data-testid="button-cancel-drill">
@@ -1880,163 +1893,6 @@ function MetricTemplateForm({
   );
 }
 
-// Drill Metrics Configuration Component (now uses metric templates)
-function MetricsConfigDialog({ 
-  drill, 
-  open, 
-  onOpenChange 
-}: { 
-  drill: Drill; 
-  open: boolean; 
-  onOpenChange: (open: boolean) => void;
-}) {
-  const { toast } = useToast();
-  const [selectedTemplates, setSelectedTemplates] = useState<string[]>([]);
-
-  const { data: drillMetrics, isLoading: metricsLoading } = useQuery<DrillMetricWithTemplate[]>({
-    queryKey: ['/api/drills', drill.id, 'metrics'],
-    queryFn: async () => {
-      const res = await fetch(`/api/drills/${drill.id}/metrics`);
-      if (!res.ok) throw new Error('Failed to fetch metrics');
-      return res.json();
-    },
-    enabled: open,
-  });
-
-  const { data: allTemplates, isLoading: templatesLoading } = useQuery<MetricTemplate[]>({
-    queryKey: ['/api/metric-templates'],
-    enabled: open,
-  });
-
-  // Update selected templates when drill metrics load
-  useEffect(() => {
-    if (drillMetrics) {
-      setSelectedTemplates(drillMetrics.map(m => m.metricTemplateId));
-    }
-  }, [drillMetrics]);
-
-  const saveMutation = useMutation({
-    mutationFn: async (templateIds: string[]) => {
-      return await apiRequest("POST", `/api/drills/${drill.id}/metrics`, { metricTemplateIds: templateIds });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/drills', drill.id, 'metrics'] });
-      toast({ title: "Metrics updated successfully" });
-      onOpenChange(false);
-    },
-    onError: (error: any) => {
-      toast({ 
-        title: "Failed to update metrics", 
-        description: error.message,
-        variant: "destructive" 
-      });
-    },
-  });
-
-  const handleToggleTemplate = (templateId: string) => {
-    setSelectedTemplates(prev => 
-      prev.includes(templateId) 
-        ? prev.filter(id => id !== templateId)
-        : [...prev, templateId]
-    );
-  };
-
-  const handleSave = () => {
-    saveMutation.mutate(selectedTemplates);
-  };
-
-  const isLoading = metricsLoading || templatesLoading;
-  const currentTemplateIds = drillMetrics?.map(m => m.metricTemplateId) || [];
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Settings2 className="w-5 h-5" />
-            Configure Metrics: {drill.title}
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-6">
-          <p className="text-sm text-muted-foreground">
-            Select which metric templates to use for tracking progress on this drill.
-          </p>
-
-          {isLoading ? (
-            <div className="space-y-2">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-            </div>
-          ) : !allTemplates?.length ? (
-            <div className="text-center py-8 border rounded-md">
-              <Ruler className="w-12 h-12 mx-auto text-muted-foreground mb-2" />
-              <p className="text-muted-foreground">No metric templates available.</p>
-              <p className="text-sm text-muted-foreground">Create templates in the Metrics tab first.</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {allTemplates.map((template) => {
-                const isSelected = selectedTemplates.includes(template.id) || 
-                  (selectedTemplates.length === 0 && currentTemplateIds.includes(template.id));
-                return (
-                  <div 
-                    key={template.id} 
-                    className={`flex items-center justify-between p-3 border rounded-md cursor-pointer hover-elevate ${isSelected ? 'ring-2 ring-primary bg-primary/5' : ''}`}
-                    onClick={() => handleToggleTemplate(template.id)}
-                    data-testid={`template-select-${template.id}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Checkbox 
-                        checked={isSelected}
-                        onCheckedChange={() => handleToggleTemplate(template.id)}
-                      />
-                      {template.type === "calculated" ? (
-                        <Calculator className="w-4 h-4 text-primary" />
-                      ) : (
-                        <Hash className="w-4 h-4 text-muted-foreground" />
-                      )}
-                      <div>
-                        <div className="font-medium">{template.label}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {template.type === "calculated" ? (
-                            <span>Formula: {template.formula}</span>
-                          ) : (
-                            <span>Type: {template.type}{template.unit && ` • Unit: ${template.unit}`}</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    {template.category && (
-                      <Badge variant="secondary" className="capitalize text-xs">
-                        {template.category.replace("-", " ")}
-                      </Badge>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          <div className="flex justify-end gap-2 pt-4 border-t">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleSave} 
-              disabled={saveMutation.isPending}
-              data-testid="button-save-drill-metrics"
-            >
-              {saveMutation.isPending ? "Saving..." : "Save Metrics"}
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 export default function AdminPage() {
   const { toast } = useToast();
   const { isAdmin, isLoading: adminLoading } = useAdmin();
@@ -2049,7 +1905,6 @@ export default function AdminPage() {
   const [editingVideo, setEditingVideo] = useState<VideoLibrary | null>(null);
   const [editingPdf, setEditingPdf] = useState<PdfLibrary | null>(null);
   const [editingMetric, setEditingMetric] = useState<MetricTemplate | null>(null);
-  const [configuringMetricsDrill, setConfiguringMetricsDrill] = useState<Drill | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("videos");
@@ -2812,16 +2667,6 @@ export default function AdminPage() {
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1">
-                              <Button 
-                                size="icon" 
-                                variant="ghost"
-                                onClick={() => setConfiguringMetricsDrill(drill)}
-                                data-testid={`button-configure-metrics-${drill.id}`}
-                                title="Configure Metrics"
-                              >
-                                <Settings2 className="w-4 h-4" />
-                              </Button>
-
                               <Dialog open={editingDrill?.id === drill.id} onOpenChange={(open) => !open && setEditingDrill(null)}>
                                 <DialogTrigger asChild>
                                   <Button 
@@ -2993,14 +2838,6 @@ export default function AdminPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Metrics Configuration Dialog */}
-      {configuringMetricsDrill && (
-        <MetricsConfigDialog
-          drill={configuringMetricsDrill}
-          open={!!configuringMetricsDrill}
-          onOpenChange={(open) => !open && setConfiguringMetricsDrill(null)}
-        />
-      )}
     </div>
   );
 }
