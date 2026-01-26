@@ -1284,11 +1284,12 @@ function PdfLibraryForm({
   const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Check for PDF by MIME type or file extension (mobile may report different MIME types)
+      // Accept PDFs and images (training documents may be saved as images)
       const isPdf = file.type === "application/pdf" || 
                     file.name.toLowerCase().endsWith(".pdf");
-      if (!isPdf) {
-        toast({ title: "Please select a PDF file", variant: "destructive" });
+      const isImage = file.type.startsWith("image/");
+      if (!isPdf && !isImage) {
+        toast({ title: "Please select a PDF or image file", variant: "destructive" });
         return;
       }
       await uploadPdfFile(file);
@@ -1464,10 +1465,10 @@ function PdfLibraryForm({
           name="pdfUrl"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>PDF File</FormLabel>
+              <FormLabel>Document File</FormLabel>
               <div className="flex gap-2">
                 <FormControl>
-                  <Input placeholder="Upload a PDF file" {...field} readOnly data-testid="input-pdf-url" />
+                  <Input placeholder="Upload a PDF or image file" {...field} readOnly data-testid="input-pdf-url" />
                 </FormControl>
                 <input
                   ref={pdfInputRef}
