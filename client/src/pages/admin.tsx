@@ -330,7 +330,7 @@ function DrillForm({
               <FormLabel>Select Video from Library</FormLabel>
               <Select 
                 onValueChange={(value) => handleVideoLibrarySelect(value === "none" ? "" : value)} 
-                defaultValue={field.value || "none"}
+                value={field.value || "none"}
               >
                 <FormControl>
                   <SelectTrigger data-testid="select-drill-video-library">
@@ -727,10 +727,19 @@ function VideoLibraryForm({
 
   // Mutation to link a drill to this video
   const linkDrillMutation = useMutation({
-    mutationFn: async ({ drillId, videoId }: { drillId: string; videoId: string }) => {
-      // Update the drill to point to this video
+    mutationFn: async ({ drillId, videoId, videoUrl, thumbnailUrl, duration }: { 
+      drillId: string; 
+      videoId: string;
+      videoUrl: string;
+      thumbnailUrl?: string | null;
+      duration?: number | null;
+    }) => {
+      // Update the drill to point to this video and copy its URLs
       return await apiRequest("PUT", `/api/drills/${drillId}`, { 
         videoLibraryId: videoId,
+        videoUrl: videoUrl,
+        thumbnailUrl: thumbnailUrl || null,
+        duration: duration || undefined,
       });
     },
     onSuccess: () => {
@@ -810,7 +819,13 @@ function VideoLibraryForm({
           
           // Link the new drill if selected
           if (linkedDrillId && linkedDrillId !== "none" && linkedDrillId !== previousDrillId && video?.id) {
-            await linkDrillMutation.mutateAsync({ drillId: linkedDrillId, videoId: video.id });
+            await linkDrillMutation.mutateAsync({ 
+              drillId: linkedDrillId, 
+              videoId: video.id,
+              videoUrl: data.videoUrl,
+              thumbnailUrl: data.thumbnailUrl,
+              duration: data.duration,
+            });
           }
         }
       });
@@ -1016,7 +1031,7 @@ function VideoLibraryForm({
                 <FormLabel>Link to Drill</FormLabel>
                 <Select 
                   onValueChange={field.onChange} 
-                  defaultValue={field.value || "none"}
+                  value={field.value || "none"}
                 >
                   <FormControl>
                     <SelectTrigger data-testid="select-video-linked-drill">
