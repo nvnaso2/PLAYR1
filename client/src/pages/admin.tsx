@@ -2898,13 +2898,11 @@ export default function AdminPage() {
               <h2 className="text-xl font-semibold">Handlz Workouts</h2>
               <p className="text-sm text-muted-foreground">Create workout routines by combining drills</p>
             </div>
-            <Dialog open={isCreateWorkoutOpen} onOpenChange={(open) => { if (!open) closeWorkoutDialog(); }}>
-              <DialogTrigger asChild>
-                <Button className="gap-2" data-testid="button-add-workout">
-                  <Plus className="w-4 h-4" />
-                  Create Workout
-                </Button>
-              </DialogTrigger>
+            <Button className="gap-2" data-testid="button-add-workout" onClick={() => openWorkoutDialog()}>
+              <Plus className="w-4 h-4" />
+              Create Workout
+            </Button>
+            <Dialog open={isCreateWorkoutOpen} onOpenChange={setIsCreateWorkoutOpen}>
               <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>{editingWorkout ? "Edit Workout" : "Create Workout"}</DialogTitle>
