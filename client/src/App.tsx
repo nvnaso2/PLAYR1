@@ -20,6 +20,7 @@ import TrainingLog from "@/pages/training-log";
 import Progress from "@/pages/progress";
 import Videos from "@/pages/videos";
 import Profile from "@/pages/profile";
+import Career from "@/pages/career";
 import Admin from "@/pages/admin";
 import NotFound from "@/pages/not-found";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -79,6 +80,7 @@ function Router({ previewLanding }: { previewLanding: boolean }) {
         <Route path="/log" component={TrainingLog} />
         <Route path="/progress" component={Progress} />
         <Route path="/videos" component={Videos} />
+        <Route path="/career" component={Career} />
         <Route path="/profile" component={Profile} />
         <Route path="/admin" component={Admin} />
         <Route component={NotFound} />

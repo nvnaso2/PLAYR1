@@ -11,7 +11,10 @@ import {
   pdfLibrary, type PdfLibrary, type InsertPdfLibrary,
   metricTemplates, type MetricTemplate, type InsertMetricTemplate,
   workouts, type Workout, type InsertWorkout,
-  workoutDrills, type WorkoutDrill, type InsertWorkoutDrill
+  workoutDrills, type WorkoutDrill, type InsertWorkoutDrill,
+  careerProfiles, type CareerProfile, type InsertCareerProfile,
+  careerAchievements, type CareerAchievement, type InsertCareerAchievement,
+  userAchievements, type UserAchievement, type InsertUserAchievement
 } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
@@ -109,6 +112,18 @@ export interface IStorage {
   createWorkout(workout: InsertWorkout, drillIds: string[]): Promise<Workout>;
   updateWorkout(id: string, workout: Partial<InsertWorkout>, drillIds?: string[]): Promise<Workout | undefined>;
   deleteWorkout(id: string): Promise<boolean>;
+
+  // Career Profiles
+  getCareerProfile(userId: string): Promise<CareerProfile | undefined>;
+  createCareerProfile(profile: InsertCareerProfile): Promise<CareerProfile>;
+  updateCareerProfile(userId: string, profile: Partial<InsertCareerProfile>): Promise<CareerProfile | undefined>;
+  addXpToCareer(userId: string, xp: number): Promise<CareerProfile | undefined>;
+
+  // Achievements
+  getAchievements(): Promise<CareerAchievement[]>;
+  getUserAchievements(userId: string): Promise<Array<UserAchievement & { achievement: CareerAchievement }>>;
+  unlockAchievement(userId: string, achievementId: string): Promise<UserAchievement>;
+  checkAndUnlockAchievements(userId: string): Promise<UserAchievement[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -786,6 +801,143 @@ export class DatabaseStorage implements IStorage {
     await db.delete(workoutDrills).where(eq(workoutDrills.workoutId, id));
     await db.delete(workouts).where(eq(workouts.id, id));
     return true;
+  }
+
+  // Career Profiles
+  async getCareerProfile(userId: string): Promise<CareerProfile | undefined> {
+    const [profile] = await db.select().from(careerProfiles).where(eq(careerProfiles.userId, userId));
+    return profile;
+  }
+
+  async createCareerProfile(profile: InsertCareerProfile): Promise<CareerProfile> {
+    const [newProfile] = await db.insert(careerProfiles).values(profile as any).returning();
+    return newProfile;
+  }
+
+  async updateCareerProfile(userId: string, profile: Partial<InsertCareerProfile>): Promise<CareerProfile | undefined> {
+    const [updated] = await db.update(careerProfiles)
+      .set({ ...profile, updatedAt: new Date() } as any)
+      .where(eq(careerProfiles.userId, userId))
+      .returning();
+    return updated;
+  }
+
+  async addXpToCareer(userId: string, xpToAdd: number): Promise<CareerProfile | undefined> {
+    const existingProfile = await this.getCareerProfile(userId);
+    if (!existingProfile) return undefined;
+
+    const newXp = (existingProfile.xp || 0) + xpToAdd;
+    const newTotalXp = (existingProfile.totalXp || 0) + xpToAdd;
+    
+    // Calculate level based on XP (100 XP per level, increasing by 50 each level)
+    let level = existingProfile.level || 1;
+    let xpForNextLevel = level * 100 + 50;
+    let currentXp = newXp;
+    
+    while (currentXp >= xpForNextLevel) {
+      currentXp -= xpForNextLevel;
+      level++;
+      xpForNextLevel = level * 100 + 50;
+    }
+
+    const [updated] = await db.update(careerProfiles)
+      .set({ 
+        xp: currentXp, 
+        totalXp: newTotalXp, 
+        level,
+        updatedAt: new Date() 
+      } as any)
+      .where(eq(careerProfiles.userId, userId))
+      .returning();
+    
+    return updated;
+  }
+
+  // Achievements
+  async getAchievements(): Promise<CareerAchievement[]> {
+    return await db.select().from(careerAchievements).orderBy(careerAchievements.name);
+  }
+
+  async getUserAchievements(userId: string): Promise<Array<UserAchievement & { achievement: CareerAchievement }>> {
+    const results = await db
+      .select()
+      .from(userAchievements)
+      .innerJoin(careerAchievements, eq(userAchievements.achievementId, careerAchievements.id))
+      .where(eq(userAchievements.userId, userId));
+    
+    return results.map(r => ({
+      ...r.user_achievements,
+      achievement: r.career_achievements
+    }));
+  }
+
+  async unlockAchievement(userId: string, achievementId: string): Promise<UserAchievement> {
+    // Check if already unlocked
+    const [existing] = await db
+      .select()
+      .from(userAchievements)
+      .where(and(
+        eq(userAchievements.userId, userId),
+        eq(userAchievements.achievementId, achievementId)
+      ));
+    
+    if (existing) return existing;
+
+    const [newAchievement] = await db
+      .insert(userAchievements)
+      .values({ userId, achievementId })
+      .returning();
+    
+    // Add XP from achievement
+    const [achievement] = await db
+      .select()
+      .from(careerAchievements)
+      .where(eq(careerAchievements.id, achievementId));
+    
+    if (achievement?.xpReward) {
+      await this.addXpToCareer(userId, achievement.xpReward);
+    }
+    
+    return newAchievement;
+  }
+
+  async checkAndUnlockAchievements(userId: string): Promise<UserAchievement[]> {
+    const unlockedAchievements: UserAchievement[] = [];
+    
+    // Get user's stats
+    const stats = await this.getUserStats(userId);
+    const allAchievements = await this.getAchievements();
+    const userAchievementsList = await this.getUserAchievements(userId);
+    const unlockedIds = new Set(userAchievementsList.map(ua => ua.achievementId));
+    
+    for (const achievement of allAchievements) {
+      if (unlockedIds.has(achievement.id)) continue;
+      
+      let shouldUnlock = false;
+      const [reqType, reqDetail] = achievement.requirement.split(':');
+      
+      switch (reqType) {
+        case 'sessions':
+          shouldUnlock = stats.totalSessions >= achievement.requirementValue;
+          break;
+        case 'minutes':
+          shouldUnlock = stats.totalMinutes >= achievement.requirementValue;
+          break;
+        case 'streak':
+          shouldUnlock = stats.streak >= achievement.requirementValue;
+          break;
+        case 'score':
+          shouldUnlock = stats.avgScore >= achievement.requirementValue;
+          break;
+      }
+      
+      if (shouldUnlock) {
+        const unlocked = await this.unlockAchievement(userId, achievement.id);
+        unlockedAchievements.push(unlocked);
+      }
+    }
+    
+    return unlockedAchievements;
   }
 }
 

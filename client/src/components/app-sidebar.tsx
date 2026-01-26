@@ -39,12 +39,14 @@ import {
   Shield,
   Brain,
   Flame,
-  Settings
+  Settings,
+  Trophy
 } from "lucide-react";
 import logoLandscape from "@assets/Handlz_Landscape_1769377307158.png";
 
 const mainNavItems = [
   { title: "Dashboard", url: "/", icon: Home },
+  { title: "My Career", url: "/career", icon: Trophy },
   { title: "Drill Library", url: "/drills", icon: Play },
   { title: "Training Log", url: "/log", icon: ClipboardList },
   { title: "My Progress", url: "/progress", icon: BarChart3 },

@@ -23,6 +23,115 @@ export type DrillCategory = typeof DRILL_CATEGORIES[number];
 export const DIFFICULTY_LEVELS = ["beginner", "intermediate", "advanced", "elite"] as const;
 export type DifficultyLevel = typeof DIFFICULTY_LEVELS[number];
 
+// Basketball positions
+export const BASKETBALL_POSITIONS = ["PG", "SG", "SF", "PF", "C"] as const;
+export type BasketballPosition = typeof BASKETBALL_POSITIONS[number];
+
+// Basketball aspirations/goals
+export const BASKETBALL_ASPIRATIONS = [
+  "recreational",
+  "feeder-team", 
+  "aau",
+  "middle-school",
+  "high-school",
+  "college",
+  "professional-non-nba",
+  "nba"
+] as const;
+export type BasketballAspiration = typeof BASKETBALL_ASPIRATIONS[number];
+
+// Grade levels
+export const GRADE_LEVELS = [
+  "elementary",
+  "6th",
+  "7th", 
+  "8th",
+  "freshman",
+  "sophomore",
+  "junior",
+  "senior",
+  "college-freshman",
+  "college-sophomore",
+  "college-junior",
+  "college-senior",
+  "post-college"
+] as const;
+export type GradeLevel = typeof GRADE_LEVELS[number];
+
+// Avatar customization options
+export const AVATAR_SKIN_TONES = ["light", "medium-light", "medium", "medium-dark", "dark"] as const;
+export const AVATAR_HAIR_STYLES = ["short", "medium", "long", "braids", "afro", "bald", "buzz"] as const;
+export const AVATAR_HAIR_COLORS = ["black", "brown", "blonde", "red", "gray"] as const;
+
+// Career profiles - My Career mode data
+export const careerProfiles = pgTable("career_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique(),
+  
+  // Basic info
+  birthMonth: integer("birth_month"), // 1-12
+  birthYear: integer("birth_year"),
+  gradeLevel: varchar("grade_level").$type<GradeLevel>(),
+  
+  // Team info
+  teamName: varchar("team_name"),
+  schoolName: varchar("school_name"),
+  positions: text("positions").array(), // Array of positions like ["PG", "SG"]
+  jerseyNumber: integer("jersey_number"),
+  
+  // Goals
+  aspiration: varchar("aspiration").$type<BasketballAspiration>(),
+  focusSkill: varchar("focus_skill").$type<DrillCategory>(),
+  
+  // Self-evaluation skills (1-10 scale)
+  skillBallHandling: integer("skill_ball_handling"),
+  skillShooting: integer("skill_shooting"),
+  skillPassing: integer("skill_passing"),
+  skillFinishing: integer("skill_finishing"),
+  skillDefense: integer("skill_defense"),
+  skillBasketballIQ: integer("skill_basketball_iq"),
+  skillAthletics: integer("skill_athletics"),
+  
+  // Progression
+  level: integer("level").default(1),
+  xp: integer("xp").default(0),
+  totalXp: integer("total_xp").default(0),
+  
+  // Avatar customization
+  avatarSkinTone: varchar("avatar_skin_tone").default("medium"),
+  avatarHairStyle: varchar("avatar_hair_style").default("short"),
+  avatarHairColor: varchar("avatar_hair_color").default("black"),
+  avatarAccessory: varchar("avatar_accessory"), // headband, glasses, etc.
+  
+  // Onboarding status
+  onboardingCompleted: boolean("onboarding_completed").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+
+// Career achievements - unlockable badges/milestones
+export const careerAchievements = pgTable("career_achievements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  description: text("description"),
+  icon: varchar("icon"), // icon name or emoji
+  category: varchar("category").$type<DrillCategory>(),
+  xpReward: integer("xp_reward").default(100),
+  requirement: varchar("requirement").notNull(), // e.g., "sessions:10", "streak:7", "score:9"
+  requirementValue: integer("requirement_value").notNull(),
+  tier: varchar("tier").default("bronze"), // bronze, silver, gold, platinum
+  createdAt: timestamp("created_at").defaultNow()
+});
+
+// User unlocked achievements
+export const userAchievements = pgTable("user_achievements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  achievementId: varchar("achievement_id").notNull(),
+  unlockedAt: timestamp("unlocked_at").defaultNow()
+});
+
 // User profiles with location and age
 export const userProfiles = pgTable("user_profiles", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -273,6 +382,9 @@ export const insertDrillMetricSchema = createInsertSchema(drillMetrics).omit({ i
 export const insertTrainingLogMetricSchema = createInsertSchema(trainingLogMetrics).omit({ id: true, createdAt: true });
 export const insertWorkoutSchema = createInsertSchema(workouts).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertWorkoutDrillSchema = createInsertSchema(workoutDrills).omit({ id: true, createdAt: true });
+export const insertCareerProfileSchema = createInsertSchema(careerProfiles).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertCareerAchievementSchema = createInsertSchema(careerAchievements).omit({ id: true, createdAt: true });
+export const insertUserAchievementSchema = createInsertSchema(userAchievements).omit({ id: true, unlockedAt: true });
 
 // Types
 export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
@@ -300,3 +412,9 @@ export type InsertWorkout = z.infer<typeof insertWorkoutSchema>;
 export type Workout = typeof workouts.$inferSelect;
 export type InsertWorkoutDrill = z.infer<typeof insertWorkoutDrillSchema>;
 export type WorkoutDrill = typeof workoutDrills.$inferSelect;
+export type InsertCareerProfile = z.infer<typeof insertCareerProfileSchema>;
+export type CareerProfile = typeof careerProfiles.$inferSelect;
+export type InsertCareerAchievement = z.infer<typeof insertCareerAchievementSchema>;
+export type CareerAchievement = typeof careerAchievements.$inferSelect;
+export type InsertUserAchievement = z.infer<typeof insertUserAchievementSchema>;
+export type UserAchievement = typeof userAchievements.$inferSelect;

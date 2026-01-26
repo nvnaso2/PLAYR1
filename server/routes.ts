@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
-import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema } from "@shared/schema";
+import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(
@@ -975,6 +975,157 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error saving training log metrics:", error);
       res.status(500).json({ message: "Failed to save metrics" });
+    }
+  });
+
+  // ===== MY CAREER =====
+
+  // Get career profile for current user
+  app.get("/api/career", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const profile = await storage.getCareerProfile(userId);
+      res.json(profile || null);
+    } catch (error) {
+      console.error("Error fetching career profile:", error);
+      res.status(500).json({ message: "Failed to fetch career profile" });
+    }
+  });
+
+  // Create career profile (onboarding)
+  app.post("/api/career", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Check if profile already exists
+      const existing = await storage.getCareerProfile(userId);
+      if (existing) {
+        return res.status(400).json({ message: "Career profile already exists" });
+      }
+      
+      const data = insertCareerProfileSchema.parse({ ...req.body, userId });
+      const profile = await storage.createCareerProfile(data);
+      res.status(201).json(profile);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error creating career profile:", error);
+      res.status(500).json({ message: "Failed to create career profile" });
+    }
+  });
+
+  // Update career profile
+  app.put("/api/career", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Whitelist allowed fields - exclude userId, level, xp, totalXp to prevent manipulation
+      const allowedFields = [
+        'birthMonth', 'birthYear', 'gradeLevel', 'teamName', 'schoolName',
+        'positions', 'jerseyNumber', 'aspiration', 'focusSkill',
+        'skillBallHandling', 'skillShooting', 'skillPassing', 'skillFinishing',
+        'skillDefense', 'skillBasketballIQ', 'skillAthletics',
+        'avatarSkinTone', 'avatarHairStyle', 'avatarHairColor', 'avatarAccessory',
+        'onboardingCompleted'
+      ];
+      
+      const filteredBody: Record<string, any> = {};
+      for (const key of allowedFields) {
+        if (req.body[key] !== undefined) {
+          filteredBody[key] = req.body[key];
+        }
+      }
+      
+      const data = insertCareerProfileSchema.partial().parse(filteredBody);
+      const profile = await storage.updateCareerProfile(userId, data);
+      if (!profile) {
+        return res.status(404).json({ message: "Career profile not found" });
+      }
+      res.json(profile);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error updating career profile:", error);
+      res.status(500).json({ message: "Failed to update career profile" });
+    }
+  });
+
+  // Complete onboarding
+  app.post("/api/career/complete-onboarding", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const profile = await storage.updateCareerProfile(userId, { onboardingCompleted: true });
+      if (!profile) {
+        return res.status(404).json({ message: "Career profile not found" });
+      }
+      res.json(profile);
+    } catch (error) {
+      console.error("Error completing onboarding:", error);
+      res.status(500).json({ message: "Failed to complete onboarding" });
+    }
+  });
+
+  // ===== ACHIEVEMENTS =====
+
+  // Get all available achievements
+  app.get("/api/achievements", isAuthenticated, async (req: any, res) => {
+    try {
+      const achievements = await storage.getAchievements();
+      res.json(achievements);
+    } catch (error) {
+      console.error("Error fetching achievements:", error);
+      res.status(500).json({ message: "Failed to fetch achievements" });
+    }
+  });
+
+  // Get user's unlocked achievements
+  app.get("/api/achievements/unlocked", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const achievements = await storage.getUserAchievements(userId);
+      res.json(achievements);
+    } catch (error) {
+      console.error("Error fetching user achievements:", error);
+      res.status(500).json({ message: "Failed to fetch user achievements" });
+    }
+  });
+
+  // Check and unlock new achievements
+  app.post("/api/achievements/check", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const newAchievements = await storage.checkAndUnlockAchievements(userId);
+      res.json(newAchievements);
+    } catch (error) {
+      console.error("Error checking achievements:", error);
+      res.status(500).json({ message: "Failed to check achievements" });
+    }
+  });
+
+  // Add XP to career (used after training sessions)
+  app.post("/api/career/add-xp", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { xp } = req.body;
+      
+      if (typeof xp !== 'number' || xp < 0) {
+        return res.status(400).json({ message: "XP must be a positive number" });
+      }
+      
+      const profile = await storage.addXpToCareer(userId, xp);
+      if (!profile) {
+        return res.status(404).json({ message: "Career profile not found" });
+      }
+      
+      // Check for new achievements
+      const newAchievements = await storage.checkAndUnlockAchievements(userId);
+      
+      res.json({ profile, newAchievements });
+    } catch (error) {
+      console.error("Error adding XP:", error);
+      res.status(500).json({ message: "Failed to add XP" });
     }
   });
 
