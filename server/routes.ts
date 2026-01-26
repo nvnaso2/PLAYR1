@@ -643,8 +643,8 @@ export async function registerRoutes(
     try {
       const { name, description, category, estimatedDuration, drillIds } = req.body;
       
-      if (!name || !drillIds || !Array.isArray(drillIds) || drillIds.length < 2) {
-        return res.status(400).json({ message: "Workout must have a name and at least 2 drills" });
+      if (!name || !drillIds || !Array.isArray(drillIds) || drillIds.length < 1) {
+        return res.status(400).json({ message: "Workout must have a name and at least 1 drill" });
       }
       
       const workout = await storage.createWorkout(

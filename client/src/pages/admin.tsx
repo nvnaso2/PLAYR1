@@ -58,8 +58,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText, Play, ChevronDown } from "lucide-react";
-import type { Drill, DrillCategory, DifficultyLevel, DrillMetric, VideoLibrary, PdfLibrary, MetricTemplate } from "@shared/schema";
+import type { Drill, DrillCategory, DifficultyLevel, DrillMetric, VideoLibrary, PdfLibrary, MetricTemplate, Workout, WorkoutDrill } from "@shared/schema";
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, METRIC_TYPES } from "@shared/schema";
+import { Layers, GripVertical } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useUpload } from "@/hooks/use-upload";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -90,6 +92,20 @@ const drillFormSchema = z.object({
 type DrillFormData = z.infer<typeof drillFormSchema>;
 
 type DrillMetricWithTemplate = DrillMetric & { template: MetricTemplate };
+
+// Workout form schema for admin
+const workoutFormSchema = z.object({
+  name: z.string().min(1, "Workout name is required"),
+  description: z.string().optional(),
+  category: z.string().optional(),
+});
+
+type WorkoutFormData = z.infer<typeof workoutFormSchema>;
+
+type WorkoutWithDrills = {
+  workout: Workout;
+  drills: Array<WorkoutDrill & { drill: Drill }>;
+};
 
 function DrillForm({ 
   drill, 
@@ -1908,6 +1924,11 @@ export default function AdminPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("videos");
+  
+  // Workout state
+  const [isCreateWorkoutOpen, setIsCreateWorkoutOpen] = useState(false);
+  const [editingWorkout, setEditingWorkout] = useState<Workout | null>(null);
+  const [workoutDrillIds, setWorkoutDrillIds] = useState<string[]>([]);
 
   const { data: drills, isLoading } = useQuery<Drill[]>({
     queryKey: ['/api/drills'],
@@ -1930,6 +1951,12 @@ export default function AdminPage() {
 
   const { data: metricTemplates, isLoading: metricsLoading } = useQuery<MetricTemplate[]>({
     queryKey: ['/api/metric-templates'],
+    enabled: isAdmin,
+  });
+
+  // Fetch Handlz workouts (admin-created workouts with userId = null)
+  const { data: handlzWorkouts, isLoading: workoutsLoading } = useQuery<Workout[]>({
+    queryKey: ['/api/workouts/handlz'],
     enabled: isAdmin,
   });
 
@@ -2027,6 +2054,133 @@ export default function AdminPage() {
     },
   });
 
+  // Workout form
+  const workoutForm = useForm<WorkoutFormData>({
+    resolver: zodResolver(workoutFormSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      category: "",
+    },
+  });
+
+  // Reset workout form when opening/closing or editing
+  const openWorkoutDialog = (workout?: Workout) => {
+    if (workout) {
+      setEditingWorkout(workout);
+      workoutForm.reset({
+        name: workout.name,
+        description: workout.description || "",
+        category: workout.category || "",
+      });
+      // Fetch the workout's drills
+      fetch(`/api/workouts/${workout.id}`)
+        .then(res => res.json())
+        .then((data: WorkoutWithDrills) => {
+          setWorkoutDrillIds(data.drills.map(wd => wd.drillId));
+        })
+        .catch(() => setWorkoutDrillIds([]));
+    } else {
+      setEditingWorkout(null);
+      workoutForm.reset({
+        name: "",
+        description: "",
+        category: "",
+      });
+      setWorkoutDrillIds([]);
+    }
+    setIsCreateWorkoutOpen(true);
+  };
+
+  const closeWorkoutDialog = () => {
+    setIsCreateWorkoutOpen(false);
+    setEditingWorkout(null);
+    setWorkoutDrillIds([]);
+    workoutForm.reset();
+  };
+
+  const createWorkoutMutation = useMutation({
+    mutationFn: async (data: WorkoutFormData) => {
+      return await apiRequest("POST", "/api/workouts/handlz", {
+        ...data,
+        drillIds: workoutDrillIds,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/workouts/handlz'] });
+      toast({ title: "Workout created successfully" });
+      closeWorkoutDialog();
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to create workout", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const updateWorkoutMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: WorkoutFormData }) => {
+      return await apiRequest("PUT", `/api/workouts/${id}`, {
+        ...data,
+        drillIds: workoutDrillIds,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/workouts/handlz'] });
+      toast({ title: "Workout updated successfully" });
+      closeWorkoutDialog();
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to update workout", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const deleteWorkoutMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("DELETE", `/api/workouts/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/workouts/handlz'] });
+      toast({ title: "Workout deleted successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to delete workout", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const handleWorkoutSubmit = (data: WorkoutFormData) => {
+    if (workoutDrillIds.length === 0) {
+      toast({ title: "Please select at least one drill", variant: "destructive" });
+      return;
+    }
+    if (editingWorkout) {
+      updateWorkoutMutation.mutate({ id: editingWorkout.id, data });
+    } else {
+      createWorkoutMutation.mutate(data);
+    }
+  };
+
+  const toggleWorkoutDrill = (drillId: string) => {
+    setWorkoutDrillIds(prev => 
+      prev.includes(drillId) 
+        ? prev.filter(id => id !== drillId)
+        : [...prev, drillId]
+    );
+  };
+
+  // Get only Handlz drills (admin drills) for workout building
+  const handlzDrills = drills?.filter(d => d.userId === null) || [];
+
   if (adminLoading) {
     return (
       <div className="p-6 space-y-6">
@@ -2092,6 +2246,10 @@ export default function AdminPage() {
           <TabsTrigger value="drills" className="gap-2" data-testid="tab-drills">
             <Video className="w-4 h-4" />
             Drills
+          </TabsTrigger>
+          <TabsTrigger value="workouts" className="gap-2" data-testid="tab-workouts">
+            <Play className="w-4 h-4" />
+            Workouts
           </TabsTrigger>
           <TabsTrigger value="users" className="gap-2" data-testid="tab-users">
             <Users className="w-4 h-4" />
@@ -2715,6 +2873,244 @@ export default function AdminPage() {
                                       onClick={() => deleteMutation.mutate(drill.id)}
                                       className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                       data-testid={`button-confirm-delete-${drill.id}`}
+                                    >
+                                      Delete
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Workouts Tab */}
+        <TabsContent value="workouts" className="space-y-6">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <h2 className="text-xl font-semibold">Handlz Workouts</h2>
+              <p className="text-sm text-muted-foreground">Create workout routines by combining drills</p>
+            </div>
+            <Dialog open={isCreateWorkoutOpen} onOpenChange={(open) => open ? openWorkoutDialog() : closeWorkoutDialog()}>
+              <DialogTrigger asChild>
+                <Button className="gap-2" data-testid="button-add-workout">
+                  <Plus className="w-4 h-4" />
+                  Create Workout
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>{editingWorkout ? "Edit Workout" : "Create Workout"}</DialogTitle>
+                </DialogHeader>
+                <Form {...workoutForm}>
+                  <form onSubmit={workoutForm.handleSubmit(handleWorkoutSubmit)} className="space-y-4">
+                    <FormField
+                      control={workoutForm.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Workout Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g., Ball Handling Fundamentals" {...field} data-testid="input-workout-name" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={workoutForm.control}
+                      name="description"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Description (Optional)</FormLabel>
+                          <FormControl>
+                            <Textarea placeholder="Describe this workout routine..." {...field} data-testid="input-workout-description" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={workoutForm.control}
+                      name="category"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Category (Optional)</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value || ""}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-workout-category">
+                                <SelectValue placeholder="Select a category" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {DRILL_CATEGORIES.map(cat => (
+                                <SelectItem key={cat} value={cat}>
+                                  {cat.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    {/* Drill Selection */}
+                    <div className="space-y-2">
+                      <FormLabel>Select Drills ({workoutDrillIds.length} selected)</FormLabel>
+                      <p className="text-sm text-muted-foreground">Choose drills to include in this workout</p>
+                      <ScrollArea className="h-64 border rounded-md p-3">
+                        {handlzDrills.length === 0 ? (
+                          <p className="text-sm text-muted-foreground text-center py-4">No Handlz drills available. Create drills first.</p>
+                        ) : (
+                          <div className="space-y-2">
+                            {handlzDrills.map(drill => (
+                              <div 
+                                key={drill.id}
+                                className={`flex items-center gap-3 p-2 rounded-md cursor-pointer hover-elevate ${
+                                  workoutDrillIds.includes(drill.id) ? 'bg-primary/10 border border-primary' : 'border'
+                                }`}
+                                onClick={() => toggleWorkoutDrill(drill.id)}
+                                data-testid={`workout-drill-select-${drill.id}`}
+                              >
+                                <Checkbox 
+                                  checked={workoutDrillIds.includes(drill.id)}
+                                  onCheckedChange={() => toggleWorkoutDrill(drill.id)}
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <span className="font-medium text-sm">{drill.title}</span>
+                                  <div className="flex gap-2 mt-1">
+                                    <Badge variant="secondary" className="text-xs">
+                                      {drill.category.replace(/-/g, ' ')}
+                                    </Badge>
+                                    <Badge variant="outline" className="text-xs">
+                                      {drill.difficulty}
+                                    </Badge>
+                                  </div>
+                                </div>
+                                {workoutDrillIds.includes(drill.id) && (
+                                  <Badge className="bg-primary text-primary-foreground">
+                                    #{workoutDrillIds.indexOf(drill.id) + 1}
+                                  </Badge>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </ScrollArea>
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-4">
+                      <Button type="button" variant="outline" onClick={closeWorkoutDialog}>
+                        Cancel
+                      </Button>
+                      <Button 
+                        type="submit" 
+                        disabled={createWorkoutMutation.isPending || updateWorkoutMutation.isPending}
+                        data-testid="button-save-workout"
+                      >
+                        {(createWorkoutMutation.isPending || updateWorkoutMutation.isPending) ? "Saving..." : (editingWorkout ? "Update Workout" : "Create Workout")}
+                      </Button>
+                    </div>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Layers className="w-5 h-5" />
+                Workout Library
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {workoutsLoading ? (
+                <div className="space-y-4">
+                  {[...Array(3)].map((_, i) => (
+                    <Skeleton key={i} className="h-16 w-full" />
+                  ))}
+                </div>
+              ) : !handlzWorkouts || handlzWorkouts.length === 0 ? (
+                <div className="text-center py-12">
+                  <Layers className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
+                  <h3 className="font-semibold mb-2">No Workouts Yet</h3>
+                  <p className="text-muted-foreground text-sm mb-4">
+                    Create your first Handlz workout by combining drills
+                  </p>
+                  <Button onClick={() => openWorkoutDialog()} className="gap-2">
+                    <Plus className="w-4 h-4" />
+                    Create Workout
+                  </Button>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {handlzWorkouts.map(workout => (
+                        <TableRow key={workout.id} data-testid={`workout-row-${workout.id}`}>
+                          <TableCell className="font-medium">{workout.name}</TableCell>
+                          <TableCell>
+                            {workout.category ? (
+                              <Badge variant="secondary">
+                                {workout.category.replace(/-/g, ' ')}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="max-w-xs truncate">
+                            {workout.description || <span className="text-muted-foreground">No description</span>}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex gap-2 justify-end">
+                              <Button 
+                                size="icon" 
+                                variant="ghost"
+                                onClick={() => openWorkoutDialog(workout)}
+                                data-testid={`button-edit-workout-${workout.id}`}
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button 
+                                    size="icon" 
+                                    variant="ghost"
+                                    data-testid={`button-delete-workout-${workout.id}`}
+                                  >
+                                    <Trash2 className="w-4 h-4 text-destructive" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete Workout</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to delete "{workout.name}"? This action cannot be undone.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => deleteWorkoutMutation.mutate(workout.id)}
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                      data-testid={`button-confirm-delete-workout-${workout.id}`}
                                     >
                                       Delete
                                     </AlertDialogAction>
