@@ -9,7 +9,9 @@ import {
   trainingLogMetrics, type TrainingLogMetric, type InsertTrainingLogMetric,
   videoLibrary, type VideoLibrary, type InsertVideoLibrary,
   pdfLibrary, type PdfLibrary, type InsertPdfLibrary,
-  metricTemplates, type MetricTemplate, type InsertMetricTemplate
+  metricTemplates, type MetricTemplate, type InsertMetricTemplate,
+  workouts, type Workout, type InsertWorkout,
+  workoutDrills, type WorkoutDrill, type InsertWorkoutDrill
 } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
@@ -97,6 +99,16 @@ export interface IStorage {
   // Training Log Metrics
   getTrainingLogMetrics(trainingLogId: string): Promise<TrainingLogMetric[]>;
   saveTrainingLogMetrics(trainingLogId: string, metrics: Array<{ metricId: string; value: number }>): Promise<TrainingLogMetric[]>;
+
+  // Workouts
+  getWorkouts(): Promise<Workout[]>;
+  getHandlzWorkouts(): Promise<Workout[]>; // Admin-created workouts (userId is null)
+  getUserWorkouts(userId: string): Promise<Workout[]>; // User's own workouts
+  getWorkoutById(id: string): Promise<Workout | undefined>;
+  getWorkoutWithDrills(id: string): Promise<{ workout: Workout; drills: Array<WorkoutDrill & { drill: Drill }> } | undefined>;
+  createWorkout(workout: InsertWorkout, drillIds: string[]): Promise<Workout>;
+  updateWorkout(id: string, workout: Partial<InsertWorkout>, drillIds?: string[]): Promise<Workout | undefined>;
+  deleteWorkout(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -683,6 +695,97 @@ export class DatabaseStorage implements IStorage {
     
     const inserted = await db.insert(trainingLogMetrics).values(values).returning();
     return inserted;
+  }
+
+  // Workouts
+  async getWorkouts(): Promise<Workout[]> {
+    return await db.select().from(workouts).orderBy(desc(workouts.createdAt));
+  }
+
+  async getHandlzWorkouts(): Promise<Workout[]> {
+    return await db.select().from(workouts)
+      .where(sql`${workouts.userId} IS NULL`)
+      .orderBy(workouts.name);
+  }
+
+  async getUserWorkouts(userId: string): Promise<Workout[]> {
+    return await db.select().from(workouts)
+      .where(eq(workouts.userId, userId))
+      .orderBy(desc(workouts.createdAt));
+  }
+
+  async getWorkoutById(id: string): Promise<Workout | undefined> {
+    const [workout] = await db.select().from(workouts).where(eq(workouts.id, id));
+    return workout;
+  }
+
+  async getWorkoutWithDrills(id: string): Promise<{ workout: Workout; drills: Array<WorkoutDrill & { drill: Drill }> } | undefined> {
+    const [workout] = await db.select().from(workouts).where(eq(workouts.id, id));
+    if (!workout) return undefined;
+
+    const results = await db.select({
+      workoutDrill: workoutDrills,
+      drill: drills
+    })
+      .from(workoutDrills)
+      .innerJoin(drills, eq(workoutDrills.drillId, drills.id))
+      .where(eq(workoutDrills.workoutId, id))
+      .orderBy(workoutDrills.sortOrder);
+
+    return {
+      workout,
+      drills: results.map(r => ({
+        ...r.workoutDrill,
+        drill: r.drill
+      }))
+    };
+  }
+
+  async createWorkout(workout: InsertWorkout, drillIds: string[]): Promise<Workout> {
+    const [newWorkout] = await db.insert(workouts).values(workout as any).returning();
+    
+    if (drillIds.length > 0) {
+      const drillValues = drillIds.map((drillId, index) => ({
+        workoutId: newWorkout.id,
+        drillId,
+        sortOrder: index
+      }));
+      await db.insert(workoutDrills).values(drillValues);
+    }
+    
+    return newWorkout;
+  }
+
+  async updateWorkout(id: string, workout: Partial<InsertWorkout>, drillIds?: string[]): Promise<Workout | undefined> {
+    const [updated] = await db.update(workouts)
+      .set({ ...workout, updatedAt: new Date() } as any)
+      .where(eq(workouts.id, id))
+      .returning();
+    
+    if (!updated) return undefined;
+    
+    // Update drills if provided
+    if (drillIds !== undefined) {
+      await db.delete(workoutDrills).where(eq(workoutDrills.workoutId, id));
+      
+      if (drillIds.length > 0) {
+        const drillValues = drillIds.map((drillId, index) => ({
+          workoutId: id,
+          drillId,
+          sortOrder: index
+        }));
+        await db.insert(workoutDrills).values(drillValues);
+      }
+    }
+    
+    return updated;
+  }
+
+  async deleteWorkout(id: string): Promise<boolean> {
+    // Delete associated workout drills first
+    await db.delete(workoutDrills).where(eq(workoutDrills.workoutId, id));
+    await db.delete(workouts).where(eq(workouts.id, id));
+    return true;
   }
 }
 

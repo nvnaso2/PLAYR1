@@ -578,6 +578,139 @@ export async function registerRoutes(
     }
   });
 
+  // ===== WORKOUTS =====
+
+  // Get Handlz (admin) workouts
+  app.get("/api/workouts/handlz", async (req, res) => {
+    try {
+      const workouts = await storage.getHandlzWorkouts();
+      res.json(workouts);
+    } catch (error) {
+      console.error("Error fetching Handlz workouts:", error);
+      res.status(500).json({ message: "Failed to fetch workouts" });
+    }
+  });
+
+  // Get user's personal workouts
+  app.get("/api/workouts/personal", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const workouts = await storage.getUserWorkouts(userId);
+      res.json(workouts);
+    } catch (error) {
+      console.error("Error fetching user workouts:", error);
+      res.status(500).json({ message: "Failed to fetch workouts" });
+    }
+  });
+
+  // Get single workout with drills
+  app.get("/api/workouts/:id", async (req, res) => {
+    try {
+      const result = await storage.getWorkoutWithDrills(req.params.id);
+      if (!result) {
+        return res.status(404).json({ message: "Workout not found" });
+      }
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching workout:", error);
+      res.status(500).json({ message: "Failed to fetch workout" });
+    }
+  });
+
+  // Create workout (users can create their own workouts)
+  app.post("/api/workouts", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { name, description, category, estimatedDuration, drillIds } = req.body;
+      
+      if (!name || !drillIds || !Array.isArray(drillIds) || drillIds.length < 2) {
+        return res.status(400).json({ message: "Workout must have a name and at least 2 drills" });
+      }
+      
+      const workout = await storage.createWorkout(
+        { name, description, category, estimatedDuration, userId },
+        drillIds
+      );
+      res.status(201).json(workout);
+    } catch (error) {
+      console.error("Error creating workout:", error);
+      res.status(500).json({ message: "Failed to create workout" });
+    }
+  });
+
+  // Create Handlz workout (admin only)
+  app.post("/api/workouts/handlz", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { name, description, category, estimatedDuration, drillIds } = req.body;
+      
+      if (!name || !drillIds || !Array.isArray(drillIds) || drillIds.length < 2) {
+        return res.status(400).json({ message: "Workout must have a name and at least 2 drills" });
+      }
+      
+      const workout = await storage.createWorkout(
+        { name, description, category, estimatedDuration, userId: null },
+        drillIds
+      );
+      res.status(201).json(workout);
+    } catch (error) {
+      console.error("Error creating Handlz workout:", error);
+      res.status(500).json({ message: "Failed to create workout" });
+    }
+  });
+
+  // Update workout
+  app.put("/api/workouts/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const workout = await storage.getWorkoutById(req.params.id);
+      
+      if (!workout) {
+        return res.status(404).json({ message: "Workout not found" });
+      }
+      
+      // Check ownership or admin status
+      const isAdminUser = await storage.isUserAdmin(userId);
+      if (workout.userId !== userId && !isAdminUser) {
+        return res.status(403).json({ message: "Not authorized to update this workout" });
+      }
+      
+      const { name, description, category, estimatedDuration, drillIds } = req.body;
+      const updated = await storage.updateWorkout(
+        req.params.id,
+        { name, description, category, estimatedDuration },
+        drillIds
+      );
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating workout:", error);
+      res.status(500).json({ message: "Failed to update workout" });
+    }
+  });
+
+  // Delete workout
+  app.delete("/api/workouts/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const workout = await storage.getWorkoutById(req.params.id);
+      
+      if (!workout) {
+        return res.status(404).json({ message: "Workout not found" });
+      }
+      
+      // Check ownership or admin status
+      const isAdminUser = await storage.isUserAdmin(userId);
+      if (workout.userId !== userId && !isAdminUser) {
+        return res.status(403).json({ message: "Not authorized to delete this workout" });
+      }
+      
+      await storage.deleteWorkout(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting workout:", error);
+      res.status(500).json({ message: "Failed to delete workout" });
+    }
+  });
+
   // ===== TRAINING LOGS =====
 
   // Get user's training logs

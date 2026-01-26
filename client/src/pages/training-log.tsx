@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,7 +17,6 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-  FormDescription,
 } from "@/components/ui/form";
 import {
   Select,
@@ -36,14 +35,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   Tabs,
   TabsContent,
   TabsList,
@@ -61,14 +52,22 @@ import {
   Save,
   X,
   Dumbbell,
-  User
+  User,
+  Bookmark,
+  ChevronRight,
+  Layers,
+  Sparkles
 } from "lucide-react";
 import { format } from "date-fns";
-import type { Drill, TrainingLog, DrillMetric, MetricTemplate } from "@shared/schema";
-import { DRILL_CATEGORIES, DIFFICULTY_LEVELS } from "@shared/schema";
+import type { Drill, TrainingLog, DrillMetric, MetricTemplate, Workout, WorkoutDrill } from "@shared/schema";
+import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, insertDrillSchema, insertWorkoutSchema } from "@shared/schema";
 
-// Type for drill metric with template info
 type DrillMetricWithTemplate = DrillMetric & { template: MetricTemplate };
+
+type WorkoutWithDrills = {
+  workout: Workout;
+  drills: Array<WorkoutDrill & { drill: Drill }>;
+};
 
 type WorkoutDrillEntry = {
   drillId: string;
@@ -76,18 +75,31 @@ type WorkoutDrillEntry = {
   duration: number;
   notes: string;
   score: number;
-  metrics: Record<string, number>; // metricTemplateId -> value
-  drillMetrics: DrillMetricWithTemplate[]; // The configured metrics for this drill
+  metrics: Record<string, number>;
+  drillMetrics: DrillMetricWithTemplate[];
 };
 
-const createDrillSchema = z.object({
+// Use insert schemas from shared/schema.ts with UI-specific extensions
+const createDrillFormSchema = insertDrillSchema.pick({
+  title: true,
+  description: true,
+  category: true,
+  difficulty: true,
+}).extend({
   title: z.string().min(1, "Title is required"),
-  description: z.string().optional(),
-  category: z.enum(DRILL_CATEGORIES as readonly [string, ...string[]]),
-  difficulty: z.enum(DIFFICULTY_LEVELS as readonly [string, ...string[]]),
 });
 
-type CreateDrillFormData = z.infer<typeof createDrillSchema>;
+type CreateDrillFormData = z.infer<typeof createDrillFormSchema>;
+
+const saveWorkoutFormSchema = insertWorkoutSchema.pick({
+  name: true,
+  description: true,
+  category: true,
+}).extend({
+  name: z.string().min(1, "Workout name is required"),
+});
+
+type SaveWorkoutFormData = z.infer<typeof saveWorkoutFormSchema>;
 
 export default function TrainingLogPage() {
   const { toast } = useToast();
@@ -95,16 +107,36 @@ export default function TrainingLogPage() {
   const [workoutInProgress, setWorkoutInProgress] = useState(false);
   const [workoutEntries, setWorkoutEntries] = useState<WorkoutDrillEntry[]>([]);
   const [isCreateDrillOpen, setIsCreateDrillOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState("start");
+  const [isSaveWorkoutOpen, setIsSaveWorkoutOpen] = useState(false);
+  const [activeLibraryTab, setActiveLibraryTab] = useState("personal-drills");
+  const [activeView, setActiveView] = useState<"library" | "workout" | "history">("library");
 
-  // Fetch drills available to user (admin + their own)
-  const { data: drills, isLoading: drillsLoading } = useQuery<Drill[]>({
-    queryKey: ['/api/user/drills'],
+  // Fetch Handlz drills (admin drills with userId = null) - server filters correctly
+  const { data: handlzDrills, isLoading: handlzDrillsLoading } = useQuery<Drill[]>({
+    queryKey: ['/api/drills'],
+    select: (drills) => drills.filter(d => d.userId === null),
   });
 
-  // Fetch user's own drills
-  const { data: userDrills } = useQuery<Drill[]>({
-    queryKey: ['/api/drills/my-drills'],
+  // Fetch user's personal drills using the dedicated endpoint
+  const { data: personalDrills, isLoading: personalDrillsLoading } = useQuery<Drill[]>({
+    queryKey: ['/api/user/my-drills'],
+  });
+  
+  // Combined drills for lookup
+  const allDrills = useMemo(() => {
+    const combined: Drill[] = [];
+    if (handlzDrills) combined.push(...handlzDrills);
+    if (personalDrills) combined.push(...personalDrills);
+    return combined;
+  }, [handlzDrills, personalDrills]);
+
+  // Fetch workouts
+  const { data: handlzWorkouts, isLoading: handlzWorkoutsLoading } = useQuery<Workout[]>({
+    queryKey: ['/api/workouts/handlz'],
+  });
+
+  const { data: personalWorkouts, isLoading: personalWorkoutsLoading } = useQuery<Workout[]>({
+    queryKey: ['/api/workouts/personal'],
   });
 
   // Fetch training logs
@@ -113,8 +145,7 @@ export default function TrainingLogPage() {
   });
 
   // Group drills by category
-  const drillsByCategory = useMemo(() => {
-    if (!drills) return {};
+  const groupByCategory = (drills: Drill[]) => {
     const grouped: Record<string, Drill[]> = {};
     drills.forEach(drill => {
       const cat = drill.category || 'other';
@@ -122,16 +153,31 @@ export default function TrainingLogPage() {
       grouped[cat].push(drill);
     });
     return grouped;
-  }, [drills]);
+  };
+
+  const personalDrillsByCategory = useMemo(() => groupByCategory(personalDrills || []), [personalDrills]);
+  const handlzDrillsByCategory = useMemo(() => groupByCategory(handlzDrills || []), [handlzDrills]);
+  
+  const drillsLoading = handlzDrillsLoading || personalDrillsLoading;
 
   // Create drill form
   const createDrillForm = useForm<CreateDrillFormData>({
-    resolver: zodResolver(createDrillSchema),
+    resolver: zodResolver(createDrillFormSchema),
     defaultValues: {
       title: "",
       description: "",
       category: "ball-handling",
       difficulty: "beginner",
+    },
+  });
+
+  // Save workout form
+  const saveWorkoutForm = useForm<SaveWorkoutFormData>({
+    resolver: zodResolver(saveWorkoutFormSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      category: "",
     },
   });
 
@@ -141,14 +187,38 @@ export default function TrainingLogPage() {
       return await apiRequest("POST", "/api/user/drills", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/user/drills'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/drills/my-drills'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/drills'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/user/my-drills'] });
       toast({ title: "Drill created successfully" });
       setIsCreateDrillOpen(false);
       createDrillForm.reset();
     },
     onError: () => {
       toast({ title: "Failed to create drill", variant: "destructive" });
+    },
+  });
+
+  // Save workout mutation
+  const saveWorkoutMutation = useMutation({
+    mutationFn: async (data: SaveWorkoutFormData) => {
+      const drillIds = workoutEntries.map(e => e.drillId);
+      const totalDuration = workoutEntries.reduce((sum, e) => sum + e.duration, 0);
+      return await apiRequest("POST", "/api/workouts", {
+        name: data.name,
+        description: data.description,
+        category: data.category || null,
+        estimatedDuration: totalDuration,
+        drillIds,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/workouts/personal'] });
+      toast({ title: "Workout saved successfully" });
+      setIsSaveWorkoutOpen(false);
+      saveWorkoutForm.reset();
+    },
+    onError: () => {
+      toast({ title: "Failed to save workout", variant: "destructive" });
     },
   });
 
@@ -188,23 +258,21 @@ export default function TrainingLogPage() {
   };
 
   // Start workout with selected drills
-  const startWorkout = async () => {
+  const startWorkoutFromDrills = async () => {
     if (selectedDrillIds.size === 0) {
       toast({ title: "Please select at least one drill", variant: "destructive" });
       return;
     }
 
-    // Fetch metrics for all selected drills in parallel
     const drillIds = Array.from(selectedDrillIds);
     const metricsPromises = drillIds.map(id => fetchDrillMetrics(id));
     const metricsResults = await Promise.all(metricsPromises);
 
     const entries: WorkoutDrillEntry[] = [];
     drillIds.forEach((id, index) => {
-      const drill = drills?.find(d => d.id === id);
+      const drill = allDrills?.find(d => d.id === id);
       if (drill) {
         const drillMetrics = metricsResults[index] || [];
-        // Initialize metric values (default to 0)
         const metricValues: Record<string, number> = {};
         drillMetrics.forEach(dm => {
           metricValues[dm.metricTemplateId] = 0;
@@ -213,7 +281,7 @@ export default function TrainingLogPage() {
         entries.push({
           drillId: id,
           drill,
-          duration: Math.round((drill.duration || 300) / 60), // Convert to minutes
+          duration: Math.round((drill.duration || 300) / 60),
           notes: "",
           score: 7,
           metrics: metricValues,
@@ -224,7 +292,45 @@ export default function TrainingLogPage() {
 
     setWorkoutEntries(entries);
     setWorkoutInProgress(true);
-    setActiveTab("workout");
+    setActiveView("workout");
+  };
+
+  // Start workout from saved workout template
+  const startWorkoutFromTemplate = async (workoutId: string) => {
+    try {
+      const response = await fetch(`/api/workouts/${workoutId}`);
+      if (!response.ok) throw new Error("Failed to fetch workout");
+      const data: WorkoutWithDrills = await response.json();
+
+      const drillIds = data.drills.map(wd => wd.drillId);
+      const metricsPromises = drillIds.map(id => fetchDrillMetrics(id));
+      const metricsResults = await Promise.all(metricsPromises);
+
+      const entries: WorkoutDrillEntry[] = [];
+      data.drills.forEach((wd, index) => {
+        const drillMetrics = metricsResults[index] || [];
+        const metricValues: Record<string, number> = {};
+        drillMetrics.forEach(dm => {
+          metricValues[dm.metricTemplateId] = 0;
+        });
+        
+        entries.push({
+          drillId: wd.drillId,
+          drill: wd.drill,
+          duration: wd.defaultDuration || Math.round((wd.drill.duration || 300) / 60),
+          notes: "",
+          score: 7,
+          metrics: metricValues,
+          drillMetrics,
+        });
+      });
+
+      setWorkoutEntries(entries);
+      setWorkoutInProgress(true);
+      setActiveView("workout");
+    } catch {
+      toast({ title: "Failed to load workout", variant: "destructive" });
+    }
   };
 
   // Update workout entry
@@ -280,23 +386,20 @@ export default function TrainingLogPage() {
 
   // Save workout
   const saveWorkout = async () => {
-    // Validate required metrics first
-    if (!validateRequiredMetrics()) {
-      return;
-    }
+    if (!validateRequiredMetrics()) return;
 
     try {
-      // Create training logs for each drill and save metrics
+      const sessionId = crypto.randomUUID();
+      
       for (const entry of workoutEntries) {
-        // Create the training log first
         const logResponse = await apiRequest("POST", "/api/training-logs", {
           drillId: entry.drillId,
           duration: entry.duration,
           notes: entry.notes || undefined,
           score: entry.score,
+          workoutSessionId: workoutEntries.length > 1 ? sessionId : undefined,
         });
         
-        // If this drill has metrics, save all of them (including 0 values for optional metrics)
         if (entry.drillMetrics.length > 0 && Object.keys(entry.metrics).length > 0) {
           const logData = await logResponse.json();
           const metricsToSave = Object.entries(entry.metrics)
@@ -317,15 +420,14 @@ export default function TrainingLogPage() {
       queryClient.invalidateQueries({ queryKey: ['/api/stats/overview'] });
       
       toast({ 
-        title: "Workout Saved", 
+        title: "Workout Complete!", 
         description: `Logged ${workoutEntries.length} drill${workoutEntries.length > 1 ? 's' : ''}` 
       });
       
-      // Reset state
       setWorkoutInProgress(false);
       setWorkoutEntries([]);
       setSelectedDrillIds(new Set());
-      setActiveTab("history");
+      setActiveView("history");
     } catch (error) {
       console.error("Error saving workout:", error);
       toast({ title: "Failed to save workout", variant: "destructive" });
@@ -336,31 +438,195 @@ export default function TrainingLogPage() {
   const cancelWorkout = () => {
     setWorkoutInProgress(false);
     setWorkoutEntries([]);
-    setActiveTab("start");
+    setActiveView("library");
   };
 
   // Get drill title helper
   const getDrillTitle = (drillId: string) => {
-    const drill = drills?.find(d => d.id === drillId);
+    const drill = allDrills?.find(d => d.id === drillId);
     return drill?.title || "Unknown Drill";
   };
 
-  // Group logs by date
-  const groupLogsByDate = (logs: TrainingLog[]) => {
-    const grouped: Record<string, TrainingLog[]> = {};
+  // Group logs by date and then by workout session
+  type LogGroup = {
+    sessionId: string | null;
+    logs: TrainingLog[];
+  };
+  
+  const groupLogsByDateAndSession = (logs: TrainingLog[]) => {
+    // First group by date
+    const byDate: Record<string, TrainingLog[]> = {};
     logs.forEach(log => {
       const date = format(new Date(log.completedAt!), 'yyyy-MM-dd');
-      if (!grouped[date]) grouped[date] = [];
-      grouped[date].push(log);
+      if (!byDate[date]) byDate[date] = [];
+      byDate[date].push(log);
     });
-    return grouped;
+    
+    // Then within each date, group by workout session
+    const result: Record<string, LogGroup[]> = {};
+    Object.entries(byDate).forEach(([date, dayLogs]) => {
+      const sessions: Record<string, TrainingLog[]> = {};
+      const singles: TrainingLog[] = [];
+      
+      dayLogs.forEach(log => {
+        if (log.workoutSessionId) {
+          if (!sessions[log.workoutSessionId]) {
+            sessions[log.workoutSessionId] = [];
+          }
+          sessions[log.workoutSessionId].push(log);
+        } else {
+          singles.push(log);
+        }
+      });
+      
+      result[date] = [];
+      // Add grouped sessions first
+      Object.entries(sessions).forEach(([sessionId, sessionLogs]) => {
+        result[date].push({ sessionId, logs: sessionLogs });
+      });
+      // Add singles as individual entries
+      singles.forEach(log => {
+        result[date].push({ sessionId: null, logs: [log] });
+      });
+    });
+    
+    return result;
   };
 
-  const groupedLogs = logs ? groupLogsByDate(logs) : {};
+  const groupedLogs = logs ? groupLogsByDateAndSession(logs) : {};
 
   // Format category name
   const formatCategory = (cat: string) => {
     return cat.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
+
+  // Render drill selection list
+  const renderDrillList = (drillsByCategory: Record<string, Drill[]>, isPersonal: boolean) => {
+    if (Object.keys(drillsByCategory).length === 0) {
+      return (
+        <div className="text-center py-12">
+          <Dumbbell className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
+          <h3 className="font-semibold mb-2">
+            {isPersonal ? "No Personal Drills Yet" : "No Handlz Drills Available"}
+          </h3>
+          <p className="text-muted-foreground text-sm mb-4">
+            {isPersonal ? "Create your own custom drills to get started" : "Check back soon for new training content"}
+          </p>
+          {isPersonal && (
+            <Button onClick={() => setIsCreateDrillOpen(true)} variant="outline" className="gap-2">
+              <Plus className="w-4 h-4" />
+              Create Drill
+            </Button>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        {Object.entries(drillsByCategory).map(([category, categoryDrills]) => (
+          <div key={category}>
+            <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide mb-3">
+              {formatCategory(category)}
+            </h3>
+            <div className="grid gap-2">
+              {categoryDrills.map(drill => (
+                <div 
+                  key={drill.id}
+                  className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover-elevate ${
+                    selectedDrillIds.has(drill.id) ? 'border-primary bg-primary/5' : ''
+                  }`}
+                  onClick={() => toggleDrillSelection(drill.id)}
+                  data-testid={`drill-select-${drill.id}`}
+                >
+                  <Checkbox 
+                    checked={selectedDrillIds.has(drill.id)}
+                    onCheckedChange={() => toggleDrillSelection(drill.id)}
+                    data-testid={`checkbox-drill-${drill.id}`}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <span className="font-medium truncate block">{drill.title}</span>
+                    {drill.description && (
+                      <p className="text-sm text-muted-foreground truncate">{drill.description}</p>
+                    )}
+                  </div>
+                  <Badge variant="secondary">{drill.difficulty}</Badge>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // Render workout list
+  const renderWorkoutList = (workouts: Workout[] | undefined, isLoading: boolean, isPersonal: boolean) => {
+    if (isLoading) {
+      return (
+        <div className="space-y-4">
+          {[...Array(3)].map((_, i) => (
+            <Skeleton key={i} className="h-20 w-full" />
+          ))}
+        </div>
+      );
+    }
+
+    if (!workouts || workouts.length === 0) {
+      return (
+        <div className="text-center py-12">
+          <Layers className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
+          <h3 className="font-semibold mb-2">
+            {isPersonal ? "No Saved Workouts" : "No Handlz Workouts Available"}
+          </h3>
+          <p className="text-muted-foreground text-sm mb-4">
+            {isPersonal 
+              ? "Start a workout with 2+ drills and save it for quick access" 
+              : "Check back soon for curated workout routines"}
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-3">
+        {workouts.map(workout => (
+          <Card 
+            key={workout.id} 
+            className="cursor-pointer hover-elevate"
+            onClick={() => startWorkoutFromTemplate(workout.id)}
+            data-testid={`workout-card-${workout.id}`}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Layers className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <h4 className="font-medium">{workout.name}</h4>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      {workout.estimatedDuration && (
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5" />
+                          {workout.estimatedDuration} min
+                        </span>
+                      )}
+                      {workout.category && (
+                        <Badge variant="outline" className="text-xs">
+                          {formatCategory(workout.category)}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <ChevronRight className="w-5 h-5 text-muted-foreground" />
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
   };
 
   return (
@@ -368,333 +634,426 @@ export default function TrainingLogPage() {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold" data-testid="text-page-title">Training Log</h1>
-          <p className="text-muted-foreground">Build your workout and track progress</p>
+          <p className="text-muted-foreground">Build workouts, track progress, get better</p>
         </div>
         
-        <Dialog open={isCreateDrillOpen} onOpenChange={setIsCreateDrillOpen}>
-          <DialogTrigger asChild>
-            <Button variant="outline" className="gap-2" data-testid="button-create-drill">
-              <Plus className="w-4 h-4" />
-              Create Drill
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create Your Own Drill</DialogTitle>
-              <DialogDescription>
-                Add a custom drill to your training library
-              </DialogDescription>
-            </DialogHeader>
-            <Form {...createDrillForm}>
-              <form onSubmit={createDrillForm.handleSubmit(d => createDrillMutation.mutate(d))} className="space-y-4">
-                <FormField
-                  control={createDrillForm.control}
-                  name="title"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Drill Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g., My Custom Crossover" {...field} data-testid="input-drill-title" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={createDrillForm.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Description (Optional)</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Describe the drill..." {...field} data-testid="input-drill-description" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <div className="grid grid-cols-2 gap-4">
+        <div className="flex gap-2">
+          <Button 
+            variant={activeView === "history" ? "default" : "outline"} 
+            onClick={() => setActiveView("history")}
+            className="gap-2"
+            data-testid="button-view-history"
+          >
+            <Calendar className="w-4 h-4" />
+            History
+          </Button>
+          <Dialog open={isCreateDrillOpen} onOpenChange={setIsCreateDrillOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="gap-2" data-testid="button-create-drill">
+                <Plus className="w-4 h-4" />
+                Create Drill
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create Your Own Drill</DialogTitle>
+                <DialogDescription>
+                  Add a custom drill to your training library
+                </DialogDescription>
+              </DialogHeader>
+              <Form {...createDrillForm}>
+                <form onSubmit={createDrillForm.handleSubmit(d => createDrillMutation.mutate(d))} className="space-y-4">
                   <FormField
                     control={createDrillForm.control}
-                    name="category"
+                    name="title"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Category</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-drill-category">
-                              <SelectValue />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {DRILL_CATEGORIES.map(cat => (
-                              <SelectItem key={cat} value={cat}>
-                                {formatCategory(cat)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <FormLabel>Drill Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., My Custom Crossover" {...field} data-testid="input-drill-title" />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                   <FormField
                     control={createDrillForm.control}
-                    name="difficulty"
+                    name="description"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Difficulty</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-drill-difficulty">
-                              <SelectValue />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {DIFFICULTY_LEVELS.map(level => (
-                              <SelectItem key={level} value={level}>
-                                {level.charAt(0).toUpperCase() + level.slice(1)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <FormLabel>Description (Optional)</FormLabel>
+                        <FormControl>
+                          <Textarea placeholder="Describe the drill..." {...field} data-testid="input-drill-description" />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                </div>
-                <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setIsCreateDrillOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={createDrillMutation.isPending} data-testid="button-save-drill">
-                    {createDrillMutation.isPending ? "Creating..." : "Create Drill"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={createDrillForm.control}
+                      name="category"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Category</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-drill-category">
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {DRILL_CATEGORIES.map(cat => (
+                                <SelectItem key={cat} value={cat}>
+                                  {formatCategory(cat)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={createDrillForm.control}
+                      name="difficulty"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Difficulty</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-drill-difficulty">
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {DIFFICULTY_LEVELS.map(level => (
+                                <SelectItem key={level} value={level}>
+                                  {level.charAt(0).toUpperCase() + level.slice(1)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setIsCreateDrillOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={createDrillMutation.isPending} data-testid="button-save-drill">
+                      {createDrillMutation.isPending ? "Creating..." : "Create Drill"}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="start" disabled={workoutInProgress} data-testid="tab-start">
-            <Dumbbell className="w-4 h-4 mr-2" />
-            Start Workout
-          </TabsTrigger>
-          <TabsTrigger value="workout" disabled={!workoutInProgress} data-testid="tab-workout">
-            <Play className="w-4 h-4 mr-2" />
-            Active Workout
-          </TabsTrigger>
-          <TabsTrigger value="history" data-testid="tab-history">
-            <Calendar className="w-4 h-4 mr-2" />
-            History
-          </TabsTrigger>
-        </TabsList>
+      {/* Main Content Area */}
+      {activeView === "library" && !workoutInProgress && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Dumbbell className="w-5 h-5" />
+              Start a Workout
+            </CardTitle>
+            <CardDescription>
+              Select drills to practice, or pick a saved workout routine
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs value={activeLibraryTab} onValueChange={setActiveLibraryTab}>
+              <TabsList className="grid w-full grid-cols-4 mb-6">
+                <TabsTrigger value="personal-drills" className="text-xs sm:text-sm" data-testid="tab-personal-drills">
+                  <User className="w-4 h-4 mr-1 hidden sm:inline" />
+                  My Drills
+                </TabsTrigger>
+                <TabsTrigger value="personal-workouts" className="text-xs sm:text-sm" data-testid="tab-personal-workouts">
+                  <Bookmark className="w-4 h-4 mr-1 hidden sm:inline" />
+                  My Workouts
+                </TabsTrigger>
+                <TabsTrigger value="handlz-drills" className="text-xs sm:text-sm" data-testid="tab-handlz-drills">
+                  <Sparkles className="w-4 h-4 mr-1 hidden sm:inline" />
+                  Handlz Drills
+                </TabsTrigger>
+                <TabsTrigger value="handlz-workouts" className="text-xs sm:text-sm" data-testid="tab-handlz-workouts">
+                  <Layers className="w-4 h-4 mr-1 hidden sm:inline" />
+                  Handlz Workouts
+                </TabsTrigger>
+              </TabsList>
 
-        {/* Start Workout Tab - Multi-select drills */}
-        <TabsContent value="start" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Target className="w-5 h-5" />
-                Select Drills for Today's Workout
-              </CardTitle>
-              <CardDescription>
-                Choose the drills you want to practice, then start your workout
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {drillsLoading ? (
-                <div className="space-y-4">
-                  {[...Array(5)].map((_, i) => (
-                    <Skeleton key={i} className="h-12 w-full" />
-                  ))}
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {Object.entries(drillsByCategory).map(([category, categoryDrills]) => (
-                    <div key={category}>
-                      <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide mb-3">
-                        {formatCategory(category)}
-                      </h3>
-                      <div className="grid gap-2">
-                        {categoryDrills.map(drill => (
-                          <div 
-                            key={drill.id}
-                            className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover-elevate ${
-                              selectedDrillIds.has(drill.id) ? 'border-primary bg-primary/5' : ''
-                            }`}
-                            onClick={() => toggleDrillSelection(drill.id)}
-                            data-testid={`drill-select-${drill.id}`}
-                          >
-                            <Checkbox 
-                              checked={selectedDrillIds.has(drill.id)}
-                              onCheckedChange={() => toggleDrillSelection(drill.id)}
-                              data-testid={`checkbox-drill-${drill.id}`}
-                            />
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium truncate">{drill.title}</span>
-                                {drill.userId && (
-                                  <Badge variant="outline" className="text-xs">
-                                    <User className="w-3 h-3 mr-1" />
-                                    My Drill
-                                  </Badge>
-                                )}
-                              </div>
-                              {drill.description && (
-                                <p className="text-sm text-muted-foreground truncate">{drill.description}</p>
-                              )}
-                            </div>
-                            <Badge variant="secondary">{drill.difficulty}</Badge>
-                          </div>
-                        ))}
+              <TabsContent value="personal-drills">
+                {drillsLoading ? (
+                  <div className="space-y-4">
+                    {[...Array(5)].map((_, i) => (
+                      <Skeleton key={i} className="h-12 w-full" />
+                    ))}
+                  </div>
+                ) : (
+                  renderDrillList(personalDrillsByCategory, true)
+                )}
+              </TabsContent>
+
+              <TabsContent value="personal-workouts">
+                {renderWorkoutList(personalWorkouts, personalWorkoutsLoading, true)}
+              </TabsContent>
+
+              <TabsContent value="handlz-drills">
+                {drillsLoading ? (
+                  <div className="space-y-4">
+                    {[...Array(5)].map((_, i) => (
+                      <Skeleton key={i} className="h-12 w-full" />
+                    ))}
+                  </div>
+                ) : (
+                  renderDrillList(handlzDrillsByCategory, false)
+                )}
+              </TabsContent>
+
+              <TabsContent value="handlz-workouts">
+                {renderWorkoutList(handlzWorkouts, handlzWorkoutsLoading, false)}
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+
+          {selectedDrillIds.size > 0 && (
+            <CardFooter className="border-t pt-4 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+              <p className="text-sm text-muted-foreground">
+                {selectedDrillIds.size} drill{selectedDrillIds.size > 1 ? 's' : ''} selected
+              </p>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setSelectedDrillIds(new Set())} data-testid="button-clear-selection">
+                  Clear
+                </Button>
+                <Button onClick={startWorkoutFromDrills} className="gap-2" data-testid="button-start-workout">
+                  <Play className="w-4 h-4" />
+                  Start Workout
+                </Button>
+              </div>
+            </CardFooter>
+          )}
+        </Card>
+      )}
+
+      {/* Active Workout View */}
+      {activeView === "workout" && workoutInProgress && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Play className="w-5 h-5 text-primary" />
+                  Active Workout
+                </CardTitle>
+                <CardDescription>
+                  {workoutEntries.length} drill{workoutEntries.length > 1 ? 's' : ''} in this session
+                </CardDescription>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                <Button variant="outline" onClick={cancelWorkout} className="gap-2" data-testid="button-cancel-workout">
+                  <X className="w-4 h-4" />
+                  Cancel
+                </Button>
+                {workoutEntries.length >= 2 && (
+                  <Dialog open={isSaveWorkoutOpen} onOpenChange={setIsSaveWorkoutOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" className="gap-2" data-testid="button-save-as-workout">
+                        <Bookmark className="w-4 h-4" />
+                        Save as Workout
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Save Workout Template</DialogTitle>
+                        <DialogDescription>
+                          Save this combination of drills for quick access later
+                        </DialogDescription>
+                      </DialogHeader>
+                      <Form {...saveWorkoutForm}>
+                        <form onSubmit={saveWorkoutForm.handleSubmit(d => saveWorkoutMutation.mutate(d))} className="space-y-4">
+                          <FormField
+                            control={saveWorkoutForm.control}
+                            name="name"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Workout Name</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="e.g., Morning Ball Handling" {...field} data-testid="input-workout-name" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={saveWorkoutForm.control}
+                            name="description"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Description (Optional)</FormLabel>
+                                <FormControl>
+                                  <Textarea placeholder="Describe this workout..." {...field} data-testid="input-workout-description" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={saveWorkoutForm.control}
+                            name="category"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Category (Optional)</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger data-testid="select-workout-category">
+                                      <SelectValue placeholder="Select a category" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="none">None</SelectItem>
+                                    {DRILL_CATEGORIES.map(cat => (
+                                      <SelectItem key={cat} value={cat}>
+                                        {formatCategory(cat)}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => setIsSaveWorkoutOpen(false)}>
+                              Cancel
+                            </Button>
+                            <Button type="submit" disabled={saveWorkoutMutation.isPending} data-testid="button-confirm-save-workout">
+                              {saveWorkoutMutation.isPending ? "Saving..." : "Save Workout"}
+                            </Button>
+                          </DialogFooter>
+                        </form>
+                      </Form>
+                    </DialogContent>
+                  </Dialog>
+                )}
+                <Button onClick={saveWorkout} className="gap-2" disabled={createLogMutation.isPending} data-testid="button-finish-workout">
+                  <Save className="w-4 h-4" />
+                  Finish Workout
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {workoutEntries.map((entry, index) => (
+                <Card key={entry.drillId} className="border-muted" data-testid={`workout-row-${index}`}>
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="text-base">{entry.drill.title}</CardTitle>
+                        <CardDescription className="text-xs">
+                          {formatCategory(entry.drill.category)}
+                        </CardDescription>
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => removeFromWorkout(index)}
+                        data-testid={`button-remove-${index}`}
+                      >
+                        <X className="w-4 h-4 text-muted-foreground" />
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-sm font-medium text-muted-foreground">Duration (min)</label>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={180}
+                          value={entry.duration}
+                          onChange={(e) => updateEntry(index, 'duration', parseInt(e.target.value) || 1)}
+                          data-testid={`input-duration-${index}`}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-sm font-medium text-muted-foreground">Score (1-10)</label>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={10}
+                          value={entry.score}
+                          onChange={(e) => updateEntry(index, 'score', Math.min(10, Math.max(1, parseInt(e.target.value) || 1)))}
+                          data-testid={`input-score-${index}`}
+                        />
+                      </div>
+                      <div className="space-y-1 col-span-2">
+                        <label className="text-sm font-medium text-muted-foreground">Notes</label>
+                        <Input
+                          placeholder="Optional notes..."
+                          value={entry.notes}
+                          onChange={(e) => updateEntry(index, 'notes', e.target.value)}
+                          data-testid={`input-notes-${index}`}
+                        />
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
-
-              {selectedDrillIds.size > 0 && (
-                <div className="mt-6 pt-6 border-t flex items-center justify-between">
-                  <p className="text-sm text-muted-foreground">
-                    {selectedDrillIds.size} drill{selectedDrillIds.size > 1 ? 's' : ''} selected
-                  </p>
-                  <Button onClick={startWorkout} className="gap-2" data-testid="button-start-workout">
-                    <Play className="w-4 h-4" />
-                    Start Workout
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Active Workout Tab - Table input */}
-        <TabsContent value="workout" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <Play className="w-5 h-5 text-primary" />
-                    Today's Workout
-                  </CardTitle>
-                  <CardDescription>
-                    Track your performance for each drill
-                  </CardDescription>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={cancelWorkout} className="gap-2" data-testid="button-cancel-workout">
-                    <X className="w-4 h-4" />
-                    Cancel
-                  </Button>
-                  <Button onClick={saveWorkout} className="gap-2" disabled={createLogMutation.isPending} data-testid="button-save-workout">
-                    <Save className="w-4 h-4" />
-                    Save Workout
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {workoutEntries.map((entry, index) => (
-                  <Card key={entry.drillId} className="border-muted" data-testid={`workout-row-${index}`}>
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <CardTitle className="text-base">{entry.drill.title}</CardTitle>
-                          <CardDescription className="text-xs">
-                            {formatCategory(entry.drill.category)}
-                          </CardDescription>
-                        </div>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={() => removeFromWorkout(index)}
-                          data-testid={`button-remove-${index}`}
-                        >
-                          <X className="w-4 h-4 text-muted-foreground" />
-                        </Button>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      {/* Standard fields */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div className="space-y-1">
-                          <label className="text-sm font-medium text-muted-foreground">Duration (min)</label>
-                          <Input
-                            type="number"
-                            min={1}
-                            max={180}
-                            value={entry.duration}
-                            onChange={(e) => updateEntry(index, 'duration', parseInt(e.target.value) || 1)}
-                            data-testid={`input-duration-${index}`}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-sm font-medium text-muted-foreground">Score (1-10)</label>
-                          <Input
-                            type="number"
-                            min={1}
-                            max={10}
-                            value={entry.score}
-                            onChange={(e) => updateEntry(index, 'score', Math.min(10, Math.max(1, parseInt(e.target.value) || 1)))}
-                            data-testid={`input-score-${index}`}
-                          />
-                        </div>
-                        <div className="space-y-1 col-span-2">
-                          <label className="text-sm font-medium text-muted-foreground">Notes</label>
-                          <Input
-                            placeholder="Optional notes..."
-                            value={entry.notes}
-                            onChange={(e) => updateEntry(index, 'notes', e.target.value)}
-                            data-testid={`input-notes-${index}`}
-                          />
+                    
+                    {entry.drillMetrics.length > 0 && (
+                      <div className="pt-2 border-t">
+                        <p className="text-sm font-medium text-muted-foreground mb-3">Drill Metrics</p>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          {entry.drillMetrics
+                            .filter(dm => dm.template.type !== 'calculated')
+                            .map(dm => (
+                              <div key={dm.metricTemplateId} className="space-y-1">
+                                <label className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                                  {dm.template.name}
+                                  {dm.isRequired && <span className="text-destructive">*</span>}
+                                </label>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  value={entry.metrics[dm.metricTemplateId] || 0}
+                                  onChange={(e) => updateMetricValue(index, dm.metricTemplateId, parseFloat(e.target.value) || 0)}
+                                  placeholder={dm.template.unit || ''}
+                                  data-testid={`input-metric-${index}-${dm.metricTemplateId}`}
+                                />
+                                {dm.template.unit && (
+                                  <span className="text-xs text-muted-foreground">{dm.template.unit}</span>
+                                )}
+                              </div>
+                            ))}
                         </div>
                       </div>
-                      
-                      {/* Dynamic drill metrics */}
-                      {entry.drillMetrics.length > 0 && (
-                        <div className="pt-2 border-t">
-                          <p className="text-sm font-medium text-muted-foreground mb-3">Drill Metrics</p>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            {entry.drillMetrics
-                              .filter(dm => dm.template.type !== 'calculated')
-                              .map(dm => (
-                                <div key={dm.metricTemplateId} className="space-y-1">
-                                  <label className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-                                    {dm.template.name}
-                                    {dm.isRequired && <span className="text-destructive">*</span>}
-                                  </label>
-                                  <Input
-                                    type="number"
-                                    min={0}
-                                    value={entry.metrics[dm.metricTemplateId] || 0}
-                                    onChange={(e) => updateMetricValue(index, dm.metricTemplateId, parseFloat(e.target.value) || 0)}
-                                    placeholder={dm.template.unit || ''}
-                                    data-testid={`input-metric-${index}-${dm.metricTemplateId}`}
-                                  />
-                                  {dm.template.unit && (
-                                    <span className="text-xs text-muted-foreground">{dm.template.unit}</span>
-                                  )}
-                                </div>
-                              ))}
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-        {/* History Tab */}
-        <TabsContent value="history" className="space-y-6">
+      {/* History View */}
+      {activeView === "history" && !workoutInProgress && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Calendar className="w-5 h-5" />
+              Training History
+            </h2>
+            <Button variant="outline" onClick={() => setActiveView("library")} className="gap-2" data-testid="button-back-to-library">
+              <Plus className="w-4 h-4" />
+              New Workout
+            </Button>
+          </div>
+
           {logsLoading ? (
             <div className="space-y-4">
               {[...Array(5)].map((_, i) => (
@@ -715,63 +1074,103 @@ export default function TrainingLogPage() {
             <div className="space-y-8">
               {Object.entries(groupedLogs)
                 .sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime())
-                .map(([date, dayLogs]) => (
-                <div key={date}>
-                  <div className="flex items-center gap-2 mb-4">
-                    <Calendar className="w-4 h-4 text-muted-foreground" />
-                    <h3 className="text-sm font-medium text-muted-foreground">
-                      {format(new Date(date), 'EEEE, MMMM d, yyyy')}
-                    </h3>
-                    <Badge variant="secondary" className="ml-2">
-                      {dayLogs.length} session{dayLogs.length > 1 ? 's' : ''}
-                    </Badge>
-                  </div>
-                  <div className="space-y-3">
-                    {dayLogs.map((log) => (
-                      <Card key={log.id} className="hover-elevate" data-testid={`card-log-${log.id}`}>
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                              <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                                <Target className="w-6 h-6 text-primary" />
-                              </div>
-                              <div>
-                                <h4 className="font-medium" data-testid={`text-log-drill-${log.id}`}>
-                                  {getDrillTitle(log.drillId)}
-                                </h4>
-                                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                  <span className="flex items-center gap-1">
-                                    <Clock className="w-3.5 h-3.5" />
-                                    {log.duration} min
+                .map(([date, logGroups]) => {
+                  const totalLogs = logGroups.reduce((sum, g) => sum + g.logs.length, 0);
+                  return (
+                    <div key={date}>
+                      <div className="flex items-center gap-2 mb-4">
+                        <Calendar className="w-4 h-4 text-muted-foreground" />
+                        <h3 className="text-sm font-medium text-muted-foreground">
+                          {format(new Date(date), 'EEEE, MMMM d, yyyy')}
+                        </h3>
+                        <Badge variant="secondary" className="ml-2">
+                          {totalLogs} drill{totalLogs > 1 ? 's' : ''}
+                        </Badge>
+                      </div>
+                      <div className="space-y-4">
+                        {logGroups.map((group, groupIndex) => (
+                          group.sessionId && group.logs.length > 1 ? (
+                            <Card key={group.sessionId} className="border-primary/20" data-testid={`card-session-${group.sessionId}`}>
+                              <CardHeader className="pb-2">
+                                <div className="flex items-center gap-2">
+                                  <Layers className="w-4 h-4 text-primary" />
+                                  <span className="text-sm font-medium">Workout Session</span>
+                                  <Badge variant="secondary" className="text-xs">
+                                    {group.logs.length} drills
+                                  </Badge>
+                                  <span className="text-xs text-muted-foreground ml-auto">
+                                    {group.logs.reduce((sum, l) => sum + l.duration, 0)} min total
                                   </span>
-                                  {log.reps && (
-                                    <span>{log.reps} reps</span>
-                                  )}
-                                  {log.sets && (
-                                    <span>{log.sets} sets</span>
-                                  )}
                                 </div>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              {log.score && (
-                                <Badge variant="secondary" className="text-sm">
-                                  {log.score}/10
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                          {log.notes && (
-                            <p className="mt-3 text-sm text-muted-foreground border-t pt-3">
-                              {log.notes}
-                            </p>
-                          )}
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </div>
-              ))}
+                              </CardHeader>
+                              <CardContent className="space-y-2">
+                                {group.logs.map((log) => (
+                                  <div key={log.id} className="flex items-center justify-between p-2 rounded-md bg-muted/30" data-testid={`log-item-${log.id}`}>
+                                    <div className="flex items-center gap-3">
+                                      <Target className="w-4 h-4 text-primary" />
+                                      <span className="font-medium text-sm">{getDrillTitle(log.drillId)}</span>
+                                    </div>
+                                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                                      <span>{log.duration} min</span>
+                                      {log.score && (
+                                        <Badge variant="secondary" className="text-xs">
+                                          {log.score}/10
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </CardContent>
+                            </Card>
+                          ) : (
+                            group.logs.map((log) => (
+                              <Card key={log.id} className="hover-elevate" data-testid={`card-log-${log.id}`}>
+                                <CardContent className="p-4">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                      <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                                        <Target className="w-6 h-6 text-primary" />
+                                      </div>
+                                      <div>
+                                        <h4 className="font-medium" data-testid={`text-log-drill-${log.id}`}>
+                                          {getDrillTitle(log.drillId)}
+                                        </h4>
+                                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                          <span className="flex items-center gap-1">
+                                            <Clock className="w-3.5 h-3.5" />
+                                            {log.duration} min
+                                          </span>
+                                          {log.reps && (
+                                            <span>{log.reps} reps</span>
+                                          )}
+                                          {log.sets && (
+                                            <span>{log.sets} sets</span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                      {log.score && (
+                                        <Badge variant="secondary" className="text-sm">
+                                          {log.score}/10
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                  {log.notes && (
+                                    <p className="mt-3 text-sm text-muted-foreground border-t pt-3">
+                                      {log.notes}
+                                    </p>
+                                  )}
+                                </CardContent>
+                              </Card>
+                            ))
+                          )
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
             </div>
           ) : (
             <Card>
@@ -781,15 +1180,15 @@ export default function TrainingLogPage() {
                 <p className="text-muted-foreground mb-4 max-w-md mx-auto">
                   Start a workout to track your practice sessions and progress.
                 </p>
-                <Button onClick={() => setActiveTab("start")} className="gap-2" data-testid="button-first-log">
+                <Button onClick={() => setActiveView("library")} className="gap-2" data-testid="button-first-log">
                   <Play className="w-4 h-4" />
                   Start Your First Workout
                 </Button>
               </CardContent>
             </Card>
           )}
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
     </div>
   );
 }

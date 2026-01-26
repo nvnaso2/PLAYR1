@@ -122,11 +122,36 @@ export const trainingLogMetrics = pgTable("training_log_metrics", {
   createdAt: timestamp("created_at").defaultNow()
 });
 
+// Workouts - saved workout templates (combination of 2+ drills)
+export const workouts = pgTable("workouts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  description: text("description"),
+  userId: varchar("user_id"), // null = Handlz workout, set = user-created workout
+  category: varchar("category").$type<DrillCategory>(),
+  estimatedDuration: integer("estimated_duration"), // in minutes
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+
+// Workout drills - links workouts to their component drills
+export const workoutDrills = pgTable("workout_drills", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workoutId: varchar("workout_id").notNull(),
+  drillId: varchar("drill_id").notNull(),
+  sortOrder: integer("sort_order").default(0),
+  defaultDuration: integer("default_duration"), // suggested duration in minutes
+  defaultSets: integer("default_sets"),
+  defaultReps: integer("default_reps"),
+  createdAt: timestamp("created_at").defaultNow()
+});
+
 // Training logs - users track their drill practice
 export const trainingLogs = pgTable("training_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull(),
   drillId: varchar("drill_id").notNull(),
+  workoutSessionId: varchar("workout_session_id"), // groups logs from same workout session
   duration: integer("duration").notNull(), // in minutes
   reps: integer("reps"),
   sets: integer("sets"),
@@ -205,6 +230,15 @@ export const trainingLogsRelations = relations(trainingLogs, ({ one }) => ({
   drill: one(drills, { fields: [trainingLogs.drillId], references: [drills.id] })
 }));
 
+export const workoutsRelations = relations(workouts, ({ many }) => ({
+  workoutDrills: many(workoutDrills)
+}));
+
+export const workoutDrillsRelations = relations(workoutDrills, ({ one }) => ({
+  workout: one(workouts, { fields: [workoutDrills.workoutId], references: [workouts.id] }),
+  drill: one(drills, { fields: [workoutDrills.drillId], references: [drills.id] })
+}));
+
 // URL validation helper - accepts http(s) URLs or /objects/ paths (null/undefined allowed)
 const urlOrObjectPath = z.string().nullish().refine(
   (val) => !val || val.startsWith("http://") || val.startsWith("https://") || val.startsWith("/objects/"),
@@ -237,6 +271,8 @@ export const insertUserVideoSchema = createInsertSchema(userVideos).omit({ id: t
 export const insertDrillProgressSchema = createInsertSchema(drillProgress).omit({ id: true, updatedAt: true });
 export const insertDrillMetricSchema = createInsertSchema(drillMetrics).omit({ id: true, createdAt: true });
 export const insertTrainingLogMetricSchema = createInsertSchema(trainingLogMetrics).omit({ id: true, createdAt: true });
+export const insertWorkoutSchema = createInsertSchema(workouts).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertWorkoutDrillSchema = createInsertSchema(workoutDrills).omit({ id: true, createdAt: true });
 
 // Types
 export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
@@ -260,3 +296,7 @@ export type InsertDrillMetric = z.infer<typeof insertDrillMetricSchema>;
 export type DrillMetric = typeof drillMetrics.$inferSelect;
 export type InsertTrainingLogMetric = z.infer<typeof insertTrainingLogMetricSchema>;
 export type TrainingLogMetric = typeof trainingLogMetrics.$inferSelect;
+export type InsertWorkout = z.infer<typeof insertWorkoutSchema>;
+export type Workout = typeof workouts.$inferSelect;
+export type InsertWorkoutDrill = z.infer<typeof insertWorkoutDrillSchema>;
+export type WorkoutDrill = typeof workoutDrills.$inferSelect;
