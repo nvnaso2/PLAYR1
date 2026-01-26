@@ -40,6 +40,15 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
@@ -55,6 +64,7 @@ import {
   User,
   Bookmark,
   ChevronRight,
+  ChevronDown,
   Layers,
   Sparkles
 } from "lucide-react";
@@ -289,6 +299,35 @@ export default function TrainingLogPage() {
         });
       }
     });
+
+    setWorkoutEntries(entries);
+    setWorkoutInProgress(true);
+    setActiveView("workout");
+  };
+
+  // Quick start a single drill (for dropdown selection)
+  const quickStartDrill = async (drillId: string) => {
+    const drill = allDrills?.find(d => d.id === drillId);
+    if (!drill) {
+      toast({ title: "Drill not found", variant: "destructive" });
+      return;
+    }
+
+    const drillMetrics = await fetchDrillMetrics(drillId);
+    const metricValues: Record<string, number> = {};
+    drillMetrics.forEach(dm => {
+      metricValues[dm.metricTemplateId] = 0;
+    });
+
+    const entries: WorkoutDrillEntry[] = [{
+      drillId,
+      drill,
+      duration: Math.round((drill.duration || 300) / 60),
+      notes: "",
+      score: 7,
+      metrics: metricValues,
+      drillMetrics,
+    }];
 
     setWorkoutEntries(entries);
     setWorkoutInProgress(true);
@@ -788,6 +827,40 @@ export default function TrainingLogPage() {
               </TabsList>
 
               <TabsContent value="personal-drills">
+                {/* Quick Start Drill Dropdown */}
+                <div className="flex justify-end mb-4">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button className="gap-2" data-testid="button-quick-start-personal-drill">
+                        <Play className="w-4 h-4" />
+                        Start Drill
+                        <ChevronDown className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-64">
+                      <DropdownMenuLabel>Select a Drill</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <ScrollArea className="h-64">
+                        {personalDrills && personalDrills.length > 0 ? (
+                          personalDrills.map(drill => (
+                            <DropdownMenuItem 
+                              key={drill.id} 
+                              onClick={() => quickStartDrill(drill.id)}
+                              data-testid={`quick-start-drill-${drill.id}`}
+                            >
+                              <div className="flex flex-col">
+                                <span>{drill.title}</span>
+                                <span className="text-xs text-muted-foreground">{formatCategory(drill.category)}</span>
+                              </div>
+                            </DropdownMenuItem>
+                          ))
+                        ) : (
+                          <DropdownMenuItem disabled>No drills available</DropdownMenuItem>
+                        )}
+                      </ScrollArea>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
                 {drillsLoading ? (
                   <div className="space-y-4">
                     {[...Array(5)].map((_, i) => (
@@ -800,10 +873,80 @@ export default function TrainingLogPage() {
               </TabsContent>
 
               <TabsContent value="personal-workouts">
+                {/* Quick Start Workout Dropdown */}
+                <div className="flex justify-end mb-4">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button className="gap-2" data-testid="button-quick-start-personal-workout">
+                        <Play className="w-4 h-4" />
+                        Start Workout
+                        <ChevronDown className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-64">
+                      <DropdownMenuLabel>Select a Workout</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <ScrollArea className="h-64">
+                        {personalWorkouts && personalWorkouts.length > 0 ? (
+                          personalWorkouts.map(workout => (
+                            <DropdownMenuItem 
+                              key={workout.id} 
+                              onClick={() => startWorkoutFromTemplate(workout.id)}
+                              data-testid={`quick-start-workout-${workout.id}`}
+                            >
+                              <div className="flex flex-col">
+                                <span>{workout.name}</span>
+                                {workout.description && (
+                                  <span className="text-xs text-muted-foreground truncate">{workout.description}</span>
+                                )}
+                              </div>
+                            </DropdownMenuItem>
+                          ))
+                        ) : (
+                          <DropdownMenuItem disabled>No workouts saved yet</DropdownMenuItem>
+                        )}
+                      </ScrollArea>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
                 {renderWorkoutList(personalWorkouts, personalWorkoutsLoading, true)}
               </TabsContent>
 
               <TabsContent value="handlz-drills">
+                {/* Quick Start Drill Dropdown */}
+                <div className="flex justify-end mb-4">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button className="gap-2" data-testid="button-quick-start-handlz-drill">
+                        <Play className="w-4 h-4" />
+                        Start Drill
+                        <ChevronDown className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-64">
+                      <DropdownMenuLabel>Select a Drill</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <ScrollArea className="h-64">
+                        {handlzDrills && handlzDrills.length > 0 ? (
+                          handlzDrills.map(drill => (
+                            <DropdownMenuItem 
+                              key={drill.id} 
+                              onClick={() => quickStartDrill(drill.id)}
+                              data-testid={`quick-start-handlz-drill-${drill.id}`}
+                            >
+                              <div className="flex flex-col">
+                                <span>{drill.title}</span>
+                                <span className="text-xs text-muted-foreground">{formatCategory(drill.category)}</span>
+                              </div>
+                            </DropdownMenuItem>
+                          ))
+                        ) : (
+                          <DropdownMenuItem disabled>No drills available</DropdownMenuItem>
+                        )}
+                      </ScrollArea>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
                 {drillsLoading ? (
                   <div className="space-y-4">
                     {[...Array(5)].map((_, i) => (
@@ -816,6 +959,42 @@ export default function TrainingLogPage() {
               </TabsContent>
 
               <TabsContent value="handlz-workouts">
+                {/* Quick Start Workout Dropdown */}
+                <div className="flex justify-end mb-4">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button className="gap-2" data-testid="button-quick-start-handlz-workout">
+                        <Play className="w-4 h-4" />
+                        Start Workout
+                        <ChevronDown className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-64">
+                      <DropdownMenuLabel>Select a Workout</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <ScrollArea className="h-64">
+                        {handlzWorkouts && handlzWorkouts.length > 0 ? (
+                          handlzWorkouts.map(workout => (
+                            <DropdownMenuItem 
+                              key={workout.id} 
+                              onClick={() => startWorkoutFromTemplate(workout.id)}
+                              data-testid={`quick-start-handlz-workout-${workout.id}`}
+                            >
+                              <div className="flex flex-col">
+                                <span>{workout.name}</span>
+                                {workout.description && (
+                                  <span className="text-xs text-muted-foreground truncate">{workout.description}</span>
+                                )}
+                              </div>
+                            </DropdownMenuItem>
+                          ))
+                        ) : (
+                          <DropdownMenuItem disabled>No workouts available</DropdownMenuItem>
+                        )}
+                      </ScrollArea>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
                 {renderWorkoutList(handlzWorkouts, handlzWorkoutsLoading, false)}
               </TabsContent>
             </Tabs>
