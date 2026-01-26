@@ -1562,7 +1562,7 @@ function MetricTemplateForm({
       unit: template?.unit || "",
       formula: template?.formula || "",
       formulaInputs: template?.formulaInputs?.join(", ") || "",
-      category: template?.category || "",
+      category: template?.category || "none",
     },
   });
 
@@ -1573,6 +1573,7 @@ function MetricTemplateForm({
       const payload = {
         ...data,
         name: data.name.toLowerCase().replace(/\s+/g, '_'),
+        category: data.category === "none" ? "" : data.category,
         formulaInputs: data.formulaInputs ? data.formulaInputs.split(",").map(s => s.trim()).filter(Boolean) : [],
       };
       return await apiRequest("POST", "/api/metric-templates", payload);
@@ -1596,6 +1597,7 @@ function MetricTemplateForm({
       const payload = {
         ...data,
         name: data.name.toLowerCase().replace(/\s+/g, '_'),
+        category: data.category === "none" ? "" : data.category,
         formulaInputs: data.formulaInputs ? data.formulaInputs.split(",").map(s => s.trim()).filter(Boolean) : [],
       };
       return await apiRequest("PUT", `/api/metric-templates/${template!.id}`, payload);
@@ -1740,7 +1742,7 @@ function MetricTemplateForm({
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="none">None</SelectItem>
                   {DRILL_CATEGORIES.map((cat) => (
                     <SelectItem key={cat} value={cat}>
                       {cat.replace("-", " ").replace(/\b\w/g, l => l.toUpperCase())}
