@@ -48,7 +48,7 @@ const mainNavItems = [
   { title: "Drill Library", url: "/drills", icon: Play },
   { title: "Training Log", url: "/log", icon: ClipboardList },
   { title: "My Progress", url: "/progress", icon: BarChart3 },
-  { title: "My Videos", url: "/videos", icon: Video },
+  { title: "My Filmroom", url: "/videos", icon: Video },
 ];
 
 const categoryItems = [
