@@ -103,8 +103,9 @@ export default function DrillPage() {
 
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          <div className="relative aspect-video bg-muted rounded-xl overflow-hidden">
-            {drill.videoUrl ? (
+          {/* Video section - only show if video exists */}
+          {drill.videoUrl && (
+            <div className="relative aspect-video bg-muted rounded-xl overflow-hidden">
               <video
                 src={drill.videoUrl}
                 controls
@@ -112,28 +113,31 @@ export default function DrillPage() {
                 poster={drill.thumbnailUrl || undefined}
                 data-testid="video-player"
               />
-            ) : drill.thumbnailUrl ? (
-              <>
-                <img 
-                  src={drill.thumbnailUrl}
-                  alt={drill.title}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                  <div className="w-20 h-20 rounded-full bg-primary flex items-center justify-center">
-                    <Play className="w-8 h-8 text-primary-foreground fill-current ml-1" />
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-accent/20">
-                <div className="text-center">
-                  <Target className="w-16 h-16 text-primary/50 mx-auto mb-4" />
-                  <p className="text-muted-foreground">Video coming soon</p>
-                </div>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
+          
+          {/* PDF/Document section - show if pdfUrl exists */}
+          {drill.pdfUrl && (
+            <div className="relative rounded-xl overflow-hidden">
+              <img 
+                src={drill.pdfUrl}
+                alt={`${drill.title} - Training Document`}
+                className="w-full h-auto object-contain"
+                data-testid="document-image"
+              />
+            </div>
+          )}
+          
+          {/* Thumbnail fallback - only if no video and no pdf but has thumbnail */}
+          {!drill.videoUrl && !drill.pdfUrl && drill.thumbnailUrl && (
+            <div className="relative aspect-video bg-muted rounded-xl overflow-hidden">
+              <img 
+                src={drill.thumbnailUrl}
+                alt={drill.title}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          )}
 
           <div>
             <h1 className="text-2xl font-bold mb-3" data-testid="text-drill-title">{drill.title}</h1>
