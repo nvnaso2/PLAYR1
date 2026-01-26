@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { Progress } from "@/components/ui/progress";
 import {
   Form,
   FormControl,
@@ -45,14 +46,16 @@ import {
   Globe,
   MoreVertical,
   Trash2,
-  Eye
+  Eye,
+  FileVideo,
+  X
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Drill, UserVideo } from "@shared/schema";
 
 const videoFormSchema = z.object({
   title: z.string().min(1, "Title is required").max(100),
-  videoUrl: z.string().url("Please enter a valid URL"),
+  videoUrl: z.string().optional(),
   description: z.string().optional(),
   drillId: z.string().optional(),
   isPublic: z.boolean().default(false),
@@ -63,6 +66,67 @@ type VideoFormData = z.infer<typeof videoFormSchema>;
 export default function VideosPage() {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadedVideoUrl, setUploadedVideoUrl] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Upload file using user-accessible endpoint
+  const uploadFile = async (file: File) => {
+    setIsUploading(true);
+    setUploadProgress(10);
+    
+    try {
+      // Step 1: Request presigned URL from user endpoint
+      const response = await fetch("/api/user/uploads/request-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          name: file.name,
+          size: file.size,
+          contentType: file.type || "video/mp4",
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to get upload URL");
+      }
+
+      const { uploadURL, objectPath } = await response.json();
+      setUploadProgress(30);
+
+      // Step 2: Upload file to presigned URL
+      const uploadResponse = await fetch(uploadURL, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type || "video/mp4" },
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error("Failed to upload file to storage");
+      }
+
+      setUploadProgress(100);
+      setUploadedVideoUrl(objectPath);
+      toast({
+        title: "Video Uploaded",
+        description: "Your video file has been uploaded successfully.",
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Upload failed";
+      toast({
+        title: "Upload Failed",
+        description: message,
+        variant: "destructive",
+      });
+      setSelectedFile(null);
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const { data: videos, isLoading } = useQuery<UserVideo[]>({
     queryKey: ['/api/videos'],
@@ -83,10 +147,57 @@ export default function VideosPage() {
     },
   });
 
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const validTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo'];
+    if (!validTypes.includes(file.type)) {
+      toast({
+        title: "Invalid File Type",
+        description: "Please upload a video file (MP4, WebM, QuickTime, or AVI).",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate file size (100MB max)
+    if (file.size > 100 * 1024 * 1024) {
+      toast({
+        title: "File Too Large",
+        description: "Video files must be under 100MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSelectedFile(file);
+    
+    // Auto-fill title from filename if empty
+    const currentTitle = form.getValues("title");
+    if (!currentTitle) {
+      const fileName = file.name.replace(/\.[^/.]+$/, ""); // Remove extension
+      form.setValue("title", fileName);
+    }
+
+    // Upload the file
+    await uploadFile(file);
+  };
+
+  const clearSelectedFile = () => {
+    setSelectedFile(null);
+    setUploadedVideoUrl(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   const createVideoMutation = useMutation({
     mutationFn: async (data: VideoFormData) => {
       const payload = {
         ...data,
+        videoUrl: uploadedVideoUrl || data.videoUrl || "",
         drillId: data.drillId || null,
       };
       return await apiRequest("POST", "/api/videos", payload);
@@ -95,15 +206,16 @@ export default function VideosPage() {
       queryClient.invalidateQueries({ queryKey: ['/api/videos'] });
       toast({
         title: "Video Added",
-        description: "Your training video has been uploaded.",
+        description: "Your training video has been saved.",
       });
       setIsDialogOpen(false);
       form.reset();
+      clearSelectedFile();
     },
     onError: () => {
       toast({
         title: "Error",
-        description: "Failed to upload video. Please try again.",
+        description: "Failed to save video. Please try again.",
         variant: "destructive",
       });
     },
@@ -130,6 +242,14 @@ export default function VideosPage() {
   });
 
   const onSubmit = (data: VideoFormData) => {
+    if (!uploadedVideoUrl && !data.videoUrl) {
+      toast({
+        title: "No Video",
+        description: "Please upload a video file or enter a video URL.",
+        variant: "destructive",
+      });
+      return;
+    }
     createVideoMutation.mutate(data);
   };
 
@@ -183,6 +303,77 @@ export default function VideosPage() {
                   )}
                 />
 
+                {/* File Upload Section */}
+                <FormItem>
+                  <FormLabel>Upload Video</FormLabel>
+                  <div className="space-y-3">
+                    {!selectedFile ? (
+                      <div 
+                        className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center cursor-pointer hover-elevate"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="video/mp4,video/webm,video/quicktime,video/x-msvideo,video/*"
+                          onChange={handleFileSelect}
+                          className="hidden"
+                          data-testid="input-video-file"
+                        />
+                        <FileVideo className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
+                        <p className="text-sm text-muted-foreground">
+                          Click to upload a video file
+                        </p>
+                        <p className="text-xs text-muted-foreground/60 mt-1">
+                          MP4, WebM, QuickTime, AVI (max 100MB)
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="border rounded-lg p-3 bg-muted/30">
+                        <div className="flex items-center gap-3">
+                          <FileVideo className="w-8 h-8 text-primary flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{selectedFile.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {(selectedFile.size / (1024 * 1024)).toFixed(1)} MB
+                            </p>
+                          </div>
+                          {isUploading ? (
+                            <div className="w-20">
+                              <Progress value={uploadProgress} className="h-2" />
+                            </div>
+                          ) : uploadedVideoUrl ? (
+                            <Badge variant="outline" className="text-green-600 border-green-600">
+                              Uploaded
+                            </Badge>
+                          ) : null}
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={clearSelectedFile}
+                            disabled={isUploading}
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <FormDescription>
+                    Upload from your device, or paste a URL below
+                  </FormDescription>
+                </FormItem>
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">Or</span>
+                  </div>
+                </div>
+
                 <FormField
                   control={form.control}
                   name="videoUrl"
@@ -191,13 +382,14 @@ export default function VideosPage() {
                       <FormLabel>Video URL</FormLabel>
                       <FormControl>
                         <Input 
-                          placeholder="https://..."
+                          placeholder="https://youtube.com/... or https://vimeo.com/..."
                           {...field}
+                          disabled={!!uploadedVideoUrl}
                           data-testid="input-video-url"
                         />
                       </FormControl>
                       <FormDescription>
-                        Paste a link to your video (YouTube, Vimeo, etc.)
+                        Paste a link from YouTube, Vimeo, etc.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -275,17 +467,21 @@ export default function VideosPage() {
                   <Button 
                     type="button" 
                     variant="outline" 
-                    onClick={() => setIsDialogOpen(false)}
+                    onClick={() => {
+                      setIsDialogOpen(false);
+                      clearSelectedFile();
+                      form.reset();
+                    }}
                     data-testid="button-cancel"
                   >
                     Cancel
                   </Button>
                   <Button 
                     type="submit" 
-                    disabled={createVideoMutation.isPending}
+                    disabled={createVideoMutation.isPending || isUploading}
                     data-testid="button-submit-video"
                   >
-                    {createVideoMutation.isPending ? "Uploading..." : "Add Video"}
+                    {isUploading ? "Uploading..." : createVideoMutation.isPending ? "Saving..." : "Add Video"}
                   </Button>
                 </div>
               </form>

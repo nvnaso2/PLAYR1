@@ -106,6 +106,51 @@ export function registerObjectStorageRoutes(app: Express): void {
   });
 
   /**
+   * Request a presigned URL for user video upload.
+   * Requires authentication (any logged-in user).
+   * Only allows video uploads for user's filmroom.
+   */
+  app.post("/api/user/uploads/request-url", isAuthenticated, async (req, res) => {
+    try {
+      const { name, size, contentType } = req.body;
+
+      // Validate required fields
+      if (!name || !contentType) {
+        return res.status(400).json({
+          error: "Missing required fields: name and contentType are required",
+        });
+      }
+
+      // Only allow video uploads for user filmroom
+      if (!ALLOWED_VIDEO_TYPES.includes(contentType)) {
+        return res.status(400).json({
+          error: `Invalid content type. Allowed types: ${ALLOWED_VIDEO_TYPES.join(", ")}`,
+        });
+      }
+
+      // Validate file size (100MB max for videos)
+      if (size && size > MAX_VIDEO_SIZE) {
+        const maxMB = MAX_VIDEO_SIZE / (1024 * 1024);
+        return res.status(400).json({
+          error: `File too large. Maximum size: ${maxMB}MB`,
+        });
+      }
+
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
+
+      res.json({
+        uploadURL,
+        objectPath,
+        metadata: { name, size, contentType },
+      });
+    } catch (error) {
+      console.error("Error generating user upload URL:", error);
+      res.status(500).json({ error: "Failed to generate upload URL" });
+    }
+  });
+
+  /**
    * Serve uploaded objects.
    *
    * GET /objects/{*objectPath}
