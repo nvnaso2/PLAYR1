@@ -56,7 +56,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText } from "lucide-react";
+import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText, Play } from "lucide-react";
 import type { Drill, DrillCategory, DifficultyLevel, DrillMetric, VideoLibrary, PdfLibrary, MetricTemplate } from "@shared/schema";
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, METRIC_TYPES } from "@shared/schema";
 import { useUpload } from "@/hooks/use-upload";
@@ -2285,7 +2285,7 @@ export default function AdminPage() {
               ) : (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {videoLibrary.map((video) => (
-                    <Card key={video.id} className="overflow-hidden">
+                    <Card key={video.id} className="overflow-hidden group">
                       <div className="aspect-video bg-muted relative">
                         {video.thumbnailUrl ? (
                           <img 
@@ -2293,13 +2293,51 @@ export default function AdminPage() {
                             alt={video.title} 
                             className="w-full h-full object-cover"
                           />
+                        ) : video.videoUrl ? (
+                          <video 
+                            src={video.videoUrl}
+                            className="w-full h-full object-cover"
+                            muted
+                          />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
                             <Film className="w-12 h-12 text-muted-foreground" />
                           </div>
                         )}
+                        {/* Play button overlay */}
+                        {video.videoUrl && (
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <button 
+                                className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/40 transition-colors cursor-pointer"
+                                data-testid={`button-play-video-${video.id}`}
+                              >
+                                <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Play className="w-6 h-6 text-primary-foreground fill-current ml-1" />
+                                </div>
+                              </button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-4xl p-0 overflow-hidden">
+                              <div className="aspect-video bg-black">
+                                <video 
+                                  src={video.videoUrl}
+                                  controls
+                                  autoPlay
+                                  className="w-full h-full"
+                                  data-testid={`video-player-${video.id}`}
+                                />
+                              </div>
+                              <div className="p-4">
+                                <h3 className="font-semibold">{video.title}</h3>
+                                {video.description && (
+                                  <p className="text-sm text-muted-foreground mt-1">{video.description}</p>
+                                )}
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        )}
                         {video.duration && (
-                          <Badge className="absolute bottom-2 right-2">
+                          <Badge className="absolute bottom-2 right-2 pointer-events-none">
                             {Math.floor(video.duration / 60)}:{(video.duration % 60).toString().padStart(2, '0')}
                           </Badge>
                         )}
