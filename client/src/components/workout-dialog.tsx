@@ -1,8 +1,5 @@
-import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useState, useCallback } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -11,14 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -45,14 +35,6 @@ const DRILL_CATEGORIES = [
   "workouts",
 ];
 
-const workoutFormSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  description: z.string().optional(),
-  category: z.string().optional(),
-});
-
-type WorkoutFormData = z.infer<typeof workoutFormSchema>;
-
 interface WorkoutWithDrills extends Workout {
   drills: { drillId: string; orderIndex: number }[];
 }
@@ -66,45 +48,51 @@ interface WorkoutDialogProps {
 
 export function WorkoutDialog({ open, onOpenChange, editingWorkout, drills }: WorkoutDialogProps) {
   const { toast } = useToast();
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [category, setCategory] = useState("");
   const [workoutDrillIds, setWorkoutDrillIds] = useState<string[]>([]);
-
-  const form = useForm<WorkoutFormData>({
-    resolver: zodResolver(workoutFormSchema),
-    defaultValues: {
-      name: "",
-      description: "",
-      category: "",
-    },
-  });
-
-  // Reset form when dialog opens/closes or editing workout changes
-  useEffect(() => {
-    if (open) {
-      if (editingWorkout) {
-        form.reset({
-          name: editingWorkout.name,
-          description: editingWorkout.description || "",
-          category: editingWorkout.category || "",
-        });
-        // Fetch the workout's drills
-        fetch(`/api/workouts/${editingWorkout.id}`)
-          .then(res => res.json())
-          .then((data: WorkoutWithDrills) => {
-            setWorkoutDrillIds(data.drills.map(wd => wd.drillId));
-          })
-          .catch(() => setWorkoutDrillIds([]));
-      } else {
-        form.reset({
-          name: "",
-          description: "",
-          category: "",
-        });
-        setWorkoutDrillIds([]);
-      }
-    }
-  }, [open, editingWorkout, form]);
+  const [initialized, setInitialized] = useState(false);
 
   const handlzDrills = drills.filter(d => !d.userId);
+
+  const resetForm = useCallback(() => {
+    setName("");
+    setDescription("");
+    setCategory("");
+    setWorkoutDrillIds([]);
+    setInitialized(false);
+  }, []);
+
+  const initializeForm = useCallback(async () => {
+    if (editingWorkout) {
+      setName(editingWorkout.name);
+      setDescription(editingWorkout.description || "");
+      setCategory(editingWorkout.category || "");
+      try {
+        const res = await fetch(`/api/workouts/${editingWorkout.id}`);
+        const data: WorkoutWithDrills = await res.json();
+        setWorkoutDrillIds(data.drills.map(wd => wd.drillId));
+      } catch {
+        setWorkoutDrillIds([]);
+      }
+    } else {
+      setName("");
+      setDescription("");
+      setCategory("");
+      setWorkoutDrillIds([]);
+    }
+    setInitialized(true);
+  }, [editingWorkout]);
+
+  const handleOpenChange = useCallback((newOpen: boolean) => {
+    if (newOpen && !initialized) {
+      initializeForm();
+    } else if (!newOpen) {
+      resetForm();
+    }
+    onOpenChange(newOpen);
+  }, [initialized, initializeForm, resetForm, onOpenChange]);
 
   const toggleWorkoutDrill = (drillId: string) => {
     setWorkoutDrillIds(prev => 
@@ -115,16 +103,18 @@ export function WorkoutDialog({ open, onOpenChange, editingWorkout, drills }: Wo
   };
 
   const createWorkoutMutation = useMutation({
-    mutationFn: async (data: WorkoutFormData) => {
+    mutationFn: async () => {
       return await apiRequest("POST", "/api/workouts/handlz", {
-        ...data,
+        name,
+        description: description || undefined,
+        category: category || undefined,
         drillIds: workoutDrillIds,
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/workouts/handlz'] });
       toast({ title: "Workout created successfully" });
-      onOpenChange(false);
+      handleOpenChange(false);
     },
     onError: (error: any) => {
       toast({ 
@@ -136,16 +126,18 @@ export function WorkoutDialog({ open, onOpenChange, editingWorkout, drills }: Wo
   });
 
   const updateWorkoutMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: WorkoutFormData }) => {
-      return await apiRequest("PUT", `/api/workouts/${id}`, {
-        ...data,
+    mutationFn: async () => {
+      return await apiRequest("PUT", `/api/workouts/${editingWorkout!.id}`, {
+        name,
+        description: description || undefined,
+        category: category || undefined,
         drillIds: workoutDrillIds,
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/workouts/handlz'] });
       toast({ title: "Workout updated successfully" });
-      onOpenChange(false);
+      handleOpenChange(false);
     },
     onError: (error: any) => {
       toast({ 
@@ -156,18 +148,23 @@ export function WorkoutDialog({ open, onOpenChange, editingWorkout, drills }: Wo
     },
   });
 
-  const handleSubmit = (data: WorkoutFormData) => {
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      toast({ title: "Name is required", variant: "destructive" });
+      return;
+    }
     if (editingWorkout) {
-      updateWorkoutMutation.mutate({ id: editingWorkout.id, data });
+      updateWorkoutMutation.mutate();
     } else {
-      createWorkoutMutation.mutate(data);
+      createWorkoutMutation.mutate();
     }
   };
 
   const isPending = createWorkoutMutation.isPending || updateWorkoutMutation.isPending;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{editingWorkout ? "Edit Workout" : "Create Workout"}</DialogTitle>
@@ -175,117 +172,102 @@ export function WorkoutDialog({ open, onOpenChange, editingWorkout, drills }: Wo
             {editingWorkout ? "Update this workout's details and drills" : "Create a new workout routine by selecting drills"}
           </DialogDescription>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Workout Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g., Ball Handling Fundamentals" {...field} data-testid="input-workout-name" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="workout-name">Workout Name</Label>
+            <Input 
+              id="workout-name"
+              placeholder="e.g., Ball Handling Fundamentals" 
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              data-testid="input-workout-name" 
             />
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description (Optional)</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Describe this workout routine..." {...field} data-testid="input-workout-description" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="workout-description">Description (Optional)</Label>
+            <Textarea 
+              id="workout-description"
+              placeholder="Describe this workout routine..." 
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              data-testid="input-workout-description" 
             />
-            <FormField
-              control={form.control}
-              name="category"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Category (Optional)</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ""}>
-                    <FormControl>
-                      <SelectTrigger data-testid="select-workout-category">
-                        <SelectValue placeholder="Select a category" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {DRILL_CATEGORIES.map(cat => (
-                        <SelectItem key={cat} value={cat}>
-                          {cat.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <div className="space-y-2">
-              <FormLabel>Select Drills ({workoutDrillIds.length} selected)</FormLabel>
-              <p className="text-sm text-muted-foreground">Choose drills to include in this workout</p>
-              <ScrollArea className="h-64 border rounded-md p-3">
-                {handlzDrills.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">No Handlz drills available. Create drills first.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {handlzDrills.map(drill => (
-                      <div 
-                        key={drill.id}
-                        className={`flex items-center gap-3 p-2 rounded-md cursor-pointer hover-elevate ${
-                          workoutDrillIds.includes(drill.id) ? 'bg-primary/10 border border-primary' : 'border'
-                        }`}
-                        onClick={() => toggleWorkoutDrill(drill.id)}
-                        data-testid={`workout-drill-select-${drill.id}`}
-                      >
-                        <Checkbox 
-                          checked={workoutDrillIds.includes(drill.id)}
-                          onCheckedChange={() => toggleWorkoutDrill(drill.id)}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <span className="font-medium text-sm">{drill.title}</span>
-                          <div className="flex gap-2 mt-1">
-                            <Badge variant="secondary" className="text-xs">
-                              {drill.category.replace(/-/g, ' ')}
-                            </Badge>
-                            <Badge variant="outline" className="text-xs">
-                              {drill.difficulty}
-                            </Badge>
-                          </div>
-                        </div>
-                        {workoutDrillIds.includes(drill.id) && (
-                          <Badge className="bg-primary text-primary-foreground">
-                            #{workoutDrillIds.indexOf(drill.id) + 1}
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="workout-category">Category (Optional)</Label>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger id="workout-category" data-testid="select-workout-category">
+                <SelectValue placeholder="Select a category" />
+              </SelectTrigger>
+              <SelectContent>
+                {DRILL_CATEGORIES.map(cat => (
+                  <SelectItem key={cat} value={cat}>
+                    {cat.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="space-y-2">
+            <Label>Select Drills ({workoutDrillIds.length} selected)</Label>
+            <p className="text-sm text-muted-foreground">Choose drills to include in this workout</p>
+            <ScrollArea className="h-64 border rounded-md p-3">
+              {handlzDrills.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">No Handlz drills available. Create drills first.</p>
+              ) : (
+                <div className="space-y-2">
+                  {handlzDrills.map(drill => (
+                    <div 
+                      key={drill.id}
+                      className={`flex items-center gap-3 p-2 rounded-md cursor-pointer hover-elevate ${
+                        workoutDrillIds.includes(drill.id) ? 'bg-primary/10 border border-primary' : 'border'
+                      }`}
+                      onClick={() => toggleWorkoutDrill(drill.id)}
+                      data-testid={`workout-drill-select-${drill.id}`}
+                    >
+                      <Checkbox 
+                        checked={workoutDrillIds.includes(drill.id)}
+                        onCheckedChange={() => toggleWorkoutDrill(drill.id)}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <span className="font-medium text-sm">{drill.title}</span>
+                        <div className="flex gap-2 mt-1">
+                          <Badge variant="secondary" className="text-xs">
+                            {drill.category.replace(/-/g, ' ')}
                           </Badge>
-                        )}
+                          <Badge variant="outline" className="text-xs">
+                            {drill.difficulty}
+                          </Badge>
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </ScrollArea>
-            </div>
+                      {workoutDrillIds.includes(drill.id) && (
+                        <Badge className="bg-primary text-primary-foreground">
+                          #{workoutDrillIds.indexOf(drill.id) + 1}
+                        </Badge>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </div>
 
-            <div className="flex justify-end gap-2 pt-4">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button 
-                type="submit" 
-                disabled={isPending}
-                data-testid="button-save-workout"
-              >
-                {isPending ? "Saving..." : (editingWorkout ? "Update Workout" : "Create Workout")}
-              </Button>
-            </div>
-          </form>
-        </Form>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button 
+              type="submit" 
+              disabled={isPending}
+              data-testid="button-save-workout"
+            >
+              {isPending ? "Saving..." : (editingWorkout ? "Update Workout" : "Create Workout")}
+            </Button>
+          </div>
+        </form>
       </DialogContent>
     </Dialog>
   );
