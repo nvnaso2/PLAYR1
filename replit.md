@@ -76,6 +76,11 @@ shared/
 - `POST /api/video-library` - Add video to library (admin only)
 - `PUT /api/video-library/:id` - Update video (admin only)
 - `DELETE /api/video-library/:id` - Delete video (admin only)
+- `GET /api/pdf-library` - List all PDFs in library (admin only)
+- `GET /api/pdf-library/:id` - Get single PDF (admin only)
+- `POST /api/pdf-library` - Add PDF to library (admin only)
+- `PUT /api/pdf-library/:id` - Update PDF (admin only)
+- `DELETE /api/pdf-library/:id` - Delete PDF (admin only)
 - `GET /api/metric-templates` - List all metric templates (admin only)
 - `POST /api/metric-templates` - Create metric template (admin only)
 - `PUT /api/metric-templates/:id` - Update metric template (admin only)
@@ -105,6 +110,7 @@ shared/
 - `user_profiles` - Extended user data (age, location, skill level, isAdmin flag)
 - `drills` - Training drills
 - `video_library` - Centralized video storage for admin-uploaded training videos
+- `pdf_library` - Centralized PDF storage for admin-uploaded training documents
 - `metric_templates` - Reusable metric definitions (e.g., Shot Attempts, Shots Made, Shooting %)
 - `drill_metrics` - Join table linking drills to metric templates
 - `training_logs` - User training sessions
@@ -120,34 +126,42 @@ shared/
 - Non-admin users attempting to access /admin see an access denied message
 
 ### Admin Dashboard Features
-The admin dashboard has four tabs for managing content:
+The admin dashboard has five tabs for managing content:
 
 1. **Video Library Tab**: Centralized video management
    - Upload training videos with thumbnails
    - Assign categories and tags to videos
    - Videos are stored in object storage and can be reused across drills
 
-2. **Metrics Tab**: Reusable metric template configuration
+2. **PDF Library Tab**: Centralized PDF document management
+   - Upload training PDFs (playbooks, instructions, guides)
+   - Assign categories and difficulty levels to PDFs
+   - Link PDFs to specific drills with bidirectional synchronization
+   - PDFs are stored in object storage (50MB limit)
+
+3. **Metrics Tab**: Reusable metric template configuration
    - Create metric templates (e.g., "Shot Attempts", "Shots Made", "Shooting %")
    - Support for number type (user enters value) and calculated type (auto-computed via formula)
    - Formulas can reference other metrics and formula inputs
    - Templates can be assigned to multiple drills
 
-3. **Drills Tab**: Create and manage training drills
+4. **Drills Tab**: Create and manage training drills
    - Select videos from the centralized Video Library
+   - Select PDFs from the centralized PDF Library
    - Configure which metric templates apply to each drill
    - Set featured drills, difficulty levels, categories
 
-4. **Users Tab**: User and permission management
+5. **Users Tab**: User and permission management
    - View all users
    - Create new users
    - Toggle admin status for any user
 
 ## File Uploads (Object Storage)
-- Admins can upload video and thumbnail files directly using Replit's App Storage
+- Admins can upload video, thumbnail, and PDF files directly using Replit's App Storage
 - Upload flow uses presigned URLs for secure direct-to-storage uploads
 - Supported video types: MP4, WebM, QuickTime, AVI (max 100MB)
 - Supported image types: JPEG, PNG, GIF, WebP (max 10MB)
+- Supported document types: PDF (max 50MB)
 - Files are served from `/objects/` paths
 - API: `POST /api/uploads/request-url` (requires auth + admin)
 - API: `GET /objects/{*objectPath}` (serves uploaded files)
