@@ -142,7 +142,7 @@ export default function VideosPage() {
       title: "",
       videoUrl: "",
       description: "",
-      drillId: "",
+      drillId: "__none__",
       isPublic: false,
     },
   });
@@ -198,7 +198,7 @@ export default function VideosPage() {
       const payload = {
         ...data,
         videoUrl: uploadedVideoUrl || data.videoUrl || "",
-        drillId: data.drillId || null,
+        drillId: data.drillId === "__none__" ? null : (data.drillId || null),
       };
       return await apiRequest("POST", "/api/videos", payload);
     },
@@ -276,7 +276,7 @@ export default function VideosPage() {
               Upload Video
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-lg">
+          <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col">
             <DialogHeader>
               <DialogTitle>Upload Training Video</DialogTitle>
               <DialogDescription>
@@ -284,7 +284,7 @@ export default function VideosPage() {
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 overflow-y-auto flex-1 pr-2">
                 <FormField
                   control={form.control}
                   name="title"
@@ -403,8 +403,8 @@ export default function VideosPage() {
                     <FormItem>
                       <FormLabel>Related Drill (Optional)</FormLabel>
                       <Select 
-                        onValueChange={(val) => field.onChange(val === "__none__" ? "" : val)} 
-                        value={field.value || "__none__"}
+                        onValueChange={field.onChange} 
+                        value={field.value}
                       >
                         <FormControl>
                           <SelectTrigger data-testid="select-drill">
@@ -466,7 +466,7 @@ export default function VideosPage() {
                   )}
                 />
 
-                <div className="flex justify-end gap-3">
+                <div className="flex justify-end gap-3 pt-4 border-t sticky bottom-0 bg-background">
                   <Button 
                     type="button" 
                     variant="outline" 
