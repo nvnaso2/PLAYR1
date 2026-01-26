@@ -69,8 +69,8 @@ const categories = [
     drillCount: 31
   },
   { 
-    category: "coaches-room" as const, 
-    title: "Coaches Room", 
+    category: "film-session" as const, 
+    title: "Film Session", 
     description: "Understand reads, spacing, and game situations.",
     icon: <Brain className="w-6 h-6" />,
     color: "#ec4899",

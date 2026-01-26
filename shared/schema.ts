@@ -13,7 +13,7 @@ export const DRILL_CATEGORIES = [
   "passing",
   "finishing",
   "defense",
-  "coaches-room",
+  "film-session",
   "workouts"
 ] as const;
 

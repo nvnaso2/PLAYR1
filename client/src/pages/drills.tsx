@@ -38,7 +38,7 @@ const categoryInfo: Record<string, { label: string; icon: React.ReactNode; color
   "passing": { label: "Passing", icon: <Crosshair className="w-4 h-4" />, color: "#3b82f6" },
   "finishing": { label: "Finishing", icon: <Flame className="w-4 h-4" />, color: "#ef4444" },
   "defense": { label: "Defense", icon: <Shield className="w-4 h-4" />, color: "#8b5cf6" },
-  "coaches-room": { label: "Coaches Room", icon: <Brain className="w-4 h-4" />, color: "#ec4899" },
+  "film-session": { label: "Film Session", icon: <Brain className="w-4 h-4" />, color: "#ec4899" },
   "workouts": { label: "Workouts", icon: <Dumbbell className="w-4 h-4" />, color: "#14b8a6" },
 };
 

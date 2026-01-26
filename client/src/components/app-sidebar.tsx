@@ -57,7 +57,7 @@ const categoryItems = [
   { title: "Passing", url: "/drills?category=passing", icon: Crosshair },
   { title: "Finishing", url: "/drills?category=finishing", icon: Flame },
   { title: "Defense", url: "/drills?category=defense", icon: Shield },
-  { title: "Coaches Room", url: "/drills?category=coaches-room", icon: Brain },
+  { title: "Film Session", url: "/drills?category=film-session", icon: Brain },
   { title: "Workouts", url: "/drills?category=workouts", icon: Dumbbell },
 ];
 

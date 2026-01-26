@@ -192,11 +192,11 @@ const sampleDrills = [
     isFeatured: false
   },
   
-  // Coaches Room
+  // Film Session
   {
     title: "Reading Pick and Roll",
     description: "Learn to read and react to pick and roll defense.",
-    category: "coaches-room" as const,
+    category: "film-session" as const,
     difficulty: "intermediate" as const,
     duration: 600,
     equipment: ["None (Film Study)"],
@@ -206,7 +206,7 @@ const sampleDrills = [
   {
     title: "Spacing Concepts",
     description: "Understand proper floor spacing for better team offense.",
-    category: "coaches-room" as const,
+    category: "film-session" as const,
     difficulty: "beginner" as const,
     duration: 480,
     equipment: ["None (Film Study)"],
