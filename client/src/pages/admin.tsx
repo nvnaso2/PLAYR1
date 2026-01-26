@@ -398,7 +398,7 @@ function DrillForm({
               <FormLabel>Select Video from Library</FormLabel>
               <Select 
                 onValueChange={(value) => handleVideoLibrarySelect(value === "none" ? "" : value)} 
-                value={field.value || "none"}
+                defaultValue={field.value || "none"}
               >
                 <FormControl>
                   <SelectTrigger data-testid="select-drill-video-library">
@@ -489,7 +489,7 @@ function DrillForm({
               <FormLabel>Select PDF from Library</FormLabel>
               <Select 
                 onValueChange={(value) => handlePdfLibrarySelect(value === "none" ? "" : value)} 
-                value={field.value || "none"}
+                defaultValue={field.value || "none"}
               >
                 <FormControl>
                   <SelectTrigger data-testid="select-drill-pdf-library">
@@ -608,7 +608,7 @@ function DrillForm({
                   >
                     <Checkbox 
                       checked={isSelected}
-                      onCheckedChange={() => handleToggleMetric(template.id)}
+                      onClick={(e) => e.stopPropagation()}
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1">
