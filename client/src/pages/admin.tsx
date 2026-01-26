@@ -64,6 +64,7 @@ import { Layers, GripVertical } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useUpload } from "@/hooks/use-upload";
 import { Checkbox } from "@/components/ui/checkbox";
+import { WorkoutDialog } from "@/components/workout-dialog";
 
 type AdminUser = {
   id: string;
@@ -92,15 +93,6 @@ const drillFormSchema = z.object({
 type DrillFormData = z.infer<typeof drillFormSchema>;
 
 type DrillMetricWithTemplate = DrillMetric & { template: MetricTemplate };
-
-// Workout form schema for admin
-const workoutFormSchema = z.object({
-  name: z.string().min(1, "Workout name is required"),
-  description: z.string().optional(),
-  category: z.string().optional(),
-});
-
-type WorkoutFormData = z.infer<typeof workoutFormSchema>;
 
 type WorkoutWithDrills = {
   workout: Workout;
@@ -1928,7 +1920,6 @@ export default function AdminPage() {
   // Workout state
   const [isCreateWorkoutOpen, setIsCreateWorkoutOpen] = useState(false);
   const [editingWorkout, setEditingWorkout] = useState<Workout | null>(null);
-  const [workoutDrillIds, setWorkoutDrillIds] = useState<string[]>([]);
 
   const { data: drills, isLoading } = useQuery<Drill[]>({
     queryKey: ['/api/drills'],
@@ -2054,96 +2045,11 @@ export default function AdminPage() {
     },
   });
 
-  // Workout form
-  const workoutForm = useForm<WorkoutFormData>({
-    resolver: zodResolver(workoutFormSchema),
-    defaultValues: {
-      name: "",
-      description: "",
-      category: "__none__",
-    },
-  });
-
-  // Open workout dialog - set state first, then defer form updates
+  // Open workout dialog
   const openWorkoutDialog = (workout?: Workout) => {
-    if (workout) {
-      setEditingWorkout(workout);
-      workoutForm.reset({
-        name: workout.name,
-        description: workout.description || "",
-        category: workout.category || "__none__",
-      });
-      // Fetch the workout's drills
-      fetch(`/api/workouts/${workout.id}`)
-        .then(res => res.json())
-        .then((data: WorkoutWithDrills) => {
-          setWorkoutDrillIds(data.drills.map(wd => wd.drillId));
-        })
-        .catch(() => setWorkoutDrillIds([]));
-    } else {
-      setEditingWorkout(null);
-      setWorkoutDrillIds([]);
-      workoutForm.reset({
-        name: "",
-        description: "",
-        category: "__none__",
-      });
-    }
-    // Open dialog after form reset is complete
-    requestAnimationFrame(() => {
-      setIsCreateWorkoutOpen(true);
-    });
+    setEditingWorkout(workout || null);
+    setIsCreateWorkoutOpen(true);
   };
-
-  const closeWorkoutDialog = () => {
-    setIsCreateWorkoutOpen(false);
-    setEditingWorkout(null);
-    setWorkoutDrillIds([]);
-  };
-
-  const createWorkoutMutation = useMutation({
-    mutationFn: async (data: WorkoutFormData) => {
-      return await apiRequest("POST", "/api/workouts/handlz", {
-        ...data,
-        category: data.category === "__none__" ? "" : data.category,
-        drillIds: workoutDrillIds,
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/workouts/handlz'] });
-      toast({ title: "Workout created successfully" });
-      closeWorkoutDialog();
-    },
-    onError: (error: any) => {
-      toast({ 
-        title: "Failed to create workout", 
-        description: error.message,
-        variant: "destructive" 
-      });
-    },
-  });
-
-  const updateWorkoutMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: WorkoutFormData }) => {
-      return await apiRequest("PUT", `/api/workouts/${id}`, {
-        ...data,
-        category: data.category === "__none__" ? "" : data.category,
-        drillIds: workoutDrillIds,
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/workouts/handlz'] });
-      toast({ title: "Workout updated successfully" });
-      closeWorkoutDialog();
-    },
-    onError: (error: any) => {
-      toast({ 
-        title: "Failed to update workout", 
-        description: error.message,
-        variant: "destructive" 
-      });
-    },
-  });
 
   const deleteWorkoutMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -2162,28 +2068,6 @@ export default function AdminPage() {
     },
   });
 
-  const handleWorkoutSubmit = (data: WorkoutFormData) => {
-    if (workoutDrillIds.length === 0) {
-      toast({ title: "Please select at least one drill", variant: "destructive" });
-      return;
-    }
-    if (editingWorkout) {
-      updateWorkoutMutation.mutate({ id: editingWorkout.id, data });
-    } else {
-      createWorkoutMutation.mutate(data);
-    }
-  };
-
-  const toggleWorkoutDrill = (drillId: string) => {
-    setWorkoutDrillIds(prev => 
-      prev.includes(drillId) 
-        ? prev.filter(id => id !== drillId)
-        : [...prev, drillId]
-    );
-  };
-
-  // Get only Handlz drills (admin drills) for workout building
-  const handlzDrills = drills?.filter(d => d.userId === null) || [];
 
   if (adminLoading) {
     return (
@@ -2906,126 +2790,12 @@ export default function AdminPage() {
               <Plus className="w-4 h-4" />
               Create Workout
             </Button>
-            <Dialog open={isCreateWorkoutOpen} onOpenChange={setIsCreateWorkoutOpen}>
-              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>{editingWorkout ? "Edit Workout" : "Create Workout"}</DialogTitle>
-                </DialogHeader>
-                <Form {...workoutForm}>
-                  <form onSubmit={workoutForm.handleSubmit(handleWorkoutSubmit)} className="space-y-4">
-                    <FormField
-                      control={workoutForm.control}
-                      name="name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Workout Name</FormLabel>
-                          <FormControl>
-                            <Input placeholder="e.g., Ball Handling Fundamentals" {...field} data-testid="input-workout-name" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={workoutForm.control}
-                      name="description"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Description (Optional)</FormLabel>
-                          <FormControl>
-                            <Textarea placeholder="Describe this workout routine..." {...field} data-testid="input-workout-description" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={workoutForm.control}
-                      name="category"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Category (Optional)</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                              <SelectTrigger data-testid="select-workout-category">
-                                <SelectValue placeholder="Select a category" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="__none__">None</SelectItem>
-                              {DRILL_CATEGORIES.map(cat => (
-                                <SelectItem key={cat} value={cat}>
-                                  {cat.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    {/* Drill Selection */}
-                    <div className="space-y-2">
-                      <FormLabel>Select Drills ({workoutDrillIds.length} selected)</FormLabel>
-                      <p className="text-sm text-muted-foreground">Choose drills to include in this workout</p>
-                      <ScrollArea className="h-64 border rounded-md p-3">
-                        {handlzDrills.length === 0 ? (
-                          <p className="text-sm text-muted-foreground text-center py-4">No Handlz drills available. Create drills first.</p>
-                        ) : (
-                          <div className="space-y-2">
-                            {handlzDrills.map(drill => (
-                              <div 
-                                key={drill.id}
-                                className={`flex items-center gap-3 p-2 rounded-md cursor-pointer hover-elevate ${
-                                  workoutDrillIds.includes(drill.id) ? 'bg-primary/10 border border-primary' : 'border'
-                                }`}
-                                onClick={() => toggleWorkoutDrill(drill.id)}
-                                data-testid={`workout-drill-select-${drill.id}`}
-                              >
-                                <Checkbox 
-                                  checked={workoutDrillIds.includes(drill.id)}
-                                  onCheckedChange={() => toggleWorkoutDrill(drill.id)}
-                                />
-                                <div className="flex-1 min-w-0">
-                                  <span className="font-medium text-sm">{drill.title}</span>
-                                  <div className="flex gap-2 mt-1">
-                                    <Badge variant="secondary" className="text-xs">
-                                      {drill.category.replace(/-/g, ' ')}
-                                    </Badge>
-                                    <Badge variant="outline" className="text-xs">
-                                      {drill.difficulty}
-                                    </Badge>
-                                  </div>
-                                </div>
-                                {workoutDrillIds.includes(drill.id) && (
-                                  <Badge className="bg-primary text-primary-foreground">
-                                    #{workoutDrillIds.indexOf(drill.id) + 1}
-                                  </Badge>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </ScrollArea>
-                    </div>
-
-                    <div className="flex justify-end gap-2 pt-4">
-                      <Button type="button" variant="outline" onClick={closeWorkoutDialog}>
-                        Cancel
-                      </Button>
-                      <Button 
-                        type="submit" 
-                        disabled={createWorkoutMutation.isPending || updateWorkoutMutation.isPending}
-                        data-testid="button-save-workout"
-                      >
-                        {(createWorkoutMutation.isPending || updateWorkoutMutation.isPending) ? "Saving..." : (editingWorkout ? "Update Workout" : "Create Workout")}
-                      </Button>
-                    </div>
-                  </form>
-                </Form>
-              </DialogContent>
-            </Dialog>
+            <WorkoutDialog
+              open={isCreateWorkoutOpen}
+              onOpenChange={setIsCreateWorkoutOpen}
+              editingWorkout={editingWorkout}
+              drills={drills || []}
+            />
           </div>
 
           <Card>
