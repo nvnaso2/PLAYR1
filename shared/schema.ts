@@ -54,6 +54,7 @@ export const drills = pgTable("drills", {
   equipment: text("equipment").array(),
   tips: text("tips").array(),
   isFeatured: boolean("is_featured").default(false),
+  userId: varchar("user_id"), // null = admin drill, set = user-created drill
   createdAt: timestamp("created_at").defaultNow()
 });
 

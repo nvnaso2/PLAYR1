@@ -12,12 +12,17 @@ A "Netflix for basketball drills" platform for Handlz weighted basketballs. User
 
 ## Key Features
 1. **Drill Library**: 500+ drills across 7 categories (ball handling, shooting, passing, finishing, defense, basketball IQ, workouts)
-2. **Training Log**: Log sessions with duration, reps, sets, and self-rating
-3. **Progress Tracking**: Charts and analytics showing improvement over time
-4. **Personal Videos**: Upload and manage training videos
-5. **Community Benchmarks**: Compare performance against players your age
-6. **User Profiles**: Location-based profiles with skill level tracking
-7. **Admin Dashboard**: Full CRUD operations for drill management (admin users only)
+2. **Training Log**: Multi-drill workout flow with table-based tracking and configurable drill metrics
+   - Select multiple drills for a workout session
+   - Track duration, score, notes per drill
+   - Dynamic metric inputs based on admin-configured drill metrics
+   - Required metric validation before saving
+3. **User-Created Drills**: Users can create and manage their own custom drills
+4. **Progress Tracking**: Charts and analytics showing improvement over time
+5. **Personal Videos**: Upload and manage training videos
+6. **Community Benchmarks**: Compare performance against players your age
+7. **User Profiles**: Location-based profiles with skill level tracking
+8. **Admin Dashboard**: Full CRUD operations for drill management (admin users only)
 
 ## Project Structure
 ```

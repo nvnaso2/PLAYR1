@@ -21,6 +21,8 @@ export interface IStorage {
   getDrillById(id: string): Promise<Drill | undefined>;
   getFeaturedDrills(): Promise<Drill[]>;
   getDrillsByCategory(category: string): Promise<Drill[]>;
+  getDrillsForUser(userId: string): Promise<Drill[]>; // Admin drills + user's own drills
+  getUserDrills(userId: string): Promise<Drill[]>; // Only user's own drills
   createDrill(drill: InsertDrill): Promise<Drill>;
   updateDrill(id: string, drill: Partial<InsertDrill>): Promise<Drill | undefined>;
   deleteDrill(id: string): Promise<boolean>;
@@ -114,6 +116,20 @@ export class DatabaseStorage implements IStorage {
 
   async getDrillsByCategory(category: string): Promise<Drill[]> {
     return await db.select().from(drills).where(eq(drills.category, category as any));
+  }
+
+  async getDrillsForUser(userId: string): Promise<Drill[]> {
+    // Get admin drills (userId is null) and user's own drills
+    return await db.select().from(drills)
+      .where(sql`${drills.userId} IS NULL OR ${drills.userId} = ${userId}`)
+      .orderBy(drills.title);
+  }
+
+  async getUserDrills(userId: string): Promise<Drill[]> {
+    // Get only user's own drills
+    return await db.select().from(drills)
+      .where(eq(drills.userId, userId))
+      .orderBy(desc(drills.createdAt));
   }
 
   async createDrill(drill: InsertDrill): Promise<Drill> {

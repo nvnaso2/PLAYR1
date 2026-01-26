@@ -41,6 +41,19 @@ export async function registerRoutes(
     }
   });
 
+  // Get user's drills with personal bests (MUST be before :id route)
+  app.get("/api/drills/my-drills", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const limit = parseInt(req.query.limit as string) || 4;
+      const drillsWithBests = await storage.getUserDrillsWithPersonalBests(userId, limit);
+      res.json(drillsWithBests);
+    } catch (error) {
+      console.error("Error fetching user drills:", error);
+      res.status(500).json({ message: "Failed to fetch drills" });
+    }
+  });
+
   // Get single drill
   app.get("/api/drills/:id", async (req, res) => {
     try {
@@ -107,7 +120,7 @@ export async function registerRoutes(
       const data = insertDrillSchema.partial().parse(req.body);
       
       // Get old drill to check for PDF library changes
-      const oldDrill = await storage.getDrill(req.params.id);
+      const oldDrill = await storage.getDrillById(req.params.id);
       
       const drill = await storage.updateDrill(req.params.id, data);
       if (!drill) {
@@ -474,6 +487,97 @@ export async function registerRoutes(
     }
   });
 
+  // ===== USER DRILLS =====
+
+  // Get all drills available to user (admin drills + user's own)
+  app.get("/api/user/drills", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const drillList = await storage.getDrillsForUser(userId);
+      res.json(drillList);
+    } catch (error) {
+      console.error("Error fetching user drills:", error);
+      res.status(500).json({ message: "Failed to fetch drills" });
+    }
+  });
+
+  // Get only user's own created drills
+  app.get("/api/user/my-drills", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const drillList = await storage.getUserDrills(userId);
+      res.json(drillList);
+    } catch (error) {
+      console.error("Error fetching user's drills:", error);
+      res.status(500).json({ message: "Failed to fetch drills" });
+    }
+  });
+
+  // Create user's own drill
+  app.post("/api/user/drills", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const data = insertDrillSchema.parse({
+        ...req.body,
+        userId, // Set the user as the owner
+        isFeatured: false, // User drills can't be featured
+      });
+      const drill = await storage.createDrill(data);
+      res.status(201).json(drill);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error creating user drill:", error);
+      res.status(500).json({ message: "Failed to create drill" });
+    }
+  });
+
+  // Update user's own drill
+  app.put("/api/user/drills/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const drill = await storage.getDrillById(req.params.id);
+      
+      // Only allow updating user's own drills
+      if (!drill || drill.userId !== userId) {
+        return res.status(403).json({ message: "Not authorized to edit this drill" });
+      }
+      
+      // Parse and strip restricted fields - users cannot modify userId or isFeatured
+      const rawData = insertDrillSchema.partial().parse(req.body);
+      const { userId: _, isFeatured: __, ...safeData } = rawData;
+      
+      const updated = await storage.updateDrill(req.params.id, safeData);
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error updating user drill:", error);
+      res.status(500).json({ message: "Failed to update drill" });
+    }
+  });
+
+  // Delete user's own drill
+  app.delete("/api/user/drills/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const drill = await storage.getDrillById(req.params.id);
+      
+      // Only allow deleting user's own drills
+      if (!drill || drill.userId !== userId) {
+        return res.status(403).json({ message: "Not authorized to delete this drill" });
+      }
+      
+      await storage.deleteDrill(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting user drill:", error);
+      res.status(500).json({ message: "Failed to delete drill" });
+    }
+  });
+
   // ===== TRAINING LOGS =====
 
   // Get user's training logs
@@ -602,19 +706,6 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching progress:", error);
       res.status(500).json({ message: "Failed to fetch progress" });
-    }
-  });
-
-  // Get user's drills with personal bests
-  app.get("/api/drills/my-drills", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const limit = parseInt(req.query.limit as string) || 4;
-      const drillsWithBests = await storage.getUserDrillsWithPersonalBests(userId, limit);
-      res.json(drillsWithBests);
-    } catch (error) {
-      console.error("Error fetching user drills:", error);
-      res.status(500).json({ message: "Failed to fetch drills" });
     }
   });
 
