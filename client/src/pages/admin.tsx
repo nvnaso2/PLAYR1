@@ -909,7 +909,8 @@ function VideoLibraryForm({
     if (currentLinkedDrill?.id) {
       form.setValue("linkedDrillId", currentLinkedDrill.id);
     }
-  }, [currentLinkedDrill?.id, form]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentLinkedDrill?.id]);
 
   // Mutation to link a drill to this video
   const linkDrillMutation = useMutation({
