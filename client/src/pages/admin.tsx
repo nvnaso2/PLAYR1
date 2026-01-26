@@ -1284,7 +1284,10 @@ function PdfLibraryForm({
   const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.type !== "application/pdf") {
+      // Check for PDF by MIME type or file extension (mobile may report different MIME types)
+      const isPdf = file.type === "application/pdf" || 
+                    file.name.toLowerCase().endsWith(".pdf");
+      if (!isPdf) {
         toast({ title: "Please select a PDF file", variant: "destructive" });
         return;
       }
