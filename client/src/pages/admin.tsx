@@ -2060,21 +2060,19 @@ export default function AdminPage() {
     defaultValues: {
       name: "",
       description: "",
-      category: "",
+      category: "__none__",
     },
   });
 
-  // Open workout dialog - defer form updates to avoid render loops
+  // Open workout dialog - set state first, then defer form updates
   const openWorkoutDialog = (workout?: Workout) => {
-    setIsCreateWorkoutOpen(true);
     if (workout) {
       setEditingWorkout(workout);
-      // Use setTimeout to defer form reset after dialog opens
-      setTimeout(() => {
-        workoutForm.setValue("name", workout.name);
-        workoutForm.setValue("description", workout.description || "");
-        workoutForm.setValue("category", workout.category || "");
-      }, 0);
+      workoutForm.reset({
+        name: workout.name,
+        description: workout.description || "",
+        category: workout.category || "__none__",
+      });
       // Fetch the workout's drills
       fetch(`/api/workouts/${workout.id}`)
         .then(res => res.json())
@@ -2085,12 +2083,16 @@ export default function AdminPage() {
     } else {
       setEditingWorkout(null);
       setWorkoutDrillIds([]);
-      setTimeout(() => {
-        workoutForm.setValue("name", "");
-        workoutForm.setValue("description", "");
-        workoutForm.setValue("category", "");
-      }, 0);
+      workoutForm.reset({
+        name: "",
+        description: "",
+        category: "__none__",
+      });
     }
+    // Open dialog after form reset is complete
+    requestAnimationFrame(() => {
+      setIsCreateWorkoutOpen(true);
+    });
   };
 
   const closeWorkoutDialog = () => {
@@ -2103,6 +2105,7 @@ export default function AdminPage() {
     mutationFn: async (data: WorkoutFormData) => {
       return await apiRequest("POST", "/api/workouts/handlz", {
         ...data,
+        category: data.category === "__none__" ? "" : data.category,
         drillIds: workoutDrillIds,
       });
     },
@@ -2124,6 +2127,7 @@ export default function AdminPage() {
     mutationFn: async ({ id, data }: { id: string; data: WorkoutFormData }) => {
       return await apiRequest("PUT", `/api/workouts/${id}`, {
         ...data,
+        category: data.category === "__none__" ? "" : data.category,
         drillIds: workoutDrillIds,
       });
     },
@@ -2941,13 +2945,14 @@ export default function AdminPage() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Category (Optional)</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value || ""}>
+                          <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
                               <SelectTrigger data-testid="select-workout-category">
                                 <SelectValue placeholder="Select a category" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
+                              <SelectItem value="__none__">None</SelectItem>
                               {DRILL_CATEGORIES.map(cat => (
                                 <SelectItem key={cat} value={cat}>
                                   {cat.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
