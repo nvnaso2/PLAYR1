@@ -88,6 +88,8 @@ const drillFormSchema = z.object({
 
 type DrillFormData = z.infer<typeof drillFormSchema>;
 
+type DrillMetricWithTemplate = DrillMetric & { template: MetricTemplate };
+
 function DrillForm({ 
   drill, 
   onSuccess, 
@@ -99,7 +101,31 @@ function DrillForm({
 }) {
   const { toast } = useToast();
   const isEditing = !!drill;
+  const [selectedMetricIds, setSelectedMetricIds] = useState<string[]>([]);
   
+  // Fetch all metric templates
+  const { data: metricTemplates } = useQuery<MetricTemplate[]>({
+    queryKey: ['/api/metric-templates'],
+  });
+
+  // Fetch current drill metrics if editing
+  const { data: drillMetrics } = useQuery<DrillMetricWithTemplate[]>({
+    queryKey: ['/api/drills', drill?.id, 'metrics'],
+    queryFn: async () => {
+      const res = await fetch(`/api/drills/${drill!.id}/metrics`);
+      if (!res.ok) throw new Error('Failed to fetch metrics');
+      return res.json();
+    },
+    enabled: !!drill?.id,
+  });
+
+  // Initialize selected metrics when drill metrics load
+  useEffect(() => {
+    if (drillMetrics && selectedMetricIds.length === 0) {
+      setSelectedMetricIds(drillMetrics.map(m => m.metricTemplateId));
+    }
+  }, [drillMetrics]);
+
   const { uploadFile: uploadVideoFile, isUploading: isUploadingVideo } = useUpload({
     onSuccess: (response) => {
       form.setValue("videoUrl", response.objectPath);
@@ -201,6 +227,14 @@ function DrillForm({
     }
   };
 
+  const handleToggleMetric = (templateId: string) => {
+    setSelectedMetricIds(prev => 
+      prev.includes(templateId) 
+        ? prev.filter(id => id !== templateId)
+        : [...prev, templateId]
+    );
+  };
+
   const createMutation = useMutation({
     mutationFn: async (data: DrillFormData) => {
       const payload = {
@@ -211,7 +245,13 @@ function DrillForm({
         equipment: data.equipment ? data.equipment.split(",").map(s => s.trim()).filter(Boolean) : [],
         tips: data.tips ? data.tips.split("\n").map(s => s.trim()).filter(Boolean) : [],
       };
-      return await apiRequest("POST", "/api/drills", payload);
+      const response = await apiRequest("POST", "/api/drills", payload);
+      const newDrill = await response.json();
+      // Save metrics for the new drill
+      if (selectedMetricIds.length > 0) {
+        await apiRequest("POST", `/api/drills/${newDrill.id}/metrics`, { metricTemplateIds: selectedMetricIds });
+      }
+      return newDrill;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/drills'] });
@@ -237,10 +277,14 @@ function DrillForm({
         equipment: data.equipment ? data.equipment.split(",").map(s => s.trim()).filter(Boolean) : [],
         tips: data.tips ? data.tips.split("\n").map(s => s.trim()).filter(Boolean) : [],
       };
-      return await apiRequest("PUT", `/api/drills/${drill!.id}`, payload);
+      await apiRequest("PUT", `/api/drills/${drill!.id}`, payload);
+      // Update metrics for the drill
+      await apiRequest("POST", `/api/drills/${drill!.id}/metrics`, { metricTemplateIds: selectedMetricIds });
+      return payload;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/drills'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/drills', drill?.id, 'metrics'] });
       toast({ title: "Drill updated successfully" });
       onSuccess();
     },
@@ -536,6 +580,61 @@ function DrillForm({
             </FormItem>
           )}
         />
+
+        {/* Metrics Configuration Section */}
+        <div className="border rounded-md p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Ruler className="w-4 h-4 text-primary" />
+            <span className="font-medium">Tracking Metrics</span>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Select which metrics to track when users log this drill
+          </p>
+          
+          {!metricTemplates?.length ? (
+            <div className="text-center py-4 text-muted-foreground text-sm">
+              No metric templates available. Create them in the Metrics tab.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+              {metricTemplates.map((template) => {
+                const isSelected = selectedMetricIds.includes(template.id);
+                return (
+                  <div 
+                    key={template.id} 
+                    className={`flex items-center gap-2 p-2 border rounded cursor-pointer hover-elevate ${isSelected ? 'ring-1 ring-primary bg-primary/5' : ''}`}
+                    onClick={() => handleToggleMetric(template.id)}
+                    data-testid={`checkbox-metric-${template.id}`}
+                  >
+                    <Checkbox 
+                      checked={isSelected}
+                      onCheckedChange={() => handleToggleMetric(template.id)}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1">
+                        {template.type === "calculated" ? (
+                          <Calculator className="w-3 h-3 text-primary flex-shrink-0" />
+                        ) : (
+                          <Hash className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                        )}
+                        <span className="text-sm font-medium truncate">{template.label}</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        {template.type}{template.unit && ` (${template.unit})`}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          
+          {selectedMetricIds.length > 0 && (
+            <div className="text-xs text-muted-foreground">
+              {selectedMetricIds.length} metric{selectedMetricIds.length !== 1 ? 's' : ''} selected
+            </div>
+          )}
+        </div>
 
         <div className="flex gap-2 justify-end pt-4">
           <Button type="button" variant="outline" onClick={onCancel} data-testid="button-cancel-drill">
@@ -1769,8 +1868,6 @@ function MetricTemplateForm({
 }
 
 // Drill Metrics Configuration Component (now uses metric templates)
-type DrillMetricWithTemplate = DrillMetric & { template: MetricTemplate };
-
 function MetricsConfigDialog({ 
   drill, 
   open, 
@@ -1799,11 +1896,11 @@ function MetricsConfigDialog({
   });
 
   // Update selected templates when drill metrics load
-  useState(() => {
+  useEffect(() => {
     if (drillMetrics) {
       setSelectedTemplates(drillMetrics.map(m => m.metricTemplateId));
     }
-  });
+  }, [drillMetrics]);
 
   const saveMutation = useMutation({
     mutationFn: async (templateIds: string[]) => {
