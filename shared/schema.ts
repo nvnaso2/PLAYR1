@@ -46,8 +46,10 @@ export const drills = pgTable("drills", {
   category: varchar("category").$type<DrillCategory>().notNull(),
   difficulty: varchar("difficulty").$type<DifficultyLevel>().notNull().default("beginner"),
   videoLibraryId: varchar("video_library_id"), // Reference to video library
+  pdfLibraryId: varchar("pdf_library_id"), // Reference to PDF library
   videoUrl: varchar("video_url"),
   thumbnailUrl: varchar("thumbnail_url"),
+  pdfUrl: varchar("pdf_url"), // URL to linked PDF
   duration: integer("duration"), // in seconds
   equipment: text("equipment").array(),
   tips: text("tips").array(),
@@ -66,6 +68,20 @@ export const videoLibrary = pgTable("video_library", {
   category: varchar("category").$type<DrillCategory>(),
   difficulty: varchar("difficulty").$type<DifficultyLevel>(),
   tags: text("tags").array(),
+  createdAt: timestamp("created_at").defaultNow()
+});
+
+// PDF library for admin-uploaded training PDFs
+export const pdfLibrary = pgTable("pdf_library", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: varchar("title").notNull(),
+  description: text("description"),
+  pdfUrl: varchar("pdf_url").notNull(),
+  thumbnailUrl: varchar("thumbnail_url"),
+  category: varchar("category").$type<DrillCategory>(),
+  difficulty: varchar("difficulty").$type<DifficultyLevel>(),
+  tags: text("tags").array(),
+  drillId: varchar("drill_id"), // Optional link to a drill
   createdAt: timestamp("created_at").defaultNow()
 });
 
@@ -207,6 +223,13 @@ export const insertVideoLibrarySchema = createInsertSchema(videoLibrary).omit({ 
   ),
   thumbnailUrl: urlOrObjectPath,
 });
+export const insertPdfLibrarySchema = createInsertSchema(pdfLibrary).omit({ id: true, createdAt: true }).extend({
+  pdfUrl: z.string().refine(
+    (val) => val.startsWith("http://") || val.startsWith("https://") || val.startsWith("/objects/"),
+    { message: "Must be a valid URL or object storage path" }
+  ),
+  thumbnailUrl: urlOrObjectPath,
+});
 export const insertMetricTemplateSchema = createInsertSchema(metricTemplates).omit({ id: true, createdAt: true });
 export const insertTrainingLogSchema = createInsertSchema(trainingLogs).omit({ id: true, completedAt: true });
 export const insertUserVideoSchema = createInsertSchema(userVideos).omit({ id: true, createdAt: true });
@@ -221,6 +244,8 @@ export type InsertDrill = z.infer<typeof insertDrillSchema>;
 export type Drill = typeof drills.$inferSelect;
 export type InsertVideoLibrary = z.infer<typeof insertVideoLibrarySchema>;
 export type VideoLibrary = typeof videoLibrary.$inferSelect;
+export type InsertPdfLibrary = z.infer<typeof insertPdfLibrarySchema>;
+export type PdfLibrary = typeof pdfLibrary.$inferSelect;
 export type InsertMetricTemplate = z.infer<typeof insertMetricTemplateSchema>;
 export type MetricTemplate = typeof metricTemplates.$inferSelect;
 export type InsertTrainingLog = z.infer<typeof insertTrainingLogSchema>;

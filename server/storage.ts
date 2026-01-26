@@ -8,6 +8,7 @@ import {
   drillMetrics, type DrillMetric, type InsertDrillMetric,
   trainingLogMetrics, type TrainingLogMetric, type InsertTrainingLogMetric,
   videoLibrary, type VideoLibrary, type InsertVideoLibrary,
+  pdfLibrary, type PdfLibrary, type InsertPdfLibrary,
   metricTemplates, type MetricTemplate, type InsertMetricTemplate
 } from "@shared/schema";
 import { users } from "@shared/models/auth";
@@ -68,6 +69,13 @@ export interface IStorage {
   createVideoLibraryItem(video: InsertVideoLibrary): Promise<VideoLibrary>;
   updateVideoLibraryItem(id: string, video: Partial<InsertVideoLibrary>): Promise<VideoLibrary | undefined>;
   deleteVideoLibraryItem(id: string): Promise<boolean>;
+
+  // PDF Library
+  getPdfLibrary(): Promise<PdfLibrary[]>;
+  getPdfLibraryById(id: string): Promise<PdfLibrary | undefined>;
+  createPdfLibraryItem(pdf: InsertPdfLibrary): Promise<PdfLibrary>;
+  updatePdfLibraryItem(id: string, pdf: Partial<InsertPdfLibrary>): Promise<PdfLibrary | undefined>;
+  deletePdfLibraryItem(id: string): Promise<boolean>;
 
   // Metric Templates
   getMetricTemplates(): Promise<MetricTemplate[]>;
@@ -518,6 +526,34 @@ export class DatabaseStorage implements IStorage {
 
   async deleteVideoLibraryItem(id: string): Promise<boolean> {
     await db.delete(videoLibrary).where(eq(videoLibrary.id, id));
+    return true;
+  }
+
+  // PDF Library
+  async getPdfLibrary(): Promise<PdfLibrary[]> {
+    return await db.select().from(pdfLibrary).orderBy(desc(pdfLibrary.createdAt));
+  }
+
+  async getPdfLibraryById(id: string): Promise<PdfLibrary | undefined> {
+    const [pdf] = await db.select().from(pdfLibrary).where(eq(pdfLibrary.id, id));
+    return pdf;
+  }
+
+  async createPdfLibraryItem(pdf: InsertPdfLibrary): Promise<PdfLibrary> {
+    const [newPdf] = await db.insert(pdfLibrary).values(pdf as any).returning();
+    return newPdf;
+  }
+
+  async updatePdfLibraryItem(id: string, pdf: Partial<InsertPdfLibrary>): Promise<PdfLibrary | undefined> {
+    const [updated] = await db.update(pdfLibrary)
+      .set(pdf as any)
+      .where(eq(pdfLibrary.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deletePdfLibraryItem(id: string): Promise<boolean> {
+    await db.delete(pdfLibrary).where(eq(pdfLibrary.id, id));
     return true;
   }
 

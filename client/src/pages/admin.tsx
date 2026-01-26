@@ -56,8 +56,8 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check } from "lucide-react";
-import type { Drill, DrillCategory, DifficultyLevel, DrillMetric, VideoLibrary, MetricTemplate } from "@shared/schema";
+import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText } from "lucide-react";
+import type { Drill, DrillCategory, DifficultyLevel, DrillMetric, VideoLibrary, PdfLibrary, MetricTemplate } from "@shared/schema";
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, METRIC_TYPES } from "@shared/schema";
 import { useUpload } from "@/hooks/use-upload";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -76,8 +76,10 @@ const drillFormSchema = z.object({
   category: z.enum(DRILL_CATEGORIES),
   difficulty: z.enum(DIFFICULTY_LEVELS),
   videoLibraryId: z.string().optional(),
+  pdfLibraryId: z.string().optional(),
   videoUrl: z.string().optional().refine((val) => !val || val.startsWith("/objects/") || val.startsWith("http"), "Must be a valid URL or uploaded file"),
   thumbnailUrl: z.string().optional().refine((val) => !val || val.startsWith("/objects/") || val.startsWith("http"), "Must be a valid URL or uploaded file"),
+  pdfUrl: z.string().optional().refine((val) => !val || val.startsWith("/objects/") || val.startsWith("http"), "Must be a valid URL or uploaded file"),
   duration: z.number().int().positive().optional(),
   equipment: z.string().optional(),
   tips: z.string().optional(),
@@ -145,6 +147,11 @@ function DrillForm({
     queryKey: ['/api/video-library'],
   });
 
+  // Fetch PDF library for PDF selector
+  const { data: pdfLibraryList } = useQuery<PdfLibrary[]>({
+    queryKey: ['/api/pdf-library'],
+  });
+
   const form = useForm<DrillFormData>({
     resolver: zodResolver(drillFormSchema),
     defaultValues: {
@@ -153,8 +160,10 @@ function DrillForm({
       category: drill?.category || "ball-handling",
       difficulty: drill?.difficulty || "beginner",
       videoLibraryId: drill?.videoLibraryId || "",
+      pdfLibraryId: drill?.pdfLibraryId || "",
       videoUrl: drill?.videoUrl || "",
       thumbnailUrl: drill?.thumbnailUrl || "",
+      pdfUrl: drill?.pdfUrl || "",
       duration: drill?.duration || undefined,
       equipment: drill?.equipment?.join(", ") || "",
       tips: drill?.tips?.join("\n") || "",
@@ -179,12 +188,26 @@ function DrillForm({
     }
   };
 
+  // Handle PDF library selection - auto-populate PDF URL
+  const handlePdfLibrarySelect = (pdfId: string) => {
+    form.setValue("pdfLibraryId", pdfId);
+    if (pdfId && pdfLibraryList) {
+      const selectedPdf = pdfLibraryList.find(p => p.id === pdfId);
+      if (selectedPdf) {
+        form.setValue("pdfUrl", selectedPdf.pdfUrl);
+      }
+    } else {
+      form.setValue("pdfUrl", "");
+    }
+  };
+
   const createMutation = useMutation({
     mutationFn: async (data: DrillFormData) => {
       const payload = {
         ...data,
         videoUrl: data.videoUrl || null,
         thumbnailUrl: data.thumbnailUrl || null,
+        pdfUrl: data.pdfUrl || null,
         equipment: data.equipment ? data.equipment.split(",").map(s => s.trim()).filter(Boolean) : [],
         tips: data.tips ? data.tips.split("\n").map(s => s.trim()).filter(Boolean) : [],
       };
@@ -210,6 +233,7 @@ function DrillForm({
         ...data,
         videoUrl: data.videoUrl || null,
         thumbnailUrl: data.thumbnailUrl || null,
+        pdfUrl: data.pdfUrl || null,
         equipment: data.equipment ? data.equipment.split(",").map(s => s.trim()).filter(Boolean) : [],
         tips: data.tips ? data.tips.split("\n").map(s => s.trim()).filter(Boolean) : [],
       };
@@ -407,6 +431,39 @@ function DrillForm({
                   </Button>
                 </div>
               </div>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {/* PDF Library Selector */}
+        <FormField
+          control={form.control}
+          name="pdfLibraryId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Select PDF from Library</FormLabel>
+              <Select 
+                onValueChange={(value) => handlePdfLibrarySelect(value === "none" ? "" : value)} 
+                value={field.value || "none"}
+              >
+                <FormControl>
+                  <SelectTrigger data-testid="select-drill-pdf-library">
+                    <SelectValue placeholder="Choose a PDF from the library" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {pdfLibraryList?.map((pdf) => (
+                    <SelectItem key={pdf.id} value={pdf.id}>
+                      {pdf.title} {pdf.category && `(${pdf.category.replace(/-/g, " ")})`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormDescription>
+                Optionally attach a PDF document to this drill
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -1069,6 +1126,408 @@ function VideoLibraryForm({
   );
 }
 
+// PDF Library Form Component
+const pdfFormSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  description: z.string().optional(),
+  pdfUrl: z.string().min(1, "PDF URL is required"),
+  thumbnailUrl: z.string().optional(),
+  category: z.string().optional(),
+  difficulty: z.string().optional(),
+  tags: z.string().optional(),
+  linkedDrillId: z.string().optional(),
+});
+
+type PdfFormData = z.infer<typeof pdfFormSchema>;
+
+function PdfLibraryForm({ 
+  pdf, 
+  onSuccess, 
+  onCancel 
+}: { 
+  pdf?: PdfLibrary; 
+  onSuccess: () => void;
+  onCancel: () => void;
+}) {
+  const { toast } = useToast();
+  const isEditing = !!pdf;
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+  const thumbnailInputRef = useRef<HTMLInputElement>(null);
+
+  const { data: drillsList } = useQuery<Drill[]>({
+    queryKey: ['/api/drills'],
+  });
+
+  const currentLinkedDrill = pdf?.drillId 
+    ? drillsList?.find(d => d.id === pdf.drillId) 
+    : undefined;
+  
+  const { uploadFile: uploadPdfFile, isUploading: isUploadingPdf } = useUpload({
+    onSuccess: (response) => {
+      form.setValue("pdfUrl", response.objectPath);
+      toast({ title: "PDF uploaded successfully" });
+    },
+    onError: (error) => {
+      toast({ title: "Failed to upload PDF", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const { uploadFile: uploadThumbnailFile, isUploading: isUploadingThumbnail } = useUpload({
+    onSuccess: (response) => {
+      form.setValue("thumbnailUrl", response.objectPath);
+      toast({ title: "Thumbnail uploaded successfully" });
+    },
+    onError: (error) => {
+      toast({ title: "Failed to upload thumbnail", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.type !== "application/pdf") {
+        toast({ title: "Please select a PDF file", variant: "destructive" });
+        return;
+      }
+      await uploadPdfFile(file);
+    }
+  };
+
+  const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith("image/")) {
+        toast({ title: "Please select an image file", variant: "destructive" });
+        return;
+      }
+      await uploadThumbnailFile(file);
+    }
+  };
+
+  const form = useForm<PdfFormData>({
+    resolver: zodResolver(pdfFormSchema),
+    defaultValues: {
+      title: pdf?.title || "",
+      description: pdf?.description || "",
+      pdfUrl: pdf?.pdfUrl || "",
+      thumbnailUrl: pdf?.thumbnailUrl || "",
+      category: pdf?.category || "",
+      difficulty: pdf?.difficulty || "",
+      tags: pdf?.tags?.join(", ") || "",
+      linkedDrillId: pdf?.drillId || "",
+    },
+  });
+
+  const linkDrillMutation = useMutation({
+    mutationFn: async ({ drillId, pdfId, pdfUrl }: { drillId: string; pdfId: string; pdfUrl: string }) => {
+      return await apiRequest("PUT", `/api/drills/${drillId}`, { 
+        pdfLibraryId: pdfId,
+        pdfUrl: pdfUrl,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/drills'] });
+    },
+  });
+
+  const unlinkDrillMutation = useMutation({
+    mutationFn: async (drillId: string) => {
+      return await apiRequest("PUT", `/api/drills/${drillId}`, { 
+        pdfLibraryId: null,
+        pdfUrl: null,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/drills'] });
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (data: PdfFormData) => {
+      const { linkedDrillId, ...pdfData } = data;
+      const payload = {
+        ...pdfData,
+        tags: data.tags ? data.tags.split(",").map(s => s.trim()).filter(Boolean) : [],
+        drillId: linkedDrillId && linkedDrillId !== "none" ? linkedDrillId : null,
+      };
+      return await apiRequest("POST", "/api/pdf-library", payload);
+    },
+    onSuccess: (newPdf: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/pdf-library'] });
+      const linkedDrillId = form.getValues("linkedDrillId");
+      if (linkedDrillId && linkedDrillId !== "none" && newPdf?.id) {
+        linkDrillMutation.mutate({ 
+          drillId: linkedDrillId, 
+          pdfId: newPdf.id,
+          pdfUrl: form.getValues("pdfUrl"),
+        });
+      }
+      toast({ title: "PDF added successfully" });
+      onSuccess();
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to add PDF", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: PdfFormData) => {
+      const { linkedDrillId, ...pdfData } = data;
+      const payload = {
+        ...pdfData,
+        tags: data.tags ? data.tags.split(",").map(s => s.trim()).filter(Boolean) : [],
+        drillId: linkedDrillId && linkedDrillId !== "none" ? linkedDrillId : null,
+      };
+      return await apiRequest("PUT", `/api/pdf-library/${pdf!.id}`, payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/pdf-library'] });
+      toast({ title: "PDF updated successfully" });
+      onSuccess();
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to update PDF", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const onSubmit = async (data: PdfFormData) => {
+    const { linkedDrillId, ...pdfData } = data;
+    
+    if (isEditing) {
+      updateMutation.mutate(data, {
+        onSuccess: async () => {
+          const previousDrillId = currentLinkedDrill?.id;
+          
+          if (previousDrillId && previousDrillId !== linkedDrillId) {
+            await unlinkDrillMutation.mutateAsync(previousDrillId);
+          }
+          
+          if (linkedDrillId && linkedDrillId !== "none" && linkedDrillId !== previousDrillId && pdf?.id) {
+            await linkDrillMutation.mutateAsync({ 
+              drillId: linkedDrillId, 
+              pdfId: pdf.id,
+              pdfUrl: data.pdfUrl,
+            });
+          }
+        }
+      });
+    } else {
+      createMutation.mutate(data);
+    }
+  };
+
+  const isPending = createMutation.isPending || updateMutation.isPending;
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="title"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Title</FormLabel>
+              <FormControl>
+                <Input placeholder="PDF title" {...field} data-testid="input-pdf-title" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="description"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Description</FormLabel>
+              <FormControl>
+                <Textarea placeholder="PDF description" {...field} data-testid="input-pdf-description" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="pdfUrl"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>PDF File</FormLabel>
+              <div className="flex gap-2">
+                <FormControl>
+                  <Input placeholder="Upload a PDF file" {...field} readOnly data-testid="input-pdf-url" />
+                </FormControl>
+                <input
+                  ref={pdfInputRef}
+                  type="file"
+                  accept="application/pdf"
+                  onChange={handlePdfUpload}
+                  className="hidden"
+                  disabled={isUploadingPdf}
+                  data-testid="input-pdf-file-upload"
+                />
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  disabled={isUploadingPdf}
+                  onClick={() => pdfInputRef.current?.click()}
+                  data-testid="button-pdf-upload"
+                >
+                  {isUploadingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                </Button>
+              </div>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="thumbnailUrl"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Thumbnail (Optional)</FormLabel>
+              <div className="flex gap-2">
+                <FormControl>
+                  <Input placeholder="Upload a thumbnail" {...field} readOnly data-testid="input-pdf-thumbnail" />
+                </FormControl>
+                <input
+                  ref={thumbnailInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleThumbnailUpload}
+                  className="hidden"
+                  disabled={isUploadingThumbnail}
+                  data-testid="input-pdf-thumbnail-upload"
+                />
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  disabled={isUploadingThumbnail}
+                  onClick={() => thumbnailInputRef.current?.click()}
+                  data-testid="button-pdf-thumbnail-upload"
+                >
+                  {isUploadingThumbnail ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                </Button>
+              </div>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="category"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Category</FormLabel>
+                <Select value={field.value || "none"} onValueChange={(val) => field.onChange(val === "none" ? "" : val)}>
+                  <FormControl>
+                    <SelectTrigger data-testid="select-pdf-category">
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="none">No category</SelectItem>
+                    {DRILL_CATEGORIES.map((cat) => (
+                      <SelectItem key={cat} value={cat}>{cat.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="difficulty"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Difficulty</FormLabel>
+                <Select value={field.value || "none"} onValueChange={(val) => field.onChange(val === "none" ? "" : val)}>
+                  <FormControl>
+                    <SelectTrigger data-testid="select-pdf-difficulty">
+                      <SelectValue placeholder="Select difficulty" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="none">No difficulty</SelectItem>
+                    {DIFFICULTY_LEVELS.map((level) => (
+                      <SelectItem key={level} value={level}>{level.charAt(0).toUpperCase() + level.slice(1)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <FormField
+          control={form.control}
+          name="tags"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Tags</FormLabel>
+              <FormControl>
+                <Input placeholder="tag1, tag2, tag3" {...field} data-testid="input-pdf-tags" />
+              </FormControl>
+              <FormDescription>Comma-separated tags</FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="linkedDrillId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Link to Drill (Optional)</FormLabel>
+              <Select value={field.value || "none"} onValueChange={(val) => field.onChange(val === "none" ? "" : val)}>
+                <FormControl>
+                  <SelectTrigger data-testid="select-pdf-drill-link">
+                    <SelectValue placeholder="Select a drill to link" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="none">No drill linked</SelectItem>
+                  {drillsList?.map((drill) => (
+                    <SelectItem key={drill.id} value={drill.id}>{drill.title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormDescription>Optionally link this PDF to a specific drill</FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="flex justify-end gap-2 pt-4">
+          <Button type="button" variant="outline" onClick={onCancel} data-testid="button-cancel-pdf">
+            Cancel
+          </Button>
+          <Button type="submit" disabled={isPending} data-testid="button-save-pdf">
+            {isPending ? "Saving..." : isEditing ? "Update PDF" : "Add PDF"}
+          </Button>
+        </div>
+      </form>
+    </Form>
+  );
+}
+
 // Metric Template Form Component
 const metricFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -1472,9 +1931,11 @@ export default function AdminPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
   const [isCreateVideoOpen, setIsCreateVideoOpen] = useState(false);
+  const [isCreatePdfOpen, setIsCreatePdfOpen] = useState(false);
   const [isCreateMetricOpen, setIsCreateMetricOpen] = useState(false);
   const [editingDrill, setEditingDrill] = useState<Drill | null>(null);
   const [editingVideo, setEditingVideo] = useState<VideoLibrary | null>(null);
+  const [editingPdf, setEditingPdf] = useState<PdfLibrary | null>(null);
   const [editingMetric, setEditingMetric] = useState<MetricTemplate | null>(null);
   const [configuringMetricsDrill, setConfiguringMetricsDrill] = useState<Drill | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -1495,6 +1956,11 @@ export default function AdminPage() {
     enabled: isAdmin,
   });
 
+  const { data: pdfLibrary, isLoading: pdfsLoading } = useQuery<PdfLibrary[]>({
+    queryKey: ['/api/pdf-library'],
+    enabled: isAdmin,
+  });
+
   const { data: metricTemplates, isLoading: metricsLoading } = useQuery<MetricTemplate[]>({
     queryKey: ['/api/metric-templates'],
     enabled: isAdmin,
@@ -1511,6 +1977,23 @@ export default function AdminPage() {
     onError: (error: any) => {
       toast({ 
         title: "Failed to delete video", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const deletePdfMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("DELETE", `/api/pdf-library/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/pdf-library'] });
+      toast({ title: "PDF deleted successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to delete PDF", 
         description: error.message,
         variant: "destructive" 
       });
@@ -1634,6 +2117,10 @@ export default function AdminPage() {
           <TabsTrigger value="metrics" className="gap-2" data-testid="tab-metrics">
             <Ruler className="w-4 h-4" />
             Metrics
+          </TabsTrigger>
+          <TabsTrigger value="pdfs" className="gap-2" data-testid="tab-pdfs">
+            <FileText className="w-4 h-4" />
+            PDF Library
           </TabsTrigger>
           <TabsTrigger value="drills" className="gap-2" data-testid="tab-drills">
             <Video className="w-4 h-4" />
@@ -1921,6 +2408,147 @@ export default function AdminPage() {
                         </TableCell>
                       </TableRow>
                     ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* PDF Library Tab */}
+        <TabsContent value="pdfs" className="space-y-6">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <h2 className="text-xl font-semibold">PDF Library</h2>
+              <p className="text-sm text-muted-foreground">Upload and manage training PDFs to use in drills</p>
+            </div>
+            <Dialog open={isCreatePdfOpen} onOpenChange={setIsCreatePdfOpen}>
+              <DialogTrigger asChild>
+                <Button className="gap-2" data-testid="button-add-pdf">
+                  <Plus className="w-4 h-4" />
+                  Add PDF
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Add PDF to Library</DialogTitle>
+                </DialogHeader>
+                <PdfLibraryForm
+                  onSuccess={() => setIsCreatePdfOpen(false)}
+                  onCancel={() => setIsCreatePdfOpen(false)}
+                />
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          <Card>
+            <CardContent className="p-0">
+              {pdfsLoading ? (
+                <div className="p-6 space-y-4">
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                </div>
+              ) : !pdfLibrary?.length ? (
+                <div className="p-12 text-center">
+                  <FileText className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="font-semibold mb-2">No PDFs yet</h3>
+                  <p className="text-muted-foreground mb-4">Upload training PDFs to use in your drills</p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Title</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Difficulty</TableHead>
+                      <TableHead>Linked Drill</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pdfLibrary.map((pdf) => {
+                      const linkedDrill = drills?.find(d => d.id === pdf.drillId);
+                      return (
+                        <TableRow key={pdf.id} data-testid={`pdf-row-${pdf.id}`}>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-muted rounded flex items-center justify-center">
+                                <FileText className="w-5 h-5 text-muted-foreground" />
+                              </div>
+                              <div>
+                                <div className="font-medium">{pdf.title}</div>
+                                {pdf.description && (
+                                  <div className="text-sm text-muted-foreground truncate max-w-xs">{pdf.description}</div>
+                                )}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {pdf.category ? (
+                              <Badge variant="outline">{pdf.category.replace(/-/g, ' ')}</Badge>
+                            ) : '-'}
+                          </TableCell>
+                          <TableCell>
+                            {pdf.difficulty ? (
+                              <Badge variant="secondary">{pdf.difficulty}</Badge>
+                            ) : '-'}
+                          </TableCell>
+                          <TableCell>
+                            {linkedDrill ? (
+                              <Badge variant="outline" className="text-primary">{linkedDrill.title}</Badge>
+                            ) : '-'}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <a href={pdf.pdfUrl} target="_blank" rel="noopener noreferrer">
+                                <Button variant="ghost" size="icon" data-testid={`button-view-pdf-${pdf.id}`}>
+                                  <FileText className="w-4 h-4" />
+                                </Button>
+                              </a>
+                              <Dialog open={editingPdf?.id === pdf.id} onOpenChange={(open) => !open && setEditingPdf(null)}>
+                                <DialogTrigger asChild>
+                                  <Button variant="ghost" size="icon" onClick={() => setEditingPdf(pdf)} data-testid={`button-edit-pdf-${pdf.id}`}>
+                                    <Pencil className="w-4 h-4" />
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                                  <DialogHeader>
+                                    <DialogTitle>Edit PDF</DialogTitle>
+                                  </DialogHeader>
+                                  {editingPdf && (
+                                    <PdfLibraryForm
+                                      pdf={editingPdf}
+                                      onSuccess={() => setEditingPdf(null)}
+                                      onCancel={() => setEditingPdf(null)}
+                                    />
+                                  )}
+                                </DialogContent>
+                              </Dialog>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="ghost" size="icon" data-testid={`button-delete-pdf-${pdf.id}`}>
+                                    <Trash2 className="w-4 h-4 text-destructive" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete PDF?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      This will permanently delete "{pdf.title}" from your library.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => deletePdfMutation.mutate(pdf.id)}>Delete</AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               )}

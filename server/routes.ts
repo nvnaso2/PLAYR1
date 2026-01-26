@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
-import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertMetricTemplateSchema } from "@shared/schema";
+import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(
@@ -85,6 +85,12 @@ export async function registerRoutes(
     try {
       const data = insertDrillSchema.parse(req.body);
       const drill = await storage.createDrill(data);
+      
+      // Sync bidirectional PDF library link
+      if (data.pdfLibraryId) {
+        await storage.updatePdfLibraryItem(data.pdfLibraryId, { drillId: drill.id });
+      }
+      
       res.status(201).json(drill);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -99,10 +105,27 @@ export async function registerRoutes(
   app.put("/api/drills/:id", isAuthenticated, isAdmin, async (req: any, res) => {
     try {
       const data = insertDrillSchema.partial().parse(req.body);
+      
+      // Get old drill to check for PDF library changes
+      const oldDrill = await storage.getDrill(req.params.id);
+      
       const drill = await storage.updateDrill(req.params.id, data);
       if (!drill) {
         return res.status(404).json({ message: "Drill not found" });
       }
+      
+      // Sync bidirectional PDF library link
+      if (data.pdfLibraryId !== undefined) {
+        // Clear old PDF link if it changed
+        if (oldDrill?.pdfLibraryId && oldDrill.pdfLibraryId !== data.pdfLibraryId) {
+          await storage.updatePdfLibraryItem(oldDrill.pdfLibraryId, { drillId: null });
+        }
+        // Set new PDF link
+        if (data.pdfLibraryId) {
+          await storage.updatePdfLibraryItem(data.pdfLibraryId, { drillId: drill.id });
+        }
+      }
+      
       res.json(drill);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -251,6 +274,106 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting video:", error);
       res.status(500).json({ message: "Failed to delete video" });
+    }
+  });
+
+  // ===== PDF LIBRARY (Admin only) =====
+
+  // Get all PDFs in library (admin only)
+  app.get("/api/pdf-library", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const pdfs = await storage.getPdfLibrary();
+      res.json(pdfs);
+    } catch (error) {
+      console.error("Error fetching PDF library:", error);
+      res.status(500).json({ message: "Failed to fetch PDF library" });
+    }
+  });
+
+  // Get single PDF (admin only)
+  app.get("/api/pdf-library/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const pdf = await storage.getPdfLibraryById(req.params.id);
+      if (!pdf) {
+        return res.status(404).json({ message: "PDF not found" });
+      }
+      res.json(pdf);
+    } catch (error) {
+      console.error("Error fetching PDF:", error);
+      res.status(500).json({ message: "Failed to fetch PDF" });
+    }
+  });
+
+  // Create PDF in library (admin only)
+  app.post("/api/pdf-library", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const data = insertPdfLibrarySchema.parse(req.body);
+      const pdf = await storage.createPdfLibraryItem(data);
+      
+      // Sync bidirectional drill link
+      if (data.drillId) {
+        await storage.updateDrill(data.drillId, { 
+          pdfLibraryId: pdf.id, 
+          pdfUrl: pdf.pdfUrl 
+        });
+      }
+      
+      res.status(201).json(pdf);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error creating PDF:", error);
+      res.status(500).json({ message: "Failed to create PDF" });
+    }
+  });
+
+  // Update PDF in library (admin only)
+  app.put("/api/pdf-library/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const data = insertPdfLibrarySchema.partial().parse(req.body);
+      
+      // Get old PDF to check for drill changes
+      const oldPdf = await storage.getPdfLibraryById(req.params.id);
+      
+      const pdf = await storage.updatePdfLibraryItem(req.params.id, data);
+      if (!pdf) {
+        return res.status(404).json({ message: "PDF not found" });
+      }
+      
+      // Sync bidirectional drill link
+      if (data.drillId !== undefined) {
+        // Clear old drill link if it changed
+        if (oldPdf?.drillId && oldPdf.drillId !== data.drillId) {
+          await storage.updateDrill(oldPdf.drillId, { pdfLibraryId: null, pdfUrl: null });
+        }
+        // Set new drill link
+        if (data.drillId) {
+          await storage.updateDrill(data.drillId, { 
+            pdfLibraryId: pdf.id, 
+            pdfUrl: pdf.pdfUrl 
+          });
+        }
+      }
+      
+      res.json(pdf);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error updating PDF:", error);
+      res.status(500).json({ message: "Failed to update PDF" });
+    }
+  });
+
+  // Delete PDF from library (admin only)
+  app.delete("/api/pdf-library/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      await storage.deletePdfLibraryItem(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting PDF:", error);
+      res.status(500).json({ message: "Failed to delete PDF" });
     }
   });
 
