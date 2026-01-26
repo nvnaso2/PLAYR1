@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -52,47 +52,34 @@ export function WorkoutDialog({ open, onOpenChange, editingWorkout, drills }: Wo
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
   const [workoutDrillIds, setWorkoutDrillIds] = useState<string[]>([]);
-  const [initialized, setInitialized] = useState(false);
 
   const handlzDrills = drills.filter(d => !d.userId);
 
-  const resetForm = useCallback(() => {
-    setName("");
-    setDescription("");
-    setCategory("");
-    setWorkoutDrillIds([]);
-    setInitialized(false);
-  }, []);
-
-  const initializeForm = useCallback(async () => {
-    if (editingWorkout) {
-      setName(editingWorkout.name);
-      setDescription(editingWorkout.description || "");
-      setCategory(editingWorkout.category || "");
-      try {
-        const res = await fetch(`/api/workouts/${editingWorkout.id}`);
-        const data: WorkoutWithDrills = await res.json();
-        setWorkoutDrillIds(data.drills.map(wd => wd.drillId));
-      } catch {
-        setWorkoutDrillIds([]);
-      }
-    } else {
+  // Reset form when dialog closes
+  useEffect(() => {
+    if (!open) {
       setName("");
       setDescription("");
       setCategory("");
       setWorkoutDrillIds([]);
     }
-    setInitialized(true);
-  }, [editingWorkout]);
+  }, [open]);
 
-  const handleOpenChange = useCallback((newOpen: boolean) => {
-    if (newOpen && !initialized) {
-      initializeForm();
-    } else if (!newOpen) {
-      resetForm();
+  // Initialize form when editing workout changes (only when opening to edit)
+  useEffect(() => {
+    if (open && editingWorkout) {
+      setName(editingWorkout.name);
+      setDescription(editingWorkout.description || "");
+      setCategory(editingWorkout.category || "");
+      // Fetch drill IDs for this workout
+      fetch(`/api/workouts/${editingWorkout.id}`)
+        .then(res => res.json())
+        .then((data: WorkoutWithDrills) => {
+          setWorkoutDrillIds(data.drills.map(wd => wd.drillId));
+        })
+        .catch(() => setWorkoutDrillIds([]));
     }
-    onOpenChange(newOpen);
-  }, [initialized, initializeForm, resetForm, onOpenChange]);
+  }, [open, editingWorkout?.id]);
 
   const toggleWorkoutDrill = (drillId: string) => {
     setWorkoutDrillIds(prev => 
@@ -114,7 +101,7 @@ export function WorkoutDialog({ open, onOpenChange, editingWorkout, drills }: Wo
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/workouts/handlz'] });
       toast({ title: "Workout created successfully" });
-      handleOpenChange(false);
+      onOpenChange(false);
     },
     onError: (error: any) => {
       toast({ 
@@ -137,7 +124,7 @@ export function WorkoutDialog({ open, onOpenChange, editingWorkout, drills }: Wo
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/workouts/handlz'] });
       toast({ title: "Workout updated successfully" });
-      handleOpenChange(false);
+      onOpenChange(false);
     },
     onError: (error: any) => {
       toast({ 
@@ -164,7 +151,7 @@ export function WorkoutDialog({ open, onOpenChange, editingWorkout, drills }: Wo
   const isPending = createWorkoutMutation.isPending || updateWorkoutMutation.isPending;
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{editingWorkout ? "Edit Workout" : "Create Workout"}</DialogTitle>
@@ -256,7 +243,7 @@ export function WorkoutDialog({ open, onOpenChange, editingWorkout, drills }: Wo
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button 
