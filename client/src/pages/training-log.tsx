@@ -1459,11 +1459,13 @@ export default function TrainingLogPage() {
                                   {metricColumns.map(dm => (
                                     <td key={dm.metricTemplateId} className="p-2">
                                       <Input
-                                        type="number"
-                                        min={0}
-                                        value={entry.metrics[dm.metricTemplateId] || 0}
+                                        type="text"
+                                        inputMode="numeric"
+                                        pattern="[0-9]*"
+                                        value={entry.metrics[dm.metricTemplateId] || ''}
                                         onChange={(e) => updateMetricValue(index, dm.metricTemplateId, parseFloat(e.target.value) || 0)}
                                         className="w-20 h-8 text-sm"
+                                        placeholder="0"
                                         data-testid={`input-metric-${index}-${dm.metricTemplateId}`}
                                       />
                                     </td>
@@ -1847,10 +1849,12 @@ export default function TrainingLogPage() {
                   <label className="text-sm font-medium">Duration (min)</label>
                   {isEditMode ? (
                     <Input
-                      type="number"
-                      min={1}
-                      value={editLogDuration}
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={editLogDuration || ''}
                       onChange={(e) => setEditLogDuration(parseInt(e.target.value) || 0)}
+                      placeholder="0"
                       data-testid="input-edit-duration"
                     />
                   ) : (
