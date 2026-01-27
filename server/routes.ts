@@ -713,12 +713,19 @@ export async function registerRoutes(
 
   // ===== TRAINING LOGS =====
 
-  // Get user's training logs
+  // Get user's training logs with metrics
   app.get("/api/training-logs", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const logs = await storage.getTrainingLogs(userId);
-      res.json(logs);
+      // Fetch metrics for each log
+      const logsWithMetrics = await Promise.all(
+        logs.map(async (log) => {
+          const metrics = await storage.getTrainingLogMetrics(log.id);
+          return { ...log, metrics };
+        })
+      );
+      res.json(logsWithMetrics);
     } catch (error) {
       console.error("Error fetching training logs:", error);
       res.status(500).json({ message: "Failed to fetch training logs" });

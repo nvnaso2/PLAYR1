@@ -209,7 +209,8 @@ export default function TrainingLogPage() {
   });
 
   // Fetch training logs
-  const { data: logs, isLoading: logsLoading } = useQuery<TrainingLog[]>({
+  type TrainingLogWithMetricsResponse = TrainingLog & { metrics: Array<{ metricId: string; value: string | null }> };
+  const { data: logs, isLoading: logsLoading } = useQuery<TrainingLogWithMetricsResponse[]>({
     queryKey: ['/api/training-logs'],
   });
 
@@ -365,6 +366,54 @@ export default function TrainingLogPage() {
       notes: editLogNotes,
       metrics: metricsArray,
     });
+  };
+
+  // Get formatted metrics stats for display on history cards
+  const getMetricStats = (log: TrainingLogWithMetricsResponse, drillId: string) => {
+    if (!log.metrics || log.metrics.length === 0) return null;
+    
+    const drill = allDrills?.find(d => d.id === drillId);
+    if (!drill) return null;
+    
+    // Find metric templates for this drill
+    const templateIds = log.metrics.map(m => m.metricId);
+    const templates = (metricTemplates || []).filter(t => templateIds.includes(t.id));
+    
+    // Build display values - group by round (metricId format may include round info)
+    const displayValues: { label: string; value: string }[] = [];
+    let totalAttempts = 0;
+    let totalMade = 0;
+    
+    log.metrics.forEach(m => {
+      const template = templates.find(t => t.id === m.metricId);
+      if (template && m.value !== null && m.value !== "") {
+        const numValue = parseFloat(m.value);
+        if (!isNaN(numValue)) {
+          // Track shooting stats
+          const labelLower = template.label.toLowerCase();
+          const nameLower = template.name.toLowerCase();
+          if (labelLower.includes('attempt') || nameLower.includes('attempt')) {
+            totalAttempts += numValue;
+          }
+          if ((labelLower.includes('made') || nameLower.includes('made')) && 
+              !labelLower.includes('attempt') && !nameLower.includes('attempt')) {
+            totalMade += numValue;
+          }
+        }
+      }
+    });
+    
+    // Calculate shooting percentage if we have attempts and made
+    if (totalAttempts > 0) {
+      const percentage = Math.round((totalMade / totalAttempts) * 100);
+      return {
+        attempts: totalAttempts,
+        made: totalMade,
+        percentage
+      };
+    }
+    
+    return null;
   };
 
   // Toggle drill selection
@@ -1532,7 +1581,9 @@ export default function TrainingLogPage() {
                                 </div>
                               </CardHeader>
                               <CardContent className="space-y-2">
-                                {group.logs.map((log) => (
+                                {group.logs.map((log) => {
+                                  const sessionLogStats = getMetricStats(log, log.drillId);
+                                  return (
                                   <div 
                                     key={log.id} 
                                     className="flex items-center justify-between p-2 rounded-md bg-muted/30 hover-elevate cursor-pointer" 
@@ -1545,6 +1596,19 @@ export default function TrainingLogPage() {
                                     </div>
                                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                       <span>{log.duration} min</span>
+                                      {sessionLogStats && (
+                                        <>
+                                          <span className="text-foreground">{sessionLogStats.made}/{sessionLogStats.attempts}</span>
+                                          <Badge 
+                                            variant="secondary"
+                                            className={`text-xs ${sessionLogStats.percentage >= 70 ? "bg-green-500/20 text-green-400" : 
+                                                      sessionLogStats.percentage >= 50 ? "bg-orange-500/20 text-orange-400" : 
+                                                      "bg-red-500/20 text-red-400"}`}
+                                          >
+                                            {sessionLogStats.percentage}%
+                                          </Badge>
+                                        </>
+                                      )}
                                       <Button 
                                         variant="ghost" 
                                         size="icon"
@@ -1556,11 +1620,13 @@ export default function TrainingLogPage() {
                                       </Button>
                                     </div>
                                   </div>
-                                ))}
+                                );})}
                               </CardContent>
                             </Card>
                           ) : (
-                            group.logs.map((log) => (
+                            group.logs.map((log) => {
+                              const stats = getMetricStats(log, log.drillId);
+                              return (
                               <Card 
                                 key={log.id} 
                                 className="hover-elevate cursor-pointer" 
@@ -1582,11 +1648,22 @@ export default function TrainingLogPage() {
                                             <Clock className="w-3.5 h-3.5" />
                                             {log.duration} min
                                           </span>
-                                          {log.reps && (
-                                            <span>{log.reps} reps</span>
-                                          )}
-                                          {log.sets && (
-                                            <span>{log.sets} sets</span>
+                                          {stats && (
+                                            <>
+                                              <span className="flex items-center gap-1">
+                                                <span className="text-foreground font-medium">{stats.made}/{stats.attempts}</span>
+                                                <span>shots</span>
+                                              </span>
+                                              <Badge 
+                                                variant="secondary"
+                                                className={stats.percentage >= 70 ? "bg-green-500/20 text-green-400" : 
+                                                          stats.percentage >= 50 ? "bg-orange-500/20 text-orange-400" : 
+                                                          "bg-red-500/20 text-red-400"}
+                                                data-testid={`badge-percentage-${log.id}`}
+                                              >
+                                                {stats.percentage}%
+                                              </Badge>
+                                            </>
                                           )}
                                         </div>
                                       </div>
@@ -1607,7 +1684,7 @@ export default function TrainingLogPage() {
                                   )}
                                 </CardContent>
                               </Card>
-                            ))
+                            );})
                           )
                         ))}
                       </div>
