@@ -123,6 +123,7 @@ export default function TrainingLogPage() {
   const [workoutEntries, setWorkoutEntries] = useState<WorkoutDrillEntry[]>([]);
   const [isCreateDrillOpen, setIsCreateDrillOpen] = useState(false);
   const [isSaveWorkoutOpen, setIsSaveWorkoutOpen] = useState(false);
+  const [isAddDrillToWorkoutOpen, setIsAddDrillToWorkoutOpen] = useState(false);
   const [activeLibraryTab, setActiveLibraryTab] = useState("personal-drills");
   const [activeView, setActiveView] = useState<"library" | "workout" | "history">("library");
   
@@ -598,6 +599,37 @@ export default function TrainingLogPage() {
       ...prev.slice(index + 1)
     ]);
     toast({ title: "Round added", description: `Added another round of ${entry.drill.title}` });
+  };
+
+  // Add a new drill to the active workout
+  const addDrillToWorkout = async (drillId: string) => {
+    const drill = allDrills?.find(d => d.id === drillId);
+    if (!drill) {
+      toast({ title: "Drill not found", variant: "destructive" });
+      return;
+    }
+    
+    // Fetch metrics for the drill
+    const drillMetrics = await fetchDrillMetrics(drillId);
+    
+    // Create initial metric values
+    const metricValues: Record<string, number> = {};
+    drillMetrics.forEach(dm => {
+      metricValues[dm.metricTemplateId] = 0;
+    });
+    
+    const newEntry: WorkoutDrillEntry = {
+      drillId,
+      drill,
+      duration: 0,
+      notes: "",
+      metrics: metricValues,
+      drillMetrics,
+    };
+    
+    setWorkoutEntries(prev => [...prev, newEntry]);
+    setIsAddDrillToWorkoutOpen(false);
+    toast({ title: "Drill added", description: `${drill.title} added to workout` });
   };
 
   // Helper to get round number for a drill entry
@@ -1517,6 +1549,49 @@ export default function TrainingLogPage() {
                   );
                 });
               })()}
+              
+              {/* Add Drill Button */}
+              <Button 
+                variant="outline" 
+                className="w-full gap-2 border-dashed"
+                onClick={() => setIsAddDrillToWorkoutOpen(true)}
+                data-testid="button-add-drill-to-workout"
+              >
+                <Plus className="w-4 h-4" />
+                Add Drill to Workout
+              </Button>
+              
+              {/* Add Drill Dialog */}
+              <Dialog open={isAddDrillToWorkoutOpen} onOpenChange={setIsAddDrillToWorkoutOpen}>
+                <DialogContent className="max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
+                  <DialogHeader>
+                    <DialogTitle>Add Drill to Workout</DialogTitle>
+                    <DialogDescription>Select a drill to add to your active workout</DialogDescription>
+                  </DialogHeader>
+                  <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+                    {allDrills && allDrills.length > 0 ? (
+                      allDrills.map(drill => (
+                        <div
+                          key={drill.id}
+                          className="flex items-center justify-between p-3 rounded-md border hover-elevate cursor-pointer"
+                          onClick={() => addDrillToWorkout(drill.id)}
+                          data-testid={`add-drill-option-${drill.id}`}
+                        >
+                          <div>
+                            <h4 className="font-medium text-sm">{drill.title}</h4>
+                            <p className="text-xs text-muted-foreground">
+                              {formatCategory(drill.category)} - {drill.difficulty}
+                            </p>
+                          </div>
+                          <Plus className="w-4 h-4 text-muted-foreground" />
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center py-4">No drills available</p>
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
           </CardContent>
         </Card>
