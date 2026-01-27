@@ -1236,104 +1236,121 @@ export default function TrainingLogPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {workoutEntries.map((entry, index) => {
-                const totalRounds = getTotalRounds(entry.drillId);
-                const roundNum = getRoundNumber(index);
-                return (
-                <Card key={`${entry.drillId}-${index}`} className="border-muted" data-testid={`workout-row-${index}`}>
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="secondary" className="text-xs font-semibold">
-                              Round {roundNum}
-                            </Badge>
-                            <CardTitle className="text-base">{entry.drill.title}</CardTitle>
+            <div className="space-y-6">
+              {/* Group entries by drill for table display */}
+              {(() => {
+                const drillGroups = new Map<string, { drill: Drill; entries: Array<{ entry: WorkoutDrillEntry; index: number }> }>();
+                workoutEntries.forEach((entry, index) => {
+                  if (!drillGroups.has(entry.drillId)) {
+                    drillGroups.set(entry.drillId, { drill: entry.drill, entries: [] });
+                  }
+                  drillGroups.get(entry.drillId)!.entries.push({ entry, index });
+                });
+                
+                return Array.from(drillGroups.entries()).map(([drillId, group]) => {
+                  const firstEntry = group.entries[0].entry;
+                  const metricColumns = firstEntry.drillMetrics.filter(dm => dm.template.type !== 'calculated');
+                  
+                  return (
+                    <Card key={drillId} className="border-muted" data-testid={`drill-table-${drillId}`}>
+                      <CardHeader className="pb-2">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <CardTitle className="text-base">{group.drill.title}</CardTitle>
+                            <CardDescription className="text-xs">
+                              {formatCategory(group.drill.category)} - {group.entries.length} round{group.entries.length > 1 ? 's' : ''}
+                            </CardDescription>
                           </div>
-                          <CardDescription className="text-xs">
-                            {formatCategory(entry.drill.category)}
-                          </CardDescription>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => addRound(group.entries[group.entries.length - 1].index)}
+                            className="gap-1"
+                            data-testid={`button-add-round-${drillId}`}
+                          >
+                            <Plus className="w-3 h-3" />
+                            Add Round
+                          </Button>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={() => addRound(index)}
-                          title="Add another round"
-                          data-testid={`button-add-round-${index}`}
-                        >
-                          <Copy className="w-4 h-4 text-muted-foreground" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={() => removeFromWorkout(index)}
-                          data-testid={`button-remove-${index}`}
-                        >
-                          <X className="w-4 h-4 text-muted-foreground" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      <div className="space-y-1">
-                        <label className="text-sm font-medium text-muted-foreground">Duration (min)</label>
-                        <Input
-                          type="number"
-                          min={1}
-                          max={180}
-                          value={entry.duration}
-                          onChange={(e) => updateEntry(index, 'duration', parseInt(e.target.value) || 1)}
-                          data-testid={`input-duration-${index}`}
-                        />
-                      </div>
-                      <div className="space-y-1 col-span-2 md:col-span-2">
-                        <label className="text-sm font-medium text-muted-foreground">Notes</label>
-                        <Input
-                          placeholder="Optional notes..."
-                          value={entry.notes}
-                          onChange={(e) => updateEntry(index, 'notes', e.target.value)}
-                          data-testid={`input-notes-${index}`}
-                        />
-                      </div>
-                    </div>
-                    
-                    {entry.drillMetrics.length > 0 && (
-                      <div className="pt-2 border-t">
-                        <p className="text-sm font-medium text-muted-foreground mb-3">Drill Metrics</p>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                          {entry.drillMetrics
-                            .filter(dm => dm.template.type !== 'calculated')
-                            .map(dm => (
-                              <div key={dm.metricTemplateId} className="space-y-1">
-                                <label className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-                                  {dm.template.label}
-                                  {dm.isRequired && <span className="text-destructive">*</span>}
-                                </label>
-                                <Input
-                                  type="number"
-                                  min={0}
-                                  value={entry.metrics[dm.metricTemplateId] || 0}
-                                  onChange={(e) => updateMetricValue(index, dm.metricTemplateId, parseFloat(e.target.value) || 0)}
-                                  placeholder={dm.template.unit || ''}
-                                  data-testid={`input-metric-${index}-${dm.metricTemplateId}`}
-                                />
-                                {dm.template.unit && (
-                                  <span className="text-xs text-muted-foreground">{dm.template.unit}</span>
-                                )}
-                              </div>
-                            ))}
+                      </CardHeader>
+                      <CardContent className="p-0">
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b bg-muted/30">
+                                <th className="text-left p-3 font-medium text-muted-foreground w-20">Round</th>
+                                {metricColumns.map(dm => (
+                                  <th key={dm.metricTemplateId} className="text-left p-3 font-medium text-muted-foreground">
+                                    {dm.template.label}
+                                    {dm.isRequired && <span className="text-destructive ml-1">*</span>}
+                                  </th>
+                                ))}
+                                <th className="text-left p-3 font-medium text-muted-foreground w-24">Duration</th>
+                                <th className="text-left p-3 font-medium text-muted-foreground">Notes</th>
+                                <th className="text-center p-3 font-medium text-muted-foreground w-12"></th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {group.entries.map(({ entry, index }, roundIdx) => (
+                                <tr key={index} className="border-b last:border-0 hover:bg-muted/20" data-testid={`workout-row-${index}`}>
+                                  <td className="p-3">
+                                    <Badge variant="secondary" className="text-xs font-semibold">
+                                      {roundIdx + 1}
+                                    </Badge>
+                                  </td>
+                                  {metricColumns.map(dm => (
+                                    <td key={dm.metricTemplateId} className="p-2">
+                                      <Input
+                                        type="number"
+                                        min={0}
+                                        value={entry.metrics[dm.metricTemplateId] || 0}
+                                        onChange={(e) => updateMetricValue(index, dm.metricTemplateId, parseFloat(e.target.value) || 0)}
+                                        className="w-20 h-8 text-sm"
+                                        data-testid={`input-metric-${index}-${dm.metricTemplateId}`}
+                                      />
+                                    </td>
+                                  ))}
+                                  <td className="p-2">
+                                    <Input
+                                      type="number"
+                                      min={1}
+                                      max={180}
+                                      value={entry.duration}
+                                      onChange={(e) => updateEntry(index, 'duration', parseInt(e.target.value) || 1)}
+                                      className="w-16 h-8 text-sm"
+                                      data-testid={`input-duration-${index}`}
+                                    />
+                                  </td>
+                                  <td className="p-2">
+                                    <Input
+                                      placeholder="Notes..."
+                                      value={entry.notes}
+                                      onChange={(e) => updateEntry(index, 'notes', e.target.value)}
+                                      className="h-8 text-sm min-w-[120px]"
+                                      data-testid={`input-notes-${index}`}
+                                    />
+                                  </td>
+                                  <td className="p-2 text-center">
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon"
+                                      className="h-7 w-7"
+                                      onClick={() => removeFromWorkout(index)}
+                                      data-testid={`button-remove-${index}`}
+                                    >
+                                      <X className="w-4 h-4 text-muted-foreground" />
+                                    </Button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-              })}
+                      </CardContent>
+                    </Card>
+                  );
+                });
+              })()}
             </div>
           </CardContent>
         </Card>
