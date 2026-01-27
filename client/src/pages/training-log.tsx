@@ -214,6 +214,11 @@ export default function TrainingLogPage() {
     queryKey: ['/api/training-logs'],
   });
 
+  // Fetch metric templates for displaying stats
+  const { data: metricTemplates } = useQuery<MetricTemplate[]>({
+    queryKey: ['/api/metric-templates'],
+  });
+
   // Group drills by category
   const groupByCategory = (drills: Drill[]) => {
     const grouped: Record<string, Drill[]> = {};
