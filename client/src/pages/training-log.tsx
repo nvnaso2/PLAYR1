@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -70,7 +70,9 @@ import {
   Copy,
   Eye,
   Pencil,
-  MoreVertical
+  MoreVertical,
+  Timer,
+  Square
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Drill, TrainingLog, DrillMetric, MetricTemplate, Workout, WorkoutDrill } from "@shared/schema";
@@ -123,6 +125,53 @@ export default function TrainingLogPage() {
   const [isSaveWorkoutOpen, setIsSaveWorkoutOpen] = useState(false);
   const [activeLibraryTab, setActiveLibraryTab] = useState("personal-drills");
   const [activeView, setActiveView] = useState<"library" | "workout" | "history">("library");
+  
+  // Timer state: tracks which rounds have active timers
+  const [activeTimers, setActiveTimers] = useState<Record<number, number>>({}); // index -> start timestamp
+  const [timerTick, setTimerTick] = useState(0); // Force re-render for timer display
+  
+  // Timer tick effect - update every second when any timer is active
+  useEffect(() => {
+    const hasActiveTimers = Object.keys(activeTimers).length > 0;
+    if (!hasActiveTimers) return;
+    
+    const interval = setInterval(() => {
+      setTimerTick(t => t + 1);
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [Object.keys(activeTimers).length]);
+  
+  // Start timer for a round
+  const startTimer = (index: number) => {
+    setActiveTimers(prev => ({ ...prev, [index]: Date.now() }));
+  };
+  
+  // Stop timer and update duration
+  const stopTimer = (index: number) => {
+    const startTime = activeTimers[index];
+    if (startTime) {
+      const elapsedMs = Date.now() - startTime;
+      const elapsedMinutes = Math.max(1, Math.round(elapsedMs / 60000));
+      updateEntry(index, 'duration', elapsedMinutes);
+    }
+    setActiveTimers(prev => {
+      const next = { ...prev };
+      delete next[index];
+      return next;
+    });
+  };
+  
+  // Get elapsed time string for a timer
+  const getElapsedTime = (index: number): string => {
+    const startTime = activeTimers[index];
+    if (!startTime) return "0:00";
+    const elapsedMs = Date.now() - startTime;
+    const totalSeconds = Math.floor(elapsedMs / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
   
   // View/Edit log state
   const [viewEditLogId, setViewEditLogId] = useState<string | null>(null);
@@ -1251,6 +1300,26 @@ export default function TrainingLogPage() {
                   const firstEntry = group.entries[0].entry;
                   const metricColumns = firstEntry.drillMetrics.filter(dm => dm.template.type !== 'calculated');
                   
+                  // Check if this is a shooting drill (has shots attempted and shots made metrics)
+                  const shotsAttemptedMetric = metricColumns.find(dm => 
+                    dm.template.name.toLowerCase().includes('attempt') || 
+                    dm.template.label.toLowerCase().includes('attempt')
+                  );
+                  const shotsMadeMetric = metricColumns.find(dm => 
+                    dm.template.name.toLowerCase().includes('made') || 
+                    dm.template.label.toLowerCase().includes('made')
+                  );
+                  const isShootingDrill = group.drill.category === 'shooting' || (shotsAttemptedMetric && shotsMadeMetric);
+                  
+                  // Calculate shooting percentage for an entry
+                  const getShootingPct = (entry: WorkoutDrillEntry): number | null => {
+                    if (!shotsAttemptedMetric || !shotsMadeMetric) return null;
+                    const attempted = entry.metrics[shotsAttemptedMetric.metricTemplateId] || 0;
+                    const made = entry.metrics[shotsMadeMetric.metricTemplateId] || 0;
+                    if (attempted === 0) return null;
+                    return Math.round((made / attempted) * 100);
+                  };
+                  
                   return (
                     <Card key={drillId} className="border-muted" data-testid={`drill-table-${drillId}`}>
                       <CardHeader className="pb-2">
@@ -1285,6 +1354,9 @@ export default function TrainingLogPage() {
                                     {dm.isRequired && <span className="text-destructive ml-1">*</span>}
                                   </th>
                                 ))}
+                                {isShootingDrill && shotsAttemptedMetric && shotsMadeMetric && (
+                                  <th className="text-left p-3 font-medium text-primary w-24">Shooting %</th>
+                                )}
                                 <th className="text-left p-3 font-medium text-muted-foreground w-24">Duration</th>
                                 <th className="text-left p-3 font-medium text-muted-foreground">Notes</th>
                                 <th className="text-center p-3 font-medium text-muted-foreground w-12"></th>
@@ -1310,23 +1382,63 @@ export default function TrainingLogPage() {
                                       />
                                     </td>
                                   ))}
+                                  {isShootingDrill && shotsAttemptedMetric && shotsMadeMetric && (
+                                    <td className="p-2">
+                                      {(() => {
+                                        const pct = getShootingPct(entry);
+                                        return pct !== null ? (
+                                          <Badge 
+                                            variant={pct >= 50 ? "default" : "secondary"} 
+                                            className={`text-sm font-bold ${pct >= 70 ? 'bg-green-600' : pct >= 50 ? 'bg-primary' : ''}`}
+                                            data-testid={`shooting-pct-${index}`}
+                                          >
+                                            {pct}%
+                                          </Badge>
+                                        ) : (
+                                          <span className="text-muted-foreground text-xs">--</span>
+                                        );
+                                      })()}
+                                    </td>
+                                  )}
                                   <td className="p-2">
-                                    <Input
-                                      type="number"
-                                      min={1}
-                                      max={180}
-                                      value={entry.duration}
-                                      onChange={(e) => updateEntry(index, 'duration', parseInt(e.target.value) || 1)}
-                                      className="w-16 h-8 text-sm"
-                                      data-testid={`input-duration-${index}`}
-                                    />
+                                    <div className="flex items-center gap-1">
+                                      {activeTimers[index] ? (
+                                        <>
+                                          <span className="font-mono text-sm text-primary font-bold min-w-[45px]" data-testid={`timer-display-${index}`}>
+                                            {getElapsedTime(index)}
+                                          </span>
+                                          <Button
+                                            variant="destructive"
+                                            size="icon"
+                                            className="h-7 w-7"
+                                            onClick={() => stopTimer(index)}
+                                            data-testid={`button-stop-timer-${index}`}
+                                          >
+                                            <Square className="w-3 h-3" />
+                                          </Button>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <span className="text-xs text-muted-foreground min-w-[35px]">{entry.duration}m</span>
+                                          <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="h-7 w-7"
+                                            onClick={() => startTimer(index)}
+                                            data-testid={`button-start-timer-${index}`}
+                                          >
+                                            <Timer className="w-3 h-3" />
+                                          </Button>
+                                        </>
+                                      )}
+                                    </div>
                                   </td>
                                   <td className="p-2">
                                     <Input
                                       placeholder="Notes..."
                                       value={entry.notes}
                                       onChange={(e) => updateEntry(index, 'notes', e.target.value)}
-                                      className="h-8 text-sm min-w-[120px]"
+                                      className="h-8 text-sm min-w-[100px]"
                                       data-testid={`input-notes-${index}`}
                                     />
                                   </td>
