@@ -1,4 +1,5 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -199,6 +200,56 @@ export default function TrainingLogPage() {
     if (personalDrills) combined.push(...personalDrills);
     return combined;
   }, [handlzDrills, personalDrills]);
+
+  // Handle drill query parameter - auto-start workout with specified drill
+  const [location, setLocation] = useLocation();
+  const drillParamHandled = useRef(false);
+  
+  useEffect(() => {
+    // Only handle the drill param once and when drills are loaded
+    if (drillParamHandled.current || !allDrills || allDrills.length === 0) return;
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const drillId = urlParams.get('drill');
+    
+    if (drillId) {
+      const drill = allDrills.find(d => d.id === drillId);
+      if (drill) {
+        drillParamHandled.current = true;
+        // Auto-start a workout with this drill
+        (async () => {
+          // Fetch metrics for the drill
+          try {
+            const res = await fetch(`/api/drills/${drillId}/metrics`, { credentials: 'include' });
+            const drillMetrics: DrillMetricWithTemplate[] = res.ok ? await res.json() : [];
+            
+            // Create initial metric values
+            const metricValues: Record<string, number> = {};
+            drillMetrics.forEach(dm => {
+              metricValues[dm.metricTemplateId] = 0;
+            });
+            
+            // Add drill to workout entries and start workout
+            setWorkoutEntries([{
+              drillId: drill.id,
+              drill,
+              duration: 0,
+              notes: '',
+              metrics: metricValues,
+              drillMetrics,
+            }]);
+            setWorkoutInProgress(true);
+            setActiveView("workout");
+            
+            // Clear the URL parameter
+            setLocation('/log', { replace: true });
+          } catch (error) {
+            console.error('Failed to start drill workout:', error);
+          }
+        })();
+      }
+    }
+  }, [allDrills, setLocation]);
 
   // Fetch workouts
   const { data: handlzWorkouts, isLoading: handlzWorkoutsLoading } = useQuery<Workout[]>({
