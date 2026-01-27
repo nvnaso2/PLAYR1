@@ -1571,18 +1571,48 @@ export default function TrainingLogPage() {
                       </div>
                       <div className="space-y-4">
                         {logGroups.map((group, groupIndex) => (
-                          group.sessionId && group.logs.length > 1 ? (
+                          group.sessionId && group.logs.length > 1 ? (() => {
+                            // Calculate session totals for shooting stats
+                            let sessionTotalAttempts = 0;
+                            let sessionTotalMade = 0;
+                            group.logs.forEach(log => {
+                              const stats = getMetricStats(log, log.drillId);
+                              if (stats) {
+                                sessionTotalAttempts += stats.attempts;
+                                sessionTotalMade += stats.made;
+                              }
+                            });
+                            const sessionPercentage = sessionTotalAttempts > 0 
+                              ? Math.round((sessionTotalMade / sessionTotalAttempts) * 100) 
+                              : null;
+                            
+                            return (
                             <Card key={group.sessionId} className="border-primary/20" data-testid={`card-session-${group.sessionId}`}>
                               <CardHeader className="pb-2">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <Layers className="w-4 h-4 text-primary" />
                                   <span className="text-sm font-medium">Workout Session</span>
                                   <Badge variant="secondary" className="text-xs">
                                     {group.logs.length} drills
                                   </Badge>
-                                  <span className="text-xs text-muted-foreground ml-auto">
-                                    {group.logs.reduce((sum, l) => sum + l.duration, 0)} min total
-                                  </span>
+                                  <div className="flex items-center gap-2 ml-auto">
+                                    {sessionPercentage !== null && (
+                                      <>
+                                        <span className="text-sm font-medium">{sessionTotalMade}/{sessionTotalAttempts} shots</span>
+                                        <Badge 
+                                          variant="secondary"
+                                          className={sessionPercentage >= 70 ? "bg-green-500/20 text-green-400" : 
+                                                    sessionPercentage >= 50 ? "bg-orange-500/20 text-orange-400" : 
+                                                    "bg-red-500/20 text-red-400"}
+                                        >
+                                          {sessionPercentage}%
+                                        </Badge>
+                                      </>
+                                    )}
+                                    <span className="text-xs text-muted-foreground">
+                                      {group.logs.reduce((sum, l) => sum + l.duration, 0)} min
+                                    </span>
+                                  </div>
                                 </div>
                               </CardHeader>
                               <CardContent className="space-y-2">
@@ -1628,7 +1658,8 @@ export default function TrainingLogPage() {
                                 );})}
                               </CardContent>
                             </Card>
-                          ) : (
+                          );
+                          })() : (
                             group.logs.map((log) => {
                               const stats = getMetricStats(log, log.drillId);
                               return (
