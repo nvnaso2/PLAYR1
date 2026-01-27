@@ -1882,12 +1882,15 @@ export default function TrainingLogPage() {
                 <div className="space-y-2 border-t pt-4">
                   <label className="text-sm font-medium">Recorded Metrics</label>
                   <div className="grid grid-cols-2 gap-3">
-                    {viewEditLog.metrics.map((metric) => (
-                      <div key={metric.metricId} className="flex justify-between items-center p-2 bg-muted/30 rounded">
-                        <span className="text-sm text-muted-foreground">{metric.metricId}</span>
-                        <span className="font-medium">{metric.value || 0}</span>
-                      </div>
-                    ))}
+                    {viewEditLog.metrics.map((metric) => {
+                      const template = metricTemplates?.find(t => t.id === metric.metricId);
+                      return (
+                        <div key={metric.metricId} className="flex justify-between items-center p-2 bg-muted/30 rounded">
+                          <span className="text-sm text-muted-foreground">{template?.label || template?.name || 'Metric'}</span>
+                          <span className="font-medium">{metric.value || 0}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
