@@ -41,7 +41,9 @@ export interface IStorage {
   // Training Logs
   getTrainingLogs(userId: string): Promise<TrainingLog[]>;
   getRecentTrainingLogs(userId: string, limit?: number): Promise<TrainingLog[]>;
+  getTrainingLog(id: string): Promise<TrainingLog | undefined>;
   createTrainingLog(log: InsertTrainingLog): Promise<TrainingLog>;
+  updateTrainingLog(id: string, updates: Partial<InsertTrainingLog>): Promise<TrainingLog>;
 
   // User Profiles
   getUserProfile(userId: string): Promise<UserProfile | undefined>;
@@ -269,6 +271,13 @@ export class DatabaseStorage implements IStorage {
       .limit(limit);
   }
 
+  async getTrainingLog(id: string): Promise<TrainingLog | undefined> {
+    const [log] = await db.select()
+      .from(trainingLogs)
+      .where(eq(trainingLogs.id, id));
+    return log;
+  }
+
   async createTrainingLog(log: InsertTrainingLog): Promise<TrainingLog> {
     const [newLog] = await db.insert(trainingLogs).values(log).returning();
     
@@ -278,6 +287,14 @@ export class DatabaseStorage implements IStorage {
     }
     
     return newLog;
+  }
+
+  async updateTrainingLog(id: string, updates: Partial<InsertTrainingLog>): Promise<TrainingLog> {
+    const [updated] = await db.update(trainingLogs)
+      .set(updates)
+      .where(eq(trainingLogs.id, id))
+      .returning();
+    return updated;
   }
 
   // User Profiles

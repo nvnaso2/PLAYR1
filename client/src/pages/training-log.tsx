@@ -67,7 +67,10 @@ import {
   ChevronDown,
   Layers,
   Sparkles,
-  Copy
+  Copy,
+  Eye,
+  Pencil,
+  MoreVertical
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Drill, TrainingLog, DrillMetric, MetricTemplate, Workout, WorkoutDrill } from "@shared/schema";
@@ -85,7 +88,6 @@ type WorkoutDrillEntry = {
   drill: Drill;
   duration: number;
   notes: string;
-  score: number;
   metrics: Record<string, number>;
   drillMetrics: DrillMetricWithTemplate[];
 };
@@ -121,6 +123,13 @@ export default function TrainingLogPage() {
   const [isSaveWorkoutOpen, setIsSaveWorkoutOpen] = useState(false);
   const [activeLibraryTab, setActiveLibraryTab] = useState("personal-drills");
   const [activeView, setActiveView] = useState<"library" | "workout" | "history">("library");
+  
+  // View/Edit log state
+  const [viewEditLogId, setViewEditLogId] = useState<string | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editLogDuration, setEditLogDuration] = useState(0);
+  const [editLogNotes, setEditLogNotes] = useState("");
+  const [editLogMetrics, setEditLogMetrics] = useState<Record<string, number>>({});
 
   // Fetch Handlz drills (admin drills with userId = null) - server filters correctly
   const { data: handlzDrills, isLoading: handlzDrillsLoading } = useQuery<Drill[]>({
@@ -244,6 +253,71 @@ export default function TrainingLogPage() {
     },
   });
 
+  // Fetch single training log with metrics for view/edit
+  type TrainingLogWithMetrics = TrainingLog & { metrics: Array<{ metricId: string; value: string | null }> };
+  const { data: viewEditLog, isLoading: viewEditLogLoading } = useQuery<TrainingLogWithMetrics>({
+    queryKey: ['/api/training-logs', viewEditLogId],
+    enabled: !!viewEditLogId,
+  });
+
+  // Update training log mutation
+  const updateLogMutation = useMutation({
+    mutationFn: async (data: { id: string; duration: number; notes: string; metrics: Array<{ metricId: string; value: number }> }) => {
+      return await apiRequest("PUT", `/api/training-logs/${data.id}`, {
+        duration: data.duration,
+        notes: data.notes,
+        metrics: data.metrics,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/training-logs'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/training-logs', viewEditLogId] });
+      toast({ title: "Training log updated" });
+      setViewEditLogId(null);
+      setIsEditMode(false);
+    },
+    onError: () => {
+      toast({ title: "Failed to update log", variant: "destructive" });
+    },
+  });
+
+  // Open log for viewing
+  const openViewLog = (logId: string) => {
+    setViewEditLogId(logId);
+    setIsEditMode(false);
+  };
+
+  // Open log for editing
+  const openEditLog = (log: TrainingLog) => {
+    setViewEditLogId(log.id);
+    setIsEditMode(true);
+    setEditLogDuration(log.duration);
+    setEditLogNotes(log.notes || "");
+    setEditLogMetrics({});
+  };
+
+  // Close view/edit dialog
+  const closeViewEdit = () => {
+    setViewEditLogId(null);
+    setIsEditMode(false);
+    setEditLogMetrics({});
+  };
+
+  // Save edited log
+  const saveEditedLog = async () => {
+    if (!viewEditLogId) return;
+    const metricsArray = Object.entries(editLogMetrics).map(([metricId, value]) => ({
+      metricId,
+      value,
+    }));
+    updateLogMutation.mutate({
+      id: viewEditLogId,
+      duration: editLogDuration,
+      notes: editLogNotes,
+      metrics: metricsArray,
+    });
+  };
+
   // Toggle drill selection
   const toggleDrillSelection = (drillId: string) => {
     setSelectedDrillIds(prev => {
@@ -294,7 +368,6 @@ export default function TrainingLogPage() {
           drill,
           duration: Math.round((drill.duration || 300) / 60),
           notes: "",
-          score: 7,
           metrics: metricValues,
           drillMetrics,
         });
@@ -325,7 +398,6 @@ export default function TrainingLogPage() {
       drill,
       duration: Math.round((drill.duration || 300) / 60),
       notes: "",
-      score: 7,
       metrics: metricValues,
       drillMetrics,
     }];
@@ -359,7 +431,6 @@ export default function TrainingLogPage() {
           drill: wd.drill,
           duration: wd.defaultDuration || Math.round((wd.drill.duration || 300) / 60),
           notes: "",
-          score: 7,
           metrics: metricValues,
           drillMetrics,
         });
@@ -413,7 +484,6 @@ export default function TrainingLogPage() {
       drill: entry.drill,
       duration: entry.duration,
       notes: "",
-      score: 7,
       metrics: Object.fromEntries(
         Object.keys(entry.metrics).map(key => [key, 0])
       ),
@@ -475,7 +545,6 @@ export default function TrainingLogPage() {
           drillId: entry.drillId,
           duration: entry.duration,
           notes: entry.notes || undefined,
-          score: entry.score,
           workoutSessionId: workoutEntries.length > 1 ? sessionId : undefined,
         });
         
@@ -1178,12 +1247,10 @@ export default function TrainingLogPage() {
                       <div className="flex items-center gap-2">
                         <div>
                           <div className="flex items-center gap-2">
+                            <Badge variant="secondary" className="text-xs font-semibold">
+                              Round {roundNum}
+                            </Badge>
                             <CardTitle className="text-base">{entry.drill.title}</CardTitle>
-                            {totalRounds > 1 && (
-                              <Badge variant="outline" className="text-xs">
-                                Round {roundNum}/{totalRounds}
-                              </Badge>
-                            )}
                           </div>
                           <CardDescription className="text-xs">
                             {formatCategory(entry.drill.category)}
@@ -1212,7 +1279,7 @@ export default function TrainingLogPage() {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                       <div className="space-y-1">
                         <label className="text-sm font-medium text-muted-foreground">Duration (min)</label>
                         <Input
@@ -1224,18 +1291,7 @@ export default function TrainingLogPage() {
                           data-testid={`input-duration-${index}`}
                         />
                       </div>
-                      <div className="space-y-1">
-                        <label className="text-sm font-medium text-muted-foreground">Score (1-10)</label>
-                        <Input
-                          type="number"
-                          min={1}
-                          max={10}
-                          value={entry.score}
-                          onChange={(e) => updateEntry(index, 'score', Math.min(10, Math.max(1, parseInt(e.target.value) || 1)))}
-                          data-testid={`input-score-${index}`}
-                        />
-                      </div>
-                      <div className="space-y-1 col-span-2">
+                      <div className="space-y-1 col-span-2 md:col-span-2">
                         <label className="text-sm font-medium text-muted-foreground">Notes</label>
                         <Input
                           placeholder="Optional notes..."
@@ -1348,18 +1404,27 @@ export default function TrainingLogPage() {
                               </CardHeader>
                               <CardContent className="space-y-2">
                                 {group.logs.map((log) => (
-                                  <div key={log.id} className="flex items-center justify-between p-2 rounded-md bg-muted/30" data-testid={`log-item-${log.id}`}>
+                                  <div 
+                                    key={log.id} 
+                                    className="flex items-center justify-between p-2 rounded-md bg-muted/30 hover-elevate cursor-pointer" 
+                                    data-testid={`log-item-${log.id}`}
+                                    onClick={() => openViewLog(log.id)}
+                                  >
                                     <div className="flex items-center gap-3">
                                       <Target className="w-4 h-4 text-primary" />
                                       <span className="font-medium text-sm">{getDrillTitle(log.drillId)}</span>
                                     </div>
-                                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                       <span>{log.duration} min</span>
-                                      {log.score && (
-                                        <Badge variant="secondary" className="text-xs">
-                                          {log.score}/10
-                                        </Badge>
-                                      )}
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon"
+                                        className="h-7 w-7"
+                                        onClick={(e) => { e.stopPropagation(); openEditLog(log); }}
+                                        data-testid={`button-edit-session-log-${log.id}`}
+                                      >
+                                        <Pencil className="w-3.5 h-3.5" />
+                                      </Button>
                                     </div>
                                   </div>
                                 ))}
@@ -1367,7 +1432,12 @@ export default function TrainingLogPage() {
                             </Card>
                           ) : (
                             group.logs.map((log) => (
-                              <Card key={log.id} className="hover-elevate" data-testid={`card-log-${log.id}`}>
+                              <Card 
+                                key={log.id} 
+                                className="hover-elevate cursor-pointer" 
+                                data-testid={`card-log-${log.id}`}
+                                onClick={() => openViewLog(log.id)}
+                              >
                                 <CardContent className="p-4">
                                   <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-4">
@@ -1378,7 +1448,7 @@ export default function TrainingLogPage() {
                                         <h4 className="font-medium" data-testid={`text-log-drill-${log.id}`}>
                                           {getDrillTitle(log.drillId)}
                                         </h4>
-                                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                        <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
                                           <span className="flex items-center gap-1">
                                             <Clock className="w-3.5 h-3.5" />
                                             {log.duration} min
@@ -1392,16 +1462,17 @@ export default function TrainingLogPage() {
                                         </div>
                                       </div>
                                     </div>
-                                    <div className="flex items-center gap-3">
-                                      {log.score && (
-                                        <Badge variant="secondary" className="text-sm">
-                                          {log.score}/10
-                                        </Badge>
-                                      )}
-                                    </div>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon"
+                                      onClick={(e) => { e.stopPropagation(); openEditLog(log); }}
+                                      data-testid={`button-edit-log-${log.id}`}
+                                    >
+                                      <Pencil className="w-4 h-4 text-muted-foreground" />
+                                    </Button>
                                   </div>
                                   {log.notes && (
-                                    <p className="mt-3 text-sm text-muted-foreground border-t pt-3">
+                                    <p className="mt-3 text-sm text-muted-foreground border-t pt-3 line-clamp-2">
                                       {log.notes}
                                     </p>
                                   )}
@@ -1432,6 +1503,114 @@ export default function TrainingLogPage() {
           )}
         </div>
       )}
+
+      {/* View/Edit Log Dialog */}
+      <Dialog open={!!viewEditLogId} onOpenChange={(open) => { if (!open) closeViewEdit(); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {isEditMode ? <Pencil className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              {isEditMode ? "Edit Training Log" : "Training Log Details"}
+            </DialogTitle>
+            <DialogDescription>
+              {viewEditLog && getDrillTitle(viewEditLog.drillId)}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {viewEditLogLoading ? (
+            <div className="space-y-4 py-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-20 w-full" />
+            </div>
+          ) : viewEditLog ? (
+            <div className="space-y-4 pt-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Duration (min)</label>
+                  {isEditMode ? (
+                    <Input
+                      type="number"
+                      min={1}
+                      value={editLogDuration}
+                      onChange={(e) => setEditLogDuration(parseInt(e.target.value) || 0)}
+                      data-testid="input-edit-duration"
+                    />
+                  ) : (
+                    <div className="text-lg font-semibold flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-muted-foreground" />
+                      {viewEditLog.duration} min
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Notes</label>
+                {isEditMode ? (
+                  <Textarea
+                    value={editLogNotes}
+                    onChange={(e) => setEditLogNotes(e.target.value)}
+                    placeholder="Add notes..."
+                    data-testid="input-edit-notes"
+                  />
+                ) : (
+                  <p className="text-sm text-muted-foreground border rounded-md p-3 bg-muted/30 min-h-[60px]">
+                    {viewEditLog.notes || "No notes"}
+                  </p>
+                )}
+              </div>
+
+              {viewEditLog.metrics && viewEditLog.metrics.length > 0 && (
+                <div className="space-y-2 border-t pt-4">
+                  <label className="text-sm font-medium">Recorded Metrics</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {viewEditLog.metrics.map((metric) => (
+                      <div key={metric.metricId} className="flex justify-between items-center p-2 bg-muted/30 rounded">
+                        <span className="text-sm text-muted-foreground">{metric.metricId}</span>
+                        <span className="font-medium">{metric.value || 0}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="text-xs text-muted-foreground border-t pt-4">
+                Completed: {viewEditLog.completedAt ? format(new Date(viewEditLog.completedAt), 'PPpp') : 'Unknown'}
+              </div>
+            </div>
+          ) : null}
+
+          <DialogFooter className="gap-2">
+            {isEditMode ? (
+              <>
+                <Button variant="outline" onClick={() => setIsEditMode(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={saveEditedLog} disabled={updateLogMutation.isPending} data-testid="button-save-edit">
+                  {updateLogMutation.isPending ? "Saving..." : "Save Changes"}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" onClick={closeViewEdit}>
+                  Close
+                </Button>
+                <Button onClick={() => {
+                  if (viewEditLog) {
+                    setIsEditMode(true);
+                    setEditLogDuration(viewEditLog.duration);
+                    setEditLogNotes(viewEditLog.notes || "");
+                  }
+                }} className="gap-2" data-testid="button-start-edit">
+                  <Pencil className="w-4 h-4" />
+                  Edit
+                </Button>
+              </>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

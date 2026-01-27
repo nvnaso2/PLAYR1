@@ -753,6 +753,48 @@ export async function registerRoutes(
     }
   });
 
+  // Get single training log with metrics
+  app.get("/api/training-logs/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const log = await storage.getTrainingLog(req.params.id);
+      if (!log) {
+        return res.status(404).json({ message: "Training log not found" });
+      }
+      if (log.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      const metrics = await storage.getTrainingLogMetrics(req.params.id);
+      res.json({ ...log, metrics });
+    } catch (error) {
+      console.error("Error fetching training log:", error);
+      res.status(500).json({ message: "Failed to fetch training log" });
+    }
+  });
+
+  // Update training log
+  app.put("/api/training-logs/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const log = await storage.getTrainingLog(req.params.id);
+      if (!log) {
+        return res.status(404).json({ message: "Training log not found" });
+      }
+      if (log.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      const { duration, score, notes, reps, sets, metrics } = req.body;
+      const updated = await storage.updateTrainingLog(req.params.id, { duration, score, notes, reps, sets });
+      if (metrics && Array.isArray(metrics)) {
+        await storage.saveTrainingLogMetrics(req.params.id, metrics);
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating training log:", error);
+      res.status(500).json({ message: "Failed to update training log" });
+    }
+  });
+
   // ===== USER PROFILE =====
 
   // Get user profile
