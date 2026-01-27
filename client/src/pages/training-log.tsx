@@ -784,12 +784,12 @@ export default function TrainingLogPage() {
   // Group logs by date and then by workout session
   type LogGroup = {
     sessionId: string | null;
-    logs: TrainingLog[];
+    logs: TrainingLogWithMetricsResponse[];
   };
   
-  const groupLogsByDateAndSession = (logs: TrainingLog[]) => {
+  const groupLogsByDateAndSession = (logs: TrainingLogWithMetricsResponse[]) => {
     // First group by date
-    const byDate: Record<string, TrainingLog[]> = {};
+    const byDate: Record<string, TrainingLogWithMetricsResponse[]> = {};
     logs.forEach(log => {
       const date = format(new Date(log.completedAt!), 'yyyy-MM-dd');
       if (!byDate[date]) byDate[date] = [];
@@ -799,8 +799,8 @@ export default function TrainingLogPage() {
     // Then within each date, group by workout session
     const result: Record<string, LogGroup[]> = {};
     Object.entries(byDate).forEach(([date, dayLogs]) => {
-      const sessions: Record<string, TrainingLog[]> = {};
-      const singles: TrainingLog[] = [];
+      const sessions: Record<string, TrainingLogWithMetricsResponse[]> = {};
+      const singles: TrainingLogWithMetricsResponse[] = [];
       
       dayLogs.forEach(log => {
         if (log.workoutSessionId) {
@@ -1017,7 +1017,7 @@ export default function TrainingLogPage() {
                       <FormItem>
                         <FormLabel>Description (Optional)</FormLabel>
                         <FormControl>
-                          <Textarea placeholder="Describe the drill..." {...field} data-testid="input-drill-description" />
+                          <Textarea placeholder="Describe the drill..." {...field} value={field.value ?? ''} data-testid="input-drill-description" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1370,7 +1370,7 @@ export default function TrainingLogPage() {
                               <FormItem>
                                 <FormLabel>Description (Optional)</FormLabel>
                                 <FormControl>
-                                  <Textarea placeholder="Describe this workout..." {...field} data-testid="input-workout-description" />
+                                  <Textarea placeholder="Describe this workout..." {...field} value={field.value ?? ''} data-testid="input-workout-description" />
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
@@ -1382,7 +1382,7 @@ export default function TrainingLogPage() {
                             render={({ field }) => (
                               <FormItem>
                                 <FormLabel>Category (Optional)</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value}>
+                                <Select onValueChange={field.onChange} value={field.value ?? undefined}>
                                   <FormControl>
                                     <SelectTrigger data-testid="select-workout-category">
                                       <SelectValue placeholder="Select a category" />
