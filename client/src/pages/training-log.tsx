@@ -1887,7 +1887,7 @@ export default function TrainingLogPage() {
                       return (
                         <div key={metric.metricId} className="flex justify-between items-center p-2 bg-muted/30 rounded">
                           <span className="text-sm text-muted-foreground">{template?.label || template?.name || 'Metric'}</span>
-                          <span className="font-medium">{metric.value || 0}</span>
+                          <span className="font-medium">{metric.value ? Math.round(parseFloat(metric.value)) : 0}</span>
                         </div>
                       );
                     })}
