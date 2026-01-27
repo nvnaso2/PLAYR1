@@ -66,7 +66,8 @@ import {
   ChevronRight,
   ChevronDown,
   Layers,
-  Sparkles
+  Sparkles,
+  Copy
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Drill, TrainingLog, DrillMetric, MetricTemplate, Workout, WorkoutDrill } from "@shared/schema";
@@ -404,6 +405,45 @@ export default function TrainingLogPage() {
     }
   };
 
+  // Add another round of the same drill
+  const addRound = (index: number) => {
+    const entry = workoutEntries[index];
+    const newEntry: WorkoutDrillEntry = {
+      drillId: entry.drillId,
+      drill: entry.drill,
+      duration: entry.duration,
+      notes: "",
+      score: 7,
+      metrics: Object.fromEntries(
+        Object.keys(entry.metrics).map(key => [key, 0])
+      ),
+      drillMetrics: entry.drillMetrics,
+    };
+    setWorkoutEntries(prev => [
+      ...prev.slice(0, index + 1),
+      newEntry,
+      ...prev.slice(index + 1)
+    ]);
+    toast({ title: "Round added", description: `Added another round of ${entry.drill.title}` });
+  };
+
+  // Helper to get round number for a drill entry
+  const getRoundNumber = (index: number): number => {
+    const entry = workoutEntries[index];
+    let roundNum = 1;
+    for (let i = 0; i < index; i++) {
+      if (workoutEntries[i].drillId === entry.drillId) {
+        roundNum++;
+      }
+    }
+    return roundNum;
+  };
+
+  // Helper to get total rounds for a drill
+  const getTotalRounds = (drillId: string): number => {
+    return workoutEntries.filter(e => e.drillId === drillId).length;
+  };
+
   // Validate required metrics for all entries
   const validateRequiredMetrics = (): boolean => {
     for (const entry of workoutEntries) {
@@ -413,7 +453,7 @@ export default function TrainingLogPage() {
         if (value === undefined || value <= 0) {
           toast({ 
             title: "Missing Required Metrics", 
-            description: `Please fill in "${metric.template.name}" for ${entry.drill.title}`,
+            description: `Please fill in "${metric.template.label}" for ${entry.drill.title}`,
             variant: "destructive"
           });
           return false;
@@ -1128,24 +1168,47 @@ export default function TrainingLogPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {workoutEntries.map((entry, index) => (
-                <Card key={entry.drillId} className="border-muted" data-testid={`workout-row-${index}`}>
+              {workoutEntries.map((entry, index) => {
+                const totalRounds = getTotalRounds(entry.drillId);
+                const roundNum = getRoundNumber(index);
+                return (
+                <Card key={`${entry.drillId}-${index}`} className="border-muted" data-testid={`workout-row-${index}`}>
                   <CardHeader className="pb-2">
                     <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle className="text-base">{entry.drill.title}</CardTitle>
-                        <CardDescription className="text-xs">
-                          {formatCategory(entry.drill.category)}
-                        </CardDescription>
+                      <div className="flex items-center gap-2">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <CardTitle className="text-base">{entry.drill.title}</CardTitle>
+                            {totalRounds > 1 && (
+                              <Badge variant="outline" className="text-xs">
+                                Round {roundNum}/{totalRounds}
+                              </Badge>
+                            )}
+                          </div>
+                          <CardDescription className="text-xs">
+                            {formatCategory(entry.drill.category)}
+                          </CardDescription>
+                        </div>
                       </div>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        onClick={() => removeFromWorkout(index)}
-                        data-testid={`button-remove-${index}`}
-                      >
-                        <X className="w-4 h-4 text-muted-foreground" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => addRound(index)}
+                          title="Add another round"
+                          data-testid={`button-add-round-${index}`}
+                        >
+                          <Copy className="w-4 h-4 text-muted-foreground" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => removeFromWorkout(index)}
+                          data-testid={`button-remove-${index}`}
+                        >
+                          <X className="w-4 h-4 text-muted-foreground" />
+                        </Button>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -1192,7 +1255,7 @@ export default function TrainingLogPage() {
                             .map(dm => (
                               <div key={dm.metricTemplateId} className="space-y-1">
                                 <label className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-                                  {dm.template.name}
+                                  {dm.template.label}
                                   {dm.isRequired && <span className="text-destructive">*</span>}
                                 </label>
                                 <Input
@@ -1213,7 +1276,8 @@ export default function TrainingLogPage() {
                     )}
                   </CardContent>
                 </Card>
-              ))}
+              );
+              })}
             </div>
           </CardContent>
         </Card>
