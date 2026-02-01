@@ -128,7 +128,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="p-6 space-y-8 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 space-y-6 sm:space-y-8 max-w-7xl mx-auto">
       <div className="relative rounded-2xl overflow-hidden">
         <img 
           src={bannerImage}

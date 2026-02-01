@@ -899,8 +899,8 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
   );
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center gap-4">
+    <div className="p-4 sm:p-6 space-y-6">
+      <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 text-center sm:text-left">
         <PlayerAvatar 
           skinTone={profile.avatarSkinTone || undefined}
           hairStyle={profile.avatarHairStyle || undefined}
@@ -910,12 +910,12 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
           seed={profile.id}
         />
         <div>
-          <h1 className="text-3xl font-bold">My Career</h1>
-          <div className="flex items-center gap-4 mt-2">
-            <Badge variant="secondary" className="text-lg px-3 py-1">
+          <h1 className="text-2xl sm:text-3xl font-bold">My Career</h1>
+          <div className="flex items-center justify-center sm:justify-start gap-2 sm:gap-4 mt-2 flex-wrap">
+            <Badge variant="secondary" className="text-base sm:text-lg px-3 py-1">
               Level {profile.level || 1}
             </Badge>
-            <span className="text-muted-foreground">
+            <span className="text-muted-foreground text-sm sm:text-base">
               {profile.totalXp || 0} Total XP
             </span>
           </div>

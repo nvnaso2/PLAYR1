@@ -86,15 +86,15 @@ export default function DrillPage() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
-      <div className="flex items-center gap-4">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-6">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-4">
         <Link href="/drills">
           <Button variant="ghost" size="sm" className="gap-1" data-testid="button-back">
             <ChevronLeft className="w-4 h-4" />
             Back
           </Button>
         </Link>
-        <Separator orientation="vertical" className="h-6" />
+        <Separator orientation="vertical" className="h-6 hidden sm:block" />
         <Badge variant="outline">{categoryLabels[drill.category] || drill.category}</Badge>
         <Badge className={difficultyColors[drill.difficulty || 'beginner']}>
           {drill.difficulty || 'beginner'}

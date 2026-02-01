@@ -260,11 +260,11 @@ export default function VideosPage() {
   };
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold" data-testid="text-page-title">My Filmroom</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-xl sm:text-2xl font-bold" data-testid="text-page-title">My Filmroom</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Upload and manage your training videos
           </p>
         </div>

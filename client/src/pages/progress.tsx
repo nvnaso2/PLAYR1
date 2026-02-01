@@ -82,10 +82,10 @@ export default function ProgressPage() {
   })) || [];
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold mb-1" data-testid="text-page-title">My Progress</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-xl sm:text-2xl font-bold mb-1" data-testid="text-page-title">My Progress</h1>
+        <p className="text-sm sm:text-base text-muted-foreground">
           Track your improvement and see how you compare to other players
         </p>
       </div>
@@ -121,10 +121,10 @@ export default function ProgressPage() {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
-          <TabsTrigger value="categories" data-testid="tab-categories">By Category</TabsTrigger>
-          <TabsTrigger value="benchmarks" data-testid="tab-benchmarks">Benchmarks</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3 h-auto p-1">
+          <TabsTrigger value="overview" className="py-2.5 text-xs sm:text-sm" data-testid="tab-overview">Overview</TabsTrigger>
+          <TabsTrigger value="categories" className="py-2.5 text-xs sm:text-sm" data-testid="tab-categories">Categories</TabsTrigger>
+          <TabsTrigger value="benchmarks" className="py-2.5 text-xs sm:text-sm" data-testid="tab-benchmarks">Benchmarks</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">

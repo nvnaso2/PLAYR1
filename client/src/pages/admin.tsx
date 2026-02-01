@@ -2208,11 +2208,11 @@ export default function AdminPage() {
   const regularCount = users?.filter(u => !u.isAdmin).length || 0;
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-3xl font-bold" data-testid="text-admin-title">Admin Dashboard</h1>
-          <p className="text-muted-foreground">Manage drills, users, and permissions</p>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold" data-testid="text-admin-title">Admin Dashboard</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Manage drills, users, and permissions</p>
         </div>
       </div>
 

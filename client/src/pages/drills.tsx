@@ -79,10 +79,10 @@ export default function Drills() {
   }, [drills]);
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto">
       <div>
-        <h1 className="text-2xl font-bold mb-1" data-testid="text-page-title">Drill Library</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-xl sm:text-2xl font-bold mb-1" data-testid="text-page-title">Drill Library</h1>
+        <p className="text-sm sm:text-base text-muted-foreground">
           Browse our collection of professional basketball drills
         </p>
       </div>
@@ -134,20 +134,21 @@ export default function Drills() {
         </div>
       </div>
 
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex gap-1.5 sm:gap-2 flex-wrap">
         {Object.entries(categoryInfo).map(([key, { label, icon, color }]) => (
           <Button
             key={key}
             variant={selectedCategory === key ? "default" : "outline"}
             size="sm"
             onClick={() => setSelectedCategory(key)}
-            className="gap-2"
+            className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3"
             data-testid={`button-category-${key}`}
           >
             {icon}
-            {label}
+            <span className="hidden sm:inline">{label}</span>
+            <span className="sm:hidden">{label.split(' ')[0]}</span>
             {key !== 'all' && categoryStats[key] && (
-              <Badge variant="secondary" className="ml-1 text-xs">
+              <Badge variant="secondary" className="ml-0.5 sm:ml-1 text-xs">
                 {categoryStats[key]}
               </Badge>
             )}
