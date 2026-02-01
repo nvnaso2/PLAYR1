@@ -12,6 +12,14 @@ import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { 
   Select, 
   SelectContent, 
@@ -46,7 +54,9 @@ import {
   Crosshair,
   Flame,
   Award,
-  Dumbbell
+  Dumbbell,
+  Pencil,
+  Save
 } from "lucide-react";
 import type { CareerProfile, UserAchievement, CareerAchievement } from "@shared/schema";
 import { 
@@ -877,6 +887,17 @@ type UserStats = {
 };
 
 function CareerDashboard({ profile }: { profile: CareerProfile }) {
+  const { toast } = useToast();
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    jerseyNumber: profile.jerseyNumber || 0,
+    positions: profile.positions || [],
+    gradeLevel: profile.gradeLevel || "",
+    schoolName: profile.schoolName || "",
+    teamName: profile.teamName || "",
+    aspiration: profile.aspiration || "",
+  });
+
   const { data: userStats } = useQuery<UserStats>({
     queryKey: ['/api/stats/overview']
   });
@@ -884,6 +905,40 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
   const { data: achievements } = useQuery<Array<UserAchievement & { achievement: CareerAchievement }>>({
     queryKey: ['/api/achievements/unlocked']
   });
+
+  const updateProfileMutation = useMutation({
+    mutationFn: async (data: typeof editFormData) => {
+      return await apiRequest("PUT", "/api/career", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/career'] });
+      setIsEditDialogOpen(false);
+      toast({
+        title: "Profile Updated",
+        description: "Your player info has been saved.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update profile. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleEditSubmit = () => {
+    updateProfileMutation.mutate(editFormData);
+  };
+
+  const toggleEditPosition = (pos: string) => {
+    setEditFormData(prev => ({
+      ...prev,
+      positions: prev.positions.includes(pos)
+        ? prev.positions.filter(p => p !== pos)
+        : [...prev.positions, pos]
+    }));
+  };
 
   const xpForNextLevel = (profile.level || 1) * 100 + 50;
   const xpProgress = ((profile.xp || 0) / xpForNextLevel) * 100;
@@ -945,11 +1000,29 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between gap-4">
             <CardTitle className="flex items-center gap-2">
               <User className="w-5 h-5" />
               Player Info
             </CardTitle>
+            <Button 
+              size="icon" 
+              variant="ghost" 
+              onClick={() => {
+                setEditFormData({
+                  jerseyNumber: profile.jerseyNumber || 0,
+                  positions: profile.positions || [],
+                  gradeLevel: profile.gradeLevel || "",
+                  schoolName: profile.schoolName || "",
+                  teamName: profile.teamName || "",
+                  aspiration: profile.aspiration || "",
+                });
+                setIsEditDialogOpen(true);
+              }}
+              data-testid="button-edit-player-info"
+            >
+              <Pencil className="w-4 h-4" />
+            </Button>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex justify-center">
@@ -1109,6 +1182,124 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Player Info</DialogTitle>
+            <DialogDescription>Update your player profile details</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>Jersey Number</Label>
+              <Input
+                type="number"
+                min={0}
+                max={99}
+                value={editFormData.jerseyNumber}
+                onChange={(e) => setEditFormData(prev => ({
+                  ...prev,
+                  jerseyNumber: parseInt(e.target.value) || 0
+                }))}
+                data-testid="input-edit-jersey-number"
+              />
+            </div>
+
+            <div>
+              <Label>Position(s)</Label>
+              <div className="grid grid-cols-5 gap-2 mt-2">
+                {BASKETBALL_POSITIONS.map(pos => {
+                  const isSelected = editFormData.positions.includes(pos);
+                  return (
+                    <div
+                      key={pos}
+                      onClick={() => toggleEditPosition(pos)}
+                      className={`cursor-pointer p-2 rounded-md border text-center text-sm hover-elevate ${
+                        isSelected ? 'bg-primary text-primary-foreground border-primary' : ''
+                      }`}
+                      data-testid={`edit-position-${pos}`}
+                    >
+                      {pos}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <Label>Grade Level</Label>
+              <Select 
+                value={editFormData.gradeLevel} 
+                onValueChange={(v) => setEditFormData(prev => ({ ...prev, gradeLevel: v }))}
+              >
+                <SelectTrigger data-testid="select-edit-grade">
+                  <SelectValue placeholder="Select grade" />
+                </SelectTrigger>
+                <SelectContent>
+                  {GRADE_LEVELS.map(grade => (
+                    <SelectItem key={grade} value={grade}>
+                      {GRADE_LABELS[grade] || grade}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>School Name</Label>
+              <Input
+                value={editFormData.schoolName}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, schoolName: e.target.value }))}
+                placeholder="e.g., Lincoln High School"
+                data-testid="input-edit-school"
+              />
+            </div>
+
+            <div>
+              <Label>Team Name</Label>
+              <Input
+                value={editFormData.teamName}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, teamName: e.target.value }))}
+                placeholder="e.g., Lincoln Lions, AAU Elite"
+                data-testid="input-edit-team"
+              />
+            </div>
+
+            <div>
+              <Label>Basketball Goal</Label>
+              <Select 
+                value={editFormData.aspiration} 
+                onValueChange={(v) => setEditFormData(prev => ({ ...prev, aspiration: v }))}
+              >
+                <SelectTrigger data-testid="select-edit-aspiration">
+                  <SelectValue placeholder="Select goal" />
+                </SelectTrigger>
+                <SelectContent>
+                  {BASKETBALL_ASPIRATIONS.map(asp => (
+                    <SelectItem key={asp} value={asp}>
+                      {ASPIRATION_LABELS[asp]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} data-testid="button-cancel-edit">
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleEditSubmit} 
+              disabled={updateProfileMutation.isPending}
+              className="gap-2"
+              data-testid="button-save-player-info"
+            >
+              <Save className="w-4 h-4" />
+              {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
