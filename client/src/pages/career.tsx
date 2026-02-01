@@ -436,7 +436,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
                   <p className="text-center text-muted-foreground mb-4">
                     What position(s) do you play?
                   </p>
-                  <div className="grid grid-cols-5 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
                     {BASKETBALL_POSITIONS.map(pos => {
                       const isSelected = form.watch("positions").includes(pos);
                       return (

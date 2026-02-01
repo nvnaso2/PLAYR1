@@ -1102,7 +1102,7 @@ export default function TrainingLogPage() {
           </CardHeader>
           <CardContent>
             <Tabs value={activeLibraryTab} onValueChange={setActiveLibraryTab}>
-              <TabsList className="grid w-full grid-cols-4 mb-6">
+              <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 mb-6">
                 <TabsTrigger value="personal-drills" className="text-xs sm:text-sm" data-testid="tab-personal-drills">
                   <User className="w-4 h-4 mr-1 hidden sm:inline" />
                   My Drills
