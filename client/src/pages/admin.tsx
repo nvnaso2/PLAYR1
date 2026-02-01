@@ -2217,30 +2217,30 @@ export default function AdminPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="flex-wrap">
-          <TabsTrigger value="videos" className="gap-2" data-testid="tab-videos">
-            <Film className="w-4 h-4" />
-            Video Library
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1 h-auto p-1">
+          <TabsTrigger value="videos" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-videos">
+            <Film className="w-4 h-4 shrink-0" />
+            <span>Videos</span>
           </TabsTrigger>
-          <TabsTrigger value="metrics" className="gap-2" data-testid="tab-metrics">
-            <Ruler className="w-4 h-4" />
-            Metrics
+          <TabsTrigger value="metrics" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-metrics">
+            <Ruler className="w-4 h-4 shrink-0" />
+            <span>Metrics</span>
           </TabsTrigger>
-          <TabsTrigger value="pdfs" className="gap-2" data-testid="tab-pdfs">
-            <FileText className="w-4 h-4" />
-            PDF Library
+          <TabsTrigger value="pdfs" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-pdfs">
+            <FileText className="w-4 h-4 shrink-0" />
+            <span>PDFs</span>
           </TabsTrigger>
-          <TabsTrigger value="drills" className="gap-2" data-testid="tab-drills">
-            <Video className="w-4 h-4" />
-            Drills
+          <TabsTrigger value="drills" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-drills">
+            <Video className="w-4 h-4 shrink-0" />
+            <span>Drills</span>
           </TabsTrigger>
-          <TabsTrigger value="workouts" className="gap-2" data-testid="tab-workouts">
-            <Play className="w-4 h-4" />
-            Workouts
+          <TabsTrigger value="workouts" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-workouts">
+            <Play className="w-4 h-4 shrink-0" />
+            <span>Workouts</span>
           </TabsTrigger>
-          <TabsTrigger value="users" className="gap-2" data-testid="tab-users">
-            <Users className="w-4 h-4" />
-            Users
+          <TabsTrigger value="users" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-users">
+            <Users className="w-4 h-4 shrink-0" />
+            <span>Users</span>
           </TabsTrigger>
         </TabsList>
 
