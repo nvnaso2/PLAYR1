@@ -72,7 +72,6 @@ export default function ProgressPage() {
 
   const totalMinutes = overviewStats?.totalMinutes || 0;
   const totalSessions = overviewStats?.totalSessions || 0;
-  const avgScore = overviewStats?.avgScore || 0;
   const streak = overviewStats?.streak || 0;
 
   const pieData = categoryStats?.map((cat, index) => ({
@@ -90,7 +89,7 @@ export default function ProgressPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         <StatsCard
           title="Total Sessions"
           value={totalSessions}
@@ -104,13 +103,6 @@ export default function ProgressPage() {
           change={12}
           icon={<Clock className="w-5 h-5 text-primary" />}
           testId="stats-hours"
-        />
-        <StatsCard
-          title="Avg Score"
-          value={avgScore ? `${avgScore.toFixed(1)}/10` : "N/A"}
-          change={8}
-          icon={<TrendingUp className="w-5 h-5 text-primary" />}
-          testId="stats-avg-score"
         />
         <StatsCard
           title="Day Streak"
@@ -154,8 +146,10 @@ export default function ProgressPage() {
                         contentStyle={{ 
                           backgroundColor: 'hsl(var(--card))',
                           borderColor: 'hsl(var(--border))',
-                          borderRadius: '8px'
+                          borderRadius: '8px',
+                          color: 'hsl(var(--foreground))'
                         }}
+                        labelStyle={{ color: 'hsl(var(--foreground))' }}
                       />
                       <Bar 
                         dataKey="minutes" 
@@ -201,8 +195,10 @@ export default function ProgressPage() {
                         contentStyle={{ 
                           backgroundColor: 'hsl(var(--card))',
                           borderColor: 'hsl(var(--border))',
-                          borderRadius: '8px'
+                          borderRadius: '8px',
+                          color: 'hsl(var(--foreground))'
                         }}
+                        labelStyle={{ color: 'hsl(var(--foreground))' }}
                         formatter={(value: number) => [`${value} min`, '']}
                       />
                     </PieChart>
@@ -258,8 +254,10 @@ export default function ProgressPage() {
                       contentStyle={{ 
                         backgroundColor: 'hsl(var(--card))',
                         borderColor: 'hsl(var(--border))',
-                        borderRadius: '8px'
+                        borderRadius: '8px',
+                        color: 'hsl(var(--foreground))'
                       }}
+                      labelStyle={{ color: 'hsl(var(--foreground))' }}
                     />
                     <Line 
                       type="monotone" 
