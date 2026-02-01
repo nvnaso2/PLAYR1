@@ -17,6 +17,11 @@ A "Netflix for basketball drills" platform for Handlz weighted basketballs. User
    - Track duration, score, notes per drill
    - Dynamic metric inputs based on admin-configured drill metrics
    - Required metric validation before saving
+   - **Shot Location Tracking**: For shooting drills, track per-round:
+     - Shot location (16 locations: free-throw, corners, wings, hashes, blocks, mid-range)
+     - Shots attempted and shots made
+     - Auto-classification: locations are auto-classified as Free Throw, 2-pointer, or 3-pointer
+   - **Half-Court Shot Chart**: Visual map showing made/missed shots by location
 3. **User-Created Drills**: Users can create and manage their own custom drills
 4. **Progress Tracking**: Charts and analytics showing improvement over time
 5. **Personal Videos**: Upload and manage training videos

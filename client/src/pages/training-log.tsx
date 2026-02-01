@@ -76,8 +76,8 @@ import {
   Square
 } from "lucide-react";
 import { format } from "date-fns";
-import type { Drill, TrainingLog, DrillMetric, MetricTemplate, Workout, WorkoutDrill } from "@shared/schema";
-import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, insertDrillSchema, insertWorkoutSchema } from "@shared/schema";
+import type { Drill, TrainingLog, DrillMetric, MetricTemplate, Workout, WorkoutDrill, ShotLocation } from "@shared/schema";
+import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, SHOT_LOCATIONS, LOCATION_CLASSIFICATIONS, insertDrillSchema, insertWorkoutSchema } from "@shared/schema";
 import { HalfCourtMap, type ShotData } from "@/components/half-court-map";
 
 type DrillMetricWithTemplate = DrillMetric & { template: MetricTemplate };
@@ -94,6 +94,9 @@ type WorkoutDrillEntry = {
   notes: string;
   metrics: Record<string, number>;
   drillMetrics: DrillMetricWithTemplate[];
+  shotLocation?: ShotLocation;
+  shotsAttempted?: number;
+  shotsMade?: number;
 };
 
 // Use insert schemas from shared/schema.ts with UI-specific extensions
@@ -182,6 +185,9 @@ export default function TrainingLogPage() {
   const [editLogDuration, setEditLogDuration] = useState(0);
   const [editLogNotes, setEditLogNotes] = useState("");
   const [editLogMetrics, setEditLogMetrics] = useState<Record<string, number>>({});
+  const [editLogShotLocation, setEditLogShotLocation] = useState<ShotLocation | null>(null);
+  const [editLogShotsAttempted, setEditLogShotsAttempted] = useState<number | null>(null);
+  const [editLogShotsMade, setEditLogShotsMade] = useState<number | null>(null);
 
   // Fetch Handlz drills (admin drills with userId = null) - server filters correctly
   const { data: handlzDrills, isLoading: handlzDrillsLoading } = useQuery<Drill[]>({
@@ -370,11 +376,22 @@ export default function TrainingLogPage() {
 
   // Update training log mutation
   const updateLogMutation = useMutation({
-    mutationFn: async (data: { id: string; duration: number; notes: string; metrics: Array<{ metricId: string; value: number }> }) => {
+    mutationFn: async (data: { 
+      id: string; 
+      duration: number; 
+      notes: string; 
+      metrics: Array<{ metricId: string; value: number }>;
+      shotLocation?: ShotLocation | null;
+      shotsAttempted?: number | null;
+      shotsMade?: number | null;
+    }) => {
       return await apiRequest("PUT", `/api/training-logs/${data.id}`, {
         duration: data.duration,
         notes: data.notes,
         metrics: data.metrics,
+        shotLocation: data.shotLocation,
+        shotsAttempted: data.shotsAttempted,
+        shotsMade: data.shotsMade,
       });
     },
     onSuccess: () => {
@@ -402,6 +419,9 @@ export default function TrainingLogPage() {
     setEditLogDuration(log.duration);
     setEditLogNotes(log.notes || "");
     setEditLogMetrics({});
+    setEditLogShotLocation(log.shotLocation || null);
+    setEditLogShotsAttempted(log.shotsAttempted || null);
+    setEditLogShotsMade(log.shotsMade || null);
   };
 
   // Close view/edit dialog
@@ -409,6 +429,9 @@ export default function TrainingLogPage() {
     setViewEditLogId(null);
     setIsEditMode(false);
     setEditLogMetrics({});
+    setEditLogShotLocation(null);
+    setEditLogShotsAttempted(null);
+    setEditLogShotsMade(null);
   };
 
   // Save edited log
@@ -423,11 +446,26 @@ export default function TrainingLogPage() {
       duration: editLogDuration,
       notes: editLogNotes,
       metrics: metricsArray,
+      shotLocation: editLogShotLocation,
+      shotsAttempted: editLogShotsAttempted,
+      shotsMade: editLogShotsMade,
     });
   };
 
   // Get formatted metrics stats for display on history cards
   const getMetricStats = (log: TrainingLogWithMetricsResponse, drillId: string) => {
+    // First, check for new per-log shot fields (preferred)
+    if (log.shotsAttempted && log.shotsAttempted > 0) {
+      const percentage = Math.round(((log.shotsMade || 0) / log.shotsAttempted) * 100);
+      return {
+        attempts: log.shotsAttempted,
+        made: log.shotsMade || 0,
+        percentage,
+        location: log.shotLocation
+      };
+    }
+    
+    // Fallback to legacy metric-based calculation for backward compatibility
     if (!log.metrics || log.metrics.length === 0) return null;
     
     const drill = allDrills?.find(d => d.id === drillId);
@@ -437,8 +475,6 @@ export default function TrainingLogPage() {
     const templateIds = log.metrics.map(m => m.metricId);
     const templates = (metricTemplates || []).filter(t => templateIds.includes(t.id));
     
-    // Build display values - group by round (metricId format may include round info)
-    const displayValues: { label: string; value: string }[] = [];
     let totalAttempts = 0;
     let totalMade = 0;
     
@@ -467,39 +503,48 @@ export default function TrainingLogPage() {
       return {
         attempts: totalAttempts,
         made: totalMade,
-        percentage
+        percentage,
+        location: undefined
       };
     }
     
     return null;
   };
 
-  // Extract shot data for half-court map from a training log's metrics
+  // Extract shot data for half-court map from a training log
   const getShotMapData = (log: TrainingLogWithMetrics | null): ShotData[] => {
-    if (!log?.metrics || !metricTemplates) return [];
+    if (!log) return [];
     
-    // Group metrics by shot location
+    // First, try new per-round shot location fields from training log
+    if (log.shotLocation && log.shotsAttempted) {
+      return [{
+        location: log.shotLocation,
+        made: log.shotsMade || 0,
+        attempted: log.shotsAttempted || 0
+      }];
+    }
+    
+    // Legacy logs without shot location data cannot display meaningful shot charts
+    // since we don't know where the shots were taken
+    return [];
+  };
+
+  // Aggregate shot data from multiple logs (for workout sessions)
+  const aggregateShotData = (logs: TrainingLogWithMetricsResponse[]): ShotData[] => {
     const locationData: Record<string, { made: number; attempted: number }> = {};
     
-    log.metrics.forEach(metric => {
-      const template = metricTemplates.find(t => t.id === metric.metricId);
-      if (!template?.shotLocation || !metric.value) return;
-      
-      const location = template.shotLocation;
-      const value = parseFloat(metric.value) || 0;
-      
-      if (!locationData[location]) {
-        locationData[location] = { made: 0, attempted: 0 };
+    logs.forEach(log => {
+      // Only aggregate logs that have proper shot location data
+      if (log.shotLocation && log.shotsAttempted) {
+        if (!locationData[log.shotLocation]) {
+          locationData[log.shotLocation] = { made: 0, attempted: 0 };
+        }
+        locationData[log.shotLocation].made += log.shotsMade || 0;
+        locationData[log.shotLocation].attempted += log.shotsAttempted || 0;
       }
-      
-      if (template.madeAttempted === "made") {
-        locationData[location].made += value;
-      } else if (template.madeAttempted === "attempted") {
-        locationData[location].attempted += value;
-      }
+      // Legacy logs without shot location are excluded from shot chart aggregation
     });
     
-    // Convert to ShotData array
     return Object.entries(locationData).map(([location, data]) => ({
       location,
       made: data.made,
@@ -761,11 +806,15 @@ export default function TrainingLogPage() {
       const sessionId = crypto.randomUUID();
       
       for (const entry of workoutEntries) {
+        const isShootingDrill = entry.drill.category === 'shooting';
         const logResponse = await apiRequest("POST", "/api/training-logs", {
           drillId: entry.drillId,
           duration: entry.duration,
           notes: entry.notes || undefined,
           workoutSessionId: workoutEntries.length > 1 ? sessionId : undefined,
+          shotLocation: isShootingDrill ? entry.shotLocation : undefined,
+          shotsAttempted: isShootingDrill ? entry.shotsAttempted : undefined,
+          shotsMade: isShootingDrill ? entry.shotsMade : undefined,
         });
         
         if (entry.drillMetrics.length > 0 && Object.keys(entry.metrics).length > 0) {
@@ -1522,15 +1571,20 @@ export default function TrainingLogPage() {
                             <thead>
                               <tr className="border-b bg-muted/30">
                                 <th className="text-left p-2 sm:p-3 font-medium text-muted-foreground w-14 sm:w-20 text-xs sm:text-sm">Round</th>
+                                {isShootingDrill && (
+                                  <>
+                                    <th className="text-left p-2 sm:p-3 font-medium text-muted-foreground text-xs sm:text-sm">Location</th>
+                                    <th className="text-left p-2 sm:p-3 font-medium text-muted-foreground text-xs sm:text-sm">Attempted</th>
+                                    <th className="text-left p-2 sm:p-3 font-medium text-muted-foreground text-xs sm:text-sm">Made</th>
+                                    <th className="text-left p-2 sm:p-3 font-medium text-primary w-16 sm:w-24 text-xs sm:text-sm whitespace-nowrap">Shot %</th>
+                                  </>
+                                )}
                                 {metricColumns.map(dm => (
                                   <th key={dm.metricTemplateId} className="text-left p-2 sm:p-3 font-medium text-muted-foreground text-xs sm:text-sm whitespace-nowrap">
                                     <span className="inline-block max-w-[80px] sm:max-w-none truncate sm:whitespace-normal">{dm.template.label}</span>
                                     {dm.isRequired && <span className="text-destructive ml-1">*</span>}
                                   </th>
                                 ))}
-                                {isShootingDrill && shotsAttemptedMetric && shotsMadeMetric && (
-                                  <th className="text-left p-2 sm:p-3 font-medium text-primary w-16 sm:w-24 text-xs sm:text-sm whitespace-nowrap">Shot %</th>
-                                )}
                                 <th className="text-left p-2 sm:p-3 font-medium text-muted-foreground w-20 sm:w-24 text-xs sm:text-sm">Time</th>
                                 <th className="text-left p-2 sm:p-3 font-medium text-muted-foreground hidden sm:table-cell">Notes</th>
                                 <th className="text-center p-2 sm:p-3 font-medium text-muted-foreground w-10 sm:w-12"></th>
@@ -1544,6 +1598,74 @@ export default function TrainingLogPage() {
                                       {roundIdx + 1}
                                     </Badge>
                                   </td>
+                                  {isShootingDrill && (
+                                    <>
+                                      <td className="p-1 sm:p-2">
+                                        <Select
+                                          value={entry.shotLocation || ''}
+                                          onValueChange={(value) => updateEntry(index, 'shotLocation', value as ShotLocation)}
+                                        >
+                                          <SelectTrigger className="w-32 sm:w-40 h-8 text-xs" data-testid={`select-location-${index}`}>
+                                            <SelectValue placeholder="Select location" />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {SHOT_LOCATIONS.map(loc => (
+                                              <SelectItem key={loc} value={loc}>
+                                                <span className="flex items-center gap-2">
+                                                  {loc.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                                  <Badge variant="outline" className="text-[10px] px-1 py-0">
+                                                    {LOCATION_CLASSIFICATIONS[loc] === 'free-throw' ? 'FT' : 
+                                                     LOCATION_CLASSIFICATIONS[loc] === '2-pointer' ? '2PT' : '3PT'}
+                                                  </Badge>
+                                                </span>
+                                              </SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                      </td>
+                                      <td className="p-1 sm:p-2">
+                                        <Input
+                                          type="text"
+                                          inputMode="numeric"
+                                          pattern="[0-9]*"
+                                          value={entry.shotsAttempted || ''}
+                                          onChange={(e) => updateEntry(index, 'shotsAttempted', parseInt(e.target.value) || 0)}
+                                          className="w-14 sm:w-16 h-8 text-sm"
+                                          placeholder="0"
+                                          data-testid={`input-attempted-${index}`}
+                                        />
+                                      </td>
+                                      <td className="p-1 sm:p-2">
+                                        <Input
+                                          type="text"
+                                          inputMode="numeric"
+                                          pattern="[0-9]*"
+                                          value={entry.shotsMade || ''}
+                                          onChange={(e) => updateEntry(index, 'shotsMade', parseInt(e.target.value) || 0)}
+                                          className="w-14 sm:w-16 h-8 text-sm"
+                                          placeholder="0"
+                                          data-testid={`input-made-${index}`}
+                                        />
+                                      </td>
+                                      <td className="p-2">
+                                        {(() => {
+                                          const attempted = entry.shotsAttempted || 0;
+                                          const made = entry.shotsMade || 0;
+                                          if (attempted === 0) return <span className="text-muted-foreground text-xs">--</span>;
+                                          const pct = Math.round((made / attempted) * 100);
+                                          return (
+                                            <Badge 
+                                              variant={pct >= 50 ? "default" : "secondary"} 
+                                              className={`text-sm font-bold ${pct >= 70 ? 'bg-green-600' : pct >= 50 ? 'bg-primary' : ''}`}
+                                              data-testid={`shooting-pct-${index}`}
+                                            >
+                                              {pct}%
+                                            </Badge>
+                                          );
+                                        })()}
+                                      </td>
+                                    </>
+                                  )}
                                   {metricColumns.map(dm => (
                                     <td key={dm.metricTemplateId} className="p-1 sm:p-2">
                                       <Input
@@ -1558,24 +1680,6 @@ export default function TrainingLogPage() {
                                       />
                                     </td>
                                   ))}
-                                  {isShootingDrill && shotsAttemptedMetric && shotsMadeMetric && (
-                                    <td className="p-2">
-                                      {(() => {
-                                        const pct = getShootingPct(entry);
-                                        return pct !== null ? (
-                                          <Badge 
-                                            variant={pct >= 50 ? "default" : "secondary"} 
-                                            className={`text-sm font-bold ${pct >= 70 ? 'bg-green-600' : pct >= 50 ? 'bg-primary' : ''}`}
-                                            data-testid={`shooting-pct-${index}`}
-                                          >
-                                            {pct}%
-                                          </Badge>
-                                        ) : (
-                                          <span className="text-muted-foreground text-xs">--</span>
-                                        );
-                                      })()}
-                                    </td>
-                                  )}
                                   <td className="p-2">
                                     <div className="flex items-center gap-1">
                                       {activeTimers[index] ? (
@@ -1793,6 +1897,11 @@ export default function TrainingLogPage() {
                                     <div className="flex items-center gap-3">
                                       <Target className="w-4 h-4 text-primary" />
                                       <span className="font-medium text-sm">{getDrillTitle(log.drillId)}</span>
+                                      {sessionLogStats?.location && (
+                                        <Badge variant="outline" className="text-xs">
+                                          {sessionLogStats.location.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                        </Badge>
+                                      )}
                                     </div>
                                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                       <span>{log.duration} min</span>
@@ -1821,6 +1930,23 @@ export default function TrainingLogPage() {
                                     </div>
                                   </div>
                                 );})}
+                                
+                                {/* Aggregated Shot Chart for workout session */}
+                                {(() => {
+                                  const sessionShotData = aggregateShotData(group.logs);
+                                  if (sessionShotData.length > 0) {
+                                    return (
+                                      <div className="pt-2 border-t">
+                                        <HalfCourtMap 
+                                          shotData={sessionShotData} 
+                                          title="Session Shot Chart" 
+                                          className="border-0 shadow-none"
+                                        />
+                                      </div>
+                                    );
+                                  }
+                                  return null;
+                                })()}
                               </CardContent>
                             </Card>
                           );
@@ -1970,6 +2096,71 @@ export default function TrainingLogPage() {
                 )}
               </div>
 
+              {/* Shot Location Editing for Shooting Drills */}
+              {(() => {
+                const drill = allDrills.find(d => d.id === viewEditLog.drillId);
+                const isShootingDrill = drill?.category === "shooting";
+                if (isShootingDrill && isEditMode) {
+                  return (
+                    <div className="space-y-3 border-t pt-4">
+                      <label className="text-sm font-medium">Shot Tracking</label>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-xs text-muted-foreground">Location</label>
+                          <Select 
+                            value={editLogShotLocation || ""} 
+                            onValueChange={(val) => setEditLogShotLocation(val as ShotLocation)}
+                          >
+                            <SelectTrigger data-testid="select-edit-shot-location">
+                              <SelectValue placeholder="Select location" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {SHOT_LOCATIONS.map(loc => (
+                                <SelectItem key={loc} value={loc}>
+                                  <div className="flex items-center gap-2">
+                                    {loc.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                    <Badge variant="outline" className="text-xs px-1.5">
+                                      {LOCATION_CLASSIFICATIONS[loc] === "free-throw" ? "FT" : 
+                                       LOCATION_CLASSIFICATIONS[loc] === "2-pointer" ? "2PT" : "3PT"}
+                                    </Badge>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs text-muted-foreground">Attempts</label>
+                          <Input
+                            type="number"
+                            value={editLogShotsAttempted || ""}
+                            onChange={(e) => setEditLogShotsAttempted(parseInt(e.target.value) || null)}
+                            placeholder="0"
+                            data-testid="input-edit-shots-attempted"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs text-muted-foreground">Made</label>
+                          <Input
+                            type="number"
+                            value={editLogShotsMade || ""}
+                            onChange={(e) => setEditLogShotsMade(parseInt(e.target.value) || null)}
+                            placeholder="0"
+                            data-testid="input-edit-shots-made"
+                          />
+                        </div>
+                      </div>
+                      {editLogShotsAttempted && editLogShotsAttempted > 0 && (
+                        <div className="text-sm text-muted-foreground">
+                          Shooting: {Math.round(((editLogShotsMade || 0) / editLogShotsAttempted) * 100)}%
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
               {viewEditLog.metrics && viewEditLog.metrics.length > 0 && (
                 <div className="space-y-2 border-t pt-4">
                   <label className="text-sm font-medium">Recorded Metrics</label>
@@ -2030,6 +2221,9 @@ export default function TrainingLogPage() {
                     setIsEditMode(true);
                     setEditLogDuration(viewEditLog.duration);
                     setEditLogNotes(viewEditLog.notes || "");
+                    setEditLogShotLocation(viewEditLog.shotLocation || null);
+                    setEditLogShotsAttempted(viewEditLog.shotsAttempted || null);
+                    setEditLogShotsMade(viewEditLog.shotsMade || null);
                   }
                 }} className="gap-2" data-testid="button-start-edit">
                   <Pencil className="w-4 h-4" />

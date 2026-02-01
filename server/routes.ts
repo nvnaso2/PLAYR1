@@ -790,8 +790,8 @@ export async function registerRoutes(
       if (log.userId !== userId) {
         return res.status(403).json({ message: "Access denied" });
       }
-      const { duration, score, notes, reps, sets, metrics } = req.body;
-      const updated = await storage.updateTrainingLog(req.params.id, { duration, score, notes, reps, sets });
+      const { duration, score, notes, reps, sets, metrics, shotLocation, shotsAttempted, shotsMade } = req.body;
+      const updated = await storage.updateTrainingLog(req.params.id, { duration, score, notes, reps, sets, shotLocation, shotsAttempted, shotsMade });
       if (metrics && Array.isArray(metrics)) {
         await storage.saveTrainingLogMetrics(req.params.id, metrics);
       }
