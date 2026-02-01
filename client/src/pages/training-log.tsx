@@ -1102,22 +1102,22 @@ export default function TrainingLogPage() {
           </CardHeader>
           <CardContent>
             <Tabs value={activeLibraryTab} onValueChange={setActiveLibraryTab}>
-              <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 mb-6">
-                <TabsTrigger value="personal-drills" className="text-xs sm:text-sm" data-testid="tab-personal-drills">
-                  <User className="w-4 h-4 mr-1 hidden sm:inline" />
-                  My Drills
+              <TabsList className="grid w-full grid-cols-2 gap-1 h-auto p-1 mb-6">
+                <TabsTrigger value="personal-drills" className="py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center gap-1" data-testid="tab-personal-drills">
+                  <User className="w-4 h-4 shrink-0" />
+                  <span>My Drills</span>
                 </TabsTrigger>
-                <TabsTrigger value="personal-workouts" className="text-xs sm:text-sm" data-testid="tab-personal-workouts">
-                  <Bookmark className="w-4 h-4 mr-1 hidden sm:inline" />
-                  My Workouts
+                <TabsTrigger value="personal-workouts" className="py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center gap-1" data-testid="tab-personal-workouts">
+                  <Bookmark className="w-4 h-4 shrink-0" />
+                  <span>My Workouts</span>
                 </TabsTrigger>
-                <TabsTrigger value="handlz-drills" className="text-xs sm:text-sm" data-testid="tab-handlz-drills">
-                  <Sparkles className="w-4 h-4 mr-1 hidden sm:inline" />
-                  Handlz Drills
+                <TabsTrigger value="handlz-drills" className="py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center gap-1" data-testid="tab-handlz-drills">
+                  <Sparkles className="w-4 h-4 shrink-0" />
+                  <span>Handlz Drills</span>
                 </TabsTrigger>
-                <TabsTrigger value="handlz-workouts" className="text-xs sm:text-sm" data-testid="tab-handlz-workouts">
-                  <Layers className="w-4 h-4 mr-1 hidden sm:inline" />
-                  Handlz Workouts
+                <TabsTrigger value="handlz-workouts" className="py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center gap-1" data-testid="tab-handlz-workouts">
+                  <Layers className="w-4 h-4 shrink-0" />
+                  <span>Handlz Workouts</span>
                 </TabsTrigger>
               </TabsList>
 
