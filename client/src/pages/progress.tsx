@@ -257,7 +257,7 @@ export default function ProgressPage() {
                       <Badge 
                         key={index} 
                         variant="outline"
-                        className="flex items-center gap-1.5"
+                        className="flex items-center gap-1.5 text-foreground"
                       >
                         <span 
                           className="w-2 h-2 rounded-full" 
