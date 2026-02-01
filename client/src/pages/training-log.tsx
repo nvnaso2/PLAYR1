@@ -867,7 +867,7 @@ export default function TrainingLogPage() {
               {categoryDrills.map(drill => (
                 <div 
                   key={drill.id}
-                  className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover-elevate ${
+                  className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover-elevate ${
                     selectedDrillIds.has(drill.id) ? 'border-primary bg-primary/5' : ''
                   }`}
                   onClick={() => toggleDrillSelection(drill.id)}
@@ -876,15 +876,18 @@ export default function TrainingLogPage() {
                   <Checkbox 
                     checked={selectedDrillIds.has(drill.id)}
                     onCheckedChange={() => toggleDrillSelection(drill.id)}
+                    className="mt-1"
                     data-testid={`checkbox-drill-${drill.id}`}
                   />
                   <div className="flex-1 min-w-0">
-                    <span className="font-medium truncate block">{drill.title}</span>
+                    <div className="flex items-start justify-between gap-2 flex-wrap">
+                      <span className="font-medium">{drill.title}</span>
+                      <Badge variant="secondary" className="shrink-0">{drill.difficulty}</Badge>
+                    </div>
                     {drill.description && (
-                      <p className="text-sm text-muted-foreground truncate">{drill.description}</p>
+                      <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">{drill.description}</p>
                     )}
                   </div>
-                  <Badge variant="secondary">{drill.difficulty}</Badge>
                 </div>
               ))}
             </div>
