@@ -1483,42 +1483,42 @@ export default function TrainingLogPage() {
                         </div>
                       </CardHeader>
                       <CardContent className="p-0">
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-sm">
+                        <div className="overflow-x-auto -mx-1 px-1">
+                          <table className="w-full text-sm min-w-[500px]">
                             <thead>
                               <tr className="border-b bg-muted/30">
-                                <th className="text-left p-3 font-medium text-muted-foreground w-20">Round</th>
+                                <th className="text-left p-2 sm:p-3 font-medium text-muted-foreground w-14 sm:w-20 text-xs sm:text-sm">Round</th>
                                 {metricColumns.map(dm => (
-                                  <th key={dm.metricTemplateId} className="text-left p-3 font-medium text-muted-foreground">
-                                    {dm.template.label}
+                                  <th key={dm.metricTemplateId} className="text-left p-2 sm:p-3 font-medium text-muted-foreground text-xs sm:text-sm whitespace-nowrap">
+                                    <span className="inline-block max-w-[80px] sm:max-w-none truncate sm:whitespace-normal">{dm.template.label}</span>
                                     {dm.isRequired && <span className="text-destructive ml-1">*</span>}
                                   </th>
                                 ))}
                                 {isShootingDrill && shotsAttemptedMetric && shotsMadeMetric && (
-                                  <th className="text-left p-3 font-medium text-primary w-24">Shooting %</th>
+                                  <th className="text-left p-2 sm:p-3 font-medium text-primary w-16 sm:w-24 text-xs sm:text-sm whitespace-nowrap">Shot %</th>
                                 )}
-                                <th className="text-left p-3 font-medium text-muted-foreground w-24">Duration</th>
-                                <th className="text-left p-3 font-medium text-muted-foreground">Notes</th>
-                                <th className="text-center p-3 font-medium text-muted-foreground w-12"></th>
+                                <th className="text-left p-2 sm:p-3 font-medium text-muted-foreground w-20 sm:w-24 text-xs sm:text-sm">Time</th>
+                                <th className="text-left p-2 sm:p-3 font-medium text-muted-foreground hidden sm:table-cell">Notes</th>
+                                <th className="text-center p-2 sm:p-3 font-medium text-muted-foreground w-10 sm:w-12"></th>
                               </tr>
                             </thead>
                             <tbody>
                               {group.entries.map(({ entry, index }, roundIdx) => (
                                 <tr key={index} className="border-b last:border-0 hover:bg-muted/20" data-testid={`workout-row-${index}`}>
-                                  <td className="p-3">
+                                  <td className="p-2 sm:p-3">
                                     <Badge variant="secondary" className="text-xs font-semibold">
                                       {roundIdx + 1}
                                     </Badge>
                                   </td>
                                   {metricColumns.map(dm => (
-                                    <td key={dm.metricTemplateId} className="p-2">
+                                    <td key={dm.metricTemplateId} className="p-1 sm:p-2">
                                       <Input
                                         type="text"
                                         inputMode="numeric"
                                         pattern="[0-9]*"
                                         value={entry.metrics[dm.metricTemplateId] || ''}
                                         onChange={(e) => updateMetricValue(index, dm.metricTemplateId, parseFloat(e.target.value) || 0)}
-                                        className="w-20 h-8 text-sm"
+                                        className="w-14 sm:w-20 h-8 text-sm"
                                         placeholder="0"
                                         data-testid={`input-metric-${index}-${dm.metricTemplateId}`}
                                       />
@@ -1575,7 +1575,7 @@ export default function TrainingLogPage() {
                                       )}
                                     </div>
                                   </td>
-                                  <td className="p-2">
+                                  <td className="p-2 hidden sm:table-cell">
                                     <Input
                                       placeholder="Notes..."
                                       value={entry.notes}
@@ -1584,7 +1584,7 @@ export default function TrainingLogPage() {
                                       data-testid={`input-notes-${index}`}
                                     />
                                   </td>
-                                  <td className="p-2 text-center">
+                                  <td className="p-1 sm:p-2 text-center">
                                     <Button 
                                       variant="ghost" 
                                       size="icon"
