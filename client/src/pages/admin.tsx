@@ -1671,41 +1671,7 @@ const metricFormSchema = z.object({
   formula: z.string().optional(),
   formulaInputs: z.string().optional(),
   category: z.string().min(1, "Category is required"),
-  shotType: z.string().optional(),
-  madeAttempted: z.string().optional(),
-  shotLocation: z.string().optional(),
 });
-
-const SHOT_TYPES = [
-  { value: "form", label: "Form" },
-  { value: "free-throw", label: "Free Throw" },
-  { value: "mid-range", label: "Mid-range" },
-  { value: "3-pointer", label: "3-Pointer" },
-];
-
-const MADE_ATTEMPTED = [
-  { value: "made", label: "Made" },
-  { value: "attempted", label: "Attempted" },
-];
-
-const SHOT_LOCATIONS = [
-  { value: "free-throw", label: "Free Throw" },
-  { value: "corner-left", label: "Corner - Left" },
-  { value: "corner-right", label: "Corner - Right" },
-  { value: "top-of-key", label: "Top of Key" },
-  { value: "wing-left", label: "Wing - Left" },
-  { value: "wing-right", label: "Wing - Right" },
-  { value: "1st-hash-left", label: "1st Hash - Left" },
-  { value: "1st-hash-right", label: "1st Hash - Right" },
-  { value: "2nd-hash-left", label: "2nd Hash - Left" },
-  { value: "2nd-hash-right", label: "2nd Hash - Right" },
-  { value: "3rd-hash-left", label: "3rd Hash - Left" },
-  { value: "3rd-hash-right", label: "3rd Hash - Right" },
-  { value: "block-left", label: "Block - Left" },
-  { value: "block-right", label: "Block - Right" },
-  { value: "mid-range-left", label: "Mid-range - Left" },
-  { value: "mid-range-right", label: "Mid-range - Right" },
-];
 
 type MetricFormData = z.infer<typeof metricFormSchema>;
 
@@ -1731,14 +1697,10 @@ function MetricTemplateForm({
       formula: template?.formula || "",
       formulaInputs: template?.formulaInputs?.join(", ") || "",
       category: template?.category || "",
-      shotType: (template as any)?.shotType || "",
-      madeAttempted: (template as any)?.madeAttempted || "",
-      shotLocation: (template as any)?.shotLocation || "",
     },
   });
 
   const watchType = form.watch("type");
-  const watchCategory = form.watch("category");
 
   const createMutation = useMutation({
     mutationFn: async (data: MetricFormData) => {
@@ -1746,9 +1708,6 @@ function MetricTemplateForm({
         ...data,
         name: data.name.toLowerCase().replace(/\s+/g, '_'),
         formulaInputs: data.formulaInputs ? data.formulaInputs.split(",").map(s => s.trim()).filter(Boolean) : [],
-        shotType: data.category === "shooting" ? data.shotType || null : null,
-        madeAttempted: data.category === "shooting" ? data.madeAttempted || null : null,
-        shotLocation: data.category === "shooting" ? data.shotLocation || null : null,
       };
       return await apiRequest("POST", "/api/metric-templates", payload);
     },
@@ -1772,9 +1731,6 @@ function MetricTemplateForm({
         ...data,
         name: data.name.toLowerCase().replace(/\s+/g, '_'),
         formulaInputs: data.formulaInputs ? data.formulaInputs.split(",").map(s => s.trim()).filter(Boolean) : [],
-        shotType: data.category === "shooting" ? data.shotType || null : null,
-        madeAttempted: data.category === "shooting" ? data.madeAttempted || null : null,
-        shotLocation: data.category === "shooting" ? data.shotLocation || null : null,
       };
       return await apiRequest("PUT", `/api/metric-templates/${template!.id}`, payload);
     },
@@ -1830,88 +1786,6 @@ function MetricTemplateForm({
             </FormItem>
           )}
         />
-
-        {/* Shooting-specific fields */}
-        {watchCategory === "shooting" && (
-          <>
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="shotType"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Shot Type</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger data-testid="select-shot-type">
-                          <SelectValue placeholder="Select shot type" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {SHOT_TYPES.map((type) => (
-                          <SelectItem key={type.value} value={type.value}>
-                            {type.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="madeAttempted"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Made or Attempted</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger data-testid="select-made-attempted">
-                          <SelectValue placeholder="Select" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {MADE_ATTEMPTED.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <FormField
-              control={form.control}
-              name="shotLocation"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Shot Location</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger data-testid="select-shot-location">
-                        <SelectValue placeholder="Select location" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {SHOT_LOCATIONS.map((loc) => (
-                        <SelectItem key={loc.value} value={loc.value}>
-                          {loc.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </>
-        )}
 
         <div className="grid grid-cols-2 gap-4">
           <FormField

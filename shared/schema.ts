@@ -199,15 +199,7 @@ export const pdfLibrary = pgTable("pdf_library", {
 export const METRIC_TYPES = ["number", "calculated"] as const;
 export type MetricType = typeof METRIC_TYPES[number];
 
-// Shot types for shooting metrics
-export const SHOT_TYPES = ["form", "free-throw", "mid-range", "3-pointer"] as const;
-export type ShotType = typeof SHOT_TYPES[number];
-
-// Made or Attempted
-export const MADE_ATTEMPTED = ["made", "attempted"] as const;
-export type MadeAttempted = typeof MADE_ATTEMPTED[number];
-
-// Shot locations
+// Shot locations on half-court
 export const SHOT_LOCATIONS = [
   "free-throw",
   "corner-left", 
@@ -228,6 +220,35 @@ export const SHOT_LOCATIONS = [
 ] as const;
 export type ShotLocation = typeof SHOT_LOCATIONS[number];
 
+// Shot classification types (auto-determined from location)
+export const SHOT_CLASSIFICATIONS = ["free-throw", "2-pointer", "3-pointer"] as const;
+export type ShotClassification = typeof SHOT_CLASSIFICATIONS[number];
+
+// Location to classification mapping
+export const LOCATION_CLASSIFICATIONS: Record<ShotLocation, ShotClassification> = {
+  "free-throw": "free-throw",
+  "block-left": "2-pointer",
+  "block-right": "2-pointer",
+  "mid-range-left": "2-pointer",
+  "mid-range-right": "2-pointer",
+  "1st-hash-left": "2-pointer",
+  "1st-hash-right": "2-pointer",
+  "2nd-hash-left": "2-pointer",
+  "2nd-hash-right": "2-pointer",
+  "corner-left": "3-pointer",
+  "corner-right": "3-pointer",
+  "wing-left": "3-pointer",
+  "wing-right": "3-pointer",
+  "top-of-key": "3-pointer",
+  "3rd-hash-left": "3-pointer",
+  "3rd-hash-right": "3-pointer"
+};
+
+// Helper function to get shot classification from location
+export function getShotClassification(location: ShotLocation): ShotClassification {
+  return LOCATION_CLASSIFICATIONS[location];
+}
+
 // Metric templates - reusable metric definitions (not tied to specific drills)
 export const metricTemplates = pgTable("metric_templates", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -238,9 +259,6 @@ export const metricTemplates = pgTable("metric_templates", {
   formula: varchar("formula"), // For calculated fields
   formulaInputs: text("formula_inputs").array(), // Names of metrics used in formula
   category: varchar("category").$type<DrillCategory>(), // Required category association
-  shotType: varchar("shot_type").$type<ShotType>(), // For shooting category
-  madeAttempted: varchar("made_attempted").$type<MadeAttempted>(), // Made or Attempted
-  shotLocation: varchar("shot_location").$type<ShotLocation>(), // Shot location
   createdAt: timestamp("created_at").defaultNow()
 });
 
@@ -298,6 +316,9 @@ export const trainingLogs = pgTable("training_logs", {
   sets: integer("sets"),
   score: integer("score"), // self-assessed score 1-10
   notes: text("notes"),
+  shotLocation: varchar("shot_location").$type<ShotLocation>(), // Shot location for shooting drills
+  shotsAttempted: integer("shots_attempted"), // Number of shots attempted
+  shotsMade: integer("shots_made"), // Number of shots made
   completedAt: timestamp("completed_at").defaultNow()
 });
 
