@@ -32,6 +32,7 @@ client/src/
 │   ├── app-sidebar.tsx
 │   ├── category-card.tsx
 │   ├── drill-card.tsx
+│   ├── half-court-map.tsx  # Shot location visualization
 │   ├── stats-card.tsx
 │   ├── theme-provider.tsx
 │   └── theme-toggle.tsx

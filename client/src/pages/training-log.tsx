@@ -78,6 +78,7 @@ import {
 import { format } from "date-fns";
 import type { Drill, TrainingLog, DrillMetric, MetricTemplate, Workout, WorkoutDrill } from "@shared/schema";
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, insertDrillSchema, insertWorkoutSchema } from "@shared/schema";
+import { HalfCourtMap, type ShotData } from "@/components/half-court-map";
 
 type DrillMetricWithTemplate = DrillMetric & { template: MetricTemplate };
 
@@ -471,6 +472,39 @@ export default function TrainingLogPage() {
     }
     
     return null;
+  };
+
+  // Extract shot data for half-court map from a training log's metrics
+  const getShotMapData = (log: TrainingLogWithMetrics | null): ShotData[] => {
+    if (!log?.metrics || !metricTemplates) return [];
+    
+    // Group metrics by shot location
+    const locationData: Record<string, { made: number; attempted: number }> = {};
+    
+    log.metrics.forEach(metric => {
+      const template = metricTemplates.find(t => t.id === metric.metricId);
+      if (!template?.shotLocation || !metric.value) return;
+      
+      const location = template.shotLocation;
+      const value = parseFloat(metric.value) || 0;
+      
+      if (!locationData[location]) {
+        locationData[location] = { made: 0, attempted: 0 };
+      }
+      
+      if (template.madeAttempted === "made") {
+        locationData[location].made += value;
+      } else if (template.madeAttempted === "attempted") {
+        locationData[location].attempted += value;
+      }
+    });
+    
+    // Convert to ShotData array
+    return Object.entries(locationData).map(([location, data]) => ({
+      location,
+      made: data.made,
+      attempted: data.attempted
+    }));
   };
 
   // Toggle drill selection
@@ -1879,7 +1913,7 @@ export default function TrainingLogPage() {
 
       {/* View/Edit Log Dialog */}
       <Dialog open={!!viewEditLogId} onOpenChange={(open) => { if (!open) closeViewEdit(); }}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {isEditMode ? <Pencil className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
@@ -1952,6 +1986,23 @@ export default function TrainingLogPage() {
                   </div>
                 </div>
               )}
+
+              {/* Shot Chart - only show if there's shot location data */}
+              {(() => {
+                const shotData = getShotMapData(viewEditLog);
+                if (shotData.length > 0) {
+                  return (
+                    <div className="border-t pt-4">
+                      <HalfCourtMap 
+                        shotData={shotData} 
+                        title="Shot Chart" 
+                        className="border-0 shadow-none"
+                      />
+                    </div>
+                  );
+                }
+                return null;
+              })()}
 
               <div className="text-xs text-muted-foreground border-t pt-4">
                 Completed: {viewEditLog.completedAt ? format(new Date(viewEditLog.completedAt), 'PPpp') : 'Unknown'}
