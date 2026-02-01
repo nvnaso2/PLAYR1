@@ -175,6 +175,27 @@ The admin dashboard has five tabs for managing content:
 - Development: `npm run dev`
 - Database push: `npm run db:push`
 
+## Mobile App (Capacitor)
+The platform supports native iOS and Android apps via Capacitor:
+
+### Configuration
+- **App ID**: com.handlz.training
+- **App Name**: Handlz Training
+- **Config File**: `capacitor.config.ts`
+
+### Build Process
+1. Run `./mobile/setup.sh` to initialize native platforms
+2. Use `./mobile/build-ios.sh` for iOS builds (requires Mac with Xcode)
+3. Use `./mobile/build-android.sh` for Android builds (requires Android Studio)
+
+### Mobile Features
+- Safe area support for iOS notch and Android navigation
+- Touch-friendly inputs with 16px minimum font size
+- Responsive layouts with stacking tabs on small screens
+- Native splash screens and app icons
+
+See `mobile/MOBILE_BUILD_GUIDE.md` for detailed deployment instructions.
+
 ## Design Notes
 - Basketball-inspired theme with orange (#f97316) primary color
 - Dark mode enabled by default
