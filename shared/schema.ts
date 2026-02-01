@@ -199,6 +199,35 @@ export const pdfLibrary = pgTable("pdf_library", {
 export const METRIC_TYPES = ["number", "calculated"] as const;
 export type MetricType = typeof METRIC_TYPES[number];
 
+// Shot types for shooting metrics
+export const SHOT_TYPES = ["form", "free-throw", "mid-range", "3-pointer"] as const;
+export type ShotType = typeof SHOT_TYPES[number];
+
+// Made or Attempted
+export const MADE_ATTEMPTED = ["made", "attempted"] as const;
+export type MadeAttempted = typeof MADE_ATTEMPTED[number];
+
+// Shot locations
+export const SHOT_LOCATIONS = [
+  "free-throw",
+  "corner-left", 
+  "corner-right",
+  "top-of-key",
+  "wing-left",
+  "wing-right",
+  "1st-hash-left",
+  "1st-hash-right",
+  "2nd-hash-left",
+  "2nd-hash-right",
+  "3rd-hash-left",
+  "3rd-hash-right",
+  "block-left",
+  "block-right",
+  "mid-range-left",
+  "mid-range-right"
+] as const;
+export type ShotLocation = typeof SHOT_LOCATIONS[number];
+
 // Metric templates - reusable metric definitions (not tied to specific drills)
 export const metricTemplates = pgTable("metric_templates", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -208,7 +237,10 @@ export const metricTemplates = pgTable("metric_templates", {
   unit: varchar("unit"), // e.g., "shots", "seconds", "%"
   formula: varchar("formula"), // For calculated fields
   formulaInputs: text("formula_inputs").array(), // Names of metrics used in formula
-  category: varchar("category").$type<DrillCategory>(), // Optional category association
+  category: varchar("category").$type<DrillCategory>(), // Required category association
+  shotType: varchar("shot_type").$type<ShotType>(), // For shooting category
+  madeAttempted: varchar("made_attempted").$type<MadeAttempted>(), // Made or Attempted
+  shotLocation: varchar("shot_location").$type<ShotLocation>(), // Shot location
   createdAt: timestamp("created_at").defaultNow()
 });
 
