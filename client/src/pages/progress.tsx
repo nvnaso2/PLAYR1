@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import { StatsCard } from "@/components/stats-card";
 import {
   BarChart,
@@ -42,7 +44,18 @@ const categoryLabels: Record<string, string> = {
   "workouts": "Workouts",
 };
 
+type TimePeriod = "daily" | "weekly" | "monthly" | "annual";
+
+const TIME_PERIOD_LABELS: Record<TimePeriod, string> = {
+  daily: "Today",
+  weekly: "This Week",
+  monthly: "This Month",
+  annual: "This Year"
+};
+
 export default function ProgressPage() {
+  const [timePeriod, setTimePeriod] = useState<TimePeriod>("weekly");
+
   const { data: progress, isLoading: progressLoading } = useQuery<DrillProgress[]>({
     queryKey: ['/api/progress'],
   });
@@ -52,11 +65,21 @@ export default function ProgressPage() {
   });
 
   const { data: weeklyStats } = useQuery<{ date: string; minutes: number; sessions: number }[]>({
-    queryKey: ['/api/stats/weekly'],
+    queryKey: ['/api/stats/weekly', timePeriod],
+    queryFn: async () => {
+      const res = await fetch(`/api/stats/weekly?period=${timePeriod}`);
+      if (!res.ok) throw new Error("Failed to fetch stats");
+      return res.json();
+    }
   });
 
   const { data: categoryStats } = useQuery<{ category: string; minutes: number; sessions: number }[]>({
-    queryKey: ['/api/stats/by-category'],
+    queryKey: ['/api/stats/by-category', timePeriod],
+    queryFn: async () => {
+      const res = await fetch(`/api/stats/by-category?period=${timePeriod}`);
+      if (!res.ok) throw new Error("Failed to fetch stats");
+      return res.json();
+    }
   });
 
   const { data: overviewStats } = useQuery<{
@@ -67,7 +90,12 @@ export default function ProgressPage() {
     rank?: number;
     percentile?: number;
   }>({
-    queryKey: ['/api/stats/overview'],
+    queryKey: ['/api/stats/overview', timePeriod],
+    queryFn: async () => {
+      const res = await fetch(`/api/stats/overview?period=${timePeriod}`);
+      if (!res.ok) throw new Error("Failed to fetch stats");
+      return res.json();
+    }
   });
 
   const totalMinutes = overviewStats?.totalMinutes || 0;
@@ -82,11 +110,26 @@ export default function ProgressPage() {
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-xl sm:text-2xl font-bold mb-1" data-testid="text-page-title">My Progress</h1>
-        <p className="text-sm sm:text-base text-muted-foreground">
-          Track your improvement and see how you compare to other players
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold mb-1" data-testid="text-page-title">My Progress</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
+            Track your improvement and see how you compare to other players
+          </p>
+        </div>
+        <div className="flex gap-1 flex-wrap">
+          {(["daily", "weekly", "monthly", "annual"] as TimePeriod[]).map((period) => (
+            <Button
+              key={period}
+              size="sm"
+              variant={timePeriod === period ? "default" : "outline"}
+              onClick={() => setTimePeriod(period)}
+              data-testid={`button-period-${period}`}
+            >
+              {TIME_PERIOD_LABELS[period]}
+            </Button>
+          ))}
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-4">

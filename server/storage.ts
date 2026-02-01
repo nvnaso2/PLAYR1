@@ -60,14 +60,14 @@ export interface IStorage {
   getUserDrillsWithPersonalBests(userId: string, limit?: number): Promise<Array<Drill & { personalBest: number | null; totalSessions: number }>>;
 
   // Stats
-  getUserStats(userId: string): Promise<{
+  getUserStats(userId: string, period?: string): Promise<{
     totalSessions: number;
     totalMinutes: number;
     avgScore: number;
     streak: number;
   }>;
-  getWeeklyStats(userId: string): Promise<{ date: string; minutes: number; sessions: number }[]>;
-  getCategoryStats(userId: string): Promise<{ category: string; minutes: number; sessions: number }[]>;
+  getWeeklyStats(userId: string, period?: string): Promise<{ date: string; minutes: number; sessions: number }[]>;
+  getCategoryStats(userId: string, period?: string): Promise<{ category: string; minutes: number; sessions: number }[]>;
 
   // Benchmarks
   getBenchmarks(): Promise<Benchmark[]>;
@@ -433,16 +433,47 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
+  // Helper to get date range based on period
+  private getDateRangeForPeriod(period: string = "weekly"): Date {
+    const now = new Date();
+    switch (period) {
+      case "daily":
+        const startOfDay = new Date(now);
+        startOfDay.setHours(0, 0, 0, 0);
+        return startOfDay;
+      case "weekly":
+        const weekAgo = new Date(now);
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        return weekAgo;
+      case "monthly":
+        const monthAgo = new Date(now);
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        return monthAgo;
+      case "annual":
+        const yearAgo = new Date(now);
+        yearAgo.setFullYear(yearAgo.getFullYear() - 1);
+        return yearAgo;
+      default:
+        const defaultWeekAgo = new Date(now);
+        defaultWeekAgo.setDate(defaultWeekAgo.getDate() - 7);
+        return defaultWeekAgo;
+    }
+  }
+
   // Stats
-  async getUserStats(userId: string): Promise<{
+  async getUserStats(userId: string, period: string = "weekly"): Promise<{
     totalSessions: number;
     totalMinutes: number;
     avgScore: number;
     streak: number;
   }> {
+    const startDate = this.getDateRangeForPeriod(period);
     const logs = await db.select()
       .from(trainingLogs)
-      .where(eq(trainingLogs.userId, userId));
+      .where(and(
+        eq(trainingLogs.userId, userId),
+        gte(trainingLogs.completedAt, startDate)
+      ));
 
     const totalSessions = logs.length;
     const totalMinutes = logs.reduce((sum, log) => sum + (log.duration || 0), 0);
@@ -490,21 +521,21 @@ export class DatabaseStorage implements IStorage {
     return { totalSessions, totalMinutes, avgScore: Math.round(avgScore * 10) / 10, streak };
   }
 
-  async getWeeklyStats(userId: string): Promise<{ date: string; minutes: number; sessions: number }[]> {
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  async getWeeklyStats(userId: string, period: string = "weekly"): Promise<{ date: string; minutes: number; sessions: number }[]> {
+    const startDate = this.getDateRangeForPeriod(period);
 
     const logs = await db.select()
       .from(trainingLogs)
       .where(and(
         eq(trainingLogs.userId, userId),
-        gte(trainingLogs.completedAt, sevenDaysAgo)
+        gte(trainingLogs.completedAt, startDate)
       ));
 
     const dailyStats: Record<string, { minutes: number; sessions: number }> = {};
     
-    // Initialize all 7 days
-    for (let i = 0; i < 7; i++) {
+    // Initialize days based on period
+    const daysToShow = period === "daily" ? 1 : period === "weekly" ? 7 : period === "monthly" ? 30 : 365;
+    for (let i = 0; i < Math.min(daysToShow, 30); i++) { // Cap at 30 days for display
       const date = new Date();
       date.setDate(date.getDate() - i);
       const dateStr = date.toISOString().split('T')[0];
@@ -525,10 +556,14 @@ export class DatabaseStorage implements IStorage {
       .sort((a, b) => a.date.localeCompare(b.date));
   }
 
-  async getCategoryStats(userId: string): Promise<{ category: string; minutes: number; sessions: number }[]> {
+  async getCategoryStats(userId: string, period: string = "weekly"): Promise<{ category: string; minutes: number; sessions: number }[]> {
+    const startDate = this.getDateRangeForPeriod(period);
     const logs = await db.select()
       .from(trainingLogs)
-      .where(eq(trainingLogs.userId, userId));
+      .where(and(
+        eq(trainingLogs.userId, userId),
+        gte(trainingLogs.completedAt, startDate)
+      ));
 
     const drillIds = Array.from(new Set(logs.map(l => l.drillId)));
     

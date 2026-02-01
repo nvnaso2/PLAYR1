@@ -897,7 +897,8 @@ export async function registerRoutes(
   app.get("/api/stats/overview", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const stats = await storage.getUserStats(userId);
+      const period = (req.query.period as string) || "weekly";
+      const stats = await storage.getUserStats(userId, period);
       res.json(stats);
     } catch (error) {
       console.error("Error fetching stats:", error);
@@ -909,7 +910,8 @@ export async function registerRoutes(
   app.get("/api/stats/weekly", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const stats = await storage.getWeeklyStats(userId);
+      const period = (req.query.period as string) || "weekly";
+      const stats = await storage.getWeeklyStats(userId, period);
       res.json(stats);
     } catch (error) {
       console.error("Error fetching weekly stats:", error);
@@ -921,7 +923,8 @@ export async function registerRoutes(
   app.get("/api/stats/by-category", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const stats = await storage.getCategoryStats(userId);
+      const period = (req.query.period as string) || "weekly";
+      const stats = await storage.getCategoryStats(userId, period);
       res.json(stats);
     } catch (error) {
       console.error("Error fetching category stats:", error);
