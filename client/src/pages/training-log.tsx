@@ -78,7 +78,8 @@ import {
 import { format } from "date-fns";
 import type { Drill, TrainingLog, DrillMetric, MetricTemplate, Workout, WorkoutDrill, ShotLocation } from "@shared/schema";
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, SHOT_LOCATIONS, LOCATION_CLASSIFICATIONS, insertDrillSchema, insertWorkoutSchema } from "@shared/schema";
-import { HalfCourtMap, type ShotData } from "@/components/half-court-map";
+import { HalfCourtMap, ShotChartButton, type ShotData } from "@/components/half-court-map";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 type DrillMetricWithTemplate = DrillMetric & { template: MetricTemplate };
 
@@ -1855,100 +1856,180 @@ export default function TrainingLogPage() {
                               ? Math.round((sessionTotalMade / sessionTotalAttempts) * 100) 
                               : null;
                             
+                            const sessionShotData = aggregateShotData(group.logs);
+                            
+                            // Group logs by drillId to create Drills > Rounds hierarchy
+                            const drillGroups: Record<string, TrainingLogWithMetricsResponse[]> = {};
+                            group.logs.forEach(log => {
+                              if (!drillGroups[log.drillId]) {
+                                drillGroups[log.drillId] = [];
+                              }
+                              drillGroups[log.drillId].push(log);
+                            });
+                            
+                            const uniqueDrillCount = Object.keys(drillGroups).length;
+                            const totalRounds = group.logs.length;
+                            
                             return (
-                            <Card key={group.sessionId} className="border-primary/20" data-testid={`card-session-${group.sessionId}`}>
-                              <CardHeader className="pb-2">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <Layers className="w-4 h-4 text-primary" />
-                                  <span className="text-sm font-medium">Workout Session</span>
-                                  <Badge variant="secondary" className="text-xs">
-                                    {group.logs.length} drills
-                                  </Badge>
-                                  <div className="flex items-center gap-2 ml-auto">
-                                    {sessionPercentage !== null && (
-                                      <>
-                                        <span className="text-sm font-medium">{sessionTotalMade}/{sessionTotalAttempts} shots</span>
-                                        <Badge 
-                                          variant="secondary"
-                                          className={sessionPercentage >= 70 ? "bg-green-500/20 text-green-400" : 
-                                                    sessionPercentage >= 50 ? "bg-orange-500/20 text-orange-400" : 
-                                                    "bg-red-500/20 text-red-400"}
-                                        >
-                                          {sessionPercentage}%
-                                        </Badge>
-                                      </>
-                                    )}
-                                    <span className="text-xs text-muted-foreground">
-                                      {group.logs.reduce((sum, l) => sum + l.duration, 0)} min
-                                    </span>
-                                  </div>
-                                </div>
-                              </CardHeader>
-                              <CardContent className="space-y-2">
-                                {group.logs.map((log) => {
-                                  const sessionLogStats = getMetricStats(log, log.drillId);
-                                  return (
-                                  <div 
-                                    key={log.id} 
-                                    className="flex items-center justify-between p-2 rounded-md bg-muted/30 hover-elevate cursor-pointer" 
-                                    data-testid={`log-item-${log.id}`}
-                                    onClick={() => openViewLog(log.id)}
-                                  >
-                                    <div className="flex items-center gap-3">
-                                      <Target className="w-4 h-4 text-primary" />
-                                      <span className="font-medium text-sm">{getDrillTitle(log.drillId)}</span>
-                                      {sessionLogStats?.location && (
-                                        <Badge variant="outline" className="text-xs">
-                                          {sessionLogStats.location.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                                        </Badge>
-                                      )}
-                                    </div>
-                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                      <span>{log.duration} min</span>
-                                      {sessionLogStats && (
-                                        <>
-                                          <span className="text-foreground">{sessionLogStats.made}/{sessionLogStats.attempts}</span>
-                                          <Badge 
-                                            variant="secondary"
-                                            className={`text-xs ${sessionLogStats.percentage >= 70 ? "bg-green-500/20 text-green-400" : 
-                                                      sessionLogStats.percentage >= 50 ? "bg-orange-500/20 text-orange-400" : 
-                                                      "bg-red-500/20 text-red-400"}`}
-                                          >
-                                            {sessionLogStats.percentage}%
-                                          </Badge>
-                                        </>
-                                      )}
-                                      <Button 
-                                        variant="ghost" 
-                                        size="icon"
-                                        className="h-7 w-7"
-                                        onClick={(e) => { e.stopPropagation(); openEditLog(log); }}
-                                        data-testid={`button-edit-session-log-${log.id}`}
-                                      >
-                                        <Pencil className="w-3.5 h-3.5" />
-                                      </Button>
-                                    </div>
-                                  </div>
-                                );})}
-                                
-                                {/* Aggregated Shot Chart for workout session */}
-                                {(() => {
-                                  const sessionShotData = aggregateShotData(group.logs);
-                                  if (sessionShotData.length > 0) {
-                                    return (
-                                      <div className="pt-2 border-t">
-                                        <HalfCourtMap 
-                                          shotData={sessionShotData} 
-                                          title="Session Shot Chart" 
-                                          className="border-0 shadow-none"
-                                        />
+                            <Collapsible key={group.sessionId} defaultOpen={true}>
+                              <Card className="border-primary/20" data-testid={`card-session-${group.sessionId}`}>
+                                <CollapsibleTrigger asChild>
+                                  <CardHeader className="pb-2 cursor-pointer hover-elevate" data-testid={`trigger-session-${group.sessionId}`}>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <ChevronRight className="w-4 h-4 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-90" />
+                                      <Layers className="w-4 h-4 text-primary" />
+                                      <span className="text-sm font-medium">Workout Session</span>
+                                      <Badge variant="secondary" className="text-xs">
+                                        {uniqueDrillCount} drill{uniqueDrillCount > 1 ? 's' : ''}, {totalRounds} round{totalRounds > 1 ? 's' : ''}
+                                      </Badge>
+                                      <div className="flex items-center gap-2 ml-auto">
+                                        {sessionPercentage !== null && (
+                                          <>
+                                            <span className="text-sm font-medium">{sessionTotalMade}/{sessionTotalAttempts} shots</span>
+                                            <Badge 
+                                              variant="secondary"
+                                              className={sessionPercentage >= 70 ? "bg-green-500/20 text-green-400" : 
+                                                        sessionPercentage >= 50 ? "bg-orange-500/20 text-orange-400" : 
+                                                        "bg-red-500/20 text-red-400"}
+                                            >
+                                              {sessionPercentage}%
+                                            </Badge>
+                                          </>
+                                        )}
+                                        <span className="text-xs text-muted-foreground">
+                                          {group.logs.reduce((sum, l) => sum + l.duration, 0)} min
+                                        </span>
+                                        {/* Shot Chart Button at Workout Level */}
+                                        {sessionShotData.length > 0 && (
+                                          <div onClick={(e) => e.stopPropagation()}>
+                                            <ShotChartButton shotData={sessionShotData} title="Workout Shot Chart" testId={`button-shot-chart-workout-${group.sessionId}`} />
+                                          </div>
+                                        )}
                                       </div>
-                                    );
-                                  }
-                                  return null;
-                                })()}
-                              </CardContent>
-                            </Card>
+                                    </div>
+                                  </CardHeader>
+                                </CollapsibleTrigger>
+                                <CollapsibleContent>
+                                  <CardContent className="space-y-3 pt-0">
+                                    {/* Drills within this workout */}
+                                    {Object.entries(drillGroups).map(([drillId, drillLogs]) => {
+                                      // Calculate drill-level stats
+                                      const drillShotData = aggregateShotData(drillLogs);
+                                      let drillTotalAttempts = 0;
+                                      let drillTotalMade = 0;
+                                      drillLogs.forEach(log => {
+                                        const stats = getMetricStats(log, log.drillId);
+                                        if (stats) {
+                                          drillTotalAttempts += stats.attempts;
+                                          drillTotalMade += stats.made;
+                                        }
+                                      });
+                                      const drillPercentage = drillTotalAttempts > 0 ? Math.round((drillTotalMade / drillTotalAttempts) * 100) : null;
+                                      const drillDuration = drillLogs.reduce((sum, l) => sum + l.duration, 0);
+                                      
+                                      return (
+                                        <Collapsible key={drillId} defaultOpen={drillLogs.length === 1}>
+                                          <div className="rounded-md bg-muted/30 overflow-hidden">
+                                            <CollapsibleTrigger asChild>
+                                              <div 
+                                                className="flex items-center justify-between p-3 hover-elevate cursor-pointer" 
+                                                data-testid={`trigger-drill-${drillId}`}
+                                              >
+                                                <div className="flex items-center gap-3">
+                                                  <ChevronRight className="w-4 h-4 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-90" />
+                                                  <Target className="w-5 h-5 text-primary" />
+                                                  <div>
+                                                    <span className="font-medium">{getDrillTitle(drillId)}</span>
+                                                    <div className="text-xs text-muted-foreground">
+                                                      {drillLogs.length} round{drillLogs.length > 1 ? 's' : ''} · {drillDuration} min
+                                                    </div>
+                                                  </div>
+                                                </div>
+                                                <div className="flex items-center gap-2 text-sm">
+                                                  {drillPercentage !== null && (
+                                                    <>
+                                                      <span className="text-foreground font-medium">{drillTotalMade}/{drillTotalAttempts}</span>
+                                                      <Badge 
+                                                        variant="secondary"
+                                                        className={`text-xs ${drillPercentage >= 70 ? "bg-green-500/20 text-green-400" : 
+                                                                  drillPercentage >= 50 ? "bg-orange-500/20 text-orange-400" : 
+                                                                  "bg-red-500/20 text-red-400"}`}
+                                                      >
+                                                        {drillPercentage}%
+                                                      </Badge>
+                                                    </>
+                                                  )}
+                                                  {/* Shot Chart Button at Drill Level */}
+                                                  {drillShotData.length > 0 && (
+                                                    <div onClick={(e) => e.stopPropagation()}>
+                                                      <ShotChartButton shotData={drillShotData} title={`${getDrillTitle(drillId)} Shot Chart`} testId={`button-shot-chart-drill-${drillId}`} />
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            </CollapsibleTrigger>
+                                            <CollapsibleContent>
+                                              <div className="px-4 pb-3 border-t border-border/50">
+                                                <div className="text-xs font-medium text-muted-foreground py-2">Rounds</div>
+                                                <div className="space-y-2">
+                                                  {drillLogs.map((log, roundIndex) => {
+                                                    const roundStats = getMetricStats(log, log.drillId);
+                                                    return (
+                                                      <div 
+                                                        key={log.id}
+                                                        className="flex items-center justify-between p-2 rounded bg-background/50 hover-elevate cursor-pointer"
+                                                        data-testid={`round-item-${log.id}`}
+                                                        onClick={() => openViewLog(log.id)}
+                                                      >
+                                                        <div className="flex items-center gap-2">
+                                                          <Badge variant="outline" className="text-xs px-2">
+                                                            Round {roundIndex + 1}
+                                                          </Badge>
+                                                          {roundStats?.location && (
+                                                            <span className="text-xs text-muted-foreground">
+                                                              {roundStats.location.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                                            </span>
+                                                          )}
+                                                          <span className="text-xs text-muted-foreground">{log.duration} min</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 text-sm">
+                                                          {roundStats && (
+                                                            <>
+                                                              <span className="text-foreground">{roundStats.made}/{roundStats.attempts}</span>
+                                                              <Badge 
+                                                                variant="secondary"
+                                                                className={`text-xs ${roundStats.percentage >= 70 ? "bg-green-500/20 text-green-400" : 
+                                                                          roundStats.percentage >= 50 ? "bg-orange-500/20 text-orange-400" : 
+                                                                          "bg-red-500/20 text-red-400"}`}
+                                                              >
+                                                                {roundStats.percentage}%
+                                                              </Badge>
+                                                            </>
+                                                          )}
+                                                          <Button 
+                                                            variant="ghost" 
+                                                            size="icon"
+                                                            className="h-6 w-6"
+                                                            onClick={(e) => { e.stopPropagation(); openEditLog(log); }}
+                                                            data-testid={`button-edit-round-${log.id}`}
+                                                          >
+                                                            <Pencil className="w-3 h-3" />
+                                                          </Button>
+                                                        </div>
+                                                      </div>
+                                                    );
+                                                  })}
+                                                </div>
+                                              </div>
+                                            </CollapsibleContent>
+                                          </div>
+                                        </Collapsible>
+                                      );
+                                    })}
+                                  </CardContent>
+                                </CollapsibleContent>
+                              </Card>
+                            </Collapsible>
                           );
                           })() : (
                             group.logs.map((log) => {
@@ -2178,17 +2259,13 @@ export default function TrainingLogPage() {
                 </div>
               )}
 
-              {/* Shot Chart - only show if there's shot location data */}
+              {/* Shot Chart Button - only show if there's shot location data */}
               {(() => {
                 const shotData = getShotMapData(viewEditLog);
-                if (shotData.length > 0) {
+                if (shotData.length > 0 && !isEditMode) {
                   return (
                     <div className="border-t pt-4">
-                      <HalfCourtMap 
-                        shotData={shotData} 
-                        title="Shot Chart" 
-                        className="border-0 shadow-none"
-                      />
+                      <ShotChartButton shotData={shotData} title={`${getDrillTitle(viewEditLog.drillId)} Shot Chart`} testId={`button-shot-chart-log-${viewEditLog.id}`} />
                     </div>
                   );
                 }

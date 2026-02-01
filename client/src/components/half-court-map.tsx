@@ -1,5 +1,8 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ChartArea } from "lucide-react";
 
 type ShotData = {
   location: string;
@@ -11,28 +14,231 @@ type HalfCourtMapProps = {
   shotData: ShotData[];
   title?: string;
   className?: string;
+  compact?: boolean;
 };
 
+// Court dimensions based on NBA half-court (50ft x 47ft)
+// Using a viewBox that represents actual proportions
 const COURT_LOCATIONS: Record<string, { x: number; y: number; label: string }> = {
-  "free-throw": { x: 50, y: 58, label: "Free Throw" },
-  "corner-left": { x: 8, y: 92, label: "Corner Left" },
-  "corner-right": { x: 92, y: 92, label: "Corner Right" },
-  "top-of-key": { x: 50, y: 35, label: "Top of Key" },
-  "wing-left": { x: 18, y: 50, label: "Wing Left" },
-  "wing-right": { x: 82, y: 50, label: "Wing Right" },
-  "1st-hash-left": { x: 25, y: 65, label: "1st Hash Left" },
-  "1st-hash-right": { x: 75, y: 65, label: "1st Hash Right" },
-  "2nd-hash-left": { x: 30, y: 55, label: "2nd Hash Left" },
-  "2nd-hash-right": { x: 70, y: 55, label: "2nd Hash Right" },
-  "3rd-hash-left": { x: 35, y: 45, label: "3rd Hash Left" },
-  "3rd-hash-right": { x: 65, y: 45, label: "3rd Hash Right" },
-  "block-left": { x: 30, y: 80, label: "Block Left" },
-  "block-right": { x: 70, y: 80, label: "Block Right" },
-  "mid-range-left": { x: 25, y: 70, label: "Mid-range Left" },
-  "mid-range-right": { x: 75, y: 70, label: "Mid-range Right" },
+  // Free throw line (center of key, 15ft from basket)
+  "free-throw": { x: 250, y: 190, label: "Free Throw" },
+  
+  // Corners (baseline, outside 3pt line)
+  "corner-left": { x: 30, y: 410, label: "Corner Left" },
+  "corner-right": { x: 470, y: 410, label: "Corner Right" },
+  
+  // Top of key (above 3pt arc)
+  "top-of-key": { x: 250, y: 95, label: "Top of Key" },
+  
+  // Wings (45-degree angle, on 3pt line)
+  "wing-left": { x: 70, y: 220, label: "Wing Left" },
+  "wing-right": { x: 430, y: 220, label: "Wing Right" },
+  
+  // Hash marks (along the lane, closer to basket)
+  "1st-hash-left": { x: 130, y: 320, label: "1st Hash Left" },
+  "1st-hash-right": { x: 370, y: 320, label: "1st Hash Right" },
+  "2nd-hash-left": { x: 100, y: 260, label: "2nd Hash Left" },
+  "2nd-hash-right": { x: 400, y: 260, label: "2nd Hash Right" },
+  "3rd-hash-left": { x: 85, y: 180, label: "3rd Hash Left" },
+  "3rd-hash-right": { x: 415, y: 180, label: "3rd Hash Right" },
+  
+  // Blocks (near the basket, inside the lane)
+  "block-left": { x: 170, y: 380, label: "Block Left" },
+  "block-right": { x: 330, y: 380, label: "Block Right" },
+  
+  // Mid-range (between lane and 3pt line, elbow area)
+  "mid-range-left": { x: 140, y: 240, label: "Mid-range Left" },
+  "mid-range-right": { x: 360, y: 240, label: "Mid-range Right" },
 };
 
-export function HalfCourtMap({ shotData, title = "Shot Chart", className = "" }: HalfCourtMapProps) {
+function CourtSVG({ processedData, showLabels = false }: { processedData: Record<string, { made: number; missed: number }>; showLabels?: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 500 470"
+      className="w-full h-full"
+      preserveAspectRatio="xMidYMid meet"
+    >
+      <defs>
+        {/* Court wood texture gradient */}
+        <linearGradient id="courtWood" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#d4a574" />
+          <stop offset="25%" stopColor="#c4956a" />
+          <stop offset="50%" stopColor="#d4a574" />
+          <stop offset="75%" stopColor="#c4956a" />
+          <stop offset="100%" stopColor="#d4a574" />
+        </linearGradient>
+        
+        {/* Subtle wood grain pattern */}
+        <pattern id="woodGrain" patternUnits="userSpaceOnUse" width="100" height="10">
+          <rect width="100" height="10" fill="url(#courtWood)" />
+          <line x1="0" y1="2" x2="100" y2="2" stroke="#bf8a5a" strokeWidth="0.5" opacity="0.3" />
+          <line x1="0" y1="7" x2="100" y2="7" stroke="#bf8a5a" strokeWidth="0.3" opacity="0.2" />
+        </pattern>
+
+        {/* Glow effect for made shots */}
+        <filter id="madeGlow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+          <feMerge>
+            <feMergeNode in="coloredBlur"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+      </defs>
+
+      {/* Court background */}
+      <rect x="0" y="0" width="500" height="470" fill="url(#woodGrain)" />
+      
+      {/* Court border */}
+      <rect x="5" y="5" width="490" height="460" fill="none" stroke="#1a1a1a" strokeWidth="4" />
+      
+      {/* Baseline */}
+      <line x1="5" y1="435" x2="495" y2="435" stroke="#1a1a1a" strokeWidth="3" />
+      
+      {/* Three-point line arc */}
+      <path
+        d="M 30 435 
+           L 30 285
+           Q 30 100, 250 70
+           Q 470 100, 470 285
+           L 470 435"
+        fill="none"
+        stroke="#1a1a1a"
+        strokeWidth="2.5"
+      />
+      
+      {/* Paint/Key area (16ft wide, 19ft deep in NBA) */}
+      <rect x="170" y="245" width="160" height="190" fill="none" stroke="#1a1a1a" strokeWidth="2.5" />
+      
+      {/* Free throw circle (top half) */}
+      <path
+        d="M 170 245 A 80 80 0 0 1 330 245"
+        fill="none"
+        stroke="#1a1a1a"
+        strokeWidth="2.5"
+      />
+      
+      {/* Free throw circle (bottom half - dashed) */}
+      <path
+        d="M 330 245 A 80 80 0 0 1 170 245"
+        fill="none"
+        stroke="#1a1a1a"
+        strokeWidth="2"
+        strokeDasharray="8,8"
+      />
+      
+      {/* Restricted area arc (4ft radius) */}
+      <path
+        d="M 210 435 A 40 40 0 0 1 290 435"
+        fill="none"
+        stroke="#1a1a1a"
+        strokeWidth="2"
+      />
+      
+      {/* Backboard */}
+      <rect x="220" y="420" width="60" height="4" fill="#1a1a1a" />
+      
+      {/* Rim */}
+      <circle cx="250" cy="405" r="9" fill="none" stroke="#e55039" strokeWidth="3" />
+      
+      {/* Rim connector */}
+      <line x1="250" y1="414" x2="250" y2="420" stroke="#1a1a1a" strokeWidth="2" />
+      
+      {/* Lane hash marks (block areas) */}
+      <line x1="170" y1="355" x2="155" y2="355" stroke="#1a1a1a" strokeWidth="2" />
+      <line x1="330" y1="355" x2="345" y2="355" stroke="#1a1a1a" strokeWidth="2" />
+      <line x1="170" y1="380" x2="155" y2="380" stroke="#1a1a1a" strokeWidth="2" />
+      <line x1="330" y1="380" x2="345" y2="380" stroke="#1a1a1a" strokeWidth="2" />
+      <line x1="170" y1="405" x2="155" y2="405" stroke="#1a1a1a" strokeWidth="2" />
+      <line x1="330" y1="405" x2="345" y2="405" stroke="#1a1a1a" strokeWidth="2" />
+      
+      {/* Center court line indicator at top */}
+      <line x1="5" y1="5" x2="495" y2="5" stroke="#1a1a1a" strokeWidth="3" />
+
+      {/* Shot markers */}
+      {Object.entries(processedData).map(([location, data]) => {
+        const coords = COURT_LOCATIONS[location];
+        if (!coords) return null;
+
+        const total = data.made + data.missed;
+        const percentage = total > 0 ? Math.round((data.made / total) * 100) : 0;
+        
+        // Size based on volume
+        const baseSize = 18;
+        const maxSize = 35;
+        const size = Math.min(baseSize + Math.sqrt(total) * 4, maxSize);
+        
+        // Color based on percentage
+        let fillColor = "#ef4444"; // Red for <40%
+        let strokeColor = "#991b1b";
+        if (percentage >= 60) {
+          fillColor = "#22c55e"; // Green for 60%+
+          strokeColor = "#166534";
+        } else if (percentage >= 40) {
+          fillColor = "#f59e0b"; // Amber for 40-59%
+          strokeColor = "#b45309";
+        }
+
+        return (
+          <g key={location}>
+            {/* Shot circle */}
+            <circle
+              cx={coords.x}
+              cy={coords.y}
+              r={size}
+              fill={fillColor}
+              stroke={strokeColor}
+              strokeWidth="2"
+              opacity="0.85"
+              filter={percentage >= 60 ? "url(#madeGlow)" : undefined}
+            >
+              <title>{`${coords.label}: ${data.made}/${total} (${percentage}%)`}</title>
+            </circle>
+            
+            {/* Stats text */}
+            <text
+              x={coords.x}
+              y={coords.y - 2}
+              textAnchor="middle"
+              fill="white"
+              fontSize="11"
+              fontWeight="bold"
+              style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}
+            >
+              {data.made}/{total}
+            </text>
+            <text
+              x={coords.x}
+              y={coords.y + 10}
+              textAnchor="middle"
+              fill="white"
+              fontSize="10"
+              fontWeight="600"
+              style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}
+            >
+              {percentage}%
+            </text>
+
+            {/* Location label (optional) */}
+            {showLabels && (
+              <text
+                x={coords.x}
+                y={coords.y + size + 12}
+                textAnchor="middle"
+                fill="#1a1a1a"
+                fontSize="8"
+                fontWeight="500"
+              >
+                {coords.label}
+              </text>
+            )}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+export function HalfCourtMap({ shotData, title = "Shot Chart", className = "", compact = false }: HalfCourtMapProps) {
   const processedData = useMemo(() => {
     const result: Record<string, { made: number; missed: number }> = {};
     
@@ -48,114 +254,59 @@ export function HalfCourtMap({ shotData, title = "Shot Chart", className = "" }:
   }, [shotData]);
 
   const hasShots = Object.keys(processedData).length > 0;
+  
+  // Calculate totals
+  const totals = useMemo(() => {
+    let made = 0;
+    let attempted = 0;
+    Object.values(processedData).forEach(data => {
+      made += data.made;
+      attempted += data.made + data.missed;
+    });
+    return { made, attempted, percentage: attempted > 0 ? Math.round((made / attempted) * 100) : 0 };
+  }, [processedData]);
+
+  if (!hasShots) {
+    return null;
+  }
 
   return (
     <Card className={className}>
       <CardHeader className="pb-2">
-        <CardTitle className="text-lg">{title}</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg">{title}</CardTitle>
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-muted-foreground">Total:</span>
+            <span className="font-bold">{totals.made}/{totals.attempted}</span>
+            <span className={`font-bold ${totals.percentage >= 60 ? 'text-green-500' : totals.percentage >= 40 ? 'text-amber-500' : 'text-red-500'}`}>
+              ({totals.percentage}%)
+            </span>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
-        <div className="relative w-full aspect-[1.2/1] bg-gradient-to-b from-amber-900/20 to-amber-800/30 rounded-lg overflow-hidden border-2 border-amber-600/50">
-          <svg
-            viewBox="0 0 100 100"
-            className="w-full h-full"
-            preserveAspectRatio="xMidYMid meet"
-          >
-            <defs>
-              <linearGradient id="courtGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stopColor="#b45309" stopOpacity="0.3" />
-                <stop offset="100%" stopColor="#92400e" stopOpacity="0.4" />
-              </linearGradient>
-            </defs>
-
-            <rect x="0" y="0" width="100" height="100" fill="url(#courtGradient)" />
-            
-            <line x1="0" y1="100" x2="100" y2="100" stroke="#f59e0b" strokeWidth="0.5" />
-            
-            <rect x="19" y="62" width="62" height="38" fill="none" stroke="#f59e0b" strokeWidth="0.8" />
-            
-            <circle cx="50" cy="62" r="18" fill="none" stroke="#f59e0b" strokeWidth="0.8" />
-            
-            <rect x="33" y="85" width="34" height="15" fill="none" stroke="#f59e0b" strokeWidth="0.8" />
-            
-            <circle cx="50" cy="95" r="2" fill="none" stroke="#f59e0b" strokeWidth="0.5" />
-            
-            <path
-              d="M 6 100 Q 6 45, 50 30 Q 94 45, 94 100"
-              fill="none"
-              stroke="#f59e0b"
-              strokeWidth="0.8"
-            />
-            
-            <circle cx="50" cy="30" r="6" fill="none" stroke="#f59e0b" strokeWidth="0.8" />
-
-            {Object.entries(processedData).map(([location, data]) => {
-              const coords = COURT_LOCATIONS[location];
-              if (!coords) return null;
-
-              const dots: JSX.Element[] = [];
-              const dotSize = 2.5;
-              const spacing = 1.5;
-
-              for (let i = 0; i < data.made; i++) {
-                const offset = (i - (data.made - 1) / 2) * spacing;
-                dots.push(
-                  <circle
-                    key={`made-${location}-${i}`}
-                    cx={coords.x + offset}
-                    cy={coords.y - dotSize}
-                    r={dotSize}
-                    fill="#22c55e"
-                    stroke="#166534"
-                    strokeWidth="0.3"
-                    className="drop-shadow-sm"
-                  >
-                    <title>{`${coords.label}: Made (${data.made})`}</title>
-                  </circle>
-                );
-              }
-
-              for (let i = 0; i < data.missed; i++) {
-                const offset = (i - (data.missed - 1) / 2) * spacing;
-                dots.push(
-                  <circle
-                    key={`missed-${location}-${i}`}
-                    cx={coords.x + offset}
-                    cy={coords.y + dotSize + 1}
-                    r={dotSize}
-                    fill="#ef4444"
-                    stroke="#991b1b"
-                    strokeWidth="0.3"
-                    className="drop-shadow-sm"
-                  >
-                    <title>{`${coords.label}: Missed (${data.missed})`}</title>
-                  </circle>
-                );
-              }
-
-              return <g key={location}>{dots}</g>;
-            })}
-          </svg>
-
-          {!hasShots && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <p className="text-muted-foreground text-sm">No shot data recorded</p>
-            </div>
-          )}
+        <div className="relative w-full aspect-[500/470] rounded-lg overflow-hidden shadow-inner">
+          <CourtSVG processedData={processedData} />
         </div>
 
-        <div className="flex items-center justify-center gap-6 mt-4">
+        {/* Legend */}
+        <div className="flex items-center justify-center gap-6 mt-4 text-sm">
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-green-500 border border-green-800" />
-            <span className="text-sm text-foreground">Made</span>
+            <div className="w-4 h-4 rounded-full bg-green-500 border-2 border-green-800" />
+            <span className="text-foreground">60%+</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-red-500 border border-red-800" />
-            <span className="text-sm text-foreground">Missed</span>
+            <div className="w-4 h-4 rounded-full bg-amber-500 border-2 border-amber-700" />
+            <span className="text-foreground">40-59%</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded-full bg-red-500 border-2 border-red-800" />
+            <span className="text-foreground">&lt;40%</span>
           </div>
         </div>
 
-        {hasShots && (
+        {/* Location breakdown */}
+        {!compact && (
           <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
             {Object.entries(processedData).map(([location, data]) => {
               const coords = COURT_LOCATIONS[location];
@@ -170,7 +321,7 @@ export function HalfCourtMap({ shotData, title = "Shot Chart", className = "" }:
                   data-testid={`shot-location-stat-${location}`}
                 >
                   <span className="text-muted-foreground truncate">{coords.label}</span>
-                  <span className="font-medium text-foreground">
+                  <span className={`font-medium ${percentage >= 60 ? 'text-green-500' : percentage >= 40 ? 'text-amber-500' : 'text-red-500'}`}>
                     {data.made}/{total} ({percentage}%)
                   </span>
                 </div>
@@ -180,6 +331,46 @@ export function HalfCourtMap({ shotData, title = "Shot Chart", className = "" }:
         )}
       </CardContent>
     </Card>
+  );
+}
+
+// Button component to open shot chart in a dialog
+export function ShotChartButton({ shotData, title = "Shot Chart", testId }: { shotData: ShotData[]; title?: string; testId?: string }) {
+  const [open, setOpen] = useState(false);
+  
+  const hasShots = shotData.some(s => s.attempted > 0);
+  
+  if (!hasShots) return null;
+  
+  // Calculate quick totals for button
+  const totals = useMemo(() => {
+    let made = 0;
+    let attempted = 0;
+    shotData.forEach(s => {
+      made += s.made;
+      attempted += s.attempted;
+    });
+    return { made, attempted, percentage: attempted > 0 ? Math.round((made / attempted) * 100) : 0 };
+  }, [shotData]);
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-2" data-testid={testId || "button-view-shot-chart"}>
+          <ChartArea className="w-4 h-4" />
+          <span>View Shot Chart</span>
+          <span className={`text-xs ${totals.percentage >= 60 ? 'text-green-500' : totals.percentage >= 40 ? 'text-amber-500' : 'text-red-500'}`}>
+            ({totals.percentage}%)
+          </span>
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+        </DialogHeader>
+        <HalfCourtMap shotData={shotData} title="" className="border-0 shadow-none" />
+      </DialogContent>
+    </Dialog>
   );
 }
 
