@@ -18,7 +18,9 @@ import {
   challenges, type Challenge, type InsertChallenge,
   userChallenges, type UserChallenge, type InsertUserChallenge,
   personalRecords, type PersonalRecord, type InsertPersonalRecord,
-  teamAwards, type TeamAward, type InsertTeamAward
+  teamAwards, type TeamAward, type InsertTeamAward,
+  seasons, type Season, type InsertSeason,
+  games, type Game, type InsertGame
 } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
@@ -156,6 +158,46 @@ export interface IStorage {
 
   // Shot Stats (for heatmap)
   getUserShotStats(userId: string): Promise<Array<{ location: string; made: number; missed: number }>>;
+
+  // Seasons
+  getUserSeasons(userId: string): Promise<Season[]>;
+  getSeasonWithGames(seasonId: string): Promise<{ season: Season; games: Game[] } | undefined>;
+  createSeason(season: InsertSeason): Promise<Season>;
+  updateSeason(id: string, season: Partial<InsertSeason>): Promise<Season | undefined>;
+  deleteSeason(id: string): Promise<boolean>;
+
+  // Games
+  getSeasonGames(seasonId: string): Promise<Game[]>;
+  createGame(game: InsertGame): Promise<Game>;
+  updateGame(id: string, game: Partial<InsertGame>): Promise<Game | undefined>;
+  deleteGame(id: string): Promise<boolean>;
+
+  // Career Stats
+  getCareerStats(userId: string): Promise<{
+    totalGames: number;
+    totalPoints: number;
+    totalRebounds: number;
+    totalAssists: number;
+    totalSteals: number;
+    totalBlocks: number;
+    avgPoints: number;
+    avgRebounds: number;
+    avgAssists: number;
+    avgSteals: number;
+    avgBlocks: number;
+    seasonBreakdown: Array<{
+      seasonId: string;
+      seasonName: string;
+      seasonType: string;
+      year: string;
+      gamesPlayed: number;
+      avgPoints: number;
+      avgRebounds: number;
+      avgAssists: number;
+      avgSteals: number;
+      avgBlocks: number;
+    }>;
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1178,6 +1220,140 @@ export class DatabaseStorage implements IStorage {
         made: l.made,
         missed: l.attempted - l.made
       }));
+  }
+
+  // Seasons
+  async getUserSeasons(userId: string): Promise<Season[]> {
+    return await db.select().from(seasons).where(eq(seasons.userId, userId)).orderBy(desc(seasons.createdAt));
+  }
+
+  async getSeasonWithGames(seasonId: string): Promise<{ season: Season; games: Game[] } | undefined> {
+    const [season] = await db.select().from(seasons).where(eq(seasons.id, seasonId));
+    if (!season) return undefined;
+    const seasonGames = await db.select().from(games).where(eq(games.seasonId, seasonId)).orderBy(desc(games.gameDate));
+    return { season, games: seasonGames };
+  }
+
+  async createSeason(season: InsertSeason): Promise<Season> {
+    const [newSeason] = await db.insert(seasons).values(season).returning();
+    return newSeason;
+  }
+
+  async updateSeason(id: string, season: Partial<InsertSeason>): Promise<Season | undefined> {
+    const [updated] = await db.update(seasons).set({ ...season, updatedAt: new Date() }).where(eq(seasons.id, id)).returning();
+    return updated;
+  }
+
+  async deleteSeason(id: string): Promise<boolean> {
+    await db.delete(games).where(eq(games.seasonId, id));
+    await db.delete(seasons).where(eq(seasons.id, id));
+    return true;
+  }
+
+  // Games
+  async getSeasonGames(seasonId: string): Promise<Game[]> {
+    return await db.select().from(games).where(eq(games.seasonId, seasonId)).orderBy(desc(games.gameDate));
+  }
+
+  async createGame(game: InsertGame): Promise<Game> {
+    const [newGame] = await db.insert(games).values(game).returning();
+    return newGame;
+  }
+
+  async updateGame(id: string, game: Partial<InsertGame>): Promise<Game | undefined> {
+    const [updated] = await db.update(games).set({ ...game, updatedAt: new Date() }).where(eq(games.id, id)).returning();
+    return updated;
+  }
+
+  async deleteGame(id: string): Promise<boolean> {
+    await db.delete(games).where(eq(games.id, id));
+    return true;
+  }
+
+  // Career Stats
+  async getCareerStats(userId: string): Promise<{
+    totalGames: number;
+    totalPoints: number;
+    totalRebounds: number;
+    totalAssists: number;
+    totalSteals: number;
+    totalBlocks: number;
+    avgPoints: number;
+    avgRebounds: number;
+    avgAssists: number;
+    avgSteals: number;
+    avgBlocks: number;
+    seasonBreakdown: Array<{
+      seasonId: string;
+      seasonName: string;
+      seasonType: string;
+      year: string;
+      gamesPlayed: number;
+      avgPoints: number;
+      avgRebounds: number;
+      avgAssists: number;
+      avgSteals: number;
+      avgBlocks: number;
+    }>;
+  }> {
+    const userSeasons = await this.getUserSeasons(userId);
+    
+    let totalGames = 0;
+    let totalPoints = 0;
+    let totalRebounds = 0;
+    let totalAssists = 0;
+    let totalSteals = 0;
+    let totalBlocks = 0;
+    
+    const seasonBreakdown = [];
+    
+    for (const season of userSeasons) {
+      const seasonGames = await this.getSeasonGames(season.id);
+      const gamesPlayed = seasonGames.length;
+      
+      if (gamesPlayed === 0) continue;
+      
+      const seasonPoints = seasonGames.reduce((sum, g) => sum + (g.points || 0), 0);
+      const seasonRebounds = seasonGames.reduce((sum, g) => sum + (g.rebounds || 0), 0);
+      const seasonAssists = seasonGames.reduce((sum, g) => sum + (g.assists || 0), 0);
+      const seasonSteals = seasonGames.reduce((sum, g) => sum + (g.steals || 0), 0);
+      const seasonBlocks = seasonGames.reduce((sum, g) => sum + (g.blocks || 0), 0);
+      
+      totalGames += gamesPlayed;
+      totalPoints += seasonPoints;
+      totalRebounds += seasonRebounds;
+      totalAssists += seasonAssists;
+      totalSteals += seasonSteals;
+      totalBlocks += seasonBlocks;
+      
+      seasonBreakdown.push({
+        seasonId: season.id,
+        seasonName: season.name,
+        seasonType: season.seasonType,
+        year: season.year,
+        gamesPlayed,
+        avgPoints: Math.round((seasonPoints / gamesPlayed) * 10) / 10,
+        avgRebounds: Math.round((seasonRebounds / gamesPlayed) * 10) / 10,
+        avgAssists: Math.round((seasonAssists / gamesPlayed) * 10) / 10,
+        avgSteals: Math.round((seasonSteals / gamesPlayed) * 10) / 10,
+        avgBlocks: Math.round((seasonBlocks / gamesPlayed) * 10) / 10
+      });
+    }
+    
+    return {
+      totalGames,
+      totalPoints,
+      totalRebounds,
+      totalAssists,
+      totalSteals,
+      totalBlocks,
+      avgPoints: totalGames > 0 ? Math.round((totalPoints / totalGames) * 10) / 10 : 0,
+      avgRebounds: totalGames > 0 ? Math.round((totalRebounds / totalGames) * 10) / 10 : 0,
+      avgAssists: totalGames > 0 ? Math.round((totalAssists / totalGames) * 10) / 10 : 0,
+      avgSteals: totalGames > 0 ? Math.round((totalSteals / totalGames) * 10) / 10 : 0,
+      avgBlocks: totalGames > 0 ? Math.round((totalBlocks / totalGames) * 10) / 10 : 0,
+      seasonBreakdown
+    };
   }
 }
 

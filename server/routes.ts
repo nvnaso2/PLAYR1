@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
-import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema } from "@shared/schema";
+import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(
@@ -1360,6 +1360,146 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching shot stats:", error);
       res.status(500).json({ message: "Failed to fetch shot stats" });
+    }
+  });
+
+  // ===== SEASONS AND GAMES (Baseball Card Stats) =====
+
+  // Get user's seasons
+  app.get("/api/seasons", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const userSeasons = await storage.getUserSeasons(userId);
+      res.json(userSeasons);
+    } catch (error) {
+      console.error("Error fetching seasons:", error);
+      res.status(500).json({ message: "Failed to fetch seasons" });
+    }
+  });
+
+  // Get a specific season with its games
+  app.get("/api/seasons/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const season = await storage.getSeasonWithGames(req.params.id);
+      if (!season) {
+        return res.status(404).json({ message: "Season not found" });
+      }
+      res.json(season);
+    } catch (error) {
+      console.error("Error fetching season:", error);
+      res.status(500).json({ message: "Failed to fetch season" });
+    }
+  });
+
+  // Create a season
+  app.post("/api/seasons", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const validatedData = insertSeasonSchema.parse({
+        ...req.body,
+        userId
+      });
+      const season = await storage.createSeason(validatedData);
+      res.status(201).json(season);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error creating season:", error);
+      res.status(500).json({ message: "Failed to create season" });
+    }
+  });
+
+  // Update a season
+  app.put("/api/seasons/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const updated = await storage.updateSeason(req.params.id, req.body);
+      if (!updated) {
+        return res.status(404).json({ message: "Season not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating season:", error);
+      res.status(500).json({ message: "Failed to update season" });
+    }
+  });
+
+  // Delete a season
+  app.delete("/api/seasons/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.deleteSeason(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting season:", error);
+      res.status(500).json({ message: "Failed to delete season" });
+    }
+  });
+
+  // Get games for a season
+  app.get("/api/seasons/:seasonId/games", isAuthenticated, async (req: any, res) => {
+    try {
+      const seasonGames = await storage.getSeasonGames(req.params.seasonId);
+      res.json(seasonGames);
+    } catch (error) {
+      console.error("Error fetching games:", error);
+      res.status(500).json({ message: "Failed to fetch games" });
+    }
+  });
+
+  // Create a game
+  app.post("/api/seasons/:seasonId/games", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const validatedData = insertGameSchema.parse({
+        ...req.body,
+        seasonId: req.params.seasonId,
+        userId
+      });
+      const game = await storage.createGame(validatedData);
+      res.status(201).json(game);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error creating game:", error);
+      res.status(500).json({ message: "Failed to create game" });
+    }
+  });
+
+  // Update a game
+  app.put("/api/games/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const updated = await storage.updateGame(req.params.id, req.body);
+      if (!updated) {
+        return res.status(404).json({ message: "Game not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating game:", error);
+      res.status(500).json({ message: "Failed to update game" });
+    }
+  });
+
+  // Delete a game
+  app.delete("/api/games/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.deleteGame(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting game:", error);
+      res.status(500).json({ message: "Failed to delete game" });
+    }
+  });
+
+  // Get career stats (aggregate across all seasons)
+  app.get("/api/stats/career", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const careerStats = await storage.getCareerStats(userId);
+      res.json(careerStats);
+    } catch (error) {
+      console.error("Error fetching career stats:", error);
+      res.status(500).json({ message: "Failed to fetch career stats" });
     }
   });
 
