@@ -154,7 +154,7 @@ function CourtSVG({ processedData, showLabels = false }: { processedData: Record
       {/* Center court line indicator at top */}
       <line x1="5" y1="5" x2="495" y2="5" stroke="#1a1a1a" strokeWidth="3" />
 
-      {/* Shot markers */}
+      {/* Shot markers - show individual makes and misses */}
       {Object.entries(processedData).map(([location, data]) => {
         const coords = COURT_LOCATIONS[location];
         if (!coords) return null;
@@ -162,67 +162,64 @@ function CourtSVG({ processedData, showLabels = false }: { processedData: Record
         const total = data.made + data.missed;
         const percentage = total > 0 ? Math.round((data.made / total) * 100) : 0;
         
-        // Size based on volume
-        const baseSize = 18;
-        const maxSize = 35;
-        const size = Math.min(baseSize + Math.sqrt(total) * 4, maxSize);
+        // Small circle size
+        const circleRadius = 5;
+        const spacing = 12;
         
-        // Color based on percentage
-        let fillColor = "#ef4444"; // Red for <40%
-        let strokeColor = "#991b1b";
-        if (percentage >= 60) {
-          fillColor = "#22c55e"; // Green for 60%+
-          strokeColor = "#166534";
-        } else if (percentage >= 40) {
-          fillColor = "#f59e0b"; // Amber for 40-59%
-          strokeColor = "#b45309";
-        }
+        // Create array of shot results for rendering
+        const shots: boolean[] = [];
+        for (let i = 0; i < data.made; i++) shots.push(true);
+        for (let i = 0; i < data.missed; i++) shots.push(false);
+        
+        // Arrange shots in a grid pattern around the location
+        const cols = Math.min(5, Math.ceil(Math.sqrt(total)));
+        const rows = Math.ceil(total / cols);
+        const startX = coords.x - ((cols - 1) * spacing) / 2;
+        const startY = coords.y - ((rows - 1) * spacing) / 2;
 
         return (
           <g key={location}>
-            {/* Shot circle */}
-            <circle
-              cx={coords.x}
-              cy={coords.y}
-              r={size}
-              fill={fillColor}
-              stroke={strokeColor}
-              strokeWidth="2"
-              opacity="0.85"
-              filter={percentage >= 60 ? "url(#madeGlow)" : undefined}
-            >
-              <title>{`${coords.label}: ${data.made}/${total} (${percentage}%)`}</title>
-            </circle>
+            {/* Individual shot circles */}
+            {shots.map((made, idx) => {
+              const col = idx % cols;
+              const row = Math.floor(idx / cols);
+              const cx = startX + col * spacing;
+              const cy = startY + row * spacing;
+              
+              return (
+                <circle
+                  key={idx}
+                  cx={cx}
+                  cy={cy}
+                  r={circleRadius}
+                  fill={made ? "#22c55e" : "#ef4444"}
+                  stroke={made ? "#166534" : "#991b1b"}
+                  strokeWidth="1.5"
+                  opacity="0.9"
+                >
+                  <title>{`${coords.label}: ${made ? 'Made' : 'Missed'}`}</title>
+                </circle>
+              );
+            })}
             
-            {/* Stats text */}
+            {/* Stats label below the shots */}
             <text
               x={coords.x}
-              y={coords.y - 2}
+              y={startY + rows * spacing + 8}
               textAnchor="middle"
-              fill="white"
-              fontSize="11"
+              fill="#1a1a1a"
+              fontSize="9"
               fontWeight="bold"
-              style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}
+              style={{ textShadow: '0 0 3px white, 0 0 3px white' }}
             >
-              {data.made}/{total}
-            </text>
-            <text
-              x={coords.x}
-              y={coords.y + 10}
-              textAnchor="middle"
-              fill="white"
-              fontSize="10"
-              fontWeight="600"
-              style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}
-            >
-              {percentage}%
+              {data.made}/{total} ({percentage}%)
             </text>
 
             {/* Location label (optional) */}
             {showLabels && (
               <text
                 x={coords.x}
-                y={coords.y + size + 12}
+                y={startY + rows * spacing + 20}
                 textAnchor="middle"
                 fill="#1a1a1a"
                 fontSize="8"
@@ -292,16 +289,12 @@ export function HalfCourtMap({ shotData, title = "Shot Chart", className = "", c
         {/* Legend */}
         <div className="flex items-center justify-center gap-6 mt-4 text-sm">
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full bg-green-500 border-2 border-green-800" />
-            <span className="text-foreground">60%+</span>
+            <div className="w-3 h-3 rounded-full bg-green-500 border border-green-800" />
+            <span className="text-foreground">Made</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full bg-amber-500 border-2 border-amber-700" />
-            <span className="text-foreground">40-59%</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full bg-red-500 border-2 border-red-800" />
-            <span className="text-foreground">&lt;40%</span>
+            <div className="w-3 h-3 rounded-full bg-red-500 border border-red-800" />
+            <span className="text-foreground">Missed</span>
           </div>
         </div>
 
