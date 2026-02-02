@@ -1450,11 +1450,13 @@ export async function registerRoutes(
   app.post("/api/seasons/:seasonId/games", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const validatedData = insertGameSchema.parse({
+      const gameData = {
         ...req.body,
         seasonId: req.params.seasonId,
-        userId
-      });
+        userId,
+        gameDate: req.body.gameDate ? new Date(req.body.gameDate) : new Date()
+      };
+      const validatedData = insertGameSchema.parse(gameData);
       const game = await storage.createGame(validatedData);
       res.status(201).json(game);
     } catch (error) {
@@ -1469,7 +1471,11 @@ export async function registerRoutes(
   // Update a game
   app.put("/api/games/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const updated = await storage.updateGame(req.params.id, req.body);
+      const gameData = {
+        ...req.body,
+        gameDate: req.body.gameDate ? new Date(req.body.gameDate) : undefined
+      };
+      const updated = await storage.updateGame(req.params.id, gameData);
       if (!updated) {
         return res.status(404).json({ message: "Game not found" });
       }

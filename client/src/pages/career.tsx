@@ -983,8 +983,8 @@ function StatsTab() {
     queryKey: ['/api/career-stats']
   });
 
-  const { data: seasonData } = useQuery<{ season: Season; games: Game[] }>({
-    queryKey: ['/api/seasons', selectedSeasonId, 'games'],
+  const { data: seasonData, refetch: refetchSeasonData } = useQuery<{ season: Season; games: Game[] }>({
+    queryKey: [`/api/seasons/${selectedSeasonId}/games`],
     enabled: !!selectedSeasonId
   });
 
@@ -1051,10 +1051,11 @@ function StatsTab() {
 
   const createGameMutation = useMutation({
     mutationFn: async (data: GameFormData & { seasonId: string }) => {
-      return apiRequest("POST", '/api/games', data);
+      const { seasonId, ...gameData } = data;
+      return apiRequest("POST", `/api/seasons/${seasonId}/games`, gameData);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/seasons', selectedSeasonId, 'games'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/seasons/${selectedSeasonId}/games`] });
       queryClient.invalidateQueries({ queryKey: ['/api/career-stats'] });
       setShowGameDialog(false);
       setEditingGame(null);
@@ -1068,7 +1069,7 @@ function StatsTab() {
       return apiRequest("PUT", `/api/games/${id}`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/seasons', selectedSeasonId, 'games'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/seasons/${selectedSeasonId}/games`] });
       queryClient.invalidateQueries({ queryKey: ['/api/career-stats'] });
       setShowGameDialog(false);
       setEditingGame(null);
@@ -1082,7 +1083,7 @@ function StatsTab() {
       return apiRequest("DELETE", `/api/games/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/seasons', selectedSeasonId, 'games'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/seasons/${selectedSeasonId}/games`] });
       queryClient.invalidateQueries({ queryKey: ['/api/career-stats'] });
       toast({ title: "Game deleted" });
     }
