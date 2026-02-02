@@ -885,28 +885,56 @@ export default function TrainingLogPage() {
             let metricValue = 0;
             const metric = userChallenge.challenge.metric;
             
-            if (metric === 'makes' && isShootingDrill) {
-              metricValue = entry.shotsMade || 0;
+            if (metric === 'makes') {
+              // For shooting challenges, use shots made from the round
+              if (isShootingDrill) {
+                metricValue = entry.shotsMade || 0;
+              }
             } else if (metric === 'time') {
+              // Time is tracked in the duration field (minutes)
               metricValue = entry.duration || 0;
-            } else if (metric === 'reps' || metric === 'score') {
-              // Sum all metrics that represent reps/score
-              metricValue = Object.values(entry.metrics).reduce((sum, v) => sum + (v || 0), 0);
+            } else if (metric === 'reps') {
+              // Find metrics related to reps (look for specific patterns)
+              const repMetrics = entry.drillMetrics.filter(dm => {
+                const name = dm.template.name.toLowerCase();
+                return name.includes('rep') || name.includes('count') || name.includes('total');
+              });
+              if (repMetrics.length > 0) {
+                // Sum all rep-related metrics
+                metricValue = repMetrics.reduce((sum, dm) => sum + (entry.metrics[dm.metricTemplateId] || 0), 0);
+              } else if (entry.drillMetrics.length === 1) {
+                // If only one metric, use it
+                metricValue = Object.values(entry.metrics)[0] || 0;
+              }
+            } else if (metric === 'score') {
+              // Find metrics related to score
+              const scoreMetrics = entry.drillMetrics.filter(dm => {
+                const name = dm.template.name.toLowerCase();
+                return name.includes('score') || name.includes('point');
+              });
+              if (scoreMetrics.length > 0) {
+                metricValue = scoreMetrics.reduce((sum, dm) => sum + (entry.metrics[dm.metricTemplateId] || 0), 0);
+              } else if (entry.drillMetrics.length === 1) {
+                // If only one metric, use it as score
+                metricValue = Object.values(entry.metrics)[0] || 0;
+              }
             } else if (metric === 'dribbles') {
-              // Find dribbles-related metrics
-              const dribbleMetric = entry.drillMetrics.find(dm => 
-                dm.template.name.toLowerCase().includes('dribble')
-              );
-              if (dribbleMetric) {
-                metricValue = entry.metrics[dribbleMetric.metricTemplateId] || 0;
+              // Find dribble-related metrics (expanded patterns)
+              const dribbleMetrics = entry.drillMetrics.filter(dm => {
+                const name = dm.template.name.toLowerCase();
+                return name.includes('dribble') || name.includes('handle') || name.includes('ball control');
+              });
+              if (dribbleMetrics.length > 0) {
+                metricValue = dribbleMetrics.reduce((sum, dm) => sum + (entry.metrics[dm.metricTemplateId] || 0), 0);
               }
             } else if (metric === 'passes') {
-              // Find passes-related metrics
-              const passMetric = entry.drillMetrics.find(dm => 
-                dm.template.name.toLowerCase().includes('pass')
-              );
-              if (passMetric) {
-                metricValue = entry.metrics[passMetric.metricTemplateId] || 0;
+              // Find pass-related metrics (expanded patterns)
+              const passMetrics = entry.drillMetrics.filter(dm => {
+                const name = dm.template.name.toLowerCase();
+                return name.includes('pass') || name.includes('assist');
+              });
+              if (passMetrics.length > 0) {
+                metricValue = passMetrics.reduce((sum, dm) => sum + (entry.metrics[dm.metricTemplateId] || 0), 0);
               }
             }
             
