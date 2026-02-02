@@ -939,10 +939,15 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
 
   const createChallengeMutation = useMutation({
     mutationFn: async (data: typeof newChallenge) => {
-      return await apiRequest("POST", '/api/challenges', data);
+      const res = await apiRequest("POST", '/api/challenges', data);
+      const challenge = await res.json();
+      // Auto-start the challenge so it appears in "My Challenges" immediately
+      await apiRequest("POST", `/api/challenges/${challenge.id}/start`);
+      return challenge;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/challenges'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/challenges/my-challenges'] });
       setShowChallengeDialog(false);
       setNewChallenge({
         name: "",
@@ -954,8 +959,8 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
         timeLimit: undefined
       });
       toast({
-        title: "Challenge Created",
-        description: "Your challenge has been created successfully!",
+        title: "Challenge Started!",
+        description: "Your challenge is now active and ready to track!",
       });
     },
     onError: () => {

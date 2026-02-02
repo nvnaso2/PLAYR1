@@ -77,7 +77,7 @@ import {
   Check
 } from "lucide-react";
 import { format } from "date-fns";
-import type { Drill, TrainingLog, DrillMetric, MetricTemplate, Workout, WorkoutDrill, ShotLocation } from "@shared/schema";
+import type { Drill, TrainingLog, DrillMetric, MetricTemplate, Workout, WorkoutDrill, ShotLocation, Challenge, UserChallenge } from "@shared/schema";
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, SHOT_LOCATIONS, LOCATION_CLASSIFICATIONS, insertDrillSchema, insertWorkoutSchema } from "@shared/schema";
 import { HalfCourtMap, ShotChartButton, type ShotData } from "@/components/half-court-map";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -99,6 +99,7 @@ type WorkoutDrillEntry = {
   shotLocation?: ShotLocation;
   shotsAttempted?: number;
   shotsMade?: number;
+  trackToChallengeIds?: string[]; // IDs of challenges to update progress for
 };
 
 // Use insert schemas from shared/schema.ts with UI-specific extensions
@@ -283,6 +284,11 @@ export default function TrainingLogPage() {
     queryKey: ['/api/metric-templates'],
   });
 
+  // Fetch user's active challenges for tracking
+  const { data: activeChallenges } = useQuery<Array<UserChallenge & { challenge: Challenge }>>({
+    queryKey: ['/api/challenges/my-challenges'],
+  });
+
   // Group drills by category
   const groupByCategory = (drills: Drill[]) => {
     const grouped: Record<string, Drill[]> = {};
@@ -298,6 +304,25 @@ export default function TrainingLogPage() {
   const handlzDrillsByCategory = useMemo(() => groupByCategory(handlzDrills || []), [handlzDrills]);
   
   const drillsLoading = handlzDrillsLoading || personalDrillsLoading;
+
+  // Get active challenges that match a drill's category
+  const getMatchingChallenges = (drillCategory: string) => {
+    if (!activeChallenges) return [];
+    // Map drill categories to challenge categories
+    const categoryMap: Record<string, string> = {
+      'shooting': 'shooting',
+      'ball-handling': 'ball-handling',
+      'passing': 'passing',
+      'finishing': 'shooting', // Finishing drills can track to shooting challenges
+      'workouts': 'workout',
+      'defense': 'workout',
+      'film-session': 'workout',
+    };
+    const challengeCategory = categoryMap[drillCategory] || drillCategory;
+    return activeChallenges.filter(uc => 
+      !uc.isCompleted && uc.challenge.category === challengeCategory
+    );
+  };
 
   // Create drill form
   const createDrillForm = useForm<CreateDrillFormData>({
@@ -820,6 +845,9 @@ export default function TrainingLogPage() {
     try {
       const sessionId = crypto.randomUUID();
       
+      // Track challenge progress updates to apply
+      const challengeUpdates: Record<string, number> = {};
+      
       for (const entry of workoutEntries) {
         const isShootingDrill = entry.drill.trackShots || entry.drill.category === 'shooting';
         const logResponse = await apiRequest("POST", "/api/training-logs", {
@@ -846,14 +874,75 @@ export default function TrainingLogPage() {
             });
           }
         }
+        
+        // Update challenge progress for tracked challenges
+        if (entry.trackToChallengeIds && entry.trackToChallengeIds.length > 0) {
+          for (const userChallengeId of entry.trackToChallengeIds) {
+            const userChallenge = activeChallenges?.find(uc => uc.id === userChallengeId);
+            if (!userChallenge) continue;
+            
+            // Calculate metric value based on challenge metric type
+            let metricValue = 0;
+            const metric = userChallenge.challenge.metric;
+            
+            if (metric === 'makes' && isShootingDrill) {
+              metricValue = entry.shotsMade || 0;
+            } else if (metric === 'time') {
+              metricValue = entry.duration || 0;
+            } else if (metric === 'reps' || metric === 'score') {
+              // Sum all metrics that represent reps/score
+              metricValue = Object.values(entry.metrics).reduce((sum, v) => sum + (v || 0), 0);
+            } else if (metric === 'dribbles') {
+              // Find dribbles-related metrics
+              const dribbleMetric = entry.drillMetrics.find(dm => 
+                dm.template.name.toLowerCase().includes('dribble')
+              );
+              if (dribbleMetric) {
+                metricValue = entry.metrics[dribbleMetric.metricTemplateId] || 0;
+              }
+            } else if (metric === 'passes') {
+              // Find passes-related metrics
+              const passMetric = entry.drillMetrics.find(dm => 
+                dm.template.name.toLowerCase().includes('pass')
+              );
+              if (passMetric) {
+                metricValue = entry.metrics[passMetric.metricTemplateId] || 0;
+              }
+            }
+            
+            if (metricValue > 0) {
+              challengeUpdates[userChallengeId] = (challengeUpdates[userChallengeId] || 0) + metricValue;
+            }
+          }
+        }
+      }
+      
+      // Apply all challenge progress updates
+      for (const [userChallengeId, addedValue] of Object.entries(challengeUpdates)) {
+        const userChallenge = activeChallenges?.find(uc => uc.id === userChallengeId);
+        if (!userChallenge) continue;
+        
+        const newValue = (userChallenge.currentValue || 0) + addedValue;
+        await apiRequest("PUT", `/api/challenges/${userChallengeId}/progress`, {
+          currentValue: newValue
+        });
+        
+        // Check if challenge is complete
+        if (newValue >= userChallenge.challenge.targetValue) {
+          await apiRequest("POST", `/api/challenges/${userChallengeId}/complete`);
+        }
       }
       
       queryClient.invalidateQueries({ queryKey: ['/api/training-logs'] });
       queryClient.invalidateQueries({ queryKey: ['/api/stats/overview'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/challenges/my-challenges'] });
       
+      const challengeCount = Object.keys(challengeUpdates).length;
       toast({ 
         title: "Workout Complete!", 
-        description: `Logged ${workoutEntries.length} drill${workoutEntries.length > 1 ? 's' : ''}` 
+        description: challengeCount > 0 
+          ? `Logged ${workoutEntries.length} drill${workoutEntries.length > 1 ? 's' : ''} and updated ${challengeCount} challenge${challengeCount > 1 ? 's' : ''}`
+          : `Logged ${workoutEntries.length} drill${workoutEntries.length > 1 ? 's' : ''}` 
       });
       
       setWorkoutInProgress(false);
@@ -1663,6 +1752,14 @@ export default function TrainingLogPage() {
                                 ))}
                                 <th className="text-left p-2 sm:p-3 font-medium text-muted-foreground w-20 sm:w-24 text-xs sm:text-sm">Time</th>
                                 <th className="text-left p-2 sm:p-3 font-medium text-muted-foreground hidden sm:table-cell">Notes</th>
+                                {getMatchingChallenges(group.drill.category || '').length > 0 && (
+                                  <th className="text-left p-2 sm:p-3 font-medium text-primary text-xs sm:text-sm whitespace-nowrap">
+                                    <span className="flex items-center gap-1">
+                                      <Target className="w-3 h-3" />
+                                      Challenge
+                                    </span>
+                                  </th>
+                                )}
                                 <th className="text-center p-2 sm:p-3 font-medium text-muted-foreground w-10 sm:w-12"></th>
                               </tr>
                             </thead>
@@ -1798,6 +1895,40 @@ export default function TrainingLogPage() {
                                       data-testid={`input-notes-${index}`}
                                     />
                                   </td>
+                                  {getMatchingChallenges(group.drill.category || '').length > 0 && (
+                                    <td className="p-1 sm:p-2">
+                                      <Select
+                                        value={entry.trackToChallengeIds?.[0] || ''}
+                                        onValueChange={(value) => {
+                                          if (value === 'none') {
+                                            updateEntry(index, 'trackToChallengeIds', []);
+                                          } else {
+                                            updateEntry(index, 'trackToChallengeIds', [value]);
+                                          }
+                                        }}
+                                      >
+                                        <SelectTrigger className="w-28 sm:w-36 h-8 text-xs" data-testid={`select-challenge-${index}`}>
+                                          <SelectValue placeholder="Select..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="none">
+                                            <span className="text-muted-foreground">None</span>
+                                          </SelectItem>
+                                          {getMatchingChallenges(group.drill.category || '').map(uc => (
+                                            <SelectItem key={uc.id} value={uc.id}>
+                                              <span className="flex items-center gap-1">
+                                                <Target className="w-3 h-3 text-primary" />
+                                                <span className="truncate max-w-[80px]">{uc.challenge.name}</span>
+                                                <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1">
+                                                  {uc.currentValue || 0}/{uc.challenge.targetValue}
+                                                </Badge>
+                                              </span>
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </td>
+                                  )}
                                   <td className="p-1 sm:p-2 text-center">
                                     <Button 
                                       variant="ghost" 
