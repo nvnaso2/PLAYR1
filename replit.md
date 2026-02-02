@@ -24,10 +24,19 @@ A "Netflix for basketball drills" platform for Handlz weighted basketballs. User
    - **Half-Court Shot Chart**: Visual map showing made/missed shots by location
 3. **User-Created Drills**: Users can create and manage their own custom drills
 4. **Progress Tracking**: Charts and analytics showing improvement over time
-5. **Personal Videos**: Upload and manage training videos
-6. **Community Benchmarks**: Compare performance against players your age
-7. **User Profiles**: Location-based profiles with skill level tracking
-8. **Admin Dashboard**: Full CRUD operations for drill management (admin users only)
+   - Shooting Heatmap: Visual half-court map showing shot performance by location
+   - Time period filtering (daily, weekly, monthly, annual)
+5. **Trophy Room**: Achievement and challenge tracking system
+   - **Challenges**: App-generated or self-created challenges (e.g., "100 Makes")
+     - Categories: Shooting, Ball Handling, Passing, Workout
+     - Metrics: Makes, Dribbles, Passes, Reps, Time, Score
+     - Goal Types: Total, Consecutive, Timed
+   - **Personal Records (PRs)**: Badges earned when beating prior records
+   - **Team Awards**: Awards from organized teams (manually added)
+6. **Personal Videos**: Upload and manage training videos
+7. **Community Benchmarks**: Compare performance against players your age
+8. **User Profiles**: Location-based profiles with skill level tracking
+9. **Admin Dashboard**: Full CRUD operations for drill management (admin users only)
 
 ## Project Structure
 ```
@@ -113,7 +122,20 @@ shared/
 - `GET /api/stats/overview` - User stats summary
 - `GET /api/stats/weekly` - Weekly stats
 - `GET /api/stats/by-category` - Stats by category
+- `GET /api/stats/shots` - Shot statistics by location (for heatmap)
 - `GET /api/benchmarks` - Community benchmarks
+- `GET /api/challenges` - List all challenges
+- `GET /api/challenges/my-challenges` - User's active challenges
+- `POST /api/challenges` - Create challenge
+- `POST /api/challenges/:id/start` - Start a challenge
+- `PUT /api/challenges/:id/progress` - Update challenge progress
+- `POST /api/challenges/:id/complete` - Complete a challenge
+- `DELETE /api/challenges/:id` - Delete challenge (owner only)
+- `GET /api/personal-records` - User's personal records
+- `GET /api/team-awards` - User's team awards
+- `POST /api/team-awards` - Add team award
+- `PUT /api/team-awards/:id` - Update team award
+- `DELETE /api/team-awards/:id` - Delete team award
 
 ## Database Schema
 - `users` - Auth users (Replit Auth)
@@ -129,6 +151,10 @@ shared/
 - `user_videos` - Uploaded training videos
 - `drill_progress` - Aggregated drill progress
 - `benchmarks` - Community averages by age
+- `challenges` - User-created and app-generated challenges
+- `user_challenges` - User challenge progress/completion tracking
+- `personal_records` - PRs earned when beating prior records
+- `team_awards` - Awards from organized teams
 
 ## Admin Access
 - Admin status is determined by: 1) `ADMIN_USER_IDS` environment variable (bootstrap), or 2) `isAdmin` field in user_profiles table
