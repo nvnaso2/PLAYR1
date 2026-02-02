@@ -61,9 +61,14 @@ import {
   Pencil,
   Save,
   Plus,
-  Medal
+  Medal,
+  BarChart3,
+  Trash2,
+  ChevronDown,
+  ChevronUp,
+  X
 } from "lucide-react";
-import type { CareerProfile, UserAchievement, CareerAchievement, Challenge, UserChallenge, PersonalRecord, TeamAward } from "@shared/schema";
+import type { CareerProfile, UserAchievement, CareerAchievement, Challenge, UserChallenge, PersonalRecord, TeamAward, Season, Game } from "@shared/schema";
 import { 
   BASKETBALL_POSITIONS, 
   BASKETBALL_ASPIRATIONS, 
@@ -71,7 +76,8 @@ import {
   DRILL_CATEGORIES,
   AVATAR_SKIN_TONES,
   AVATAR_HAIR_STYLES,
-  AVATAR_HAIR_COLORS
+  AVATAR_HAIR_COLORS,
+  SEASON_TYPES
 } from "@shared/schema";
 
 const MONTHS = [
@@ -134,6 +140,13 @@ const POSITION_LABELS: Record<string, string> = {
   "C": "Center"
 };
 
+const SEASON_TYPE_LABELS: Record<string, string> = {
+  "middle-school": "Middle School",
+  "high-school": "High School",
+  "aau-travel-club": "AAU / Travel / Club",
+  "recreational": "Recreational"
+};
+
 const onboardingSchema = z.object({
   birthMonth: z.coerce.number().min(1).max(12).optional(),
   birthYear: z.coerce.number().min(1990).max(2025).optional(),
@@ -158,6 +171,43 @@ const onboardingSchema = z.object({
 });
 
 type OnboardingData = z.infer<typeof onboardingSchema>;
+
+const seasonSchema = z.object({
+  name: z.string().min(1, "Season name is required"),
+  teamName: z.string().optional(),
+  seasonType: z.string().min(1, "Season type is required"),
+  year: z.string().min(1, "Year is required")
+});
+
+type SeasonFormData = z.infer<typeof seasonSchema>;
+
+const gameSchema = z.object({
+  gameDate: z.string().min(1, "Game date is required"),
+  opponent: z.string().optional(),
+  isHome: z.boolean().default(true),
+  result: z.string().optional(),
+  teamScore: z.coerce.number().optional(),
+  opponentScore: z.coerce.number().optional(),
+  points: z.coerce.number().min(0).default(0),
+  rebounds: z.coerce.number().min(0).default(0),
+  assists: z.coerce.number().min(0).default(0),
+  steals: z.coerce.number().min(0).default(0),
+  blocks: z.coerce.number().min(0).default(0),
+  turnovers: z.coerce.number().min(0).default(0),
+  fouls: z.coerce.number().min(0).max(5).default(0),
+  fgMade: z.coerce.number().min(0).default(0),
+  fgAttempted: z.coerce.number().min(0).default(0),
+  threePtMade: z.coerce.number().min(0).default(0),
+  threePtAttempted: z.coerce.number().min(0).default(0),
+  ftMade: z.coerce.number().min(0).default(0),
+  ftAttempted: z.coerce.number().min(0).default(0),
+  offensiveRebounds: z.coerce.number().min(0).default(0),
+  defensiveRebounds: z.coerce.number().min(0).default(0),
+  minutesPlayed: z.coerce.number().min(0).default(0),
+  notes: z.string().optional()
+});
+
+type GameFormData = z.infer<typeof gameSchema>;
 
 const ONBOARDING_STEPS = [
   { id: "welcome", title: "Welcome", icon: User },
@@ -891,6 +941,879 @@ type UserStats = {
   streak: number;
 };
 
+type CareerStats = {
+  totalGames: number;
+  totalPoints: number;
+  totalRebounds: number;
+  totalAssists: number;
+  totalSteals: number;
+  totalBlocks: number;
+  avgPoints: number;
+  avgRebounds: number;
+  avgAssists: number;
+  avgSteals: number;
+  avgBlocks: number;
+  seasonBreakdown: Array<{
+    seasonId: string;
+    seasonName: string;
+    seasonType: string;
+    year: string;
+    gamesPlayed: number;
+    avgPoints: number;
+    avgRebounds: number;
+    avgAssists: number;
+    avgSteals: number;
+    avgBlocks: number;
+  }>;
+};
+
+function StatsTab() {
+  const { toast } = useToast();
+  const [selectedSeasonId, setSelectedSeasonId] = useState<string | null>(null);
+  const [showSeasonDialog, setShowSeasonDialog] = useState(false);
+  const [showGameDialog, setShowGameDialog] = useState(false);
+  const [editingGame, setEditingGame] = useState<Game | null>(null);
+  const [expandedSeasons, setExpandedSeasons] = useState<Set<string>>(new Set());
+
+  const { data: seasons = [], isLoading: seasonsLoading } = useQuery<Season[]>({
+    queryKey: ['/api/seasons']
+  });
+
+  const { data: careerStats } = useQuery<CareerStats>({
+    queryKey: ['/api/career-stats']
+  });
+
+  const { data: seasonData } = useQuery<{ season: Season; games: Game[] }>({
+    queryKey: ['/api/seasons', selectedSeasonId, 'games'],
+    enabled: !!selectedSeasonId
+  });
+
+  const seasonForm = useForm<SeasonFormData>({
+    resolver: zodResolver(seasonSchema),
+    defaultValues: {
+      name: "",
+      teamName: "",
+      seasonType: "",
+      year: new Date().getFullYear().toString()
+    }
+  });
+
+  const gameForm = useForm<GameFormData>({
+    resolver: zodResolver(gameSchema),
+    defaultValues: {
+      gameDate: new Date().toISOString().split('T')[0],
+      isHome: true,
+      points: 0,
+      rebounds: 0,
+      assists: 0,
+      steals: 0,
+      blocks: 0,
+      turnovers: 0,
+      fouls: 0,
+      fgMade: 0,
+      fgAttempted: 0,
+      threePtMade: 0,
+      threePtAttempted: 0,
+      ftMade: 0,
+      ftAttempted: 0,
+      offensiveRebounds: 0,
+      defensiveRebounds: 0,
+      minutesPlayed: 0
+    }
+  });
+
+  const createSeasonMutation = useMutation({
+    mutationFn: async (data: SeasonFormData) => {
+      return apiRequest("POST", '/api/seasons', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/seasons'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/career-stats'] });
+      setShowSeasonDialog(false);
+      seasonForm.reset();
+      toast({ title: "Season created successfully!" });
+    }
+  });
+
+  const deleteSeasonMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/seasons/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/seasons'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/career-stats'] });
+      if (selectedSeasonId === deleteSeasonMutation.variables) {
+        setSelectedSeasonId(null);
+      }
+      toast({ title: "Season deleted" });
+    }
+  });
+
+  const createGameMutation = useMutation({
+    mutationFn: async (data: GameFormData & { seasonId: string }) => {
+      return apiRequest("POST", '/api/games', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/seasons', selectedSeasonId, 'games'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/career-stats'] });
+      setShowGameDialog(false);
+      setEditingGame(null);
+      gameForm.reset();
+      toast({ title: "Game logged successfully!" });
+    }
+  });
+
+  const updateGameMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: GameFormData }) => {
+      return apiRequest("PUT", `/api/games/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/seasons', selectedSeasonId, 'games'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/career-stats'] });
+      setShowGameDialog(false);
+      setEditingGame(null);
+      gameForm.reset();
+      toast({ title: "Game updated successfully!" });
+    }
+  });
+
+  const deleteGameMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/games/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/seasons', selectedSeasonId, 'games'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/career-stats'] });
+      toast({ title: "Game deleted" });
+    }
+  });
+
+  const handleCreateSeason = (data: SeasonFormData) => {
+    createSeasonMutation.mutate(data);
+  };
+
+  const handleCreateGame = (data: GameFormData) => {
+    if (!selectedSeasonId) return;
+    if (editingGame) {
+      updateGameMutation.mutate({ id: editingGame.id, data });
+    } else {
+      createGameMutation.mutate({ ...data, seasonId: selectedSeasonId });
+    }
+  };
+
+  const openGameDialog = (game?: Game) => {
+    if (game) {
+      setEditingGame(game);
+      gameForm.reset({
+        gameDate: game.gameDate ? new Date(game.gameDate).toISOString().split('T')[0] : "",
+        opponent: game.opponent || "",
+        isHome: game.isHome ?? true,
+        result: game.result || "",
+        teamScore: game.teamScore || 0,
+        opponentScore: game.opponentScore || 0,
+        points: game.points || 0,
+        rebounds: game.rebounds || 0,
+        assists: game.assists || 0,
+        steals: game.steals || 0,
+        blocks: game.blocks || 0,
+        turnovers: game.turnovers || 0,
+        fouls: game.fouls || 0,
+        fgMade: game.fgMade || 0,
+        fgAttempted: game.fgAttempted || 0,
+        threePtMade: game.threePtMade || 0,
+        threePtAttempted: game.threePtAttempted || 0,
+        ftMade: game.ftMade || 0,
+        ftAttempted: game.ftAttempted || 0,
+        offensiveRebounds: game.offensiveRebounds || 0,
+        defensiveRebounds: game.defensiveRebounds || 0,
+        minutesPlayed: game.minutesPlayed || 0,
+        notes: game.notes || ""
+      });
+    } else {
+      setEditingGame(null);
+      gameForm.reset();
+    }
+    setShowGameDialog(true);
+  };
+
+  const toggleSeasonExpand = (seasonId: string) => {
+    const newExpanded = new Set(expandedSeasons);
+    if (newExpanded.has(seasonId)) {
+      newExpanded.delete(seasonId);
+    } else {
+      newExpanded.add(seasonId);
+    }
+    setExpandedSeasons(newExpanded);
+    setSelectedSeasonId(seasonId);
+  };
+
+  if (seasonsLoading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-32 w-full" />
+        <Skeleton className="h-48 w-full" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {careerStats && careerStats.totalGames > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-primary" />
+              Career Totals
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div className="text-center p-3 bg-primary/10 rounded-lg">
+                <p className="text-2xl font-bold">{careerStats.avgPoints}</p>
+                <p className="text-sm text-muted-foreground">PPG</p>
+              </div>
+              <div className="text-center p-3 bg-primary/10 rounded-lg">
+                <p className="text-2xl font-bold">{careerStats.avgRebounds}</p>
+                <p className="text-sm text-muted-foreground">RPG</p>
+              </div>
+              <div className="text-center p-3 bg-primary/10 rounded-lg">
+                <p className="text-2xl font-bold">{careerStats.avgAssists}</p>
+                <p className="text-sm text-muted-foreground">APG</p>
+              </div>
+              <div className="text-center p-3 bg-primary/10 rounded-lg">
+                <p className="text-2xl font-bold">{careerStats.avgSteals}</p>
+                <p className="text-sm text-muted-foreground">SPG</p>
+              </div>
+              <div className="text-center p-3 bg-primary/10 rounded-lg">
+                <p className="text-2xl font-bold">{careerStats.avgBlocks}</p>
+                <p className="text-sm text-muted-foreground">BPG</p>
+              </div>
+            </div>
+            <div className="mt-4 text-center text-sm text-muted-foreground">
+              {careerStats.totalGames} career games | {careerStats.totalPoints} total points
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-4">
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="w-5 h-5" />
+            Seasons
+          </CardTitle>
+          <Dialog open={showSeasonDialog} onOpenChange={setShowSeasonDialog}>
+            <DialogTrigger asChild>
+              <Button size="sm" data-testid="button-create-season">
+                <Plus className="w-4 h-4 mr-1" />
+                Add Season
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Season</DialogTitle>
+                <DialogDescription>
+                  Add a new season to track your game statistics
+                </DialogDescription>
+              </DialogHeader>
+              <Form {...seasonForm}>
+                <form onSubmit={seasonForm.handleSubmit(handleCreateSeason)} className="space-y-4">
+                  <FormField
+                    control={seasonForm.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Season Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., Freshman Season" {...field} data-testid="input-season-name" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={seasonForm.control}
+                    name="seasonType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Season Type</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-season-type">
+                              <SelectValue placeholder="Select type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {SEASON_TYPES.map(type => (
+                              <SelectItem key={type} value={type}>
+                                {SEASON_TYPE_LABELS[type]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={seasonForm.control}
+                    name="teamName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Team Name (Optional)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., Eagles" {...field} data-testid="input-team-name" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={seasonForm.control}
+                    name="year"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Year</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., 2024-25" {...field} data-testid="input-season-year" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button 
+                    type="submit" 
+                    className="w-full" 
+                    disabled={createSeasonMutation.isPending}
+                    data-testid="button-submit-season"
+                  >
+                    {createSeasonMutation.isPending ? "Creating..." : "Create Season"}
+                  </Button>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+        </CardHeader>
+        <CardContent>
+          {seasons.length === 0 ? (
+            <div className="text-center p-8">
+              <Calendar className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-muted-foreground">No seasons yet. Create your first season to start tracking game stats!</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {seasons.map((season) => {
+                const isExpanded = expandedSeasons.has(season.id);
+                const seasonStats = careerStats?.seasonBreakdown.find(s => s.seasonId === season.id);
+                
+                return (
+                  <div key={season.id} className="border rounded-lg" data-testid={`season-item-${season.id}`}>
+                    <div 
+                      className="p-4 flex items-center justify-between cursor-pointer hover-elevate"
+                      onClick={() => toggleSeasonExpand(season.id)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                          <School className="w-5 h-5 text-primary" />
+                        </div>
+                        <div>
+                          <p className="font-medium">{season.name}</p>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Badge variant="outline" className="text-xs">
+                              {SEASON_TYPE_LABELS[season.seasonType]}
+                            </Badge>
+                            <span>{season.year}</span>
+                            {season.teamName && <span>• {season.teamName}</span>}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {seasonStats && (
+                          <div className="hidden md:flex items-center gap-4 text-sm text-muted-foreground">
+                            <span>{seasonStats.gamesPlayed} GP</span>
+                            <span>{seasonStats.avgPoints} PPG</span>
+                          </div>
+                        )}
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm('Delete this season and all its games?')) {
+                              deleteSeasonMutation.mutate(season.id);
+                            }
+                          }}
+                          data-testid={`button-delete-season-${season.id}`}
+                        >
+                          <Trash2 className="w-4 h-4 text-muted-foreground" />
+                        </Button>
+                        {isExpanded ? (
+                          <ChevronUp className="w-5 h-5 text-muted-foreground" />
+                        ) : (
+                          <ChevronDown className="w-5 h-5 text-muted-foreground" />
+                        )}
+                      </div>
+                    </div>
+
+                    {isExpanded && (
+                      <div className="border-t p-4 space-y-4">
+                        {seasonStats && (
+                          <div className="grid grid-cols-5 gap-2 text-center">
+                            <div className="p-2 bg-muted/50 rounded">
+                              <p className="text-lg font-semibold">{seasonStats.avgPoints}</p>
+                              <p className="text-xs text-muted-foreground">PPG</p>
+                            </div>
+                            <div className="p-2 bg-muted/50 rounded">
+                              <p className="text-lg font-semibold">{seasonStats.avgRebounds}</p>
+                              <p className="text-xs text-muted-foreground">RPG</p>
+                            </div>
+                            <div className="p-2 bg-muted/50 rounded">
+                              <p className="text-lg font-semibold">{seasonStats.avgAssists}</p>
+                              <p className="text-xs text-muted-foreground">APG</p>
+                            </div>
+                            <div className="p-2 bg-muted/50 rounded">
+                              <p className="text-lg font-semibold">{seasonStats.avgSteals}</p>
+                              <p className="text-xs text-muted-foreground">SPG</p>
+                            </div>
+                            <div className="p-2 bg-muted/50 rounded">
+                              <p className="text-lg font-semibold">{seasonStats.avgBlocks}</p>
+                              <p className="text-xs text-muted-foreground">BPG</p>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-medium">Game Log</h4>
+                          <Button 
+                            size="sm" 
+                            onClick={() => openGameDialog()}
+                            data-testid="button-add-game"
+                          >
+                            <Plus className="w-4 h-4 mr-1" />
+                            Log Game
+                          </Button>
+                        </div>
+
+                        {seasonData?.games && seasonData.games.length > 0 ? (
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="border-b">
+                                  <th className="text-left py-2 px-2">Date</th>
+                                  <th className="text-left py-2 px-2">Opponent</th>
+                                  <th className="text-center py-2 px-2">Result</th>
+                                  <th className="text-center py-2 px-2">PTS</th>
+                                  <th className="text-center py-2 px-2">REB</th>
+                                  <th className="text-center py-2 px-2">AST</th>
+                                  <th className="text-center py-2 px-2">STL</th>
+                                  <th className="text-center py-2 px-2">BLK</th>
+                                  <th className="text-center py-2 px-2">Actions</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {seasonData.games.map((game) => (
+                                  <tr key={game.id} className="border-b hover:bg-muted/30" data-testid={`game-row-${game.id}`}>
+                                    <td className="py-2 px-2">
+                                      {game.gameDate ? new Date(game.gameDate).toLocaleDateString() : '-'}
+                                    </td>
+                                    <td className="py-2 px-2">
+                                      {game.isHome ? 'vs' : '@'} {game.opponent || 'TBD'}
+                                    </td>
+                                    <td className="text-center py-2 px-2">
+                                      {game.result && (
+                                        <Badge variant={game.result === 'W' ? 'default' : 'secondary'}>
+                                          {game.result} {game.teamScore}-{game.opponentScore}
+                                        </Badge>
+                                      )}
+                                    </td>
+                                    <td className="text-center py-2 px-2 font-medium">{game.points}</td>
+                                    <td className="text-center py-2 px-2">{game.rebounds}</td>
+                                    <td className="text-center py-2 px-2">{game.assists}</td>
+                                    <td className="text-center py-2 px-2">{game.steals}</td>
+                                    <td className="text-center py-2 px-2">{game.blocks}</td>
+                                    <td className="text-center py-2 px-2">
+                                      <div className="flex items-center justify-center gap-1">
+                                        <Button 
+                                          size="icon" 
+                                          variant="ghost"
+                                          onClick={() => openGameDialog(game)}
+                                          data-testid={`button-edit-game-${game.id}`}
+                                        >
+                                          <Pencil className="w-3 h-3" />
+                                        </Button>
+                                        <Button 
+                                          size="icon" 
+                                          variant="ghost"
+                                          onClick={() => {
+                                            if (confirm('Delete this game?')) {
+                                              deleteGameMutation.mutate(game.id);
+                                            }
+                                          }}
+                                          data-testid={`button-delete-game-${game.id}`}
+                                        >
+                                          <Trash2 className="w-3 h-3" />
+                                        </Button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground text-center py-4">
+                            No games logged yet. Add your first game!
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={showGameDialog} onOpenChange={(open) => {
+        setShowGameDialog(open);
+        if (!open) {
+          setEditingGame(null);
+          gameForm.reset();
+        }
+      }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingGame ? 'Edit Game' : 'Log New Game'}</DialogTitle>
+            <DialogDescription>
+              Enter your stats for this game
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...gameForm}>
+            <form onSubmit={gameForm.handleSubmit(handleCreateGame)} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={gameForm.control}
+                  name="gameDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Date</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} data-testid="input-game-date" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={gameForm.control}
+                  name="opponent"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Opponent</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Team name" {...field} data-testid="input-opponent" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <FormField
+                  control={gameForm.control}
+                  name="isHome"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Location</FormLabel>
+                      <Select onValueChange={(v) => field.onChange(v === 'true')} value={field.value ? 'true' : 'false'}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-home-away">
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="true">Home</SelectItem>
+                          <SelectItem value="false">Away</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={gameForm.control}
+                  name="result"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Result</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value || ""}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-result">
+                            <SelectValue placeholder="W/L" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="W">Win</SelectItem>
+                          <SelectItem value="L">Loss</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
+                  )}
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <FormField
+                    control={gameForm.control}
+                    name="teamScore"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Us</FormLabel>
+                        <FormControl>
+                          <Input type="number" min={0} {...field} data-testid="input-team-score" />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={gameForm.control}
+                    name="opponentScore"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Them</FormLabel>
+                        <FormControl>
+                          <Input type="number" min={0} {...field} data-testid="input-opponent-score" />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-3">Basic Stats</h4>
+                <div className="grid grid-cols-4 gap-3">
+                  <FormField
+                    control={gameForm.control}
+                    name="points"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>PTS</FormLabel>
+                        <FormControl>
+                          <Input type="number" min={0} {...field} data-testid="input-points" />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={gameForm.control}
+                    name="rebounds"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>REB</FormLabel>
+                        <FormControl>
+                          <Input type="number" min={0} {...field} data-testid="input-rebounds" />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={gameForm.control}
+                    name="assists"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>AST</FormLabel>
+                        <FormControl>
+                          <Input type="number" min={0} {...field} data-testid="input-assists" />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={gameForm.control}
+                    name="steals"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>STL</FormLabel>
+                        <FormControl>
+                          <Input type="number" min={0} {...field} data-testid="input-steals" />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={gameForm.control}
+                    name="blocks"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>BLK</FormLabel>
+                        <FormControl>
+                          <Input type="number" min={0} {...field} data-testid="input-blocks" />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={gameForm.control}
+                    name="turnovers"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>TO</FormLabel>
+                        <FormControl>
+                          <Input type="number" min={0} {...field} data-testid="input-turnovers" />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={gameForm.control}
+                    name="fouls"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>PF</FormLabel>
+                        <FormControl>
+                          <Input type="number" min={0} max={5} {...field} data-testid="input-fouls" />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={gameForm.control}
+                    name="minutesPlayed"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>MIN</FormLabel>
+                        <FormControl>
+                          <Input type="number" min={0} {...field} data-testid="input-minutes" />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-3">Shooting Stats</h4>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-2">Field Goals</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <FormField
+                        control={gameForm.control}
+                        name="fgMade"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormControl>
+                              <Input type="number" min={0} placeholder="Made" {...field} data-testid="input-fg-made" />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={gameForm.control}
+                        name="fgAttempted"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormControl>
+                              <Input type="number" min={0} placeholder="Att" {...field} data-testid="input-fg-attempted" />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-2">3-Pointers</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <FormField
+                        control={gameForm.control}
+                        name="threePtMade"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormControl>
+                              <Input type="number" min={0} placeholder="Made" {...field} data-testid="input-3pt-made" />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={gameForm.control}
+                        name="threePtAttempted"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormControl>
+                              <Input type="number" min={0} placeholder="Att" {...field} data-testid="input-3pt-attempted" />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-2">Free Throws</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <FormField
+                        control={gameForm.control}
+                        name="ftMade"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormControl>
+                              <Input type="number" min={0} placeholder="Made" {...field} data-testid="input-ft-made" />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={gameForm.control}
+                        name="ftAttempted"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormControl>
+                              <Input type="number" min={0} placeholder="Att" {...field} data-testid="input-ft-attempted" />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <FormField
+                control={gameForm.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Notes (Optional)</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Any notes about this game..." 
+                        className="resize-none" 
+                        {...field} 
+                        data-testid="input-game-notes"
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={createGameMutation.isPending || updateGameMutation.isPending}
+                data-testid="button-submit-game"
+              >
+                {createGameMutation.isPending || updateGameMutation.isPending 
+                  ? "Saving..." 
+                  : editingGame ? "Update Game" : "Log Game"}
+              </Button>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 function CareerDashboard({ profile }: { profile: CareerProfile }) {
   const { toast } = useToast();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -1057,7 +1980,7 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
       </div>
 
       <Tabs defaultValue="profile" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 mb-6">
+        <TabsList className="grid w-full grid-cols-3 mb-6">
           <TabsTrigger value="profile" data-testid="tab-profile">
             <User className="w-4 h-4 mr-2" />
             Profile
@@ -1065,6 +1988,10 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
           <TabsTrigger value="trophy-room" data-testid="tab-trophy-room">
             <Trophy className="w-4 h-4 mr-2" />
             Trophy Room
+          </TabsTrigger>
+          <TabsTrigger value="stats" data-testid="tab-stats">
+            <BarChart3 className="w-4 h-4 mr-2" />
+            Stats
           </TabsTrigger>
         </TabsList>
 
@@ -1555,6 +2482,10 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="stats" className="space-y-6">
+          <StatsTab />
         </TabsContent>
       </Tabs>
 
