@@ -73,7 +73,8 @@ import {
   Pencil,
   MoreVertical,
   Timer,
-  Square
+  Square,
+  Check
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Drill, TrainingLog, DrillMetric, MetricTemplate, Workout, WorkoutDrill, ShotLocation } from "@shared/schema";
@@ -106,8 +107,10 @@ const createDrillFormSchema = insertDrillSchema.pick({
   description: true,
   category: true,
   difficulty: true,
+  trackShots: true,
 }).extend({
   title: z.string().min(1, "Title is required"),
+  trackShots: z.boolean().default(false),
 });
 
 type CreateDrillFormData = z.infer<typeof createDrillFormSchema>;
@@ -130,6 +133,7 @@ export default function TrainingLogPage() {
   const [isCreateDrillOpen, setIsCreateDrillOpen] = useState(false);
   const [isSaveWorkoutOpen, setIsSaveWorkoutOpen] = useState(false);
   const [isAddDrillToWorkoutOpen, setIsAddDrillToWorkoutOpen] = useState(false);
+  const [selectedMetricTemplateIds, setSelectedMetricTemplateIds] = useState<string[]>([]);
   const [activeLibraryTab, setActiveLibraryTab] = useState("personal-drills");
   const [activeView, setActiveView] = useState<"library" | "workout" | "history">("library");
   
@@ -303,6 +307,7 @@ export default function TrainingLogPage() {
       description: "",
       category: "ball-handling",
       difficulty: "beginner",
+      trackShots: false,
     },
   });
 
@@ -319,7 +324,15 @@ export default function TrainingLogPage() {
   // Create drill mutation
   const createDrillMutation = useMutation({
     mutationFn: async (data: CreateDrillFormData) => {
-      return await apiRequest("POST", "/api/user/drills", data);
+      const response = await apiRequest("POST", "/api/user/drills", data);
+      const newDrill = await response.json();
+      // Save metrics for the new drill if any selected
+      if (selectedMetricTemplateIds.length > 0) {
+        await apiRequest("POST", `/api/drills/${newDrill.id}/metrics`, { 
+          metricTemplateIds: selectedMetricTemplateIds 
+        });
+      }
+      return newDrill;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/drills'] });
@@ -327,6 +340,7 @@ export default function TrainingLogPage() {
       toast({ title: "Drill created successfully" });
       setIsCreateDrillOpen(false);
       createDrillForm.reset();
+      setSelectedMetricTemplateIds([]);
     },
     onError: () => {
       toast({ title: "Failed to create drill", variant: "destructive" });
@@ -1160,8 +1174,65 @@ export default function TrainingLogPage() {
                       )}
                     />
                   </div>
+
+                  {/* Track Shots Checkbox */}
+                  <FormField
+                    control={createDrillForm.control}
+                    name="trackShots"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center gap-2">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                            data-testid="checkbox-track-shots"
+                          />
+                        </FormControl>
+                        <FormLabel className="!mt-0">Track Shot Locations</FormLabel>
+                        <span className="text-xs text-muted-foreground">(shows shot chart when logging)</span>
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Metrics Multi-Select */}
+                  <div className="space-y-2">
+                    <FormLabel>Tracking Metrics</FormLabel>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Select which metrics to track when logging this drill
+                    </p>
+                    <div className="flex flex-wrap gap-2 p-3 border rounded-md bg-muted/30">
+                      {metricTemplates && metricTemplates.length > 0 ? (
+                        metricTemplates.map(template => (
+                          <Badge
+                            key={template.id}
+                            variant={selectedMetricTemplateIds.includes(template.id) ? "default" : "outline"}
+                            className="cursor-pointer"
+                            onClick={() => {
+                              setSelectedMetricTemplateIds(prev =>
+                                prev.includes(template.id)
+                                  ? prev.filter(id => id !== template.id)
+                                  : [...prev, template.id]
+                              );
+                            }}
+                            data-testid={`metric-badge-${template.name.toLowerCase().replace(/\s+/g, '-')}`}
+                          >
+                            {selectedMetricTemplateIds.includes(template.id) && (
+                              <Check className="w-3 h-3 mr-1" />
+                            )}
+                            {template.label || template.name}
+                          </Badge>
+                        ))
+                      ) : (
+                        <p className="text-xs text-muted-foreground">No metric templates available</p>
+                      )}
+                    </div>
+                  </div>
+
                   <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => setIsCreateDrillOpen(false)}>
+                    <Button type="button" variant="outline" onClick={() => {
+                      setIsCreateDrillOpen(false);
+                      setSelectedMetricTemplateIds([]);
+                    }}>
                       Cancel
                     </Button>
                     <Button type="submit" disabled={createDrillMutation.isPending} data-testid="button-save-drill">
