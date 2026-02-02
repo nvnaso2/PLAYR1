@@ -88,6 +88,7 @@ const drillFormSchema = z.object({
   equipment: z.string().optional(),
   tips: z.string().optional(),
   isFeatured: z.boolean().default(false),
+  trackShots: z.boolean().default(false),
 });
 
 type DrillFormData = z.infer<typeof drillFormSchema>;
@@ -203,6 +204,7 @@ function DrillForm({
       equipment: drill?.equipment?.join(", ") || "",
       tips: drill?.tips?.join("\n") || "",
       isFeatured: drill?.isFeatured || false,
+      trackShots: drill?.trackShots || false,
     },
   });
 
@@ -580,24 +582,46 @@ function DrillForm({
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="isFeatured"
-          render={({ field }) => (
-            <FormItem className="flex items-center gap-2">
-              <FormControl>
-                <input
-                  type="checkbox"
-                  checked={field.value}
-                  onChange={field.onChange}
-                  className="h-4 w-4"
-                  data-testid="checkbox-drill-featured"
-                />
-              </FormControl>
-              <FormLabel className="!mt-0">Featured Drill</FormLabel>
-            </FormItem>
-          )}
-        />
+        <div className="flex flex-wrap gap-6">
+          <FormField
+            control={form.control}
+            name="isFeatured"
+            render={({ field }) => (
+              <FormItem className="flex items-center gap-2">
+                <FormControl>
+                  <input
+                    type="checkbox"
+                    checked={field.value}
+                    onChange={field.onChange}
+                    className="h-4 w-4"
+                    data-testid="checkbox-drill-featured"
+                  />
+                </FormControl>
+                <FormLabel className="!mt-0">Featured Drill</FormLabel>
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="trackShots"
+            render={({ field }) => (
+              <FormItem className="flex items-center gap-2">
+                <FormControl>
+                  <input
+                    type="checkbox"
+                    checked={field.value}
+                    onChange={field.onChange}
+                    className="h-4 w-4"
+                    data-testid="checkbox-drill-track-shots"
+                  />
+                </FormControl>
+                <FormLabel className="!mt-0">Track Shot Locations</FormLabel>
+                <span className="text-xs text-muted-foreground">(shows shot chart in logging)</span>
+              </FormItem>
+            )}
+          />
+        </div>
 
         {/* Metrics Configuration Section - Dropdown Multi-Select */}
         <FormItem>

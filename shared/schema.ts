@@ -229,6 +229,7 @@ export const drills = pgTable("drills", {
   equipment: text("equipment").array(),
   tips: text("tips").array(),
   isFeatured: boolean("is_featured").default(false),
+  trackShots: boolean("track_shots").default(false), // Enable shot location tracking
   userId: varchar("user_id"), // null = admin drill, set = user-created drill
   createdAt: timestamp("created_at").defaultNow()
 });

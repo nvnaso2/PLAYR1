@@ -187,6 +187,7 @@ The admin dashboard has five tabs for managing content:
    - Select PDFs from the centralized PDF Library
    - Configure which metric templates apply to each drill
    - Set featured drills, difficulty levels, categories
+   - **Track Shot Locations**: Enable shot location tracking for any drill (shows shot chart in training log)
 
 5. **Users Tab**: User and permission management
    - View all users

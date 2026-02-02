@@ -807,7 +807,7 @@ export default function TrainingLogPage() {
       const sessionId = crypto.randomUUID();
       
       for (const entry of workoutEntries) {
-        const isShootingDrill = entry.drill.category === 'shooting';
+        const isShootingDrill = entry.drill.trackShots || entry.drill.category === 'shooting';
         const logResponse = await apiRequest("POST", "/api/training-logs", {
           drillId: entry.drillId,
           duration: entry.duration,
@@ -1533,7 +1533,7 @@ export default function TrainingLogPage() {
                     dm.template.name.toLowerCase().includes('made') || 
                     dm.template.label.toLowerCase().includes('made')
                   );
-                  const isShootingDrill = group.drill.category === 'shooting' || (shotsAttemptedMetric && shotsMadeMetric);
+                  const isShootingDrill = group.drill.trackShots || group.drill.category === 'shooting' || (shotsAttemptedMetric && shotsMadeMetric);
                   
                   // Calculate shooting percentage for an entry
                   const getShootingPct = (entry: WorkoutDrillEntry): number | null => {
@@ -2180,7 +2180,7 @@ export default function TrainingLogPage() {
               {/* Shot Location Editing for Shooting Drills */}
               {(() => {
                 const drill = allDrills.find(d => d.id === viewEditLog.drillId);
-                const isShootingDrill = drill?.category === "shooting";
+                const isShootingDrill = drill?.trackShots || drill?.category === "shooting";
                 if (isShootingDrill && isEditMode) {
                   return (
                     <div className="space-y-3 border-t pt-4">
