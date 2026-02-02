@@ -198,6 +198,71 @@ export const teamAwards = pgTable("team_awards", {
   createdAt: timestamp("created_at").defaultNow()
 });
 
+// Season types for basketball stats tracking
+export const SEASON_TYPES = [
+  "middle-school",
+  "high-school",
+  "aau-travel-club",
+  "recreational"
+] as const;
+export type SeasonType = typeof SEASON_TYPES[number];
+
+// Seasons - for tracking game stats across seasons
+export const seasons = pgTable("seasons", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  name: varchar("name").notNull(), // e.g., "Freshman Season", "AAU Summer 2024"
+  teamName: varchar("team_name"),
+  seasonType: varchar("season_type").$type<SeasonType>().notNull(),
+  year: varchar("year").notNull(), // e.g., "2024-25" or "2024"
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+
+// Games - individual game stats within a season
+export const games = pgTable("games", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  seasonId: varchar("season_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  
+  // Game info
+  gameDate: timestamp("game_date").notNull(),
+  opponent: varchar("opponent"),
+  isHome: boolean("is_home").default(true),
+  result: varchar("result"), // "W" or "L"
+  teamScore: integer("team_score"),
+  opponentScore: integer("opponent_score"),
+  
+  // Basic stats
+  points: integer("points").default(0),
+  rebounds: integer("rebounds").default(0),
+  assists: integer("assists").default(0),
+  steals: integer("steals").default(0),
+  blocks: integer("blocks").default(0),
+  turnovers: integer("turnovers").default(0),
+  fouls: integer("fouls").default(0),
+  
+  // Shooting stats
+  fgMade: integer("fg_made").default(0),
+  fgAttempted: integer("fg_attempted").default(0),
+  threePtMade: integer("three_pt_made").default(0),
+  threePtAttempted: integer("three_pt_attempted").default(0),
+  ftMade: integer("ft_made").default(0),
+  ftAttempted: integer("ft_attempted").default(0),
+  
+  // Advanced stats
+  offensiveRebounds: integer("offensive_rebounds").default(0),
+  defensiveRebounds: integer("defensive_rebounds").default(0),
+  minutesPlayed: integer("minutes_played").default(0),
+  
+  // Notes
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+
 // User profiles with location and age
 export const userProfiles = pgTable("user_profiles", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -509,6 +574,8 @@ export const insertChallengeSchema = createInsertSchema(challenges).omit({ id: t
 export const insertUserChallengeSchema = createInsertSchema(userChallenges).omit({ id: true, startedAt: true });
 export const insertPersonalRecordSchema = createInsertSchema(personalRecords).omit({ id: true, achievedAt: true });
 export const insertTeamAwardSchema = createInsertSchema(teamAwards).omit({ id: true, createdAt: true });
+export const insertSeasonSchema = createInsertSchema(seasons).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertGameSchema = createInsertSchema(games).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Types
 export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
@@ -550,3 +617,7 @@ export type InsertPersonalRecord = z.infer<typeof insertPersonalRecordSchema>;
 export type PersonalRecord = typeof personalRecords.$inferSelect;
 export type InsertTeamAward = z.infer<typeof insertTeamAwardSchema>;
 export type TeamAward = typeof teamAwards.$inferSelect;
+export type InsertSeason = z.infer<typeof insertSeasonSchema>;
+export type Season = typeof seasons.$inferSelect;
+export type InsertGame = z.infer<typeof insertGameSchema>;
+export type Game = typeof games.$inferSelect;
