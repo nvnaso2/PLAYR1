@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
-import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema } from "@shared/schema";
+import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(
@@ -1178,6 +1178,198 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error adding XP:", error);
       res.status(500).json({ message: "Failed to add XP" });
+    }
+  });
+
+  // ===== CHALLENGES =====
+
+  // Get all challenges
+  app.get("/api/challenges", isAuthenticated, async (req: any, res) => {
+    try {
+      const challenges = await storage.getChallenges();
+      res.json(challenges);
+    } catch (error) {
+      console.error("Error fetching challenges:", error);
+      res.status(500).json({ message: "Failed to fetch challenges" });
+    }
+  });
+
+  // Get user's challenges (with progress)
+  app.get("/api/challenges/my-challenges", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const userChallenges = await storage.getUserChallenges(userId);
+      res.json(userChallenges);
+    } catch (error) {
+      console.error("Error fetching user challenges:", error);
+      res.status(500).json({ message: "Failed to fetch user challenges" });
+    }
+  });
+
+  // Create a new challenge
+  app.post("/api/challenges", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const validatedData = insertChallengeSchema.parse({
+        ...req.body,
+        createdBy: userId,
+        isAppGenerated: false
+      });
+      const challenge = await storage.createChallenge(validatedData);
+      res.status(201).json(challenge);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error creating challenge:", error);
+      res.status(500).json({ message: "Failed to create challenge" });
+    }
+  });
+
+  // Start a challenge
+  app.post("/api/challenges/:id/start", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const challengeId = req.params.id;
+      const userChallenge = await storage.startChallenge(userId, challengeId);
+      res.json(userChallenge);
+    } catch (error) {
+      console.error("Error starting challenge:", error);
+      res.status(500).json({ message: "Failed to start challenge" });
+    }
+  });
+
+  // Update challenge progress
+  app.put("/api/challenges/:id/progress", isAuthenticated, async (req: any, res) => {
+    try {
+      const { currentValue } = req.body;
+      const updated = await storage.updateChallengeProgress(req.params.id, currentValue);
+      if (!updated) {
+        return res.status(404).json({ message: "Challenge not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating challenge progress:", error);
+      res.status(500).json({ message: "Failed to update challenge progress" });
+    }
+  });
+
+  // Complete a challenge
+  app.post("/api/challenges/:id/complete", isAuthenticated, async (req: any, res) => {
+    try {
+      const completed = await storage.completeChallenge(req.params.id);
+      if (!completed) {
+        return res.status(404).json({ message: "Challenge not found" });
+      }
+      res.json(completed);
+    } catch (error) {
+      console.error("Error completing challenge:", error);
+      res.status(500).json({ message: "Failed to complete challenge" });
+    }
+  });
+
+  // Delete a challenge (only owner can delete)
+  app.delete("/api/challenges/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const challenge = await storage.getChallengeById(req.params.id);
+      if (!challenge) {
+        return res.status(404).json({ message: "Challenge not found" });
+      }
+      if (challenge.createdBy !== userId) {
+        return res.status(403).json({ message: "Not authorized to delete this challenge" });
+      }
+      await storage.deleteChallenge(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting challenge:", error);
+      res.status(500).json({ message: "Failed to delete challenge" });
+    }
+  });
+
+  // ===== PERSONAL RECORDS =====
+
+  // Get user's personal records
+  app.get("/api/personal-records", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const records = await storage.getUserPersonalRecords(userId);
+      res.json(records);
+    } catch (error) {
+      console.error("Error fetching personal records:", error);
+      res.status(500).json({ message: "Failed to fetch personal records" });
+    }
+  });
+
+  // ===== TEAM AWARDS =====
+
+  // Get user's team awards
+  app.get("/api/team-awards", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const awards = await storage.getUserTeamAwards(userId);
+      res.json(awards);
+    } catch (error) {
+      console.error("Error fetching team awards:", error);
+      res.status(500).json({ message: "Failed to fetch team awards" });
+    }
+  });
+
+  // Create a team award
+  app.post("/api/team-awards", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const validatedData = insertTeamAwardSchema.parse({
+        ...req.body,
+        userId
+      });
+      const award = await storage.createTeamAward(validatedData);
+      res.status(201).json(award);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error creating team award:", error);
+      res.status(500).json({ message: "Failed to create team award" });
+    }
+  });
+
+  // Update a team award
+  app.put("/api/team-awards/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const updated = await storage.updateTeamAward(req.params.id, req.body);
+      if (!updated) {
+        return res.status(404).json({ message: "Team award not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating team award:", error);
+      res.status(500).json({ message: "Failed to update team award" });
+    }
+  });
+
+  // Delete a team award
+  app.delete("/api/team-awards/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.deleteTeamAward(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting team award:", error);
+      res.status(500).json({ message: "Failed to delete team award" });
+    }
+  });
+
+  // ===== SHOT STATS (for heatmap) =====
+
+  // Get user's shot statistics by location
+  app.get("/api/stats/shots", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const shotStats = await storage.getUserShotStats(userId);
+      res.json(shotStats);
+    } catch (error) {
+      console.error("Error fetching shot stats:", error);
+      res.status(500).json({ message: "Failed to fetch shot stats" });
     }
   });
 
