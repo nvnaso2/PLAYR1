@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { HalfCourtMap, type ShotData } from "@/components/half-court-map";
+import { ShootingHeatmap, type ShotData } from "@/components/shooting-heatmap";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import {
   BarChart,
@@ -401,31 +401,29 @@ export default function ProgressPage() {
           </Card>
 
           {/* Shooting Heatmap */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Crosshair className="w-5 h-5 text-primary" />
-                Shooting Heatmap
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {shotHeatmapData.length > 0 ? (
-                <HalfCourtMap 
-                  shotData={shotHeatmapData} 
-                  title="" 
-                  className="border-0 shadow-none"
-                  compact
-                />
-              ) : (
+          {shotHeatmapData.length > 0 ? (
+            <ShootingHeatmap 
+              shotData={shotHeatmapData} 
+              title="Shooting Heatmap"
+            />
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Crosshair className="w-5 h-5 text-primary" />
+                  Shooting Heatmap
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
                 <div className="h-[200px] flex items-center justify-center text-muted-foreground">
                   <div className="text-center">
                     <Crosshair className="w-12 h-12 text-muted-foreground/30 mx-auto mb-2" />
                     <p>Log shooting drills with shot locations to see your heatmap</p>
                   </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {/* Trophy Room Tab */}
