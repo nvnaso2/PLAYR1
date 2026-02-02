@@ -390,10 +390,10 @@ export async function registerRoutes(
     }
   });
 
-  // ===== METRIC TEMPLATES (Admin only) =====
+  // ===== METRIC TEMPLATES =====
 
-  // Get all metric templates (admin only)
-  app.get("/api/metric-templates", isAuthenticated, isAdmin, async (req: any, res) => {
+  // Get all metric templates (accessible to all authenticated users for drill configuration)
+  app.get("/api/metric-templates", isAuthenticated, async (req: any, res) => {
     try {
       const templates = await storage.getMetricTemplates();
       res.json(templates);
