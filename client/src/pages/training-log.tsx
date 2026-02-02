@@ -1089,7 +1089,7 @@ export default function TrainingLogPage() {
                 Create Drill
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-h-[90vh] flex flex-col">
               <DialogHeader>
                 <DialogTitle>Create Your Own Drill</DialogTitle>
                 <DialogDescription>
@@ -1097,138 +1097,142 @@ export default function TrainingLogPage() {
                 </DialogDescription>
               </DialogHeader>
               <Form {...createDrillForm}>
-                <form onSubmit={createDrillForm.handleSubmit(d => createDrillMutation.mutate(d))} className="space-y-4">
-                  <FormField
-                    control={createDrillForm.control}
-                    name="title"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Drill Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., My Custom Crossover" {...field} data-testid="input-drill-title" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={createDrillForm.control}
-                    name="description"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Description (Optional)</FormLabel>
-                        <FormControl>
-                          <Textarea placeholder="Describe the drill..." {...field} value={field.value ?? ''} data-testid="input-drill-description" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={createDrillForm.control}
-                      name="category"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Category</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
+                <form onSubmit={createDrillForm.handleSubmit(d => createDrillMutation.mutate(d))} className="flex flex-col flex-1 overflow-hidden">
+                  <ScrollArea className="flex-1 pr-4">
+                    <div className="space-y-4 pb-4">
+                      <FormField
+                        control={createDrillForm.control}
+                        name="title"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Drill Name</FormLabel>
                             <FormControl>
-                              <SelectTrigger data-testid="select-drill-category">
-                                <SelectValue />
-                              </SelectTrigger>
+                              <Input placeholder="e.g., My Custom Crossover" {...field} data-testid="input-drill-title" />
                             </FormControl>
-                            <SelectContent>
-                              {DRILL_CATEGORIES.map(cat => (
-                                <SelectItem key={cat} value={cat}>
-                                  {formatCategory(cat)}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={createDrillForm.control}
-                      name="difficulty"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Difficulty</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={createDrillForm.control}
+                        name="description"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Description (Optional)</FormLabel>
                             <FormControl>
-                              <SelectTrigger data-testid="select-drill-difficulty">
-                                <SelectValue />
-                              </SelectTrigger>
+                              <Textarea placeholder="Describe the drill..." {...field} value={field.value ?? ''} data-testid="input-drill-description" />
                             </FormControl>
-                            <SelectContent>
-                              {DIFFICULTY_LEVELS.map(level => (
-                                <SelectItem key={level} value={level}>
-                                  {level.charAt(0).toUpperCase() + level.slice(1)}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={createDrillForm.control}
+                          name="category"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Category</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                  <SelectTrigger data-testid="select-drill-category">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {DRILL_CATEGORIES.map(cat => (
+                                    <SelectItem key={cat} value={cat}>
+                                      {formatCategory(cat)}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={createDrillForm.control}
+                          name="difficulty"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Difficulty</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                  <SelectTrigger data-testid="select-drill-difficulty">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {DIFFICULTY_LEVELS.map(level => (
+                                    <SelectItem key={level} value={level}>
+                                      {level.charAt(0).toUpperCase() + level.slice(1)}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
 
-                  {/* Track Shots Checkbox */}
-                  <FormField
-                    control={createDrillForm.control}
-                    name="trackShots"
-                    render={({ field }) => (
-                      <FormItem className="flex items-center gap-2">
-                        <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            data-testid="checkbox-track-shots"
-                          />
-                        </FormControl>
-                        <FormLabel className="!mt-0">Track Shot Locations</FormLabel>
-                        <span className="text-xs text-muted-foreground">(shows shot chart when logging)</span>
-                      </FormItem>
-                    )}
-                  />
+                      {/* Track Shots Checkbox */}
+                      <FormField
+                        control={createDrillForm.control}
+                        name="trackShots"
+                        render={({ field }) => (
+                          <FormItem className="flex items-center gap-2">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                                data-testid="checkbox-track-shots"
+                              />
+                            </FormControl>
+                            <FormLabel className="!mt-0">Track Shot Locations</FormLabel>
+                            <span className="text-xs text-muted-foreground">(shows shot chart when logging)</span>
+                          </FormItem>
+                        )}
+                      />
 
-                  {/* Metrics Multi-Select */}
-                  <div className="space-y-2">
-                    <FormLabel>Tracking Metrics</FormLabel>
-                    <p className="text-xs text-muted-foreground mb-2">
-                      Select which metrics to track when logging this drill
-                    </p>
-                    <div className="flex flex-wrap gap-2 p-3 border rounded-md bg-muted/30">
-                      {metricTemplates && metricTemplates.length > 0 ? (
-                        metricTemplates.map(template => (
-                          <Badge
-                            key={template.id}
-                            variant={selectedMetricTemplateIds.includes(template.id) ? "default" : "outline"}
-                            className="cursor-pointer"
-                            onClick={() => {
-                              setSelectedMetricTemplateIds(prev =>
-                                prev.includes(template.id)
-                                  ? prev.filter(id => id !== template.id)
-                                  : [...prev, template.id]
-                              );
-                            }}
-                            data-testid={`metric-badge-${template.name.toLowerCase().replace(/\s+/g, '-')}`}
-                          >
-                            {selectedMetricTemplateIds.includes(template.id) && (
-                              <Check className="w-3 h-3 mr-1" />
-                            )}
-                            {template.label || template.name}
-                          </Badge>
-                        ))
-                      ) : (
-                        <p className="text-xs text-muted-foreground">No metric templates available</p>
-                      )}
+                      {/* Metrics Multi-Select */}
+                      <div className="space-y-2">
+                        <FormLabel>Tracking Metrics</FormLabel>
+                        <p className="text-xs text-muted-foreground mb-2">
+                          Select which metrics to track when logging this drill
+                        </p>
+                        <div className="flex flex-wrap gap-2 p-3 border rounded-md bg-muted/30">
+                          {metricTemplates && metricTemplates.length > 0 ? (
+                            metricTemplates.map(template => (
+                              <Badge
+                                key={template.id}
+                                variant={selectedMetricTemplateIds.includes(template.id) ? "default" : "outline"}
+                                className="cursor-pointer"
+                                onClick={() => {
+                                  setSelectedMetricTemplateIds(prev =>
+                                    prev.includes(template.id)
+                                      ? prev.filter(id => id !== template.id)
+                                      : [...prev, template.id]
+                                  );
+                                }}
+                                data-testid={`metric-badge-${template.name.toLowerCase().replace(/\s+/g, '-')}`}
+                              >
+                                {selectedMetricTemplateIds.includes(template.id) && (
+                                  <Check className="w-3 h-3 mr-1" />
+                                )}
+                                {template.label || template.name}
+                              </Badge>
+                            ))
+                          ) : (
+                            <p className="text-xs text-muted-foreground">No metric templates available</p>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  </ScrollArea>
 
-                  <DialogFooter>
+                  <DialogFooter className="pt-4 border-t mt-4">
                     <Button type="button" variant="outline" onClick={() => {
                       setIsCreateDrillOpen(false);
                       setSelectedMetricTemplateIds([]);
