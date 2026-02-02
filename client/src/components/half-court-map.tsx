@@ -357,11 +357,11 @@ export function ShotChartButton({ shotData, title = "Shot Chart", testId }: { sh
           </span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
-        <HalfCourtMap shotData={shotData} title="" className="border-0 shadow-none" />
+        <HalfCourtMap shotData={shotData} title="" className="border-0 shadow-none" compact />
       </DialogContent>
     </Dialog>
   );
