@@ -132,6 +132,72 @@ export const userAchievements = pgTable("user_achievements", {
   unlockedAt: timestamp("unlocked_at").defaultNow()
 });
 
+// Challenge categories
+export const CHALLENGE_CATEGORIES = ["shooting", "ball-handling", "passing", "workout"] as const;
+export type ChallengeCategory = typeof CHALLENGE_CATEGORIES[number];
+
+// Challenge metric types
+export const CHALLENGE_METRICS = ["makes", "dribbles", "passes", "reps", "time", "score"] as const;
+export type ChallengeMetric = typeof CHALLENGE_METRICS[number];
+
+// Challenge goal types
+export const CHALLENGE_GOAL_TYPES = ["total", "consecutive", "timed"] as const;
+export type ChallengeGoalType = typeof CHALLENGE_GOAL_TYPES[number];
+
+// Challenges - app-generated or user-created
+export const challenges = pgTable("challenges", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  description: text("description"),
+  category: varchar("category").$type<ChallengeCategory>().notNull(),
+  metric: varchar("metric").$type<ChallengeMetric>().notNull(),
+  goalType: varchar("goal_type").$type<ChallengeGoalType>().notNull(),
+  targetValue: integer("target_value").notNull(), // e.g., 100 makes
+  timeLimit: integer("time_limit"), // in seconds, for timed challenges
+  isAppGenerated: boolean("is_app_generated").default(false), // true for system challenges
+  createdBy: varchar("created_by"), // userId who created it (null for app-generated)
+  icon: varchar("icon"), // icon name for badge
+  tier: varchar("tier").default("bronze"), // bronze, silver, gold, platinum
+  xpReward: integer("xp_reward").default(50),
+  createdAt: timestamp("created_at").defaultNow()
+});
+
+// User challenge progress/completion
+export const userChallenges = pgTable("user_challenges", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  challengeId: varchar("challenge_id").notNull(),
+  currentValue: integer("current_value").default(0),
+  isCompleted: boolean("is_completed").default(false),
+  completedAt: timestamp("completed_at"),
+  startedAt: timestamp("started_at").defaultNow()
+});
+
+// Personal Records - earned when beating prior records
+export const personalRecords = pgTable("personal_records", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  drillId: varchar("drill_id").notNull(),
+  metricName: varchar("metric_name").notNull(), // e.g., "score", "shots_made", "duration"
+  previousValue: decimal("previous_value", { precision: 10, scale: 2 }).notNull(),
+  newValue: decimal("new_value", { precision: 10, scale: 2 }).notNull(),
+  trainingLogId: varchar("training_log_id"), // Reference to the log that set the record
+  achievedAt: timestamp("achieved_at").defaultNow()
+});
+
+// Team Awards - awards from organized teams
+export const teamAwards = pgTable("team_awards", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  teamName: varchar("team_name").notNull(),
+  awardName: varchar("award_name").notNull(),
+  description: text("description"),
+  season: varchar("season"), // e.g., "2024-25"
+  awardedAt: timestamp("awarded_at"),
+  icon: varchar("icon"),
+  createdAt: timestamp("created_at").defaultNow()
+});
+
 // User profiles with location and age
 export const userProfiles = pgTable("user_profiles", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -438,6 +504,10 @@ export const insertWorkoutDrillSchema = createInsertSchema(workoutDrills).omit({
 export const insertCareerProfileSchema = createInsertSchema(careerProfiles).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertCareerAchievementSchema = createInsertSchema(careerAchievements).omit({ id: true, createdAt: true });
 export const insertUserAchievementSchema = createInsertSchema(userAchievements).omit({ id: true, unlockedAt: true });
+export const insertChallengeSchema = createInsertSchema(challenges).omit({ id: true, createdAt: true });
+export const insertUserChallengeSchema = createInsertSchema(userChallenges).omit({ id: true, startedAt: true });
+export const insertPersonalRecordSchema = createInsertSchema(personalRecords).omit({ id: true, achievedAt: true });
+export const insertTeamAwardSchema = createInsertSchema(teamAwards).omit({ id: true, createdAt: true });
 
 // Types
 export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
@@ -471,3 +541,11 @@ export type InsertCareerAchievement = z.infer<typeof insertCareerAchievementSche
 export type CareerAchievement = typeof careerAchievements.$inferSelect;
 export type InsertUserAchievement = z.infer<typeof insertUserAchievementSchema>;
 export type UserAchievement = typeof userAchievements.$inferSelect;
+export type InsertChallenge = z.infer<typeof insertChallengeSchema>;
+export type Challenge = typeof challenges.$inferSelect;
+export type InsertUserChallenge = z.infer<typeof insertUserChallengeSchema>;
+export type UserChallenge = typeof userChallenges.$inferSelect;
+export type InsertPersonalRecord = z.infer<typeof insertPersonalRecordSchema>;
+export type PersonalRecord = typeof personalRecords.$inferSelect;
+export type InsertTeamAward = z.infer<typeof insertTeamAwardSchema>;
+export type TeamAward = typeof teamAwards.$inferSelect;

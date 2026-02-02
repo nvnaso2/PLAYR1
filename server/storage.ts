@@ -14,7 +14,11 @@ import {
   workoutDrills, type WorkoutDrill, type InsertWorkoutDrill,
   careerProfiles, type CareerProfile, type InsertCareerProfile,
   careerAchievements, type CareerAchievement, type InsertCareerAchievement,
-  userAchievements, type UserAchievement, type InsertUserAchievement
+  userAchievements, type UserAchievement, type InsertUserAchievement,
+  challenges, type Challenge, type InsertChallenge,
+  userChallenges, type UserChallenge, type InsertUserChallenge,
+  personalRecords, type PersonalRecord, type InsertPersonalRecord,
+  teamAwards, type TeamAward, type InsertTeamAward
 } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
@@ -126,6 +130,32 @@ export interface IStorage {
   getUserAchievements(userId: string): Promise<Array<UserAchievement & { achievement: CareerAchievement }>>;
   unlockAchievement(userId: string, achievementId: string): Promise<UserAchievement>;
   checkAndUnlockAchievements(userId: string): Promise<UserAchievement[]>;
+
+  // Challenges
+  getChallenges(): Promise<Challenge[]>;
+  getAppGeneratedChallenges(): Promise<Challenge[]>;
+  getUserCreatedChallenges(userId: string): Promise<Challenge[]>;
+  getChallengeById(id: string): Promise<Challenge | undefined>;
+  createChallenge(challenge: InsertChallenge): Promise<Challenge>;
+  updateChallenge(id: string, challenge: Partial<InsertChallenge>): Promise<Challenge | undefined>;
+  deleteChallenge(id: string): Promise<boolean>;
+  getUserChallenges(userId: string): Promise<Array<UserChallenge & { challenge: Challenge }>>;
+  startChallenge(userId: string, challengeId: string): Promise<UserChallenge>;
+  updateChallengeProgress(id: string, currentValue: number): Promise<UserChallenge | undefined>;
+  completeChallenge(id: string): Promise<UserChallenge | undefined>;
+
+  // Personal Records
+  getUserPersonalRecords(userId: string): Promise<Array<PersonalRecord & { drill: Drill }>>;
+  createPersonalRecord(record: InsertPersonalRecord): Promise<PersonalRecord>;
+  
+  // Team Awards
+  getUserTeamAwards(userId: string): Promise<TeamAward[]>;
+  createTeamAward(award: InsertTeamAward): Promise<TeamAward>;
+  updateTeamAward(id: string, award: Partial<InsertTeamAward>): Promise<TeamAward | undefined>;
+  deleteTeamAward(id: string): Promise<boolean>;
+
+  // Shot Stats (for heatmap)
+  getUserShotStats(userId: string): Promise<Array<{ location: string; made: number; missed: number }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -990,6 +1020,164 @@ export class DatabaseStorage implements IStorage {
     }
     
     return unlockedAchievements;
+  }
+
+  // Challenges
+  async getChallenges(): Promise<Challenge[]> {
+    return await db.select().from(challenges).orderBy(desc(challenges.createdAt));
+  }
+
+  async getAppGeneratedChallenges(): Promise<Challenge[]> {
+    return await db.select().from(challenges).where(eq(challenges.isAppGenerated, true));
+  }
+
+  async getUserCreatedChallenges(userId: string): Promise<Challenge[]> {
+    return await db.select().from(challenges).where(eq(challenges.createdBy, userId));
+  }
+
+  async getChallengeById(id: string): Promise<Challenge | undefined> {
+    const [challenge] = await db.select().from(challenges).where(eq(challenges.id, id));
+    return challenge;
+  }
+
+  async createChallenge(challenge: InsertChallenge): Promise<Challenge> {
+    const [newChallenge] = await db.insert(challenges).values(challenge).returning();
+    return newChallenge;
+  }
+
+  async updateChallenge(id: string, challenge: Partial<InsertChallenge>): Promise<Challenge | undefined> {
+    const [updated] = await db.update(challenges).set(challenge).where(eq(challenges.id, id)).returning();
+    return updated;
+  }
+
+  async deleteChallenge(id: string): Promise<boolean> {
+    const result = await db.delete(challenges).where(eq(challenges.id, id));
+    return true;
+  }
+
+  async getUserChallenges(userId: string): Promise<Array<UserChallenge & { challenge: Challenge }>> {
+    const results = await db
+      .select()
+      .from(userChallenges)
+      .innerJoin(challenges, eq(userChallenges.challengeId, challenges.id))
+      .where(eq(userChallenges.userId, userId))
+      .orderBy(desc(userChallenges.startedAt));
+    
+    return results.map(r => ({
+      ...r.user_challenges,
+      challenge: r.challenges
+    }));
+  }
+
+  async startChallenge(userId: string, challengeId: string): Promise<UserChallenge> {
+    // Check if already started
+    const [existing] = await db
+      .select()
+      .from(userChallenges)
+      .where(and(
+        eq(userChallenges.userId, userId),
+        eq(userChallenges.challengeId, challengeId)
+      ));
+    
+    if (existing) return existing;
+
+    const [newUserChallenge] = await db
+      .insert(userChallenges)
+      .values({ userId, challengeId })
+      .returning();
+    
+    return newUserChallenge;
+  }
+
+  async updateChallengeProgress(id: string, currentValue: number): Promise<UserChallenge | undefined> {
+    const [updated] = await db
+      .update(userChallenges)
+      .set({ currentValue })
+      .where(eq(userChallenges.id, id))
+      .returning();
+    return updated;
+  }
+
+  async completeChallenge(id: string): Promise<UserChallenge | undefined> {
+    const [updated] = await db
+      .update(userChallenges)
+      .set({ isCompleted: true, completedAt: new Date() })
+      .where(eq(userChallenges.id, id))
+      .returning();
+    
+    // Add XP reward if completed
+    if (updated) {
+      const challenge = await this.getChallengeById(updated.challengeId);
+      if (challenge?.xpReward) {
+        await this.addXpToCareer(updated.userId, challenge.xpReward);
+      }
+    }
+    
+    return updated;
+  }
+
+  // Personal Records
+  async getUserPersonalRecords(userId: string): Promise<Array<PersonalRecord & { drill: Drill }>> {
+    const results = await db
+      .select()
+      .from(personalRecords)
+      .innerJoin(drills, eq(personalRecords.drillId, drills.id))
+      .where(eq(personalRecords.userId, userId))
+      .orderBy(desc(personalRecords.achievedAt));
+    
+    return results.map(r => ({
+      ...r.personal_records,
+      drill: r.drills
+    }));
+  }
+
+  async createPersonalRecord(record: InsertPersonalRecord): Promise<PersonalRecord> {
+    const [newRecord] = await db.insert(personalRecords).values(record).returning();
+    return newRecord;
+  }
+
+  // Team Awards
+  async getUserTeamAwards(userId: string): Promise<TeamAward[]> {
+    return await db.select().from(teamAwards).where(eq(teamAwards.userId, userId)).orderBy(desc(teamAwards.awardedAt));
+  }
+
+  async createTeamAward(award: InsertTeamAward): Promise<TeamAward> {
+    const [newAward] = await db.insert(teamAwards).values(award).returning();
+    return newAward;
+  }
+
+  async updateTeamAward(id: string, award: Partial<InsertTeamAward>): Promise<TeamAward | undefined> {
+    const [updated] = await db.update(teamAwards).set(award).where(eq(teamAwards.id, id)).returning();
+    return updated;
+  }
+
+  async deleteTeamAward(id: string): Promise<boolean> {
+    await db.delete(teamAwards).where(eq(teamAwards.id, id));
+    return true;
+  }
+
+  // Shot Stats (for heatmap)
+  async getUserShotStats(userId: string): Promise<Array<{ location: string; made: number; missed: number }>> {
+    const logs = await db
+      .select({
+        location: trainingLogs.shotLocation,
+        made: sql<number>`COALESCE(SUM(${trainingLogs.shotsMade}), 0)::int`,
+        attempted: sql<number>`COALESCE(SUM(${trainingLogs.shotsAttempted}), 0)::int`
+      })
+      .from(trainingLogs)
+      .where(and(
+        eq(trainingLogs.userId, userId),
+        sql`${trainingLogs.shotLocation} IS NOT NULL`
+      ))
+      .groupBy(trainingLogs.shotLocation);
+    
+    return logs
+      .filter(l => l.location)
+      .map(l => ({
+        location: l.location!,
+        made: l.made,
+        missed: l.attempted - l.made
+      }));
   }
 }
 
