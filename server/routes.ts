@@ -462,8 +462,24 @@ export async function registerRoutes(
   });
 
   // Set drill metrics (link metric templates to a drill)
-  app.post("/api/drills/:id/metrics", isAuthenticated, isAdmin, async (req: any, res) => {
+  // Allowed for admins OR the drill owner
+  app.post("/api/drills/:id/metrics", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
+      const drill = await storage.getDrillById(req.params.id);
+      
+      if (!drill) {
+        return res.status(404).json({ message: "Drill not found" });
+      }
+      
+      // Check if user is admin or drill owner
+      const isAdmin = await storage.isUserAdmin(userId);
+      const isOwner = drill.userId === userId;
+      
+      if (!isAdmin && !isOwner) {
+        return res.status(403).json({ message: "Not authorized to modify this drill" });
+      }
+      
       const { metricTemplateIds } = req.body;
       if (!Array.isArray(metricTemplateIds)) {
         return res.status(400).json({ message: "metricTemplateIds must be an array" });
@@ -945,33 +961,7 @@ export async function registerRoutes(
     }
   });
 
-  // ===== DRILL METRICS (Admin only) =====
-
-  // Get drill metrics for a specific drill
-  app.get("/api/drills/:id/metrics", async (req, res) => {
-    try {
-      const metrics = await storage.getDrillMetrics(req.params.id);
-      res.json(metrics);
-    } catch (error) {
-      console.error("Error fetching drill metrics:", error);
-      res.status(500).json({ message: "Failed to fetch drill metrics" });
-    }
-  });
-
-  // Create drill metric (admin only)
-  app.post("/api/drills/:id/metrics", isAuthenticated, isAdmin, async (req: any, res) => {
-    try {
-      const data = insertDrillMetricSchema.parse({ ...req.body, drillId: req.params.id });
-      const metric = await storage.createDrillMetric(data);
-      res.status(201).json(metric);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid data", errors: error.errors });
-      }
-      console.error("Error creating drill metric:", error);
-      res.status(500).json({ message: "Failed to create drill metric" });
-    }
-  });
+  // Note: Drill metrics routes are defined earlier in this file (line ~465-495)
 
   // Update drill metric (admin only)
   app.put("/api/drill-metrics/:id", isAuthenticated, isAdmin, async (req: any, res) => {
