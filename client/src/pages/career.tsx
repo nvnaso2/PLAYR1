@@ -983,7 +983,7 @@ function StatsTab() {
     queryKey: ['/api/career-stats']
   });
 
-  const { data: seasonData, refetch: refetchSeasonData } = useQuery<{ season: Season; games: Game[] }>({
+  const { data: seasonGames, refetch: refetchSeasonGames } = useQuery<Game[]>({
     queryKey: [`/api/seasons/${selectedSeasonId}/games`],
     enabled: !!selectedSeasonId
   });
@@ -1395,7 +1395,7 @@ function StatsTab() {
                           </Button>
                         </div>
 
-                        {seasonData?.games && seasonData.games.length > 0 ? (
+                        {selectedSeasonId === season.id && seasonGames && seasonGames.length > 0 ? (
                           <div className="overflow-x-auto">
                             <table className="w-full text-sm">
                               <thead>
@@ -1412,7 +1412,7 @@ function StatsTab() {
                                 </tr>
                               </thead>
                               <tbody>
-                                {seasonData.games.map((game) => (
+                                {seasonGames.map((game) => (
                                   <tr key={game.id} className="border-b hover:bg-muted/30" data-testid={`game-row-${game.id}`}>
                                     <td className="py-2 px-2">
                                       {game.gameDate ? new Date(game.gameDate).toLocaleDateString() : '-'}
@@ -1461,11 +1461,11 @@ function StatsTab() {
                               </tbody>
                             </table>
                           </div>
-                        ) : (
+                        ) : selectedSeasonId === season.id ? (
                           <p className="text-sm text-muted-foreground text-center py-4">
                             No games logged yet. Add your first game!
                           </p>
-                        )}
+                        ) : null}
                       </div>
                     )}
                   </div>
