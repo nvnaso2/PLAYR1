@@ -2218,27 +2218,25 @@ function TrophyRoomTab({
 
                 return (
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between gap-4 flex-wrap">
-                      <div className="flex items-center gap-4">
-                        <div className="text-center">
-                          <p className="text-2xl font-bold">{totalGames}</p>
-                          <p className="text-xs text-muted-foreground">GP</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-2xl font-bold text-green-500">{displayWins}</p>
-                          <p className="text-xs text-muted-foreground">Wins</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-2xl font-bold text-red-500">{displayLosses}</p>
-                          <p className="text-xs text-muted-foreground">Losses</p>
-                        </div>
-                        {(displayWins + displayLosses) > 0 && (
-                          <div className="text-center">
-                            <p className="text-2xl font-bold">{((displayWins / (displayWins + displayLosses)) * 100).toFixed(0)}%</p>
-                            <p className="text-xs text-muted-foreground">Win %</p>
-                          </div>
-                        )}
+                    <div className={`grid gap-3 ${(displayWins + displayLosses) > 0 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'}`}>
+                      <div className="text-center p-3 rounded-md bg-muted/50">
+                        <p className="text-2xl font-bold">{totalGames}</p>
+                        <p className="text-xs text-muted-foreground">GP</p>
                       </div>
+                      <div className="text-center p-3 rounded-md bg-muted/50">
+                        <p className="text-2xl font-bold text-green-600 dark:text-green-400">{displayWins}</p>
+                        <p className="text-xs text-muted-foreground">Wins</p>
+                      </div>
+                      <div className="text-center p-3 rounded-md bg-muted/50">
+                        <p className="text-2xl font-bold text-red-600 dark:text-red-400">{displayLosses}</p>
+                        <p className="text-xs text-muted-foreground">Losses</p>
+                      </div>
+                      {(displayWins + displayLosses) > 0 && (
+                        <div className="text-center p-3 rounded-md bg-muted/50">
+                          <p className="text-2xl font-bold">{((displayWins / (displayWins + displayLosses)) * 100).toFixed(0)}%</p>
+                          <p className="text-xs text-muted-foreground">Win %</p>
+                        </div>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-5 gap-3">
