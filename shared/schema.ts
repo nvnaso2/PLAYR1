@@ -105,6 +105,8 @@ export const careerProfiles = pgTable("career_profiles", {
   
   cardPhotoUrl: varchar("card_photo_url"),
   
+  trophyRoomOrder: text("trophy_room_order").array(),
+  
   // Onboarding status
   onboardingCompleted: boolean("onboarding_completed").default(false),
   

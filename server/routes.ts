@@ -1070,6 +1070,7 @@ export async function registerRoutes(
         'skillDefense', 'skillBasketballIQ', 'skillAthletics',
         'avatarSkinTone', 'avatarHairStyle', 'avatarHairColor', 'avatarAccessory',
         'cardPhotoUrl',
+        'trophyRoomOrder',
         'onboardingCompleted'
       ];
       

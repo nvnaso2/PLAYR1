@@ -1916,15 +1916,22 @@ function TrophyRoomTab({
   userChallenges, 
   personalRecords, 
   teamAwards,
-  careerStats
+  careerStats,
+  profile
 }: { 
   achievements?: Array<UserAchievement & { achievement: CareerAchievement }>;
   userChallenges?: Array<UserChallenge & { challenge: Challenge }>;
   personalRecords?: Array<PersonalRecord & { drill: { title: string } }>;
   teamAwards?: TeamAward[];
   careerStats?: CareerStats;
+  profile: CareerProfile;
 }) {
-  const [sectionOrder, setSectionOrder] = useState<TrophySection[]>(["achievements", "challenges", "prs", "awards", "stats"]);
+  const defaultOrder: TrophySection[] = ["achievements", "challenges", "prs", "awards", "stats"];
+  const savedOrder = profile.trophyRoomOrder as TrophySection[] | null;
+  const initialOrder = savedOrder && savedOrder.length === defaultOrder.length && savedOrder.every(s => defaultOrder.includes(s))
+    ? savedOrder
+    : defaultOrder;
+  const [sectionOrder, setSectionOrder] = useState<TrophySection[]>(initialOrder);
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [overIdx, setOverIdx] = useState<number | null>(null);
   const [statsView, setStatsView] = useState<"averages" | "totals">("averages");
@@ -1952,6 +1959,7 @@ function TrophyRoomTab({
     const [moved] = newOrder.splice(fromIdx, 1);
     newOrder.splice(toIdx, 0, moved);
     setSectionOrder(newOrder);
+    apiRequest("PUT", "/api/career", { trophyRoomOrder: newOrder }).catch(() => {});
   };
 
   const onPointerDown = (idx: number) => (e: React.PointerEvent) => {
@@ -2579,6 +2587,7 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
             personalRecords={personalRecords}
             teamAwards={teamAwards}
             careerStats={careerStats}
+            profile={profile}
           />
         </TabsContent>
 
