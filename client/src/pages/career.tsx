@@ -761,21 +761,65 @@ function BaseballCard({ profile, careerStats }: { profile: CareerProfile; career
                 alt="Player"
                 className="w-full h-full object-cover"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
             </div>
 
-            <div className="absolute bottom-0 left-0 right-0 px-4 py-3">
-              <p className="text-white font-bold text-lg uppercase tracking-wide leading-tight">
-                {profile.schoolName || profile.teamName || "Player"}
-              </p>
-              <div className="flex items-center justify-between">
-                <p className="text-orange-400 text-xs uppercase tracking-wider font-medium">
-                  {profile.positions?.join(" / ") || "Basketball"}
-                  {profile.jerseyNumber != null ? ` #${profile.jerseyNumber}` : ""}
+            <div className="absolute bottom-0 left-0 right-0 flex flex-col">
+              <div className="px-3 pb-1.5 pt-1">
+                <p className="text-white font-bold text-base uppercase tracking-wide leading-tight">
+                  {profile.schoolName || profile.teamName || "Player"}
                 </p>
-                <span className="text-white/50 text-xs font-bold">
-                  '{new Date().getFullYear().toString().slice(-2)}
-                </span>
+                <div className="flex items-center justify-between">
+                  <p className="text-orange-400 text-[10px] uppercase tracking-wider font-medium">
+                    {profile.positions?.join(" / ") || "Basketball"}
+                    {profile.jerseyNumber != null ? ` | #${profile.jerseyNumber}` : ""}
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-orange-500 px-3 py-2">
+                {(() => {
+                  const currentYear = new Date().getFullYear().toString();
+                  const currentSeason = allSeasons.find(s => s.year === currentYear) || allSeasons[allSeasons.length - 1];
+                  if (currentSeason && currentSeason.gamesPlayed > 0) {
+                    return (
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-black/60 text-[8px] font-bold uppercase tracking-wider">
+                            {SEASON_TYPE_LABELS[currentSeason.seasonType]?.split(" ")[0] || currentSeason.seasonType} '{currentSeason.year?.slice(-2) || ""}
+                          </span>
+                          <span className="text-black/60 text-[8px] font-bold uppercase tracking-wider">
+                            {currentSeason.gamesPlayed} GP
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-5 gap-1 text-center">
+                          {[
+                            { label: "PTS", value: currentSeason.avgPoints?.toFixed(1) },
+                            { label: "REB", value: currentSeason.avgRebounds?.toFixed(1) },
+                            { label: "AST", value: currentSeason.avgAssists?.toFixed(1) },
+                            { label: "STL", value: currentSeason.avgSteals?.toFixed(1) },
+                            { label: "BLK", value: currentSeason.avgBlocks?.toFixed(1) },
+                          ].map((stat) => (
+                            <div key={stat.label}>
+                              <p className="text-black font-black text-sm leading-tight">{stat.value}</p>
+                              <p className="text-black/50 text-[7px] font-bold uppercase">{stat.label}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="flex items-center justify-between">
+                      <span className="text-black font-bold text-[10px] uppercase tracking-wider">
+                        {profile.schoolName || profile.teamName || "Handlz Training"}
+                      </span>
+                      <span className="text-black/60 text-[10px] font-bold">
+                        '{new Date().getFullYear().toString().slice(-2)}
+                      </span>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           </div>
