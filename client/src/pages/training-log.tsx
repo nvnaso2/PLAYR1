@@ -808,7 +808,33 @@ export default function TrainingLogPage() {
   const updateEntry = (index: number, field: keyof WorkoutDrillEntry, value: any) => {
     setWorkoutEntries(prev => {
       const next = [...prev];
-      next[index] = { ...next[index], [field]: value };
+      const entry = { ...next[index], [field]: value };
+      
+      // Sync built-in shot tracking to metric template values
+      if (field === 'shotsMade' || field === 'shotsAttempted') {
+        const drillMetrics = entry.drillMetrics || [];
+        const updatedMetrics = { ...entry.metrics };
+        
+        if (field === 'shotsAttempted') {
+          const attemptMetric = drillMetrics.find(dm => {
+            const n = dm.template.name.toLowerCase();
+            const l = dm.template.label.toLowerCase();
+            return n.includes('attempt') || l.includes('attempt');
+          });
+          if (attemptMetric) updatedMetrics[attemptMetric.metricTemplateId] = value;
+        }
+        if (field === 'shotsMade') {
+          const madeMetric = drillMetrics.find(dm => {
+            const n = dm.template.name.toLowerCase();
+            const l = dm.template.label.toLowerCase();
+            return n.includes('made') || l.includes('made');
+          });
+          if (madeMetric) updatedMetrics[madeMetric.metricTemplateId] = value;
+        }
+        entry.metrics = updatedMetrics;
+      }
+      
+      next[index] = entry;
       return next;
     });
   };
@@ -2085,18 +2111,32 @@ export default function TrainingLogPage() {
                 
                 return Array.from(drillGroups.entries()).map(([drillId, group]) => {
                   const firstEntry = group.entries[0].entry;
-                  const metricColumns = firstEntry.drillMetrics.filter(dm => dm.template.type !== 'calculated');
+                  const allMetricColumns = firstEntry.drillMetrics.filter(dm => dm.template.type !== 'calculated');
                   
                   // Check if this is a shooting drill (has shots attempted and shots made metrics)
-                  const shotsAttemptedMetric = metricColumns.find(dm => 
+                  const shotsAttemptedMetric = allMetricColumns.find(dm => 
                     dm.template.name.toLowerCase().includes('attempt') || 
                     dm.template.label.toLowerCase().includes('attempt')
                   );
-                  const shotsMadeMetric = metricColumns.find(dm => 
+                  const shotsMadeMetric = allMetricColumns.find(dm => 
                     dm.template.name.toLowerCase().includes('made') || 
                     dm.template.label.toLowerCase().includes('made')
                   );
                   const isShootingDrill = group.drill.trackShots || group.drill.category === 'shooting' || (shotsAttemptedMetric && shotsMadeMetric);
+                  
+                  // When shot tracking is active, hide duplicate shot attempt/made metric columns
+                  const hiddenMetricIds = new Set<string>();
+                  if (isShootingDrill) {
+                    if (shotsAttemptedMetric) hiddenMetricIds.add(shotsAttemptedMetric.metricTemplateId);
+                    if (shotsMadeMetric) hiddenMetricIds.add(shotsMadeMetric.metricTemplateId);
+                    const shootingPctMetric = allMetricColumns.find(dm => {
+                      const name = dm.template.name.toLowerCase();
+                      const label = dm.template.label.toLowerCase();
+                      return name.includes('shot %') || name.includes('shooting %') || label.includes('shot %') || label.includes('shooting %');
+                    });
+                    if (shootingPctMetric) hiddenMetricIds.add(shootingPctMetric.metricTemplateId);
+                  }
+                  const metricColumns = allMetricColumns.filter(dm => !hiddenMetricIds.has(dm.metricTemplateId));
                   
                   // Calculate shooting percentage for an entry
                   const getShootingPct = (entry: WorkoutDrillEntry): number | null => {
