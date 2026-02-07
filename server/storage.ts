@@ -739,6 +739,7 @@ export class DatabaseStorage implements IStorage {
       const metrics = await db.select({
         metricId: trainingLogMetrics.metricId,
         value: trainingLogMetrics.value,
+        trainingLogId: trainingLogMetrics.trainingLogId,
       })
         .from(trainingLogMetrics)
         .where(inArray(trainingLogMetrics.trainingLogId, logIds));
@@ -746,7 +747,18 @@ export class DatabaseStorage implements IStorage {
       const templates = await db.select().from(metricTemplates);
       const templateMap = new Map(templates.map(t => [t.id, t]));
 
+      const logDrillMap = new Map(logs.map(l => [l.id, l.drillId]));
+      const drillIds = Array.from(new Set(logs.map(l => l.drillId).filter(Boolean))) as string[];
+      let drillTitleMap = new Map<string, string>();
+      if (drillIds.length > 0) {
+        const drillsData = await db.select({ id: drills.id, title: drills.title })
+          .from(drills)
+          .where(inArray(drills.id, drillIds));
+        drillTitleMap = new Map(drillsData.map(d => [d.id, d.title.toLowerCase()]));
+      }
+
       const metricTotals: Record<string, number> = {};
+      let metricShotsByDrill: { drillId: string | null; templateName: string; value: number }[] = [];
       for (const m of metrics) {
         const tmpl = templateMap.get(m.metricId);
         if (!tmpl || !m.value) continue;
@@ -754,6 +766,11 @@ export class DatabaseStorage implements IStorage {
         if (val <= 0) continue;
         if (!metricTotals[tmpl.name]) metricTotals[tmpl.name] = 0;
         metricTotals[tmpl.name] += val;
+
+        if (tmpl.name === "shot(s)_made") {
+          const drillId = logDrillMap.get(m.trainingLogId) || null;
+          metricShotsByDrill.push({ drillId, templateName: tmpl.name, value: val });
+        }
       }
 
       const ballHandlingTime = (metricTotals["time"] || 0);
@@ -762,18 +779,31 @@ export class DatabaseStorage implements IStorage {
       const totalDribbles = (metricTotals["total_dribbles"] || 0) + (metricTotals["dribbles"] || 0);
       const passesMade = (metricTotals["passes"] || 0) + (metricTotals["total_passes"] || 0) + (metricTotals["left_hand_passes"] || 0) + (metricTotals["right_hand_passes"] || 0);
       const formShotsMade = metricTotals["form_shots_made"] || 0;
-      const metricShotsMade = metricTotals["shot(s)_made"] || 0;
       const metricFreeThrowsMade = metricTotals["free_throws_made"] || 0;
       const metricLayups = (metricTotals["total_layups"] || 0) + (metricTotals["left_hand_layups"] || 0) + (metricTotals["right_hand_layups"] || 0);
 
-      if (metricShotsMade > 0 && !result["totalShotsMade"]) result["totalShotsMade"] = metricShotsMade;
-      else if (metricShotsMade > 0) result["totalShotsMade"] += metricShotsMade;
+      let metricShotsMade = 0;
+      let metricFTFromDrill = 0;
+      for (const entry of metricShotsByDrill) {
+        const drillTitle = entry.drillId ? (drillTitleMap.get(entry.drillId) || "") : "";
+        if (drillTitle.includes("free throw") || drillTitle.includes("free-throw") || drillTitle.includes("ft ") || drillTitle === "ft") {
+          metricFTFromDrill += entry.value;
+        }
+        metricShotsMade += entry.value;
+      }
 
-      if (metricFreeThrowsMade > 0 && !result["freeThrowsMade"]) result["freeThrowsMade"] = metricFreeThrowsMade;
-      else if (metricFreeThrowsMade > 0) result["freeThrowsMade"] += metricFreeThrowsMade;
+      if (metricShotsMade > 0) {
+        result["totalShotsMade"] = (result["totalShotsMade"] || 0) + metricShotsMade;
+      }
 
-      if (metricLayups > 0 && !result["layupsMade"]) result["layupsMade"] = metricLayups;
-      else if (metricLayups > 0) result["layupsMade"] += metricLayups;
+      const totalMetricFT = metricFreeThrowsMade + metricFTFromDrill;
+      if (totalMetricFT > 0) {
+        result["freeThrowsMade"] = (result["freeThrowsMade"] || 0) + totalMetricFT;
+      }
+
+      if (metricLayups > 0) {
+        result["layupsMade"] = (result["layupsMade"] || 0) + metricLayups;
+      }
 
       const totalBallHandling = leftHandDribbles + rightHandDribbles + totalDribbles;
 
