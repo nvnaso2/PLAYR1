@@ -89,6 +89,59 @@ export async function registerRoutes(
     }
   });
 
+  // Get drill ratings (batch for all drills)
+  app.get("/api/drill-ratings", async (req, res) => {
+    try {
+      const drillIds = req.query.drillIds as string;
+      if (!drillIds) {
+        return res.json({});
+      }
+      const ids = drillIds.split(",").filter(Boolean);
+      const ratings = await storage.getDrillRatingsBatch(ids);
+      res.json(ratings);
+    } catch (error) {
+      console.error("Error fetching drill ratings:", error);
+      res.status(500).json({ message: "Failed to fetch ratings" });
+    }
+  });
+
+  // Get single drill rating (public + user's own rating if authenticated)
+  app.get("/api/drills/:id/rating", async (req: any, res) => {
+    try {
+      const stats = await storage.getDrillRatings(req.params.id);
+      let userRating: number | null = null;
+      if (req.isAuthenticated?.() && req.user?.claims?.sub) {
+        userRating = await storage.getUserDrillRating(req.params.id, req.user.claims.sub);
+      }
+      res.json({ userRating, ...stats });
+    } catch (error) {
+      console.error("Error fetching drill rating:", error);
+      res.status(500).json({ message: "Failed to fetch rating" });
+    }
+  });
+
+  // Rate a drill
+  app.post("/api/drills/:id/rating", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const drill = await storage.getDrillById(req.params.id);
+      if (!drill) {
+        return res.status(404).json({ message: "Drill not found" });
+      }
+      const ratingSchema = z.object({ rating: z.number().int().min(1).max(5) });
+      const parsed = ratingSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Rating must be an integer between 1 and 5" });
+      }
+      await storage.rateDrill(req.params.id, userId, parsed.data.rating);
+      const stats = await storage.getDrillRatings(req.params.id);
+      res.json({ userRating: parsed.data.rating, ...stats });
+    } catch (error) {
+      console.error("Error rating drill:", error);
+      res.status(500).json({ message: "Failed to rate drill" });
+    }
+  });
+
   // Get single drill
   app.get("/api/drills/:id", async (req, res) => {
     try {

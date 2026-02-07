@@ -16,6 +16,7 @@ import {
   Share2
 } from "lucide-react";
 import type { Drill } from "@shared/schema";
+import { BasketballRating } from "@/components/basketball-rating";
 
 const difficultyColors = {
   beginner: "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20",
@@ -140,7 +141,10 @@ export default function DrillPage() {
           )}
 
           <div>
-            <h1 className="text-2xl font-bold mb-3" data-testid="text-drill-title">{drill.title}</h1>
+            <h1 className="text-2xl font-bold mb-2" data-testid="text-drill-title">{drill.title}</h1>
+            <div className="mb-3">
+              <BasketballRating drillId={drill.id} size="md" showCount={true} />
+            </div>
             <p className="text-muted-foreground" data-testid="text-drill-description">
               {drill.description || "Master this drill to take your skills to the next level."}
             </p>

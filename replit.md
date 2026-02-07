@@ -155,6 +155,7 @@ shared/
 - `user_challenges` - User challenge progress/completion tracking
 - `personal_records` - PRs earned when beating prior records
 - `team_awards` - Awards from organized teams
+- `drill_ratings` - User ratings for drills (1-5 basketball scale, one per user per drill)
 
 ## Admin Access
 - Admin status is determined by: 1) `ADMIN_USER_IDS` environment variable (bootstrap), or 2) `isAdmin` field in user_profiles table

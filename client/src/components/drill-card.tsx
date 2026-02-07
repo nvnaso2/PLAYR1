@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Play, Clock, Target, Trophy } from "lucide-react";
 import type { Drill } from "@shared/schema";
+import { BasketballRating } from "@/components/basketball-rating";
 
 interface DrillCardProps {
   drill: Drill;
@@ -86,7 +87,10 @@ export function DrillCard({ drill, personalBest, totalSessions }: DrillCardProps
           <p className="text-sm text-muted-foreground line-clamp-2 mb-3" data-testid={`text-drill-desc-${drill.id}`}>
             {drill.description || "Master this drill to improve your skills."}
           </p>
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          <div className="mb-2">
+            <BasketballRating drillId={drill.id} size="sm" showCount={true} />
+          </div>
+          <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
             <div className="flex items-center gap-1">
               <Clock className="w-3.5 h-3.5" />
               {formatDuration(drill.duration)}

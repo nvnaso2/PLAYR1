@@ -20,7 +20,8 @@ import {
   personalRecords, type PersonalRecord, type InsertPersonalRecord,
   teamAwards, type TeamAward, type InsertTeamAward,
   seasons, type Season, type InsertSeason,
-  games, type Game, type InsertGame
+  games, type Game, type InsertGame,
+  drillRatings, type DrillRating
 } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
@@ -157,6 +158,12 @@ export interface IStorage {
   createTeamAward(award: InsertTeamAward): Promise<TeamAward>;
   updateTeamAward(id: string, award: Partial<InsertTeamAward>): Promise<TeamAward | undefined>;
   deleteTeamAward(id: string): Promise<boolean>;
+
+  // Drill Ratings
+  getDrillRatings(drillId: string): Promise<{ averageRating: number; totalRatings: number }>;
+  getUserDrillRating(drillId: string, userId: string): Promise<number | null>;
+  rateDrill(drillId: string, userId: string, rating: number): Promise<DrillRating>;
+  getDrillRatingsBatch(drillIds: string[]): Promise<Record<string, { averageRating: number; totalRatings: number }>>;
 
   // Shot Stats (for heatmap)
   getUserShotStats(userId: string): Promise<Array<{ location: string; made: number; missed: number }>>;
@@ -1474,6 +1481,58 @@ export class DatabaseStorage implements IStorage {
       avgBlocks: totalGames > 0 ? Math.round((totalBlocks / totalGames) * 10) / 10 : 0,
       seasonBreakdown
     };
+  }
+  // Drill Ratings
+  async getDrillRatings(drillId: string): Promise<{ averageRating: number; totalRatings: number }> {
+    const result = await db.select({
+      avg: sql<number>`COALESCE(AVG(${drillRatings.rating}), 0)`,
+      count: sql<number>`COUNT(*)::int`
+    }).from(drillRatings).where(eq(drillRatings.drillId, drillId));
+    return {
+      averageRating: Math.round((result[0]?.avg || 0) * 10) / 10,
+      totalRatings: result[0]?.count || 0
+    };
+  }
+
+  async getUserDrillRating(drillId: string, userId: string): Promise<number | null> {
+    const [rating] = await db.select().from(drillRatings)
+      .where(and(eq(drillRatings.drillId, drillId), eq(drillRatings.userId, userId)));
+    return rating?.rating ?? null;
+  }
+
+  async rateDrill(drillId: string, userId: string, rating: number): Promise<DrillRating> {
+    const existing = await db.select().from(drillRatings)
+      .where(and(eq(drillRatings.drillId, drillId), eq(drillRatings.userId, userId)));
+    if (existing.length > 0) {
+      const [updated] = await db.update(drillRatings)
+        .set({ rating, updatedAt: new Date() })
+        .where(eq(drillRatings.id, existing[0].id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(drillRatings)
+      .values({ drillId, userId, rating })
+      .returning();
+    return created;
+  }
+
+  async getDrillRatingsBatch(drillIds: string[]): Promise<Record<string, { averageRating: number; totalRatings: number }>> {
+    if (drillIds.length === 0) return {};
+    const results = await db.select({
+      drillId: drillRatings.drillId,
+      avg: sql<number>`COALESCE(AVG(${drillRatings.rating}), 0)`,
+      count: sql<number>`COUNT(*)::int`
+    }).from(drillRatings)
+      .where(sql`${drillRatings.drillId} IN (${sql.join(drillIds.map(id => sql`${id}`), sql`, `)})`)
+      .groupBy(drillRatings.drillId);
+    const map: Record<string, { averageRating: number; totalRatings: number }> = {};
+    for (const r of results) {
+      map[r.drillId] = {
+        averageRating: Math.round((r.avg || 0) * 10) / 10,
+        totalRatings: r.count || 0
+      };
+    }
+    return map;
   }
 }
 
