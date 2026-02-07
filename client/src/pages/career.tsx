@@ -70,7 +70,8 @@ import {
   X,
   GripVertical,
   BarChart,
-  Camera
+  Camera,
+  RefreshCw
 } from "lucide-react";
 import type { CareerProfile, UserAchievement, CareerAchievement, Challenge, UserChallenge, PersonalRecord, TeamAward, Season, Game } from "@shared/schema";
 import defaultPlayerImg from "@assets/default-player.jpg";
@@ -1989,16 +1990,18 @@ function TrophyRoomTab({
     isDragging.current = false;
   };
 
-  const renderSectionHeader = (icon: React.ReactNode, title: string, description: string | undefined) => (
+  const renderSectionHeader = (icon: React.ReactNode, title: string, action?: React.ReactNode) => (
     <CardHeader className="cursor-grab active:cursor-grabbing select-none touch-none">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <CardTitle className="text-lg flex items-center gap-2">
           {icon}
           {title}
         </CardTitle>
-        <GripVertical className="w-5 h-5 text-muted-foreground" />
+        <div className="flex items-center gap-2">
+          {action}
+          <GripVertical className="w-5 h-5 text-muted-foreground" />
+        </div>
       </div>
-      {description && <CardDescription>{description}</CardDescription>}
     </CardHeader>
   );
 
@@ -2069,7 +2072,22 @@ function TrophyRoomTab({
       case "prs":
         return (
           <Card key="prs">
-            {renderSectionHeader(<Medal className="w-5 h-5 text-amber-500" />, "Personal Records (PRs)", undefined)}
+            {renderSectionHeader(<Medal className="w-5 h-5 text-amber-500" />, "Personal Records (PRs)",
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={async () => {
+                  try {
+                    await apiRequest("POST", "/api/personal-records/backfill");
+                    queryClient.invalidateQueries({ queryKey: ['/api/personal-records'] });
+                  } catch (e) { /* ignore */ }
+                }}
+                data-testid="button-scan-prs"
+              >
+                <RefreshCw className="w-4 h-4 mr-1" />
+                Scan
+              </Button>
+            )}
             <CardContent>
               {personalRecords && personalRecords.length > 0 ? (
                 <div className="space-y-3">

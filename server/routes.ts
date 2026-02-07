@@ -1340,6 +1340,66 @@ export async function registerRoutes(
     }
   });
 
+  // Backfill PRs from existing games and training logs
+  app.post("/api/personal-records/backfill", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      let created = 0;
+
+      // Backfill from games - process in chronological order
+      const allSeasons = await storage.getUserSeasons(userId);
+      for (const season of allSeasons) {
+        const games = await storage.getSeasonGames(season.id);
+        const userGames = games.filter(g => g.userId === userId).sort((a, b) => 
+          new Date(a.gameDate || 0).getTime() - new Date(b.gameDate || 0).getTime()
+        );
+        for (const game of userGames) {
+          try {
+            const prs = await storage.checkAndCreateGamePRs(userId, game.id, {
+              points: game.points ?? 0,
+              rebounds: game.rebounds ?? 0,
+              assists: game.assists ?? 0,
+              steals: game.steals ?? 0,
+              blocks: game.blocks ?? 0,
+              fgMade: game.fgMade ?? 0,
+              threePtMade: game.threePtMade ?? 0,
+              ftMade: game.ftMade ?? 0
+            });
+            created += prs.length;
+          } catch (e) { /* skip errors */ }
+        }
+      }
+
+      // Backfill from training logs - process in chronological order
+      const logs = await storage.getTrainingLogs(userId);
+      const sortedLogs = [...logs].sort((a, b) => 
+        new Date(a.completedAt || 0).getTime() - new Date(b.completedAt || 0).getTime()
+      );
+      for (const log of sortedLogs) {
+        const prMetrics: { metricName: string; value: number }[] = [];
+        if (log.score && log.score > 0) prMetrics.push({ metricName: "Score", value: log.score });
+        if (log.shotsMade && log.shotsMade > 0) prMetrics.push({ metricName: "Shots Made", value: log.shotsMade });
+        if (log.duration && log.duration > 0) prMetrics.push({ metricName: "Duration (min)", value: log.duration });
+        if (log.reps && log.reps > 0) prMetrics.push({ metricName: "Reps", value: log.reps });
+        if (log.shotsAttempted && log.shotsMade && log.shotsAttempted > 0) {
+          const pct = Math.round((log.shotsMade / log.shotsAttempted) * 100);
+          if (pct > 0) prMetrics.push({ metricName: "Shooting %", value: pct });
+        }
+        if (prMetrics.length > 0) {
+          try {
+            const prs = await storage.checkAndCreateDrillPRs(userId, log.drillId, log.id, prMetrics);
+            created += prs.length;
+          } catch (e) { /* skip errors */ }
+        }
+      }
+
+      res.json({ message: `Backfill complete. Created ${created} PRs.`, created });
+    } catch (error) {
+      console.error("Error backfilling PRs:", error);
+      res.status(500).json({ message: "Failed to backfill PRs" });
+    }
+  });
+
   // ===== TEAM AWARDS =====
 
   // Get user's team awards
