@@ -2089,37 +2089,61 @@ function TrophyRoomTab({
               </Button>
             )}
             <CardContent>
-              {personalRecords && personalRecords.length > 0 ? (
-                <div className="space-y-3">
-                  {personalRecords.map((pr) => {
-                    const isGame = pr.source === "game";
-                    const diff = Number(pr.newValue) - Number(pr.previousValue);
-                    return (
-                      <div key={pr.id} className="p-3 border rounded-lg flex items-center justify-between" data-testid={`pr-item-${pr.id}`}>
-                        <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isGame ? "bg-orange-500/20" : "bg-amber-500/20"}`}>
-                            <Star className={`w-5 h-5 ${isGame ? "text-orange-500" : "text-amber-500"}`} />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <p className="font-medium">{pr.drill?.title || "Game Stats"}</p>
-                              <Badge variant="secondary" className="text-xs">
-                                {isGame ? "Game" : "Drill"}
-                              </Badge>
-                            </div>
-                            <p className="text-sm text-muted-foreground">
-                              {pr.metricName}: {pr.previousValue} → {pr.newValue}
-                            </p>
-                          </div>
+              {personalRecords && personalRecords.length > 0 ? (() => {
+                const bestByMetric = new Map<string, { value: number; source: string; metricName: string }>();
+                personalRecords.forEach((pr) => {
+                  const key = pr.metricName;
+                  const val = Number(pr.newValue);
+                  const existing = bestByMetric.get(key);
+                  if (!existing || val > existing.value) {
+                    bestByMetric.set(key, { value: val, source: pr.source || "drill", metricName: pr.metricName });
+                  }
+                });
+
+                const PR_DISPLAY: Record<string, { label: string; suffix?: string }> = {
+                  "Points": { label: "Single Game Points" },
+                  "Assists": { label: "Single Game Assists" },
+                  "Rebounds": { label: "Single Game Rebounds" },
+                  "Steals": { label: "Single Game Steals" },
+                  "Blocks": { label: "Single Game Blocks" },
+                  "3PT Made": { label: "Single Game 3-Pointers" },
+                  "FG Made": { label: "Single Game FG Made" },
+                  "FT Made": { label: "Single Game Free Throws" },
+                  "Shooting %": { label: "Best Shooting %", suffix: "%" },
+                  "Score": { label: "Best Drill Score" },
+                  "Shots Made": { label: "Best Shots Made" },
+                  "Duration": { label: "Longest Session", suffix: "min" },
+                  "Reps": { label: "Most Reps" },
+                };
+
+                const entries = Array.from(bestByMetric.entries()).map(([key, data]) => ({
+                  key,
+                  ...data,
+                  display: PR_DISPLAY[key] || { label: key },
+                }));
+
+                return (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {entries.map((entry) => {
+                      const isGame = entry.source === "game";
+                      const formattedVal = entry.value % 1 === 0 ? entry.value.toString() : entry.value.toFixed(1);
+                      return (
+                        <div
+                          key={entry.key}
+                          className={`text-center p-4 rounded-md border ${isGame ? "border-orange-500/20 bg-orange-500/5" : "border-amber-500/20 bg-amber-500/5"}`}
+                          data-testid={`pr-card-${entry.key.toLowerCase().replace(/\s+/g, "-")}`}
+                        >
+                          <Star className={`w-5 h-5 mx-auto mb-2 ${isGame ? "text-orange-500" : "text-amber-500"}`} />
+                          <p className="text-2xl font-bold">
+                            {formattedVal}{entry.display.suffix || ""}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1 leading-tight">{entry.display.label}</p>
                         </div>
-                        <Badge variant="outline" className="text-amber-600 border-amber-500/30">
-                          +{diff.toFixed(diff % 1 === 0 ? 0 : 1)}
-                        </Badge>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
+                      );
+                    })}
+                  </div>
+                );
+              })() : (
                 <div className="text-center p-8">
                   <Medal className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
                   <p className="text-muted-foreground">Beat your previous records to earn PR badges!</p>
