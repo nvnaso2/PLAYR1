@@ -926,6 +926,11 @@ type CareerStats = {
     avgAssists: number;
     avgSteals: number;
     avgBlocks: number;
+    totalPoints: number;
+    totalRebounds: number;
+    totalAssists: number;
+    totalSteals: number;
+    totalBlocks: number;
   }>;
 };
 

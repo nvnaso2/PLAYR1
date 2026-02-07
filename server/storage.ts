@@ -1294,6 +1294,11 @@ export class DatabaseStorage implements IStorage {
       avgAssists: number;
       avgSteals: number;
       avgBlocks: number;
+      totalPoints: number;
+      totalRebounds: number;
+      totalAssists: number;
+      totalSteals: number;
+      totalBlocks: number;
     }>;
   }> {
     const userSeasons = await this.getUserSeasons(userId);
@@ -1336,7 +1341,12 @@ export class DatabaseStorage implements IStorage {
         avgRebounds: Math.round((seasonRebounds / gamesPlayed) * 10) / 10,
         avgAssists: Math.round((seasonAssists / gamesPlayed) * 10) / 10,
         avgSteals: Math.round((seasonSteals / gamesPlayed) * 10) / 10,
-        avgBlocks: Math.round((seasonBlocks / gamesPlayed) * 10) / 10
+        avgBlocks: Math.round((seasonBlocks / gamesPlayed) * 10) / 10,
+        totalPoints: seasonPoints,
+        totalRebounds: seasonRebounds,
+        totalAssists: seasonAssists,
+        totalSteals: seasonSteals,
+        totalBlocks: seasonBlocks
       });
     }
     
