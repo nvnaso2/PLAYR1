@@ -168,7 +168,7 @@ export interface IStorage {
   getDrillRatingsBatch(drillIds: string[]): Promise<Record<string, { averageRating: number; totalRatings: number }>>;
 
   // Shot Stats (for heatmap)
-  getUserShotStats(userId: string): Promise<Array<{ location: string; made: number; missed: number }>>;
+  getUserShotStats(userId: string, period?: string): Promise<Array<{ location: string; made: number; missed: number }>>;
 
   // Seasons
   getUserSeasons(userId: string): Promise<Season[]>;
@@ -1430,7 +1430,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Shot Stats (for heatmap)
-  async getUserShotStats(userId: string): Promise<Array<{ location: string; made: number; missed: number }>> {
+  async getUserShotStats(userId: string, period: string = "weekly"): Promise<Array<{ location: string; made: number; missed: number }>> {
+    const startDate = this.getDateRangeForPeriod(period);
     const logs = await db
       .select({
         location: trainingLogs.shotLocation,
@@ -1440,7 +1441,8 @@ export class DatabaseStorage implements IStorage {
       .from(trainingLogs)
       .where(and(
         eq(trainingLogs.userId, userId),
-        sql`${trainingLogs.shotLocation} IS NOT NULL`
+        sql`${trainingLogs.shotLocation} IS NOT NULL`,
+        gte(trainingLogs.completedAt, startDate)
       ))
       .groupBy(trainingLogs.shotLocation);
     

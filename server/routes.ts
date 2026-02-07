@@ -1564,7 +1564,8 @@ export async function registerRoutes(
   app.get("/api/stats/shots", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const shotStats = await storage.getUserShotStats(userId);
+      const period = (req.query.period as string) || "weekly";
+      const shotStats = await storage.getUserShotStats(userId, period);
       res.json(shotStats);
     } catch (error) {
       console.error("Error fetching shot stats:", error);
