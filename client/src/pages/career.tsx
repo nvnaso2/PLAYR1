@@ -2131,10 +2131,9 @@ function TrophyRoomTab({
                       return (
                         <div
                           key={entry.key}
-                          className={`text-center p-4 rounded-md border ${isGame ? "border-orange-500/20 bg-orange-500/5" : "border-amber-500/20 bg-amber-500/5"}`}
+                          className={`text-center px-3 py-2 rounded-md border ${isGame ? "border-orange-500/20 bg-orange-500/5" : "border-amber-500/20 bg-amber-500/5"}`}
                           data-testid={`pr-card-${entry.key.toLowerCase().replace(/\s+/g, "-")}`}
                         >
-                          <Star className={`w-5 h-5 mx-auto mb-2 ${isGame ? "text-orange-500" : "text-amber-500"}`} />
                           <p className="text-2xl font-bold">
                             {formattedVal}{entry.display.suffix || ""}
                           </p>
