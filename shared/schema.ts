@@ -275,6 +275,7 @@ export const userProfiles = pgTable("user_profiles", {
   state: varchar("state"),
   country: varchar("country").default("USA"),
   skillLevel: varchar("skill_level").$type<DifficultyLevel>().default("beginner"),
+  profilePhotoUrl: varchar("profile_photo_url"),
   isAdmin: boolean("is_admin").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow()

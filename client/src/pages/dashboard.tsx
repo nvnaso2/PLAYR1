@@ -233,7 +233,7 @@ export default function Dashboard() {
                   Log Session
                 </Button>
               </Link>
-              <Link href="/log?tab=history">
+              <Link href="/career?tab=stats">
                 <Button variant="outline" className="gap-2 bg-white/10 border-white/20 text-white hover:bg-white/20" data-testid="button-log-stats">
                   <BarChart3 className="w-4 h-4" />
                   Log Stats

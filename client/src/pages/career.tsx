@@ -2244,6 +2244,11 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
   const { user } = useAuth();
   const playerName = user ? [user.firstName, user.lastName].filter(Boolean).join(" ") : undefined;
   const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tab = urlParams.get('tab');
+    return (tab === 'profile' || tab === 'trophy-room' || tab === 'stats') ? tab : 'profile';
+  });
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editFormData, setEditFormData] = useState({
     jerseyNumber: profile.jerseyNumber || 0,
@@ -2339,7 +2344,7 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
         </div>
       </div>
 
-      <Tabs defaultValue="profile" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-3 mb-6">
           <TabsTrigger value="profile" data-testid="tab-profile">
             <User className="w-4 h-4 mr-2" />

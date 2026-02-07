@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -36,7 +36,8 @@ import {
   Award,
   Settings,
   LogOut,
-  Save
+  Save,
+  Camera
 } from "lucide-react";
 import type { UserProfile } from "@shared/schema";
 
@@ -125,6 +126,8 @@ export default function ProfilePage() {
     updateProfileMutation.mutate(data);
   };
 
+  const [uploading, setUploading] = useState(false);
+
   const getInitials = () => {
     if (user?.firstName && user?.lastName) {
       return `${user.firstName[0]}${user.lastName[0]}`;
@@ -133,6 +136,49 @@ export default function ProfilePage() {
     if (user?.email) return user.email[0].toUpperCase();
     return "U";
   };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+    if (!allowedTypes.includes(file.type)) {
+      toast({ title: "Invalid file type", description: "Please upload a JPEG, PNG, GIF, or WebP image.", variant: "destructive" });
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Maximum file size is 10MB.", variant: "destructive" });
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const urlRes = await apiRequest("POST", "/api/user/uploads/photo-url", {
+        name: file.name,
+        size: file.size,
+        contentType: file.type,
+      });
+      const { uploadURL, objectPath } = await urlRes.json();
+
+      await fetch(uploadURL, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+
+      await apiRequest("PUT", "/api/profile", { ...form.getValues(), profilePhotoUrl: objectPath });
+      queryClient.invalidateQueries({ queryKey: ['/api/profile'] });
+      toast({ title: "Photo updated" });
+    } catch (err) {
+      toast({ title: "Upload failed", description: "Could not upload photo. Please try again.", variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const profilePhotoSrc = profile?.profilePhotoUrl
+    ? (profile.profilePhotoUrl.startsWith("/") ? profile.profilePhotoUrl : `/objects/${profile.profilePhotoUrl}`)
+    : user?.profileImageUrl || undefined;
 
   if (isLoading) {
     return (
@@ -165,12 +211,32 @@ export default function ProfilePage() {
       <Card>
         <CardHeader className="text-center pb-2">
           <div className="flex justify-center mb-4">
-            <Avatar className="h-24 w-24">
-              <AvatarImage src={user?.profileImageUrl || undefined} />
-              <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
-                {getInitials()}
-              </AvatarFallback>
-            </Avatar>
+            <div className="relative">
+              <Avatar className="h-24 w-24">
+                <AvatarImage src={profilePhotoSrc} />
+                <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
+                  {getInitials()}
+                </AvatarFallback>
+              </Avatar>
+              <label
+                className="absolute bottom-0 right-0 flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground cursor-pointer hover:opacity-90 transition-opacity"
+                data-testid="button-upload-profile-photo"
+              >
+                <Camera className="w-4 h-4" />
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  className="hidden"
+                  onChange={handlePhotoUpload}
+                  disabled={uploading}
+                />
+              </label>
+              {uploading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full">
+                  <div className="text-white text-[10px] font-medium">...</div>
+                </div>
+              )}
+            </div>
           </div>
           <CardTitle data-testid="text-profile-name">
             {user?.firstName && user?.lastName 
