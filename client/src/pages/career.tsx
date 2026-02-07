@@ -2090,13 +2090,13 @@ function TrophyRoomTab({
             )}
             <CardContent>
               {personalRecords && personalRecords.length > 0 ? (() => {
-                const bestByMetric = new Map<string, { value: number; source: string; metricName: string }>();
+                const bestByMetric = new Map<string, { value: number; source: string; metricName: string; achievedAt: Date | string | null }>();
                 personalRecords.forEach((pr) => {
                   const key = pr.metricName;
                   const val = Number(pr.newValue);
                   const existing = bestByMetric.get(key);
                   if (!existing || val > existing.value) {
-                    bestByMetric.set(key, { value: val, source: pr.source || "drill", metricName: pr.metricName });
+                    bestByMetric.set(key, { value: val, source: pr.source || "drill", metricName: pr.metricName, achievedAt: pr.achievedAt });
                   }
                 });
 
@@ -2127,6 +2127,7 @@ function TrophyRoomTab({
                     {entries.map((entry) => {
                       const isGame = entry.source === "game";
                       const formattedVal = entry.value % 1 === 0 ? entry.value.toString() : entry.value.toFixed(1);
+                      const dateStr = entry.achievedAt ? new Date(entry.achievedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null;
                       return (
                         <div
                           key={entry.key}
@@ -2138,6 +2139,14 @@ function TrophyRoomTab({
                             {formattedVal}{entry.display.suffix || ""}
                           </p>
                           <p className="text-xs text-muted-foreground mt-1 leading-tight">{entry.display.label}</p>
+                          <div className="flex items-center justify-center gap-1.5 mt-2 flex-wrap">
+                            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${isGame ? "border-orange-500/40 text-orange-500" : "border-amber-500/40 text-amber-500"}`}>
+                              {isGame ? "Game" : "Drill"}
+                            </Badge>
+                            {dateStr && (
+                              <span className="text-[10px] text-muted-foreground">{dateStr}</span>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
