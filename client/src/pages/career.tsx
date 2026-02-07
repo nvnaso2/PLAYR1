@@ -776,23 +776,25 @@ function BaseballCard({ profile, careerStats, onPhotoUpdated, userName }: { prof
 
   const positionsText = profile.positions && profile.positions.length > 0 ? profile.positions.join(" / ") : "";
 
+  const maxW = Math.max(frontW, backW);
+  const maxH = Math.max(frontH, backH);
+
   return (
     <div
-      className="cursor-pointer select-none"
+      className="cursor-pointer select-none relative"
       style={{
         perspective: "1200px",
-        width: isFlipped ? backW : frontW,
-        height: isFlipped ? backH : frontH,
-        transition: "width 0.6s ease, height 0.6s ease",
+        width: maxW,
+        height: maxH,
       }}
       onClick={() => setIsFlipped(!isFlipped)}
       data-testid="baseball-card"
     >
       <div
-        className="relative"
+        className="absolute"
         style={{
-          width: frontW,
-          height: frontH,
+          width: maxW,
+          height: maxH,
           transformStyle: "preserve-3d",
           transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)",
           transition: "transform 0.6s ease",
@@ -805,6 +807,8 @@ function BaseballCard({ profile, careerStats, onPhotoUpdated, userName }: { prof
             backfaceVisibility: "hidden",
             width: frontW,
             height: frontH,
+            left: (maxW - frontW) / 2,
+            top: 0,
             border: "3px solid #f97316",
           }}
         >
@@ -873,8 +877,8 @@ function BaseballCard({ profile, careerStats, onPhotoUpdated, userName }: { prof
             transform: "rotateY(180deg)",
             width: backW,
             height: backH,
-            top: (frontH - backH) / 2,
-            left: (frontW - backW) / 2,
+            top: (maxH - backH) / 2,
+            left: (maxW - backW) / 2,
             border: "3px solid #f97316",
           }}
         >
