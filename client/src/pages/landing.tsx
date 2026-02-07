@@ -58,7 +58,7 @@ export default function Landing() {
               <img 
                 src={logoLandscape} 
                 alt="PLAYR1" 
-                className="h-12 w-auto mix-blend-screen dark:mix-blend-screen"
+                className="h-16 w-auto mix-blend-screen dark:mix-blend-screen"
                 data-testid="img-logo"
               />
             </div>
@@ -292,7 +292,7 @@ export default function Landing() {
               <img 
                 src={logoLandscape} 
                 alt="PLAYR1" 
-                className="h-10 w-auto mix-blend-screen dark:mix-blend-screen"
+                className="h-14 w-auto mix-blend-screen dark:mix-blend-screen"
               />
               <span className="text-sm text-muted-foreground">
                 © 2025 PLAYR1. All rights reserved.
