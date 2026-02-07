@@ -69,14 +69,12 @@ import {
   X
 } from "lucide-react";
 import type { CareerProfile, UserAchievement, CareerAchievement, Challenge, UserChallenge, PersonalRecord, TeamAward, Season, Game } from "@shared/schema";
+import defaultPlayerImg from "@assets/default-player.jpg";
 import { 
   BASKETBALL_POSITIONS, 
   BASKETBALL_ASPIRATIONS, 
   GRADE_LEVELS,
   DRILL_CATEGORIES,
-  AVATAR_SKIN_TONES,
-  AVATAR_HAIR_STYLES,
-  AVATAR_HAIR_COLORS,
   SEASON_TYPES
 } from "@shared/schema";
 
@@ -164,10 +162,6 @@ const onboardingSchema = z.object({
   skillDefense: z.coerce.number().min(1).max(10).default(5),
   skillBasketballIQ: z.coerce.number().min(1).max(10).default(5),
   skillAthletics: z.coerce.number().min(1).max(10).default(5),
-  avatarSkinTone: z.string().default("medium"),
-  avatarHairStyle: z.string().default("short"),
-  avatarHairColor: z.string().default("black"),
-  avatarAccessory: z.string().optional()
 });
 
 type OnboardingData = z.infer<typeof onboardingSchema>;
@@ -217,7 +211,6 @@ const ONBOARDING_STEPS = [
   { id: "goals", title: "Goals", icon: Target },
   { id: "skills", title: "Rate Your Skills", icon: Star },
   { id: "focus", title: "Focus Area", icon: Crosshair },
-  { id: "avatar", title: "Create Avatar", icon: User },
   { id: "complete", title: "Ready!", icon: Trophy }
 ];
 
@@ -244,10 +237,6 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
       skillDefense: 5,
       skillBasketballIQ: 5,
       skillAthletics: 5,
-      avatarSkinTone: "medium",
-      avatarHairStyle: "short",
-      avatarHairColor: "black",
-      avatarAccessory: ""
     }
   });
 
@@ -658,122 +647,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
               )}
 
               {step === 7 && (
-                <div className="space-y-6">
-                  <p className="text-center text-muted-foreground mb-4">
-                    Customize your player avatar
-                  </p>
-                  
-                  <div className="flex justify-center mb-6">
-                    <PlayerAvatar 
-                      skinTone={form.watch("avatarSkinTone")}
-                      hairStyle={form.watch("avatarHairStyle")}
-                      hairColor={form.watch("avatarHairColor")}
-                      jerseyNumber={form.watch("jerseyNumber")}
-                      size="lg"
-                    />
-                  </div>
-
-                  <FormField
-                    control={form.control}
-                    name="avatarSkinTone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Skin Tone</FormLabel>
-                        <div className="flex gap-2">
-                          {AVATAR_SKIN_TONES.map(tone => {
-                            const colors: Record<string, string> = {
-                              "light": "bg-[#FFE0BD]",
-                              "medium-light": "bg-[#F1C27D]",
-                              "medium": "bg-[#C68642]",
-                              "medium-dark": "bg-[#8D5524]",
-                              "dark": "bg-[#5C3317]"
-                            };
-                            return (
-                              <button
-                                key={tone}
-                                type="button"
-                                onClick={() => field.onChange(tone)}
-                                className={`w-10 h-10 rounded-full ${colors[tone]} ${
-                                  field.value === tone ? 'ring-2 ring-primary ring-offset-2' : ''
-                                }`}
-                                data-testid={`skin-${tone}`}
-                              />
-                            );
-                          })}
-                        </div>
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="avatarHairStyle"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Hair Style</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-hair-style">
-                              <SelectValue />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {AVATAR_HAIR_STYLES.map(style => (
-                              <SelectItem key={style} value={style}>
-                                {style.charAt(0).toUpperCase() + style.slice(1)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="avatarHairColor"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Hair Color</FormLabel>
-                        <div className="flex gap-2">
-                          {AVATAR_HAIR_COLORS.map(color => {
-                            const bgColors: Record<string, string> = {
-                              "black": "bg-gray-900",
-                              "brown": "bg-amber-800",
-                              "blonde": "bg-yellow-400",
-                              "red": "bg-red-600",
-                              "gray": "bg-gray-400"
-                            };
-                            return (
-                              <button
-                                key={color}
-                                type="button"
-                                onClick={() => field.onChange(color)}
-                                className={`w-10 h-10 rounded-full ${bgColors[color]} ${
-                                  field.value === color ? 'ring-2 ring-primary ring-offset-2' : ''
-                                }`}
-                                data-testid={`hair-${color}`}
-                              />
-                            );
-                          })}
-                        </div>
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              )}
-
-              {step === 8 && (
                 <div className="text-center space-y-6">
-                  <div className="flex justify-center">
-                    <PlayerAvatar 
-                      skinTone={form.watch("avatarSkinTone")}
-                      hairStyle={form.watch("avatarHairStyle")}
-                      hairColor={form.watch("avatarHairColor")}
-                      jerseyNumber={form.watch("jerseyNumber")}
-                      size="xl"
-                    />
-                  </div>
                   <div>
                     <h3 className="text-xl font-semibold">You're All Set!</h3>
                     <p className="text-muted-foreground mt-2">
@@ -836,263 +710,181 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   );
 }
 
-function PlayerAvatar({ 
-  skinTone, 
-  hairStyle, 
-  hairColor,
-  jerseyNumber,
-  size = "md",
-  seed
-}: { 
-  skinTone?: string;
-  hairStyle?: string;
-  hairColor?: string;
-  jerseyNumber?: number;
-  size?: "sm" | "md" | "lg" | "xl";
-  seed?: string;
-}) {
-  const sizes = {
-    sm: { container: "w-24 h-32", avatar: 80 },
-    md: { container: "w-32 h-44", avatar: 100 },
-    lg: { container: "w-44 h-56", avatar: 140 },
-    xl: { container: "w-56 h-72", avatar: 180 }
-  };
-
-  const skinToneMap: Record<string, string> = {
-    "light": "f2d3b1",
-    "medium-light": "ecad80",
-    "medium": "d08b5b",
-    "medium-dark": "ae5d29",
-    "dark": "614335"
-  };
-
-  const hairColorMap: Record<string, string> = {
-    "black": "0e0e0e",
-    "brown": "6a4e35",
-    "blonde": "cabfad",
-    "red": "b55239",
-    "gray": "6d6d6d"
-  };
-
-  const sizeConfig = sizes[size];
-  const avatarSeed = seed || `player-${jerseyNumber || 0}`;
-  const skinColor = skinToneMap[skinTone || "medium"];
-  const hairColorHex = hairColorMap[hairColor || "black"];
-
-  const avatarUrl = `https://api.dicebear.com/9.x/lorelei/svg?seed=${encodeURIComponent(avatarSeed)}&skinColor=${skinColor}&hair=${hairStyle === "bald" ? "variant01" : "variant02,variant03,variant04"}&hairColor=${hairColorHex}&backgroundColor=transparent&size=${sizeConfig.avatar}`;
-
-  return (
-    <div className={`${sizeConfig.container} relative flex flex-col items-center`}>
-      <div className="relative z-10 -mb-4">
-        <img 
-          src={avatarUrl} 
-          alt="Player Avatar" 
-          className="w-full h-auto"
-          style={{ maxWidth: sizeConfig.avatar, maxHeight: sizeConfig.avatar }}
-        />
-      </div>
-      
-      <svg viewBox="0 0 120 70" className="w-full" style={{ marginTop: '-8px' }}>
-        <defs>
-          <linearGradient id="jerseyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#f97316" />
-            <stop offset="50%" stopColor="#ea580c" />
-            <stop offset="100%" stopColor="#c2410c" />
-          </linearGradient>
-        </defs>
-        <path d="M15 5 Q0 8 0 25 L0 70 L120 70 L120 25 Q120 8 105 5 L75 5 Q60 15 60 15 Q60 15 45 5 Z" 
-              fill="url(#jerseyGrad)" />
-        <path d="M45 5 Q60 20 75 5" fill="#c2410c" />
-        <path d="M46 6 Q60 18 74 6" stroke="white" strokeWidth="3" fill="none" />
-        <path d="M15 5 Q5 10 2 25" stroke="white" strokeWidth="3" fill="none" />
-        <path d="M105 5 Q115 10 118 25" stroke="white" strokeWidth="3" fill="none" />
-        <path d="M3 30 L3 70" stroke="white" strokeWidth="2" opacity="0.5" />
-        <path d="M117 30 L117 70" stroke="white" strokeWidth="2" opacity="0.5" />
-        <text x="60" y="52" textAnchor="middle" fill="white" fontSize="26" fontWeight="bold" 
-              fontFamily="Arial Black, Impact, sans-serif">
-          {jerseyNumber !== undefined ? String(jerseyNumber).padStart(2, '0') : "00"}
-        </text>
-        <path d="M30 20 Q35 40 32 70" stroke="#9a3412" strokeWidth="1.5" fill="none" opacity="0.25" />
-        <path d="M90 20 Q85 40 88 70" stroke="#9a3412" strokeWidth="1.5" fill="none" opacity="0.25" />
-      </svg>
-    </div>
-  );
-}
-
 function BaseballCard({ profile, careerStats }: { profile: CareerProfile; careerStats?: CareerStats }) {
   const [isFlipped, setIsFlipped] = useState(false);
 
-  const skinToneMap: Record<string, string> = {
-    "light": "f2d3b1", "medium-light": "ecad80", "medium": "d08b5b",
-    "medium-dark": "ae5d29", "dark": "614335"
-  };
-  const hairColorMap: Record<string, string> = {
-    "black": "0e0e0e", "brown": "6a4e35", "blonde": "cabfad",
-    "red": "b55239", "gray": "6d6d6d"
-  };
-
-  const avatarSeed = profile.id || `player-${profile.jerseyNumber || 0}`;
-  const skinColor = skinToneMap[profile.avatarSkinTone || "medium"];
-  const hairColorHex = hairColorMap[profile.avatarHairColor || "black"];
-  const hairStyle = profile.avatarHairStyle || "short";
-  const avatarUrl = `https://api.dicebear.com/9.x/lorelei/svg?seed=${encodeURIComponent(avatarSeed)}&skinColor=${skinColor}&hair=${hairStyle === "bald" ? "variant01" : "variant02,variant03,variant04"}&hairColor=${hairColorHex}&backgroundColor=b8b8b8&size=200`;
-
   const seasonBreakdown = careerStats?.seasonBreakdown || [];
+  const cardW = 260;
+  const cardH = 380;
 
   return (
     <div
       className="cursor-pointer select-none"
-      style={{ perspective: "1000px", width: "280px", height: "380px" }}
+      style={{ perspective: "1200px", width: isFlipped ? cardH : cardW, height: isFlipped ? cardW : cardH, transition: "width 0.6s ease, height 0.6s ease" }}
       onClick={() => setIsFlipped(!isFlipped)}
       data-testid="baseball-card"
     >
       <div
-        className="relative w-full h-full transition-transform duration-500"
+        className="relative transition-all duration-600"
         style={{
+          width: cardW,
+          height: cardH,
           transformStyle: "preserve-3d",
           transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)",
+          transition: "transform 0.6s ease",
         }}
       >
-        {/* FRONT */}
+        {/* FRONT - Vertical (portrait) */}
         <div
-          className="absolute inset-0 rounded-md overflow-hidden"
+          className="absolute rounded-md overflow-hidden"
           style={{
             backfaceVisibility: "hidden",
-            border: "4px solid #f97316",
+            width: cardW,
+            height: cardH,
+            border: "2px solid rgba(255,255,255,0.7)",
           }}
         >
-          <div className="relative w-full h-full bg-neutral-300 dark:bg-neutral-700 flex flex-col">
-            {/* Handlz logo badge */}
-            <div className="absolute top-3 left-3 z-20 w-9 h-9 rounded-md bg-orange-500 flex items-center justify-center shadow-md">
-              <span className="text-white font-black text-sm tracking-tight">H</span>
+          <div className="relative w-full h-full bg-black flex flex-col">
+            <div className="absolute top-3 left-3 z-20 w-8 h-8 rounded-md bg-orange-500 flex items-center justify-center">
+              <span className="text-white font-black text-xs tracking-tight">H</span>
             </div>
 
-            {/* Avatar area */}
-            <div className="flex-1 flex items-center justify-center overflow-hidden">
+            <div className="flex-1 overflow-hidden">
               <img
-                src={avatarUrl}
+                src={defaultPlayerImg}
                 alt="Player"
                 className="w-full h-full object-cover"
-                style={{ objectPosition: "center 20%" }}
               />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
             </div>
 
-            {/* Bottom name bar */}
-            <div className="bg-gradient-to-r from-orange-600 to-orange-500 px-4 py-3 flex items-end justify-between">
-              <div>
-                <p className="text-white font-bold text-base uppercase tracking-wide leading-tight">
-                  {profile.schoolName || profile.teamName || "Player"}
-                </p>
-                <p className="text-orange-200 text-xs uppercase tracking-wider">
+            <div className="absolute bottom-0 left-0 right-0 px-4 py-3">
+              <p className="text-white font-bold text-lg uppercase tracking-wide leading-tight">
+                {profile.schoolName || profile.teamName || "Player"}
+              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-orange-400 text-xs uppercase tracking-wider font-medium">
                   {profile.positions?.join(" / ") || "Basketball"}
+                  {profile.jerseyNumber != null ? ` #${profile.jerseyNumber}` : ""}
                 </p>
+                <span className="text-white/50 text-xs font-bold">
+                  '{new Date().getFullYear().toString().slice(-2)}
+                </span>
               </div>
-              <span className="text-white/80 text-sm font-bold">
-                '{new Date().getFullYear().toString().slice(-2)}
-              </span>
             </div>
           </div>
         </div>
 
-        {/* BACK */}
+        {/* BACK - Horizontal (landscape), rotated via CSS */}
         <div
-          className="absolute inset-0 rounded-md overflow-hidden"
+          className="absolute rounded-md overflow-hidden"
           style={{
             backfaceVisibility: "hidden",
             transform: "rotateY(180deg)",
-            border: "4px solid #f97316",
+            width: cardH,
+            height: cardW,
+            top: (cardH - cardW) / 2,
+            left: -(cardH - cardW) / 2,
+            border: "2px solid rgba(255,255,255,0.7)",
           }}
         >
-          <div className="w-full h-full flex flex-col bg-background">
-            {/* Header strip */}
-            <div className="bg-gradient-to-r from-orange-600 to-orange-500 px-4 py-2.5 flex items-center justify-between">
-              <div>
-                <p className="text-white font-bold text-sm uppercase tracking-wide leading-tight">
+          <div className="w-full h-full flex flex-col bg-black text-white">
+            {/* Header */}
+            <div className="flex items-center gap-3 px-4 py-2 border-b border-orange-500/40">
+              <div className="w-7 h-7 rounded-md bg-orange-500 flex items-center justify-center flex-shrink-0">
+                <span className="text-white font-black text-[10px]">H</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-white font-bold text-sm uppercase tracking-wide leading-tight truncate">
                   {profile.schoolName || profile.teamName || "Player"}
                 </p>
-                <p className="text-orange-200 text-[10px] uppercase tracking-wider">
-                  {profile.positions?.join(" / ") || "Basketball"} {profile.jerseyNumber != null ? `#${profile.jerseyNumber}` : ""}
+                <p className="text-orange-400 text-[10px] uppercase tracking-wider">
+                  {profile.positions?.join(" / ") || "Basketball"}
+                  {profile.jerseyNumber != null ? ` #${profile.jerseyNumber}` : ""}
                 </p>
               </div>
-              <div className="w-7 h-7 rounded-md bg-white/20 flex items-center justify-center">
-                <span className="text-white font-black text-xs">H</span>
-              </div>
+              <span className="text-white/40 text-[10px] font-medium">Tap to flip</span>
             </div>
 
-            {/* Stats section */}
-            <div className="flex-1 overflow-auto px-3 py-2">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
+            {/* Stats body */}
+            <div className="flex-1 overflow-auto px-4 py-2">
+              <p className="text-[9px] font-bold uppercase tracking-widest text-orange-400 mb-1.5">
                 Season Averages
               </p>
 
               {seasonBreakdown.length > 0 ? (
-                <div className="space-y-0">
-                  {/* Table header */}
-                  <div className="grid grid-cols-7 gap-0.5 text-[9px] font-bold uppercase text-muted-foreground border-b pb-1 mb-1">
+                <div>
+                  <div className="grid grid-cols-8 gap-1 text-[9px] font-bold uppercase text-white/50 border-b border-white/10 pb-1 mb-1">
                     <span className="col-span-2">Season</span>
                     <span className="text-center">GP</span>
                     <span className="text-center">PPG</span>
                     <span className="text-center">RPG</span>
                     <span className="text-center">APG</span>
                     <span className="text-center">SPG</span>
+                    <span className="text-center">BPG</span>
                   </div>
 
-                  {/* Season rows */}
                   {seasonBreakdown.map((s, i) => (
-                    <div key={i} className="grid grid-cols-7 gap-0.5 text-[10px] py-0.5 border-b border-border/30 last:border-0">
-                      <span className="col-span-2 font-medium truncate" title={s.seasonName}>
+                    <div key={i} className="grid grid-cols-8 gap-1 text-[10px] py-0.5 border-b border-white/5 last:border-0">
+                      <span className="col-span-2 font-medium truncate text-white/80" title={s.seasonName}>
                         {SEASON_TYPE_LABELS[s.seasonType] ? SEASON_TYPE_LABELS[s.seasonType].split(" ")[0] : s.seasonType} '{s.year?.slice(-2) || ""}
                       </span>
-                      <span className="text-center">{s.gamesPlayed}</span>
-                      <span className="text-center font-semibold text-orange-500">{s.avgPoints?.toFixed(1)}</span>
-                      <span className="text-center">{s.avgRebounds?.toFixed(1)}</span>
-                      <span className="text-center">{s.avgAssists?.toFixed(1)}</span>
-                      <span className="text-center">{s.avgSteals?.toFixed(1)}</span>
+                      <span className="text-center text-white/70">{s.gamesPlayed}</span>
+                      <span className="text-center font-semibold text-orange-400">{s.avgPoints?.toFixed(1)}</span>
+                      <span className="text-center text-white/70">{s.avgRebounds?.toFixed(1)}</span>
+                      <span className="text-center text-white/70">{s.avgAssists?.toFixed(1)}</span>
+                      <span className="text-center text-white/70">{s.avgSteals?.toFixed(1)}</span>
+                      <span className="text-center text-white/70">{s.avgBlocks?.toFixed(1)}</span>
                     </div>
                   ))}
 
-                  {/* Career totals */}
                   {careerStats && careerStats.totalGames > 0 && (
-                    <>
-                      <div className="grid grid-cols-7 gap-0.5 text-[10px] py-1 mt-1 border-t-2 font-bold">
-                        <span className="col-span-2 text-orange-500">CAREER</span>
-                        <span className="text-center">{careerStats.totalGames}</span>
-                        <span className="text-center text-orange-500">{careerStats.avgPoints?.toFixed(1)}</span>
-                        <span className="text-center">{careerStats.avgRebounds?.toFixed(1)}</span>
-                        <span className="text-center">{careerStats.avgAssists?.toFixed(1)}</span>
-                        <span className="text-center">{careerStats.avgSteals?.toFixed(1)}</span>
-                      </div>
-                    </>
+                    <div className="grid grid-cols-8 gap-1 text-[10px] py-1 mt-1 border-t border-orange-500/30 font-bold">
+                      <span className="col-span-2 text-orange-400">CAREER</span>
+                      <span className="text-center">{careerStats.totalGames}</span>
+                      <span className="text-center text-orange-400">{careerStats.avgPoints?.toFixed(1)}</span>
+                      <span className="text-center">{careerStats.avgRebounds?.toFixed(1)}</span>
+                      <span className="text-center">{careerStats.avgAssists?.toFixed(1)}</span>
+                      <span className="text-center">{careerStats.avgSteals?.toFixed(1)}</span>
+                      <span className="text-center">{careerStats.avgBlocks?.toFixed(1)}</span>
+                    </div>
                   )}
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center py-6 text-center">
-                  <BarChart3 className="w-8 h-8 text-muted-foreground/30 mb-2" />
-                  <p className="text-xs text-muted-foreground">No seasons yet</p>
-                  <p className="text-[10px] text-muted-foreground/60 mt-1">
-                    Add seasons in the Stats tab to see your stats here
+                <div className="flex flex-col items-center justify-center py-4 text-center">
+                  <BarChart3 className="w-6 h-6 text-white/20 mb-2" />
+                  <p className="text-xs text-white/50">No seasons yet</p>
+                  <p className="text-[10px] text-white/30 mt-1">
+                    Add seasons in the Stats tab
                   </p>
                 </div>
               )}
 
-              {/* Career highlights */}
               {careerStats && careerStats.totalGames > 0 && (
-                <div className="mt-2 pt-2 border-t">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
+                <div className="mt-2 pt-2 border-t border-white/10">
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-orange-400 mb-1">
                     Career Totals
                   </p>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-5 gap-2">
                     <div className="text-center">
-                      <p className="text-lg font-bold text-orange-500">{careerStats.totalPoints}</p>
-                      <p className="text-[9px] text-muted-foreground uppercase">Points</p>
+                      <p className="text-base font-bold text-orange-400">{careerStats.totalPoints}</p>
+                      <p className="text-[8px] text-white/40 uppercase">PTS</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-lg font-bold">{careerStats.totalRebounds}</p>
-                      <p className="text-[9px] text-muted-foreground uppercase">Rebounds</p>
+                      <p className="text-base font-bold">{careerStats.totalRebounds}</p>
+                      <p className="text-[8px] text-white/40 uppercase">REB</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-lg font-bold">{careerStats.totalAssists}</p>
-                      <p className="text-[9px] text-muted-foreground uppercase">Assists</p>
+                      <p className="text-base font-bold">{careerStats.totalAssists}</p>
+                      <p className="text-[8px] text-white/40 uppercase">AST</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-base font-bold">{careerStats.totalSteals}</p>
+                      <p className="text-[8px] text-white/40 uppercase">STL</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-base font-bold">{careerStats.totalBlocks}</p>
+                      <p className="text-[8px] text-white/40 uppercase">BLK</p>
                     </div>
                   </div>
                 </div>
@@ -1100,9 +892,9 @@ function BaseballCard({ profile, careerStats }: { profile: CareerProfile; career
             </div>
 
             {/* Footer */}
-            <div className="px-3 py-1.5 border-t bg-muted/30 flex items-center justify-between">
-              <span className="text-[9px] text-muted-foreground uppercase tracking-widest font-bold">Handlz</span>
-              <span className="text-[9px] text-muted-foreground">Tap to flip</span>
+            <div className="px-4 py-1 border-t border-white/10 flex items-center justify-between">
+              <span className="text-[9px] text-orange-400/60 uppercase tracking-widest font-bold">Handlz Training</span>
+              <span className="text-[9px] text-white/30">'{new Date().getFullYear().toString().slice(-2)}</span>
             </div>
           </div>
         </div>
