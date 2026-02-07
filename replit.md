@@ -1,7 +1,7 @@
-# Handlz Basketball Training Platform
+# PLAYR1 Basketball Training Platform
 
 ## Overview
-A "Netflix for basketball drills" platform for Handlz weighted basketballs. Users can browse professional training videos, log their practice sessions, track progress, upload personal training videos, and benchmark against the community by age.
+A "Netflix for basketball drills" platform (app name: PLAYR1). Features Handlz branded drill content. Users can browse professional training videos, log their practice sessions, track progress, upload personal training videos, and benchmark against the community by age.
 
 ## Tech Stack
 - **Frontend**: React + TypeScript with Vite, Wouter routing, TanStack Query

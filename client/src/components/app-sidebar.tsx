@@ -41,7 +41,7 @@ import {
   Settings,
   Trophy
 } from "lucide-react";
-import logoLandscape from "@assets/Handlz_Landscape_1769377307158.png";
+import logoLandscape from "@assets/Playr1_App_Logo_1770492792577.png";
 
 const mainNavItems = [
   { title: "Dashboard", url: "/", icon: BarChart3 },
@@ -93,7 +93,7 @@ export function AppSidebar() {
             <img 
               src={logoLandscape} 
               alt="PLAYR1" 
-              className="h-7 w-auto"
+              className="h-8 w-auto rounded"
             />
           </div>
         </Link>

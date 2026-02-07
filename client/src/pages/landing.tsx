@@ -14,7 +14,7 @@ import {
   Award
 } from "lucide-react";
 import heroImage from "@assets/bballpic5_1.1.1_1769377307157.png";
-import logoLandscape from "@assets/Handlz_Landscape_1769377307158.png";
+import logoLandscape from "@assets/Playr1_App_Logo_1770492792577.png";
 import basketballImage from "@assets/Handlz_(26)_1769377307158.png";
 import productImage from "@assets/BBallpic2_1.14.1_1769377307157.png";
 
@@ -58,7 +58,7 @@ export default function Landing() {
               <img 
                 src={logoLandscape} 
                 alt="PLAYR1" 
-                className="h-8 w-auto dark:invert-0 invert"
+                className="h-8 w-auto rounded"
                 data-testid="img-logo"
               />
             </div>
@@ -292,7 +292,7 @@ export default function Landing() {
               <img 
                 src={logoLandscape} 
                 alt="PLAYR1" 
-                className="h-6 w-auto dark:invert-0 invert"
+                className="h-6 w-auto rounded"
               />
               <span className="text-sm text-muted-foreground">
                 © 2025 PLAYR1. All rights reserved.
