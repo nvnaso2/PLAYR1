@@ -126,7 +126,7 @@ export default function ProgressPage() {
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold mb-1" data-testid="text-page-title">My Progress</h1>
+          <h1 className="text-xl sm:text-2xl font-bold mb-1" data-testid="text-page-title">Dashboard</h1>
           <p className="text-sm sm:text-base text-muted-foreground">
             Track your improvement and see how you compare to other players
           </p>

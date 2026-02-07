@@ -13,11 +13,10 @@ import { Button } from "@/components/ui/button";
 import { Eye, EyeOff } from "lucide-react";
 
 import Landing from "@/pages/landing";
-import Dashboard from "@/pages/dashboard";
 import Drills from "@/pages/drills";
 import DrillPage from "@/pages/drill";
 import TrainingLog from "@/pages/training-log";
-import Progress from "@/pages/progress";
+import Dashboard from "@/pages/progress";
 import Videos from "@/pages/videos";
 import Profile from "@/pages/profile";
 import Career from "@/pages/career";
@@ -78,7 +77,6 @@ function Router({ previewLanding }: { previewLanding: boolean }) {
         <Route path="/drills" component={Drills} />
         <Route path="/drill/:id" component={DrillPage} />
         <Route path="/log" component={TrainingLog} />
-        <Route path="/progress" component={Progress} />
         <Route path="/videos" component={Videos} />
         <Route path="/career" component={Career} />
         <Route path="/profile" component={Profile} />
