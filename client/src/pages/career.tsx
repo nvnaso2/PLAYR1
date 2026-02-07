@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -65,6 +65,8 @@ import {
   Medal,
   BarChart3,
   Trash2,
+  CheckCircle,
+  Circle,
   ChevronDown,
   ChevronUp,
   X,
@@ -1069,10 +1071,22 @@ function StatsTab() {
   const [showGameDialog, setShowGameDialog] = useState(false);
   const [editingGame, setEditingGame] = useState<Game | null>(null);
   const [expandedSeasons, setExpandedSeasons] = useState<Set<string>>(new Set());
+  const [initialExpandDone, setInitialExpandDone] = useState(false);
 
   const { data: seasons = [], isLoading: seasonsLoading } = useQuery<Season[]>({
     queryKey: ['/api/seasons']
   });
+
+  useEffect(() => {
+    if (!initialExpandDone && seasons.length > 0) {
+      const activeIds = seasons.filter(s => s.isActive !== false).map(s => s.id);
+      if (activeIds.length > 0) {
+        setExpandedSeasons(new Set(activeIds));
+        setSelectedSeasonId(activeIds[0]);
+      }
+      setInitialExpandDone(true);
+    }
+  }, [seasons, initialExpandDone]);
 
   const { data: careerStats } = useQuery<CareerStats>({
     queryKey: ['/api/stats/career']
@@ -1141,6 +1155,16 @@ function StatsTab() {
         setSelectedSeasonId(null);
       }
       toast({ title: "Season deleted" });
+    }
+  });
+
+  const toggleSeasonActiveMutation = useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      return apiRequest("PUT", `/api/seasons/${id}`, { isActive });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/seasons'] });
+      toast({ title: "Season updated" });
     }
   });
 
@@ -1398,12 +1422,13 @@ function StatsTab() {
             </div>
           ) : (
             <div className="space-y-3">
-              {seasons.map((season) => {
+              {[...seasons].sort((a, b) => (a.isActive === false ? 1 : 0) - (b.isActive === false ? 1 : 0)).map((season) => {
                 const isExpanded = expandedSeasons.has(season.id);
                 const seasonStats = careerStats?.seasonBreakdown.find(s => s.seasonId === season.id);
+                const isActive = season.isActive !== false;
                 
                 return (
-                  <div key={season.id} className="border rounded-lg" data-testid={`season-item-${season.id}`}>
+                  <div key={season.id} className={`border rounded-lg ${!isActive ? "opacity-70" : ""}`} data-testid={`season-item-${season.id}`}>
                     <div 
                       className="p-4 flex items-center justify-between cursor-pointer hover-elevate"
                       onClick={() => toggleSeasonExpand(season.id)}
@@ -1414,9 +1439,12 @@ function StatsTab() {
                         </div>
                         <div>
                           <p className="font-medium">{season.name}</p>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
                             <Badge variant="outline" className="text-xs">
                               {SEASON_TYPE_LABELS[season.seasonType]}
+                            </Badge>
+                            <Badge variant={isActive ? "default" : "secondary"} className="text-xs">
+                              {isActive ? "Active" : "Completed"}
                             </Badge>
                             <span>{season.year}</span>
                             {season.teamName && <span>• {season.teamName}</span>}
@@ -1430,6 +1458,18 @@ function StatsTab() {
                             <span>{seasonStats.avgPoints} PPG</span>
                           </div>
                         )}
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleSeasonActiveMutation.mutate({ id: season.id, isActive: !isActive });
+                          }}
+                          title={isActive ? "Mark as Completed" : "Mark as Active"}
+                          data-testid={`button-toggle-season-${season.id}`}
+                        >
+                          {isActive ? <CheckCircle className="w-4 h-4 text-green-500" /> : <Circle className="w-4 h-4 text-muted-foreground" />}
+                        </Button>
                         <Button
                           size="icon"
                           variant="ghost"
