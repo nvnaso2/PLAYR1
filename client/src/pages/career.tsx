@@ -879,12 +879,10 @@ function PlayerAvatar({
   const skinColor = skinToneMap[skinTone || "medium"];
   const hairColorHex = hairColorMap[hairColor || "black"];
 
-  // Use DiceBear's "lorelei" style for a hand-drawn realistic look
   const avatarUrl = `https://api.dicebear.com/9.x/lorelei/svg?seed=${encodeURIComponent(avatarSeed)}&skinColor=${skinColor}&hair=${hairStyle === "bald" ? "variant01" : "variant02,variant03,variant04"}&hairColor=${hairColorHex}&backgroundColor=transparent&size=${sizeConfig.avatar}`;
 
   return (
     <div className={`${sizeConfig.container} relative flex flex-col items-center`}>
-      {/* Avatar head from DiceBear */}
       <div className="relative z-10 -mb-4">
         <img 
           src={avatarUrl} 
@@ -894,7 +892,6 @@ function PlayerAvatar({
         />
       </div>
       
-      {/* Basketball Jersey SVG */}
       <svg viewBox="0 0 120 70" className="w-full" style={{ marginTop: '-8px' }}>
         <defs>
           <linearGradient id="jerseyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -903,33 +900,213 @@ function PlayerAvatar({
             <stop offset="100%" stopColor="#c2410c" />
           </linearGradient>
         </defs>
-        
-        {/* Jersey body - sleeveless tank top */}
         <path d="M15 5 Q0 8 0 25 L0 70 L120 70 L120 25 Q120 8 105 5 L75 5 Q60 15 60 15 Q60 15 45 5 Z" 
               fill="url(#jerseyGrad)" />
-        
-        {/* V-neck collar with white trim */}
         <path d="M45 5 Q60 20 75 5" fill="#c2410c" />
         <path d="M46 6 Q60 18 74 6" stroke="white" strokeWidth="3" fill="none" />
-        
-        {/* Arm holes with white trim */}
         <path d="M15 5 Q5 10 2 25" stroke="white" strokeWidth="3" fill="none" />
         <path d="M105 5 Q115 10 118 25" stroke="white" strokeWidth="3" fill="none" />
-        
-        {/* Side stripes */}
         <path d="M3 30 L3 70" stroke="white" strokeWidth="2" opacity="0.5" />
         <path d="M117 30 L117 70" stroke="white" strokeWidth="2" opacity="0.5" />
-        
-        {/* Jersey number */}
         <text x="60" y="52" textAnchor="middle" fill="white" fontSize="26" fontWeight="bold" 
               fontFamily="Arial Black, Impact, sans-serif">
           {jerseyNumber !== undefined ? String(jerseyNumber).padStart(2, '0') : "00"}
         </text>
-        
-        {/* Fabric fold shadows */}
         <path d="M30 20 Q35 40 32 70" stroke="#9a3412" strokeWidth="1.5" fill="none" opacity="0.25" />
         <path d="M90 20 Q85 40 88 70" stroke="#9a3412" strokeWidth="1.5" fill="none" opacity="0.25" />
       </svg>
+    </div>
+  );
+}
+
+function BaseballCard({ profile, careerStats }: { profile: CareerProfile; careerStats?: CareerStats }) {
+  const [isFlipped, setIsFlipped] = useState(false);
+
+  const skinToneMap: Record<string, string> = {
+    "light": "f2d3b1", "medium-light": "ecad80", "medium": "d08b5b",
+    "medium-dark": "ae5d29", "dark": "614335"
+  };
+  const hairColorMap: Record<string, string> = {
+    "black": "0e0e0e", "brown": "6a4e35", "blonde": "cabfad",
+    "red": "b55239", "gray": "6d6d6d"
+  };
+
+  const avatarSeed = profile.id || `player-${profile.jerseyNumber || 0}`;
+  const skinColor = skinToneMap[profile.avatarSkinTone || "medium"];
+  const hairColorHex = hairColorMap[profile.avatarHairColor || "black"];
+  const hairStyle = profile.avatarHairStyle || "short";
+  const avatarUrl = `https://api.dicebear.com/9.x/lorelei/svg?seed=${encodeURIComponent(avatarSeed)}&skinColor=${skinColor}&hair=${hairStyle === "bald" ? "variant01" : "variant02,variant03,variant04"}&hairColor=${hairColorHex}&backgroundColor=b8b8b8&size=200`;
+
+  const seasonBreakdown = careerStats?.seasonBreakdown || [];
+
+  return (
+    <div
+      className="cursor-pointer select-none"
+      style={{ perspective: "1000px", width: "280px", height: "380px" }}
+      onClick={() => setIsFlipped(!isFlipped)}
+      data-testid="baseball-card"
+    >
+      <div
+        className="relative w-full h-full transition-transform duration-500"
+        style={{
+          transformStyle: "preserve-3d",
+          transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)",
+        }}
+      >
+        {/* FRONT */}
+        <div
+          className="absolute inset-0 rounded-md overflow-hidden"
+          style={{
+            backfaceVisibility: "hidden",
+            border: "4px solid #f97316",
+          }}
+        >
+          <div className="relative w-full h-full bg-neutral-300 dark:bg-neutral-700 flex flex-col">
+            {/* Handlz logo badge */}
+            <div className="absolute top-3 left-3 z-20 w-9 h-9 rounded-md bg-orange-500 flex items-center justify-center shadow-md">
+              <span className="text-white font-black text-sm tracking-tight">H</span>
+            </div>
+
+            {/* Avatar area */}
+            <div className="flex-1 flex items-center justify-center overflow-hidden">
+              <img
+                src={avatarUrl}
+                alt="Player"
+                className="w-full h-full object-cover"
+                style={{ objectPosition: "center 20%" }}
+              />
+            </div>
+
+            {/* Bottom name bar */}
+            <div className="bg-gradient-to-r from-orange-600 to-orange-500 px-4 py-3 flex items-end justify-between">
+              <div>
+                <p className="text-white font-bold text-base uppercase tracking-wide leading-tight">
+                  {profile.schoolName || profile.teamName || "Player"}
+                </p>
+                <p className="text-orange-200 text-xs uppercase tracking-wider">
+                  {profile.positions?.join(" / ") || "Basketball"}
+                </p>
+              </div>
+              <span className="text-white/80 text-sm font-bold">
+                '{new Date().getFullYear().toString().slice(-2)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* BACK */}
+        <div
+          className="absolute inset-0 rounded-md overflow-hidden"
+          style={{
+            backfaceVisibility: "hidden",
+            transform: "rotateY(180deg)",
+            border: "4px solid #f97316",
+          }}
+        >
+          <div className="w-full h-full flex flex-col bg-background">
+            {/* Header strip */}
+            <div className="bg-gradient-to-r from-orange-600 to-orange-500 px-4 py-2.5 flex items-center justify-between">
+              <div>
+                <p className="text-white font-bold text-sm uppercase tracking-wide leading-tight">
+                  {profile.schoolName || profile.teamName || "Player"}
+                </p>
+                <p className="text-orange-200 text-[10px] uppercase tracking-wider">
+                  {profile.positions?.join(" / ") || "Basketball"} {profile.jerseyNumber != null ? `#${profile.jerseyNumber}` : ""}
+                </p>
+              </div>
+              <div className="w-7 h-7 rounded-md bg-white/20 flex items-center justify-center">
+                <span className="text-white font-black text-xs">H</span>
+              </div>
+            </div>
+
+            {/* Stats section */}
+            <div className="flex-1 overflow-auto px-3 py-2">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
+                Season Averages
+              </p>
+
+              {seasonBreakdown.length > 0 ? (
+                <div className="space-y-0">
+                  {/* Table header */}
+                  <div className="grid grid-cols-7 gap-0.5 text-[9px] font-bold uppercase text-muted-foreground border-b pb-1 mb-1">
+                    <span className="col-span-2">Season</span>
+                    <span className="text-center">GP</span>
+                    <span className="text-center">PPG</span>
+                    <span className="text-center">RPG</span>
+                    <span className="text-center">APG</span>
+                    <span className="text-center">SPG</span>
+                  </div>
+
+                  {/* Season rows */}
+                  {seasonBreakdown.map((s, i) => (
+                    <div key={i} className="grid grid-cols-7 gap-0.5 text-[10px] py-0.5 border-b border-border/30 last:border-0">
+                      <span className="col-span-2 font-medium truncate" title={s.seasonName}>
+                        {SEASON_TYPE_LABELS[s.seasonType] ? SEASON_TYPE_LABELS[s.seasonType].split(" ")[0] : s.seasonType} '{s.year?.slice(-2) || ""}
+                      </span>
+                      <span className="text-center">{s.gamesPlayed}</span>
+                      <span className="text-center font-semibold text-orange-500">{s.avgPoints?.toFixed(1)}</span>
+                      <span className="text-center">{s.avgRebounds?.toFixed(1)}</span>
+                      <span className="text-center">{s.avgAssists?.toFixed(1)}</span>
+                      <span className="text-center">{s.avgSteals?.toFixed(1)}</span>
+                    </div>
+                  ))}
+
+                  {/* Career totals */}
+                  {careerStats && careerStats.totalGames > 0 && (
+                    <>
+                      <div className="grid grid-cols-7 gap-0.5 text-[10px] py-1 mt-1 border-t-2 font-bold">
+                        <span className="col-span-2 text-orange-500">CAREER</span>
+                        <span className="text-center">{careerStats.totalGames}</span>
+                        <span className="text-center text-orange-500">{careerStats.avgPoints?.toFixed(1)}</span>
+                        <span className="text-center">{careerStats.avgRebounds?.toFixed(1)}</span>
+                        <span className="text-center">{careerStats.avgAssists?.toFixed(1)}</span>
+                        <span className="text-center">{careerStats.avgSteals?.toFixed(1)}</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-6 text-center">
+                  <BarChart3 className="w-8 h-8 text-muted-foreground/30 mb-2" />
+                  <p className="text-xs text-muted-foreground">No seasons yet</p>
+                  <p className="text-[10px] text-muted-foreground/60 mt-1">
+                    Add seasons in the Stats tab to see your stats here
+                  </p>
+                </div>
+              )}
+
+              {/* Career highlights */}
+              {careerStats && careerStats.totalGames > 0 && (
+                <div className="mt-2 pt-2 border-t">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
+                    Career Totals
+                  </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-orange-500">{careerStats.totalPoints}</p>
+                      <p className="text-[9px] text-muted-foreground uppercase">Points</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-lg font-bold">{careerStats.totalRebounds}</p>
+                      <p className="text-[9px] text-muted-foreground uppercase">Rebounds</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-lg font-bold">{careerStats.totalAssists}</p>
+                      <p className="text-[9px] text-muted-foreground uppercase">Assists</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-3 py-1.5 border-t bg-muted/30 flex items-center justify-between">
+              <span className="text-[9px] text-muted-foreground uppercase tracking-widest font-bold">Handlz</span>
+              <span className="text-[9px] text-muted-foreground">Tap to flip</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1830,6 +2007,10 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
     queryKey: ['/api/stats/overview']
   });
 
+  const { data: careerStats } = useQuery<CareerStats>({
+    queryKey: ['/api/career-stats']
+  });
+
   const { data: achievements } = useQuery<Array<UserAchievement & { achievement: CareerAchievement }>>({
     queryKey: ['/api/achievements/unlocked']
   });
@@ -1895,25 +2076,16 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
-      <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 text-center sm:text-left">
-        <PlayerAvatar 
-          skinTone={profile.avatarSkinTone || undefined}
-          hairStyle={profile.avatarHairStyle || undefined}
-          hairColor={profile.avatarHairColor || undefined}
-          jerseyNumber={profile.jerseyNumber || undefined}
-          size="lg"
-          seed={profile.id}
-        />
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">My Career</h1>
-          <div className="flex items-center justify-center sm:justify-start gap-2 sm:gap-4 mt-2 flex-wrap">
-            <Badge variant="secondary" className="text-base sm:text-lg px-3 py-1">
-              Level {profile.level || 1}
-            </Badge>
-            <span className="text-muted-foreground text-sm sm:text-base">
-              {profile.totalXp || 0} Total XP
-            </span>
-          </div>
+      <div className="flex flex-col items-center gap-4 text-center">
+        <h1 className="text-2xl sm:text-3xl font-bold">My Career</h1>
+        <BaseballCard profile={profile} careerStats={careerStats} />
+        <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
+          <Badge variant="secondary" className="text-base sm:text-lg px-3 py-1">
+            Level {profile.level || 1}
+          </Badge>
+          <span className="text-muted-foreground text-sm sm:text-base">
+            {profile.totalXp || 0} Total XP
+          </span>
         </div>
       </div>
 
