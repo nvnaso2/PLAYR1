@@ -156,7 +156,12 @@ export default function ProgressPage() {
   });
 
   const { data: trainingStats } = useQuery<Record<string, number>>({
-    queryKey: ['/api/stats/dashboard-training'],
+    queryKey: ['/api/stats/dashboard-training', timePeriod],
+    queryFn: async () => {
+      const res = await fetch(`/api/stats/dashboard-training?period=${timePeriod}`);
+      if (!res.ok) throw new Error("Failed to fetch training stats");
+      return res.json();
+    }
   });
 
   // Convert shot stats to ShotData format for heatmap

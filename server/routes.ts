@@ -1068,7 +1068,8 @@ export async function registerRoutes(
   app.get("/api/stats/dashboard-training", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const stats = await storage.getDashboardTrainingStats(userId);
+      const period = (req.query.period as string) || "weekly";
+      const stats = await storage.getDashboardTrainingStats(userId, period);
       res.json(stats);
     } catch (error) {
       console.error("Error fetching dashboard training stats:", error);

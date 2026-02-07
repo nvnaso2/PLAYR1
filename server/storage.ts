@@ -691,12 +691,16 @@ export class DatabaseStorage implements IStorage {
       .sort((a, b) => b.minutes - a.minutes);
   }
 
-  async getDashboardTrainingStats(userId: string): Promise<Record<string, number>> {
+  async getDashboardTrainingStats(userId: string, period: string = "weekly"): Promise<Record<string, number>> {
     const result: Record<string, number> = {};
+    const startDate = this.getDateRangeForPeriod(period);
 
     const logs = await db.select()
       .from(trainingLogs)
-      .where(eq(trainingLogs.userId, userId));
+      .where(and(
+        eq(trainingLogs.userId, userId),
+        gte(trainingLogs.completedAt, startDate)
+      ));
 
     let totalShotsMade = 0;
     let threePointersMade = 0;
