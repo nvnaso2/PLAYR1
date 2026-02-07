@@ -74,13 +74,18 @@ import {
   MoreVertical,
   Timer,
   Square,
-  Check
+  Check,
+  Trophy,
+  Medal,
+  Trash2
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Drill, TrainingLog, DrillMetric, MetricTemplate, Workout, WorkoutDrill, ShotLocation, Challenge, UserChallenge } from "@shared/schema";
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, SHOT_LOCATIONS, LOCATION_CLASSIFICATIONS, insertDrillSchema, insertWorkoutSchema } from "@shared/schema";
 import { HalfCourtMap, ShotChartButton, type ShotData } from "@/components/half-court-map";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 
 type DrillMetricWithTemplate = DrillMetric & { template: MetricTemplate };
 
@@ -137,6 +142,17 @@ export default function TrainingLogPage() {
   const [selectedMetricTemplateIds, setSelectedMetricTemplateIds] = useState<string[]>([]);
   const [activeLibraryTab, setActiveLibraryTab] = useState("personal-drills");
   const [activeView, setActiveView] = useState<"library" | "workout" | "history">("library");
+  const [showChallengeDialog, setShowChallengeDialog] = useState(false);
+  const [newChallenge, setNewChallenge] = useState({
+    name: "",
+    description: "",
+    category: "shooting" as "shooting" | "ball-handling" | "passing" | "workout",
+    metric: "makes" as "makes" | "dribbles" | "passes" | "reps" | "time" | "score",
+    goalType: "total" as "total" | "consecutive" | "timed",
+    targetValue: 100,
+    timeLimit: undefined as number | undefined
+  });
+  const [challengesSectionOpen, setChallengesSectionOpen] = useState(true);
   
   // Timer state: tracks which rounds have active timers
   const [activeTimers, setActiveTimers] = useState<Record<number, number>>({}); // index -> start timestamp
@@ -289,6 +305,10 @@ export default function TrainingLogPage() {
     queryKey: ['/api/challenges/my-challenges'],
   });
 
+  const { data: allChallenges } = useQuery<Challenge[]>({
+    queryKey: ['/api/challenges']
+  });
+
   // Group drills by category
   const groupByCategory = (drills: Drill[]) => {
     const grouped: Record<string, Drill[]> = {};
@@ -394,6 +414,64 @@ export default function TrainingLogPage() {
     onError: () => {
       toast({ title: "Failed to save workout", variant: "destructive" });
     },
+  });
+
+  const createChallengeMutation = useMutation({
+    mutationFn: async (data: typeof newChallenge) => {
+      const res = await apiRequest("POST", '/api/challenges', data);
+      const challenge = await res.json();
+      await apiRequest("POST", `/api/challenges/${challenge.id}/start`);
+      return challenge;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/challenges'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/challenges/my-challenges'] });
+      setShowChallengeDialog(false);
+      setNewChallenge({
+        name: "",
+        description: "",
+        category: "shooting",
+        metric: "makes",
+        goalType: "total",
+        targetValue: 100,
+        timeLimit: undefined
+      });
+      toast({
+        title: "Challenge Started!",
+        description: "Your challenge is now active and ready to track!",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to create challenge. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const startChallengeMutation = useMutation({
+    mutationFn: async (challengeId: string) => {
+      return await apiRequest("POST", `/api/challenges/${challengeId}/start`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/challenges/my-challenges'] });
+      toast({
+        title: "Challenge Started",
+        description: "Good luck with your challenge!",
+      });
+    }
+  });
+
+  const deleteChallengeMutation = useMutation({
+    mutationFn: async (challengeId: string) => {
+      return await apiRequest("DELETE", `/api/challenges/${challengeId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/challenges'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/challenges/my-challenges'] });
+      toast({ title: "Challenge deleted" });
+    }
   });
 
   // Create training log mutation
@@ -1366,6 +1444,249 @@ export default function TrainingLogPage() {
           </Dialog>
         </div>
       </div>
+
+      {/* My Challenges Section */}
+      <Collapsible open={challengesSectionOpen} onOpenChange={setChallengesSectionOpen}>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap space-y-0 pb-2">
+            <CollapsibleTrigger className="flex items-center gap-2 cursor-pointer">
+              <Trophy className="w-5 h-5 text-primary" />
+              <CardTitle className="text-lg">My Challenges</CardTitle>
+              <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${challengesSectionOpen ? '' : '-rotate-90'}`} />
+            </CollapsibleTrigger>
+            <Dialog open={showChallengeDialog} onOpenChange={setShowChallengeDialog}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="gap-2" data-testid="button-create-challenge">
+                  <Plus className="w-4 h-4" />
+                  Create Challenge
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create a New Challenge</DialogTitle>
+                  <DialogDescription>
+                    Set a goal and track your progress
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Challenge Name</Label>
+                    <Input
+                      placeholder="e.g., 100 Three-Pointers"
+                      value={newChallenge.name}
+                      onChange={(e) => setNewChallenge({ ...newChallenge, name: e.target.value })}
+                      data-testid="input-challenge-name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Description</Label>
+                    <Textarea
+                      placeholder="Describe your challenge..."
+                      value={newChallenge.description}
+                      onChange={(e) => setNewChallenge({ ...newChallenge, description: e.target.value })}
+                      data-testid="input-challenge-description"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Category</Label>
+                      <Select
+                        value={newChallenge.category}
+                        onValueChange={(v) => setNewChallenge({ ...newChallenge, category: v as typeof newChallenge.category })}
+                      >
+                        <SelectTrigger data-testid="select-challenge-category">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="shooting">Shooting</SelectItem>
+                          <SelectItem value="ball-handling">Ball Handling</SelectItem>
+                          <SelectItem value="passing">Passing</SelectItem>
+                          <SelectItem value="workout">Workout</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Metric</Label>
+                      <Select
+                        value={newChallenge.metric}
+                        onValueChange={(v) => setNewChallenge({ ...newChallenge, metric: v as typeof newChallenge.metric })}
+                      >
+                        <SelectTrigger data-testid="select-challenge-metric">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="makes">Makes</SelectItem>
+                          <SelectItem value="dribbles">Dribbles</SelectItem>
+                          <SelectItem value="passes">Passes</SelectItem>
+                          <SelectItem value="reps">Reps</SelectItem>
+                          <SelectItem value="time">Time</SelectItem>
+                          <SelectItem value="score">Score</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Goal Type</Label>
+                      <Select
+                        value={newChallenge.goalType}
+                        onValueChange={(v) => setNewChallenge({ ...newChallenge, goalType: v as typeof newChallenge.goalType })}
+                      >
+                        <SelectTrigger data-testid="select-challenge-goal-type">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="total">Total</SelectItem>
+                          <SelectItem value="consecutive">Consecutive</SelectItem>
+                          <SelectItem value="timed">Timed</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Target Value</Label>
+                      <Input
+                        type="number"
+                        value={newChallenge.targetValue}
+                        onChange={(e) => setNewChallenge({ ...newChallenge, targetValue: parseInt(e.target.value) || 0 })}
+                        data-testid="input-challenge-target"
+                      />
+                    </div>
+                  </div>
+                  {newChallenge.goalType === "timed" && (
+                    <div className="space-y-2">
+                      <Label>Time Limit (minutes)</Label>
+                      <Input
+                        type="number"
+                        placeholder="e.g., 30"
+                        value={newChallenge.timeLimit ?? ""}
+                        onChange={(e) => setNewChallenge({ ...newChallenge, timeLimit: e.target.value ? parseInt(e.target.value) : undefined })}
+                        data-testid="input-challenge-time-limit"
+                      />
+                    </div>
+                  )}
+                </div>
+                <DialogFooter>
+                  <Button
+                    onClick={() => createChallengeMutation.mutate(newChallenge)}
+                    disabled={!newChallenge.name || createChallengeMutation.isPending}
+                    data-testid="button-submit-challenge"
+                  >
+                    {createChallengeMutation.isPending ? "Creating..." : "Create & Start"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </CardHeader>
+          <CollapsibleContent>
+            <CardContent className="pt-2">
+              {(() => {
+                const inProgressChallenges = activeChallenges?.filter(uc => !uc.isCompleted) || [];
+                const startedChallengeIds = new Set(activeChallenges?.map(uc => uc.challengeId) || []);
+                const availableChallenges = allChallenges?.filter(c => !startedChallengeIds.has(c.id)) || [];
+
+                if (inProgressChallenges.length === 0 && availableChallenges.length === 0) {
+                  return (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Trophy className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                      <p className="font-medium">No challenges yet</p>
+                      <p className="text-sm mt-1">Create a challenge to start tracking your goals!</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-4">
+                    {inProgressChallenges.length > 0 && (
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                          <Medal className="w-4 h-4" />
+                          Active Challenges
+                        </h4>
+                        {inProgressChallenges.map(uc => {
+                          const progressPercent = Math.min(100, Math.round(((uc.currentValue || 0) / (uc.challenge.targetValue || 1)) * 100));
+                          return (
+                            <div
+                              key={uc.id}
+                              className="p-3 rounded-md border space-y-2"
+                              data-testid={`challenge-item-${uc.id}`}
+                            >
+                              <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <div>
+                                  <p className="font-medium text-sm">{uc.challenge.name}</p>
+                                  {uc.challenge.description && (
+                                    <p className="text-xs text-muted-foreground">{uc.challenge.description}</p>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="outline" className="text-xs">
+                                    {uc.challenge.category}
+                                  </Badge>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() => deleteChallengeMutation.mutate(uc.challengeId)}
+                                  >
+                                    <Trash2 className="w-4 h-4 text-muted-foreground" />
+                                  </Button>
+                                </div>
+                              </div>
+                              <div className="space-y-1">
+                                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                  <span>{uc.currentValue || 0} / {uc.challenge.targetValue} {uc.challenge.metric}</span>
+                                  <span>{progressPercent}%</span>
+                                </div>
+                                <Progress value={progressPercent} />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {availableChallenges.length > 0 && (
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                          <Target className="w-4 h-4" />
+                          Available Challenges
+                        </h4>
+                        {availableChallenges.map(challenge => (
+                          <div
+                            key={challenge.id}
+                            className="p-3 rounded-md border flex items-center justify-between gap-2 flex-wrap"
+                            data-testid={`available-challenge-${challenge.id}`}
+                          >
+                            <div>
+                              <p className="font-medium text-sm">{challenge.name}</p>
+                              {challenge.description && (
+                                <p className="text-xs text-muted-foreground">{challenge.description}</p>
+                              )}
+                              <div className="flex items-center gap-2 mt-1">
+                                <Badge variant="outline" className="text-xs">{challenge.category}</Badge>
+                                <span className="text-xs text-muted-foreground">
+                                  {challenge.targetValue} {challenge.metric}
+                                </span>
+                              </div>
+                            </div>
+                            <Button
+                              variant="outline"
+                              onClick={() => startChallengeMutation.mutate(challenge.id)}
+                              disabled={startChallengeMutation.isPending}
+                              data-testid={`button-start-challenge-${challenge.id}`}
+                            >
+                              <Play className="w-4 h-4 mr-1" />
+                              Start
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
       {/* Main Content Area */}
       {activeView === "library" && !workoutInProgress && (
