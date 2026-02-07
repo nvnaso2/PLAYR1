@@ -728,7 +728,7 @@ function BaseballCard({ profile, careerStats, onPhotoUpdated, userName }: { prof
     : allSeasons.filter(s => s.seasonType === seasonFilter);
   const frontW = 280;
   const frontH = 400;
-  const backW = 500;
+  const backW = 400;
   const backH = 280;
 
   const photoSrc = profile.cardPhotoUrl
@@ -845,9 +845,9 @@ function BaseballCard({ profile, careerStats, onPhotoUpdated, userName }: { prof
             </label>
 
             <div className="absolute bottom-0 left-0 right-0">
-              <div className="px-3 py-2" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.95) 60%, rgba(0,0,0,0.7) 85%, transparent 100%)" }}>
+              <div className="px-3 py-2 text-left" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.95) 60%, rgba(0,0,0,0.7) 85%, transparent 100%)" }}>
                 {userName && (
-                  <p className="text-white font-black text-base uppercase tracking-wide leading-none truncate" data-testid="text-card-player-name">
+                  <p className="text-gray-300 font-semibold text-base uppercase tracking-wider leading-none truncate" data-testid="text-card-player-name">
                     {userName}
                   </p>
                 )}
