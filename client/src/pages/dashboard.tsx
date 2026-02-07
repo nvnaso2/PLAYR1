@@ -19,7 +19,8 @@ import {
   Shield,
   Brain,
   Dumbbell,
-  Flame
+  Flame,
+  BarChart3
 } from "lucide-react";
 import type { Drill, TrainingLog, UserProfile } from "@shared/schema";
 import bannerImage from "@assets/Top_1769377436234.png";
@@ -219,7 +220,7 @@ export default function Dashboard() {
             <p className="text-white/80 max-w-md">
               Ready to put in the work? Your training journey continues here.
             </p>
-            <div className="flex gap-3 mt-4">
+            <div className="flex gap-3 mt-4 flex-wrap">
               <Link href="/drills">
                 <Button className="gap-2" data-testid="button-start-training">
                   <Play className="w-4 h-4" />
@@ -230,6 +231,12 @@ export default function Dashboard() {
                 <Button variant="outline" className="gap-2 bg-white/10 border-white/20 text-white hover:bg-white/20" data-testid="button-log-session">
                   <Clock className="w-4 h-4" />
                   Log Session
+                </Button>
+              </Link>
+              <Link href="/log?tab=history">
+                <Button variant="outline" className="gap-2 bg-white/10 border-white/20 text-white hover:bg-white/20" data-testid="button-log-stats">
+                  <BarChart3 className="w-4 h-4" />
+                  Log Stats
                 </Button>
               </Link>
             </div>

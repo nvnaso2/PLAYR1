@@ -235,6 +235,14 @@ export default function TrainingLogPage() {
   const drillParamHandled = useRef(false);
   
   useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get('tab');
+    if (tabParam === 'workout' || tabParam === 'history' || tabParam === 'library') {
+      setActiveView(tabParam);
+    }
+  }, []);
+
+  useEffect(() => {
     // Only handle the drill param once and when drills are loaded
     if (drillParamHandled.current || !allDrills || allDrills.length === 0) return;
     
