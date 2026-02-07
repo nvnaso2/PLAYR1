@@ -78,7 +78,7 @@ export interface IStorage {
   }>;
   getWeeklyStats(userId: string, period?: string): Promise<{ date: string; minutes: number; sessions: number }[]>;
   getCategoryStats(userId: string, period?: string): Promise<{ category: string; minutes: number; sessions: number }[]>;
-  getDashboardTrainingStats(userId: string): Promise<Record<string, number>>;
+  getDashboardTrainingStats(userId: string, period?: string): Promise<Record<string, number>>;
 
   // Benchmarks
   getBenchmarks(): Promise<Benchmark[]>;
