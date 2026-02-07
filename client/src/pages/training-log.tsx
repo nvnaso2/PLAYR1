@@ -142,6 +142,7 @@ export default function TrainingLogPage() {
   const [selectedMetricTemplateIds, setSelectedMetricTemplateIds] = useState<string[]>([]);
   const [activeLibraryTab, setActiveLibraryTab] = useState("personal-drills");
   const [activeView, setActiveView] = useState<"library" | "workout" | "history">("library");
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
   const [showChallengeDialog, setShowChallengeDialog] = useState(false);
   const [newChallenge, setNewChallenge] = useState({
     name: "",
@@ -1183,43 +1184,86 @@ export default function TrainingLogPage() {
       );
     }
 
+    const toggleCategory = (category: string) => {
+      setCollapsedCategories(prev => {
+        const next = new Set(prev);
+        if (next.has(category)) {
+          next.delete(category);
+        } else {
+          next.add(category);
+        }
+        return next;
+      });
+    };
+
+    const selectedInCategory = (drills: Drill[]) => 
+      drills.filter(d => selectedDrillIds.has(d.id)).length;
+
     return (
-      <div className="space-y-6">
-        {Object.entries(drillsByCategory).map(([category, categoryDrills]) => (
-          <div key={category}>
-            <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide mb-3">
-              {formatCategory(category)}
-            </h3>
-            <div className="grid gap-2">
-              {categoryDrills.map(drill => (
-                <div 
-                  key={drill.id}
-                  className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover-elevate ${
-                    selectedDrillIds.has(drill.id) ? 'border-primary bg-primary/5' : ''
-                  }`}
-                  onClick={() => toggleDrillSelection(drill.id)}
-                  data-testid={`drill-select-${drill.id}`}
-                >
-                  <Checkbox 
-                    checked={selectedDrillIds.has(drill.id)}
-                    onCheckedChange={() => toggleDrillSelection(drill.id)}
-                    className="mt-1"
-                    data-testid={`checkbox-drill-${drill.id}`}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2 flex-wrap">
-                      <span className="font-medium">{drill.title}</span>
-                      <Badge variant="secondary" className="shrink-0">{drill.difficulty}</Badge>
-                    </div>
-                    {drill.description && (
-                      <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">{drill.description}</p>
-                    )}
-                  </div>
+      <div className="space-y-2">
+        {Object.entries(drillsByCategory).map(([category, categoryDrills]) => {
+          const isCollapsed = collapsedCategories.has(category);
+          const selectedCount = selectedInCategory(categoryDrills);
+          return (
+            <div key={category} className="border rounded-md">
+              <button
+                type="button"
+                onClick={() => toggleCategory(category)}
+                className="flex items-center justify-between gap-2 w-full p-3 text-left hover-elevate rounded-md"
+                data-testid={`toggle-category-${category}`}
+              >
+                <div className="flex items-center gap-2">
+                  {isCollapsed ? (
+                    <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                  )}
+                  <span className="font-semibold text-sm uppercase tracking-wide">
+                    {formatCategory(category)}
+                  </span>
+                  <Badge variant="outline" className="text-xs">
+                    {categoryDrills.length}
+                  </Badge>
                 </div>
-              ))}
+                {selectedCount > 0 && (
+                  <Badge variant="default" className="text-xs" data-testid={`badge-selected-${category}`}>
+                    {selectedCount} selected
+                  </Badge>
+                )}
+              </button>
+              {!isCollapsed && (
+                <div className="grid gap-2 px-3 pb-3">
+                  {categoryDrills.map(drill => (
+                    <div 
+                      key={drill.id}
+                      className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover-elevate ${
+                        selectedDrillIds.has(drill.id) ? 'border-primary bg-primary/5' : ''
+                      }`}
+                      onClick={() => toggleDrillSelection(drill.id)}
+                      data-testid={`drill-select-${drill.id}`}
+                    >
+                      <Checkbox 
+                        checked={selectedDrillIds.has(drill.id)}
+                        onCheckedChange={() => toggleDrillSelection(drill.id)}
+                        className="mt-1"
+                        data-testid={`checkbox-drill-${drill.id}`}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2 flex-wrap">
+                          <span className="font-medium">{drill.title}</span>
+                          <Badge variant="secondary" className="shrink-0">{drill.difficulty}</Badge>
+                        </div>
+                        {drill.description && (
+                          <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">{drill.description}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     );
   };
