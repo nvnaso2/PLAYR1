@@ -24,7 +24,7 @@ import {
 } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
-import { eq, desc, and, sql, gte } from "drizzle-orm";
+import { eq, desc, and, sql, gte, isNotNull } from "drizzle-orm";
 
 export interface IStorage {
   // Drills
@@ -34,6 +34,8 @@ export interface IStorage {
   getDrillsByCategory(category: string): Promise<Drill[]>;
   getDrillsForUser(userId: string): Promise<Drill[]>; // Admin drills + user's own drills
   getUserDrills(userId: string): Promise<Drill[]>; // Only user's own drills
+  getCommunityDrills(): Promise<Drill[]>; // Shared user drills
+  toggleDrillSharing(id: string, isShared: boolean): Promise<Drill | undefined>;
   createDrill(drill: InsertDrill): Promise<Drill>;
   updateDrill(id: string, drill: Partial<InsertDrill>): Promise<Drill | undefined>;
   deleteDrill(id: string): Promise<boolean>;
@@ -231,6 +233,23 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(drills)
       .where(eq(drills.userId, userId))
       .orderBy(desc(drills.createdAt));
+  }
+
+  async getCommunityDrills(): Promise<Drill[]> {
+    return await db.select().from(drills)
+      .where(and(
+        isNotNull(drills.userId),
+        eq(drills.isShared, true)
+      ))
+      .orderBy(desc(drills.createdAt));
+  }
+
+  async toggleDrillSharing(id: string, isShared: boolean): Promise<Drill | undefined> {
+    const [updated] = await db.update(drills)
+      .set({ isShared })
+      .where(eq(drills.id, id))
+      .returning();
+    return updated;
   }
 
   async createDrill(drill: InsertDrill): Promise<Drill> {

@@ -54,6 +54,41 @@ export async function registerRoutes(
     }
   });
 
+  // Get community drills (shared by other users)
+  app.get("/api/drills/community", async (req, res) => {
+    try {
+      const drills = await storage.getCommunityDrills();
+      res.json(drills);
+    } catch (error) {
+      console.error("Error fetching community drills:", error);
+      res.status(500).json({ message: "Failed to fetch community drills" });
+    }
+  });
+
+  // Toggle drill sharing with community
+  app.put("/api/drills/:id/share", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const drill = await storage.getDrillById(req.params.id);
+      if (!drill) {
+        return res.status(404).json({ message: "Drill not found" });
+      }
+      if (drill.userId !== userId) {
+        return res.status(403).json({ message: "You can only share your own drills" });
+      }
+      const shareSchema = z.object({ isShared: z.boolean() });
+      const parsed = shareSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "isShared must be a boolean" });
+      }
+      const updated = await storage.toggleDrillSharing(req.params.id, parsed.data.isShared);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error toggling drill sharing:", error);
+      res.status(500).json({ message: "Failed to update sharing" });
+    }
+  });
+
   // Get single drill
   app.get("/api/drills/:id", async (req, res) => {
     try {

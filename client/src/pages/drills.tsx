@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation, useSearch } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -15,9 +16,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DrillCard } from "@/components/drill-card";
+import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { 
   Search, 
-  Filter, 
   Grid3X3, 
   List,
   Play,
@@ -27,7 +30,10 @@ import {
   Shield,
   Brain,
   Dumbbell,
-  Flame
+  Flame,
+  Users,
+  User,
+  Share2
 } from "lucide-react";
 import type { Drill, DrillCategory, DifficultyLevel } from "@shared/schema";
 
@@ -42,41 +48,166 @@ const categoryInfo: Record<string, { label: string; icon: React.ReactNode; color
   "workouts": { label: "Workouts", icon: <Dumbbell className="w-4 h-4" />, color: "#14b8a6" },
 };
 
+function DrillGrid({ drills, viewMode, searchQuery, isLoading, showShareToggle, onToggleShare }: { 
+  drills: Drill[] | undefined; 
+  viewMode: "grid" | "list"; 
+  searchQuery: string;
+  isLoading: boolean;
+  showShareToggle?: boolean;
+  onToggleShare?: (drillId: string, isShared: boolean) => void;
+}) {
+  if (isLoading) {
+    return (
+      <div className={viewMode === "grid" 
+        ? "grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" 
+        : "space-y-4"
+      }>
+        {[...Array(8)].map((_, i) => (
+          <Card key={i}>
+            <Skeleton className="aspect-video" />
+            <CardContent className="p-4 space-y-2">
+              <Skeleton className="h-5 w-3/4" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-1/2" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
+
+  if (!drills || drills.length === 0) {
+    return (
+      <Card>
+        <CardContent className="p-12 text-center">
+          <Play className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
+          <h3 className="font-semibold text-lg mb-2">No Drills Found</h3>
+          <p className="text-muted-foreground mb-4 max-w-md mx-auto">
+            {searchQuery 
+              ? `No drills match "${searchQuery}". Try a different search term.`
+              : "No drills available in this category yet. Check back soon!"}
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <>
+      <div className={viewMode === "grid" 
+        ? "grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" 
+        : "space-y-4"
+      }>
+        {drills.map((drill) => (
+          <div key={drill.id} className="relative">
+            <DrillCard drill={drill} />
+            {showShareToggle && onToggleShare && (
+              <div 
+                className="mt-2 flex items-center justify-between gap-2 px-2 py-1.5 rounded-md bg-muted/50"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Share2 className="w-3.5 h-3.5" />
+                  <span>Share with Community</span>
+                </div>
+                <Switch
+                  checked={drill.isShared || false}
+                  onCheckedChange={(checked) => onToggleShare(drill.id, checked)}
+                  data-testid={`switch-share-drill-${drill.id}`}
+                />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="text-center text-sm text-muted-foreground">
+        Showing {drills.length} {drills.length === 1 ? 'drill' : 'drills'}
+      </div>
+    </>
+  );
+}
+
 export default function Drills() {
   const searchParams = useSearch();
   const urlCategory = new URLSearchParams(searchParams).get('category') || 'all';
+  const urlTab = new URLSearchParams(searchParams).get('tab') || 'handlz';
   
+  const [activeTab, setActiveTab] = useState(urlTab);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState(urlCategory);
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const { user } = useAuth();
+  const { toast } = useToast();
 
   const { data: drills, isLoading } = useQuery<Drill[]>({
     queryKey: ['/api/drills'],
   });
 
-  const filteredDrills = useMemo(() => {
-    if (!drills) return [];
-    
-    return drills.filter(drill => {
+  const { data: communityDrills, isLoading: communityLoading } = useQuery<Drill[]>({
+    queryKey: ['/api/drills/community'],
+  });
+
+  const shareMutation = useMutation({
+    mutationFn: async ({ drillId, isShared }: { drillId: string; isShared: boolean }) => {
+      await apiRequest("PUT", `/api/drills/${drillId}/share`, { isShared });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/drills'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/drills/community'] });
+    },
+    onError: () => {
+      toast({ title: "Failed to update sharing", variant: "destructive" });
+    },
+  });
+
+  const handleToggleShare = (drillId: string, isShared: boolean) => {
+    shareMutation.mutate({ drillId, isShared });
+    toast({ 
+      title: isShared ? "Drill shared with community" : "Drill unshared",
+      description: isShared ? "Other players can now see and use this drill." : "This drill is now private.",
+    });
+  };
+
+  const filterDrills = (drillList: Drill[] | undefined) => {
+    if (!drillList) return [];
+    return drillList.filter(drill => {
       const matchesSearch = !searchQuery || 
         drill.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         drill.description?.toLowerCase().includes(searchQuery.toLowerCase());
-      
       const matchesCategory = selectedCategory === 'all' || drill.category === selectedCategory;
       const matchesDifficulty = selectedDifficulty === 'all' || drill.difficulty === selectedDifficulty;
-      
       return matchesSearch && matchesCategory && matchesDifficulty;
     });
-  }, [drills, searchQuery, selectedCategory, selectedDifficulty]);
+  };
+
+  const adminDrills = useMemo(() => {
+    if (!drills) return [];
+    return drills.filter(d => !d.userId);
+  }, [drills]);
+
+  const myDrills = useMemo(() => {
+    if (!drills || !user) return [];
+    return drills.filter(d => d.userId === user.id);
+  }, [drills, user]);
+
+  const filteredHandlzDrills = useMemo(() => filterDrills(adminDrills), [adminDrills, searchQuery, selectedCategory, selectedDifficulty]);
+  const filteredCommunityDrills = useMemo(() => filterDrills(communityDrills), [communityDrills, searchQuery, selectedCategory, selectedDifficulty]);
+  const filteredMyDrills = useMemo(() => filterDrills(myDrills), [myDrills, searchQuery, selectedCategory, selectedDifficulty]);
 
   const categoryStats = useMemo(() => {
-    if (!drills) return {};
-    return drills.reduce((acc, drill) => {
+    const sourceMap: Record<string, Drill[] | undefined> = {
+      'handlz': adminDrills,
+      'community': communityDrills,
+      'my-drills': myDrills,
+    };
+    const source = sourceMap[activeTab];
+    if (!source) return {};
+    return source.reduce((acc, drill) => {
       acc[drill.category] = (acc[drill.category] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
-  }, [drills]);
+  }, [adminDrills, communityDrills, myDrills, activeTab]);
 
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto">
@@ -87,124 +218,134 @@ export default function Drills() {
         </p>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Search drills..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-            data-testid="input-search-drills"
-          />
-        </div>
-        
-        <div className="flex gap-2">
-          <Select value={selectedDifficulty} onValueChange={setSelectedDifficulty}>
-            <SelectTrigger className="w-40" data-testid="select-difficulty">
-              <SelectValue placeholder="Difficulty" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Levels</SelectItem>
-              <SelectItem value="beginner">Beginner</SelectItem>
-              <SelectItem value="intermediate">Intermediate</SelectItem>
-              <SelectItem value="advanced">Advanced</SelectItem>
-              <SelectItem value="elite">Elite</SelectItem>
-            </SelectContent>
-          </Select>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList data-testid="tabs-drill-library">
+          <TabsTrigger value="handlz" data-testid="tab-handlz-drills" className="gap-2">
+            <Target className="w-4 h-4" />
+            <span className="hidden sm:inline">Handlz Drills</span>
+            <span className="sm:hidden">Handlz</span>
+          </TabsTrigger>
+          <TabsTrigger value="community" data-testid="tab-community-drills" className="gap-2">
+            <Users className="w-4 h-4" />
+            Community
+            {communityDrills && communityDrills.length > 0 && (
+              <Badge variant="secondary" className="ml-1 text-xs">{communityDrills.length}</Badge>
+            )}
+          </TabsTrigger>
+          {user && (
+            <TabsTrigger value="my-drills" data-testid="tab-my-drills" className="gap-2">
+              <User className="w-4 h-4" />
+              <span className="hidden sm:inline">My Drills</span>
+              <span className="sm:hidden">Mine</span>
+              {myDrills.length > 0 && (
+                <Badge variant="secondary" className="ml-1 text-xs">{myDrills.length}</Badge>
+              )}
+            </TabsTrigger>
+          )}
+        </TabsList>
 
-          <div className="flex border rounded-md">
-            <Button
-              variant={viewMode === "grid" ? "secondary" : "ghost"}
-              size="icon"
-              onClick={() => setViewMode("grid")}
-              data-testid="button-view-grid"
-            >
-              <Grid3X3 className="w-4 h-4" />
-            </Button>
-            <Button
-              variant={viewMode === "list" ? "secondary" : "ghost"}
-              size="icon"
-              onClick={() => setViewMode("list")}
-              data-testid="button-view-list"
-            >
-              <List className="w-4 h-4" />
-            </Button>
+        <div className="mt-4 space-y-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search drills..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+                data-testid="input-search-drills"
+              />
+            </div>
+            
+            <div className="flex gap-2">
+              <Select value={selectedDifficulty} onValueChange={setSelectedDifficulty}>
+                <SelectTrigger className="w-40" data-testid="select-difficulty">
+                  <SelectValue placeholder="Difficulty" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Levels</SelectItem>
+                  <SelectItem value="beginner">Beginner</SelectItem>
+                  <SelectItem value="intermediate">Intermediate</SelectItem>
+                  <SelectItem value="advanced">Advanced</SelectItem>
+                  <SelectItem value="elite">Elite</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <div className="flex border rounded-md">
+                <Button
+                  variant={viewMode === "grid" ? "secondary" : "ghost"}
+                  size="icon"
+                  onClick={() => setViewMode("grid")}
+                  data-testid="button-view-grid"
+                >
+                  <Grid3X3 className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant={viewMode === "list" ? "secondary" : "ghost"}
+                  size="icon"
+                  onClick={() => setViewMode("list")}
+                  data-testid="button-view-list"
+                >
+                  <List className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      <div className="flex gap-1.5 sm:gap-2 flex-wrap">
-        {Object.entries(categoryInfo).map(([key, { label, icon, color }]) => (
-          <Button
-            key={key}
-            variant={selectedCategory === key ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSelectedCategory(key)}
-            className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3"
-            data-testid={`button-category-${key}`}
-          >
-            {icon}
-            <span className="hidden sm:inline">{label}</span>
-            <span className="sm:hidden">{label.split(' ')[0]}</span>
-            {key !== 'all' && categoryStats[key] && (
-              <Badge variant="secondary" className="ml-0.5 sm:ml-1 text-xs">
-                {categoryStats[key]}
-              </Badge>
-            )}
-          </Button>
-        ))}
-      </div>
-
-      {isLoading ? (
-        <div className={viewMode === "grid" 
-          ? "grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" 
-          : "space-y-4"
-        }>
-          {[...Array(8)].map((_, i) => (
-            <Card key={i}>
-              <Skeleton className="aspect-video" />
-              <CardContent className="p-4 space-y-2">
-                <Skeleton className="h-5 w-3/4" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-1/2" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : filteredDrills.length > 0 ? (
-        <div className={viewMode === "grid" 
-          ? "grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" 
-          : "space-y-4"
-        }>
-          {filteredDrills.map((drill) => (
-            <DrillCard key={drill.id} drill={drill} />
-          ))}
-        </div>
-      ) : (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <Play className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
-            <h3 className="font-semibold text-lg mb-2">No Drills Found</h3>
-            <p className="text-muted-foreground mb-4 max-w-md mx-auto">
-              {searchQuery 
-                ? `No drills match "${searchQuery}". Try a different search term.`
-                : "No drills available in this category yet. Check back soon!"}
-            </p>
-            {searchQuery && (
-              <Button variant="outline" onClick={() => setSearchQuery("")} data-testid="button-clear-search">
-                Clear Search
+          <div className="flex gap-1.5 sm:gap-2 flex-wrap">
+            {Object.entries(categoryInfo).map(([key, { label, icon, color }]) => (
+              <Button
+                key={key}
+                variant={selectedCategory === key ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedCategory(key)}
+                className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3"
+                data-testid={`button-category-${key}`}
+              >
+                {icon}
+                <span className="hidden sm:inline">{label}</span>
+                <span className="sm:hidden">{label.split(' ')[0]}</span>
+                {key !== 'all' && categoryStats[key] && (
+                  <Badge variant="secondary" className="ml-0.5 sm:ml-1 text-xs">
+                    {categoryStats[key]}
+                  </Badge>
+                )}
               </Button>
-            )}
-          </CardContent>
-        </Card>
-      )}
+            ))}
+          </div>
 
-      {filteredDrills.length > 0 && (
-        <div className="text-center text-sm text-muted-foreground">
-          Showing {filteredDrills.length} {filteredDrills.length === 1 ? 'drill' : 'drills'}
+          <TabsContent value="handlz" className="mt-0 space-y-4">
+            <DrillGrid 
+              drills={filteredHandlzDrills} 
+              viewMode={viewMode} 
+              searchQuery={searchQuery}
+              isLoading={isLoading} 
+            />
+          </TabsContent>
+
+          <TabsContent value="community" className="mt-0 space-y-4">
+            <DrillGrid 
+              drills={filteredCommunityDrills} 
+              viewMode={viewMode} 
+              searchQuery={searchQuery}
+              isLoading={communityLoading} 
+            />
+          </TabsContent>
+
+          {user && (
+            <TabsContent value="my-drills" className="mt-0 space-y-4">
+              <DrillGrid 
+                drills={filteredMyDrills} 
+                viewMode={viewMode} 
+                searchQuery={searchQuery}
+                isLoading={isLoading}
+                showShareToggle={true}
+                onToggleShare={handleToggleShare}
+              />
+            </TabsContent>
+          )}
         </div>
-      )}
+      </Tabs>
     </div>
   );
 }

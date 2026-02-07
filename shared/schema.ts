@@ -302,6 +302,7 @@ export const drills = pgTable("drills", {
   tips: text("tips").array(),
   isFeatured: boolean("is_featured").default(false),
   trackShots: boolean("track_shots").default(false), // Enable shot location tracking
+  isShared: boolean("is_shared").default(false), // Share user drill with community
   userId: varchar("user_id"), // null = admin drill, set = user-created drill
   createdAt: timestamp("created_at").defaultNow()
 });
