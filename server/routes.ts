@@ -766,6 +766,20 @@ export async function registerRoutes(
       const userId = req.user.claims.sub;
       const data = insertTrainingLogSchema.parse({ ...req.body, userId });
       const log = await storage.createTrainingLog(data);
+      
+      const prMetrics: { metricName: string; value: number }[] = [];
+      if (log.score && log.score > 0) prMetrics.push({ metricName: "Score", value: log.score });
+      if (log.shotsMade && log.shotsMade > 0) prMetrics.push({ metricName: "Shots Made", value: log.shotsMade });
+      if (log.duration && log.duration > 0) prMetrics.push({ metricName: "Duration (min)", value: log.duration });
+      if (log.reps && log.reps > 0) prMetrics.push({ metricName: "Reps", value: log.reps });
+      if (log.shotsAttempted && log.shotsMade && log.shotsAttempted > 0) {
+        const pct = Math.round((log.shotsMade / log.shotsAttempted) * 100);
+        if (pct > 0) prMetrics.push({ metricName: "Shooting %", value: pct });
+      }
+      if (prMetrics.length > 0) {
+        try { await storage.checkAndCreateDrillPRs(userId, log.drillId, log.id, prMetrics); } catch (e) { console.error("PR check error:", e); }
+      }
+      
       res.status(201).json(log);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -811,6 +825,21 @@ export async function registerRoutes(
       if (metrics && Array.isArray(metrics)) {
         await storage.saveTrainingLogMetrics(req.params.id, metrics);
       }
+      
+      const prMetrics: { metricName: string; value: number }[] = [];
+      const s = updated || log;
+      if (s.score && s.score > 0) prMetrics.push({ metricName: "Score", value: s.score });
+      if (s.shotsMade && s.shotsMade > 0) prMetrics.push({ metricName: "Shots Made", value: s.shotsMade });
+      if (s.duration && s.duration > 0) prMetrics.push({ metricName: "Duration (min)", value: s.duration });
+      if (s.reps && s.reps > 0) prMetrics.push({ metricName: "Reps", value: s.reps });
+      if (s.shotsAttempted && s.shotsMade && s.shotsAttempted > 0) {
+        const pct = Math.round((s.shotsMade / s.shotsAttempted) * 100);
+        if (pct > 0) prMetrics.push({ metricName: "Shooting %", value: pct });
+      }
+      if (prMetrics.length > 0) {
+        try { await storage.checkAndCreateDrillPRs(userId, log.drillId, req.params.id, prMetrics); } catch (e) { console.error("PR check error:", e); }
+      }
+      
       res.json(updated);
     } catch (error) {
       console.error("Error updating training log:", error);
@@ -1008,11 +1037,29 @@ export async function registerRoutes(
   // Save metrics for a training log
   app.post("/api/training-logs/:id/metrics", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const { metrics } = req.body;
       if (!Array.isArray(metrics)) {
         return res.status(400).json({ message: "metrics must be an array" });
       }
       const saved = await storage.saveTrainingLogMetrics(req.params.id, metrics);
+      
+      const log = await storage.getTrainingLog(req.params.id);
+      if (log && log.userId === userId) {
+        const templates = await storage.getMetricTemplates();
+        const prMetrics: { metricName: string; value: number }[] = [];
+        for (const m of saved) {
+          if (m.value !== null && Number(m.value) > 0) {
+            const template = templates.find(t => t.id === m.metricId);
+            const name = template?.name || m.metricId;
+            prMetrics.push({ metricName: name, value: Number(m.value) });
+          }
+        }
+        if (prMetrics.length > 0) {
+          try { await storage.checkAndCreateDrillPRs(userId, log.drillId, req.params.id, prMetrics); } catch (e) { console.error("Metric PR check error:", e); }
+        }
+      }
+      
       res.json(saved);
     } catch (error) {
       console.error("Error saving training log metrics:", error);
@@ -1460,6 +1507,20 @@ export async function registerRoutes(
       };
       const validatedData = insertGameSchema.parse(gameData);
       const game = await storage.createGame(validatedData);
+      
+      try {
+        await storage.checkAndCreateGamePRs(userId, game.id, {
+          points: game.points ?? 0,
+          rebounds: game.rebounds ?? 0,
+          assists: game.assists ?? 0,
+          steals: game.steals ?? 0,
+          blocks: game.blocks ?? 0,
+          fgMade: game.fgMade ?? 0,
+          threePtMade: game.threePtMade ?? 0,
+          ftMade: game.ftMade ?? 0
+        });
+      } catch (e) { console.error("Game PR check error:", e); }
+      
       res.status(201).json(game);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -1481,6 +1542,21 @@ export async function registerRoutes(
       if (!updated) {
         return res.status(404).json({ message: "Game not found" });
       }
+      
+      try {
+        const userId = req.user.claims.sub;
+        await storage.checkAndCreateGamePRs(userId, req.params.id, {
+          points: updated.points ?? 0,
+          rebounds: updated.rebounds ?? 0,
+          assists: updated.assists ?? 0,
+          steals: updated.steals ?? 0,
+          blocks: updated.blocks ?? 0,
+          fgMade: updated.fgMade ?? 0,
+          threePtMade: updated.threePtMade ?? 0,
+          ftMade: updated.ftMade ?? 0
+        });
+      } catch (e) { console.error("Game PR check error:", e); }
+      
       res.json(updated);
     } catch (error) {
       console.error("Error updating game:", error);

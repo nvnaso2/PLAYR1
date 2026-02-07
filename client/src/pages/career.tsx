@@ -1927,6 +1927,7 @@ function TrophyRoomTab({
   profile: CareerProfile;
 }) {
   const defaultOrder: TrophySection[] = ["achievements", "challenges", "prs", "awards", "stats"];
+  if (!profile) return null;
   const savedOrder = profile.trophyRoomOrder as TrophySection[] | null;
   const initialOrder = savedOrder && savedOrder.length === defaultOrder.length && savedOrder.every(s => defaultOrder.includes(s))
     ? savedOrder
@@ -2072,22 +2073,33 @@ function TrophyRoomTab({
             <CardContent>
               {personalRecords && personalRecords.length > 0 ? (
                 <div className="space-y-3">
-                  {personalRecords.map((pr) => (
-                    <div key={pr.id} className="p-3 border rounded-lg flex items-center justify-between" data-testid={`pr-item-${pr.id}`}>
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
-                          <Star className="w-5 h-5 text-amber-500" />
+                  {personalRecords.map((pr) => {
+                    const isGame = pr.source === "game";
+                    const diff = Number(pr.newValue) - Number(pr.previousValue);
+                    return (
+                      <div key={pr.id} className="p-3 border rounded-lg flex items-center justify-between" data-testid={`pr-item-${pr.id}`}>
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isGame ? "bg-orange-500/20" : "bg-amber-500/20"}`}>
+                            <Star className={`w-5 h-5 ${isGame ? "text-orange-500" : "text-amber-500"}`} />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium">{pr.drill?.title || "Game Stats"}</p>
+                              <Badge variant="secondary" className="text-xs">
+                                {isGame ? "Game" : "Drill"}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              {pr.metricName}: {pr.previousValue} → {pr.newValue}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium">{pr.drill.title}</p>
-                          <p className="text-sm text-muted-foreground">{pr.metricName}: {pr.previousValue} → {pr.newValue}</p>
-                        </div>
+                        <Badge variant="outline" className="text-amber-600 border-amber-500/30">
+                          +{diff.toFixed(diff % 1 === 0 ? 0 : 1)}
+                        </Badge>
                       </div>
-                      <Badge variant="outline" className="text-amber-600 border-amber-500/30">
-                        +{(Number(pr.newValue) - Number(pr.previousValue)).toFixed(0)}
-                      </Badge>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="text-center p-8">

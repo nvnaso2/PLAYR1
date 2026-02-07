@@ -1159,23 +1159,100 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Personal Records
-  async getUserPersonalRecords(userId: string): Promise<Array<PersonalRecord & { drill: Drill }>> {
+  async getUserPersonalRecords(userId: string): Promise<Array<PersonalRecord & { drill: { title: string } }>> {
     const results = await db
       .select()
       .from(personalRecords)
-      .innerJoin(drills, eq(personalRecords.drillId, drills.id))
+      .leftJoin(drills, eq(personalRecords.drillId, drills.id))
       .where(eq(personalRecords.userId, userId))
       .orderBy(desc(personalRecords.achievedAt));
     
     return results.map(r => ({
       ...r.personal_records,
-      drill: r.drills
+      drill: { title: r.drills?.title || (r.personal_records.source === "game" ? "Game Stats" : "Unknown") }
     }));
   }
 
   async createPersonalRecord(record: InsertPersonalRecord): Promise<PersonalRecord> {
     const [newRecord] = await db.insert(personalRecords).values(record).returning();
     return newRecord;
+  }
+
+  async checkAndCreateDrillPRs(userId: string, drillId: string, trainingLogId: string, metrics: { metricName: string; value: number }[]): Promise<PersonalRecord[]> {
+    const created: PersonalRecord[] = [];
+    for (const metric of metrics) {
+      if (metric.value <= 0) continue;
+      const existing = await db
+        .select()
+        .from(personalRecords)
+        .where(and(
+          eq(personalRecords.userId, userId),
+          eq(personalRecords.drillId, drillId),
+          eq(personalRecords.metricName, metric.metricName),
+          eq(personalRecords.source, "drill")
+        ))
+        .orderBy(desc(personalRecords.newValue))
+        .limit(1);
+      
+      const currentBest = existing.length > 0 ? Number(existing[0].newValue) : 0;
+      if (metric.value > currentBest) {
+        const pr = await this.createPersonalRecord({
+          userId,
+          drillId,
+          metricName: metric.metricName,
+          previousValue: currentBest.toFixed(2),
+          newValue: metric.value.toFixed(2),
+          trainingLogId,
+          source: "drill"
+        });
+        created.push(pr);
+      }
+    }
+    return created;
+  }
+
+  async checkAndCreateGamePRs(userId: string, gameId: string, stats: Record<string, number>): Promise<PersonalRecord[]> {
+    const created: PersonalRecord[] = [];
+    const statNames: Record<string, string> = {
+      points: "Points",
+      rebounds: "Rebounds",
+      assists: "Assists",
+      steals: "Steals",
+      blocks: "Blocks",
+      fgMade: "FG Made",
+      threePtMade: "3PT Made",
+      ftMade: "FT Made"
+    };
+    
+    for (const [key, label] of Object.entries(statNames)) {
+      const value = stats[key];
+      if (value === undefined || value === null || value <= 0) continue;
+      
+      const existing = await db
+        .select()
+        .from(personalRecords)
+        .where(and(
+          eq(personalRecords.userId, userId),
+          eq(personalRecords.metricName, label),
+          eq(personalRecords.source, "game")
+        ))
+        .orderBy(desc(personalRecords.newValue))
+        .limit(1);
+      
+      const currentBest = existing.length > 0 ? Number(existing[0].newValue) : 0;
+      if (value > currentBest) {
+        const pr = await this.createPersonalRecord({
+          userId,
+          metricName: label,
+          previousValue: currentBest.toFixed(2),
+          newValue: value.toFixed(2),
+          gameId,
+          source: "game"
+        });
+        created.push(pr);
+      }
+    }
+    return created;
   }
 
   // Team Awards

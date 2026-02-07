@@ -181,11 +181,13 @@ export const userChallenges = pgTable("user_challenges", {
 export const personalRecords = pgTable("personal_records", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull(),
-  drillId: varchar("drill_id").notNull(),
-  metricName: varchar("metric_name").notNull(), // e.g., "score", "shots_made", "duration"
+  drillId: varchar("drill_id"),
+  metricName: varchar("metric_name").notNull(),
   previousValue: decimal("previous_value", { precision: 10, scale: 2 }).notNull(),
   newValue: decimal("new_value", { precision: 10, scale: 2 }).notNull(),
-  trainingLogId: varchar("training_log_id"), // Reference to the log that set the record
+  trainingLogId: varchar("training_log_id"),
+  gameId: varchar("game_id"),
+  source: varchar("source").default("drill"),
   achievedAt: timestamp("achieved_at").defaultNow()
 });
 
