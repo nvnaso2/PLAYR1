@@ -1934,6 +1934,7 @@ function TrophyRoomTab({
     ? savedOrder
     : defaultOrder;
   const [sectionOrder, setSectionOrder] = useState<TrophySection[]>(initialOrder);
+  const [collapsedSections, setCollapsedSections] = useState<Set<TrophySection>>(new Set(defaultOrder));
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [overIdx, setOverIdx] = useState<number | null>(null);
   const [statsView, setStatsView] = useState<"averages" | "totals">("averages");
@@ -1990,28 +1991,47 @@ function TrophyRoomTab({
     isDragging.current = false;
   };
 
-  const renderSectionHeader = (icon: React.ReactNode, title: string, action?: React.ReactNode) => (
-    <CardHeader className="cursor-grab active:cursor-grabbing select-none touch-none">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <CardTitle className="text-lg flex items-center gap-2">
-          {icon}
-          {title}
-        </CardTitle>
-        <div className="flex items-center gap-2">
-          {action}
-          <GripVertical className="w-5 h-5 text-muted-foreground" />
+  const toggleSection = (section: TrophySection) => {
+    setCollapsedSections(prev => {
+      const next = new Set(prev);
+      if (next.has(section)) next.delete(section);
+      else next.add(section);
+      return next;
+    });
+  };
+
+  const renderSectionHeader = (section: TrophySection, icon: React.ReactNode, title: string, action?: React.ReactNode) => {
+    const isCollapsed = collapsedSections.has(section);
+    return (
+      <CardHeader
+        className="cursor-pointer select-none"
+        onClick={(e) => {
+          if (!isDragging.current) toggleSection(section);
+        }}
+        data-testid={`section-header-${section}`}
+      >
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <CardTitle className="text-lg flex items-center gap-2">
+            {icon}
+            {title}
+            <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${isCollapsed ? "-rotate-90" : ""}`} />
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            {action}
+            <GripVertical className="w-5 h-5 text-muted-foreground cursor-grab active:cursor-grabbing" />
+          </div>
         </div>
-      </div>
-    </CardHeader>
-  );
+      </CardHeader>
+    );
+  };
 
   const renderSection = (section: TrophySection, index: number) => {
     switch (section) {
       case "achievements":
         return (
           <Card key="achievements">
-            {renderSectionHeader(<Trophy className="w-5 h-5 text-yellow-500" />, "Achievements", `${achievements?.length || 0} unlocked`)}
-            <CardContent>
+            {renderSectionHeader("achievements", <Trophy className="w-5 h-5 text-yellow-500" />, "Achievements", `${achievements?.length || 0} unlocked`)}
+            {!collapsedSections.has("achievements") && <CardContent>
               {!achievements || achievements.length === 0 ? (
                 <div className="text-center py-8">
                   <Trophy className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
@@ -2028,15 +2048,15 @@ function TrophyRoomTab({
                   ))}
                 </div>
               )}
-            </CardContent>
+            </CardContent>}
           </Card>
         );
 
       case "challenges":
         return (
           <Card key="challenges">
-            {renderSectionHeader(<Target className="w-5 h-5 text-green-500" />, "Completed Challenges", "Challenges you've conquered")}
-            <CardContent>
+            {renderSectionHeader("challenges", <Target className="w-5 h-5 text-green-500" />, "Completed Challenges", "Challenges you've conquered")}
+            {!collapsedSections.has("challenges") && <CardContent>
               {(() => {
                 const completedChallenges = userChallenges?.filter(uc => uc.isCompleted) || [];
                 return completedChallenges.length > 0 ? (
@@ -2065,14 +2085,14 @@ function TrophyRoomTab({
                   </div>
                 );
               })()}
-            </CardContent>
+            </CardContent>}
           </Card>
         );
 
       case "prs":
         return (
           <Card key="prs">
-            {renderSectionHeader(<Medal className="w-5 h-5 text-amber-500" />, "Personal Records (PRs)",
+            {renderSectionHeader("prs", <Medal className="w-5 h-5 text-amber-500" />, "Personal Records (PRs)",
               <Button
                 size="sm"
                 variant="ghost"
@@ -2088,7 +2108,7 @@ function TrophyRoomTab({
                 Scan
               </Button>
             )}
-            <CardContent>
+            {!collapsedSections.has("prs") && <CardContent>
               {personalRecords && personalRecords.length > 0 ? (() => {
                 const bestByMetric = new Map<string, { value: number; source: string; metricName: string; achievedAt: Date | string | null }>();
                 personalRecords.forEach((pr) => {
@@ -2157,15 +2177,15 @@ function TrophyRoomTab({
                   <p className="text-muted-foreground">Beat your previous records to earn PR badges!</p>
                 </div>
               )}
-            </CardContent>
+            </CardContent>}
           </Card>
         );
 
       case "awards":
         return (
           <Card key="awards">
-            {renderSectionHeader(<Trophy className="w-5 h-5 text-yellow-500" />, "Awards", undefined)}
-            <CardContent>
+            {renderSectionHeader("awards", <Trophy className="w-5 h-5 text-yellow-500" />, "Awards", undefined)}
+            {!collapsedSections.has("awards") && <CardContent>
               {teamAwards && teamAwards.length > 0 ? (
                 <div className="grid sm:grid-cols-2 gap-3">
                   {teamAwards.map((award) => (
@@ -2183,15 +2203,15 @@ function TrophyRoomTab({
                   <p className="text-muted-foreground">Awards you earn will appear here</p>
                 </div>
               )}
-            </CardContent>
+            </CardContent>}
           </Card>
         );
 
       case "stats":
         return (
           <Card key="stats">
-            {renderSectionHeader(<BarChart className="w-5 h-5 text-blue-500" />, "Stats", "Season and career statistics")}
-            <CardContent>
+            {renderSectionHeader("stats", <BarChart className="w-5 h-5 text-blue-500" />, "Stats", "Season and career statistics")}
+            {!collapsedSections.has("stats") && <CardContent>
               <div className="flex items-center gap-2 mb-4 flex-wrap">
                 <div className="flex gap-1">
                   <Button size="sm" variant={statsView === "averages" ? "default" : "outline"} onClick={() => setStatsView("averages")} data-testid="btn-stats-averages">
@@ -2313,7 +2333,7 @@ function TrophyRoomTab({
                   </div>
                 );
               })()}
-            </CardContent>
+            </CardContent>}
           </Card>
         );
 
