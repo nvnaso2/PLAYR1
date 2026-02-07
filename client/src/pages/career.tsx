@@ -727,10 +727,10 @@ function BaseballCard({ profile, careerStats, onPhotoUpdated, userName }: { prof
   const seasonBreakdown = seasonFilter === "all"
     ? allSeasons
     : allSeasons.filter(s => s.seasonType === seasonFilter);
-  const frontW = 280;
-  const frontH = 400;
-  const backW = 400;
-  const backH = 280;
+  const frontW = 240;
+  const frontH = 340;
+  const backW = 320;
+  const backH = 240;
 
   const photoSrc = profile.cardPhotoUrl
     ? (profile.cardPhotoUrl.startsWith("/") ? profile.cardPhotoUrl : `/objects/${profile.cardPhotoUrl}`)
@@ -1494,7 +1494,7 @@ function StatsTab() {
                     {isExpanded && (
                       <div className="border-t p-4 space-y-4">
                         {seasonStats && (
-                          <div className="grid grid-cols-5 gap-2 text-center">
+                          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 text-center">
                             <div className="p-2 bg-muted/50 rounded">
                               <p className="text-lg font-semibold">{seasonStats.avgPoints}</p>
                               <p className="text-xs text-muted-foreground">PPG</p>
@@ -1627,7 +1627,7 @@ function StatsTab() {
           </DialogHeader>
           <Form {...gameForm}>
             <form onSubmit={gameForm.handleSubmit(handleCreateGame)} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField
                   control={gameForm.control}
                   name="gameDate"
@@ -1656,7 +1656,7 @@ function StatsTab() {
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <FormField
                   control={gameForm.control}
                   name="isHome"
@@ -1727,7 +1727,7 @@ function StatsTab() {
 
               <div className="border-t pt-4">
                 <h4 className="font-medium mb-3">Basic Stats</h4>
-                <div className="grid grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <FormField
                     control={gameForm.control}
                     name="points"
@@ -1829,7 +1829,7 @@ function StatsTab() {
 
               <div className="border-t pt-4">
                 <h4 className="font-medium mb-3">Shooting Stats</h4>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <p className="text-sm text-muted-foreground mb-2">Field Goals</p>
                     <div className="grid grid-cols-2 gap-2">
@@ -2331,7 +2331,7 @@ function TrophyRoomTab({
                       )}
                     </div>
 
-                    <div className="grid grid-cols-5 gap-3">
+                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
                       {statItems.map((item) => (
                         <div key={item.label} className="text-center p-3 rounded-md bg-muted/50">
                           <p className={`text-2xl font-bold ${item.highlight ? 'text-primary' : ''}`}>{item.value}</p>
@@ -2504,7 +2504,7 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 mb-6">
+        <TabsList className="grid w-full grid-cols-3 h-auto p-1 mb-6">
           <TabsTrigger value="profile" data-testid="tab-profile">
             <User className="w-4 h-4 mr-2" />
             Profile
@@ -2740,7 +2740,7 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
 
             <div>
               <Label>Position(s)</Label>
-              <div className="grid grid-cols-5 gap-2 mt-2">
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mt-2">
                 {BASKETBALL_POSITIONS.map(pos => {
                   const isSelected = editFormData.positions.includes(pos);
                   return (

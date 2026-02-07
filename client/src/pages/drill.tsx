@@ -102,7 +102,7 @@ export default function DrillPage() {
         </Badge>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           {/* Video section - only show if video exists */}
           {drill.videoUrl && (

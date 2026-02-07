@@ -1398,7 +1398,7 @@ export default function TrainingLogPage() {
                           </FormItem>
                         )}
                       />
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <FormField
                           control={createDrillForm.control}
                           name="category"
@@ -1564,7 +1564,7 @@ export default function TrainingLogPage() {
                       data-testid="input-challenge-description"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Category</Label>
                       <Select
@@ -1602,7 +1602,7 @@ export default function TrainingLogPage() {
                       </Select>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Goal Type</Label>
                       <Select
@@ -1821,7 +1821,7 @@ export default function TrainingLogPage() {
           </CardHeader>
           <CardContent>
             <Tabs value={activeLibraryTab} onValueChange={setActiveLibraryTab}>
-              <TabsList className="grid w-full grid-cols-3 gap-1 h-auto p-1 mb-6">
+              <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 gap-1 h-auto p-1 mb-6">
                 <TabsTrigger value="personal-drills" className="py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center gap-1" data-testid="tab-personal-drills">
                   <User className="w-4 h-4 shrink-0" />
                   <span>My Drills</span>
@@ -2795,7 +2795,7 @@ export default function TrainingLogPage() {
             </div>
           ) : viewEditLog ? (
             <div className="space-y-4 pt-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Duration (min)</label>
                   {isEditMode ? (
@@ -2901,7 +2901,7 @@ export default function TrainingLogPage() {
               {viewEditLog.metrics && viewEditLog.metrics.length > 0 && (
                 <div className="space-y-2 border-t pt-4">
                   <label className="text-sm font-medium">Recorded Metrics</label>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {viewEditLog.metrics.map((metric) => {
                       const template = metricTemplates?.find(t => t.id === metric.metricId);
                       return (

@@ -141,7 +141,7 @@ function DraggableStatsCards({ stats }: { stats: { totalSessions: number; totalM
   };
 
   return (
-    <div className="grid grid-cols-3 gap-3" data-testid="stats-cards-container">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" data-testid="stats-cards-container">
       {orderedCards.map((card) => (
         <StatsCard
           key={card.key}
