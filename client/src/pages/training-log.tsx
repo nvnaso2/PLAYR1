@@ -1300,8 +1300,8 @@ export default function TrainingLogPage() {
                 </DialogDescription>
               </DialogHeader>
               <Form {...createDrillForm}>
-                <form onSubmit={createDrillForm.handleSubmit(d => createDrillMutation.mutate(d))} className="flex flex-col flex-1 overflow-hidden">
-                  <ScrollArea className="flex-1 pr-4">
+                <form onSubmit={createDrillForm.handleSubmit(d => createDrillMutation.mutate(d))} className="flex flex-col flex-1 min-h-0">
+                  <div className="flex-1 overflow-y-auto pr-1 -mr-1">
                     <div className="space-y-4 pb-4">
                       <FormField
                         control={createDrillForm.control}
@@ -1433,9 +1433,9 @@ export default function TrainingLogPage() {
                         </div>
                       </div>
                     </div>
-                  </ScrollArea>
+                  </div>
 
-                  <DialogFooter className="pt-4 border-t mt-4">
+                  <DialogFooter className="pt-4 border-t mt-4 flex-shrink-0">
                     <Button type="button" variant="outline" onClick={() => {
                       setIsCreateDrillOpen(false);
                       setSelectedMetricTemplateIds([]);
