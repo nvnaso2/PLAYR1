@@ -69,8 +69,6 @@ import {
   ChevronUp,
   X,
   GripVertical,
-  ArrowUp,
-  ArrowDown,
   BarChart,
   Camera
 } from "lucide-react";
@@ -1924,21 +1922,26 @@ function TrophyRoomTab({
 }) {
   const [sectionOrder, setSectionOrder] = useState<TrophySection[]>(["achievements", "challenges", "prs", "awards", "stats"]);
   const [draggedSection, setDraggedSection] = useState<TrophySection | null>(null);
+  const [dragOverSection, setDragOverSection] = useState<TrophySection | null>(null);
   const [statsView, setStatsView] = useState<"averages" | "totals">("averages");
   const [statsPeriod, setStatsPeriod] = useState<"career" | "current">("career");
 
-  const moveSection = (index: number, direction: "up" | "down") => {
-    const newOrder = [...sectionOrder];
-    const swapIndex = direction === "up" ? index - 1 : index + 1;
-    if (swapIndex < 0 || swapIndex >= newOrder.length) return;
-    [newOrder[index], newOrder[swapIndex]] = [newOrder[swapIndex], newOrder[index]];
-    setSectionOrder(newOrder);
+  const handleDragStart = (e: React.DragEvent, section: TrophySection) => {
+    setDraggedSection(section);
+    e.dataTransfer.effectAllowed = "move";
   };
-
-  const handleDragStart = (section: TrophySection) => setDraggedSection(section);
-  const handleDragOver = (e: React.DragEvent) => e.preventDefault();
+  const handleDragOver = (e: React.DragEvent, section: TrophySection) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (dragOverSection !== section) setDragOverSection(section);
+  };
+  const handleDragLeave = () => setDragOverSection(null);
   const handleDrop = (targetSection: TrophySection) => {
-    if (!draggedSection || draggedSection === targetSection) return;
+    if (!draggedSection || draggedSection === targetSection) {
+      setDraggedSection(null);
+      setDragOverSection(null);
+      return;
+    }
     const newOrder = [...sectionOrder];
     const fromIndex = newOrder.indexOf(draggedSection);
     const toIndex = newOrder.indexOf(targetSection);
@@ -1946,35 +1949,42 @@ function TrophyRoomTab({
     newOrder.splice(toIndex, 0, draggedSection);
     setSectionOrder(newOrder);
     setDraggedSection(null);
+    setDragOverSection(null);
+  };
+  const handleDragEnd = () => {
+    setDraggedSection(null);
+    setDragOverSection(null);
   };
 
-  const renderSectionHeader = (icon: React.ReactNode, title: string, description: string | undefined, index: number) => (
-    <CardHeader>
+  const renderSectionHeader = (icon: React.ReactNode, title: string, description: string | undefined) => (
+    <CardHeader className="cursor-grab active:cursor-grabbing">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <CardTitle className="text-lg flex items-center gap-2">
           {icon}
           {title}
         </CardTitle>
-        <div className="flex items-center gap-1">
-          <Button size="icon" variant="ghost" onClick={() => moveSection(index, "up")} disabled={index === 0} data-testid={`move-up-${sectionOrder[index]}`}>
-            <ArrowUp className="w-4 h-4" />
-          </Button>
-          <Button size="icon" variant="ghost" onClick={() => moveSection(index, "down")} disabled={index === sectionOrder.length - 1} data-testid={`move-down-${sectionOrder[index]}`}>
-            <ArrowDown className="w-4 h-4" />
-          </Button>
-          <GripVertical className="w-4 h-4 text-muted-foreground cursor-grab" />
-        </div>
+        <GripVertical className="w-5 h-5 text-muted-foreground" />
       </div>
       {description && <CardDescription>{description}</CardDescription>}
     </CardHeader>
   );
 
+  const dragProps = (section: TrophySection) => ({
+    draggable: true,
+    onDragStart: (e: React.DragEvent) => handleDragStart(e, section),
+    onDragOver: (e: React.DragEvent) => handleDragOver(e, section),
+    onDragLeave: handleDragLeave,
+    onDrop: () => handleDrop(section),
+    onDragEnd: handleDragEnd,
+    className: `transition-all duration-200 ${draggedSection === section ? "opacity-50 scale-[0.98]" : ""} ${dragOverSection === section && draggedSection !== section ? "ring-2 ring-primary ring-offset-2" : ""}`,
+  });
+
   const renderSection = (section: TrophySection, index: number) => {
     switch (section) {
       case "achievements":
         return (
-          <Card key="achievements" draggable onDragStart={() => handleDragStart("achievements")} onDragOver={handleDragOver} onDrop={() => handleDrop("achievements")}>
-            {renderSectionHeader(<Trophy className="w-5 h-5 text-yellow-500" />, "Achievements", `${achievements?.length || 0} unlocked`, index)}
+          <Card key="achievements" {...dragProps("achievements")}>
+            {renderSectionHeader(<Trophy className="w-5 h-5 text-yellow-500" />, "Achievements", `${achievements?.length || 0} unlocked`)}
             <CardContent>
               {!achievements || achievements.length === 0 ? (
                 <div className="text-center py-8">
@@ -1998,8 +2008,8 @@ function TrophyRoomTab({
 
       case "challenges":
         return (
-          <Card key="challenges" draggable onDragStart={() => handleDragStart("challenges")} onDragOver={handleDragOver} onDrop={() => handleDrop("challenges")}>
-            {renderSectionHeader(<Target className="w-5 h-5 text-green-500" />, "Completed Challenges", "Challenges you've conquered", index)}
+          <Card key="challenges" {...dragProps("challenges")}>
+            {renderSectionHeader(<Target className="w-5 h-5 text-green-500" />, "Completed Challenges", "Challenges you've conquered")}
             <CardContent>
               {(() => {
                 const completedChallenges = userChallenges?.filter(uc => uc.isCompleted) || [];
@@ -2035,8 +2045,8 @@ function TrophyRoomTab({
 
       case "prs":
         return (
-          <Card key="prs" draggable onDragStart={() => handleDragStart("prs")} onDragOver={handleDragOver} onDrop={() => handleDrop("prs")}>
-            {renderSectionHeader(<Medal className="w-5 h-5 text-amber-500" />, "Personal Records (PRs)", undefined, index)}
+          <Card key="prs" {...dragProps("prs")}>
+            {renderSectionHeader(<Medal className="w-5 h-5 text-amber-500" />, "Personal Records (PRs)", undefined)}
             <CardContent>
               {personalRecords && personalRecords.length > 0 ? (
                 <div className="space-y-3">
@@ -2069,8 +2079,8 @@ function TrophyRoomTab({
 
       case "awards":
         return (
-          <Card key="awards" draggable onDragStart={() => handleDragStart("awards")} onDragOver={handleDragOver} onDrop={() => handleDrop("awards")}>
-            {renderSectionHeader(<Trophy className="w-5 h-5 text-yellow-500" />, "Awards", undefined, index)}
+          <Card key="awards" {...dragProps("awards")}>
+            {renderSectionHeader(<Trophy className="w-5 h-5 text-yellow-500" />, "Awards", undefined)}
             <CardContent>
               {teamAwards && teamAwards.length > 0 ? (
                 <div className="grid sm:grid-cols-2 gap-3">
@@ -2095,8 +2105,8 @@ function TrophyRoomTab({
 
       case "stats":
         return (
-          <Card key="stats" draggable onDragStart={() => handleDragStart("stats")} onDragOver={handleDragOver} onDrop={() => handleDrop("stats")}>
-            {renderSectionHeader(<BarChart className="w-5 h-5 text-blue-500" />, "Stats", "Season and career statistics", index)}
+          <Card key="stats" {...dragProps("stats")}>
+            {renderSectionHeader(<BarChart className="w-5 h-5 text-blue-500" />, "Stats", "Season and career statistics")}
             <CardContent>
               <div className="flex items-center gap-2 mb-4 flex-wrap">
                 <div className="flex gap-1">
