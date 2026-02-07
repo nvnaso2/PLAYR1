@@ -1934,7 +1934,7 @@ function TrophyRoomTab({
     ? savedOrder
     : defaultOrder;
   const [sectionOrder, setSectionOrder] = useState<TrophySection[]>(initialOrder);
-  const [collapsedSections, setCollapsedSections] = useState<Set<TrophySection>>(new Set(defaultOrder));
+  const [collapsedSections, setCollapsedSections] = useState<Set<TrophySection>>(new Set());
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [overIdx, setOverIdx] = useState<number | null>(null);
   const [statsView, setStatsView] = useState<"averages" | "totals">("averages");
