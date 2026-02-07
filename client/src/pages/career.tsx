@@ -2235,7 +2235,7 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <Trophy className="w-5 h-5 text-yellow-500" />
-                Team Awards
+                Awards
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -2259,7 +2259,7 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
               ) : (
                 <div className="text-center p-8">
                   <Trophy className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-                  <p className="text-muted-foreground">Team awards you earn will appear here</p>
+                  <p className="text-muted-foreground">Awards you earn will appear here</p>
                 </div>
               )}
             </CardContent>
