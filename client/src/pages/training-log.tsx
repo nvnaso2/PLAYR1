@@ -1168,7 +1168,7 @@ export default function TrainingLogPage() {
         <div className="text-center py-12">
           <Dumbbell className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
           <h3 className="font-semibold mb-2">
-            {isPersonal ? "No Personal Drills Yet" : "No PLAYR1 Drills Available"}
+            {isPersonal ? "No Personal Drills Yet" : "No Handlz Drills Available"}
           </h3>
           <p className="text-muted-foreground text-sm mb-4">
             {isPersonal ? "Create your own custom drills to get started" : "Check back soon for new training content"}
@@ -1284,7 +1284,7 @@ export default function TrainingLogPage() {
         <div className="text-center py-12">
           <Layers className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
           <h3 className="font-semibold mb-2">
-            {isPersonal ? "No Saved Workouts" : "No PLAYR1 Workouts Available"}
+            {isPersonal ? "No Saved Workouts" : "No Handlz Workouts Available"}
           </h3>
           <p className="text-muted-foreground text-sm mb-4">
             {isPersonal 
@@ -1832,7 +1832,7 @@ export default function TrainingLogPage() {
                 </TabsTrigger>
                 <TabsTrigger value="handlz-drills" className="py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center gap-1" data-testid="tab-handlz-drills">
                   <Sparkles className="w-4 h-4 shrink-0" />
-                  <span>PLAYR1 Drills</span>
+                  <span>Handlz Drills</span>
                 </TabsTrigger>
                 <TabsTrigger value="personal-workouts" className="py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center gap-1" data-testid="tab-personal-workouts">
                   <Bookmark className="w-4 h-4 shrink-0" />
@@ -1840,7 +1840,7 @@ export default function TrainingLogPage() {
                 </TabsTrigger>
                 <TabsTrigger value="handlz-workouts" className="py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center gap-1" data-testid="tab-handlz-workouts">
                   <Layers className="w-4 h-4 shrink-0" />
-                  <span>PLAYR1 Workouts</span>
+                  <span>Handlz Workouts</span>
                 </TabsTrigger>
               </TabsList>
 

@@ -222,8 +222,8 @@ export default function Drills() {
         <TabsList data-testid="tabs-drill-library">
           <TabsTrigger value="handlz" data-testid="tab-handlz-drills" className="gap-2">
             <Target className="w-4 h-4" />
-            <span className="hidden sm:inline">PLAYR1 Drills</span>
-            <span className="sm:hidden">PLAYR1</span>
+            <span className="hidden sm:inline">Handlz Drills</span>
+            <span className="sm:hidden">Handlz</span>
           </TabsTrigger>
           <TabsTrigger value="community" data-testid="tab-community-drills" className="gap-2">
             <Users className="w-4 h-4" />
