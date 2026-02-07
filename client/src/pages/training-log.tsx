@@ -1278,7 +1278,7 @@ export default function TrainingLogPage() {
         <div className="flex gap-2">
           <Button 
             variant={activeView === "history" ? "default" : "outline"} 
-            onClick={() => setActiveView("history")}
+            onClick={() => setActiveView(activeView === "history" ? "library" : "history")}
             className="gap-2"
             data-testid="button-view-history"
           >
