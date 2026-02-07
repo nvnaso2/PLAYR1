@@ -87,13 +87,13 @@ export function AppSidebar() {
 
   return (
     <Sidebar>
-      <SidebarHeader className="p-4">
+      <SidebarHeader className="px-4 pt-4 pb-2">
         <Link href="/">
-          <div className="flex items-center gap-2 cursor-pointer" data-testid="link-sidebar-logo">
+          <div className="flex items-center cursor-pointer overflow-hidden h-12" data-testid="link-sidebar-logo">
             <img 
               src={logoLandscape} 
               alt="PLAYR1" 
-              className="h-10 w-44 object-cover object-center mix-blend-screen dark:mix-blend-screen"
+              className="w-40 min-w-[10rem] object-contain mix-blend-screen dark:mix-blend-screen"
             />
           </div>
         </Link>
