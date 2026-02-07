@@ -547,7 +547,19 @@ const urlOrObjectPath = z.string().nullish().refine(
   { message: "Must be a valid URL or object storage path" }
 );
 
+// Drill ratings - users rate drills 1-5
+export const drillRatings = pgTable("drill_ratings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  drillId: varchar("drill_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  rating: integer("rating").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+
 // Insert schemas
+export const insertDrillRatingSchema = createInsertSchema(drillRatings).omit({ id: true, createdAt: true, updatedAt: true });
+
 export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertDrillSchema = createInsertSchema(drills).omit({ id: true, createdAt: true }).extend({
   videoUrl: urlOrObjectPath,
@@ -629,3 +641,5 @@ export type InsertSeason = z.infer<typeof insertSeasonSchema>;
 export type Season = typeof seasons.$inferSelect;
 export type InsertGame = z.infer<typeof insertGameSchema>;
 export type Game = typeof games.$inferSelect;
+export type InsertDrillRating = z.infer<typeof insertDrillRatingSchema>;
+export type DrillRating = typeof drillRatings.$inferSelect;
