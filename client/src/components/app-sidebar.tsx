@@ -93,7 +93,7 @@ export function AppSidebar() {
             <img 
               src={logoLandscape} 
               alt="PLAYR1" 
-              className="h-16 w-auto mix-blend-screen dark:mix-blend-screen"
+              className="h-10 w-44 object-cover object-center mix-blend-screen dark:mix-blend-screen"
             />
           </div>
         </Link>
