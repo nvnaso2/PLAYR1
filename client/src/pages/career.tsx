@@ -1415,7 +1415,7 @@ function StatsTab() {
                                 {seasonGames.map((game) => (
                                   <tr key={game.id} className="border-b hover:bg-muted/30" data-testid={`game-row-${game.id}`}>
                                     <td className="py-2 px-2">
-                                      {game.gameDate ? new Date(game.gameDate).toLocaleDateString() : '-'}
+                                      {game.gameDate ? new Date(new Date(game.gameDate).toISOString().split('T')[0] + 'T12:00:00').toLocaleDateString() : '-'}
                                     </td>
                                     <td className="py-2 px-2">
                                       {game.isHome ? 'vs' : '@'} {game.opponent || 'TBD'}

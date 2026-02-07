@@ -1454,7 +1454,7 @@ export async function registerRoutes(
         ...req.body,
         seasonId: req.params.seasonId,
         userId,
-        gameDate: req.body.gameDate ? new Date(req.body.gameDate) : new Date()
+        gameDate: req.body.gameDate ? new Date(req.body.gameDate + 'T12:00:00Z') : new Date()
       };
       const validatedData = insertGameSchema.parse(gameData);
       const game = await storage.createGame(validatedData);
@@ -1473,7 +1473,7 @@ export async function registerRoutes(
     try {
       const gameData = {
         ...req.body,
-        gameDate: req.body.gameDate ? new Date(req.body.gameDate) : undefined
+        gameDate: req.body.gameDate ? new Date(req.body.gameDate + 'T12:00:00Z') : undefined
       };
       const updated = await storage.updateGame(req.params.id, gameData);
       if (!updated) {
