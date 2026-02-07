@@ -77,7 +77,8 @@ import {
   Check,
   Trophy,
   Medal,
-  Trash2
+  Trash2,
+  Globe
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Drill, TrainingLog, DrillMetric, MetricTemplate, Workout, WorkoutDrill, ShotLocation, Challenge, UserChallenge } from "@shared/schema";
@@ -222,14 +223,20 @@ export default function TrainingLogPage() {
   const { data: personalDrills, isLoading: personalDrillsLoading } = useQuery<Drill[]>({
     queryKey: ['/api/user/my-drills'],
   });
+
+  // Fetch community drills (shared by other users)
+  const { data: communityDrills, isLoading: communityDrillsLoading } = useQuery<Drill[]>({
+    queryKey: ['/api/drills/community'],
+  });
   
   // Combined drills for lookup
   const allDrills = useMemo(() => {
     const combined: Drill[] = [];
     if (handlzDrills) combined.push(...handlzDrills);
     if (personalDrills) combined.push(...personalDrills);
+    if (communityDrills) combined.push(...communityDrills);
     return combined;
-  }, [handlzDrills, personalDrills]);
+  }, [handlzDrills, personalDrills, communityDrills]);
 
   // Handle drill query parameter - auto-start workout with specified drill
   const [location, setLocation] = useLocation();
@@ -331,8 +338,9 @@ export default function TrainingLogPage() {
 
   const personalDrillsByCategory = useMemo(() => groupByCategory(personalDrills || []), [personalDrills]);
   const handlzDrillsByCategory = useMemo(() => groupByCategory(handlzDrills || []), [handlzDrills]);
+  const communityDrillsByCategory = useMemo(() => groupByCategory(communityDrills || []), [communityDrills]);
   
-  const drillsLoading = handlzDrillsLoading || personalDrillsLoading;
+  const drillsLoading = handlzDrillsLoading || personalDrillsLoading || communityDrillsLoading;
 
   // Get active challenges that match a drill's category
   const getMatchingChallenges = (drillCategory: string) => {
@@ -1813,18 +1821,22 @@ export default function TrainingLogPage() {
           </CardHeader>
           <CardContent>
             <Tabs value={activeLibraryTab} onValueChange={setActiveLibraryTab}>
-              <TabsList className="grid w-full grid-cols-2 gap-1 h-auto p-1 mb-6">
+              <TabsList className="grid w-full grid-cols-3 gap-1 h-auto p-1 mb-6">
                 <TabsTrigger value="personal-drills" className="py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center gap-1" data-testid="tab-personal-drills">
                   <User className="w-4 h-4 shrink-0" />
                   <span>My Drills</span>
                 </TabsTrigger>
-                <TabsTrigger value="personal-workouts" className="py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center gap-1" data-testid="tab-personal-workouts">
-                  <Bookmark className="w-4 h-4 shrink-0" />
-                  <span>My Workouts</span>
+                <TabsTrigger value="community-drills" className="py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center gap-1" data-testid="tab-community-drills">
+                  <Globe className="w-4 h-4 shrink-0" />
+                  <span>Community</span>
                 </TabsTrigger>
                 <TabsTrigger value="handlz-drills" className="py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center gap-1" data-testid="tab-handlz-drills">
                   <Sparkles className="w-4 h-4 shrink-0" />
                   <span>Handlz Drills</span>
+                </TabsTrigger>
+                <TabsTrigger value="personal-workouts" className="py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center gap-1" data-testid="tab-personal-workouts">
+                  <Bookmark className="w-4 h-4 shrink-0" />
+                  <span>My Workouts</span>
                 </TabsTrigger>
                 <TabsTrigger value="handlz-workouts" className="py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center gap-1" data-testid="tab-handlz-workouts">
                   <Layers className="w-4 h-4 shrink-0" />
@@ -1875,6 +1887,51 @@ export default function TrainingLogPage() {
                   </div>
                 ) : (
                   renderDrillList(personalDrillsByCategory, true)
+                )}
+              </TabsContent>
+
+              <TabsContent value="community-drills">
+                <div className="flex justify-end mb-4">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button className="gap-2" data-testid="button-quick-start-community-drill">
+                        <Play className="w-4 h-4" />
+                        Start Drill
+                        <ChevronDown className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-64">
+                      <DropdownMenuLabel>Select a Drill</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <ScrollArea className="h-64">
+                        {communityDrills && communityDrills.length > 0 ? (
+                          communityDrills.map(drill => (
+                            <DropdownMenuItem 
+                              key={drill.id} 
+                              onClick={() => quickStartDrill(drill.id)}
+                              data-testid={`quick-start-community-drill-${drill.id}`}
+                            >
+                              <div className="flex flex-col">
+                                <span>{drill.title}</span>
+                                <span className="text-xs text-muted-foreground">{formatCategory(drill.category)}</span>
+                              </div>
+                            </DropdownMenuItem>
+                          ))
+                        ) : (
+                          <DropdownMenuItem disabled>No community drills shared yet</DropdownMenuItem>
+                        )}
+                      </ScrollArea>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+                {drillsLoading ? (
+                  <div className="space-y-4">
+                    {[...Array(5)].map((_, i) => (
+                      <Skeleton key={i} className="h-12 w-full" />
+                    ))}
+                  </div>
+                ) : (
+                  renderDrillList(communityDrillsByCategory, false)
                 )}
               </TabsContent>
 
