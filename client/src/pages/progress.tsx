@@ -30,7 +30,11 @@ import {
   Users,
   BarChart3,
   Zap,
-  Crosshair
+  Crosshair,
+  CircleDot,
+  Flame,
+  HandMetal,
+  Timer
 } from "lucide-react";
 import type { DrillProgress, Benchmark } from "@shared/schema";
 
@@ -47,6 +51,52 @@ const categoryLabels: Record<string, string> = {
 };
 
 type TimePeriod = "daily" | "weekly" | "monthly" | "annual";
+
+type TrainingStatDef = {
+  key: string;
+  title: string;
+  icon: React.ReactNode;
+  format?: (val: number) => string;
+  testId: string;
+};
+
+const TRAINING_STAT_DEFS: TrainingStatDef[] = [
+  { key: "totalShotsMade", title: "Total Shots Made", icon: <Target className="w-4 h-4" />, testId: "stats-total-shots" },
+  { key: "threePointersMade", title: "3-Pointers Made", icon: <CircleDot className="w-4 h-4" />, testId: "stats-three-pointers" },
+  { key: "freeThrowsMade", title: "Free Throws Made", icon: <Zap className="w-4 h-4" />, testId: "stats-free-throws" },
+  { key: "fieldGoalsMade", title: "Field Goals Made", icon: <TrendingUp className="w-4 h-4" />, testId: "stats-field-goals" },
+  { key: "layupsMade", title: "Layups Made", icon: <Flame className="w-4 h-4" />, testId: "stats-layups" },
+  { key: "timeBallHandling", title: "Ball Handling", icon: <HandMetal className="w-4 h-4" />, testId: "stats-ball-handling" },
+  { key: "passesMade", title: "Passes Made", icon: <Crosshair className="w-4 h-4" />, testId: "stats-passes" },
+  { key: "leftHandBallHandling", title: "Left-Hand Handling", icon: <HandMetal className="w-4 h-4" />, testId: "stats-left-hand" },
+  { key: "rightHandBallHandling", title: "Right-Hand Handling", icon: <HandMetal className="w-4 h-4" />, testId: "stats-right-hand" },
+  { key: "formShotsMade", title: "Form Shots Made", icon: <Target className="w-4 h-4" />, testId: "stats-form-shots" },
+  { key: "conditioningTime", title: "Conditioning Time", icon: <Timer className="w-4 h-4" />, format: (v) => { const h = Math.floor(v / 60); const m = v % 60; return h > 0 ? `${h}h ${m}m` : `${m}m`; }, testId: "stats-conditioning" },
+];
+
+function TrainingStatsCards({ trainingStats }: { trainingStats: Record<string, number> | undefined }) {
+  const visibleCards = TRAINING_STAT_DEFS.filter(def => trainingStats && trainingStats[def.key] && trainingStats[def.key] > 0);
+
+  if (visibleCards.length === 0) return null;
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3" data-testid="training-stats-container">
+      {visibleCards.map((card) => {
+        const val = trainingStats![card.key];
+        const displayVal = card.format ? card.format(val) : val.toLocaleString();
+        return (
+          <StatsCard
+            key={card.key}
+            title={card.title}
+            value={displayVal}
+            icon={card.icon}
+            testId={card.testId}
+          />
+        );
+      })}
+    </div>
+  );
+}
 
 const TIME_PERIOD_LABELS: Record<TimePeriod, string> = {
   daily: "Today",
@@ -103,6 +153,10 @@ export default function ProgressPage() {
   // Shot stats for heatmap
   const { data: shotStats } = useQuery<Array<{ location: string; made: number; missed: number }>>({
     queryKey: ['/api/stats/shots'],
+  });
+
+  const { data: trainingStats } = useQuery<Record<string, number>>({
+    queryKey: ['/api/stats/dashboard-training'],
   });
 
   // Convert shot stats to ShotData format for heatmap
@@ -168,6 +222,8 @@ export default function ProgressPage() {
           testId="stats-streak"
         />
       </div>
+
+      <TrainingStatsCards trainingStats={trainingStats} />
 
       <Tabs defaultValue="overview" className="space-y-6">
         <TabsList className="grid w-full grid-cols-3 h-auto p-1">
