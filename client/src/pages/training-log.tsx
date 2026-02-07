@@ -143,7 +143,7 @@ export default function TrainingLogPage() {
   const [selectedMetricTemplateIds, setSelectedMetricTemplateIds] = useState<string[]>([]);
   const [activeLibraryTab, setActiveLibraryTab] = useState("personal-drills");
   const [activeView, setActiveView] = useState<"library" | "workout" | "history">("library");
-  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [showChallengeDialog, setShowChallengeDialog] = useState(false);
   const [newChallenge, setNewChallenge] = useState({
     name: "",
@@ -154,7 +154,7 @@ export default function TrainingLogPage() {
     targetValue: 100,
     timeLimit: undefined as number | undefined
   });
-  const [challengesSectionOpen, setChallengesSectionOpen] = useState(true);
+  const [challengesSectionOpen, setChallengesSectionOpen] = useState(false);
   
   // Timer state: tracks which rounds have active timers
   const [activeTimers, setActiveTimers] = useState<Record<number, number>>({}); // index -> start timestamp
@@ -1184,7 +1184,7 @@ export default function TrainingLogPage() {
     }
 
     const toggleCategory = (category: string) => {
-      setCollapsedCategories(prev => {
+      setExpandedCategories(prev => {
         const next = new Set(prev);
         if (next.has(category)) {
           next.delete(category);
@@ -1201,7 +1201,7 @@ export default function TrainingLogPage() {
     return (
       <div className="space-y-2">
         {Object.entries(drillsByCategory).map(([category, categoryDrills]) => {
-          const isCollapsed = collapsedCategories.has(category);
+          const isCollapsed = !expandedCategories.has(category);
           const selectedCount = selectedInCategory(categoryDrills);
           return (
             <div key={category} className="border rounded-md">
