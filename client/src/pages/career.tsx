@@ -745,10 +745,6 @@ function BaseballCard({ profile, careerStats }: { profile: CareerProfile; career
           }}
         >
           <div className="relative w-full h-full bg-black flex flex-col">
-            <div className="absolute top-3 left-3 z-20 w-8 h-8 rounded-md bg-orange-500 flex items-center justify-center">
-              <span className="text-white font-black text-xs tracking-tight">H</span>
-            </div>
-
             <div className="flex-1 overflow-hidden">
               <img
                 src={defaultPlayerImg}
@@ -791,9 +787,6 @@ function BaseballCard({ profile, careerStats }: { profile: CareerProfile; career
           <div className="w-full h-full flex flex-col bg-black text-white">
             {/* Header */}
             <div className="flex items-center gap-3 px-4 py-2 border-b border-orange-500/40">
-              <div className="w-7 h-7 rounded-md bg-orange-500 flex items-center justify-center flex-shrink-0">
-                <span className="text-white font-black text-[10px]">H</span>
-              </div>
               <div className="flex-1 min-w-0">
                 <p className="text-white font-bold text-sm uppercase tracking-wide leading-tight truncate">
                   {profile.schoolName || profile.teamName || "Player"}
