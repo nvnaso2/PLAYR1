@@ -66,7 +66,11 @@ import {
   Trash2,
   ChevronDown,
   ChevronUp,
-  X
+  X,
+  GripVertical,
+  ArrowUp,
+  ArrowDown,
+  BarChart
 } from "lucide-react";
 import type { CareerProfile, UserAchievement, CareerAchievement, Challenge, UserChallenge, PersonalRecord, TeamAward, Season, Game } from "@shared/schema";
 import defaultPlayerImg from "@assets/default-player.jpg";
@@ -949,6 +953,8 @@ type CareerStats = {
   totalAssists: number;
   totalSteals: number;
   totalBlocks: number;
+  wins: number;
+  losses: number;
   avgPoints: number;
   avgRebounds: number;
   avgAssists: number;
@@ -970,6 +976,8 @@ type CareerStats = {
     totalAssists: number;
     totalSteals: number;
     totalBlocks: number;
+    wins: number;
+    losses: number;
   }>;
 };
 
@@ -1821,6 +1829,336 @@ function StatsTab() {
   );
 }
 
+type TrophySection = "achievements" | "challenges" | "prs" | "awards" | "stats";
+
+function TrophyRoomTab({ 
+  achievements, 
+  userChallenges, 
+  personalRecords, 
+  teamAwards,
+  careerStats
+}: { 
+  achievements?: Array<UserAchievement & { achievement: CareerAchievement }>;
+  userChallenges?: Array<UserChallenge & { challenge: Challenge }>;
+  personalRecords?: Array<PersonalRecord & { drill: { title: string } }>;
+  teamAwards?: TeamAward[];
+  careerStats?: CareerStats;
+}) {
+  const [sectionOrder, setSectionOrder] = useState<TrophySection[]>(["achievements", "challenges", "prs", "awards", "stats"]);
+  const [draggedSection, setDraggedSection] = useState<TrophySection | null>(null);
+  const [statsView, setStatsView] = useState<"averages" | "totals">("averages");
+  const [statsPeriod, setStatsPeriod] = useState<"career" | "current">("career");
+
+  const moveSection = (index: number, direction: "up" | "down") => {
+    const newOrder = [...sectionOrder];
+    const swapIndex = direction === "up" ? index - 1 : index + 1;
+    if (swapIndex < 0 || swapIndex >= newOrder.length) return;
+    [newOrder[index], newOrder[swapIndex]] = [newOrder[swapIndex], newOrder[index]];
+    setSectionOrder(newOrder);
+  };
+
+  const handleDragStart = (section: TrophySection) => setDraggedSection(section);
+  const handleDragOver = (e: React.DragEvent) => e.preventDefault();
+  const handleDrop = (targetSection: TrophySection) => {
+    if (!draggedSection || draggedSection === targetSection) return;
+    const newOrder = [...sectionOrder];
+    const fromIndex = newOrder.indexOf(draggedSection);
+    const toIndex = newOrder.indexOf(targetSection);
+    newOrder.splice(fromIndex, 1);
+    newOrder.splice(toIndex, 0, draggedSection);
+    setSectionOrder(newOrder);
+    setDraggedSection(null);
+  };
+
+  const renderSectionHeader = (icon: React.ReactNode, title: string, description: string | undefined, index: number) => (
+    <CardHeader>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <CardTitle className="text-lg flex items-center gap-2">
+          {icon}
+          {title}
+        </CardTitle>
+        <div className="flex items-center gap-1">
+          <Button size="icon" variant="ghost" onClick={() => moveSection(index, "up")} disabled={index === 0} data-testid={`move-up-${sectionOrder[index]}`}>
+            <ArrowUp className="w-4 h-4" />
+          </Button>
+          <Button size="icon" variant="ghost" onClick={() => moveSection(index, "down")} disabled={index === sectionOrder.length - 1} data-testid={`move-down-${sectionOrder[index]}`}>
+            <ArrowDown className="w-4 h-4" />
+          </Button>
+          <GripVertical className="w-4 h-4 text-muted-foreground cursor-grab" />
+        </div>
+      </div>
+      {description && <CardDescription>{description}</CardDescription>}
+    </CardHeader>
+  );
+
+  const renderSection = (section: TrophySection, index: number) => {
+    switch (section) {
+      case "achievements":
+        return (
+          <Card key="achievements" draggable onDragStart={() => handleDragStart("achievements")} onDragOver={handleDragOver} onDrop={() => handleDrop("achievements")}>
+            {renderSectionHeader(<Trophy className="w-5 h-5 text-yellow-500" />, "Achievements", `${achievements?.length || 0} unlocked`, index)}
+            <CardContent>
+              {!achievements || achievements.length === 0 ? (
+                <div className="text-center py-8">
+                  <Trophy className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
+                  <p className="text-muted-foreground">No achievements yet. Start training to unlock your first badge!</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {achievements.map(ua => (
+                    <div key={ua.id} className="text-center p-4 rounded-md bg-muted/50" data-testid={`achievement-item-${ua.id}`}>
+                      <div className="text-3xl mb-2">{ua.achievement.icon || ""}</div>
+                      <div className="font-medium text-sm">{ua.achievement.name}</div>
+                      <Badge variant="secondary" className="mt-1 text-xs">+{ua.achievement.xpReward} XP</Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+
+      case "challenges":
+        return (
+          <Card key="challenges" draggable onDragStart={() => handleDragStart("challenges")} onDragOver={handleDragOver} onDrop={() => handleDrop("challenges")}>
+            {renderSectionHeader(<Target className="w-5 h-5 text-green-500" />, "Completed Challenges", "Challenges you've conquered", index)}
+            <CardContent>
+              {(() => {
+                const completedChallenges = userChallenges?.filter(uc => uc.isCompleted) || [];
+                return completedChallenges.length > 0 ? (
+                  <div className="space-y-3">
+                    {completedChallenges.map((uc) => (
+                      <div key={uc.id} className="p-3 border rounded-lg flex items-center justify-between" data-testid={`completed-challenge-${uc.id}`}>
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
+                            <Trophy className="w-5 h-5 text-green-500" />
+                          </div>
+                          <div>
+                            <p className="font-medium">{uc.challenge.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {uc.challenge.targetValue} {uc.challenge.metric} {uc.completedAt ? `completed ${new Date(uc.completedAt).toLocaleDateString()}` : ''}
+                            </p>
+                          </div>
+                        </div>
+                        <Badge variant="secondary" className="bg-green-500/20 text-green-600">Completed</Badge>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center p-8">
+                    <Target className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+                    <p className="text-muted-foreground">Complete challenges from Training Log to see them here!</p>
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
+        );
+
+      case "prs":
+        return (
+          <Card key="prs" draggable onDragStart={() => handleDragStart("prs")} onDragOver={handleDragOver} onDrop={() => handleDrop("prs")}>
+            {renderSectionHeader(<Medal className="w-5 h-5 text-amber-500" />, "Personal Records (PRs)", undefined, index)}
+            <CardContent>
+              {personalRecords && personalRecords.length > 0 ? (
+                <div className="space-y-3">
+                  {personalRecords.map((pr) => (
+                    <div key={pr.id} className="p-3 border rounded-lg flex items-center justify-between" data-testid={`pr-item-${pr.id}`}>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
+                          <Star className="w-5 h-5 text-amber-500" />
+                        </div>
+                        <div>
+                          <p className="font-medium">{pr.drill.title}</p>
+                          <p className="text-sm text-muted-foreground">{pr.metricName}: {pr.previousValue} → {pr.newValue}</p>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="text-amber-600 border-amber-500/30">
+                        +{(Number(pr.newValue) - Number(pr.previousValue)).toFixed(0)}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center p-8">
+                  <Medal className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+                  <p className="text-muted-foreground">Beat your previous records to earn PR badges!</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+
+      case "awards":
+        return (
+          <Card key="awards" draggable onDragStart={() => handleDragStart("awards")} onDragOver={handleDragOver} onDrop={() => handleDrop("awards")}>
+            {renderSectionHeader(<Trophy className="w-5 h-5 text-yellow-500" />, "Awards", undefined, index)}
+            <CardContent>
+              {teamAwards && teamAwards.length > 0 ? (
+                <div className="grid sm:grid-cols-2 gap-3">
+                  {teamAwards.map((award) => (
+                    <div key={award.id} className="p-4 border rounded-lg text-center" data-testid={`award-item-${award.id}`}>
+                      <Trophy className="w-10 h-10 text-yellow-500 mx-auto mb-2" />
+                      <p className="font-medium">{award.awardName}</p>
+                      <p className="text-sm text-muted-foreground">{award.teamName}</p>
+                      {award.season && <Badge variant="outline" className="mt-2">{award.season}</Badge>}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center p-8">
+                  <Trophy className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+                  <p className="text-muted-foreground">Awards you earn will appear here</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+
+      case "stats":
+        return (
+          <Card key="stats" draggable onDragStart={() => handleDragStart("stats")} onDragOver={handleDragOver} onDrop={() => handleDrop("stats")}>
+            {renderSectionHeader(<BarChart className="w-5 h-5 text-blue-500" />, "Stats", "Season and career statistics", index)}
+            <CardContent>
+              <div className="flex items-center gap-2 mb-4 flex-wrap">
+                <div className="flex gap-1">
+                  <Button size="sm" variant={statsView === "averages" ? "default" : "outline"} onClick={() => setStatsView("averages")} data-testid="btn-stats-averages">
+                    Averages
+                  </Button>
+                  <Button size="sm" variant={statsView === "totals" ? "default" : "outline"} onClick={() => setStatsView("totals")} data-testid="btn-stats-totals">
+                    Totals
+                  </Button>
+                </div>
+                <div className="flex gap-1">
+                  <Button size="sm" variant={statsPeriod === "career" ? "default" : "outline"} onClick={() => setStatsPeriod("career")} data-testid="btn-stats-career">
+                    Career
+                  </Button>
+                  <Button size="sm" variant={statsPeriod === "current" ? "default" : "outline"} onClick={() => setStatsPeriod("current")} data-testid="btn-stats-current">
+                    Current Season
+                  </Button>
+                </div>
+              </div>
+
+              {(() => {
+                if (!careerStats || careerStats.totalGames === 0) {
+                  return (
+                    <div className="text-center p-8">
+                      <BarChart className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+                      <p className="text-muted-foreground">No game stats yet. Add seasons and games in the Stats tab!</p>
+                    </div>
+                  );
+                }
+
+                const breakdown = careerStats.seasonBreakdown;
+                const currentSeason = breakdown.length > 0 ? breakdown[breakdown.length - 1] : null;
+                const displaySeasons = statsPeriod === "current" && currentSeason ? [currentSeason] : breakdown;
+
+                const totalGames = displaySeasons.reduce((s, ss) => s + ss.gamesPlayed, 0);
+                const totalPts = displaySeasons.reduce((s, ss) => s + ss.totalPoints, 0);
+                const totalReb = displaySeasons.reduce((s, ss) => s + ss.totalRebounds, 0);
+                const totalAst = displaySeasons.reduce((s, ss) => s + ss.totalAssists, 0);
+                const totalStl = displaySeasons.reduce((s, ss) => s + ss.totalSteals, 0);
+                const totalBlk = displaySeasons.reduce((s, ss) => s + ss.totalBlocks, 0);
+                const displayWins = statsPeriod === "current" && currentSeason ? currentSeason.wins : (careerStats.wins ?? 0);
+                const displayLosses = statsPeriod === "current" && currentSeason ? currentSeason.losses : (careerStats.losses ?? 0);
+
+                const statItems = statsView === "averages" ? [
+                  { label: "PPG", value: totalGames > 0 ? (totalPts / totalGames).toFixed(1) : "0.0", highlight: true },
+                  { label: "RPG", value: totalGames > 0 ? (totalReb / totalGames).toFixed(1) : "0.0" },
+                  { label: "APG", value: totalGames > 0 ? (totalAst / totalGames).toFixed(1) : "0.0" },
+                  { label: "SPG", value: totalGames > 0 ? (totalStl / totalGames).toFixed(1) : "0.0" },
+                  { label: "BPG", value: totalGames > 0 ? (totalBlk / totalGames).toFixed(1) : "0.0" },
+                ] : [
+                  { label: "PTS", value: totalPts.toString(), highlight: true },
+                  { label: "REB", value: totalReb.toString() },
+                  { label: "AST", value: totalAst.toString() },
+                  { label: "STL", value: totalStl.toString() },
+                  { label: "BLK", value: totalBlk.toString() },
+                ];
+
+                return (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between gap-4 flex-wrap">
+                      <div className="flex items-center gap-4">
+                        <div className="text-center">
+                          <p className="text-2xl font-bold">{totalGames}</p>
+                          <p className="text-xs text-muted-foreground">GP</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-2xl font-bold text-green-500">{displayWins}</p>
+                          <p className="text-xs text-muted-foreground">Wins</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-2xl font-bold text-red-500">{displayLosses}</p>
+                          <p className="text-xs text-muted-foreground">Losses</p>
+                        </div>
+                        {(displayWins + displayLosses) > 0 && (
+                          <div className="text-center">
+                            <p className="text-2xl font-bold">{((displayWins / (displayWins + displayLosses)) * 100).toFixed(0)}%</p>
+                            <p className="text-xs text-muted-foreground">Win %</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-5 gap-3">
+                      {statItems.map((item) => (
+                        <div key={item.label} className="text-center p-3 rounded-md bg-muted/50">
+                          <p className={`text-2xl font-bold ${item.highlight ? 'text-primary' : ''}`}>{item.value}</p>
+                          <p className="text-xs text-muted-foreground">{item.label}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    {statsPeriod === "career" && breakdown.length > 1 && (
+                      <div className="mt-4">
+                        <p className="text-sm font-medium mb-2 text-muted-foreground">Season Breakdown</p>
+                        <div className="space-y-2">
+                          {breakdown.map((s, i) => (
+                            <div key={i} className="flex items-center justify-between text-sm p-2 rounded-md bg-muted/30">
+                              <span className="font-medium">
+                                {SEASON_TYPE_LABELS[s.seasonType]?.split(" ")[0] || s.seasonType} '{s.year?.slice(-2) || ""}
+                              </span>
+                              <div className="flex gap-3 text-muted-foreground text-xs">
+                                <span>{s.gamesPlayed} GP</span>
+                                {statsView === "averages" ? (
+                                  <>
+                                    <span className="font-semibold text-foreground">{s.avgPoints.toFixed(1)} PPG</span>
+                                    <span>{s.avgRebounds.toFixed(1)} RPG</span>
+                                    <span>{s.avgAssists.toFixed(1)} APG</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span className="font-semibold text-foreground">{s.totalPoints} PTS</span>
+                                    <span>{s.totalRebounds} REB</span>
+                                    <span>{s.totalAssists} AST</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {sectionOrder.map((section, index) => renderSection(section, index))}
+    </div>
+  );
+}
+
 function CareerDashboard({ profile }: { profile: CareerProfile }) {
   const { toast } = useToast();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -2106,165 +2444,13 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
         </TabsContent>
 
         <TabsContent value="trophy-room" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Trophy className="w-5 h-5 text-yellow-500" />
-                Achievements
-              </CardTitle>
-              <CardDescription>
-                {achievements?.length || 0} unlocked
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {!achievements || achievements.length === 0 ? (
-                <div className="text-center py-8">
-                  <Trophy className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
-                  <p className="text-muted-foreground">
-                    No achievements yet. Start training to unlock your first badge!
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {achievements.map(ua => (
-                    <div 
-                      key={ua.id} 
-                      className="text-center p-4 rounded-md bg-muted/50"
-                      data-testid={`achievement-item-${ua.id}`}
-                    >
-                      <div className="text-3xl mb-2">{ua.achievement.icon || ""}</div>
-                      <div className="font-medium text-sm">{ua.achievement.name}</div>
-                      <Badge variant="secondary" className="mt-1 text-xs">
-                        +{ua.achievement.xpReward} XP
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Target className="w-5 h-5 text-green-500" />
-                Completed Challenges
-              </CardTitle>
-              <CardDescription>
-                Challenges you've conquered
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {(() => {
-                const completedChallenges = userChallenges?.filter(uc => uc.isCompleted) || [];
-                return completedChallenges.length > 0 ? (
-                  <div className="space-y-3">
-                    {completedChallenges.map((uc) => (
-                      <div 
-                        key={uc.id} 
-                        className="p-3 border rounded-lg flex items-center justify-between"
-                        data-testid={`completed-challenge-${uc.id}`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
-                            <Trophy className="w-5 h-5 text-green-500" />
-                          </div>
-                          <div>
-                            <p className="font-medium">{uc.challenge.name}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {uc.challenge.targetValue} {uc.challenge.metric} {uc.completedAt ? `completed ${new Date(uc.completedAt).toLocaleDateString()}` : ''}
-                            </p>
-                          </div>
-                        </div>
-                        <Badge variant="secondary" className="bg-green-500/20 text-green-600">Completed</Badge>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center p-8">
-                    <Target className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-                    <p className="text-muted-foreground">Complete challenges from Training Log to see them here!</p>
-                  </div>
-                );
-              })()}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Medal className="w-5 h-5 text-amber-500" />
-                Personal Records (PRs)
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {personalRecords && personalRecords.length > 0 ? (
-                <div className="space-y-3">
-                  {personalRecords.map((pr) => (
-                    <div 
-                      key={pr.id} 
-                      className="p-3 border rounded-lg flex items-center justify-between"
-                      data-testid={`pr-item-${pr.id}`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
-                          <Star className="w-5 h-5 text-amber-500" />
-                        </div>
-                        <div>
-                          <p className="font-medium">{pr.drill.title}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {pr.metricName}: {pr.previousValue} → {pr.newValue}
-                          </p>
-                        </div>
-                      </div>
-                      <Badge variant="outline" className="text-amber-600 border-amber-500/30">
-                        +{(Number(pr.newValue) - Number(pr.previousValue)).toFixed(0)}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center p-8">
-                  <Medal className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-                  <p className="text-muted-foreground">Beat your previous records to earn PR badges!</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Trophy className="w-5 h-5 text-yellow-500" />
-                Awards
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {teamAwards && teamAwards.length > 0 ? (
-                <div className="grid sm:grid-cols-2 gap-3">
-                  {teamAwards.map((award) => (
-                    <div 
-                      key={award.id} 
-                      className="p-4 border rounded-lg text-center"
-                      data-testid={`award-item-${award.id}`}
-                    >
-                      <Trophy className="w-10 h-10 text-yellow-500 mx-auto mb-2" />
-                      <p className="font-medium">{award.awardName}</p>
-                      <p className="text-sm text-muted-foreground">{award.teamName}</p>
-                      {award.season && (
-                        <Badge variant="outline" className="mt-2">{award.season}</Badge>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center p-8">
-                  <Trophy className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-                  <p className="text-muted-foreground">Awards you earn will appear here</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <TrophyRoomTab 
+            achievements={achievements}
+            userChallenges={userChallenges}
+            personalRecords={personalRecords}
+            teamAwards={teamAwards}
+            careerStats={careerStats}
+          />
         </TabsContent>
 
         <TabsContent value="stats" className="space-y-6">

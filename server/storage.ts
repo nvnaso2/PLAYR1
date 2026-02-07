@@ -1278,6 +1278,8 @@ export class DatabaseStorage implements IStorage {
     totalAssists: number;
     totalSteals: number;
     totalBlocks: number;
+    wins: number;
+    losses: number;
     avgPoints: number;
     avgRebounds: number;
     avgAssists: number;
@@ -1299,6 +1301,8 @@ export class DatabaseStorage implements IStorage {
       totalAssists: number;
       totalSteals: number;
       totalBlocks: number;
+      wins: number;
+      losses: number;
     }>;
   }> {
     const userSeasons = await this.getUserSeasons(userId);
@@ -1309,6 +1313,8 @@ export class DatabaseStorage implements IStorage {
     let totalAssists = 0;
     let totalSteals = 0;
     let totalBlocks = 0;
+    let totalWins = 0;
+    let totalLosses = 0;
     
     const seasonBreakdown = [];
     
@@ -1323,6 +1329,8 @@ export class DatabaseStorage implements IStorage {
       const seasonAssists = seasonGames.reduce((sum, g) => sum + (g.assists || 0), 0);
       const seasonSteals = seasonGames.reduce((sum, g) => sum + (g.steals || 0), 0);
       const seasonBlocks = seasonGames.reduce((sum, g) => sum + (g.blocks || 0), 0);
+      const seasonWins = seasonGames.filter(g => g.result === "W").length;
+      const seasonLosses = seasonGames.filter(g => g.result === "L").length;
       
       totalGames += gamesPlayed;
       totalPoints += seasonPoints;
@@ -1330,6 +1338,8 @@ export class DatabaseStorage implements IStorage {
       totalAssists += seasonAssists;
       totalSteals += seasonSteals;
       totalBlocks += seasonBlocks;
+      totalWins += seasonWins;
+      totalLosses += seasonLosses;
       
       seasonBreakdown.push({
         seasonId: season.id,
@@ -1346,7 +1356,9 @@ export class DatabaseStorage implements IStorage {
         totalRebounds: seasonRebounds,
         totalAssists: seasonAssists,
         totalSteals: seasonSteals,
-        totalBlocks: seasonBlocks
+        totalBlocks: seasonBlocks,
+        wins: seasonWins,
+        losses: seasonLosses
       });
     }
     
@@ -1357,6 +1369,8 @@ export class DatabaseStorage implements IStorage {
       totalAssists,
       totalSteals,
       totalBlocks,
+      wins: totalWins,
+      losses: totalLosses,
       avgPoints: totalGames > 0 ? Math.round((totalPoints / totalGames) * 10) / 10 : 0,
       avgRebounds: totalGames > 0 ? Math.round((totalRebounds / totalGames) * 10) / 10 : 0,
       avgAssists: totalGames > 0 ? Math.round((totalAssists / totalGames) * 10) / 10 : 0,

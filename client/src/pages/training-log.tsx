@@ -1637,6 +1637,48 @@ export default function TrainingLogPage() {
                                 </div>
                                 <Progress value={progressPercent} />
                               </div>
+                              <div className="flex items-center gap-2 pt-1">
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  placeholder="Update progress"
+                                  className="h-8 text-xs w-32"
+                                  data-testid={`input-challenge-progress-${uc.id}`}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      const val = parseInt((e.target as HTMLInputElement).value);
+                                      if (!isNaN(val) && val >= 0) {
+                                        apiRequest("PUT", `/api/challenges/${uc.id}/progress`, { currentValue: val })
+                                          .then(() => {
+                                            queryClient.invalidateQueries({ queryKey: ['/api/challenges/my-challenges'] });
+                                            (e.target as HTMLInputElement).value = '';
+                                            toast({ title: "Progress updated" });
+                                          });
+                                      }
+                                    }
+                                  }}
+                                />
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 text-xs"
+                                  data-testid={`button-update-challenge-${uc.id}`}
+                                  onClick={(e) => {
+                                    const input = (e.currentTarget.previousElementSibling as HTMLInputElement);
+                                    const val = parseInt(input.value);
+                                    if (!isNaN(val) && val >= 0) {
+                                      apiRequest("PUT", `/api/challenges/${uc.id}/progress`, { currentValue: val })
+                                        .then(() => {
+                                          queryClient.invalidateQueries({ queryKey: ['/api/challenges/my-challenges'] });
+                                          input.value = '';
+                                          toast({ title: "Progress updated" });
+                                        });
+                                    }
+                                  }}
+                                >
+                                  Set
+                                </Button>
+                              </div>
                             </div>
                           );
                         })}
