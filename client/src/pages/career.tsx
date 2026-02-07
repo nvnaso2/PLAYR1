@@ -1925,156 +1925,80 @@ function TrophyRoomTab({
   careerStats?: CareerStats;
 }) {
   const [sectionOrder, setSectionOrder] = useState<TrophySection[]>(["achievements", "challenges", "prs", "awards", "stats"]);
-  const [draggedSection, setDraggedSection] = useState<TrophySection | null>(null);
-  const [dragOverSection, setDragOverSection] = useState<TrophySection | null>(null);
+  const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
+  const [overIdx, setOverIdx] = useState<number | null>(null);
   const [statsView, setStatsView] = useState<"averages" | "totals">("averages");
   const [statsPeriod, setStatsPeriod] = useState<"career" | "current">("career");
-  const sectionRefs = useRef<Map<TrophySection, HTMLDivElement>>(new Map());
-  const touchStartY = useRef<number>(0);
-  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
 
-  const handleDragStart = (e: React.DragEvent, section: TrophySection) => {
-    setDraggedSection(section);
-    e.dataTransfer.effectAllowed = "move";
+  const getItemElements = (): HTMLElement[] => {
+    if (!containerRef.current) return [];
+    return Array.from(containerRef.current.children) as HTMLElement[];
   };
-  const handleDragOver = (e: React.DragEvent, section: TrophySection) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    if (dragOverSection !== section) setDragOverSection(section);
-  };
-  const handleDragLeave = () => setDragOverSection(null);
-  const handleDrop = (targetSection: TrophySection) => {
-    if (!draggedSection || draggedSection === targetSection) {
-      setDraggedSection(null);
-      setDragOverSection(null);
-      return;
+
+  const getIndexAtY = (clientY: number): number | null => {
+    const items = getItemElements();
+    for (let i = 0; i < items.length; i++) {
+      const rect = items[i].getBoundingClientRect();
+      if (clientY >= rect.top && clientY <= rect.bottom) return i;
     }
+    return null;
+  };
+
+  const commitReorder = (fromIdx: number, toIdx: number) => {
+    if (fromIdx === toIdx) return;
     const newOrder = [...sectionOrder];
-    const fromIndex = newOrder.indexOf(draggedSection);
-    const toIndex = newOrder.indexOf(targetSection);
-    newOrder.splice(fromIndex, 1);
-    newOrder.splice(toIndex, 0, draggedSection);
-    setSectionOrder(newOrder);
-    setDraggedSection(null);
-    setDragOverSection(null);
-  };
-  const handleDragEnd = () => {
-    setDraggedSection(null);
-    setDragOverSection(null);
-  };
-
-  const findSectionAtPoint = (clientY: number): TrophySection | null => {
-    let found: TrophySection | null = null;
-    sectionRefs.current.forEach((el, section) => {
-      const rect = el.getBoundingClientRect();
-      if (clientY >= rect.top && clientY <= rect.bottom) found = section;
-    });
-    return found;
-  };
-
-  const handleTouchStart = (section: TrophySection) => (e: React.TouchEvent) => {
-    touchStartY.current = e.touches[0].clientY;
-    longPressTimer.current = setTimeout(() => {
-      setDraggedSection(section);
-    }, 300);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (longPressTimer.current) {
-      const dy = Math.abs(e.touches[0].clientY - touchStartY.current);
-      if (dy > 10 && !draggedSection) {
-        clearTimeout(longPressTimer.current);
-        longPressTimer.current = null;
-        return;
-      }
-    }
-    if (!draggedSection) return;
-    e.preventDefault();
-    const target = findSectionAtPoint(e.touches[0].clientY);
-    if (target && target !== dragOverSection) setDragOverSection(target);
-  };
-
-  const handleTouchEnd = () => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-    if (draggedSection && dragOverSection && draggedSection !== dragOverSection) {
-      const newOrder = [...sectionOrder];
-      const fromIndex = newOrder.indexOf(draggedSection);
-      const toIndex = newOrder.indexOf(dragOverSection);
-      newOrder.splice(fromIndex, 1);
-      newOrder.splice(toIndex, 0, draggedSection);
-      setSectionOrder(newOrder);
-    }
-    setDraggedSection(null);
-    setDragOverSection(null);
-  };
-
-  const moveSection = (section: TrophySection, direction: "up" | "down") => {
-    const index = sectionOrder.indexOf(section);
-    const swapIndex = direction === "up" ? index - 1 : index + 1;
-    if (swapIndex < 0 || swapIndex >= sectionOrder.length) return;
-    const newOrder = [...sectionOrder];
-    [newOrder[index], newOrder[swapIndex]] = [newOrder[swapIndex], newOrder[index]];
+    const [moved] = newOrder.splice(fromIdx, 1);
+    newOrder.splice(toIdx, 0, moved);
     setSectionOrder(newOrder);
   };
 
-  const renderSectionHeader = (icon: React.ReactNode, title: string, description: string | undefined, section: TrophySection) => (
-    <CardHeader className="cursor-grab active:cursor-grabbing">
+  const onPointerDown = (idx: number) => (e: React.PointerEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest("button") || target.closest("input") || target.closest("select")) return;
+    e.preventDefault();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    isDragging.current = false;
+    setDraggedIdx(idx);
+    setOverIdx(idx);
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (draggedIdx === null) return;
+    isDragging.current = true;
+    const hit = getIndexAtY(e.clientY);
+    if (hit !== null && hit !== overIdx) setOverIdx(hit);
+  };
+
+  const onPointerUp = () => {
+    if (draggedIdx !== null && overIdx !== null && isDragging.current) {
+      commitReorder(draggedIdx, overIdx);
+    }
+    setDraggedIdx(null);
+    setOverIdx(null);
+    isDragging.current = false;
+  };
+
+  const renderSectionHeader = (icon: React.ReactNode, title: string, description: string | undefined) => (
+    <CardHeader className="cursor-grab active:cursor-grabbing select-none touch-none">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <CardTitle className="text-lg flex items-center gap-2">
           {icon}
           {title}
         </CardTitle>
-        <div className="flex items-center gap-1">
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={(e) => { e.stopPropagation(); moveSection(section, "up"); }}
-            disabled={sectionOrder.indexOf(section) === 0}
-            className="h-7 w-7 md:invisible"
-            data-testid={`move-up-${section}`}
-          >
-            <ChevronUp className="w-4 h-4" />
-          </Button>
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={(e) => { e.stopPropagation(); moveSection(section, "down"); }}
-            disabled={sectionOrder.indexOf(section) === sectionOrder.length - 1}
-            className="h-7 w-7 md:invisible"
-            data-testid={`move-down-${section}`}
-          >
-            <ChevronDown className="w-4 h-4" />
-          </Button>
-          <GripVertical className="w-5 h-5 text-muted-foreground hidden md:block" />
-        </div>
+        <GripVertical className="w-5 h-5 text-muted-foreground" />
       </div>
       {description && <CardDescription>{description}</CardDescription>}
     </CardHeader>
   );
 
-  const dragProps = (section: TrophySection) => ({
-    draggable: true,
-    ref: (el: HTMLDivElement | null) => { if (el) sectionRefs.current.set(section, el); else sectionRefs.current.delete(section); },
-    onDragStart: (e: React.DragEvent) => handleDragStart(e, section),
-    onDragOver: (e: React.DragEvent) => handleDragOver(e, section),
-    onDragLeave: handleDragLeave,
-    onDrop: () => handleDrop(section),
-    onDragEnd: handleDragEnd,
-    onTouchStart: handleTouchStart(section),
-    onTouchMove: handleTouchMove,
-    onTouchEnd: handleTouchEnd,
-    className: `transition-all duration-200 ${draggedSection === section ? "opacity-50 scale-[0.98]" : ""} ${dragOverSection === section && draggedSection !== section ? "ring-2 ring-primary ring-offset-2" : ""}`,
-  });
-
   const renderSection = (section: TrophySection, index: number) => {
     switch (section) {
       case "achievements":
         return (
-          <Card key="achievements" {...dragProps("achievements")}>
-            {renderSectionHeader(<Trophy className="w-5 h-5 text-yellow-500" />, "Achievements", `${achievements?.length || 0} unlocked`, "achievements")}
+          <Card key="achievements">
+            {renderSectionHeader(<Trophy className="w-5 h-5 text-yellow-500" />, "Achievements", `${achievements?.length || 0} unlocked`)}
             <CardContent>
               {!achievements || achievements.length === 0 ? (
                 <div className="text-center py-8">
@@ -2098,8 +2022,8 @@ function TrophyRoomTab({
 
       case "challenges":
         return (
-          <Card key="challenges" {...dragProps("challenges")}>
-            {renderSectionHeader(<Target className="w-5 h-5 text-green-500" />, "Completed Challenges", "Challenges you've conquered", "challenges")}
+          <Card key="challenges">
+            {renderSectionHeader(<Target className="w-5 h-5 text-green-500" />, "Completed Challenges", "Challenges you've conquered")}
             <CardContent>
               {(() => {
                 const completedChallenges = userChallenges?.filter(uc => uc.isCompleted) || [];
@@ -2135,8 +2059,8 @@ function TrophyRoomTab({
 
       case "prs":
         return (
-          <Card key="prs" {...dragProps("prs")}>
-            {renderSectionHeader(<Medal className="w-5 h-5 text-amber-500" />, "Personal Records (PRs)", undefined, "prs")}
+          <Card key="prs">
+            {renderSectionHeader(<Medal className="w-5 h-5 text-amber-500" />, "Personal Records (PRs)", undefined)}
             <CardContent>
               {personalRecords && personalRecords.length > 0 ? (
                 <div className="space-y-3">
@@ -2169,8 +2093,8 @@ function TrophyRoomTab({
 
       case "awards":
         return (
-          <Card key="awards" {...dragProps("awards")}>
-            {renderSectionHeader(<Trophy className="w-5 h-5 text-yellow-500" />, "Awards", undefined, "awards")}
+          <Card key="awards">
+            {renderSectionHeader(<Trophy className="w-5 h-5 text-yellow-500" />, "Awards", undefined)}
             <CardContent>
               {teamAwards && teamAwards.length > 0 ? (
                 <div className="grid sm:grid-cols-2 gap-3">
@@ -2195,8 +2119,8 @@ function TrophyRoomTab({
 
       case "stats":
         return (
-          <Card key="stats" {...dragProps("stats")}>
-            {renderSectionHeader(<BarChart className="w-5 h-5 text-blue-500" />, "Stats", "Season and career statistics", "stats")}
+          <Card key="stats">
+            {renderSectionHeader(<BarChart className="w-5 h-5 text-blue-500" />, "Stats", "Season and career statistics")}
             <CardContent>
               <div className="flex items-center gap-2 mb-4 flex-wrap">
                 <div className="flex gap-1">
@@ -2331,8 +2255,26 @@ function TrophyRoomTab({
   };
 
   return (
-    <div className="space-y-6">
-      {sectionOrder.map((section, index) => renderSection(section, index))}
+    <div className="space-y-6" ref={containerRef}>
+      {sectionOrder.map((section, index) => (
+        <div
+          key={section}
+          onPointerDown={onPointerDown(index)}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+          className={`transition-all duration-200 ${
+            draggedIdx === index ? "opacity-50 scale-[0.98]" : ""
+          } ${
+            overIdx === index && draggedIdx !== null && draggedIdx !== index
+              ? "ring-2 ring-primary ring-offset-2 rounded-xl"
+              : ""
+          }`}
+          data-testid={`draggable-section-${section}`}
+        >
+          {renderSection(section, index)}
+        </div>
+      ))}
     </div>
   );
 }
