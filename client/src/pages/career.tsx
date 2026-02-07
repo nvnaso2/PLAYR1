@@ -845,20 +845,17 @@ function BaseballCard({ profile, careerStats, onPhotoUpdated, userName }: { prof
             </label>
 
             <div className="absolute bottom-0 left-0 right-0">
-              <div className="bg-black/90 px-3 py-2 border-t-2 border-orange-500">
+              <div className="px-3 py-2" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.95) 60%, rgba(0,0,0,0.7) 85%, transparent 100%)" }}>
                 {userName && (
-                  <p className="text-white font-black text-sm uppercase tracking-wide leading-tight truncate" data-testid="text-card-player-name">
+                  <p className="text-white font-black text-base uppercase tracking-wide leading-none truncate" data-testid="text-card-player-name">
                     {userName}
                   </p>
                 )}
-                <div className="flex items-center justify-between gap-2 mt-0.5">
-                  <span className="text-orange-400 font-bold text-[10px] uppercase tracking-wider truncate">
-                    {[profile.schoolName || profile.teamName, positionsText].filter(Boolean).join(" \u2022 ") || "Handlz Training"}
-                  </span>
-                  <span className="text-white/40 text-[10px] font-bold flex-shrink-0">
-                    '{new Date().getFullYear().toString().slice(-2)}
-                  </span>
-                </div>
+                {(profile.schoolName || profile.teamName || positionsText) && (
+                  <p className="text-orange-400 font-semibold text-[11px] uppercase tracking-wider leading-none mt-1 truncate">
+                    {[profile.schoolName || profile.teamName, positionsText].filter(Boolean).join(" \u00B7 ")}
+                  </p>
+                )}
               </div>
             </div>
 
