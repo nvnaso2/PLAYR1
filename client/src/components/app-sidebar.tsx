@@ -92,7 +92,7 @@ export function AppSidebar() {
           <div className="flex items-center gap-2 cursor-pointer" data-testid="link-sidebar-logo">
             <img 
               src={logoLandscape} 
-              alt="Handlz" 
+              alt="PLAYR1" 
               className="h-7 w-auto"
             />
           </div>

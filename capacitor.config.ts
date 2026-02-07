@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.handlz.training',
-  appName: 'Handlz Training',
+  appId: 'com.playr1.training',
+  appName: 'PLAYR1 Training',
   webDir: 'dist/public',
   server: {
     androidScheme: 'https',

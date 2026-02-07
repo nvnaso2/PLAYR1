@@ -424,7 +424,7 @@ export default function ProfilePage() {
             <div>
               <p className="font-medium">Sign Out</p>
               <p className="text-sm text-muted-foreground">
-                Sign out of your Handlz account
+                Sign out of your PLAYR1 account
               </p>
             </div>
             <a href="/api/logout">

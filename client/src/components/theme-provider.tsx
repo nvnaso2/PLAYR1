@@ -12,7 +12,7 @@ const ThemeProviderContext = createContext<ThemeProviderContextType | undefined>
 export function ThemeProvider({
   children,
   defaultTheme = "system",
-  storageKey = "handlz-ui-theme",
+  storageKey = "playr1-ui-theme",
 }: {
   children: React.ReactNode;
   defaultTheme?: Theme;

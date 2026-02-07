@@ -57,7 +57,7 @@ export default function Landing() {
             <div className="flex items-center gap-3">
               <img 
                 src={logoLandscape} 
-                alt="Handlz" 
+                alt="PLAYR1" 
                 className="h-8 w-auto dark:invert-0 invert"
                 data-testid="img-logo"
               />
@@ -94,7 +94,7 @@ export default function Landing() {
                 </h1>
                 <p className="text-lg text-muted-foreground max-w-lg">
                   Professional basketball drills, progress tracking, and community benchmarking. 
-                  Train smarter with Handlz weighted basketballs and unlock your full potential.
+                  Train smarter with PLAYR1 and unlock your full potential.
                 </p>
               </div>
               
@@ -213,7 +213,7 @@ export default function Landing() {
             <div className="order-2 lg:order-1">
               <img 
                 src={productImage}
-                alt="Handlz weighted basketball"
+                alt="PLAYR1 weighted basketball"
                 className="w-full rounded-2xl ring-1 ring-black/5 dark:ring-white/5"
                 data-testid="img-product"
               />
@@ -259,7 +259,7 @@ export default function Landing() {
           <div className="relative rounded-2xl overflow-hidden">
             <img 
               src={basketballImage}
-              alt="Handlz basketball on court"
+              alt="PLAYR1 basketball on court"
               className="w-full h-80 object-cover"
               data-testid="img-cta-background"
             />
@@ -271,7 +271,7 @@ export default function Landing() {
                 </h2>
                 <p className="text-white/80 mb-6">
                   Join thousands of players who are already improving their skills 
-                  with Handlz training platform.
+                  with PLAYR1 training platform.
                 </p>
                 <a href="/api/login">
                   <Button size="lg" className="gap-2" data-testid="button-cta-join">
@@ -291,11 +291,11 @@ export default function Landing() {
             <div className="flex items-center gap-3">
               <img 
                 src={logoLandscape} 
-                alt="Handlz" 
+                alt="PLAYR1" 
                 className="h-6 w-auto dark:invert-0 invert"
               />
               <span className="text-sm text-muted-foreground">
-                © 2025 Handlz. All rights reserved.
+                © 2025 PLAYR1. All rights reserved.
               </span>
             </div>
             <div className="flex items-center gap-6">

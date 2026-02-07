@@ -207,7 +207,7 @@ export default function Dashboard() {
       <div className="relative rounded-2xl overflow-hidden">
         <img 
           src={bannerImage}
-          alt="Handlz Training"
+          alt="PLAYR1 Training"
           className="w-full h-48 sm:h-56 object-cover"
           data-testid="img-dashboard-banner"
         />

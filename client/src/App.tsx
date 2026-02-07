@@ -92,7 +92,7 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider defaultTheme="dark" storageKey="handlz-theme">
+      <ThemeProvider defaultTheme="dark" storageKey="playr1-theme">
         <TooltipProvider>
           <Toaster />
           <Router previewLanding={previewLanding} />

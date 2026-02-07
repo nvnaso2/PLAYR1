@@ -334,7 +334,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
                   <h3 className="text-xl font-semibold">Welcome to My Career Mode</h3>
                   <p className="text-muted-foreground">
                     Track your basketball development like the pros. Build your player profile, 
-                    set goals, and watch yourself level up as you train with Handlz.
+                    set goals, and watch yourself level up as you train with PLAYR1.
                   </p>
                   <div className="flex justify-center gap-4 py-6">
                     <div className="text-center">
