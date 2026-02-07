@@ -1069,6 +1069,7 @@ export async function registerRoutes(
         'skillBallHandling', 'skillShooting', 'skillPassing', 'skillFinishing',
         'skillDefense', 'skillBasketballIQ', 'skillAthletics',
         'avatarSkinTone', 'avatarHairStyle', 'avatarHairColor', 'avatarAccessory',
+        'cardPhotoUrl',
         'onboardingCompleted'
       ];
       

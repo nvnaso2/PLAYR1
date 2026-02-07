@@ -103,6 +103,8 @@ export const careerProfiles = pgTable("career_profiles", {
   avatarHairColor: varchar("avatar_hair_color").default("black"),
   avatarAccessory: varchar("avatar_accessory"), // headband, glasses, etc.
   
+  cardPhotoUrl: varchar("card_photo_url"),
+  
   // Onboarding status
   onboardingCompleted: boolean("onboarding_completed").default(false),
   

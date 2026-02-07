@@ -150,6 +150,43 @@ export function registerObjectStorageRoutes(app: Express): void {
     }
   });
 
+  app.post("/api/user/uploads/photo-url", isAuthenticated, async (req, res) => {
+    try {
+      const { name, size, contentType } = req.body;
+
+      if (!name || !contentType) {
+        return res.status(400).json({
+          error: "Missing required fields: name and contentType are required",
+        });
+      }
+
+      if (!ALLOWED_IMAGE_TYPES.includes(contentType)) {
+        return res.status(400).json({
+          error: `Invalid content type. Allowed types: ${ALLOWED_IMAGE_TYPES.join(", ")}`,
+        });
+      }
+
+      if (size && size > MAX_IMAGE_SIZE) {
+        const maxMB = MAX_IMAGE_SIZE / (1024 * 1024);
+        return res.status(400).json({
+          error: `File too large. Maximum size: ${maxMB}MB`,
+        });
+      }
+
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
+
+      res.json({
+        uploadURL,
+        objectPath,
+        metadata: { name, size, contentType },
+      });
+    } catch (error) {
+      console.error("Error generating photo upload URL:", error);
+      res.status(500).json({ error: "Failed to generate upload URL" });
+    }
+  });
+
   /**
    * Serve uploaded objects.
    *

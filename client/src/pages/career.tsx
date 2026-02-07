@@ -70,7 +70,8 @@ import {
   GripVertical,
   ArrowUp,
   ArrowDown,
-  BarChart
+  BarChart,
+  Camera
 } from "lucide-react";
 import type { CareerProfile, UserAchievement, CareerAchievement, Challenge, UserChallenge, PersonalRecord, TeamAward, Season, Game } from "@shared/schema";
 import defaultPlayerImg from "@assets/default-player.jpg";
@@ -714,142 +715,167 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   );
 }
 
-function BaseballCard({ profile, careerStats }: { profile: CareerProfile; careerStats?: CareerStats }) {
+function BaseballCard({ profile, careerStats, onPhotoUpdated }: { profile: CareerProfile; careerStats?: CareerStats; onPhotoUpdated?: () => void }) {
   const [isFlipped, setIsFlipped] = useState(false);
   const [seasonFilter, setSeasonFilter] = useState<string>("all");
+  const [uploading, setUploading] = useState(false);
+  const { toast } = useToast();
 
   const allSeasons = careerStats?.seasonBreakdown || [];
   const seasonBreakdown = seasonFilter === "all"
     ? allSeasons
     : allSeasons.filter(s => s.seasonType === seasonFilter);
-  const cardW = 260;
-  const cardH = 380;
-  const backW = 500;
-  const backH = 280;
+  const cardW = 280;
+  const cardH = 400;
+
+  const photoSrc = profile.cardPhotoUrl
+    ? (profile.cardPhotoUrl.startsWith("/") ? profile.cardPhotoUrl : `/objects/${profile.cardPhotoUrl}`)
+    : defaultPlayerImg;
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.stopPropagation();
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+    if (!allowedTypes.includes(file.type)) {
+      toast({ title: "Invalid file type", description: "Please upload a JPEG, PNG, GIF, or WebP image.", variant: "destructive" });
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Maximum file size is 10MB.", variant: "destructive" });
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const urlRes = await apiRequest("POST", "/api/user/uploads/photo-url", {
+        name: file.name,
+        size: file.size,
+        contentType: file.type,
+      });
+      const { uploadURL, objectPath } = await urlRes.json();
+
+      await fetch(uploadURL, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+
+      await apiRequest("PUT", "/api/career", { cardPhotoUrl: objectPath });
+      queryClient.invalidateQueries({ queryKey: ["/api/career"] });
+      onPhotoUpdated?.();
+      toast({ title: "Photo updated" });
+    } catch (err) {
+      toast({ title: "Upload failed", description: "Could not upload photo. Please try again.", variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
 
   return (
     <div
       className="cursor-pointer select-none"
-      style={{ perspective: "1200px", width: isFlipped ? backW : cardW, height: isFlipped ? backH : cardH, transition: "width 0.6s ease, height 0.6s ease" }}
+      style={{ perspective: "1200px", width: cardW, height: cardH }}
       onClick={() => setIsFlipped(!isFlipped)}
       data-testid="baseball-card"
     >
       <div
-        className="relative transition-all duration-600"
+        className="relative w-full h-full"
         style={{
-          width: cardW,
-          height: cardH,
           transformStyle: "preserve-3d",
           transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)",
           transition: "transform 0.6s ease",
         }}
       >
-        {/* FRONT - Vertical (portrait) */}
+        {/* FRONT */}
         <div
-          className="absolute rounded-md overflow-hidden"
+          className="absolute inset-0 rounded-md overflow-hidden"
           style={{
             backfaceVisibility: "hidden",
-            width: cardW,
-            height: cardH,
-            border: "2px solid rgba(255,255,255,0.7)",
+            border: "3px solid #f97316",
           }}
         >
-          <div className="relative w-full h-full bg-black flex flex-col">
-            <div className="flex-1 overflow-hidden">
-              <img
-                src={defaultPlayerImg}
-                alt="Player"
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-            </div>
+          <div className="relative w-full h-full bg-black">
+            <img
+              src={photoSrc}
+              alt="Player"
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
 
             {profile.jerseyNumber != null && (
-              <div className="absolute top-2 left-2 bg-black/70 px-2 py-1 rounded-sm">
-                <span className="text-orange-400 font-black text-lg leading-none">#{profile.jerseyNumber}</span>
+              <div
+                className="absolute top-0 left-0 flex items-center justify-center"
+                style={{
+                  width: 38,
+                  height: 38,
+                  background: "linear-gradient(135deg, #f97316 60%, transparent 60%)",
+                  borderBottomRightRadius: 6,
+                }}
+              >
+                <span className="text-black font-black text-sm leading-none" style={{ marginTop: -4, marginLeft: -4 }}>
+                  {profile.jerseyNumber}
+                </span>
               </div>
             )}
 
-            <div className="absolute bottom-0 left-0 right-0 flex flex-col">
-              <div className="bg-black px-3 py-2 border-t-2 border-orange-500">
-                {(() => {
-                  const currentYear = new Date().getFullYear().toString();
-                  const currentSeason = allSeasons.find(s => s.year === currentYear) || allSeasons[allSeasons.length - 1];
-                  if (currentSeason && currentSeason.gamesPlayed > 0) {
-                    return (
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-orange-400 text-[9px] font-bold uppercase tracking-wider">
-                            {profile.schoolName || profile.teamName || "Player"}
-                          </span>
-                          <span className="text-white/40 text-[8px] font-bold">
-                            {SEASON_TYPE_LABELS[currentSeason.seasonType]?.split(" ")[0] || currentSeason.seasonType} '{currentSeason.year?.slice(-2) || ""} | {currentSeason.gamesPlayed} GP
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-5 gap-1 text-center">
-                          {[
-                            { label: "PTS", value: currentSeason.avgPoints?.toFixed(1) },
-                            { label: "REB", value: currentSeason.avgRebounds?.toFixed(1) },
-                            { label: "AST", value: currentSeason.avgAssists?.toFixed(1) },
-                            { label: "STL", value: currentSeason.avgSteals?.toFixed(1) },
-                            { label: "BLK", value: currentSeason.avgBlocks?.toFixed(1) },
-                          ].map((stat) => (
-                            <div key={stat.label}>
-                              <p className="text-white font-black text-sm leading-tight">{stat.value}</p>
-                              <p className="text-orange-400/60 text-[7px] font-bold uppercase">{stat.label}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  }
-                  return (
-                    <div className="flex items-center justify-between">
-                      <span className="text-orange-400 font-bold text-[10px] uppercase tracking-wider">
-                        {profile.schoolName || profile.teamName || "Handlz Training"}
-                      </span>
-                      <span className="text-white/40 text-[10px] font-bold">
-                        '{new Date().getFullYear().toString().slice(-2)}
-                      </span>
-                    </div>
-                  );
-                })()}
+            <label
+              className="absolute top-2 right-2 flex items-center justify-center w-8 h-8 rounded-full bg-black/60 text-white/70 hover:text-white hover:bg-black/80 transition-colors cursor-pointer"
+              onClick={(e) => e.stopPropagation()}
+              data-testid="button-upload-card-photo"
+            >
+              <Camera className="w-4 h-4" />
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                className="hidden"
+                onChange={handlePhotoUpload}
+                disabled={uploading}
+              />
+            </label>
+
+            <div className="absolute bottom-0 left-0 right-0">
+              <div className="bg-black/90 px-3 py-2 border-t-2 border-orange-500">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-orange-400 font-bold text-xs uppercase tracking-wider truncate">
+                    {profile.schoolName || profile.teamName || "Handlz Training"}
+                  </span>
+                  <span className="text-white/40 text-[10px] font-bold flex-shrink-0">
+                    '{new Date().getFullYear().toString().slice(-2)}
+                  </span>
+                </div>
               </div>
             </div>
+
+            {uploading && (
+              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                <div className="text-white text-xs font-medium">Uploading...</div>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* BACK - Horizontal (landscape), rotated via CSS */}
+        {/* BACK - Same size, flipped */}
         <div
-          className="absolute rounded-md overflow-hidden"
+          className="absolute inset-0 rounded-md overflow-hidden"
           style={{
             backfaceVisibility: "hidden",
             transform: "rotateY(180deg)",
-            width: backW,
-            height: backH,
-            top: (cardH - backH) / 2,
-            left: (cardW - backW) / 2,
-            border: "2px solid rgba(255,255,255,0.7)",
+            border: "3px solid #f97316",
           }}
         >
           <div className="w-full h-full flex flex-col bg-black text-white">
-            {/* Header - Player info */}
             <div className="flex items-center justify-between px-3 py-1.5 border-b border-orange-500/40">
-              <div className="flex items-center gap-3 min-w-0">
-                <p className="text-white font-bold text-sm uppercase tracking-wide leading-tight truncate">
+              <div className="flex items-center gap-2 min-w-0">
+                <p className="text-white font-bold text-xs uppercase tracking-wide leading-tight truncate">
                   {profile.schoolName || profile.teamName || "Player"}
                 </p>
                 {profile.jerseyNumber != null && (
-                  <span className="text-orange-400 font-black text-sm">#{profile.jerseyNumber}</span>
-                )}
-                {profile.positions && profile.positions.length > 0 && (
-                  <span className="text-white/50 text-[10px] uppercase tracking-wider">
-                    {profile.positions.join(" / ")}
-                  </span>
+                  <span className="text-orange-400 font-black text-xs">#{profile.jerseyNumber}</span>
                 )}
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                {/* Season Type Filter */}
+              <div className="flex items-center gap-1.5 flex-shrink-0">
                 <div className="flex gap-0.5" onClick={(e) => e.stopPropagation()}>
                   {[
                     { key: "all", label: "ALL" },
@@ -860,7 +886,7 @@ function BaseballCard({ profile, careerStats }: { profile: CareerProfile; career
                     <button
                       key={f.key}
                       data-testid={`filter-${f.key}`}
-                      className={`px-1.5 py-0.5 text-[8px] font-bold uppercase rounded-sm transition-colors ${
+                      className={`px-1 py-0.5 text-[7px] font-bold uppercase rounded-sm transition-colors ${
                         seasonFilter === f.key
                           ? "bg-orange-500 text-white"
                           : "bg-white/10 text-white/50 hover:bg-white/20"
@@ -871,16 +897,13 @@ function BaseballCard({ profile, careerStats }: { profile: CareerProfile; career
                     </button>
                   ))}
                 </div>
-                <span className="text-white/30 text-[9px]">Tap to flip</span>
               </div>
             </div>
 
-            {/* Stats table */}
-            <div className="flex-1 overflow-auto px-3 py-1.5">
+            <div className="flex-1 overflow-auto px-2 py-1">
               <div>
-                {/* Column headers - Avg | Tot */}
-                <div className="grid gap-0.5 text-[8px] font-bold uppercase text-white/40 border-b border-white/10 pb-1 mb-0.5"
-                  style={{ gridTemplateColumns: "minmax(50px, 1.2fr) 28px repeat(5, 1fr) repeat(5, 1fr)" }}>
+                <div className="grid gap-0.5 text-[7px] font-bold uppercase text-white/40 border-b border-white/10 pb-0.5 mb-0.5"
+                  style={{ gridTemplateColumns: "minmax(36px, 1fr) 22px repeat(5, 1fr) repeat(5, 1fr)" }}>
                   <span>Season</span>
                   <span className="text-center">GP</span>
                   <span className="text-center text-orange-400/70">PTS</span>
@@ -894,22 +917,21 @@ function BaseballCard({ profile, careerStats }: { profile: CareerProfile; career
                   <span className="text-center">STL</span>
                   <span className="text-center">BLK</span>
                 </div>
-                {/* Sub-headers */}
-                <div className="grid gap-0.5 text-[7px] uppercase text-white/25 mb-0.5"
-                  style={{ gridTemplateColumns: "minmax(50px, 1.2fr) 28px repeat(5, 1fr) repeat(5, 1fr)" }}>
+                <div className="grid gap-0.5 text-[6px] uppercase text-white/25 mb-0.5"
+                  style={{ gridTemplateColumns: "minmax(36px, 1fr) 22px repeat(5, 1fr) repeat(5, 1fr)" }}>
                   <span></span>
                   <span></span>
-                  <span className="text-center col-span-5 border-b border-orange-500/20 pb-0.5">Averages</span>
-                  <span className="text-center col-span-5 border-b border-white/10 pb-0.5">Totals</span>
+                  <span className="text-center col-span-5 border-b border-orange-500/20 pb-0.5">Avg</span>
+                  <span className="text-center col-span-5 border-b border-white/10 pb-0.5">Tot</span>
                 </div>
 
                 {seasonBreakdown.length > 0 ? (
                   <>
                     {seasonBreakdown.map((s, i) => (
-                      <div key={i} className="grid gap-0.5 text-[9px] py-0.5 border-b border-white/5 last:border-0"
-                        style={{ gridTemplateColumns: "minmax(50px, 1.2fr) 28px repeat(5, 1fr) repeat(5, 1fr)" }}>
-                        <span className="font-medium truncate text-white/70" title={s.seasonName}>
-                          {SEASON_TYPE_LABELS[s.seasonType] ? SEASON_TYPE_LABELS[s.seasonType].split(" ")[0] : s.seasonType} '{s.year?.slice(-2) || ""}
+                      <div key={i} className="grid gap-0.5 text-[8px] py-0.5 border-b border-white/5 last:border-0"
+                        style={{ gridTemplateColumns: "minmax(36px, 1fr) 22px repeat(5, 1fr) repeat(5, 1fr)" }}>
+                        <span className="font-medium truncate text-white/70 text-[7px]" title={s.seasonName}>
+                          {SEASON_TYPE_LABELS[s.seasonType] ? SEASON_TYPE_LABELS[s.seasonType].split(" ")[0].slice(0, 3) : s.seasonType.slice(0, 3)} '{s.year?.slice(-2) || ""}
                         </span>
                         <span className="text-center text-white/60">{s.gamesPlayed}</span>
                         <span className="text-center font-semibold text-orange-400">{s.avgPoints?.toFixed(1)}</span>
@@ -934,9 +956,9 @@ function BaseballCard({ profile, careerStats }: { profile: CareerProfile; career
                       const filteredTotalBlk = seasonBreakdown.reduce((sum, s) => sum + s.totalBlocks, 0);
                       if (filteredGames === 0) return null;
                       return (
-                        <div className="grid gap-0.5 text-[9px] py-1 mt-0.5 border-t-2 border-orange-500/50 font-bold"
-                          style={{ gridTemplateColumns: "minmax(50px, 1.2fr) 28px repeat(5, 1fr) repeat(5, 1fr)" }}>
-                          <span className="text-orange-400 uppercase">Total</span>
+                        <div className="grid gap-0.5 text-[8px] py-1 mt-0.5 border-t-2 border-orange-500/50 font-bold"
+                          style={{ gridTemplateColumns: "minmax(36px, 1fr) 22px repeat(5, 1fr) repeat(5, 1fr)" }}>
+                          <span className="text-orange-400 uppercase text-[7px]">Total</span>
                           <span className="text-center">{filteredGames}</span>
                           <span className="text-center text-orange-400">{filteredGames > 0 ? (filteredTotalPts / filteredGames).toFixed(1) : "0.0"}</span>
                           <span className="text-center">{filteredGames > 0 ? (filteredTotalReb / filteredGames).toFixed(1) : "0.0"}</span>
@@ -953,20 +975,20 @@ function BaseballCard({ profile, careerStats }: { profile: CareerProfile; career
                     })()}
                   </>
                 ) : (
-                  <div className="flex flex-col items-center justify-center py-4 text-center">
+                  <div className="flex flex-col items-center justify-center py-6 text-center">
                     <BarChart3 className="w-5 h-5 text-white/20 mb-1" />
-                    <p className="text-[10px] text-white/40">No seasons yet — add seasons in the Stats tab</p>
+                    <p className="text-[10px] text-white/40">No seasons yet</p>
+                    <p className="text-[9px] text-white/25 mt-0.5">Add seasons in the Stats tab</p>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Black footer bar */}
-            <div className="px-3 py-1.5 bg-neutral-900 border-t border-white/10 flex items-center justify-between">
-              <span className="text-[9px] text-white/30">
-                {profile.schoolName || profile.teamName || ""}
+            <div className="px-2 py-1 bg-neutral-900 border-t border-white/10 flex items-center justify-between">
+              <span className="text-[8px] text-white/30">
+                {profile.positions && profile.positions.length > 0 ? profile.positions.join(" / ") : ""}
               </span>
-              <span className="text-[9px] text-white/30">'{new Date().getFullYear().toString().slice(-2)}</span>
+              <span className="text-[8px] text-white/30">Tap to flip</span>
             </div>
           </div>
         </div>
@@ -2281,10 +2303,8 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
     <div className="p-4 sm:p-6 space-y-6">
       <div className="flex flex-col items-center gap-4 text-center">
         <h1 className="text-2xl sm:text-3xl font-bold">My Career</h1>
-        <div className="relative z-10">
-          <BaseballCard profile={profile} careerStats={careerStats} />
-        </div>
-        <div className="relative z-0 flex items-center gap-2 sm:gap-4 flex-wrap">
+        <BaseballCard profile={profile} careerStats={careerStats} onPhotoUpdated={() => queryClient.invalidateQueries({ queryKey: ["/api/career"] })} />
+        <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
           <Badge variant="secondary" className="text-base sm:text-lg px-3 py-1">
             Level {profile.level || 1}
           </Badge>
