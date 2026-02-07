@@ -156,7 +156,7 @@ export default function ProgressPage() {
         />
         <StatsCard
           title="Hours Trained"
-          value={Math.round(totalMinutes / 60 * 10) / 10}
+          value={`${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`}
           change={12}
           icon={<Clock className="w-5 h-5 text-primary" />}
           testId="stats-hours"

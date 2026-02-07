@@ -95,7 +95,7 @@ type StatCardDef = {
 
 const DEFAULT_STAT_CARDS: StatCardDef[] = [
   { key: "sessions", title: "Total Sessions", getValue: (s) => s?.totalSessions || 0, change: 12, testId: "stats-sessions" },
-  { key: "minutes", title: "Minutes Trained", getValue: (s) => s?.totalMinutes || 0, change: 8, testId: "stats-minutes" },
+  { key: "minutes", title: "Time Trained", getValue: (s) => { const m = s?.totalMinutes || 0; return `${Math.floor(m / 60)}h ${m % 60}m`; }, change: 8, testId: "stats-minutes" },
   { key: "streak", title: "Day Streak", getValue: (s) => s?.streak || 0, testId: "stats-streak" },
 ];
 
