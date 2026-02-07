@@ -146,7 +146,7 @@ export default function ProgressPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <StatsCard
           title="Total Sessions"
           value={totalSessions}
@@ -176,29 +176,30 @@ export default function ProgressPage() {
           <TabsTrigger value="benchmarks" className="py-2.5 text-xs sm:text-sm" data-testid="tab-benchmarks">Benchmarks</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview" className="space-y-6">
-          <div className="grid lg:grid-cols-2 gap-6">
+        <TabsContent value="overview" className="space-y-4 sm:space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
+                <CardTitle className="text-base sm:text-lg flex items-center gap-2">
                   <BarChart3 className="w-5 h-5 text-primary" />
                   Weekly Training
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="px-2 sm:px-6">
                 {weeklyStats && weeklyStats.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={250}>
-                    <BarChart data={weeklyStats}>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <BarChart data={weeklyStats} margin={{ left: -10, right: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                       <XAxis 
                         dataKey="date" 
                         className="text-xs fill-muted-foreground"
+                        tick={{ fontSize: 11 }}
                         tickFormatter={(value) => {
                           const date = new Date(value);
                           return date.toLocaleDateString('en-US', { weekday: 'short' });
                         }}
                       />
-                      <YAxis className="text-xs fill-muted-foreground" />
+                      <YAxis className="text-xs fill-muted-foreground" tick={{ fontSize: 11 }} width={30} />
                       <Tooltip 
                         contentStyle={{ 
                           backgroundColor: 'hsl(var(--card))',
@@ -217,7 +218,7 @@ export default function ProgressPage() {
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="h-[250px] flex items-center justify-center text-muted-foreground">
+                  <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">
                     Log sessions to see your weekly progress
                   </div>
                 )}
@@ -226,21 +227,21 @@ export default function ProgressPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
+                <CardTitle className="text-base sm:text-lg flex items-center gap-2">
                   <Target className="w-5 h-5 text-primary" />
                   Time by Category
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="px-2 sm:px-6">
                 {pieData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={250}>
+                  <ResponsiveContainer width="100%" height={200}>
                     <PieChart>
                       <Pie
                         data={pieData}
                         cx="50%"
                         cy="50%"
-                        innerRadius={60}
-                        outerRadius={100}
+                        innerRadius="40%"
+                        outerRadius="70%"
                         paddingAngle={2}
                         dataKey="value"
                       >
@@ -261,12 +262,12 @@ export default function ProgressPage() {
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="h-[250px] flex items-center justify-center text-muted-foreground">
+                  <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">
                     Start training to see category breakdown
                   </div>
                 )}
                 {pieData.length > 0 && (
-                  <div className="flex flex-wrap gap-2 justify-center mt-4">
+                  <div className="flex flex-wrap gap-2 justify-center mt-3">
                     {pieData.map((entry, index) => (
                       <Badge 
                         key={index} 
@@ -288,25 +289,26 @@ export default function ProgressPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
+              <CardTitle className="text-base sm:text-lg flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-primary" />
                 Score Trend
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-2 sm:px-6">
               {weeklyStats && weeklyStats.length > 0 ? (
-                <ResponsiveContainer width="100%" height={200}>
-                  <LineChart data={weeklyStats}>
+                <ResponsiveContainer width="100%" height={180}>
+                  <LineChart data={weeklyStats} margin={{ left: -10, right: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                     <XAxis 
                       dataKey="date" 
                       className="text-xs fill-muted-foreground"
+                      tick={{ fontSize: 11 }}
                       tickFormatter={(value) => {
                         const date = new Date(value);
                         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                       }}
                     />
-                    <YAxis domain={[0, 10]} className="text-xs fill-muted-foreground" />
+                    <YAxis domain={[0, 10]} className="text-xs fill-muted-foreground" tick={{ fontSize: 11 }} width={30} />
                     <Tooltip 
                       contentStyle={{ 
                         backgroundColor: 'hsl(var(--card))',
@@ -326,7 +328,7 @@ export default function ProgressPage() {
                   </LineChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-[200px] flex items-center justify-center text-muted-foreground">
+                <div className="h-[180px] flex items-center justify-center text-muted-foreground text-sm">
                   Not enough data to show trends yet
                 </div>
               )}
@@ -364,10 +366,10 @@ export default function ProgressPage() {
             categoryStats.map((cat, index) => (
               <Card key={cat.category} data-testid={`card-category-progress-${cat.category}`}>
                 <CardContent className="p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+                    <div className="flex items-center gap-3 min-w-0">
                       <div 
-                        className="w-10 h-10 rounded-lg flex items-center justify-center"
+                        className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
                         style={{ backgroundColor: `${CHART_COLORS[index % CHART_COLORS.length]}20` }}
                       >
                         <Target 
@@ -375,14 +377,14 @@ export default function ProgressPage() {
                           style={{ color: CHART_COLORS[index % CHART_COLORS.length] }}
                         />
                       </div>
-                      <div>
-                        <h3 className="font-medium">{categoryLabels[cat.category] || cat.category}</h3>
+                      <div className="min-w-0">
+                        <h3 className="font-medium truncate">{categoryLabels[cat.category] || cat.category}</h3>
                         <p className="text-sm text-muted-foreground">
-                          {cat.sessions} sessions • {cat.minutes} minutes
+                          {cat.sessions} sessions • {cat.minutes} min
                         </p>
                       </div>
                     </div>
-                    <Badge variant="secondary">{Math.round(cat.minutes / 60 * 10) / 10} hours</Badge>
+                    <Badge variant="secondary">{Math.round(cat.minutes / 60 * 10) / 10} hrs</Badge>
                   </div>
                   <Progress value={Math.min(100, (cat.minutes / 300) * 100)} className="h-2" />
                   <p className="text-xs text-muted-foreground mt-2">
@@ -415,9 +417,9 @@ export default function ProgressPage() {
             <CardContent>
               {overviewStats?.percentile ? (
                 <div className="space-y-6">
-                  <div className="text-center p-6 rounded-xl bg-gradient-to-br from-primary/10 to-accent/10">
+                  <div className="text-center p-4 sm:p-6 rounded-xl bg-gradient-to-br from-primary/10 to-accent/10">
                     <p className="text-sm text-muted-foreground mb-2">Your Percentile</p>
-                    <p className="text-5xl font-bold text-primary" data-testid="text-percentile">
+                    <p className="text-3xl sm:text-5xl font-bold text-primary" data-testid="text-percentile">
                       Top {100 - overviewStats.percentile}%
                     </p>
                     <p className="text-sm text-muted-foreground mt-2">
