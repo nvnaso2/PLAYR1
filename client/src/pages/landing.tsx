@@ -14,7 +14,7 @@ import {
   Award
 } from "lucide-react";
 import heroImage from "@assets/bballpic5_1.1.1_1769377307157.png";
-import logoLandscape from "@assets/Playr1_App_Logo_1770492792577.png";
+import logoLandscape from "@assets/PNG_image_1770494053382.png";
 import basketballImage from "@assets/Handlz_(26)_1769377307158.png";
 import productImage from "@assets/BBallpic2_1.14.1_1769377307157.png";
 

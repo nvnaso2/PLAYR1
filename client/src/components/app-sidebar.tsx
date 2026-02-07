@@ -41,7 +41,7 @@ import {
   Settings,
   Trophy
 } from "lucide-react";
-import logoLandscape from "@assets/Playr1_App_Logo_1770492792577.png";
+import logoLandscape from "@assets/PNG_image_1770494053382.png";
 
 const mainNavItems = [
   { title: "Dashboard", url: "/", icon: BarChart3 },
