@@ -20,7 +20,11 @@ import {
   Brain,
   Dumbbell,
   Flame,
-  BarChart3
+  BarChart3,
+  CircleDot,
+  Timer,
+  Zap,
+  TrendingUp
 } from "lucide-react";
 import type { Drill, TrainingLog, UserProfile } from "@shared/schema";
 import bannerImage from "@assets/Top_1769377436234.png";
@@ -86,77 +90,48 @@ const categories = [
   }
 ];
 
-type StatCardDef = {
+type TrainingStatDef = {
   key: string;
   title: string;
-  getValue: (stats: { totalSessions: number; totalMinutes: number; avgScore: number; streak: number } | undefined) => string | number;
-  change?: number;
+  icon: React.ReactNode;
+  format?: (val: number) => string;
   testId: string;
 };
 
-const DEFAULT_STAT_CARDS: StatCardDef[] = [
-  { key: "sessions", title: "Total Sessions", getValue: (s) => s?.totalSessions || 0, change: 12, testId: "stats-sessions" },
-  { key: "minutes", title: "Time Trained", getValue: (s) => { const m = s?.totalMinutes || 0; return `${Math.floor(m / 60)}h ${m % 60}m`; }, change: 8, testId: "stats-minutes" },
-  { key: "streak", title: "Day Streak", getValue: (s) => s?.streak || 0, testId: "stats-streak" },
+const TRAINING_STAT_DEFS: TrainingStatDef[] = [
+  { key: "totalShotsMade", title: "Total Shots Made", icon: <Target className="w-4 h-4" />, testId: "stats-total-shots" },
+  { key: "threePointersMade", title: "3-Pointers Made", icon: <CircleDot className="w-4 h-4" />, testId: "stats-three-pointers" },
+  { key: "freeThrowsMade", title: "Free Throws Made", icon: <Zap className="w-4 h-4" />, testId: "stats-free-throws" },
+  { key: "fieldGoalsMade", title: "Field Goals Made", icon: <TrendingUp className="w-4 h-4" />, testId: "stats-field-goals" },
+  { key: "layupsMade", title: "Layups Made", icon: <Flame className="w-4 h-4" />, testId: "stats-layups" },
+  { key: "timeBallHandling", title: "Ball Handling", icon: <HandMetal className="w-4 h-4" />, testId: "stats-ball-handling" },
+  { key: "passesMade", title: "Passes Made", icon: <Crosshair className="w-4 h-4" />, testId: "stats-passes" },
+  { key: "leftHandBallHandling", title: "Left-Hand Handling", icon: <HandMetal className="w-4 h-4" />, testId: "stats-left-hand" },
+  { key: "rightHandBallHandling", title: "Right-Hand Handling", icon: <HandMetal className="w-4 h-4" />, testId: "stats-right-hand" },
+  { key: "formShotsMade", title: "Form Shots Made", icon: <Target className="w-4 h-4" />, testId: "stats-form-shots" },
+  { key: "conditioningTime", title: "Conditioning Time", icon: <Timer className="w-4 h-4" />, format: (v) => { const h = Math.floor(v / 60); const m = v % 60; return h > 0 ? `${h}h ${m}m` : `${m}m`; }, testId: "stats-conditioning" },
 ];
 
-function DraggableStatsCards({ stats }: { stats: { totalSessions: number; totalMinutes: number; avgScore: number; streak: number } | undefined }) {
-  const [cardOrder, setCardOrder] = useState<string[]>(() => {
-    const saved = localStorage.getItem("dashboard-card-order");
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        const validKeys = DEFAULT_STAT_CARDS.map(c => c.key);
-        const filtered = parsed.filter((k: string) => validKeys.includes(k));
-        if (filtered.length === validKeys.length) return filtered;
-      } catch {}
-    }
-    return DEFAULT_STAT_CARDS.map(c => c.key);
-  });
-  const [draggedKey, setDraggedKey] = useState<string | null>(null);
+function TrainingStatsCards({ trainingStats }: { trainingStats: Record<string, number> | undefined }) {
+  const visibleCards = TRAINING_STAT_DEFS.filter(def => trainingStats && trainingStats[def.key] && trainingStats[def.key] > 0);
 
-  const orderedCards = cardOrder.map(key => DEFAULT_STAT_CARDS.find(c => c.key === key)!).filter(Boolean);
-
-  const handleDragStart = (key: string) => (e: React.DragEvent) => {
-    setDraggedKey(key);
-    e.dataTransfer.effectAllowed = "move";
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-  };
-
-  const handleDrop = (targetKey: string) => (e: React.DragEvent) => {
-    e.preventDefault();
-    if (!draggedKey || draggedKey === targetKey) return;
-    const newOrder = [...cardOrder];
-    const fromIdx = newOrder.indexOf(draggedKey);
-    const toIdx = newOrder.indexOf(targetKey);
-    newOrder.splice(fromIdx, 1);
-    newOrder.splice(toIdx, 0, draggedKey);
-    setCardOrder(newOrder);
-    localStorage.setItem("dashboard-card-order", JSON.stringify(newOrder));
-    setDraggedKey(null);
-  };
+  if (visibleCards.length === 0) return null;
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" data-testid="stats-cards-container">
-      {orderedCards.map((card) => (
-        <StatsCard
-          key={card.key}
-          title={card.title}
-          value={card.getValue(stats)}
-          change={card.change}
-          testId={card.testId}
-          draggable
-          onDragStart={handleDragStart(card.key)}
-          onDragOver={handleDragOver}
-          onDrop={handleDrop(card.key)}
-          onDragEnd={() => setDraggedKey(null)}
-          isDragging={draggedKey === card.key}
-        />
-      ))}
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3" data-testid="training-stats-container">
+      {visibleCards.map((card) => {
+        const val = trainingStats![card.key];
+        const displayVal = card.format ? card.format(val) : val.toLocaleString();
+        return (
+          <StatsCard
+            key={card.key}
+            title={card.title}
+            value={displayVal}
+            icon={card.icon}
+            testId={card.testId}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -187,6 +162,10 @@ export default function Dashboard() {
     streak: number;
   }>({
     queryKey: ['/api/stats/overview'],
+  });
+
+  const { data: trainingStats } = useQuery<Record<string, number>>({
+    queryKey: ['/api/stats/dashboard-training'],
   });
 
   const getGreeting = () => {
@@ -244,7 +223,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <DraggableStatsCards stats={stats} />
+      <TrainingStatsCards trainingStats={trainingStats} />
 
       <section>
         <div className="flex items-center justify-between mb-6">

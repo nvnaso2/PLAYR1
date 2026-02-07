@@ -10,6 +10,7 @@ import {
   videoLibrary, type VideoLibrary, type InsertVideoLibrary,
   pdfLibrary, type PdfLibrary, type InsertPdfLibrary,
   metricTemplates, type MetricTemplate, type InsertMetricTemplate,
+  LOCATION_CLASSIFICATIONS, type ShotLocation,
   workouts, type Workout, type InsertWorkout,
   workoutDrills, type WorkoutDrill, type InsertWorkoutDrill,
   careerProfiles, type CareerProfile, type InsertCareerProfile,
@@ -25,7 +26,7 @@ import {
 } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
-import { eq, desc, and, sql, gte, isNotNull } from "drizzle-orm";
+import { eq, desc, and, sql, gte, isNotNull, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // Drills
@@ -77,6 +78,7 @@ export interface IStorage {
   }>;
   getWeeklyStats(userId: string, period?: string): Promise<{ date: string; minutes: number; sessions: number }[]>;
   getCategoryStats(userId: string, period?: string): Promise<{ category: string; minutes: number; sessions: number }[]>;
+  getDashboardTrainingStats(userId: string): Promise<Record<string, number>>;
 
   // Benchmarks
   getBenchmarks(): Promise<Benchmark[]>;
@@ -687,6 +689,98 @@ export class DatabaseStorage implements IStorage {
     return Object.entries(categoryStats)
       .map(([category, stats]) => ({ category, ...stats }))
       .sort((a, b) => b.minutes - a.minutes);
+  }
+
+  async getDashboardTrainingStats(userId: string): Promise<Record<string, number>> {
+    const result: Record<string, number> = {};
+
+    const logs = await db.select()
+      .from(trainingLogs)
+      .where(eq(trainingLogs.userId, userId));
+
+    let totalShotsMade = 0;
+    let threePointersMade = 0;
+    let freeThrowsMade = 0;
+    let fieldGoalsMade = 0;
+    let layupsMade = 0;
+
+    for (const log of logs) {
+      if (log.shotLocation && log.shotsMade && log.shotsMade > 0) {
+        const classification = LOCATION_CLASSIFICATIONS[log.shotLocation as ShotLocation];
+        totalShotsMade += log.shotsMade;
+        if (classification === "3-pointer") threePointersMade += log.shotsMade;
+        else if (classification === "free-throw") freeThrowsMade += log.shotsMade;
+        else if (classification === "2-pointer") {
+          const loc = log.shotLocation as string;
+          if (loc.includes("block")) {
+            layupsMade += log.shotsMade;
+          } else {
+            fieldGoalsMade += log.shotsMade;
+          }
+        }
+      }
+    }
+
+    if (totalShotsMade > 0) result["totalShotsMade"] = totalShotsMade;
+    if (threePointersMade > 0) result["threePointersMade"] = threePointersMade;
+    if (freeThrowsMade > 0) result["freeThrowsMade"] = freeThrowsMade;
+    if (fieldGoalsMade > 0) result["fieldGoalsMade"] = fieldGoalsMade;
+    if (layupsMade > 0) result["layupsMade"] = layupsMade;
+
+    const totalConditioningMinutes = logs.reduce((sum, l) => sum + (l.duration || 0), 0);
+    if (totalConditioningMinutes > 0) result["conditioningTime"] = totalConditioningMinutes;
+
+    const logIds = logs.map(l => l.id);
+    if (logIds.length > 0) {
+      const metrics = await db.select({
+        metricId: trainingLogMetrics.metricId,
+        value: trainingLogMetrics.value,
+      })
+        .from(trainingLogMetrics)
+        .where(inArray(trainingLogMetrics.trainingLogId, logIds));
+
+      const templates = await db.select().from(metricTemplates);
+      const templateMap = new Map(templates.map(t => [t.id, t]));
+
+      const metricTotals: Record<string, number> = {};
+      for (const m of metrics) {
+        const tmpl = templateMap.get(m.metricId);
+        if (!tmpl || !m.value) continue;
+        const val = Number(m.value);
+        if (val <= 0) continue;
+        if (!metricTotals[tmpl.name]) metricTotals[tmpl.name] = 0;
+        metricTotals[tmpl.name] += val;
+      }
+
+      const ballHandlingTime = (metricTotals["time"] || 0);
+      const leftHandDribbles = (metricTotals["left_hand_dribbles"] || 0) + (metricTotals["left_hand"] || 0);
+      const rightHandDribbles = (metricTotals["right_hand_dribbles"] || 0) + (metricTotals["right_hand"] || 0);
+      const totalDribbles = (metricTotals["total_dribbles"] || 0) + (metricTotals["dribbles"] || 0);
+      const passesMade = (metricTotals["passes"] || 0) + (metricTotals["total_passes"] || 0) + (metricTotals["left_hand_passes"] || 0) + (metricTotals["right_hand_passes"] || 0);
+      const formShotsMade = metricTotals["form_shots_made"] || 0;
+      const metricShotsMade = metricTotals["shot(s)_made"] || 0;
+      const metricFreeThrowsMade = metricTotals["free_throws_made"] || 0;
+      const metricLayups = (metricTotals["total_layups"] || 0) + (metricTotals["left_hand_layups"] || 0) + (metricTotals["right_hand_layups"] || 0);
+
+      if (metricShotsMade > 0 && !result["totalShotsMade"]) result["totalShotsMade"] = metricShotsMade;
+      else if (metricShotsMade > 0) result["totalShotsMade"] += metricShotsMade;
+
+      if (metricFreeThrowsMade > 0 && !result["freeThrowsMade"]) result["freeThrowsMade"] = metricFreeThrowsMade;
+      else if (metricFreeThrowsMade > 0) result["freeThrowsMade"] += metricFreeThrowsMade;
+
+      if (metricLayups > 0 && !result["layupsMade"]) result["layupsMade"] = metricLayups;
+      else if (metricLayups > 0) result["layupsMade"] += metricLayups;
+
+      const totalBallHandling = leftHandDribbles + rightHandDribbles + totalDribbles;
+
+      if (totalBallHandling > 0 || ballHandlingTime > 0) result["timeBallHandling"] = totalBallHandling || ballHandlingTime;
+      if (passesMade > 0) result["passesMade"] = passesMade;
+      if (leftHandDribbles > 0) result["leftHandBallHandling"] = leftHandDribbles;
+      if (rightHandDribbles > 0) result["rightHandBallHandling"] = rightHandDribbles;
+      if (formShotsMade > 0) result["formShotsMade"] = formShotsMade;
+    }
+
+    return result;
   }
 
   // Benchmarks

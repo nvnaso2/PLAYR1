@@ -21,6 +21,7 @@ export function StatsCard({
   value, 
   change, 
   changeLabel = "vs last week",
+  icon,
   testId,
   draggable,
   onDragStart,
@@ -55,6 +56,9 @@ export function StatsCard({
         <div className="flex items-center gap-3 flex-wrap">
           {draggable && (
             <GripVertical className="w-4 h-4 text-muted-foreground/40 flex-shrink-0" />
+          )}
+          {icon && !draggable && (
+            <div className="flex-shrink-0 text-primary">{icon}</div>
           )}
           <div className="flex-1 min-w-0">
             <p className="text-xs text-muted-foreground">{title}</p>
