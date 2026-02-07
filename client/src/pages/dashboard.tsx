@@ -8,19 +8,18 @@ import { StatsCard } from "@/components/stats-card";
 import { CategoryCard } from "@/components/category-card";
 import { DrillCard } from "@/components/drill-card";
 import { Link } from "wouter";
+import { useState } from "react";
 import { 
   Play, 
   Clock, 
-  Target, 
-  TrendingUp, 
+  Target,
   ChevronRight,
   HandMetal,
   Crosshair,
   Shield,
   Brain,
   Dumbbell,
-  Flame,
-  Zap
+  Flame
 } from "lucide-react";
 import type { Drill, TrainingLog, UserProfile } from "@shared/schema";
 import bannerImage from "@assets/Top_1769377436234.png";
@@ -85,6 +84,81 @@ const categories = [
     drillCount: 18
   }
 ];
+
+type StatCardDef = {
+  key: string;
+  title: string;
+  getValue: (stats: { totalSessions: number; totalMinutes: number; avgScore: number; streak: number } | undefined) => string | number;
+  change?: number;
+  testId: string;
+};
+
+const DEFAULT_STAT_CARDS: StatCardDef[] = [
+  { key: "sessions", title: "Total Sessions", getValue: (s) => s?.totalSessions || 0, change: 12, testId: "stats-sessions" },
+  { key: "minutes", title: "Minutes Trained", getValue: (s) => s?.totalMinutes || 0, change: 8, testId: "stats-minutes" },
+  { key: "streak", title: "Day Streak", getValue: (s) => s?.streak || 0, testId: "stats-streak" },
+];
+
+function DraggableStatsCards({ stats }: { stats: { totalSessions: number; totalMinutes: number; avgScore: number; streak: number } | undefined }) {
+  const [cardOrder, setCardOrder] = useState<string[]>(() => {
+    const saved = localStorage.getItem("dashboard-card-order");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        const validKeys = DEFAULT_STAT_CARDS.map(c => c.key);
+        const filtered = parsed.filter((k: string) => validKeys.includes(k));
+        if (filtered.length === validKeys.length) return filtered;
+      } catch {}
+    }
+    return DEFAULT_STAT_CARDS.map(c => c.key);
+  });
+  const [draggedKey, setDraggedKey] = useState<string | null>(null);
+
+  const orderedCards = cardOrder.map(key => DEFAULT_STAT_CARDS.find(c => c.key === key)!).filter(Boolean);
+
+  const handleDragStart = (key: string) => (e: React.DragEvent) => {
+    setDraggedKey(key);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDrop = (targetKey: string) => (e: React.DragEvent) => {
+    e.preventDefault();
+    if (!draggedKey || draggedKey === targetKey) return;
+    const newOrder = [...cardOrder];
+    const fromIdx = newOrder.indexOf(draggedKey);
+    const toIdx = newOrder.indexOf(targetKey);
+    newOrder.splice(fromIdx, 1);
+    newOrder.splice(toIdx, 0, draggedKey);
+    setCardOrder(newOrder);
+    localStorage.setItem("dashboard-card-order", JSON.stringify(newOrder));
+    setDraggedKey(null);
+  };
+
+  return (
+    <div className="grid grid-cols-3 gap-3" data-testid="stats-cards-container">
+      {orderedCards.map((card) => (
+        <StatsCard
+          key={card.key}
+          title={card.title}
+          value={card.getValue(stats)}
+          change={card.change}
+          testId={card.testId}
+          draggable
+          onDragStart={handleDragStart(card.key)}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop(card.key)}
+          onDragEnd={() => setDraggedKey(null)}
+          isDragging={draggedKey === card.key}
+        />
+      ))}
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -163,35 +237,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard
-          title="Total Sessions"
-          value={stats?.totalSessions || 0}
-          change={12}
-          icon={<Target className="w-5 h-5 text-primary" />}
-          testId="stats-sessions"
-        />
-        <StatsCard
-          title="Minutes Trained"
-          value={stats?.totalMinutes || 0}
-          change={8}
-          icon={<Clock className="w-5 h-5 text-primary" />}
-          testId="stats-minutes"
-        />
-        <StatsCard
-          title="Avg Score"
-          value={stats?.avgScore ? `${stats.avgScore}/10` : "N/A"}
-          change={5}
-          icon={<TrendingUp className="w-5 h-5 text-primary" />}
-          testId="stats-score"
-        />
-        <StatsCard
-          title="Day Streak"
-          value={stats?.streak || 0}
-          icon={<Zap className="w-5 h-5 text-primary" />}
-          testId="stats-streak"
-        />
-      </div>
+      <DraggableStatsCards stats={stats} />
 
       <section>
         <div className="flex items-center justify-between mb-6">
