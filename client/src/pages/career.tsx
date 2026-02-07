@@ -2331,14 +2331,6 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
       <div className="flex flex-col items-center gap-4 text-center">
         <h1 className="text-2xl sm:text-3xl font-bold">My Career</h1>
         <BaseballCard profile={profile} careerStats={careerStats} userName={playerName} onPhotoUpdated={() => queryClient.invalidateQueries({ queryKey: ["/api/career"] })} />
-        <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
-          <Badge variant="secondary" className="text-base sm:text-lg px-3 py-1">
-            Level {profile.level || 1}
-          </Badge>
-          <span className="text-muted-foreground text-sm sm:text-base">
-            {profile.totalXp || 0} Total XP
-          </span>
-        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -2360,10 +2352,20 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
         <TabsContent value="profile" className="space-y-6">
           <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2">
-            <Zap className="w-5 h-5 text-primary" />
-            Experience Progress
-          </CardTitle>
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <CardTitle className="flex items-center gap-2">
+              <Zap className="w-5 h-5 text-primary" />
+              Experience Progress
+            </CardTitle>
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+              <Badge variant="secondary" className="text-sm px-2.5 py-0.5">
+                Level {profile.level || 1}
+              </Badge>
+              <span className="text-muted-foreground text-sm">
+                {profile.totalXp || 0} Total XP
+              </span>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
