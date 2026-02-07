@@ -809,33 +809,7 @@ export default function TrainingLogPage() {
   const updateEntry = (index: number, field: keyof WorkoutDrillEntry, value: any) => {
     setWorkoutEntries(prev => {
       const next = [...prev];
-      const entry = { ...next[index], [field]: value };
-      
-      // Sync built-in shot tracking to metric template values
-      if (field === 'shotsMade' || field === 'shotsAttempted') {
-        const drillMetrics = entry.drillMetrics || [];
-        const updatedMetrics = { ...entry.metrics };
-        
-        if (field === 'shotsAttempted') {
-          const attemptMetric = drillMetrics.find(dm => {
-            const n = dm.template.name.toLowerCase();
-            const l = dm.template.label.toLowerCase();
-            return n.includes('attempt') || l.includes('attempt');
-          });
-          if (attemptMetric) updatedMetrics[attemptMetric.metricTemplateId] = value;
-        }
-        if (field === 'shotsMade') {
-          const madeMetric = drillMetrics.find(dm => {
-            const n = dm.template.name.toLowerCase();
-            const l = dm.template.label.toLowerCase();
-            return n.includes('made') || l.includes('made');
-          });
-          if (madeMetric) updatedMetrics[madeMetric.metricTemplateId] = value;
-        }
-        entry.metrics = updatedMetrics;
-      }
-      
-      next[index] = entry;
+      next[index] = { ...next[index], [field]: value };
       return next;
     });
   };
@@ -962,15 +936,34 @@ export default function TrainingLogPage() {
       const challengeUpdates: Record<string, number> = {};
       
       for (const entry of workoutEntries) {
-        const isShootingDrill = entry.drill.trackShots || entry.drill.category === 'shooting';
+        const isShootingDrill = entry.drill.trackShots;
+        
+        // Derive shot values from metric templates for heatmap/stats
+        let derivedAttempted: number | undefined;
+        let derivedMade: number | undefined;
+        if (entry.drillMetrics.length > 0) {
+          const attemptMetric = entry.drillMetrics.find(dm => {
+            const n = dm.template.name.toLowerCase();
+            const l = dm.template.label.toLowerCase();
+            return n.includes('attempt') || l.includes('attempt');
+          });
+          const madeMetric = entry.drillMetrics.find(dm => {
+            const n = dm.template.name.toLowerCase();
+            const l = dm.template.label.toLowerCase();
+            return (n.includes('made') || l.includes('made')) && !n.includes('attempt') && !l.includes('attempt');
+          });
+          if (attemptMetric) derivedAttempted = entry.metrics[attemptMetric.metricTemplateId] || 0;
+          if (madeMetric) derivedMade = entry.metrics[madeMetric.metricTemplateId] || 0;
+        }
+        
         const logResponse = await apiRequest("POST", "/api/training-logs", {
           drillId: entry.drillId,
           duration: entry.duration,
           notes: entry.notes || undefined,
           workoutSessionId: workoutEntries.length > 1 ? sessionId : undefined,
           shotLocation: isShootingDrill ? entry.shotLocation : undefined,
-          shotsAttempted: isShootingDrill ? entry.shotsAttempted : undefined,
-          shotsMade: isShootingDrill ? entry.shotsMade : undefined,
+          shotsAttempted: derivedAttempted,
+          shotsMade: derivedMade,
         });
         
         if (entry.drillMetrics.length > 0 && Object.keys(entry.metrics).length > 0) {
@@ -999,10 +992,8 @@ export default function TrainingLogPage() {
             const metric = userChallenge.challenge.metric;
             
             if (metric === 'makes') {
-              // For shooting challenges, use shots made from the round
-              if (isShootingDrill) {
-                metricValue = entry.shotsMade || 0;
-              }
+              // For shooting challenges, use shots made derived from metric templates
+              metricValue = derivedMade || 0;
             } else if (metric === 'time') {
               // Time is tracked in the duration field (minutes)
               metricValue = entry.duration || 0;
@@ -2155,41 +2146,8 @@ export default function TrainingLogPage() {
                 
                 return Array.from(drillGroups.entries()).map(([drillId, group]) => {
                   const firstEntry = group.entries[0].entry;
-                  const allMetricColumns = firstEntry.drillMetrics.filter(dm => dm.template.type !== 'calculated');
-                  
-                  // Check if this is a shooting drill (has shots attempted and shots made metrics)
-                  const shotsAttemptedMetric = allMetricColumns.find(dm => 
-                    dm.template.name.toLowerCase().includes('attempt') || 
-                    dm.template.label.toLowerCase().includes('attempt')
-                  );
-                  const shotsMadeMetric = allMetricColumns.find(dm => 
-                    dm.template.name.toLowerCase().includes('made') || 
-                    dm.template.label.toLowerCase().includes('made')
-                  );
-                  const isShootingDrill = group.drill.trackShots || group.drill.category === 'shooting' || (shotsAttemptedMetric && shotsMadeMetric);
-                  
-                  // When shot tracking is active, hide duplicate shot attempt/made metric columns
-                  const hiddenMetricIds = new Set<string>();
-                  if (isShootingDrill) {
-                    if (shotsAttemptedMetric) hiddenMetricIds.add(shotsAttemptedMetric.metricTemplateId);
-                    if (shotsMadeMetric) hiddenMetricIds.add(shotsMadeMetric.metricTemplateId);
-                    const shootingPctMetric = allMetricColumns.find(dm => {
-                      const name = dm.template.name.toLowerCase();
-                      const label = dm.template.label.toLowerCase();
-                      return name.includes('shot %') || name.includes('shooting %') || label.includes('shot %') || label.includes('shooting %');
-                    });
-                    if (shootingPctMetric) hiddenMetricIds.add(shootingPctMetric.metricTemplateId);
-                  }
-                  const metricColumns = allMetricColumns.filter(dm => !hiddenMetricIds.has(dm.metricTemplateId));
-                  
-                  // Calculate shooting percentage for an entry
-                  const getShootingPct = (entry: WorkoutDrillEntry): number | null => {
-                    if (!shotsAttemptedMetric || !shotsMadeMetric) return null;
-                    const attempted = entry.metrics[shotsAttemptedMetric.metricTemplateId] || 0;
-                    const made = entry.metrics[shotsMadeMetric.metricTemplateId] || 0;
-                    if (attempted === 0) return null;
-                    return Math.round((made / attempted) * 100);
-                  };
+                  const metricColumns = firstEntry.drillMetrics.filter(dm => dm.template.type !== 'calculated');
+                  const isShootingDrill = group.drill.trackShots;
                   
                   return (
                     <Card key={drillId} className="border-muted" data-testid={`drill-table-${drillId}`}>
@@ -2220,12 +2178,7 @@ export default function TrainingLogPage() {
                               <tr className="border-b bg-muted/30">
                                 <th className="text-left p-2 sm:p-3 font-medium text-muted-foreground w-14 sm:w-20 text-xs sm:text-sm">Round</th>
                                 {isShootingDrill && (
-                                  <>
-                                    <th className="text-left p-2 sm:p-3 font-medium text-muted-foreground text-xs sm:text-sm">Location</th>
-                                    <th className="text-left p-2 sm:p-3 font-medium text-muted-foreground text-xs sm:text-sm">Attempted</th>
-                                    <th className="text-left p-2 sm:p-3 font-medium text-muted-foreground text-xs sm:text-sm">Made</th>
-                                    <th className="text-left p-2 sm:p-3 font-medium text-primary w-16 sm:w-24 text-xs sm:text-sm whitespace-nowrap">Shot %</th>
-                                  </>
+                                  <th className="text-left p-2 sm:p-3 font-medium text-muted-foreground text-xs sm:text-sm">Location</th>
                                 )}
                                 {metricColumns.map(dm => (
                                   <th key={dm.metricTemplateId} className="text-left p-2 sm:p-3 font-medium text-muted-foreground text-xs sm:text-sm whitespace-nowrap">
@@ -2255,72 +2208,29 @@ export default function TrainingLogPage() {
                                     </Badge>
                                   </td>
                                   {isShootingDrill && (
-                                    <>
-                                      <td className="p-1 sm:p-2">
-                                        <Select
-                                          value={entry.shotLocation || ''}
-                                          onValueChange={(value) => updateEntry(index, 'shotLocation', value as ShotLocation)}
-                                        >
-                                          <SelectTrigger className="w-32 sm:w-40 h-8 text-xs" data-testid={`select-location-${index}`}>
-                                            <SelectValue placeholder="Select location" />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            {SHOT_LOCATIONS.map(loc => (
-                                              <SelectItem key={loc} value={loc}>
-                                                <span className="flex items-center gap-2">
-                                                  {loc.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                                                  <Badge variant="outline" className="text-[10px] px-1 py-0">
-                                                    {LOCATION_CLASSIFICATIONS[loc] === 'free-throw' ? 'FT' : 
-                                                     LOCATION_CLASSIFICATIONS[loc] === '2-pointer' ? '2PT' : '3PT'}
-                                                  </Badge>
-                                                </span>
-                                              </SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
-                                      </td>
-                                      <td className="p-1 sm:p-2">
-                                        <Input
-                                          type="text"
-                                          inputMode="numeric"
-                                          pattern="[0-9]*"
-                                          value={entry.shotsAttempted || ''}
-                                          onChange={(e) => updateEntry(index, 'shotsAttempted', parseInt(e.target.value) || 0)}
-                                          className="w-14 sm:w-16 h-8 text-sm"
-                                          placeholder="0"
-                                          data-testid={`input-attempted-${index}`}
-                                        />
-                                      </td>
-                                      <td className="p-1 sm:p-2">
-                                        <Input
-                                          type="text"
-                                          inputMode="numeric"
-                                          pattern="[0-9]*"
-                                          value={entry.shotsMade || ''}
-                                          onChange={(e) => updateEntry(index, 'shotsMade', parseInt(e.target.value) || 0)}
-                                          className="w-14 sm:w-16 h-8 text-sm"
-                                          placeholder="0"
-                                          data-testid={`input-made-${index}`}
-                                        />
-                                      </td>
-                                      <td className="p-2">
-                                        {(() => {
-                                          const attempted = entry.shotsAttempted || 0;
-                                          const made = entry.shotsMade || 0;
-                                          if (attempted === 0) return <span className="text-muted-foreground text-xs">--</span>;
-                                          const pct = Math.round((made / attempted) * 100);
-                                          return (
-                                            <Badge 
-                                              variant={pct >= 50 ? "default" : "secondary"} 
-                                              className={`text-sm font-bold ${pct >= 70 ? 'bg-green-600' : pct >= 50 ? 'bg-primary' : ''}`}
-                                              data-testid={`shooting-pct-${index}`}
-                                            >
-                                              {pct}%
-                                            </Badge>
-                                          );
-                                        })()}
-                                      </td>
-                                    </>
+                                    <td className="p-1 sm:p-2">
+                                      <Select
+                                        value={entry.shotLocation || ''}
+                                        onValueChange={(value) => updateEntry(index, 'shotLocation', value as ShotLocation)}
+                                      >
+                                        <SelectTrigger className="w-32 sm:w-40 h-8 text-xs" data-testid={`select-location-${index}`}>
+                                          <SelectValue placeholder="Select location" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {SHOT_LOCATIONS.map(loc => (
+                                            <SelectItem key={loc} value={loc}>
+                                              <span className="flex items-center gap-2">
+                                                {loc.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                                <Badge variant="outline" className="text-[10px] px-1 py-0">
+                                                  {LOCATION_CLASSIFICATIONS[loc] === 'free-throw' ? 'FT' : 
+                                                   LOCATION_CLASSIFICATIONS[loc] === '2-pointer' ? '2PT' : '3PT'}
+                                                </Badge>
+                                              </span>
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </td>
                                   )}
                                   {metricColumns.map(dm => (
                                     <td key={dm.metricTemplateId} className="p-1 sm:p-2">
