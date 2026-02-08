@@ -349,11 +349,11 @@ export function ShotChartButton({ shotData, title = "Shot Chart", testId }: { sh
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2" data-testid={testId || "button-view-shot-chart"}>
-          <ChartArea className="w-4 h-4" />
-          <span>View Shot Chart</span>
+        <Button variant="outline" size="sm" className="gap-1.5" data-testid={testId || "button-view-shot-chart"}>
+          <ChartArea className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Shot Chart</span>
           <span className={`text-xs ${totals.percentage >= 60 ? 'text-green-500' : totals.percentage >= 40 ? 'text-amber-500' : 'text-red-500'}`}>
-            ({totals.percentage}%)
+            {totals.percentage}%
           </span>
         </Button>
       </DialogTrigger>

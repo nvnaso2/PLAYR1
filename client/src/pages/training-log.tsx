@@ -2430,7 +2430,7 @@ export default function TrainingLogPage() {
                               <Card className="border-primary/20" data-testid={`card-session-${group.sessionId}`}>
                                 <CollapsibleTrigger asChild>
                                   <CardHeader className="pb-2 cursor-pointer hover-elevate p-3 sm:p-4" data-testid={`trigger-session-${group.sessionId}`}>
-                                    <div className="space-y-1.5">
+                                    <div className="space-y-1">
                                       <div className="flex items-center gap-2 flex-wrap">
                                         <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 transition-transform [[data-state=open]_&]:rotate-90" />
                                         <Layers className="w-4 h-4 text-primary shrink-0" />
@@ -2439,27 +2439,28 @@ export default function TrainingLogPage() {
                                           {uniqueDrillCount} drill{uniqueDrillCount > 1 ? 's' : ''}, {totalRounds} round{totalRounds > 1 ? 's' : ''}
                                         </Badge>
                                       </div>
-                                      <div className="flex items-center gap-2 flex-wrap pl-6">
+                                      <div className="flex items-center gap-1.5 flex-wrap pl-6 text-xs text-muted-foreground">
                                         {sessionPercentage !== null && (
                                           <>
-                                            <span className="text-sm font-medium">{sessionTotalMade}/{sessionTotalAttempts} shots</span>
+                                            <span className="text-sm font-medium text-foreground">{sessionTotalMade}/{sessionTotalAttempts} shots</span>
                                             <Badge 
                                               variant="secondary"
-                                              className={sessionPercentage >= 70 ? "bg-green-500/20 text-green-400" : 
+                                              className={`text-xs ${sessionPercentage >= 70 ? "bg-green-500/20 text-green-400" : 
                                                         sessionPercentage >= 50 ? "bg-orange-500/20 text-orange-400" : 
-                                                        "bg-red-500/20 text-red-400"}
+                                                        "bg-red-500/20 text-red-400"}`}
                                             >
                                               {sessionPercentage}%
                                             </Badge>
+                                            <span>·</span>
                                           </>
                                         )}
-                                        <span className="text-xs text-muted-foreground">
+                                        <span>
                                           {group.logs.reduce((sum, l) => sum + l.duration, 0)} min
                                         </span>
                                         {sessionShotData.length > 0 && (
-                                          <div onClick={(e) => e.stopPropagation()}>
+                                          <span className="shrink-0" onClick={(e) => e.stopPropagation()}>
                                             <ShotChartButton shotData={sessionShotData} title="Workout Shot Chart" testId={`button-shot-chart-workout-${group.sessionId}`} />
-                                          </div>
+                                          </span>
                                         )}
                                       </div>
                                     </div>
@@ -2491,15 +2492,18 @@ export default function TrainingLogPage() {
                                                 className="p-2.5 sm:p-3 hover-elevate cursor-pointer" 
                                                 data-testid={`trigger-drill-${drillId}`}
                                               >
-                                                <div className="flex items-center gap-2">
-                                                  <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 transition-transform [[data-state=open]_&]:rotate-90" />
-                                                  <Target className="w-4 h-4 sm:w-5 sm:h-5 text-primary shrink-0" />
+                                                <div className="flex items-start gap-2">
+                                                  <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 transition-transform [[data-state=open]_&]:rotate-90 mt-0.5" />
+                                                  <Target className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                                                   <div className="min-w-0 flex-1">
-                                                    <span className="font-medium text-sm block truncate">{getDrillTitle(drillId)}</span>
-                                                    <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
-                                                      <span>{drillLogs.length} round{drillLogs.length > 1 ? 's' : ''} · {drillDuration} min</span>
+                                                    <span className="font-medium text-sm">{getDrillTitle(drillId)}</span>
+                                                    <div className="flex items-center gap-1.5 flex-wrap text-xs text-muted-foreground mt-0.5">
+                                                      <span>{drillLogs.length} round{drillLogs.length > 1 ? 's' : ''}</span>
+                                                      <span>·</span>
+                                                      <span>{drillDuration} min</span>
                                                       {drillPercentage !== null && (
                                                         <>
+                                                          <span>·</span>
                                                           <span className="text-foreground font-medium">{drillTotalMade}/{drillTotalAttempts}</span>
                                                           <Badge 
                                                             variant="secondary"
@@ -2511,13 +2515,13 @@ export default function TrainingLogPage() {
                                                           </Badge>
                                                         </>
                                                       )}
+                                                      {drillShotData.length > 0 && (
+                                                        <span className="shrink-0" onClick={(e) => e.stopPropagation()}>
+                                                          <ShotChartButton shotData={drillShotData} title={`${getDrillTitle(drillId)} Shot Chart`} testId={`button-shot-chart-drill-${drillId}`} />
+                                                        </span>
+                                                      )}
                                                     </div>
                                                   </div>
-                                                  {drillShotData.length > 0 && (
-                                                    <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
-                                                      <ShotChartButton shotData={drillShotData} title={`${getDrillTitle(drillId)} Shot Chart`} testId={`button-shot-chart-drill-${drillId}`} />
-                                                    </div>
-                                                  )}
                                                 </div>
                                               </div>
                                             </CollapsibleTrigger>
@@ -2530,7 +2534,7 @@ export default function TrainingLogPage() {
                                                     return (
                                                       <div 
                                                         key={log.id}
-                                                        className="flex items-center gap-2 p-2 rounded bg-background/50 hover-elevate cursor-pointer"
+                                                        className="flex items-center gap-1.5 p-1.5 sm:p-2 rounded bg-background/50 hover-elevate cursor-pointer"
                                                         data-testid={`round-item-${log.id}`}
                                                         onClick={() => openViewLog(log.id)}
                                                       >
@@ -2539,13 +2543,13 @@ export default function TrainingLogPage() {
                                                         </Badge>
                                                         <div className="flex items-center gap-1.5 flex-wrap flex-1 min-w-0 text-xs text-muted-foreground">
                                                           {roundStats?.location && (
-                                                            <span className="truncate max-w-[100px]">
+                                                            <span className="truncate max-w-[80px] sm:max-w-[100px]">
                                                               {roundStats.location.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                                                             </span>
                                                           )}
                                                           {roundStats && (
                                                             <>
-                                                              <span className="text-foreground font-medium text-sm">{roundStats.made}/{roundStats.attempts}</span>
+                                                              <span className="text-foreground font-medium">{roundStats.made}/{roundStats.attempts}</span>
                                                               <Badge 
                                                                 variant="secondary"
                                                                 className={`text-xs ${roundStats.percentage >= 70 ? "bg-green-500/20 text-green-400" : 
@@ -2593,17 +2597,17 @@ export default function TrainingLogPage() {
                                 onClick={() => openViewLog(log.id)}
                               >
                                 <CardContent className="p-3 sm:p-4">
-                                  <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                                      <Target className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+                                  <div className="flex items-center gap-2 sm:gap-3">
+                                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                                      <Target className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
                                     </div>
                                     <div className="min-w-0 flex-1">
-                                      <h4 className="font-medium text-sm sm:text-base truncate" data-testid={`text-log-drill-${log.id}`}>
+                                      <h4 className="font-medium text-sm truncate" data-testid={`text-log-drill-${log.id}`}>
                                         {getDrillTitle(log.drillId)}
                                       </h4>
-                                      <div className="flex items-center gap-2 sm:gap-3 text-xs sm:text-sm text-muted-foreground flex-wrap">
+                                      <div className="flex items-center gap-1.5 sm:gap-2 text-xs text-muted-foreground flex-wrap">
                                         <span className="flex items-center gap-1">
-                                          <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                                          <Clock className="w-3 h-3" />
                                           {log.duration} min
                                         </span>
                                         {stats && (
@@ -2611,9 +2615,9 @@ export default function TrainingLogPage() {
                                             <span className="text-foreground font-medium">{stats.made}/{stats.attempts} shots</span>
                                             <Badge 
                                               variant="secondary"
-                                              className={stats.percentage >= 70 ? "bg-green-500/20 text-green-400" : 
+                                              className={`text-xs ${stats.percentage >= 70 ? "bg-green-500/20 text-green-400" : 
                                                         stats.percentage >= 50 ? "bg-orange-500/20 text-orange-400" : 
-                                                        "bg-red-500/20 text-red-400"}
+                                                        "bg-red-500/20 text-red-400"}`}
                                               data-testid={`badge-percentage-${log.id}`}
                                             >
                                               {stats.percentage}%
