@@ -1811,17 +1811,19 @@ export default function TrainingLogPage() {
       {activeView === "library" && !workoutInProgress && (
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <CardTitle className="flex items-center gap-2">
-                <Dumbbell className="w-5 h-5" />
-                Drills & Workouts
-              </CardTitle>
-              {selectedDrillIds.size > 0 && (
-                <Button size="sm" onClick={startWorkoutFromDrills} className="gap-1.5" data-testid="button-start-header">
-                  <Play className="w-3.5 h-3.5" />
-                  Start ({selectedDrillIds.size})
-                </Button>
-              )}
+            <div className="flex items-center gap-2">
+              <Dumbbell className="w-5 h-5 shrink-0" />
+              <CardTitle>Drills & Workouts</CardTitle>
+              <Button
+                size="sm"
+                onClick={startWorkoutFromDrills}
+                disabled={selectedDrillIds.size === 0}
+                className="gap-1.5 ml-auto shrink-0"
+                data-testid="button-start-header"
+              >
+                <Play className="w-3.5 h-3.5" />
+                Start
+              </Button>
             </div>
             <CardDescription>
               Select drills to practice, or pick a saved workout routine
