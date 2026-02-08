@@ -365,7 +365,7 @@ function DrillForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Category</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger data-testid="select-drill-category">
                       <SelectValue placeholder="Select category" />
@@ -390,7 +390,7 @@ function DrillForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Difficulty</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger data-testid="select-drill-difficulty">
                       <SelectValue placeholder="Select difficulty" />
@@ -418,7 +418,7 @@ function DrillForm({
               <FormLabel>Select Video from Library</FormLabel>
               <Select 
                 onValueChange={(value) => handleVideoLibrarySelect(value === "none" ? "" : value)} 
-                defaultValue={field.value || "none"}
+                value={field.value || "none"}
               >
                 <FormControl>
                   <SelectTrigger data-testid="select-drill-video-library">
@@ -509,7 +509,7 @@ function DrillForm({
               <FormLabel>Select PDF from Library</FormLabel>
               <Select 
                 onValueChange={(value) => handlePdfLibrarySelect(value === "none" ? "" : value)} 
-                defaultValue={field.value || "none"}
+                value={field.value || "none"}
               >
                 <FormControl>
                   <SelectTrigger data-testid="select-drill-pdf-library">
@@ -1174,7 +1174,7 @@ function VideoLibraryForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Category</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger data-testid="select-video-category">
                       <SelectValue placeholder="Select category" />
@@ -1199,7 +1199,7 @@ function VideoLibraryForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Level</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger data-testid="select-video-difficulty">
                       <SelectValue placeholder="Select level" />
@@ -1792,7 +1792,7 @@ function MetricTemplateForm({
           render={({ field }) => (
             <FormItem>
               <FormLabel>Category *</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select onValueChange={field.onChange} value={field.value}>
                 <FormControl>
                   <SelectTrigger data-testid="select-metric-category">
                     <SelectValue placeholder="Select category" />
@@ -1842,7 +1842,7 @@ function MetricTemplateForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Type</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger data-testid="select-metric-type">
                       <SelectValue />
