@@ -1814,16 +1814,38 @@ export default function TrainingLogPage() {
             <div className="flex items-center gap-2">
               <Dumbbell className="w-5 h-5 shrink-0" />
               <CardTitle>Drills & Workouts</CardTitle>
-              <div className="flex gap-2 ml-auto shrink-0">
-                {selectedDrillIds.size > 0 && (
-                  <Button size="sm" variant="outline" onClick={() => setSelectedDrillIds(new Set())} data-testid="button-clear-selection-header">
-                    Clear ({selectedDrillIds.size})
-                  </Button>
-                )}
-                <Button size="sm" onClick={startWorkoutFromDrills} disabled={selectedDrillIds.size === 0} className="gap-1.5" data-testid="button-start-workout">
-                  <Play className="w-3.5 h-3.5" />
-                  Start
-                </Button>
+              <div className="ml-auto shrink-0">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="sm" className="gap-1.5" data-testid="button-start-workout">
+                      <Play className="w-3.5 h-3.5" />
+                      Start
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-64">
+                    <DropdownMenuLabel>Select a Drill</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <ScrollArea className="h-64">
+                      {allDrills && allDrills.length > 0 ? (
+                        allDrills.map(drill => (
+                          <DropdownMenuItem
+                            key={drill.id}
+                            onClick={() => quickStartDrill(drill.id)}
+                            data-testid={`quick-start-drill-${drill.id}`}
+                          >
+                            <div className="flex flex-col">
+                              <span>{drill.title}</span>
+                              <span className="text-xs text-muted-foreground">{formatCategory(drill.category)}</span>
+                            </div>
+                          </DropdownMenuItem>
+                        ))
+                      ) : (
+                        <DropdownMenuItem disabled>No drills available</DropdownMenuItem>
+                      )}
+                    </ScrollArea>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
             <CardDescription>
@@ -1851,40 +1873,6 @@ export default function TrainingLogPage() {
               </TabsList>
 
               <TabsContent value="personal-drills">
-                {/* Quick Start Drill Dropdown */}
-                <div className="flex justify-end mb-4">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button className="gap-2" data-testid="button-quick-start-personal-drill">
-                        <Play className="w-4 h-4" />
-                        Start Drill
-                        <ChevronDown className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-64">
-                      <DropdownMenuLabel>Select a Drill</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <ScrollArea className="h-64">
-                        {personalDrills && personalDrills.length > 0 ? (
-                          personalDrills.map(drill => (
-                            <DropdownMenuItem 
-                              key={drill.id} 
-                              onClick={() => quickStartDrill(drill.id)}
-                              data-testid={`quick-start-drill-${drill.id}`}
-                            >
-                              <div className="flex flex-col">
-                                <span>{drill.title}</span>
-                                <span className="text-xs text-muted-foreground">{formatCategory(drill.category)}</span>
-                              </div>
-                            </DropdownMenuItem>
-                          ))
-                        ) : (
-                          <DropdownMenuItem disabled>No drills available</DropdownMenuItem>
-                        )}
-                      </ScrollArea>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
                 {drillsLoading ? (
                   <div className="space-y-4">
                     {[...Array(5)].map((_, i) => (
@@ -1897,39 +1885,6 @@ export default function TrainingLogPage() {
               </TabsContent>
 
               <TabsContent value="community-drills">
-                <div className="flex justify-end mb-4">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button className="gap-2" data-testid="button-quick-start-community-drill">
-                        <Play className="w-4 h-4" />
-                        Start Drill
-                        <ChevronDown className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-64">
-                      <DropdownMenuLabel>Select a Drill</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <ScrollArea className="h-64">
-                        {communityDrills && communityDrills.length > 0 ? (
-                          communityDrills.map(drill => (
-                            <DropdownMenuItem 
-                              key={drill.id} 
-                              onClick={() => quickStartDrill(drill.id)}
-                              data-testid={`quick-start-community-drill-${drill.id}`}
-                            >
-                              <div className="flex flex-col">
-                                <span>{drill.title}</span>
-                                <span className="text-xs text-muted-foreground">{formatCategory(drill.category)}</span>
-                              </div>
-                            </DropdownMenuItem>
-                          ))
-                        ) : (
-                          <DropdownMenuItem disabled>No community drills shared yet</DropdownMenuItem>
-                        )}
-                      </ScrollArea>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
                 {drillsLoading ? (
                   <div className="space-y-4">
                     {[...Array(5)].map((_, i) => (
@@ -1982,40 +1937,6 @@ export default function TrainingLogPage() {
               </TabsContent>
 
               <TabsContent value="handlz-drills">
-                {/* Quick Start Drill Dropdown */}
-                <div className="flex justify-end mb-4">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button className="gap-2" data-testid="button-quick-start-handlz-drill">
-                        <Play className="w-4 h-4" />
-                        Start Drill
-                        <ChevronDown className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-64">
-                      <DropdownMenuLabel>Select a Drill</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <ScrollArea className="h-64">
-                        {handlzDrills && handlzDrills.length > 0 ? (
-                          handlzDrills.map(drill => (
-                            <DropdownMenuItem 
-                              key={drill.id} 
-                              onClick={() => quickStartDrill(drill.id)}
-                              data-testid={`quick-start-handlz-drill-${drill.id}`}
-                            >
-                              <div className="flex flex-col">
-                                <span>{drill.title}</span>
-                                <span className="text-xs text-muted-foreground">{formatCategory(drill.category)}</span>
-                              </div>
-                            </DropdownMenuItem>
-                          ))
-                        ) : (
-                          <DropdownMenuItem disabled>No drills available</DropdownMenuItem>
-                        )}
-                      </ScrollArea>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
                 {drillsLoading ? (
                   <div className="space-y-4">
                     {[...Array(5)].map((_, i) => (
