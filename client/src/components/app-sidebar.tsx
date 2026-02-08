@@ -15,6 +15,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarSeparator,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import {
   DropdownMenu,
@@ -65,6 +66,13 @@ export function AppSidebar() {
   const [location] = useLocation();
   const { user, logout } = useAuth();
   const { isAdmin } = useAdmin();
+  const { isMobile, setOpenMobile } = useSidebar();
+
+  const closeSidebar = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
 
   const getInitials = () => {
     if (!user) return "U";
@@ -88,7 +96,7 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="px-4 pt-4 pb-2">
-        <Link href="/">
+        <Link href="/" onClick={closeSidebar}>
           <div className="flex items-center cursor-pointer overflow-hidden h-12" data-testid="link-sidebar-logo">
             <img 
               src={logoLandscape} 
@@ -111,7 +119,7 @@ export function AppSidebar() {
                     isActive={location === item.url}
                     data-testid={`link-nav-${item.title.toLowerCase().replace(/\s/g, '-')}`}
                   >
-                    <Link href={item.url}>
+                    <Link href={item.url} onClick={closeSidebar}>
                       <item.icon className="w-4 h-4" />
                       <span>{item.title}</span>
                     </Link>
@@ -135,7 +143,7 @@ export function AppSidebar() {
                       isActive={location === "/admin"}
                       data-testid="link-nav-admin"
                     >
-                      <Link href="/admin">
+                      <Link href="/admin" onClick={closeSidebar}>
                         <Settings className="w-4 h-4" />
                         <span>Admin Dashboard</span>
                       </Link>
@@ -160,7 +168,7 @@ export function AppSidebar() {
                     isActive={location.includes(item.url.split('?')[1]?.split('=')[1] || '')}
                     data-testid={`link-category-${item.title.toLowerCase().replace(/\s/g, '-')}`}
                   >
-                    <Link href={item.url}>
+                    <Link href={item.url} onClick={closeSidebar}>
                       <item.icon className="w-4 h-4" />
                       <span>{item.title}</span>
                     </Link>
@@ -197,7 +205,7 @@ export function AppSidebar() {
                 align="start"
               >
                 <DropdownMenuItem asChild>
-                  <Link href="/profile" className="cursor-pointer" data-testid="link-profile">
+                  <Link href="/profile" className="cursor-pointer" data-testid="link-profile" onClick={closeSidebar}>
                     <User className="mr-2 h-4 w-4" />
                     Profile
                   </Link>
