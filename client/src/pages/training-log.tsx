@@ -1530,6 +1530,9 @@ export default function TrainingLogPage() {
               <Trophy className="w-5 h-5 text-primary" />
               <CardTitle className="text-lg">My Challenges</CardTitle>
               <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${challengesSectionOpen ? '' : '-rotate-90'}`} />
+              {activeChallenges?.some(uc => !uc.isCompleted) && (
+                <Badge className="text-xs bg-orange-500/20 text-orange-400 border-orange-500/30">Active</Badge>
+              )}
             </CollapsibleTrigger>
             <Dialog open={showChallengeDialog} onOpenChange={setShowChallengeDialog}>
               <DialogTrigger asChild>
@@ -1690,7 +1693,10 @@ export default function TrainingLogPage() {
                             >
                               <div className="flex items-center justify-between gap-2 flex-wrap">
                                 <div>
-                                  <p className="font-medium text-sm">{uc.challenge.name}</p>
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-medium text-sm">{uc.challenge.name}</p>
+                                    <Badge className="text-xs bg-orange-500/20 text-orange-400 border-orange-500/30">Active</Badge>
+                                  </div>
                                   {uc.challenge.description && (
                                     <p className="text-xs text-muted-foreground">{uc.challenge.description}</p>
                                   )}

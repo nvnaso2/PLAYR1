@@ -2103,7 +2103,10 @@ function TrophyRoomTab({
                             <Target className="w-5 h-5 text-orange-500" />
                           </div>
                           <div className="min-w-0">
-                            <p className="font-medium truncate">{uc.challenge.name}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium truncate">{uc.challenge.name}</p>
+                              <Badge className="text-xs bg-orange-500/20 text-orange-400 border-orange-500/30 shrink-0">Active</Badge>
+                            </div>
                             <p className="text-sm text-muted-foreground">
                               {uc.currentValue || 0} / {uc.challenge.targetValue} {uc.challenge.metric}
                             </p>
