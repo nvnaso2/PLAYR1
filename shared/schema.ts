@@ -547,6 +547,67 @@ const urlOrObjectPath = z.string().nullish().refine(
   { message: "Must be a valid URL or object storage path" }
 );
 
+// Public player profiles - recruiting-style profile page
+export const playerProfiles = pgTable("player_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique(),
+  slug: varchar("slug").notNull().unique(),
+  headline: varchar("headline"),
+  bio: text("bio"),
+  heightFeet: integer("height_feet"),
+  heightInches: integer("height_inches"),
+  weight: integer("weight"),
+  wingspan: varchar("wingspan"),
+  gradYear: integer("grad_year"),
+  gpa: varchar("gpa"),
+  highlightVideoUrl: varchar("highlight_video_url"),
+  socialTwitter: varchar("social_twitter"),
+  socialInstagram: varchar("social_instagram"),
+  socialTiktok: varchar("social_tiktok"),
+  socialYoutube: varchar("social_youtube"),
+  isPublic: boolean("is_public").default(true),
+  showStats: boolean("show_stats").default(true),
+  showAchievements: boolean("show_achievements").default(true),
+  showVideos: boolean("show_videos").default(true),
+  showTrainingLog: boolean("show_training_log").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+
+// Trainer/Coach teams
+export const trainerTeams = pgTable("trainer_teams", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  coachId: varchar("coach_id").notNull(),
+  name: varchar("name").notNull(),
+  description: text("description"),
+  sport: varchar("sport").default("basketball"),
+  teamCode: varchar("team_code").notNull().unique(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+
+// Team members (players on a trainer's team)
+export const teamMembers = pgTable("team_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  teamId: varchar("team_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  role: varchar("role").default("player"),
+  joinedAt: timestamp("joined_at").defaultNow()
+});
+
+// Drill assignments from coach to team/players
+export const drillAssignments = pgTable("drill_assignments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  drillId: varchar("drill_id").notNull(),
+  assignedBy: varchar("assigned_by").notNull(),
+  teamId: varchar("team_id"),
+  assignedTo: varchar("assigned_to"),
+  dueDate: timestamp("due_date"),
+  notes: text("notes"),
+  status: varchar("status").default("assigned"),
+  createdAt: timestamp("created_at").defaultNow()
+});
+
 // Drill ratings - users rate drills 1-5
 export const drillRatings = pgTable("drill_ratings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -596,6 +657,10 @@ export const insertPersonalRecordSchema = createInsertSchema(personalRecords).om
 export const insertTeamAwardSchema = createInsertSchema(teamAwards).omit({ id: true, createdAt: true });
 export const insertSeasonSchema = createInsertSchema(seasons).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertGameSchema = createInsertSchema(games).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertPlayerProfileSchema = createInsertSchema(playerProfiles).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertTrainerTeamSchema = createInsertSchema(trainerTeams).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertTeamMemberSchema = createInsertSchema(teamMembers).omit({ id: true, joinedAt: true });
+export const insertDrillAssignmentSchema = createInsertSchema(drillAssignments).omit({ id: true, createdAt: true });
 
 // Types
 export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
@@ -643,3 +708,11 @@ export type InsertGame = z.infer<typeof insertGameSchema>;
 export type Game = typeof games.$inferSelect;
 export type InsertDrillRating = z.infer<typeof insertDrillRatingSchema>;
 export type DrillRating = typeof drillRatings.$inferSelect;
+export type InsertPlayerProfile = z.infer<typeof insertPlayerProfileSchema>;
+export type PlayerProfile = typeof playerProfiles.$inferSelect;
+export type InsertTrainerTeam = z.infer<typeof insertTrainerTeamSchema>;
+export type TrainerTeam = typeof trainerTeams.$inferSelect;
+export type InsertTeamMember = z.infer<typeof insertTeamMemberSchema>;
+export type TeamMember = typeof teamMembers.$inferSelect;
+export type InsertDrillAssignment = z.infer<typeof insertDrillAssignmentSchema>;
+export type DrillAssignment = typeof drillAssignments.$inferSelect;

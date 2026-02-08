@@ -73,7 +73,8 @@ import {
   GripVertical,
   BarChart,
   Camera,
-  RefreshCw
+  RefreshCw,
+  Share2
 } from "lucide-react";
 import type { CareerProfile, UserAchievement, CareerAchievement, Challenge, UserChallenge, PersonalRecord, TeamAward, Season, Game, InsertTeamAward, InsertChallenge } from "@shared/schema";
 import { insertTeamAwardSchema, insertChallengeSchema } from "@shared/schema";
@@ -88,6 +89,7 @@ import {
   CHALLENGE_METRICS,
   CHALLENGE_GOAL_TYPES
 } from "@shared/schema";
+import { ShareCardDialog } from "@/components/share-card";
 
 const MONTHS = [
   { value: 1, label: "January" },
@@ -1074,6 +1076,7 @@ function StatsTab() {
   const [showSeasonDialog, setShowSeasonDialog] = useState(false);
   const [showGameDialog, setShowGameDialog] = useState(false);
   const [editingGame, setEditingGame] = useState<Game | null>(null);
+  const [shareGameId, setShareGameId] = useState<string | null>(null);
   const [expandedSeasons, setExpandedSeasons] = useState<Set<string>>(new Set());
   const [initialExpandDone, setInitialExpandDone] = useState(false);
 
@@ -1565,6 +1568,14 @@ function StatsTab() {
                                         <Button 
                                           size="icon" 
                                           variant="ghost"
+                                          onClick={() => setShareGameId(game.id)}
+                                          data-testid={`button-share-game-${game.id}`}
+                                        >
+                                          <Share2 className="w-3 h-3" />
+                                        </Button>
+                                        <Button 
+                                          size="icon" 
+                                          variant="ghost"
                                           onClick={() => openGameDialog(game)}
                                           data-testid={`button-edit-game-${game.id}`}
                                         >
@@ -1939,6 +1950,14 @@ function StatsTab() {
           </Form>
         </DialogContent>
       </Dialog>
+
+      {shareGameId && (
+        <ShareCardDialog
+          open={!!shareGameId}
+          onOpenChange={(open) => { if (!open) setShareGameId(null); }}
+          gameId={shareGameId}
+        />
+      )}
     </div>
   );
 }

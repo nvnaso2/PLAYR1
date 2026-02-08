@@ -20,7 +20,10 @@ import Dashboard from "@/pages/progress";
 import Videos from "@/pages/videos";
 import Profile from "@/pages/profile";
 import Career from "@/pages/career";
+import PlayerProfile from "@/pages/player-profile";
+import PlayerPublic from "@/pages/player-public";
 import Admin from "@/pages/admin";
+import Coach from "@/pages/coach";
 import NotFound from "@/pages/not-found";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -66,24 +69,34 @@ function Router({ previewLanding }: { previewLanding: boolean }) {
     return <LoadingScreen />;
   }
 
-  if (!isAuthenticated || previewLanding) {
-    return <Landing />;
-  }
-
   return (
-    <AuthenticatedLayout>
-      <Switch>
-        <Route path="/" component={Dashboard} />
-        <Route path="/drills" component={Drills} />
-        <Route path="/drill/:id" component={DrillPage} />
-        <Route path="/log" component={TrainingLog} />
-        <Route path="/videos" component={Videos} />
-        <Route path="/career" component={Career} />
-        <Route path="/profile" component={Profile} />
-        <Route path="/admin" component={Admin} />
-        <Route component={NotFound} />
-      </Switch>
-    </AuthenticatedLayout>
+    <Switch>
+      <Route path="/player/:slug" component={PlayerPublic} />
+      <Route>
+        {() => {
+          if (!isAuthenticated || previewLanding) {
+            return <Landing />;
+          }
+          return (
+            <AuthenticatedLayout>
+              <Switch>
+                <Route path="/" component={Dashboard} />
+                <Route path="/drills" component={Drills} />
+                <Route path="/drill/:id" component={DrillPage} />
+                <Route path="/log" component={TrainingLog} />
+                <Route path="/videos" component={Videos} />
+                <Route path="/career" component={Career} />
+                <Route path="/profile" component={Profile} />
+                <Route path="/player-profile" component={PlayerProfile} />
+                <Route path="/admin" component={Admin} />
+                <Route path="/coach" component={Coach} />
+                <Route component={NotFound} />
+              </Switch>
+            </AuthenticatedLayout>
+          );
+        }}
+      </Route>
+    </Switch>
   );
 }
 

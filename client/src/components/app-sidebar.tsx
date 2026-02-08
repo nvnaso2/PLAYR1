@@ -31,6 +31,7 @@ import {
   BarChart3, 
   Video, 
   User,
+  UserCircle,
   LogOut,
   ChevronUp,
   Dumbbell,
@@ -47,9 +48,11 @@ import logoLandscape from "@assets/PNG_image_1770494053382.png";
 const mainNavItems = [
   { title: "Dashboard", url: "/", icon: BarChart3 },
   { title: "My Career", url: "/career", icon: Trophy },
+  { title: "Player Profile", url: "/player-profile", icon: UserCircle },
   { title: "Drill Library", url: "/drills", icon: Play },
   { title: "Training Log", url: "/log", icon: ClipboardList },
   { title: "My Filmroom", url: "/videos", icon: Video },
+  { title: "Trainer / Coach", url: "/coach", icon: Dumbbell },
 ];
 
 const categoryItems = [

@@ -37,6 +37,20 @@ A "Netflix for basketball drills" platform (app name: PLAYR1). Features Handlz b
 7. **Community Benchmarks**: Compare performance against players your age
 8. **User Profiles**: Location-based profiles with skill level tracking
 9. **Admin Dashboard**: Full CRUD operations for drill management (admin users only)
+10. **Player Profile**: Recruiting-style public profile page
+    - Slug-based public URL (/player/:slug) accessible without auth
+    - Bio, measurements, grad year, social links, visibility settings
+    - Edit mode at /player-profile (authenticated)
+11. **Social Media Share Cards**: Share game stats across platforms
+    - Platform-specific templates: X/Twitter, Instagram, Facebook, YouTube, TikTok
+    - Copy-to-clipboard formatted stats text
+    - PNG download via html2canvas
+    - Integrated into Career page game rows (Share button)
+12. **Trainer/Coach Dashboard**: Team management and drill assignments
+    - Create/manage teams with unique invite codes
+    - Assign drills to teams with due dates and notes
+    - Players join teams via code, view assigned drills
+    - Mark assignments as completed
 
 ## Project Structure
 ```
@@ -47,6 +61,7 @@ client/src/
 │   ├── category-card.tsx
 │   ├── drill-card.tsx
 │   ├── half-court-map.tsx  # Shot location visualization
+│   ├── share-card.tsx     # Social media share card dialog
 │   ├── stats-card.tsx
 │   ├── theme-provider.tsx
 │   └── theme-toggle.tsx
@@ -59,6 +74,10 @@ client/src/
 │   ├── progress.tsx   # Stats & charts
 │   ├── videos.tsx     # User videos
 │   ├── profile.tsx    # User profile
+│   ├── career.tsx     # Baseball card stats & game logs
+│   ├── player-profile.tsx  # Player profile edit (authenticated)
+│   ├── player-public.tsx   # Public player profile (/player/:slug)
+│   ├── coach.tsx      # Trainer/Coach dashboard
 │   └── admin.tsx      # Admin dashboard (drill management)
 ├── hooks/
 │   ├── use-auth.ts    # Authentication hook

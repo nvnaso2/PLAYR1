@@ -22,7 +22,11 @@ import {
   teamAwards, type TeamAward, type InsertTeamAward,
   seasons, type Season, type InsertSeason,
   games, type Game, type InsertGame,
-  drillRatings, type DrillRating
+  drillRatings, type DrillRating,
+  playerProfiles, type PlayerProfile, type InsertPlayerProfile,
+  trainerTeams, type TrainerTeam, type InsertTrainerTeam,
+  teamMembers, type TeamMember, type InsertTeamMember,
+  drillAssignments, type DrillAssignment, type InsertDrillAssignment
 } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
@@ -182,6 +186,32 @@ export interface IStorage {
   createGame(game: InsertGame): Promise<Game>;
   updateGame(id: string, game: Partial<InsertGame>): Promise<Game | undefined>;
   deleteGame(id: string): Promise<boolean>;
+
+  // Player Profiles (public)
+  getPlayerProfile(userId: string): Promise<PlayerProfile | undefined>;
+  getPlayerProfileBySlug(slug: string): Promise<PlayerProfile | undefined>;
+  upsertPlayerProfile(profile: InsertPlayerProfile): Promise<PlayerProfile>;
+
+  // Trainer Teams
+  getCoachTeams(coachId: string): Promise<TrainerTeam[]>;
+  getTeamById(id: string): Promise<TrainerTeam | undefined>;
+  getTeamByCode(code: string): Promise<TrainerTeam | undefined>;
+  createTeam(team: InsertTrainerTeam): Promise<TrainerTeam>;
+  updateTeam(id: string, team: Partial<InsertTrainerTeam>): Promise<TrainerTeam | undefined>;
+  deleteTeam(id: string): Promise<boolean>;
+
+  // Team Members
+  getTeamMembers(teamId: string): Promise<Array<TeamMember & { user: { id: string; firstName: string | null; lastName: string | null; email: string | null } }>>;
+  getUserTeams(userId: string): Promise<Array<TeamMember & { team: TrainerTeam }>>;
+  addTeamMember(member: InsertTeamMember): Promise<TeamMember>;
+  removeTeamMember(teamId: string, userId: string): Promise<boolean>;
+
+  // Drill Assignments
+  getTeamAssignments(teamId: string): Promise<Array<DrillAssignment & { drill: Drill }>>;
+  getUserAssignments(userId: string): Promise<Array<DrillAssignment & { drill: Drill; team?: TrainerTeam }>>;
+  createDrillAssignment(assignment: InsertDrillAssignment): Promise<DrillAssignment>;
+  updateDrillAssignmentStatus(id: string, status: string): Promise<DrillAssignment | undefined>;
+  deleteDrillAssignment(id: string): Promise<boolean>;
 
   // Career Stats
   getCareerStats(userId: string): Promise<{
@@ -1663,6 +1693,173 @@ export class DatabaseStorage implements IStorage {
       };
     }
     return map;
+  }
+
+  // Player Profiles
+  async getPlayerProfile(userId: string): Promise<PlayerProfile | undefined> {
+    const [profile] = await db.select().from(playerProfiles).where(eq(playerProfiles.userId, userId));
+    return profile;
+  }
+
+  async getPlayerProfileBySlug(slug: string): Promise<PlayerProfile | undefined> {
+    const [profile] = await db.select().from(playerProfiles).where(eq(playerProfiles.slug, slug));
+    return profile;
+  }
+
+  async upsertPlayerProfile(profile: InsertPlayerProfile): Promise<PlayerProfile> {
+    const existing = await this.getPlayerProfile(profile.userId);
+    if (existing) {
+      const [updated] = await db.update(playerProfiles)
+        .set({ ...profile, updatedAt: new Date() })
+        .where(eq(playerProfiles.userId, profile.userId))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(playerProfiles).values(profile).returning();
+    return created;
+  }
+
+  // Trainer Teams
+  async getCoachTeams(coachId: string): Promise<TrainerTeam[]> {
+    return await db.select().from(trainerTeams).where(eq(trainerTeams.coachId, coachId)).orderBy(desc(trainerTeams.createdAt));
+  }
+
+  async getTeamById(id: string): Promise<TrainerTeam | undefined> {
+    const [team] = await db.select().from(trainerTeams).where(eq(trainerTeams.id, id));
+    return team;
+  }
+
+  async getTeamByCode(code: string): Promise<TrainerTeam | undefined> {
+    const [team] = await db.select().from(trainerTeams).where(eq(trainerTeams.teamCode, code));
+    return team;
+  }
+
+  async createTeam(team: InsertTrainerTeam): Promise<TrainerTeam> {
+    const [created] = await db.insert(trainerTeams).values(team).returning();
+    return created;
+  }
+
+  async updateTeam(id: string, team: Partial<InsertTrainerTeam>): Promise<TrainerTeam | undefined> {
+    const [updated] = await db.update(trainerTeams)
+      .set({ ...team, updatedAt: new Date() })
+      .where(eq(trainerTeams.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteTeam(id: string): Promise<boolean> {
+    await db.delete(teamMembers).where(eq(teamMembers.teamId, id));
+    await db.delete(drillAssignments).where(eq(drillAssignments.teamId, id));
+    const result = await db.delete(trainerTeams).where(eq(trainerTeams.id, id));
+    return true;
+  }
+
+  // Team Members
+  async getTeamMembers(teamId: string): Promise<Array<TeamMember & { user: { id: string; firstName: string | null; lastName: string | null; email: string | null } }>> {
+    const members = await db.select().from(teamMembers).where(eq(teamMembers.teamId, teamId));
+    const result = [];
+    for (const member of members) {
+      const [user] = await db.select({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        email: users.email
+      }).from(users).where(eq(users.id, member.userId));
+      if (user) {
+        result.push({ ...member, user });
+      }
+    }
+    return result;
+  }
+
+  async getUserTeams(userId: string): Promise<Array<TeamMember & { team: TrainerTeam }>> {
+    const members = await db.select().from(teamMembers).where(eq(teamMembers.userId, userId));
+    const result = [];
+    for (const member of members) {
+      const [team] = await db.select().from(trainerTeams).where(eq(trainerTeams.id, member.teamId));
+      if (team) {
+        result.push({ ...member, team });
+      }
+    }
+    return result;
+  }
+
+  async addTeamMember(member: InsertTeamMember): Promise<TeamMember> {
+    const [created] = await db.insert(teamMembers).values(member).returning();
+    return created;
+  }
+
+  async removeTeamMember(teamId: string, userId: string): Promise<boolean> {
+    await db.delete(teamMembers).where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)));
+    return true;
+  }
+
+  // Drill Assignments
+  async getTeamAssignments(teamId: string): Promise<Array<DrillAssignment & { drill: Drill }>> {
+    const assignments = await db.select().from(drillAssignments)
+      .where(eq(drillAssignments.teamId, teamId))
+      .orderBy(desc(drillAssignments.createdAt));
+    const result = [];
+    for (const assignment of assignments) {
+      const [drill] = await db.select().from(drills).where(eq(drills.id, assignment.drillId));
+      if (drill) {
+        result.push({ ...assignment, drill });
+      }
+    }
+    return result;
+  }
+
+  async getUserAssignments(userId: string): Promise<Array<DrillAssignment & { drill: Drill; team?: TrainerTeam }>> {
+    const userTeamMembers = await db.select().from(teamMembers).where(eq(teamMembers.userId, userId));
+    const teamIds = userTeamMembers.map(m => m.teamId);
+    
+    let allAssignments: DrillAssignment[] = [];
+    
+    const directAssignments = await db.select().from(drillAssignments)
+      .where(eq(drillAssignments.assignedTo, userId))
+      .orderBy(desc(drillAssignments.createdAt));
+    allAssignments.push(...directAssignments);
+    
+    if (teamIds.length > 0) {
+      for (const tid of teamIds) {
+        const teamAssignments = await db.select().from(drillAssignments)
+          .where(and(eq(drillAssignments.teamId, tid), sql`${drillAssignments.assignedTo} IS NULL`))
+          .orderBy(desc(drillAssignments.createdAt));
+        allAssignments.push(...teamAssignments);
+      }
+    }
+
+    const result = [];
+    for (const assignment of allAssignments) {
+      const [drill] = await db.select().from(drills).where(eq(drills.id, assignment.drillId));
+      let team: TrainerTeam | undefined;
+      if (assignment.teamId) {
+        const [t] = await db.select().from(trainerTeams).where(eq(trainerTeams.id, assignment.teamId));
+        team = t;
+      }
+      if (drill) {
+        result.push({ ...assignment, drill, team });
+      }
+    }
+    return result;
+  }
+
+  async createDrillAssignment(assignment: InsertDrillAssignment): Promise<DrillAssignment> {
+    const [created] = await db.insert(drillAssignments).values(assignment).returning();
+    return created;
+  }
+
+  async updateDrillAssignmentStatus(id: string, status: string): Promise<DrillAssignment | undefined> {
+    const [updated] = await db.update(drillAssignments)
+      .set({ status })
+      .where(eq(drillAssignments.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteDrillAssignment(id: string): Promise<boolean> {
+    await db.delete(drillAssignments).where(eq(drillAssignments.id, id));
+    return true;
   }
 }
 
