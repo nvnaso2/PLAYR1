@@ -1287,26 +1287,26 @@ function StatsTab() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              <div className="text-center p-3 bg-primary/10 rounded-lg">
-                <p className="text-2xl font-bold">{careerStats.avgPoints}</p>
-                <p className="text-sm text-muted-foreground">PPG</p>
+            <div className="grid grid-cols-5 gap-2 sm:gap-4">
+              <div className="text-center p-2 sm:p-3 bg-primary/10 rounded-lg">
+                <p className="text-lg sm:text-2xl font-bold">{careerStats.avgPoints}</p>
+                <p className="text-[10px] sm:text-sm text-muted-foreground">PPG</p>
               </div>
-              <div className="text-center p-3 bg-primary/10 rounded-lg">
-                <p className="text-2xl font-bold">{careerStats.avgRebounds}</p>
-                <p className="text-sm text-muted-foreground">RPG</p>
+              <div className="text-center p-2 sm:p-3 bg-primary/10 rounded-lg">
+                <p className="text-lg sm:text-2xl font-bold">{careerStats.avgRebounds}</p>
+                <p className="text-[10px] sm:text-sm text-muted-foreground">RPG</p>
               </div>
-              <div className="text-center p-3 bg-primary/10 rounded-lg">
-                <p className="text-2xl font-bold">{careerStats.avgAssists}</p>
-                <p className="text-sm text-muted-foreground">APG</p>
+              <div className="text-center p-2 sm:p-3 bg-primary/10 rounded-lg">
+                <p className="text-lg sm:text-2xl font-bold">{careerStats.avgAssists}</p>
+                <p className="text-[10px] sm:text-sm text-muted-foreground">APG</p>
               </div>
-              <div className="text-center p-3 bg-primary/10 rounded-lg">
-                <p className="text-2xl font-bold">{careerStats.avgSteals}</p>
-                <p className="text-sm text-muted-foreground">SPG</p>
+              <div className="text-center p-2 sm:p-3 bg-primary/10 rounded-lg">
+                <p className="text-lg sm:text-2xl font-bold">{careerStats.avgSteals}</p>
+                <p className="text-[10px] sm:text-sm text-muted-foreground">SPG</p>
               </div>
-              <div className="text-center p-3 bg-primary/10 rounded-lg">
-                <p className="text-2xl font-bold">{careerStats.avgBlocks}</p>
-                <p className="text-sm text-muted-foreground">BPG</p>
+              <div className="text-center p-2 sm:p-3 bg-primary/10 rounded-lg">
+                <p className="text-lg sm:text-2xl font-bold">{careerStats.avgBlocks}</p>
+                <p className="text-[10px] sm:text-sm text-muted-foreground">BPG</p>
               </div>
             </div>
             <div className="mt-4 text-center text-sm text-muted-foreground">
@@ -2266,7 +2266,8 @@ function TrophyRoomTab({
                     Career
                   </Button>
                   <Button size="sm" variant={statsPeriod === "current" ? "default" : "outline"} onClick={() => setStatsPeriod("current")} data-testid="btn-stats-current">
-                    Current Season
+                    <span className="hidden sm:inline">Current Season</span>
+                    <span className="sm:hidden">Season</span>
                   </Button>
                 </div>
               </div>
@@ -2310,32 +2311,32 @@ function TrophyRoomTab({
 
                 return (
                   <div className="space-y-4">
-                    <div className={`grid gap-3 ${(displayWins + displayLosses) > 0 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'}`}>
-                      <div className="text-center p-3 rounded-md bg-muted/50">
-                        <p className="text-2xl font-bold">{totalGames}</p>
-                        <p className="text-xs text-muted-foreground">GP</p>
+                    <div className={`grid gap-2 sm:gap-3 ${(displayWins + displayLosses) > 0 ? 'grid-cols-4' : 'grid-cols-3'}`}>
+                      <div className="text-center p-2 sm:p-3 rounded-md bg-muted/50">
+                        <p className="text-lg sm:text-2xl font-bold">{totalGames}</p>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground">GP</p>
                       </div>
-                      <div className="text-center p-3 rounded-md bg-muted/50">
-                        <p className="text-2xl font-bold text-green-600 dark:text-green-400">{displayWins}</p>
-                        <p className="text-xs text-muted-foreground">Wins</p>
+                      <div className="text-center p-2 sm:p-3 rounded-md bg-muted/50">
+                        <p className="text-lg sm:text-2xl font-bold text-green-600 dark:text-green-400">{displayWins}</p>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground">Wins</p>
                       </div>
-                      <div className="text-center p-3 rounded-md bg-muted/50">
-                        <p className="text-2xl font-bold text-red-600 dark:text-red-400">{displayLosses}</p>
-                        <p className="text-xs text-muted-foreground">Losses</p>
+                      <div className="text-center p-2 sm:p-3 rounded-md bg-muted/50">
+                        <p className="text-lg sm:text-2xl font-bold text-red-600 dark:text-red-400">{displayLosses}</p>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground">Losses</p>
                       </div>
                       {(displayWins + displayLosses) > 0 && (
-                        <div className="text-center p-3 rounded-md bg-muted/50">
-                          <p className="text-2xl font-bold">{((displayWins / (displayWins + displayLosses)) * 100).toFixed(0)}%</p>
-                          <p className="text-xs text-muted-foreground">Win %</p>
+                        <div className="text-center p-2 sm:p-3 rounded-md bg-muted/50">
+                          <p className="text-lg sm:text-2xl font-bold">{((displayWins / (displayWins + displayLosses)) * 100).toFixed(0)}%</p>
+                          <p className="text-[10px] sm:text-xs text-muted-foreground">Win %</p>
                         </div>
                       )}
                     </div>
 
-                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+                    <div className="grid grid-cols-5 gap-2 sm:gap-3">
                       {statItems.map((item) => (
-                        <div key={item.label} className="text-center p-3 rounded-md bg-muted/50">
-                          <p className={`text-2xl font-bold ${item.highlight ? 'text-primary' : ''}`}>{item.value}</p>
-                          <p className="text-xs text-muted-foreground">{item.label}</p>
+                        <div key={item.label} className="text-center p-2 sm:p-3 rounded-md bg-muted/50">
+                          <p className={`text-lg sm:text-2xl font-bold ${item.highlight ? 'text-primary' : ''}`}>{item.value}</p>
+                          <p className="text-[10px] sm:text-xs text-muted-foreground">{item.label}</p>
                         </div>
                       ))}
                     </div>
@@ -2345,12 +2346,14 @@ function TrophyRoomTab({
                         <p className="text-sm font-medium mb-2 text-muted-foreground">Season Breakdown</p>
                         <div className="space-y-2">
                           {breakdown.map((s, i) => (
-                            <div key={i} className="flex items-center justify-between text-sm p-2 rounded-md bg-muted/30">
-                              <span className="font-medium">
-                                {SEASON_TYPE_LABELS[s.seasonType]?.split(" ")[0] || s.seasonType} '{s.year?.slice(-2) || ""}
-                              </span>
-                              <div className="flex gap-3 text-muted-foreground text-xs">
-                                <span>{s.gamesPlayed} GP</span>
+                            <div key={i} className="p-2 rounded-md bg-muted/30 space-y-1">
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="font-medium text-xs sm:text-sm">
+                                  {SEASON_TYPE_LABELS[s.seasonType]?.split(" ")[0] || s.seasonType} '{s.year?.slice(-2) || ""}
+                                </span>
+                                <span className="text-xs text-muted-foreground">{s.gamesPlayed} GP</span>
+                              </div>
+                              <div className="flex gap-2 sm:gap-3 text-muted-foreground text-xs flex-wrap">
                                 {statsView === "averages" ? (
                                   <>
                                     <span className="font-semibold text-foreground">{s.avgPoints.toFixed(1)} PPG</span>

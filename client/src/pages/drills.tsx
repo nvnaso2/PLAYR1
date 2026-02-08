@@ -245,73 +245,82 @@ export default function Drills() {
         </TabsList>
 
         <div className="mt-4 space-y-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search drills..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-                data-testid="input-search-drills"
-              />
-            </div>
-            
-            <div className="flex gap-2">
-              <Select value={selectedDifficulty} onValueChange={setSelectedDifficulty}>
-                <SelectTrigger className="w-40" data-testid="select-difficulty">
-                  <SelectValue placeholder="Difficulty" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Levels</SelectItem>
-                  <SelectItem value="beginner">Beginner</SelectItem>
-                  <SelectItem value="intermediate">Intermediate</SelectItem>
-                  <SelectItem value="advanced">Advanced</SelectItem>
-                  <SelectItem value="elite">Elite</SelectItem>
-                </SelectContent>
-              </Select>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search drills..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+              data-testid="input-search-drills"
+            />
+          </div>
+          
+          <div className="flex items-center gap-2 flex-wrap">
+            <Select value={selectedDifficulty} onValueChange={setSelectedDifficulty}>
+              <SelectTrigger className="w-36 sm:w-40" data-testid="select-difficulty">
+                <SelectValue placeholder="Difficulty" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Levels</SelectItem>
+                <SelectItem value="beginner">Beginner</SelectItem>
+                <SelectItem value="intermediate">Intermediate</SelectItem>
+                <SelectItem value="advanced">Advanced</SelectItem>
+                <SelectItem value="elite">Elite</SelectItem>
+              </SelectContent>
+            </Select>
 
-              <div className="flex border rounded-md">
-                <Button
-                  variant={viewMode === "grid" ? "secondary" : "ghost"}
-                  size="icon"
-                  onClick={() => setViewMode("grid")}
-                  data-testid="button-view-grid"
-                >
-                  <Grid3X3 className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant={viewMode === "list" ? "secondary" : "ghost"}
-                  size="icon"
-                  onClick={() => setViewMode("list")}
-                  data-testid="button-view-list"
-                >
-                  <List className="w-4 h-4" />
-                </Button>
-              </div>
+            <div className="flex border rounded-md">
+              <Button
+                variant={viewMode === "grid" ? "secondary" : "ghost"}
+                size="icon"
+                onClick={() => setViewMode("grid")}
+                data-testid="button-view-grid"
+              >
+                <Grid3X3 className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={viewMode === "list" ? "secondary" : "ghost"}
+                size="icon"
+                onClick={() => setViewMode("list")}
+                data-testid="button-view-list"
+              >
+                <List className="w-4 h-4" />
+              </Button>
             </div>
           </div>
 
-          <div className="flex gap-1.5 sm:gap-2 flex-wrap">
-            {Object.entries(categoryInfo).map(([key, { label, icon, color }]) => (
-              <Button
-                key={key}
-                variant={selectedCategory === key ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedCategory(key)}
-                className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3"
-                data-testid={`button-category-${key}`}
-              >
-                {icon}
-                <span className="hidden sm:inline">{label}</span>
-                <span className="sm:hidden">{label.split(' ')[0]}</span>
-                {key !== 'all' && categoryStats[key] && (
-                  <Badge variant="secondary" className="ml-0.5 sm:ml-1 text-xs">
-                    {categoryStats[key]}
-                  </Badge>
-                )}
-              </Button>
-            ))}
+          <div className="flex gap-2 items-center">
+            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <SelectTrigger className="w-48 sm:w-56" data-testid="select-category">
+                <SelectValue>
+                  <span className="flex items-center gap-2">
+                    {categoryInfo[selectedCategory]?.icon}
+                    {categoryInfo[selectedCategory]?.label || "All Drills"}
+                    {selectedCategory !== 'all' && categoryStats[selectedCategory] && (
+                      <Badge variant="secondary" className="text-xs ml-1">
+                        {categoryStats[selectedCategory]}
+                      </Badge>
+                    )}
+                  </span>
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(categoryInfo).map(([key, { label, icon }]) => (
+                  <SelectItem key={key} value={key} data-testid={`option-category-${key}`}>
+                    <span className="flex items-center gap-2">
+                      {icon}
+                      {label}
+                      {key !== 'all' && categoryStats[key] && (
+                        <Badge variant="secondary" className="text-xs ml-1">
+                          {categoryStats[key]}
+                        </Badge>
+                      )}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <TabsContent value="handlz" className="mt-0 space-y-4">
