@@ -217,7 +217,7 @@ function MyTeamsTab() {
       </div>
 
       {teamsLoading ? (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
           {[1, 2].map((i) => <Skeleton key={i} className="h-32 rounded-lg" />)}
         </div>
       ) : !teams?.length ? (
@@ -228,7 +228,7 @@ function MyTeamsTab() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
           {teams.map((team) => (
             <Card
               key={team.id}
@@ -238,7 +238,7 @@ function MyTeamsTab() {
             >
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <CardTitle className="text-base truncate" data-testid={`text-team-name-${team.id}`}>{team.name}</CardTitle>
                     {team.description && (
                       <CardDescription className="line-clamp-2 mt-1">{team.description}</CardDescription>
@@ -256,7 +256,7 @@ function MyTeamsTab() {
               </CardHeader>
               <CardContent className="pt-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <Badge variant="outline" className="no-default-hover-elevate font-mono" data-testid={`badge-team-code-${team.id}`}>
+                  <Badge variant="outline" className="no-default-hover-elevate font-mono text-xs" data-testid={`badge-team-code-${team.id}`}>
                     {team.teamCode}
                   </Badge>
                   <Button
@@ -483,9 +483,9 @@ function AssignDrillsTab() {
     <div className="space-y-4">
       <h2 className="text-lg font-semibold" data-testid="text-assign-drills-heading">Assign Drills</h2>
 
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="w-full">
         <Select value={selectedTeamId} onValueChange={setSelectedTeamId}>
-          <SelectTrigger className="w-[200px]" data-testid="select-team-for-assignment">
+          <SelectTrigger className="w-full sm:w-[240px]" data-testid="select-team-for-assignment">
             <SelectValue placeholder="Select a team" />
           </SelectTrigger>
           <SelectContent>
@@ -513,23 +513,23 @@ function AssignDrillsTab() {
 
           {drillsLoading ? (
             <div className="space-y-2">
-              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12 rounded" />)}
+              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 rounded" />)}
             </div>
           ) : !filteredDrills?.length ? (
             <p className="text-sm text-muted-foreground text-center py-4" data-testid="text-no-drills-found">
               No drills found
             </p>
           ) : (
-            <div className="space-y-2 max-h-64 overflow-y-auto">
+            <div className="space-y-2 max-h-72 overflow-y-auto">
               {filteredDrills.map((drill) => (
                 <div
                   key={drill.id}
-                  className="flex items-center justify-between gap-2 p-3 rounded-md bg-muted/50"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-md bg-muted/50"
                   data-testid={`row-drill-${drill.id}`}
                 >
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate">{drill.title}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
+                    <div className="flex items-center gap-2 mt-1">
                       <Badge variant="outline" className="no-default-hover-elevate text-xs">{drill.category}</Badge>
                       <Badge variant="secondary" className="no-default-hover-elevate text-xs">{drill.difficulty}</Badge>
                     </div>
@@ -537,6 +537,7 @@ function AssignDrillsTab() {
                   <Button
                     size="sm"
                     onClick={() => openAssignDialog(drill)}
+                    className="self-end sm:self-center shrink-0"
                     data-testid={`button-assign-drill-${drill.id}`}
                   >
                     <ClipboardList className="w-3 h-3" />
@@ -551,7 +552,7 @@ function AssignDrillsTab() {
             <h3 className="text-sm font-semibold mb-3" data-testid="text-current-assignments-heading">Current Assignments</h3>
             {assignmentsLoading ? (
               <div className="space-y-2">
-                {[1, 2].map((i) => <Skeleton key={i} className="h-12 rounded" />)}
+                {[1, 2].map((i) => <Skeleton key={i} className="h-16 rounded" />)}
               </div>
             ) : !assignments?.length ? (
               <p className="text-sm text-muted-foreground" data-testid="text-no-assignments">
@@ -567,7 +568,7 @@ function AssignDrillsTab() {
                   >
                     <div className="min-w-0">
                       <p className="text-sm font-medium truncate">{assignment.drillTitle}</p>
-                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
                         {assignment.dueDate && (
                           <span className="text-xs text-muted-foreground flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
@@ -585,6 +586,7 @@ function AssignDrillsTab() {
                     <Button
                       size="icon"
                       variant="ghost"
+                      className="shrink-0"
                       onClick={() => setDeleteAssignmentId(assignment.id)}
                       data-testid={`button-delete-assignment-${assignment.id}`}
                     >
@@ -711,12 +713,12 @@ function JoinTeamTab() {
       <Card>
         <CardContent className="pt-6">
           <Form {...form}>
-            <form onSubmit={form.handleSubmit((data) => joinMutation.mutate(data))} className="flex items-end gap-3 flex-wrap">
+            <form onSubmit={form.handleSubmit((data) => joinMutation.mutate(data))} className="flex flex-col sm:flex-row sm:items-end gap-3">
               <FormField
                 control={form.control}
                 name="teamCode"
                 render={({ field }) => (
-                  <FormItem className="flex-1 min-w-[200px]">
+                  <FormItem className="flex-1">
                     <FormLabel>Team Code</FormLabel>
                     <FormControl>
                       <Input placeholder="Enter team code..." {...field} data-testid="input-team-code" />
@@ -725,7 +727,7 @@ function JoinTeamTab() {
                   </FormItem>
                 )}
               />
-              <Button type="submit" disabled={joinMutation.isPending} data-testid="button-join-team">
+              <Button type="submit" disabled={joinMutation.isPending} className="w-full sm:w-auto" data-testid="button-join-team">
                 <UserPlus className="w-4 h-4" />
                 {joinMutation.isPending ? "Joining..." : "Join"}
               </Button>
@@ -752,7 +754,7 @@ function JoinTeamTab() {
           {myTeams.map((team) => (
             <Card key={team.id} data-testid={`card-joined-team-${team.id}`}>
               <CardContent className="py-4">
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="min-w-0">
                     <p className="font-medium truncate" data-testid={`text-joined-team-name-${team.id}`}>{team.name}</p>
                     {team.description && (
@@ -764,6 +766,7 @@ function JoinTeamTab() {
                     size="sm"
                     variant="outline"
                     onClick={() => setLeaveTeamId(team.id)}
+                    className="self-end sm:self-center shrink-0"
                     data-testid={`button-leave-team-${team.id}`}
                   >
                     <LogOut className="w-3 h-3" />
@@ -838,9 +841,9 @@ function MyAssignmentsTab() {
           {assignments.map((assignment) => (
             <Card key={assignment.id} data-testid={`card-assignment-${assignment.id}`}>
               <CardContent className="py-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
+                <div className="space-y-3">
+                  <div className="flex items-start justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap min-w-0">
                       <p className="font-medium" data-testid={`text-assignment-drill-${assignment.id}`}>
                         {assignment.drillTitle}
                       </p>
@@ -857,23 +860,26 @@ function MyAssignmentsTab() {
                         {assignment.status}
                       </Badge>
                     </div>
-                    <div className="flex items-center gap-3 mt-1 flex-wrap text-xs text-muted-foreground">
-                      <span>Team: {assignment.teamName}</span>
-                      <span>Assigned by: {assignment.assignedByName}</span>
-                      {assignment.dueDate && (
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-3 h-3" />
-                          Due: {new Date(assignment.dueDate).toLocaleDateString()}
-                        </span>
-                      )}
-                    </div>
-                    {assignment.notes && (
-                      <p className="text-sm text-muted-foreground mt-2 bg-muted/50 p-2 rounded">
-                        {assignment.notes}
-                      </p>
+                  </div>
+
+                  <div className="flex items-center gap-3 flex-wrap text-xs text-muted-foreground">
+                    <span>Team: {assignment.teamName}</span>
+                    <span>Assigned by: {assignment.assignedByName}</span>
+                    {assignment.dueDate && (
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        Due: {new Date(assignment.dueDate).toLocaleDateString()}
+                      </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
+
+                  {assignment.notes && (
+                    <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded">
+                      {assignment.notes}
+                    </p>
+                  )}
+
+                  <div className="flex items-center gap-2 flex-wrap pt-1">
                     {assignment.status !== "completed" && (
                       <Button
                         size="sm"
@@ -912,29 +918,29 @@ export default function CoachPage() {
   const { user } = useAuth();
 
   return (
-    <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
+    <div className="p-3 sm:p-6 max-w-4xl mx-auto space-y-4 sm:space-y-6">
       <div className="flex items-center gap-3">
-        <Dumbbell className="w-6 h-6 text-primary" />
-        <h1 className="text-2xl font-bold" data-testid="text-coach-page-title">Trainer / Coach</h1>
+        <Dumbbell className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+        <h1 className="text-xl sm:text-2xl font-bold" data-testid="text-coach-page-title">Trainer / Coach</h1>
       </div>
 
       <Tabs defaultValue="my-teams">
-        <TabsList className="flex flex-wrap gap-1" data-testid="tabs-coach-main">
-          <TabsTrigger value="my-teams" data-testid="tab-my-teams">
-            <Users className="w-4 h-4 mr-1" />
-            My Teams
+        <TabsList className="w-full grid grid-cols-2 sm:grid-cols-4 gap-1 h-auto" data-testid="tabs-coach-main">
+          <TabsTrigger value="my-teams" className="text-xs sm:text-sm py-2" data-testid="tab-my-teams">
+            <Users className="w-4 h-4 mr-1 shrink-0" />
+            <span className="truncate">My Teams</span>
           </TabsTrigger>
-          <TabsTrigger value="assign-drills" data-testid="tab-assign-drills">
-            <ClipboardList className="w-4 h-4 mr-1" />
-            Assign Drills
+          <TabsTrigger value="assign-drills" className="text-xs sm:text-sm py-2" data-testid="tab-assign-drills">
+            <ClipboardList className="w-4 h-4 mr-1 shrink-0" />
+            <span className="truncate">Assign</span>
           </TabsTrigger>
-          <TabsTrigger value="join-team" data-testid="tab-join-team">
-            <UserPlus className="w-4 h-4 mr-1" />
-            Join Team
+          <TabsTrigger value="join-team" className="text-xs sm:text-sm py-2" data-testid="tab-join-team">
+            <UserPlus className="w-4 h-4 mr-1 shrink-0" />
+            <span className="truncate">Join Team</span>
           </TabsTrigger>
-          <TabsTrigger value="my-assignments" data-testid="tab-my-assignments">
-            <BookOpen className="w-4 h-4 mr-1" />
-            My Assignments
+          <TabsTrigger value="my-assignments" className="text-xs sm:text-sm py-2" data-testid="tab-my-assignments">
+            <BookOpen className="w-4 h-4 mr-1 shrink-0" />
+            <span className="truncate">Assigned</span>
           </TabsTrigger>
         </TabsList>
 
