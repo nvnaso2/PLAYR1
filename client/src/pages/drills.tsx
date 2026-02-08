@@ -219,26 +219,24 @@ export default function Drills() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList data-testid="tabs-drill-library">
-          <TabsTrigger value="handlz" data-testid="tab-handlz-drills" className="gap-2">
-            <Target className="w-4 h-4" />
-            <span className="hidden sm:inline">Handlz Drills</span>
-            <span className="sm:hidden">Handlz</span>
+        <TabsList className="w-full" data-testid="tabs-drill-library">
+          <TabsTrigger value="handlz" data-testid="tab-handlz-drills" className="flex-1 gap-1.5 text-xs sm:text-sm">
+            <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            Handlz
           </TabsTrigger>
-          <TabsTrigger value="community" data-testid="tab-community-drills" className="gap-2">
-            <Users className="w-4 h-4" />
+          <TabsTrigger value="community" data-testid="tab-community-drills" className="flex-1 gap-1.5 text-xs sm:text-sm">
+            <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             Community
             {communityDrills && communityDrills.length > 0 && (
-              <Badge variant="secondary" className="ml-1 text-xs">{communityDrills.length}</Badge>
+              <Badge variant="secondary" className="text-[10px] sm:text-xs">{communityDrills.length}</Badge>
             )}
           </TabsTrigger>
           {user && (
-            <TabsTrigger value="my-drills" data-testid="tab-my-drills" className="gap-2">
-              <User className="w-4 h-4" />
-              <span className="hidden sm:inline">My Drills</span>
-              <span className="sm:hidden">Mine</span>
+            <TabsTrigger value="my-drills" data-testid="tab-my-drills" className="flex-1 gap-1.5 text-xs sm:text-sm">
+              <User className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              Mine
               {myDrills.length > 0 && (
-                <Badge variant="secondary" className="ml-1 text-xs">{myDrills.length}</Badge>
+                <Badge variant="secondary" className="text-[10px] sm:text-xs">{myDrills.length}</Badge>
               )}
             </TabsTrigger>
           )}
@@ -256,9 +254,9 @@ export default function Drills() {
             />
           </div>
           
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
             <Select value={selectedDifficulty} onValueChange={setSelectedDifficulty}>
-              <SelectTrigger className="w-[120px]" data-testid="select-difficulty">
+              <SelectTrigger className="flex-1 min-w-0" data-testid="select-difficulty">
                 <SelectValue placeholder="Difficulty" />
               </SelectTrigger>
               <SelectContent>
@@ -271,11 +269,11 @@ export default function Drills() {
             </Select>
 
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="w-[160px]" data-testid="select-category">
+              <SelectTrigger className="flex-1 min-w-0" data-testid="select-category">
                 <SelectValue>
-                  <span className="flex items-center gap-2">
+                  <span className="flex items-center gap-2 truncate">
                     {categoryInfo[selectedCategory]?.icon}
-                    {categoryInfo[selectedCategory]?.label || "All Drills"}
+                    <span className="truncate">{categoryInfo[selectedCategory]?.label || "All Drills"}</span>
                   </span>
                 </SelectValue>
               </SelectTrigger>
@@ -296,7 +294,7 @@ export default function Drills() {
               </SelectContent>
             </Select>
 
-            <div className="flex border rounded-md ml-auto">
+            <div className="flex border rounded-md shrink-0">
               <Button
                 variant={viewMode === "grid" ? "secondary" : "ghost"}
                 size="icon"
