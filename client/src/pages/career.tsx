@@ -1434,9 +1434,6 @@ function StatsTab() {
                       onClick={() => toggleSeasonExpand(season.id)}
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                          <Calendar className="w-5 h-5 text-primary" />
-                        </div>
                         <div>
                           <p className="font-medium">{season.name}</p>
                           <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
