@@ -1824,24 +1824,68 @@ export default function TrainingLogPage() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-64">
-                    <DropdownMenuLabel>Select a Drill</DropdownMenuLabel>
+                    <DropdownMenuLabel>
+                      {activeLibraryTab === "personal-workouts" ? "Select a Workout" : "Select a Drill"}
+                    </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <ScrollArea className="h-64">
-                      {allDrills && allDrills.length > 0 ? (
-                        allDrills.map(drill => (
-                          <DropdownMenuItem
-                            key={drill.id}
-                            onClick={() => quickStartDrill(drill.id)}
-                            data-testid={`quick-start-drill-${drill.id}`}
-                          >
-                            <div className="flex flex-col">
-                              <span>{drill.title}</span>
-                              <span className="text-xs text-muted-foreground">{formatCategory(drill.category)}</span>
-                            </div>
-                          </DropdownMenuItem>
-                        ))
-                      ) : (
-                        <DropdownMenuItem disabled>No drills available</DropdownMenuItem>
+                      {activeLibraryTab === "personal-drills" && (
+                        personalDrills && personalDrills.length > 0 ? (
+                          personalDrills.map(drill => (
+                            <DropdownMenuItem key={drill.id} onClick={() => quickStartDrill(drill.id)} data-testid={`quick-start-drill-${drill.id}`}>
+                              <div className="flex flex-col">
+                                <span>{drill.title}</span>
+                                <span className="text-xs text-muted-foreground">{formatCategory(drill.category)}</span>
+                              </div>
+                            </DropdownMenuItem>
+                          ))
+                        ) : (
+                          <DropdownMenuItem disabled>No drills available</DropdownMenuItem>
+                        )
+                      )}
+                      {activeLibraryTab === "community-drills" && (
+                        communityDrills && communityDrills.length > 0 ? (
+                          communityDrills.map(drill => (
+                            <DropdownMenuItem key={drill.id} onClick={() => quickStartDrill(drill.id)} data-testid={`quick-start-drill-${drill.id}`}>
+                              <div className="flex flex-col">
+                                <span>{drill.title}</span>
+                                <span className="text-xs text-muted-foreground">{formatCategory(drill.category)}</span>
+                              </div>
+                            </DropdownMenuItem>
+                          ))
+                        ) : (
+                          <DropdownMenuItem disabled>No community drills shared yet</DropdownMenuItem>
+                        )
+                      )}
+                      {activeLibraryTab === "handlz-drills" && (
+                        handlzDrills && handlzDrills.length > 0 ? (
+                          handlzDrills.map(drill => (
+                            <DropdownMenuItem key={drill.id} onClick={() => quickStartDrill(drill.id)} data-testid={`quick-start-drill-${drill.id}`}>
+                              <div className="flex flex-col">
+                                <span>{drill.title}</span>
+                                <span className="text-xs text-muted-foreground">{formatCategory(drill.category)}</span>
+                              </div>
+                            </DropdownMenuItem>
+                          ))
+                        ) : (
+                          <DropdownMenuItem disabled>No drills available</DropdownMenuItem>
+                        )
+                      )}
+                      {activeLibraryTab === "personal-workouts" && (
+                        personalWorkouts && personalWorkouts.length > 0 ? (
+                          personalWorkouts.map(workout => (
+                            <DropdownMenuItem key={workout.id} onClick={() => startWorkoutFromTemplate(workout.id)} data-testid={`quick-start-workout-${workout.id}`}>
+                              <div className="flex flex-col">
+                                <span>{workout.name}</span>
+                                {workout.description && (
+                                  <span className="text-xs text-muted-foreground truncate">{workout.description}</span>
+                                )}
+                              </div>
+                            </DropdownMenuItem>
+                          ))
+                        ) : (
+                          <DropdownMenuItem disabled>No workouts saved yet</DropdownMenuItem>
+                        )
                       )}
                     </ScrollArea>
                   </DropdownMenuContent>
@@ -1897,42 +1941,6 @@ export default function TrainingLogPage() {
               </TabsContent>
 
               <TabsContent value="personal-workouts">
-                {/* Quick Start Workout Dropdown */}
-                <div className="flex justify-end mb-4">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button className="gap-2" data-testid="button-quick-start-personal-workout">
-                        <Play className="w-4 h-4" />
-                        Start Workout
-                        <ChevronDown className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-64">
-                      <DropdownMenuLabel>Select a Workout</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <ScrollArea className="h-64">
-                        {personalWorkouts && personalWorkouts.length > 0 ? (
-                          personalWorkouts.map(workout => (
-                            <DropdownMenuItem 
-                              key={workout.id} 
-                              onClick={() => startWorkoutFromTemplate(workout.id)}
-                              data-testid={`quick-start-workout-${workout.id}`}
-                            >
-                              <div className="flex flex-col">
-                                <span>{workout.name}</span>
-                                {workout.description && (
-                                  <span className="text-xs text-muted-foreground truncate">{workout.description}</span>
-                                )}
-                              </div>
-                            </DropdownMenuItem>
-                          ))
-                        ) : (
-                          <DropdownMenuItem disabled>No workouts saved yet</DropdownMenuItem>
-                        )}
-                      </ScrollArea>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
                 {renderWorkoutList(personalWorkouts, personalWorkoutsLoading, true)}
               </TabsContent>
 
