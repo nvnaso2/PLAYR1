@@ -1677,7 +1677,8 @@ export default function TrainingLogPage() {
                       <div className="space-y-3">
                         <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                           <Medal className="w-4 h-4" />
-                          Active Challenges
+                          Challenges
+                          <Badge className="text-xs bg-orange-500/20 text-orange-400 border-orange-500/30">Active</Badge>
                         </h4>
                         {inProgressChallenges.map(uc => {
                           const progressPercent = Math.min(100, Math.round(((uc.currentValue || 0) / (uc.challenge.targetValue || 1)) * 100));
@@ -1689,10 +1690,7 @@ export default function TrainingLogPage() {
                             >
                               <div className="flex items-center justify-between gap-2 flex-wrap">
                                 <div>
-                                  <div className="flex items-center gap-2">
-                                    <p className="font-medium text-sm">{uc.challenge.name}</p>
-                                    <Badge className="text-xs bg-orange-500/20 text-orange-400 border-orange-500/30">Active</Badge>
-                                  </div>
+                                  <p className="font-medium text-sm">{uc.challenge.name}</p>
                                   {uc.challenge.description && (
                                     <p className="text-xs text-muted-foreground">{uc.challenge.description}</p>
                                   )}
