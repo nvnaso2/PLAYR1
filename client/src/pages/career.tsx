@@ -75,14 +75,18 @@ import {
   Camera,
   RefreshCw
 } from "lucide-react";
-import type { CareerProfile, UserAchievement, CareerAchievement, Challenge, UserChallenge, PersonalRecord, TeamAward, Season, Game } from "@shared/schema";
+import type { CareerProfile, UserAchievement, CareerAchievement, Challenge, UserChallenge, PersonalRecord, TeamAward, Season, Game, InsertTeamAward, InsertChallenge } from "@shared/schema";
+import { insertTeamAwardSchema, insertChallengeSchema } from "@shared/schema";
 import defaultPlayerImg from "@assets/default-player.jpg";
 import { 
   BASKETBALL_POSITIONS, 
   BASKETBALL_ASPIRATIONS, 
   GRADE_LEVELS,
   DRILL_CATEGORIES,
-  SEASON_TYPES
+  SEASON_TYPES,
+  CHALLENGE_CATEGORIES,
+  CHALLENGE_METRICS,
+  CHALLENGE_GOAL_TYPES
 } from "@shared/schema";
 
 const MONTHS = [
@@ -1956,6 +1960,7 @@ function TrophyRoomTab({
   careerStats?: CareerStats;
   profile: CareerProfile;
 }) {
+  const { toast } = useToast();
   const defaultOrder: TrophySection[] = ["achievements", "challenges", "prs", "awards", "stats"];
   if (!profile) return null;
   const savedOrder = profile.trophyRoomOrder as TrophySection[] | null;
@@ -1970,6 +1975,140 @@ function TrophyRoomTab({
   const [statsPeriod, setStatsPeriod] = useState<"career" | "current">("career");
   const containerRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
+
+  const [showAwardDialog, setShowAwardDialog] = useState(false);
+  const [editingAward, setEditingAward] = useState<TeamAward | null>(null);
+  const [showChallengeDialog, setShowChallengeDialog] = useState(false);
+
+  const awardFormSchema = insertTeamAwardSchema.pick({
+    awardName: true,
+    teamName: true,
+    season: true,
+    description: true,
+  }).extend({
+    awardName: z.string().min(1, "Award name is required"),
+    teamName: z.string().min(1, "Team name is required"),
+    season: z.string().optional(),
+    description: z.string().optional(),
+  });
+
+  const awardForm = useForm<z.infer<typeof awardFormSchema>>({
+    resolver: zodResolver(awardFormSchema),
+    defaultValues: { awardName: "", teamName: "", season: "", description: "" },
+  });
+
+  const challengeFormSchema = insertChallengeSchema.pick({
+    name: true,
+    description: true,
+    category: true,
+    metric: true,
+    goalType: true,
+    targetValue: true,
+    timeLimit: true,
+  }).extend({
+    name: z.string().min(1, "Challenge name is required"),
+    description: z.string().optional(),
+    targetValue: z.coerce.number().min(1, "Target must be at least 1"),
+    timeLimit: z.coerce.number().optional(),
+  });
+
+  const challengeFormHook = useForm<z.infer<typeof challengeFormSchema>>({
+    resolver: zodResolver(challengeFormSchema),
+    defaultValues: { name: "", description: "", category: "shooting", metric: "makes", goalType: "total", targetValue: 100, timeLimit: undefined },
+  });
+
+  const createAwardMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof awardFormSchema>) => {
+      return apiRequest("POST", "/api/team-awards", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/team-awards'] });
+      setShowAwardDialog(false);
+      awardForm.reset();
+      toast({ title: "Award Added", description: "Your award has been saved." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to add award.", variant: "destructive" });
+    }
+  });
+
+  const updateAwardMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: z.infer<typeof awardFormSchema> }) => {
+      return apiRequest("PUT", `/api/team-awards/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/team-awards'] });
+      setShowAwardDialog(false);
+      setEditingAward(null);
+      awardForm.reset();
+      toast({ title: "Award Updated", description: "Your award has been updated." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update award.", variant: "destructive" });
+    }
+  });
+
+  const deleteAwardMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/team-awards/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/team-awards'] });
+      toast({ title: "Award Deleted" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete award.", variant: "destructive" });
+    }
+  });
+
+  const createChallengeMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof challengeFormSchema>) => {
+      const payload: any = { ...data };
+      if (!data.timeLimit || data.timeLimit <= 0) delete payload.timeLimit;
+      return apiRequest("POST", "/api/challenges", payload);
+    },
+    onSuccess: async (res) => {
+      const challenge = await res.json();
+      await apiRequest("POST", `/api/challenges/${challenge.id}/start`);
+      queryClient.invalidateQueries({ queryKey: ['/api/challenges/my-challenges'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/challenges'] });
+      setShowChallengeDialog(false);
+      challengeFormHook.reset();
+      toast({ title: "Challenge Created", description: "Your challenge is now active!" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to create challenge.", variant: "destructive" });
+    }
+  });
+
+  const openEditAward = (award: TeamAward) => {
+    setEditingAward(award);
+    awardForm.reset({
+      awardName: award.awardName,
+      teamName: award.teamName,
+      season: award.season || "",
+      description: award.description || ""
+    });
+    setShowAwardDialog(true);
+  };
+
+  const openNewAward = () => {
+    setEditingAward(null);
+    awardForm.reset({ awardName: "", teamName: "", season: "", description: "" });
+    setShowAwardDialog(true);
+  };
+
+  const handleAwardSubmit = awardForm.handleSubmit((data) => {
+    if (editingAward) {
+      updateAwardMutation.mutate({ id: editingAward.id, data });
+    } else {
+      createAwardMutation.mutate(data);
+    }
+  });
+
+  const handleChallengeSubmit = challengeFormHook.handleSubmit((data) => {
+    createChallengeMutation.mutate(data);
+  });
 
   const getItemElements = (): HTMLElement[] => {
     if (!containerRef.current) return [];
@@ -2085,9 +2224,16 @@ function TrophyRoomTab({
         return (
           <Card key="challenges">
             {renderSectionHeader("challenges", <Target className="w-5 h-5 text-green-500" />, "Challenges", 
-              userChallenges?.some(uc => !uc.isCompleted) 
-                ? <Badge className="text-xs bg-orange-500/20 text-orange-400 border-orange-500/30">Active</Badge>
-                : undefined
+              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                {userChallenges?.some(uc => !uc.isCompleted) && (
+                  <Badge className="text-xs bg-orange-500/20 text-orange-400 border-orange-500/30">Active</Badge>
+                )}
+                <Button size="sm" onClick={() => setShowChallengeDialog(true)} data-testid="button-create-challenge">
+                  <Plus className="w-4 h-4 mr-1" />
+                  <span className="hidden sm:inline">Create Challenge</span>
+                  <span className="sm:hidden">Add</span>
+                </Button>
+              </div>
             )}
             {!collapsedSections.has("challenges") && <CardContent>
               {(() => {
@@ -2237,23 +2383,40 @@ function TrophyRoomTab({
       case "awards":
         return (
           <Card key="awards">
-            {renderSectionHeader("awards", <Trophy className="w-5 h-5 text-yellow-500" />, "Awards", undefined)}
+            {renderSectionHeader("awards", <Trophy className="w-5 h-5 text-yellow-500" />, "Awards", 
+              <div onClick={(e) => e.stopPropagation()}>
+                <Button size="sm" onClick={openNewAward} data-testid="button-add-award">
+                  <Plus className="w-4 h-4 mr-1" />
+                  <span className="hidden sm:inline">Add Award</span>
+                  <span className="sm:hidden">Add</span>
+                </Button>
+              </div>
+            )}
             {!collapsedSections.has("awards") && <CardContent>
               {teamAwards && teamAwards.length > 0 ? (
                 <div className="grid sm:grid-cols-2 gap-3">
                   {teamAwards.map((award) => (
-                    <div key={award.id} className="p-4 border rounded-lg text-center" data-testid={`award-item-${award.id}`}>
+                    <div key={award.id} className="p-4 border rounded-lg text-center relative group" data-testid={`award-item-${award.id}`}>
+                      <div className="absolute top-2 right-2 flex gap-1 invisible group-hover:visible">
+                        <Button size="icon" variant="ghost" onClick={() => openEditAward(award)} data-testid={`button-edit-award-${award.id}`}>
+                          <Pencil className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button size="icon" variant="ghost" onClick={() => deleteAwardMutation.mutate(award.id)} data-testid={`button-delete-award-${award.id}`}>
+                          <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                        </Button>
+                      </div>
                       <Trophy className="w-10 h-10 text-yellow-500 mx-auto mb-2" />
                       <p className="font-medium">{award.awardName}</p>
                       <p className="text-sm text-muted-foreground">{award.teamName}</p>
                       {award.season && <Badge variant="outline" className="mt-2">{award.season}</Badge>}
+                      {award.description && <p className="text-xs text-muted-foreground mt-1">{award.description}</p>}
                     </div>
                   ))}
                 </div>
               ) : (
                 <div className="text-center p-8">
                   <Trophy className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-                  <p className="text-muted-foreground">Awards you earn will appear here</p>
+                  <p className="text-muted-foreground">No awards yet. Add your team awards and achievements!</p>
                 </div>
               )}
             </CardContent>}
@@ -2399,27 +2562,257 @@ function TrophyRoomTab({
   };
 
   return (
-    <div className="space-y-6" ref={containerRef}>
-      {sectionOrder.map((section, index) => (
-        <div
-          key={section}
-          onPointerDown={onPointerDown(index)}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
-          className={`transition-all duration-200 ${
-            draggedIdx === index ? "opacity-50 scale-[0.98]" : ""
-          } ${
-            overIdx === index && draggedIdx !== null && draggedIdx !== index
-              ? "ring-2 ring-primary ring-offset-2 rounded-xl"
-              : ""
-          }`}
-          data-testid={`draggable-section-${section}`}
-        >
-          {renderSection(section, index)}
-        </div>
-      ))}
-    </div>
+    <>
+      <div className="space-y-6" ref={containerRef}>
+        {sectionOrder.map((section, index) => (
+          <div
+            key={section}
+            onPointerDown={onPointerDown(index)}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerUp}
+            className={`transition-all duration-200 ${
+              draggedIdx === index ? "opacity-50 scale-[0.98]" : ""
+            } ${
+              overIdx === index && draggedIdx !== null && draggedIdx !== index
+                ? "ring-2 ring-primary ring-offset-2 rounded-xl"
+                : ""
+            }`}
+            data-testid={`draggable-section-${section}`}
+          >
+            {renderSection(section, index)}
+          </div>
+        ))}
+      </div>
+
+      <Dialog open={showAwardDialog} onOpenChange={(open) => { setShowAwardDialog(open); if (!open) { setEditingAward(null); awardForm.reset(); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingAward ? "Edit Award" : "Add Award"}</DialogTitle>
+            <DialogDescription>
+              {editingAward ? "Update your award details." : "Add a team award or achievement you've earned."}
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...awardForm}>
+            <form onSubmit={handleAwardSubmit} className="space-y-4">
+              <FormField
+                control={awardForm.control}
+                name="awardName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Award Name *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., Most Valuable Player" {...field} data-testid="input-award-name" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={awardForm.control}
+                name="teamName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Team Name *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., Eagles Basketball" {...field} data-testid="input-award-team" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={awardForm.control}
+                name="season"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Season</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., 2024-25" {...field} data-testid="input-award-season" />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={awardForm.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Tell us about this award..." {...field} data-testid="input-award-description" />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setShowAwardDialog(false)} data-testid="button-cancel-award">Cancel</Button>
+                <Button
+                  type="submit"
+                  disabled={createAwardMutation.isPending || updateAwardMutation.isPending}
+                  data-testid="button-save-award"
+                >
+                  {(createAwardMutation.isPending || updateAwardMutation.isPending) ? "Saving..." : (editingAward ? "Update" : "Add Award")}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showChallengeDialog} onOpenChange={(open) => { setShowChallengeDialog(open); if (!open) challengeFormHook.reset(); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Challenge</DialogTitle>
+            <DialogDescription>
+              Set a goal and challenge yourself to reach it.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...challengeFormHook}>
+            <form onSubmit={handleChallengeSubmit} className="space-y-4">
+              <FormField
+                control={challengeFormHook.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Challenge Name *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., 100 Makes Challenge" {...field} data-testid="input-challenge-name" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={challengeFormHook.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Describe your challenge..." {...field} data-testid="input-challenge-description" />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <FormField
+                  control={challengeFormHook.control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Category</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-challenge-category">
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {CHALLENGE_CATEGORIES.map((cat) => (
+                            <SelectItem key={cat} value={cat}>
+                              {cat.replace(/-/g, " ").replace(/\b\w/g, l => l.toUpperCase())}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={challengeFormHook.control}
+                  name="metric"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Metric</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-challenge-metric">
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {CHALLENGE_METRICS.map((m) => (
+                            <SelectItem key={m} value={m}>
+                              {m.charAt(0).toUpperCase() + m.slice(1)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <FormField
+                  control={challengeFormHook.control}
+                  name="goalType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Goal Type</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-challenge-goal-type">
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {CHALLENGE_GOAL_TYPES.map((g) => (
+                            <SelectItem key={g} value={g}>
+                              {g.charAt(0).toUpperCase() + g.slice(1)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={challengeFormHook.control}
+                  name="targetValue"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Target Value *</FormLabel>
+                      <FormControl>
+                        <Input type="number" min={1} placeholder="e.g., 100" {...field} data-testid="input-challenge-target" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              {challengeFormHook.watch("goalType") === "timed" && (
+                <FormField
+                  control={challengeFormHook.control}
+                  name="timeLimit"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Time Limit (seconds)</FormLabel>
+                      <FormControl>
+                        <Input type="number" min={0} placeholder="e.g., 60" {...field} data-testid="input-challenge-time" />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              )}
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setShowChallengeDialog(false)} data-testid="button-cancel-challenge">Cancel</Button>
+                <Button
+                  type="submit"
+                  disabled={createChallengeMutation.isPending}
+                  data-testid="button-save-challenge"
+                >
+                  {createChallengeMutation.isPending ? "Creating..." : "Start Challenge"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
