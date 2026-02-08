@@ -1430,61 +1430,53 @@ function StatsTab() {
                 return (
                   <div key={season.id} className={`border rounded-lg ${!isActive ? "opacity-70" : ""}`} data-testid={`season-item-${season.id}`}>
                     <div 
-                      className="p-4 flex items-center justify-between cursor-pointer hover-elevate"
+                      className="p-4 cursor-pointer hover-elevate"
                       onClick={() => toggleSeasonExpand(season.id)}
                     >
-                      <div className="flex items-center gap-3">
-                        <div>
-                          <p className="font-medium">{season.name}</p>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
-                            <Badge variant="outline" className="text-xs">
-                              {SEASON_TYPE_LABELS[season.seasonType]}
-                            </Badge>
-                            <Badge variant={isActive ? "default" : "secondary"} className="text-xs">
-                              {isActive ? "Active" : "Completed"}
-                            </Badge>
-                            <span>{season.year}</span>
-                            {season.teamName && <span>• {season.teamName}</span>}
-                          </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-medium truncate">{season.name}</p>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleSeasonActiveMutation.mutate({ id: season.id, isActive: !isActive });
+                            }}
+                            title={isActive ? "Mark as Completed" : "Mark as Active"}
+                            data-testid={`button-toggle-season-${season.id}`}
+                          >
+                            {isActive ? <CheckCircle className="w-4 h-4 text-green-500" /> : <Circle className="w-4 h-4 text-muted-foreground" />}
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (confirm('Delete this season and all its games?')) {
+                                deleteSeasonMutation.mutate(season.id);
+                              }
+                            }}
+                            data-testid={`button-delete-season-${season.id}`}
+                          >
+                            <Trash2 className="w-4 h-4 text-muted-foreground" />
+                          </Button>
+                          {isExpanded ? (
+                            <ChevronUp className="w-5 h-5 text-muted-foreground" />
+                          ) : (
+                            <ChevronDown className="w-5 h-5 text-muted-foreground" />
+                          )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        {seasonStats && (
-                          <div className="hidden md:flex items-center gap-4 text-sm text-muted-foreground">
-                            <span>{seasonStats.gamesPlayed} GP</span>
-                            <span>{seasonStats.avgPoints} PPG</span>
-                          </div>
-                        )}
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleSeasonActiveMutation.mutate({ id: season.id, isActive: !isActive });
-                          }}
-                          title={isActive ? "Mark as Completed" : "Mark as Active"}
-                          data-testid={`button-toggle-season-${season.id}`}
-                        >
-                          {isActive ? <CheckCircle className="w-4 h-4 text-green-500" /> : <Circle className="w-4 h-4 text-muted-foreground" />}
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (confirm('Delete this season and all its games?')) {
-                              deleteSeasonMutation.mutate(season.id);
-                            }
-                          }}
-                          data-testid={`button-delete-season-${season.id}`}
-                        >
-                          <Trash2 className="w-4 h-4 text-muted-foreground" />
-                        </Button>
-                        {isExpanded ? (
-                          <ChevronUp className="w-5 h-5 text-muted-foreground" />
-                        ) : (
-                          <ChevronDown className="w-5 h-5 text-muted-foreground" />
-                        )}
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1 flex-wrap">
+                        <Badge variant="outline" className="text-xs">
+                          {SEASON_TYPE_LABELS[season.seasonType]}
+                        </Badge>
+                        <Badge variant={isActive ? "default" : "secondary"} className="text-xs">
+                          {isActive ? "Active" : "Completed"}
+                        </Badge>
+                        <span>{season.year}</span>
+                        {season.teamName && <span>• {season.teamName}</span>}
                       </div>
                     </div>
 
