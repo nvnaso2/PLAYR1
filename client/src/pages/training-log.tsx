@@ -1814,16 +1814,17 @@ export default function TrainingLogPage() {
             <div className="flex items-center gap-2">
               <Dumbbell className="w-5 h-5 shrink-0" />
               <CardTitle>Drills & Workouts</CardTitle>
-              <Button
-                size="sm"
-                onClick={startWorkoutFromDrills}
-                disabled={selectedDrillIds.size === 0}
-                className="gap-1.5 ml-auto shrink-0"
-                data-testid="button-start-header"
-              >
-                <Play className="w-3.5 h-3.5" />
-                Start
-              </Button>
+              <div className="flex gap-2 ml-auto shrink-0">
+                {selectedDrillIds.size > 0 && (
+                  <Button size="sm" variant="outline" onClick={() => setSelectedDrillIds(new Set())} data-testid="button-clear-selection-header">
+                    Clear ({selectedDrillIds.size})
+                  </Button>
+                )}
+                <Button size="sm" onClick={startWorkoutFromDrills} disabled={selectedDrillIds.size === 0} className="gap-1.5" data-testid="button-start-workout">
+                  <Play className="w-3.5 h-3.5" />
+                  Start
+                </Button>
+              </div>
             </div>
             <CardDescription>
               Select drills to practice, or pick a saved workout routine
@@ -2068,22 +2069,6 @@ export default function TrainingLogPage() {
             </Tabs>
           </CardContent>
 
-          {selectedDrillIds.size > 0 && (
-            <CardFooter className="border-t pt-4 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-              <p className="text-sm text-muted-foreground">
-                {selectedDrillIds.size} drill{selectedDrillIds.size > 1 ? 's' : ''} selected
-              </p>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setSelectedDrillIds(new Set())} data-testid="button-clear-selection">
-                  Clear
-                </Button>
-                <Button onClick={startWorkoutFromDrills} className="gap-2" data-testid="button-start-workout">
-                  <Play className="w-4 h-4" />
-                  Start Workout
-                </Button>
-              </div>
-            </CardFooter>
-          )}
         </Card>
       )}
 
