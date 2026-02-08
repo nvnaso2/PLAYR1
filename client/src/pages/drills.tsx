@@ -258,7 +258,7 @@ export default function Drills() {
           
           <div className="flex items-center gap-2 flex-wrap">
             <Select value={selectedDifficulty} onValueChange={setSelectedDifficulty}>
-              <SelectTrigger className="w-36 sm:w-40" data-testid="select-difficulty">
+              <SelectTrigger className="w-[120px]" data-testid="select-difficulty">
                 <SelectValue placeholder="Difficulty" />
               </SelectTrigger>
               <SelectContent>
@@ -270,38 +270,12 @@ export default function Drills() {
               </SelectContent>
             </Select>
 
-            <div className="flex border rounded-md">
-              <Button
-                variant={viewMode === "grid" ? "secondary" : "ghost"}
-                size="icon"
-                onClick={() => setViewMode("grid")}
-                data-testid="button-view-grid"
-              >
-                <Grid3X3 className="w-4 h-4" />
-              </Button>
-              <Button
-                variant={viewMode === "list" ? "secondary" : "ghost"}
-                size="icon"
-                onClick={() => setViewMode("list")}
-                data-testid="button-view-list"
-              >
-                <List className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-
-          <div className="flex gap-2 items-center">
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="w-auto min-w-[140px] max-w-[240px]" data-testid="select-category">
+              <SelectTrigger className="w-[160px]" data-testid="select-category">
                 <SelectValue>
                   <span className="flex items-center gap-2">
                     {categoryInfo[selectedCategory]?.icon}
                     {categoryInfo[selectedCategory]?.label || "All Drills"}
-                    {selectedCategory !== 'all' && categoryStats[selectedCategory] && (
-                      <Badge variant="secondary" className="text-xs ml-1">
-                        {categoryStats[selectedCategory]}
-                      </Badge>
-                    )}
                   </span>
                 </SelectValue>
               </SelectTrigger>
@@ -321,6 +295,25 @@ export default function Drills() {
                 ))}
               </SelectContent>
             </Select>
+
+            <div className="flex border rounded-md ml-auto">
+              <Button
+                variant={viewMode === "grid" ? "secondary" : "ghost"}
+                size="icon"
+                onClick={() => setViewMode("grid")}
+                data-testid="button-view-grid"
+              >
+                <Grid3X3 className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={viewMode === "list" ? "secondary" : "ghost"}
+                size="icon"
+                onClick={() => setViewMode("list")}
+                data-testid="button-view-list"
+              >
+                <List className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
 
           <TabsContent value="handlz" className="mt-0 space-y-4">
