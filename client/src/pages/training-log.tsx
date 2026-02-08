@@ -1689,7 +1689,10 @@ export default function TrainingLogPage() {
                             >
                               <div className="flex items-center justify-between gap-2 flex-wrap">
                                 <div>
-                                  <p className="font-medium text-sm">{uc.challenge.name}</p>
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-medium text-sm">{uc.challenge.name}</p>
+                                    <Badge className="text-xs bg-orange-500/20 text-orange-400 border-orange-500/30">Active</Badge>
+                                  </div>
                                   {uc.challenge.description && (
                                     <p className="text-xs text-muted-foreground">{uc.challenge.description}</p>
                                   )}

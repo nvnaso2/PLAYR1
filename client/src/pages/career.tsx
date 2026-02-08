@@ -2084,33 +2084,53 @@ function TrophyRoomTab({
       case "challenges":
         return (
           <Card key="challenges">
-            {renderSectionHeader("challenges", <Target className="w-5 h-5 text-green-500" />, "Completed Challenges", "Challenges you've conquered")}
+            {renderSectionHeader("challenges", <Target className="w-5 h-5 text-green-500" />, "Challenges", "Your active and completed challenges")}
             {!collapsedSections.has("challenges") && <CardContent>
               {(() => {
+                const activeChallenges = userChallenges?.filter(uc => !uc.isCompleted) || [];
                 const completedChallenges = userChallenges?.filter(uc => uc.isCompleted) || [];
-                return completedChallenges.length > 0 ? (
+                const hasChallenges = activeChallenges.length > 0 || completedChallenges.length > 0;
+                return hasChallenges ? (
                   <div className="space-y-3">
+                    {activeChallenges.map((uc) => (
+                      <div key={uc.id} className="p-3 border rounded-lg flex items-center justify-between gap-2 flex-wrap" data-testid={`active-challenge-${uc.id}`}>
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center shrink-0">
+                            <Target className="w-5 h-5 text-orange-500" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium truncate">{uc.challenge.name}</p>
+                              <Badge className="text-xs bg-orange-500/20 text-orange-400 border-orange-500/30 shrink-0">Active</Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              {uc.currentValue || 0} / {uc.challenge.targetValue} {uc.challenge.metric}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                     {completedChallenges.map((uc) => (
-                      <div key={uc.id} className="p-3 border rounded-lg flex items-center justify-between" data-testid={`completed-challenge-${uc.id}`}>
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
+                      <div key={uc.id} className="p-3 border rounded-lg flex items-center justify-between gap-2 flex-wrap" data-testid={`completed-challenge-${uc.id}`}>
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center shrink-0">
                             <Trophy className="w-5 h-5 text-green-500" />
                           </div>
-                          <div>
-                            <p className="font-medium">{uc.challenge.name}</p>
+                          <div className="min-w-0">
+                            <p className="font-medium truncate">{uc.challenge.name}</p>
                             <p className="text-sm text-muted-foreground">
                               {uc.challenge.targetValue} {uc.challenge.metric} {uc.completedAt ? `completed ${new Date(uc.completedAt).toLocaleDateString()}` : ''}
                             </p>
                           </div>
                         </div>
-                        <Badge variant="secondary" className="bg-green-500/20 text-green-600">Completed</Badge>
+                        <Badge variant="secondary" className="bg-green-500/20 text-green-600 shrink-0">Completed</Badge>
                       </div>
                     ))}
                   </div>
                 ) : (
                   <div className="text-center p-8">
                     <Target className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-                    <p className="text-muted-foreground">Complete challenges from Training Log to see them here!</p>
+                    <p className="text-muted-foreground">Start challenges from Training Log to see them here!</p>
                   </div>
                 );
               })()}
