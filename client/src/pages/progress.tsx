@@ -81,14 +81,14 @@ type SkillTab = {
 };
 
 const SKILL_TABS: SkillTab[] = [
-  { key: "all", label: "All", icon: <Activity className="w-4 h-4" /> },
-  { key: "shooting", label: "Shooting", icon: <Target className="w-4 h-4" /> },
-  { key: "ball-handling", label: "Ball Handling", icon: <HandMetal className="w-4 h-4" /> },
-  { key: "passing", label: "Passing", icon: <Crosshair className="w-4 h-4" /> },
-  { key: "finishing", label: "Finishing", icon: <Flame className="w-4 h-4" /> },
-  { key: "defense", label: "Defense", icon: <Shield className="w-4 h-4" /> },
-  { key: "basketball-iq", label: "Basketball IQ", icon: <Lightbulb className="w-4 h-4" /> },
-  { key: "workouts", label: "Workouts", icon: <Dumbbell className="w-4 h-4" /> },
+  { key: "all", label: "All", icon: null },
+  { key: "shooting", label: "Shooting", icon: null },
+  { key: "ball-handling", label: "Ball Handling", icon: null },
+  { key: "passing", label: "Passing", icon: null },
+  { key: "finishing", label: "Finishing", icon: null },
+  { key: "defense", label: "Defense", icon: null },
+  { key: "basketball-iq", label: "Basketball IQ", icon: null },
+  { key: "workouts", label: "Workouts", icon: null },
 ];
 
 const TIME_PERIOD_LABELS: Record<TimePeriod, string> = {
@@ -251,7 +251,6 @@ export default function ProgressPage() {
                 className={`gap-1.5 ${!hasData && tab.key !== "all" ? "opacity-50" : ""}`}
                 data-testid={`button-skill-${tab.key}`}
               >
-                {tab.icon}
                 {tab.label}
               </Button>
             );

@@ -1832,25 +1832,20 @@ export default function TrainingLogPage() {
           <CardContent>
             <Tabs value={activeLibraryTab} onValueChange={setActiveLibraryTab}>
               <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 gap-1 h-auto p-1 mb-6">
-                <TabsTrigger value="personal-drills" className="py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center gap-1" data-testid="tab-personal-drills">
-                  <User className="w-4 h-4 shrink-0" />
-                  <span>My Drills</span>
+                <TabsTrigger value="personal-drills" className="py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-personal-drills">
+                  My Drills
                 </TabsTrigger>
-                <TabsTrigger value="community-drills" className="py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center gap-1" data-testid="tab-community-drills">
-                  <Globe className="w-4 h-4 shrink-0" />
-                  <span>Community</span>
+                <TabsTrigger value="community-drills" className="py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-community-drills">
+                  Community
                 </TabsTrigger>
-                <TabsTrigger value="handlz-drills" className="py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center gap-1" data-testid="tab-handlz-drills">
-                  <Sparkles className="w-4 h-4 shrink-0" />
-                  <span>Handlz Drills</span>
+                <TabsTrigger value="handlz-drills" className="py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-handlz-drills">
+                  Handlz Drills
                 </TabsTrigger>
-                <TabsTrigger value="personal-workouts" className="py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center gap-1" data-testid="tab-personal-workouts">
-                  <Bookmark className="w-4 h-4 shrink-0" />
-                  <span>My Workouts</span>
+                <TabsTrigger value="personal-workouts" className="py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-personal-workouts">
+                  My Workouts
                 </TabsTrigger>
-                <TabsTrigger value="handlz-workouts" className="py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center gap-1" data-testid="tab-handlz-workouts">
-                  <Layers className="w-4 h-4 shrink-0" />
-                  <span>Handlz Workouts</span>
+                <TabsTrigger value="handlz-workouts" className="py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-handlz-workouts">
+                  Handlz Workouts
                 </TabsTrigger>
               </TabsList>
 

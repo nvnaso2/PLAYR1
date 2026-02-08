@@ -271,17 +271,13 @@ export default function Drills() {
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
               <SelectTrigger className="flex-1 min-w-0" data-testid="select-category">
                 <SelectValue>
-                  <span className="flex items-center gap-2 truncate">
-                    {categoryInfo[selectedCategory]?.icon}
-                    <span className="truncate">{categoryInfo[selectedCategory]?.label || "All Drills"}</span>
-                  </span>
+                  <span className="truncate">{categoryInfo[selectedCategory]?.label || "All Drills"}</span>
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {Object.entries(categoryInfo).map(([key, { label, icon }]) => (
+                {Object.entries(categoryInfo).map(([key, { label }]) => (
                   <SelectItem key={key} value={key} data-testid={`option-category-${key}`}>
                     <span className="flex items-center gap-2">
-                      {icon}
                       {label}
                       {key !== 'all' && categoryStats[key] && (
                         <Badge variant="secondary" className="text-xs ml-1">
