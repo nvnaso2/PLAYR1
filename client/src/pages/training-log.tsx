@@ -1825,7 +1825,7 @@ export default function TrainingLogPage() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-64">
                     <DropdownMenuLabel>
-                      {activeLibraryTab === "personal-workouts" ? "Select a Workout" : "Select a Drill"}
+                      {activeLibraryTab === "personal-workouts" || activeLibraryTab === "handlz-workouts" ? "Select a Workout" : "Select a Drill"}
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <ScrollArea className="h-64">
@@ -1885,6 +1885,22 @@ export default function TrainingLogPage() {
                           ))
                         ) : (
                           <DropdownMenuItem disabled>No workouts saved yet</DropdownMenuItem>
+                        )
+                      )}
+                      {activeLibraryTab === "handlz-workouts" && (
+                        handlzWorkouts && handlzWorkouts.length > 0 ? (
+                          handlzWorkouts.map(workout => (
+                            <DropdownMenuItem key={workout.id} onClick={() => startWorkoutFromTemplate(workout.id)} data-testid={`quick-start-workout-${workout.id}`}>
+                              <div className="flex flex-col">
+                                <span>{workout.name}</span>
+                                {workout.description && (
+                                  <span className="text-xs text-muted-foreground truncate">{workout.description}</span>
+                                )}
+                              </div>
+                            </DropdownMenuItem>
+                          ))
+                        ) : (
+                          <DropdownMenuItem disabled>No workouts available</DropdownMenuItem>
                         )
                       )}
                     </ScrollArea>
@@ -1957,42 +1973,6 @@ export default function TrainingLogPage() {
               </TabsContent>
 
               <TabsContent value="handlz-workouts">
-                {/* Quick Start Workout Dropdown */}
-                <div className="flex justify-end mb-4">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button className="gap-2" data-testid="button-quick-start-handlz-workout">
-                        <Play className="w-4 h-4" />
-                        Start Workout
-                        <ChevronDown className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-64">
-                      <DropdownMenuLabel>Select a Workout</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <ScrollArea className="h-64">
-                        {handlzWorkouts && handlzWorkouts.length > 0 ? (
-                          handlzWorkouts.map(workout => (
-                            <DropdownMenuItem 
-                              key={workout.id} 
-                              onClick={() => startWorkoutFromTemplate(workout.id)}
-                              data-testid={`quick-start-handlz-workout-${workout.id}`}
-                            >
-                              <div className="flex flex-col">
-                                <span>{workout.name}</span>
-                                {workout.description && (
-                                  <span className="text-xs text-muted-foreground truncate">{workout.description}</span>
-                                )}
-                              </div>
-                            </DropdownMenuItem>
-                          ))
-                        ) : (
-                          <DropdownMenuItem disabled>No workouts available</DropdownMenuItem>
-                        )}
-                      </ScrollArea>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
                 {renderWorkoutList(handlzWorkouts, handlzWorkoutsLoading, false)}
               </TabsContent>
             </Tabs>
