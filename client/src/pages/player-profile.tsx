@@ -45,8 +45,11 @@ import {
   Ruler,
   GraduationCap,
   Weight,
+  Calendar,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
-import type { PlayerProfile } from "@shared/schema";
+import type { PlayerProfile, Season } from "@shared/schema";
 
 const playerProfileFormSchema = z.object({
   slug: z.string()
@@ -82,6 +85,26 @@ export default function PlayerProfilePage() {
 
   const { data: profile, isLoading } = useQuery<PlayerProfile | null>({
     queryKey: ["/api/player-profile"],
+  });
+
+  const { data: userSeasons = [] } = useQuery<Season[]>({
+    queryKey: ["/api/seasons"],
+  });
+
+  const toggleSeasonVisibility = useMutation({
+    mutationFn: async ({ seasonId, isPublicProfile }: { seasonId: string; isPublicProfile: boolean }) => {
+      return await apiRequest("PUT", `/api/seasons/${seasonId}`, { isPublicProfile });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/seasons"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update season visibility.",
+        variant: "destructive",
+      });
+    },
   });
 
   const form = useForm<PlayerProfileFormData>({
@@ -683,6 +706,41 @@ export default function PlayerProfilePage() {
               />
             </CardContent>
           </Card>
+
+          {userSeasons.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  Season Visibility
+                </CardTitle>
+                <CardDescription>Choose which seasons appear on your public profile</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {userSeasons.map((season) => (
+                  <div
+                    key={season.id}
+                    className="flex items-center justify-between gap-4"
+                    data-testid={`season-visibility-${season.id}`}
+                  >
+                    <div className="space-y-0.5">
+                      <div className="text-sm font-medium">{season.name}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {season.teamName && `${season.teamName} - `}{season.year}
+                      </div>
+                    </div>
+                    <Switch
+                      checked={season.isPublicProfile ?? true}
+                      onCheckedChange={(checked) => {
+                        toggleSeasonVisibility.mutate({ seasonId: season.id, isPublicProfile: checked });
+                      }}
+                      data-testid={`switch-season-${season.id}`}
+                    />
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
 
           <div className="flex justify-end">
             <Button

@@ -30,7 +30,7 @@ import {
 } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
-import { eq, desc, and, sql, gte, isNotNull, inArray } from "drizzle-orm";
+import { eq, desc, and, or, sql, gte, isNotNull, isNull, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // Drills
@@ -176,6 +176,7 @@ export interface IStorage {
 
   // Seasons
   getUserSeasons(userId: string): Promise<Season[]>;
+  getPublicUserSeasons(userId: string): Promise<Season[]>;
   getSeasonWithGames(seasonId: string): Promise<{ season: Season; games: Game[] } | undefined>;
   createSeason(season: InsertSeason): Promise<Season>;
   updateSeason(id: string, season: Partial<InsertSeason>): Promise<Season | undefined>;
@@ -1488,6 +1489,15 @@ export class DatabaseStorage implements IStorage {
   // Seasons
   async getUserSeasons(userId: string): Promise<Season[]> {
     return await db.select().from(seasons).where(eq(seasons.userId, userId)).orderBy(desc(seasons.createdAt));
+  }
+
+  async getPublicUserSeasons(userId: string): Promise<Season[]> {
+    return await db.select().from(seasons).where(
+      and(
+        eq(seasons.userId, userId),
+        or(eq(seasons.isPublicProfile, true), isNull(seasons.isPublicProfile))
+      )
+    ).orderBy(desc(seasons.createdAt));
   }
 
   async getSeasonWithGames(seasonId: string): Promise<{ season: Season; games: Game[] } | undefined> {

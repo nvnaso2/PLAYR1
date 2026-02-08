@@ -1805,19 +1805,39 @@ export async function registerRoutes(
           gradeLevel: career.gradeLevel,
           jerseyNumber: career.jerseyNumber,
           aspiration: career.aspiration,
-          skillBallHandling: career.skillBallHandling,
-          skillShooting: career.skillShooting,
-          skillPassing: career.skillPassing,
-          skillFinishing: career.skillFinishing,
-          skillDefense: career.skillDefense,
-          skillBasketballIQ: career.skillBasketballIQ,
-          skillAthletics: career.skillAthletics,
           cardPhotoUrl: career.cardPhotoUrl,
         } : null,
       };
 
       if (profile.showStats) {
-        publicData.careerStats = await storage.getCareerStats(profile.userId);
+        const publicSeasons = await storage.getPublicUserSeasons(profile.userId);
+        const publicSeasonIds = new Set(publicSeasons.map(s => s.id));
+        const fullStats = await storage.getCareerStats(profile.userId);
+        const filteredBreakdown = fullStats.seasonBreakdown.filter(s => publicSeasonIds.has(s.seasonId));
+        
+        let totalGames = 0, totalPoints = 0, totalRebounds = 0, totalAssists = 0, totalSteals = 0, totalBlocks = 0, wins = 0, losses = 0;
+        for (const s of filteredBreakdown) {
+          totalGames += s.gamesPlayed;
+          totalPoints += s.totalPoints;
+          totalRebounds += s.totalRebounds;
+          totalAssists += s.totalAssists;
+          totalSteals += s.totalSteals;
+          totalBlocks += s.totalBlocks;
+          wins += s.wins;
+          losses += s.losses;
+        }
+        
+        publicData.careerStats = {
+          totalGames,
+          avgPoints: totalGames ? Math.round((totalPoints / totalGames) * 10) / 10 : 0,
+          avgRebounds: totalGames ? Math.round((totalRebounds / totalGames) * 10) / 10 : 0,
+          avgAssists: totalGames ? Math.round((totalAssists / totalGames) * 10) / 10 : 0,
+          avgSteals: totalGames ? Math.round((totalSteals / totalGames) * 10) / 10 : 0,
+          avgBlocks: totalGames ? Math.round((totalBlocks / totalGames) * 10) / 10 : 0,
+          wins,
+          losses,
+          seasonBreakdown: filteredBreakdown,
+        };
       }
       if (profile.showAchievements) {
         publicData.awards = await storage.getUserTeamAwards(profile.userId);

@@ -222,6 +222,7 @@ export const seasons = pgTable("seasons", {
   seasonType: varchar("season_type").$type<SeasonType>().notNull(),
   year: varchar("year").notNull(), // e.g., "2024-25" or "2024"
   isActive: boolean("is_active").default(true),
+  isPublicProfile: boolean("is_public_profile").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow()
 });

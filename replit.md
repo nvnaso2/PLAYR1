@@ -40,6 +40,8 @@ A "Netflix for basketball drills" platform (app name: PLAYR1). Features Handlz b
 10. **Player Profile**: Recruiting-style public profile page
     - Slug-based public URL (/player/:slug) accessible without auth
     - Bio, measurements, grad year, social links, visibility settings
+    - **Season-level visibility**: Users can toggle which seasons appear on public profile
+    - Skills section removed from public profile (not shared publicly)
     - Edit mode at /player-profile (authenticated)
 11. **Social Media Share Cards**: Share game stats across platforms
     - Platform-specific templates: X/Twitter, Instagram, Facebook, YouTube, TikTok

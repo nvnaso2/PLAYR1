@@ -17,12 +17,6 @@ import {
   ExternalLink,
   School,
   Users,
-  Zap,
-  Target,
-  Crosshair,
-  Flame,
-  Shield,
-  Brain,
   Dumbbell,
   BarChart3,
   ArrowLeft,
@@ -40,13 +34,6 @@ interface PublicProfileData {
     gradeLevel: string | null;
     jerseyNumber: number | null;
     aspiration: string | null;
-    skillBallHandling: number | null;
-    skillShooting: number | null;
-    skillPassing: number | null;
-    skillFinishing: number | null;
-    skillDefense: number | null;
-    skillBasketballIQ: number | null;
-    skillAthletics: number | null;
     cardPhotoUrl: string | null;
   } | null;
   careerStats?: {
@@ -63,16 +50,6 @@ interface PublicProfileData {
   personalRecords?: Array<PersonalRecord & { drill: { title: string } }>;
   videos?: UserVideo[];
 }
-
-const SKILL_CONFIG = [
-  { key: "skillBallHandling", label: "Ball Handling", icon: Zap, color: "bg-orange-500" },
-  { key: "skillShooting", label: "Shooting", icon: Target, color: "bg-red-500" },
-  { key: "skillPassing", label: "Passing", icon: Crosshair, color: "bg-blue-500" },
-  { key: "skillFinishing", label: "Finishing", icon: Flame, color: "bg-amber-500" },
-  { key: "skillDefense", label: "Defense", icon: Shield, color: "bg-green-500" },
-  { key: "skillBasketballIQ", label: "Basketball IQ", icon: Brain, color: "bg-purple-500" },
-  { key: "skillAthletics", label: "Athletics", icon: Dumbbell, color: "bg-cyan-500" },
-];
 
 const POSITION_LABELS: Record<string, string> = {
   PG: "Point Guard",
@@ -160,9 +137,6 @@ export default function PlayerPublicPage() {
     : user?.profileImageUrl || undefined;
 
   const hasPhysicalAttrs = profile.heightFeet || profile.weight || profile.wingspan || profile.gradYear || profile.gpa;
-  const hasSkills = career && SKILL_CONFIG.some(
-    (s) => (career as any)[s.key] != null && (career as any)[s.key] > 0
-  );
   const hasSocials = profile.socialTwitter || profile.socialInstagram || profile.socialTiktok || profile.socialYoutube;
 
   return (
@@ -375,41 +349,6 @@ export default function PlayerPublicPage() {
               </Card>
             )}
           </div>
-        )}
-
-        {hasSkills && career && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" />
-                Skill Ratings
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {SKILL_CONFIG.map((skill) => {
-                const value = (career as any)[skill.key] as number | null;
-                if (!value || value === 0) return null;
-                const Icon = skill.icon;
-                return (
-                  <div key={skill.key} className="space-y-1" data-testid={`skill-${skill.key}`}>
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-2 text-sm">
-                        <Icon className="h-4 w-4 text-muted-foreground" />
-                        <span>{skill.label}</span>
-                      </div>
-                      <span className="text-sm font-semibold">{value}/10</span>
-                    </div>
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${skill.color} transition-all`}
-                        style={{ width: `${(value / 10) * 100}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </CardContent>
-          </Card>
         )}
 
         {careerStats && careerStats.totalGames > 0 && (
