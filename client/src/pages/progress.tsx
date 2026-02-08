@@ -239,7 +239,7 @@ export default function ProgressPage() {
       </div>
 
       <div className="space-y-4">
-        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide" data-testid="skill-tabs">
+        <div className="flex gap-1.5 flex-wrap" data-testid="skill-tabs">
           {SKILL_TABS.map((tab) => {
             const hasData = tab.key === "all" || skillsWithData.has(tab.key);
             return (
@@ -248,12 +248,11 @@ export default function ProgressPage() {
                 size="sm"
                 variant={activeSkill === tab.key ? "default" : "outline"}
                 onClick={() => setActiveSkill(tab.key)}
-                className={`flex-shrink-0 gap-1.5 ${!hasData && tab.key !== "all" ? "opacity-50" : ""}`}
+                className={`gap-1.5 ${!hasData && tab.key !== "all" ? "opacity-50" : ""}`}
                 data-testid={`button-skill-${tab.key}`}
               >
                 {tab.icon}
-                <span className="hidden sm:inline">{tab.label}</span>
-                <span className="sm:hidden">{tab.label}</span>
+                {tab.label}
               </Button>
             );
           })}

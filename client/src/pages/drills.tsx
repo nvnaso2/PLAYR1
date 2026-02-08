@@ -292,7 +292,7 @@ export default function Drills() {
 
           <div className="flex gap-2 items-center">
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="w-48 sm:w-56" data-testid="select-category">
+              <SelectTrigger className="w-auto min-w-[140px] max-w-[240px]" data-testid="select-category">
                 <SelectValue>
                   <span className="flex items-center gap-2">
                     {categoryInfo[selectedCategory]?.icon}
