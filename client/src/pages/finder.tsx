@@ -34,7 +34,7 @@ import {
 } from "lucide-react";
 import { SiInstagram, SiX } from "react-icons/si";
 import type { TeamClub, League } from "@shared/schema";
-import { TEAM_ORGANIZATION_TYPES, LEAGUE_TYPES, AGE_GROUPS, SEASONS, US_STATES, GENDERS } from "@shared/schema";
+import { TEAM_ORGANIZATION_TYPES, LEAGUE_TYPES, AGE_GROUPS, SEASONS, US_STATES, GENDERS, CIRCUITS } from "@shared/schema";
 
 const LOGO_COLORS = [
   "bg-red-600", "bg-blue-600", "bg-green-600", "bg-purple-600",
@@ -139,7 +139,7 @@ export default function FinderPage() {
 function TeamFinderTab({ searchQuery }: { searchQuery: string }) {
   const { isAdmin } = useAdmin();
   const { toast } = useToast();
-  const [filters, setFilters] = useState({ type: "", state: "", city: "", ageGroup: "", gender: "" });
+  const [filters, setFilters] = useState({ type: "", state: "", city: "", ageGroup: "", gender: "", circuit: "" });
   const [showFilters, setShowFilters] = useState(false);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
 
@@ -149,6 +149,7 @@ function TeamFinderTab({ searchQuery }: { searchQuery: string }) {
   if (filters.city) queryParams.set("city", filters.city);
   if (filters.ageGroup) queryParams.set("ageGroup", filters.ageGroup);
   if (filters.gender) queryParams.set("gender", filters.gender);
+  if (filters.circuit) queryParams.set("circuit", filters.circuit);
   if (searchQuery) queryParams.set("query", searchQuery);
   const qs = queryParams.toString();
   const teamClubsUrl = `/api/team-clubs${qs ? `?${qs}` : ""}`;
@@ -171,7 +172,7 @@ function TeamFinderTab({ searchQuery }: { searchQuery: string }) {
     },
   });
 
-  const activeFilterCount = [filters.type, filters.state, filters.city, filters.ageGroup, filters.gender].filter(Boolean).length;
+  const activeFilterCount = [filters.type, filters.state, filters.city, filters.ageGroup, filters.gender, filters.circuit].filter(Boolean).length;
 
   return (
     <div className="space-y-4">
@@ -193,7 +194,7 @@ function TeamFinderTab({ searchQuery }: { searchQuery: string }) {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setFilters({ type: "", state: "", city: "", ageGroup: "", gender: "" })}
+              onClick={() => setFilters({ type: "", state: "", city: "", ageGroup: "", gender: "", circuit: "" })}
               data-testid="button-clear-team-filters"
             >
               Clear All
@@ -231,7 +232,21 @@ function TeamFinderTab({ searchQuery }: { searchQuery: string }) {
       {showFilters && (
         <Card>
           <CardContent className="p-4">
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block">Circuit</Label>
+                <Select value={filters.circuit} onValueChange={(v) => setFilters(f => ({ ...f, circuit: v === "all" ? "" : v }))}>
+                  <SelectTrigger data-testid="filter-team-circuit">
+                    <SelectValue placeholder="All" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    {CIRCUITS.map(c => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div>
                 <Label className="text-xs text-muted-foreground mb-1 block">Gender</Label>
                 <Select value={filters.gender} onValueChange={(v) => setFilters(f => ({ ...f, gender: v === "all" ? "" : v }))}>
@@ -356,6 +371,7 @@ function TeamClubCard({ club }: { club: TeamClub }) {
           <div className="flex flex-wrap gap-1.5 mb-2">
             <Badge variant="secondary" className="text-xs">{club.organizationType}</Badge>
             {club.gender && <Badge variant="outline" className="text-xs">{club.gender}</Badge>}
+            {club.circuit && <Badge variant="outline" className="text-xs">{club.circuit}</Badge>}
           </div>
 
           {club.description && (
