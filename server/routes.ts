@@ -2125,12 +2125,13 @@ export async function registerRoutes(
   // Get team clubs with optional filters
   app.get("/api/team-clubs", async (req, res) => {
     try {
-      const { type, state, city, ageGroup } = req.query;
+      const { type, state, city, ageGroup, query } = req.query;
       const clubs = await storage.getTeamClubs({
         organizationType: type as string | undefined,
         state: state as string | undefined,
         city: city as string | undefined,
         ageGroup: ageGroup as string | undefined,
+        query: query as string | undefined,
       });
       res.json(clubs);
     } catch (error) {
@@ -2139,7 +2140,19 @@ export async function registerRoutes(
     }
   });
 
-  // Get single team club
+  // Get single team club by slug
+  app.get("/api/team-clubs/by-slug/:slug", async (req, res) => {
+    try {
+      const club = await storage.getTeamClubBySlug(req.params.slug);
+      if (!club) return res.status(404).json({ message: "Team not found" });
+      res.json(club);
+    } catch (error) {
+      console.error("Error fetching team club:", error);
+      res.status(500).json({ message: "Failed to fetch team club" });
+    }
+  });
+
+  // Get single team club by ID
   app.get("/api/team-clubs/:id", async (req, res) => {
     try {
       const club = await storage.getTeamClubById(req.params.id);
@@ -2155,7 +2168,8 @@ export async function registerRoutes(
   app.post("/api/team-clubs", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const data = insertTeamClubSchema.parse({ ...req.body, createdByUserId: userId });
+      const slug = req.body.slug || generateSlug(req.body.name);
+      const data = insertTeamClubSchema.parse({ ...req.body, slug, createdByUserId: userId });
       const club = await storage.createTeamClub(data);
       res.status(201).json(club);
     } catch (error: any) {
@@ -2183,13 +2197,14 @@ export async function registerRoutes(
   // Get leagues with optional filters
   app.get("/api/leagues", async (req, res) => {
     try {
-      const { type, state, city, ageGroup, season } = req.query;
+      const { type, state, city, ageGroup, season, query } = req.query;
       const result = await storage.getLeagues({
         leagueType: type as string | undefined,
         state: state as string | undefined,
         city: city as string | undefined,
         ageGroup: ageGroup as string | undefined,
         season: season as string | undefined,
+        query: query as string | undefined,
       });
       res.json(result);
     } catch (error) {
@@ -2198,7 +2213,19 @@ export async function registerRoutes(
     }
   });
 
-  // Get single league
+  // Get single league by slug
+  app.get("/api/leagues/by-slug/:slug", async (req, res) => {
+    try {
+      const league = await storage.getLeagueBySlug(req.params.slug);
+      if (!league) return res.status(404).json({ message: "League not found" });
+      res.json(league);
+    } catch (error) {
+      console.error("Error fetching league:", error);
+      res.status(500).json({ message: "Failed to fetch league" });
+    }
+  });
+
+  // Get single league by ID
   app.get("/api/leagues/:id", async (req, res) => {
     try {
       const league = await storage.getLeagueById(req.params.id);
@@ -2214,7 +2241,8 @@ export async function registerRoutes(
   app.post("/api/leagues", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const data = insertLeagueSchema.parse({ ...req.body, createdByUserId: userId });
+      const slug = req.body.slug || generateSlug(req.body.name);
+      const data = insertLeagueSchema.parse({ ...req.body, slug, createdByUserId: userId });
       const league = await storage.createLeague(data);
       res.status(201).json(league);
     } catch (error: any) {
@@ -2240,6 +2268,14 @@ export async function registerRoutes(
   });
 
   return httpServer;
+}
+
+function generateSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .substring(0, 80) + "-" + Math.random().toString(36).substring(2, 6);
 }
 
 function generateTeamCode(): string {

@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Link } from "wouter";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -25,8 +26,11 @@ import {
   Calendar,
   DollarSign,
   ExternalLink,
-  X,
   Filter,
+  Shield,
+  ArrowRight,
+  ChevronRight,
+  X,
 } from "lucide-react";
 import { SiInstagram, SiX } from "react-icons/si";
 import type { TeamClub, League } from "@shared/schema";
@@ -34,42 +38,69 @@ import { TEAM_ORGANIZATION_TYPES, LEAGUE_TYPES, AGE_GROUPS, SEASONS, US_STATES }
 
 export default function FinderPage() {
   const [activeTab, setActiveTab] = useState("teams");
+  const [searchQuery, setSearchQuery] = useState("");
 
   return (
-    <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-6 pb-24">
-      <div>
-        <h1 className="text-xl sm:text-2xl font-bold" data-testid="text-page-title">
-          Find Teams & Leagues
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Discover AAU, travel, and competitive teams or find local leagues near you
-        </p>
+    <div className="pb-24">
+      <div className="relative bg-gradient-to-br from-orange-600 via-orange-500 to-amber-500 dark:from-orange-700 dark:via-orange-600 dark:to-amber-600">
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')] opacity-50" />
+        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-16 text-center">
+          <h1 className="text-2xl sm:text-4xl font-bold text-white mb-2 tracking-tight" data-testid="text-page-title">
+            Find Your Team
+          </h1>
+          <p className="text-sm sm:text-base text-white/80 mb-8 max-w-xl mx-auto">
+            Search AAU programs, travel teams, competitive clubs, and local leagues across the country
+          </p>
+          <div className="max-w-xl mx-auto relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search teams, leagues, cities..."
+              className="pl-10 text-base bg-background border-0 shadow-lg"
+              data-testid="input-search"
+            />
+            {searchQuery && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2"
+                onClick={() => setSearchQuery("")}
+                data-testid="button-clear-search"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="w-full grid grid-cols-2">
-          <TabsTrigger value="teams" data-testid="tab-teams">
-            <Users className="h-4 w-4 mr-1.5" />
-            Team Finder
-          </TabsTrigger>
-          <TabsTrigger value="leagues" data-testid="tab-leagues">
-            <Trophy className="h-4 w-4 mr-1.5" />
-            League Finder
-          </TabsTrigger>
-        </TabsList>
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 -mt-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="w-full max-w-xs mx-auto grid grid-cols-2 shadow-md">
+            <TabsTrigger value="teams" data-testid="tab-teams">
+              <Shield className="h-4 w-4 mr-1.5" />
+              Teams
+            </TabsTrigger>
+            <TabsTrigger value="leagues" data-testid="tab-leagues">
+              <Trophy className="h-4 w-4 mr-1.5" />
+              Leagues
+            </TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="teams" className="mt-4">
-          <TeamFinderTab />
-        </TabsContent>
-        <TabsContent value="leagues" className="mt-4">
-          <LeagueFinderTab />
-        </TabsContent>
-      </Tabs>
+          <TabsContent value="teams" className="mt-6">
+            <TeamFinderTab searchQuery={searchQuery} />
+          </TabsContent>
+          <TabsContent value="leagues" className="mt-6">
+            <LeagueFinderTab searchQuery={searchQuery} />
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 }
 
-function TeamFinderTab() {
+function TeamFinderTab({ searchQuery }: { searchQuery: string }) {
   const { isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [filters, setFilters] = useState({ type: "", state: "", city: "", ageGroup: "" });
@@ -81,6 +112,7 @@ function TeamFinderTab() {
   if (filters.state) queryParams.set("state", filters.state);
   if (filters.city) queryParams.set("city", filters.city);
   if (filters.ageGroup) queryParams.set("ageGroup", filters.ageGroup);
+  if (searchQuery) queryParams.set("query", searchQuery);
   const qs = queryParams.toString();
   const teamClubsUrl = `/api/team-clubs${qs ? `?${qs}` : ""}`;
 
@@ -129,6 +161,11 @@ function TeamFinderTab() {
             >
               Clear All
             </Button>
+          )}
+          {clubs && (
+            <span className="text-sm text-muted-foreground" data-testid="text-team-count">
+              {clubs.length} team{clubs.length !== 1 ? "s" : ""}
+            </span>
           )}
         </div>
 
@@ -215,13 +252,13 @@ function TeamFinderTab() {
       )}
 
       {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-48 rounded-xl" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-44 rounded-md" />
           ))}
         </div>
       ) : clubs && clubs.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {clubs.map((club) => (
             <TeamClubCard key={club.id} club={club} />
           ))}
@@ -229,14 +266,14 @@ function TeamFinderTab() {
       ) : (
         <Card>
           <CardContent className="p-12 text-center">
-            <Users className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+            <Shield className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
             <h3 className="font-semibold text-lg mb-1" data-testid="text-no-teams">No Teams Found</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              {activeFilterCount > 0
-                ? "No teams match your current filters. Try adjusting your search criteria."
+              {activeFilterCount > 0 || searchQuery
+                ? "No teams match your search. Try adjusting your filters."
                 : "Be the first to add a team or club listing."}
             </p>
-            {isAuthenticated && (
+            {isAuthenticated && !searchQuery && (
               <Button size="sm" onClick={() => setAddDialogOpen(true)} data-testid="button-add-team-empty">
                 <Plus className="h-4 w-4 mr-1" />
                 Add Team
@@ -251,70 +288,56 @@ function TeamFinderTab() {
 
 function TeamClubCard({ club }: { club: TeamClub }) {
   return (
-    <Card className="hover-elevate" data-testid={`card-team-${club.id}`}>
-      <CardContent className="p-4 space-y-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <h3 className="font-semibold truncate" data-testid={`text-team-name-${club.id}`}>{club.name}</h3>
-            <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-0.5">
-              <MapPin className="h-3.5 w-3.5 shrink-0" />
-              <span>{club.city}, {club.state}</span>
+    <Link href={`/teams/${club.slug}`} data-testid={`link-team-${club.id}`}>
+      <Card className="hover-elevate cursor-pointer h-full" data-testid={`card-team-${club.id}`}>
+        <CardContent className="p-4 flex flex-col h-full">
+          <div className="flex items-start gap-3 mb-3">
+            <div className="h-10 w-10 rounded-md bg-muted flex items-center justify-center shrink-0">
+              {club.logoUrl ? (
+                <img src={club.logoUrl} alt={club.name} className="h-10 w-10 rounded-md object-cover" />
+              ) : (
+                <Shield className="h-5 w-5 text-muted-foreground" />
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="font-semibold text-sm truncate" data-testid={`text-team-name-${club.id}`}>{club.name}</h3>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+                <MapPin className="h-3 w-3 shrink-0" />
+                <span className="truncate">{club.city}, {club.state}</span>
+              </div>
             </div>
           </div>
-          <Badge variant="secondary">{club.organizationType}</Badge>
-        </div>
 
-        {club.description && (
-          <p className="text-sm text-muted-foreground line-clamp-2">{club.description}</p>
-        )}
+          <Badge variant="secondary" className="w-fit mb-2 text-xs">{club.organizationType}</Badge>
 
-        {club.ageGroups && club.ageGroups.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {club.ageGroups.map((ag) => (
-              <Badge key={ag} variant="outline" className="text-xs">{ag}</Badge>
-            ))}
+          {club.description && (
+            <p className="text-xs text-muted-foreground line-clamp-2 mb-3 flex-1">{club.description}</p>
+          )}
+
+          {club.ageGroups && club.ageGroups.length > 0 && (
+            <div className="flex flex-wrap gap-1 mb-3">
+              {club.ageGroups.slice(0, 4).map((ag) => (
+                <Badge key={ag} variant="outline" className="text-xs">{ag}</Badge>
+              ))}
+              {club.ageGroups.length > 4 && (
+                <Badge variant="outline" className="text-xs">+{club.ageGroups.length - 4}</Badge>
+              )}
+            </div>
+          )}
+
+          <div className="flex items-center justify-between mt-auto pt-2 border-t">
+            <div className="flex items-center gap-1.5">
+              {club.website && <Globe className="h-3.5 w-3.5 text-muted-foreground" />}
+              {club.contactEmail && <Mail className="h-3.5 w-3.5 text-muted-foreground" />}
+              {club.contactPhone && <Phone className="h-3.5 w-3.5 text-muted-foreground" />}
+            </div>
+            <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+              View Profile <ChevronRight className="h-3 w-3" />
+            </span>
           </div>
-        )}
-
-        <div className="flex flex-wrap items-center gap-2 pt-1">
-          {club.website && (
-            <a href={club.website.startsWith("http") ? club.website : `https://${club.website}`} target="_blank" rel="noopener noreferrer">
-              <Button variant="ghost" size="icon" data-testid={`link-team-website-${club.id}`}>
-                <Globe className="h-4 w-4" />
-              </Button>
-            </a>
-          )}
-          {club.contactEmail && (
-            <a href={`mailto:${club.contactEmail}`}>
-              <Button variant="ghost" size="icon" data-testid={`link-team-email-${club.id}`}>
-                <Mail className="h-4 w-4" />
-              </Button>
-            </a>
-          )}
-          {club.contactPhone && (
-            <a href={`tel:${club.contactPhone}`}>
-              <Button variant="ghost" size="icon" data-testid={`link-team-phone-${club.id}`}>
-                <Phone className="h-4 w-4" />
-              </Button>
-            </a>
-          )}
-          {club.socialInstagram && (
-            <a href={club.socialInstagram.startsWith("http") ? club.socialInstagram : `https://instagram.com/${club.socialInstagram.replace("@", "")}`} target="_blank" rel="noopener noreferrer">
-              <Button variant="ghost" size="icon">
-                <SiInstagram className="h-4 w-4" />
-              </Button>
-            </a>
-          )}
-          {club.socialTwitter && (
-            <a href={club.socialTwitter.startsWith("http") ? club.socialTwitter : `https://twitter.com/${club.socialTwitter.replace("@", "")}`} target="_blank" rel="noopener noreferrer">
-              <Button variant="ghost" size="icon">
-                <SiX className="h-4 w-4" />
-              </Button>
-            </a>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }
 
@@ -490,7 +513,7 @@ function AddTeamForm({ onSubmit, isPending }: { onSubmit: (data: any) => void; i
 
 // ===== LEAGUE FINDER TAB =====
 
-function LeagueFinderTab() {
+function LeagueFinderTab({ searchQuery }: { searchQuery: string }) {
   const { isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [filters, setFilters] = useState({ type: "", state: "", city: "", ageGroup: "", season: "" });
@@ -503,6 +526,7 @@ function LeagueFinderTab() {
   if (filters.city) queryParams.set("city", filters.city);
   if (filters.ageGroup) queryParams.set("ageGroup", filters.ageGroup);
   if (filters.season) queryParams.set("season", filters.season);
+  if (searchQuery) queryParams.set("query", searchQuery);
   const qs = queryParams.toString();
   const leaguesUrl = `/api/leagues${qs ? `?${qs}` : ""}`;
 
@@ -551,6 +575,11 @@ function LeagueFinderTab() {
             >
               Clear All
             </Button>
+          )}
+          {leaguesList && (
+            <span className="text-sm text-muted-foreground" data-testid="text-league-count">
+              {leaguesList.length} league{leaguesList.length !== 1 ? "s" : ""}
+            </span>
           )}
         </div>
 
@@ -651,13 +680,13 @@ function LeagueFinderTab() {
       )}
 
       {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-48 rounded-xl" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-44 rounded-md" />
           ))}
         </div>
       ) : leaguesList && leaguesList.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {leaguesList.map((league) => (
             <LeagueCard key={league.id} league={league} />
           ))}
@@ -668,11 +697,11 @@ function LeagueFinderTab() {
             <Trophy className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
             <h3 className="font-semibold text-lg mb-1" data-testid="text-no-leagues">No Leagues Found</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              {activeFilterCount > 0
-                ? "No leagues match your current filters. Try adjusting your search criteria."
+              {activeFilterCount > 0 || searchQuery
+                ? "No leagues match your search. Try adjusting your filters."
                 : "Be the first to add a league listing."}
             </p>
-            {isAuthenticated && (
+            {isAuthenticated && !searchQuery && (
               <Button size="sm" onClick={() => setAddDialogOpen(true)} data-testid="button-add-league-empty">
                 <Plus className="h-4 w-4 mr-1" />
                 Add League
@@ -687,80 +716,64 @@ function LeagueFinderTab() {
 
 function LeagueCard({ league }: { league: League }) {
   return (
-    <Card className="hover-elevate" data-testid={`card-league-${league.id}`}>
-      <CardContent className="p-4 space-y-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <h3 className="font-semibold truncate" data-testid={`text-league-name-${league.id}`}>{league.name}</h3>
-            <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-0.5">
-              <MapPin className="h-3.5 w-3.5 shrink-0" />
-              <span>{league.city}, {league.state}</span>
+    <Link href={`/leagues/${league.slug}`} data-testid={`link-league-${league.id}`}>
+      <Card className="hover-elevate cursor-pointer h-full" data-testid={`card-league-${league.id}`}>
+        <CardContent className="p-4 flex flex-col h-full">
+          <div className="flex items-start gap-3 mb-3">
+            <div className="h-10 w-10 rounded-md bg-muted flex items-center justify-center shrink-0">
+              <Trophy className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="font-semibold text-sm truncate" data-testid={`text-league-name-${league.id}`}>{league.name}</h3>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+                <MapPin className="h-3 w-3 shrink-0" />
+                <span className="truncate">{league.city}, {league.state}</span>
+              </div>
             </div>
           </div>
-          <Badge variant="secondary">{league.leagueType}</Badge>
-        </div>
 
-        {league.description && (
-          <p className="text-sm text-muted-foreground line-clamp-2">{league.description}</p>
-        )}
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            <Badge variant="secondary" className="text-xs">{league.leagueType}</Badge>
+            {league.seasons && league.seasons.length > 0 && league.seasons.slice(0, 2).map(s => (
+              <Badge key={s} variant="outline" className="text-xs">{s}</Badge>
+            ))}
+          </div>
 
-        <div className="flex flex-wrap gap-3">
+          {league.description && (
+            <p className="text-xs text-muted-foreground line-clamp-2 mb-3 flex-1">{league.description}</p>
+          )}
+
           {league.ageGroups && league.ageGroups.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {league.ageGroups.map((ag) => (
+            <div className="flex flex-wrap gap-1 mb-3">
+              {league.ageGroups.slice(0, 4).map((ag) => (
                 <Badge key={ag} variant="outline" className="text-xs">{ag}</Badge>
               ))}
+              {league.ageGroups.length > 4 && (
+                <Badge variant="outline" className="text-xs">+{league.ageGroups.length - 4}</Badge>
+              )}
             </div>
           )}
-        </div>
 
-        {league.seasons && league.seasons.length > 0 && (
-          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-            <Calendar className="h-3.5 w-3.5 shrink-0" />
-            <span>{league.seasons.join(", ")}</span>
+          {league.costInfo && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground mb-3">
+              <DollarSign className="h-3 w-3 shrink-0" />
+              <span className="truncate">{league.costInfo}</span>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between mt-auto pt-2 border-t">
+            <div className="flex items-center gap-1.5">
+              {league.website && <Globe className="h-3.5 w-3.5 text-muted-foreground" />}
+              {league.contactEmail && <Mail className="h-3.5 w-3.5 text-muted-foreground" />}
+              {league.contactPhone && <Phone className="h-3.5 w-3.5 text-muted-foreground" />}
+            </div>
+            <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+              View Profile <ChevronRight className="h-3 w-3" />
+            </span>
           </div>
-        )}
-
-        {league.costInfo && (
-          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-            <DollarSign className="h-3.5 w-3.5 shrink-0" />
-            <span>{league.costInfo}</span>
-          </div>
-        )}
-
-        <div className="flex flex-wrap items-center gap-2 pt-1">
-          {league.website && (
-            <a href={league.website.startsWith("http") ? league.website : `https://${league.website}`} target="_blank" rel="noopener noreferrer">
-              <Button variant="ghost" size="icon" data-testid={`link-league-website-${league.id}`}>
-                <Globe className="h-4 w-4" />
-              </Button>
-            </a>
-          )}
-          {league.registrationUrl && (
-            <a href={league.registrationUrl.startsWith("http") ? league.registrationUrl : `https://${league.registrationUrl}`} target="_blank" rel="noopener noreferrer">
-              <Button variant="outline" size="sm" data-testid={`link-league-register-${league.id}`}>
-                <ExternalLink className="h-4 w-4 mr-1" />
-                Register
-              </Button>
-            </a>
-          )}
-          {league.contactEmail && (
-            <a href={`mailto:${league.contactEmail}`}>
-              <Button variant="ghost" size="icon" data-testid={`link-league-email-${league.id}`}>
-                <Mail className="h-4 w-4" />
-              </Button>
-            </a>
-          )}
-          {league.contactPhone && (
-            <a href={`tel:${league.contactPhone}`}>
-              <Button variant="ghost" size="icon" data-testid={`link-league-phone-${league.id}`}>
-                <Phone className="h-4 w-4" />
-              </Button>
-            </a>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }
 
@@ -821,7 +834,7 @@ function AddLeagueForm({ onSubmit, isPending }: { onSubmit: (data: any) => void;
         <Input
           value={form.name}
           onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))}
-          placeholder="e.g. North Dallas Youth Basketball League"
+          placeholder="e.g. Downtown Recreation League"
           required
           data-testid="input-league-name"
         />
@@ -847,7 +860,7 @@ function AddLeagueForm({ onSubmit, isPending }: { onSubmit: (data: any) => void;
           <Input
             value={form.city}
             onChange={(e) => setForm(f => ({ ...f, city: e.target.value }))}
-            placeholder="Dallas"
+            placeholder="Austin"
             required
             data-testid="input-league-city"
           />
@@ -956,11 +969,11 @@ function AddLeagueForm({ onSubmit, isPending }: { onSubmit: (data: any) => void;
       </div>
 
       <div>
-        <Label>Cost / Fee Info</Label>
+        <Label>Cost Info</Label>
         <Input
           value={form.costInfo}
           onChange={(e) => setForm(f => ({ ...f, costInfo: e.target.value }))}
-          placeholder="e.g. $150 per season, Free for under 8"
+          placeholder="e.g. $100 per season"
           data-testid="input-league-cost"
         />
       </div>

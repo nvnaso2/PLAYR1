@@ -244,15 +244,17 @@ export interface IStorage {
   }>;
 
   // Team Clubs (AAU/Travel/Competitive)
-  getTeamClubs(filters?: { organizationType?: string; state?: string; city?: string; ageGroup?: string }): Promise<TeamClub[]>;
+  getTeamClubs(filters?: { organizationType?: string; state?: string; city?: string; ageGroup?: string; query?: string }): Promise<TeamClub[]>;
   getTeamClubById(id: string): Promise<TeamClub | undefined>;
+  getTeamClubBySlug(slug: string): Promise<TeamClub | undefined>;
   createTeamClub(club: InsertTeamClub): Promise<TeamClub>;
   updateTeamClub(id: string, club: Partial<InsertTeamClub>): Promise<TeamClub | undefined>;
   deleteTeamClub(id: string): Promise<boolean>;
 
   // Leagues (Community/Recreational)
-  getLeagues(filters?: { leagueType?: string; state?: string; city?: string; ageGroup?: string; season?: string }): Promise<League[]>;
+  getLeagues(filters?: { leagueType?: string; state?: string; city?: string; ageGroup?: string; season?: string; query?: string }): Promise<League[]>;
   getLeagueById(id: string): Promise<League | undefined>;
+  getLeagueBySlug(slug: string): Promise<League | undefined>;
   createLeague(league: InsertLeague): Promise<League>;
   updateLeague(id: string, league: Partial<InsertLeague>): Promise<League | undefined>;
   deleteLeague(id: string): Promise<boolean>;
@@ -1889,12 +1891,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Team Clubs
-  async getTeamClubs(filters?: { organizationType?: string; state?: string; city?: string; ageGroup?: string }): Promise<TeamClub[]> {
+  async getTeamClubs(filters?: { organizationType?: string; state?: string; city?: string; ageGroup?: string; query?: string }): Promise<TeamClub[]> {
     const conditions: any[] = [];
     if (filters?.organizationType) conditions.push(eq(teamClubs.organizationType, filters.organizationType));
     if (filters?.state) conditions.push(eq(teamClubs.state, filters.state));
     if (filters?.city) conditions.push(sql`LOWER(${teamClubs.city}) LIKE LOWER(${'%' + filters.city + '%'})`);
     if (filters?.ageGroup) conditions.push(sql`${filters.ageGroup} = ANY(${teamClubs.ageGroups})`);
+    if (filters?.query) {
+      const q = '%' + filters.query + '%';
+      conditions.push(sql`(LOWER(${teamClubs.name}) LIKE LOWER(${q}) OR LOWER(${teamClubs.city}) LIKE LOWER(${q}) OR LOWER(${teamClubs.state}) LIKE LOWER(${q}))`);
+    }
 
     if (conditions.length > 0) {
       return await db.select().from(teamClubs).where(and(...conditions)).orderBy(teamClubs.name);
@@ -1904,6 +1910,11 @@ export class DatabaseStorage implements IStorage {
 
   async getTeamClubById(id: string): Promise<TeamClub | undefined> {
     const [club] = await db.select().from(teamClubs).where(eq(teamClubs.id, id));
+    return club;
+  }
+
+  async getTeamClubBySlug(slug: string): Promise<TeamClub | undefined> {
+    const [club] = await db.select().from(teamClubs).where(eq(teamClubs.slug, slug));
     return club;
   }
 
@@ -1923,13 +1934,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Leagues
-  async getLeagues(filters?: { leagueType?: string; state?: string; city?: string; ageGroup?: string; season?: string }): Promise<League[]> {
+  async getLeagues(filters?: { leagueType?: string; state?: string; city?: string; ageGroup?: string; season?: string; query?: string }): Promise<League[]> {
     const conditions: any[] = [];
     if (filters?.leagueType) conditions.push(eq(leagues.leagueType, filters.leagueType));
     if (filters?.state) conditions.push(eq(leagues.state, filters.state));
     if (filters?.city) conditions.push(sql`LOWER(${leagues.city}) LIKE LOWER(${'%' + filters.city + '%'})`);
     if (filters?.ageGroup) conditions.push(sql`${filters.ageGroup} = ANY(${leagues.ageGroups})`);
     if (filters?.season) conditions.push(sql`${filters.season} = ANY(${leagues.seasons})`);
+    if (filters?.query) {
+      const q = '%' + filters.query + '%';
+      conditions.push(sql`(LOWER(${leagues.name}) LIKE LOWER(${q}) OR LOWER(${leagues.city}) LIKE LOWER(${q}) OR LOWER(${leagues.state}) LIKE LOWER(${q}))`);
+    }
 
     if (conditions.length > 0) {
       return await db.select().from(leagues).where(and(...conditions)).orderBy(leagues.name);
@@ -1939,6 +1954,11 @@ export class DatabaseStorage implements IStorage {
 
   async getLeagueById(id: string): Promise<League | undefined> {
     const [league] = await db.select().from(leagues).where(eq(leagues.id, id));
+    return league;
+  }
+
+  async getLeagueBySlug(slug: string): Promise<League | undefined> {
+    const [league] = await db.select().from(leagues).where(eq(leagues.slug, slug));
     return league;
   }
 

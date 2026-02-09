@@ -740,6 +740,7 @@ export const US_STATES = [
 export const teamClubs = pgTable("team_clubs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: varchar("name").notNull(),
+  slug: varchar("slug").notNull().unique(),
   organizationType: varchar("organization_type").notNull(),
   city: varchar("city").notNull(),
   state: varchar("state").notNull(),
@@ -765,6 +766,7 @@ export const insertTeamClubSchema = createInsertSchema(teamClubs).omit({
 export const leagues = pgTable("leagues", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: varchar("name").notNull(),
+  slug: varchar("slug").notNull().unique(),
   leagueType: varchar("league_type").notNull(),
   city: varchar("city").notNull(),
   state: varchar("state").notNull(),
