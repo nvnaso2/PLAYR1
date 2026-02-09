@@ -739,6 +739,9 @@ export const US_STATES = [
 
 export const GENDERS = ["Boys", "Girls", "Coed"] as const;
 
+export const CIRCUITS = ["Under Armour", "Nike", "Adidas", "Puma", "On The Radar Hoops", "Independent"] as const;
+export type Circuit = typeof CIRCUITS[number];
+
 export const teamClubs = pgTable("team_clubs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: varchar("name").notNull(),
@@ -747,6 +750,7 @@ export const teamClubs = pgTable("team_clubs", {
   city: varchar("city").notNull(),
   state: varchar("state").notNull(),
   gender: varchar("gender"),
+  circuit: varchar("circuit"),
   ageGroups: text("age_groups").array(),
   description: text("description"),
   website: varchar("website"),
