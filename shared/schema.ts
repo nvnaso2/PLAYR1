@@ -737,6 +737,8 @@ export const US_STATES = [
   "SD","TN","TX","UT","VT","VA","WA","WV","WI","WY","DC"
 ] as const;
 
+export const GENDERS = ["Boys", "Girls", "Coed"] as const;
+
 export const teamClubs = pgTable("team_clubs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: varchar("name").notNull(),
@@ -744,6 +746,7 @@ export const teamClubs = pgTable("team_clubs", {
   organizationType: varchar("organization_type").notNull(),
   city: varchar("city").notNull(),
   state: varchar("state").notNull(),
+  gender: varchar("gender"),
   ageGroups: text("age_groups").array(),
   description: text("description"),
   website: varchar("website"),

@@ -110,6 +110,7 @@ export default function TeamProfilePage() {
             </div>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               <Badge variant="secondary" data-testid="badge-org-type">{club.organizationType}</Badge>
+              {club.gender && <Badge variant="outline" data-testid="badge-gender">{club.gender}</Badge>}
               <div className="flex items-center gap-1 text-sm text-muted-foreground">
                 <MapPin className="h-3.5 w-3.5 shrink-0" />
                 <span data-testid="text-team-location">{club.city}, {club.state}</span>

@@ -2125,12 +2125,13 @@ export async function registerRoutes(
   // Get team clubs with optional filters
   app.get("/api/team-clubs", async (req, res) => {
     try {
-      const { type, state, city, ageGroup, query } = req.query;
+      const { type, state, city, ageGroup, gender, query } = req.query;
       const clubs = await storage.getTeamClubs({
         organizationType: type as string | undefined,
         state: state as string | undefined,
         city: city as string | undefined,
         ageGroup: ageGroup as string | undefined,
+        gender: gender as string | undefined,
         query: query as string | undefined,
       });
       res.json(clubs);

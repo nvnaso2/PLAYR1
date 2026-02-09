@@ -244,7 +244,7 @@ export interface IStorage {
   }>;
 
   // Team Clubs (AAU/Travel/Competitive)
-  getTeamClubs(filters?: { organizationType?: string; state?: string; city?: string; ageGroup?: string; query?: string }): Promise<TeamClub[]>;
+  getTeamClubs(filters?: { organizationType?: string; state?: string; city?: string; ageGroup?: string; gender?: string; query?: string }): Promise<TeamClub[]>;
   getTeamClubById(id: string): Promise<TeamClub | undefined>;
   getTeamClubBySlug(slug: string): Promise<TeamClub | undefined>;
   createTeamClub(club: InsertTeamClub): Promise<TeamClub>;
@@ -1891,12 +1891,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Team Clubs
-  async getTeamClubs(filters?: { organizationType?: string; state?: string; city?: string; ageGroup?: string; query?: string }): Promise<TeamClub[]> {
+  async getTeamClubs(filters?: { organizationType?: string; state?: string; city?: string; ageGroup?: string; gender?: string; query?: string }): Promise<TeamClub[]> {
     const conditions: any[] = [];
     if (filters?.organizationType) conditions.push(eq(teamClubs.organizationType, filters.organizationType));
     if (filters?.state) conditions.push(eq(teamClubs.state, filters.state));
     if (filters?.city) conditions.push(sql`LOWER(${teamClubs.city}) LIKE LOWER(${'%' + filters.city + '%'})`);
     if (filters?.ageGroup) conditions.push(sql`${filters.ageGroup} = ANY(${teamClubs.ageGroups})`);
+    if (filters?.gender) conditions.push(eq(teamClubs.gender, filters.gender));
     if (filters?.query) {
       const q = '%' + filters.query + '%';
       conditions.push(sql`(LOWER(${teamClubs.name}) LIKE LOWER(${q}) OR LOWER(${teamClubs.city}) LIKE LOWER(${q}) OR LOWER(${teamClubs.state}) LIKE LOWER(${q}))`);
