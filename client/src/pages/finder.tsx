@@ -111,9 +111,9 @@ export default function FinderPage() {
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 -mt-4">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-6">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="w-full max-w-xs mx-auto grid grid-cols-2 shadow-md">
+          <TabsList className="w-full max-w-xs grid grid-cols-2">
             <TabsTrigger value="teams" data-testid="tab-teams">
               <Shield className="h-4 w-4 mr-1.5" />
               Teams
@@ -124,10 +124,10 @@ export default function FinderPage() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="teams" className="mt-6">
+          <TabsContent value="teams" className="mt-4">
             <TeamFinderTab searchQuery={searchQuery} />
           </TabsContent>
-          <TabsContent value="leagues" className="mt-6">
+          <TabsContent value="leagues" className="mt-4">
             <LeagueFinderTab searchQuery={searchQuery} />
           </TabsContent>
         </Tabs>
