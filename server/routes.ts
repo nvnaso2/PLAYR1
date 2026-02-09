@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
-import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, games } from "@shared/schema";
+import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
@@ -2117,6 +2117,125 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error updating assignment:", error);
       res.status(500).json({ message: "Failed to update assignment" });
+    }
+  });
+
+  // ===== TEAM & LEAGUE FINDER =====
+
+  // Get team clubs with optional filters
+  app.get("/api/team-clubs", async (req, res) => {
+    try {
+      const { type, state, city, ageGroup } = req.query;
+      const clubs = await storage.getTeamClubs({
+        organizationType: type as string | undefined,
+        state: state as string | undefined,
+        city: city as string | undefined,
+        ageGroup: ageGroup as string | undefined,
+      });
+      res.json(clubs);
+    } catch (error) {
+      console.error("Error fetching team clubs:", error);
+      res.status(500).json({ message: "Failed to fetch team clubs" });
+    }
+  });
+
+  // Get single team club
+  app.get("/api/team-clubs/:id", async (req, res) => {
+    try {
+      const club = await storage.getTeamClubById(req.params.id);
+      if (!club) return res.status(404).json({ message: "Team not found" });
+      res.json(club);
+    } catch (error) {
+      console.error("Error fetching team club:", error);
+      res.status(500).json({ message: "Failed to fetch team club" });
+    }
+  });
+
+  // Create team club (authenticated)
+  app.post("/api/team-clubs", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const data = insertTeamClubSchema.parse({ ...req.body, createdByUserId: userId });
+      const club = await storage.createTeamClub(data);
+      res.status(201).json(club);
+    } catch (error: any) {
+      console.error("Error creating team club:", error);
+      if (error.name === "ZodError") return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      res.status(500).json({ message: "Failed to create team club" });
+    }
+  });
+
+  // Delete team club (owner only)
+  app.delete("/api/team-clubs/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const club = await storage.getTeamClubById(req.params.id);
+      if (!club) return res.status(404).json({ message: "Team not found" });
+      if (club.createdByUserId !== userId) return res.status(403).json({ message: "Not authorized" });
+      await storage.deleteTeamClub(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting team club:", error);
+      res.status(500).json({ message: "Failed to delete team club" });
+    }
+  });
+
+  // Get leagues with optional filters
+  app.get("/api/leagues", async (req, res) => {
+    try {
+      const { type, state, city, ageGroup, season } = req.query;
+      const result = await storage.getLeagues({
+        leagueType: type as string | undefined,
+        state: state as string | undefined,
+        city: city as string | undefined,
+        ageGroup: ageGroup as string | undefined,
+        season: season as string | undefined,
+      });
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching leagues:", error);
+      res.status(500).json({ message: "Failed to fetch leagues" });
+    }
+  });
+
+  // Get single league
+  app.get("/api/leagues/:id", async (req, res) => {
+    try {
+      const league = await storage.getLeagueById(req.params.id);
+      if (!league) return res.status(404).json({ message: "League not found" });
+      res.json(league);
+    } catch (error) {
+      console.error("Error fetching league:", error);
+      res.status(500).json({ message: "Failed to fetch league" });
+    }
+  });
+
+  // Create league (authenticated)
+  app.post("/api/leagues", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const data = insertLeagueSchema.parse({ ...req.body, createdByUserId: userId });
+      const league = await storage.createLeague(data);
+      res.status(201).json(league);
+    } catch (error: any) {
+      console.error("Error creating league:", error);
+      if (error.name === "ZodError") return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      res.status(500).json({ message: "Failed to create league" });
+    }
+  });
+
+  // Delete league (owner only)
+  app.delete("/api/leagues/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const league = await storage.getLeagueById(req.params.id);
+      if (!league) return res.status(404).json({ message: "League not found" });
+      if (league.createdByUserId !== userId) return res.status(403).json({ message: "Not authorized" });
+      await storage.deleteLeague(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting league:", error);
+      res.status(500).json({ message: "Failed to delete league" });
     }
   });
 

@@ -41,7 +41,8 @@ import {
   Brain,
   Flame,
   Settings,
-  Trophy
+  Trophy,
+  Search
 } from "lucide-react";
 import logoLandscape from "@assets/PNG_image_1770494053382.png";
 
@@ -53,6 +54,7 @@ const mainNavItems = [
   { title: "Training Log", url: "/log", icon: ClipboardList },
   { title: "My Filmroom", url: "/videos", icon: Video },
   { title: "Trainer / Coach", url: "/coach", icon: Dumbbell },
+  { title: "Find Teams & Leagues", url: "/finder", icon: Search },
 ];
 
 const categoryItems = [

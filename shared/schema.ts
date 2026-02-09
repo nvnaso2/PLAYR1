@@ -717,3 +717,77 @@ export type InsertTeamMember = z.infer<typeof insertTeamMemberSchema>;
 export type TeamMember = typeof teamMembers.$inferSelect;
 export type InsertDrillAssignment = z.infer<typeof insertDrillAssignmentSchema>;
 export type DrillAssignment = typeof drillAssignments.$inferSelect;
+
+// ===== TEAM & LEAGUE FINDER =====
+
+export const TEAM_ORGANIZATION_TYPES = ["AAU", "Travel", "Club", "Competitive", "Select", "Prep"] as const;
+export type TeamOrganizationType = typeof TEAM_ORGANIZATION_TYPES[number];
+
+export const LEAGUE_TYPES = ["Community", "Recreational", "Church", "YMCA", "Parks & Rec", "School", "Pro-Am", "Adult"] as const;
+export type LeagueType = typeof LEAGUE_TYPES[number];
+
+export const AGE_GROUPS = ["6U", "7U", "8U", "9U", "10U", "11U", "12U", "13U", "14U", "15U", "16U", "17U", "18U", "High School", "College", "Adult"] as const;
+export type AgeGroup = typeof AGE_GROUPS[number];
+
+export const SEASONS = ["Fall", "Winter", "Spring", "Summer", "Year-Round"] as const;
+
+export const US_STATES = [
+  "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD",
+  "MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC",
+  "SD","TN","TX","UT","VT","VA","WA","WV","WI","WY","DC"
+] as const;
+
+export const teamClubs = pgTable("team_clubs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  organizationType: varchar("organization_type").notNull(),
+  city: varchar("city").notNull(),
+  state: varchar("state").notNull(),
+  ageGroups: text("age_groups").array(),
+  description: text("description"),
+  website: varchar("website"),
+  contactEmail: varchar("contact_email"),
+  contactPhone: varchar("contact_phone"),
+  socialInstagram: varchar("social_instagram"),
+  socialTwitter: varchar("social_twitter"),
+  logoUrl: varchar("logo_url"),
+  isVerified: boolean("is_verified").default(false),
+  createdByUserId: varchar("created_by_user_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertTeamClubSchema = createInsertSchema(teamClubs).omit({
+  id: true,
+  isVerified: true,
+  createdAt: true,
+});
+
+export const leagues = pgTable("leagues", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  leagueType: varchar("league_type").notNull(),
+  city: varchar("city").notNull(),
+  state: varchar("state").notNull(),
+  ageGroups: text("age_groups").array(),
+  seasons: text("seasons").array(),
+  description: text("description"),
+  website: varchar("website"),
+  registrationUrl: varchar("registration_url"),
+  contactEmail: varchar("contact_email"),
+  contactPhone: varchar("contact_phone"),
+  costInfo: varchar("cost_info"),
+  isVerified: boolean("is_verified").default(false),
+  createdByUserId: varchar("created_by_user_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertLeagueSchema = createInsertSchema(leagues).omit({
+  id: true,
+  isVerified: true,
+  createdAt: true,
+});
+
+export type InsertTeamClub = z.infer<typeof insertTeamClubSchema>;
+export type TeamClub = typeof teamClubs.$inferSelect;
+export type InsertLeague = z.infer<typeof insertLeagueSchema>;
+export type League = typeof leagues.$inferSelect;

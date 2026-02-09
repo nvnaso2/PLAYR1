@@ -24,6 +24,7 @@ import PlayerProfile from "@/pages/player-profile";
 import PlayerPublic from "@/pages/player-public";
 import Admin from "@/pages/admin";
 import Coach from "@/pages/coach";
+import Finder from "@/pages/finder";
 import NotFound from "@/pages/not-found";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -90,6 +91,7 @@ function Router({ previewLanding }: { previewLanding: boolean }) {
                 <Route path="/player-profile" component={PlayerProfile} />
                 <Route path="/admin" component={Admin} />
                 <Route path="/coach" component={Coach} />
+                <Route path="/finder" component={Finder} />
                 <Route component={NotFound} />
               </Switch>
             </AuthenticatedLayout>

@@ -26,7 +26,9 @@ import {
   playerProfiles, type PlayerProfile, type InsertPlayerProfile,
   trainerTeams, type TrainerTeam, type InsertTrainerTeam,
   teamMembers, type TeamMember, type InsertTeamMember,
-  drillAssignments, type DrillAssignment, type InsertDrillAssignment
+  drillAssignments, type DrillAssignment, type InsertDrillAssignment,
+  teamClubs, type TeamClub, type InsertTeamClub,
+  leagues, type League, type InsertLeague
 } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
@@ -240,6 +242,20 @@ export interface IStorage {
       avgBlocks: number;
     }>;
   }>;
+
+  // Team Clubs (AAU/Travel/Competitive)
+  getTeamClubs(filters?: { organizationType?: string; state?: string; city?: string; ageGroup?: string }): Promise<TeamClub[]>;
+  getTeamClubById(id: string): Promise<TeamClub | undefined>;
+  createTeamClub(club: InsertTeamClub): Promise<TeamClub>;
+  updateTeamClub(id: string, club: Partial<InsertTeamClub>): Promise<TeamClub | undefined>;
+  deleteTeamClub(id: string): Promise<boolean>;
+
+  // Leagues (Community/Recreational)
+  getLeagues(filters?: { leagueType?: string; state?: string; city?: string; ageGroup?: string; season?: string }): Promise<League[]>;
+  getLeagueById(id: string): Promise<League | undefined>;
+  createLeague(league: InsertLeague): Promise<League>;
+  updateLeague(id: string, league: Partial<InsertLeague>): Promise<League | undefined>;
+  deleteLeague(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1869,6 +1885,75 @@ export class DatabaseStorage implements IStorage {
 
   async deleteDrillAssignment(id: string): Promise<boolean> {
     await db.delete(drillAssignments).where(eq(drillAssignments.id, id));
+    return true;
+  }
+
+  // Team Clubs
+  async getTeamClubs(filters?: { organizationType?: string; state?: string; city?: string; ageGroup?: string }): Promise<TeamClub[]> {
+    const conditions: any[] = [];
+    if (filters?.organizationType) conditions.push(eq(teamClubs.organizationType, filters.organizationType));
+    if (filters?.state) conditions.push(eq(teamClubs.state, filters.state));
+    if (filters?.city) conditions.push(sql`LOWER(${teamClubs.city}) LIKE LOWER(${'%' + filters.city + '%'})`);
+    if (filters?.ageGroup) conditions.push(sql`${filters.ageGroup} = ANY(${teamClubs.ageGroups})`);
+
+    if (conditions.length > 0) {
+      return await db.select().from(teamClubs).where(and(...conditions)).orderBy(teamClubs.name);
+    }
+    return await db.select().from(teamClubs).orderBy(teamClubs.name);
+  }
+
+  async getTeamClubById(id: string): Promise<TeamClub | undefined> {
+    const [club] = await db.select().from(teamClubs).where(eq(teamClubs.id, id));
+    return club;
+  }
+
+  async createTeamClub(club: InsertTeamClub): Promise<TeamClub> {
+    const [created] = await db.insert(teamClubs).values(club as any).returning();
+    return created;
+  }
+
+  async updateTeamClub(id: string, club: Partial<InsertTeamClub>): Promise<TeamClub | undefined> {
+    const [updated] = await db.update(teamClubs).set(club as any).where(eq(teamClubs.id, id)).returning();
+    return updated;
+  }
+
+  async deleteTeamClub(id: string): Promise<boolean> {
+    await db.delete(teamClubs).where(eq(teamClubs.id, id));
+    return true;
+  }
+
+  // Leagues
+  async getLeagues(filters?: { leagueType?: string; state?: string; city?: string; ageGroup?: string; season?: string }): Promise<League[]> {
+    const conditions: any[] = [];
+    if (filters?.leagueType) conditions.push(eq(leagues.leagueType, filters.leagueType));
+    if (filters?.state) conditions.push(eq(leagues.state, filters.state));
+    if (filters?.city) conditions.push(sql`LOWER(${leagues.city}) LIKE LOWER(${'%' + filters.city + '%'})`);
+    if (filters?.ageGroup) conditions.push(sql`${filters.ageGroup} = ANY(${leagues.ageGroups})`);
+    if (filters?.season) conditions.push(sql`${filters.season} = ANY(${leagues.seasons})`);
+
+    if (conditions.length > 0) {
+      return await db.select().from(leagues).where(and(...conditions)).orderBy(leagues.name);
+    }
+    return await db.select().from(leagues).orderBy(leagues.name);
+  }
+
+  async getLeagueById(id: string): Promise<League | undefined> {
+    const [league] = await db.select().from(leagues).where(eq(leagues.id, id));
+    return league;
+  }
+
+  async createLeague(league: InsertLeague): Promise<League> {
+    const [created] = await db.insert(leagues).values(league as any).returning();
+    return created;
+  }
+
+  async updateLeague(id: string, league: Partial<InsertLeague>): Promise<League | undefined> {
+    const [updated] = await db.update(leagues).set(league as any).where(eq(leagues.id, id)).returning();
+    return updated;
+  }
+
+  async deleteLeague(id: string): Promise<boolean> {
+    await db.delete(leagues).where(eq(leagues.id, id));
     return true;
   }
 }
