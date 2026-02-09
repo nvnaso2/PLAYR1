@@ -36,6 +36,42 @@ import { SiInstagram, SiX } from "react-icons/si";
 import type { TeamClub, League } from "@shared/schema";
 import { TEAM_ORGANIZATION_TYPES, LEAGUE_TYPES, AGE_GROUPS, SEASONS, US_STATES } from "@shared/schema";
 
+const LOGO_COLORS = [
+  "bg-red-600", "bg-blue-600", "bg-green-600", "bg-purple-600",
+  "bg-orange-600", "bg-teal-600", "bg-indigo-600", "bg-pink-600",
+  "bg-cyan-600", "bg-amber-600", "bg-emerald-600", "bg-violet-600",
+  "bg-rose-600", "bg-sky-600", "bg-lime-600", "bg-fuchsia-600",
+];
+
+function getTeamInitials(name: string): string {
+  const words = name.replace(/[^a-zA-Z0-9\s]/g, "").split(/\s+/).filter(Boolean);
+  if (words.length === 1) return words[0].substring(0, 2).toUpperCase();
+  return (words[0][0] + words[1][0]).toUpperCase();
+}
+
+function getTeamColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return LOGO_COLORS[Math.abs(hash) % LOGO_COLORS.length];
+}
+
+function TeamLogo({ name, logoUrl, size = "sm" }: { name: string; logoUrl?: string | null; size?: "sm" | "lg" }) {
+  const dim = size === "lg" ? "h-16 w-16" : "h-10 w-10";
+  const textSize = size === "lg" ? "text-lg" : "text-xs";
+
+  if (logoUrl) {
+    return <img src={logoUrl} alt={name} className={`${dim} rounded-md object-cover`} />;
+  }
+
+  return (
+    <div className={`${dim} rounded-md ${getTeamColor(name)} flex items-center justify-center shrink-0`}>
+      <span className={`${textSize} font-bold text-white`}>{getTeamInitials(name)}</span>
+    </div>
+  );
+}
+
 export default function FinderPage() {
   const [activeTab, setActiveTab] = useState("teams");
   const [searchQuery, setSearchQuery] = useState("");
@@ -292,13 +328,7 @@ function TeamClubCard({ club }: { club: TeamClub }) {
       <Card className="hover-elevate cursor-pointer h-full" data-testid={`card-team-${club.id}`}>
         <CardContent className="p-4 flex flex-col h-full">
           <div className="flex items-start gap-3 mb-3">
-            <div className="h-10 w-10 rounded-md bg-muted flex items-center justify-center shrink-0">
-              {club.logoUrl ? (
-                <img src={club.logoUrl} alt={club.name} className="h-10 w-10 rounded-md object-cover" />
-              ) : (
-                <Shield className="h-5 w-5 text-muted-foreground" />
-              )}
-            </div>
+            <TeamLogo name={club.name} logoUrl={club.logoUrl} size="sm" />
             <div className="min-w-0 flex-1">
               <h3 className="font-semibold text-sm truncate" data-testid={`text-team-name-${club.id}`}>{club.name}</h3>
               <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">

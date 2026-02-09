@@ -18,6 +18,27 @@ import {
 import { SiInstagram, SiX } from "react-icons/si";
 import type { TeamClub } from "@shared/schema";
 
+const LOGO_COLORS = [
+  "bg-red-600", "bg-blue-600", "bg-green-600", "bg-purple-600",
+  "bg-orange-600", "bg-teal-600", "bg-indigo-600", "bg-pink-600",
+  "bg-cyan-600", "bg-amber-600", "bg-emerald-600", "bg-violet-600",
+  "bg-rose-600", "bg-sky-600", "bg-lime-600", "bg-fuchsia-600",
+];
+
+function getTeamInitials(name: string): string {
+  const words = name.replace(/[^a-zA-Z0-9\s]/g, "").split(/\s+/).filter(Boolean);
+  if (words.length === 1) return words[0].substring(0, 2).toUpperCase();
+  return (words[0][0] + words[1][0]).toUpperCase();
+}
+
+function getTeamColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return LOGO_COLORS[Math.abs(hash) % LOGO_COLORS.length];
+}
+
 export default function TeamProfilePage() {
   const { slug } = useParams<{ slug: string }>();
 
@@ -71,13 +92,13 @@ export default function TeamProfilePage() {
 
       <div className="space-y-6">
         <div className="flex items-start gap-4">
-          <div className="h-16 w-16 rounded-md bg-muted flex items-center justify-center shrink-0">
-            {club.logoUrl ? (
-              <img src={club.logoUrl} alt={club.name} className="h-16 w-16 rounded-md object-cover" />
-            ) : (
-              <Shield className="h-8 w-8 text-muted-foreground" />
-            )}
-          </div>
+          {club.logoUrl ? (
+            <img src={club.logoUrl} alt={club.name} className="h-16 w-16 rounded-md object-cover shrink-0" />
+          ) : (
+            <div className={`h-16 w-16 rounded-md ${getTeamColor(club.name)} flex items-center justify-center shrink-0`}>
+              <span className="text-lg font-bold text-white">{getTeamInitials(club.name)}</span>
+            </div>
+          )}
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl sm:text-2xl font-bold" data-testid="text-team-name">
