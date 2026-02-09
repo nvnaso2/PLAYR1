@@ -88,24 +88,23 @@ export default function FinderPage() {
             Search AAU programs, travel teams, competitive clubs, and local leagues across the country
           </p>
           <div className="max-w-xl mx-auto relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none z-10" />
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search teams, leagues, cities..."
-              className="pl-10 text-base bg-background border-0 shadow-lg"
+              className="pl-10 pr-10 h-11 text-base bg-background border-0 shadow-lg w-full"
               data-testid="input-search"
             />
             {searchQuery && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute right-1 top-1/2 -translate-y-1/2"
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground z-10"
                 onClick={() => setSearchQuery("")}
                 data-testid="button-clear-search"
               >
                 <X className="h-4 w-4" />
-              </Button>
+              </button>
             )}
           </div>
         </div>
