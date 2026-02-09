@@ -97,6 +97,9 @@ export default function PlayerProfilePage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/seasons"] });
+      if (profile?.slug) {
+        queryClient.invalidateQueries({ queryKey: ["/api/player", profile.slug] });
+      }
     },
     onError: (error: any) => {
       toast({
@@ -178,6 +181,9 @@ export default function PlayerProfilePage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/player-profile"] });
+      if (profile?.slug) {
+        queryClient.invalidateQueries({ queryKey: ["/api/player", profile.slug] });
+      }
       toast({
         title: "Profile Saved",
         description: "Your player profile has been updated.",
