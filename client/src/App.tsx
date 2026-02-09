@@ -75,6 +75,9 @@ function Router({ previewLanding }: { previewLanding: boolean }) {
   return (
     <Switch>
       <Route path="/player/:slug" component={PlayerPublic} />
+      <Route path="/finder" component={Finder} />
+      <Route path="/teams/:slug" component={TeamProfile} />
+      <Route path="/leagues/:slug" component={LeagueProfile} />
       <Route>
         {() => {
           if (!isAuthenticated || previewLanding) {
@@ -93,9 +96,6 @@ function Router({ previewLanding }: { previewLanding: boolean }) {
                 <Route path="/player-profile" component={PlayerProfile} />
                 <Route path="/admin" component={Admin} />
                 <Route path="/coach" component={Coach} />
-                <Route path="/finder" component={Finder} />
-                <Route path="/teams/:slug" component={TeamProfile} />
-                <Route path="/leagues/:slug" component={LeagueProfile} />
                 <Route component={NotFound} />
               </Switch>
             </AuthenticatedLayout>
