@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { useAuth } from "@/hooks/use-auth";
+import { useAdmin } from "@/hooks/use-admin";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
@@ -137,7 +137,7 @@ export default function FinderPage() {
 }
 
 function TeamFinderTab({ searchQuery }: { searchQuery: string }) {
-  const { isAuthenticated } = useAuth();
+  const { isAdmin } = useAdmin();
   const { toast } = useToast();
   const [filters, setFilters] = useState({ type: "", state: "", city: "", ageGroup: "", gender: "" });
   const [showFilters, setShowFilters] = useState(false);
@@ -206,7 +206,7 @@ function TeamFinderTab({ searchQuery }: { searchQuery: string }) {
           )}
         </div>
 
-        {isAuthenticated && (
+        {isAdmin && (
           <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
             <DialogTrigger asChild>
               <Button size="sm" data-testid="button-add-team">
@@ -324,7 +324,7 @@ function TeamFinderTab({ searchQuery }: { searchQuery: string }) {
                 ? "No teams match your search. Try adjusting your filters."
                 : "Be the first to add a team or club listing."}
             </p>
-            {isAuthenticated && !searchQuery && (
+            {isAdmin && !searchQuery && (
               <Button size="sm" onClick={() => setAddDialogOpen(true)} data-testid="button-add-team-empty">
                 <Plus className="h-4 w-4 mr-1" />
                 Add Team
@@ -562,7 +562,7 @@ function AddTeamForm({ onSubmit, isPending }: { onSubmit: (data: any) => void; i
 // ===== LEAGUE FINDER TAB =====
 
 function LeagueFinderTab({ searchQuery }: { searchQuery: string }) {
-  const { isAuthenticated } = useAuth();
+  const { isAdmin } = useAdmin();
   const { toast } = useToast();
   const [filters, setFilters] = useState({ type: "", state: "", city: "", ageGroup: "", season: "" });
   const [showFilters, setShowFilters] = useState(false);
@@ -631,7 +631,7 @@ function LeagueFinderTab({ searchQuery }: { searchQuery: string }) {
           )}
         </div>
 
-        {isAuthenticated && (
+        {isAdmin && (
           <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
             <DialogTrigger asChild>
               <Button size="sm" data-testid="button-add-league">
@@ -749,7 +749,7 @@ function LeagueFinderTab({ searchQuery }: { searchQuery: string }) {
                 ? "No leagues match your search. Try adjusting your filters."
                 : "Be the first to add a league listing."}
             </p>
-            {isAuthenticated && !searchQuery && (
+            {isAdmin && !searchQuery && (
               <Button size="sm" onClick={() => setAddDialogOpen(true)} data-testid="button-add-league-empty">
                 <Plus className="h-4 w-4 mr-1" />
                 Add League
