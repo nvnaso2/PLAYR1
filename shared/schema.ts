@@ -739,7 +739,7 @@ export const US_STATES = [
 
 export const GENDERS = ["Boys", "Girls", "Coed"] as const;
 
-export const CIRCUITS = ["Under Armour", "Nike EYBL", "Nike EYCL", "Nike EYBL Scholastic", "Adidas 3SSB", "Adidas 3Stripes Gold", "Adidas Jr. 3SSB", "Puma PRO16", "Puma NXTPRO", "Puma Jr. PRO16", "On The Radar Hoops", "Independent"] as const;
+export const CIRCUITS = ["UA Association", "UA Rise", "UA Future", "Nike EYBL", "Nike EYCL", "Nike EYBL Scholastic", "Adidas 3SSB", "Adidas 3Stripes Gold", "Adidas Jr. 3SSB", "Puma PRO16", "Puma NXTPRO", "Puma Jr. PRO16", "On The Radar Hoops", "Independent"] as const;
 export type Circuit = typeof CIRCUITS[number];
 
 export const teamClubs = pgTable("team_clubs", {
