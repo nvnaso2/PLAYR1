@@ -35,7 +35,10 @@ import {
   coachPlayers, type CoachPlayer, type InsertCoachPlayer,
   coachPlayerAssignments, type CoachPlayerAssignment, type InsertCoachPlayerAssignment,
   trainerPlayers, type TrainerPlayer, type InsertTrainerPlayer,
-  trainerPlayerAssignments, type TrainerPlayerAssignment, type InsertTrainerPlayerAssignment
+  trainerPlayerAssignments, type TrainerPlayerAssignment, type InsertTrainerPlayerAssignment,
+  chatThreads, type ChatThread, type InsertChatThread,
+  chatThreadMembers, type ChatThreadMember, type InsertChatThreadMember,
+  chatThreadMessages, type ChatThreadMessage, type InsertChatThreadMessage
 } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
@@ -230,6 +233,17 @@ export interface IStorage {
   sendMessage(message: InsertMessage): Promise<Message>;
   markMessagesRead(userId: string, senderId: string): Promise<void>;
   getUnreadCount(userId: string): Promise<number>;
+
+  // Chat Threads
+  getChatThreads(userId: string, mode: string): Promise<Array<ChatThread & { memberCount: number; lastMessage?: string; lastMessageAt?: Date }>>;
+  getChatThreadById(id: string): Promise<ChatThread | undefined>;
+  createChatThread(thread: InsertChatThread): Promise<ChatThread>;
+  deleteChatThread(id: string): Promise<boolean>;
+  getChatThreadMembers(threadId: string): Promise<ChatThreadMember[]>;
+  addChatThreadMember(member: InsertChatThreadMember): Promise<ChatThreadMember>;
+  removeChatThreadMember(threadId: string, userId: string): Promise<boolean>;
+  getChatThreadMessages(threadId: string): Promise<ChatThreadMessage[]>;
+  createChatThreadMessage(message: InsertChatThreadMessage): Promise<ChatThreadMessage>;
 
   // Player Invitations
   getTeamInvitations(teamId: string): Promise<PlayerInvitation[]>;
@@ -2309,6 +2323,65 @@ export class DatabaseStorage implements IStorage {
       }
     }
     return result;
+  }
+
+  async getChatThreads(userId: string, mode: string): Promise<Array<ChatThread & { memberCount: number; lastMessage?: string; lastMessageAt?: Date }>> {
+    const memberRows = await db.select().from(chatThreadMembers).where(eq(chatThreadMembers.userId, userId));
+    const threadIds = memberRows.map(m => m.threadId);
+    if (threadIds.length === 0) return [];
+    const threads = await db.select().from(chatThreads).where(and(inArray(chatThreads.id, threadIds), eq(chatThreads.mode, mode))).orderBy(desc(chatThreads.createdAt));
+    const result = [];
+    for (const thread of threads) {
+      const members = await db.select().from(chatThreadMembers).where(eq(chatThreadMembers.threadId, thread.id));
+      const msgs = await db.select().from(chatThreadMessages).where(eq(chatThreadMessages.threadId, thread.id)).orderBy(desc(chatThreadMessages.createdAt)).limit(1);
+      result.push({
+        ...thread,
+        memberCount: members.length,
+        lastMessage: msgs[0]?.content,
+        lastMessageAt: msgs[0]?.createdAt ?? undefined,
+      });
+    }
+    return result;
+  }
+
+  async getChatThreadById(id: string): Promise<ChatThread | undefined> {
+    const [thread] = await db.select().from(chatThreads).where(eq(chatThreads.id, id));
+    return thread;
+  }
+
+  async createChatThread(thread: InsertChatThread): Promise<ChatThread> {
+    const [created] = await db.insert(chatThreads).values(thread).returning();
+    return created;
+  }
+
+  async deleteChatThread(id: string): Promise<boolean> {
+    await db.delete(chatThreadMessages).where(eq(chatThreadMessages.threadId, id));
+    await db.delete(chatThreadMembers).where(eq(chatThreadMembers.threadId, id));
+    await db.delete(chatThreads).where(eq(chatThreads.id, id));
+    return true;
+  }
+
+  async getChatThreadMembers(threadId: string): Promise<ChatThreadMember[]> {
+    return await db.select().from(chatThreadMembers).where(eq(chatThreadMembers.threadId, threadId));
+  }
+
+  async addChatThreadMember(member: InsertChatThreadMember): Promise<ChatThreadMember> {
+    const [created] = await db.insert(chatThreadMembers).values(member).returning();
+    return created;
+  }
+
+  async removeChatThreadMember(threadId: string, userId: string): Promise<boolean> {
+    await db.delete(chatThreadMembers).where(and(eq(chatThreadMembers.threadId, threadId), eq(chatThreadMembers.userId, userId)));
+    return true;
+  }
+
+  async getChatThreadMessages(threadId: string): Promise<ChatThreadMessage[]> {
+    return await db.select().from(chatThreadMessages).where(eq(chatThreadMessages.threadId, threadId)).orderBy(chatThreadMessages.createdAt);
+  }
+
+  async createChatThreadMessage(message: InsertChatThreadMessage): Promise<ChatThreadMessage> {
+    const [created] = await db.insert(chatThreadMessages).values(message).returning();
+    return created;
   }
 }
 

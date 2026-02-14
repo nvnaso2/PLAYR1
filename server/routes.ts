@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
-import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games } from "@shared/schema";
+import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, userProfiles } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
@@ -2605,6 +2605,134 @@ export async function registerRoutes(
     }
   });
 
+  // ===== CHAT THREADS =====
+
+  app.get("/api/chat-threads", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const mode = (req.query.mode as string) || "coach";
+      const threads = await storage.getChatThreads(userId, mode);
+      res.json(threads);
+    } catch (error) {
+      console.error("Error fetching chat threads:", error);
+      res.status(500).json({ message: "Failed to fetch chat threads" });
+    }
+  });
+
+  app.post("/api/chat-threads", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { name, mode, scopeType, scopeId, memberIds } = req.body;
+      if (!name || !mode || !scopeType) {
+        return res.status(400).json({ message: "name, mode, and scopeType are required" });
+      }
+      const thread = await storage.createChatThread({
+        name,
+        mode,
+        scopeType,
+        scopeId: scopeId || null,
+        createdBy: userId,
+      });
+      await storage.addChatThreadMember({ threadId: thread.id, userId, role: "admin" });
+      if (memberIds && Array.isArray(memberIds)) {
+        for (const memberId of memberIds) {
+          if (memberId !== userId) {
+            await storage.addChatThreadMember({ threadId: thread.id, userId: memberId, role: "member" });
+          }
+        }
+      }
+      res.status(201).json(thread);
+    } catch (error) {
+      console.error("Error creating chat thread:", error);
+      res.status(500).json({ message: "Failed to create chat thread" });
+    }
+  });
+
+  app.get("/api/chat-threads/:id/messages", isAuthenticated, async (req: any, res) => {
+    try {
+      const messages = await storage.getChatThreadMessages(req.params.id);
+      const enriched = [];
+      for (const msg of messages) {
+        const [profile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, msg.senderId));
+        enriched.push({
+          ...msg,
+          senderName: profile?.displayName || "Unknown",
+          senderImage: profile?.profileImageUrl || null,
+        });
+      }
+      res.json(enriched);
+    } catch (error) {
+      console.error("Error fetching thread messages:", error);
+      res.status(500).json({ message: "Failed to fetch thread messages" });
+    }
+  });
+
+  app.post("/api/chat-threads/:id/messages", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { content } = req.body;
+      if (!content) {
+        return res.status(400).json({ message: "content is required" });
+      }
+      const message = await storage.createChatThreadMessage({
+        threadId: req.params.id,
+        senderId: userId,
+        content,
+      });
+      res.status(201).json(message);
+    } catch (error) {
+      console.error("Error sending thread message:", error);
+      res.status(500).json({ message: "Failed to send thread message" });
+    }
+  });
+
+  app.get("/api/chat-threads/:id/members", isAuthenticated, async (req: any, res) => {
+    try {
+      const members = await storage.getChatThreadMembers(req.params.id);
+      const enriched = [];
+      for (const m of members) {
+        const [profile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, m.userId));
+        enriched.push({
+          ...m,
+          displayName: profile?.displayName || "Unknown",
+          profileImageUrl: profile?.profileImageUrl || null,
+        });
+      }
+      res.json(enriched);
+    } catch (error) {
+      console.error("Error fetching thread members:", error);
+      res.status(500).json({ message: "Failed to fetch thread members" });
+    }
+  });
+
+  app.post("/api/chat-threads/:id/members", isAuthenticated, async (req: any, res) => {
+    try {
+      const { userId, role } = req.body;
+      if (!userId) {
+        return res.status(400).json({ message: "userId is required" });
+      }
+      const member = await storage.addChatThreadMember({
+        threadId: req.params.id,
+        userId,
+        role: role || "member",
+      });
+      res.status(201).json(member);
+    } catch (error) {
+      console.error("Error adding thread member:", error);
+      res.status(500).json({ message: "Failed to add thread member" });
+    }
+  });
+
+  app.delete("/api/chat-threads/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.deleteChatThread(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting chat thread:", error);
+      res.status(500).json({ message: "Failed to delete chat thread" });
+    }
+  });
+
   // ===== PLAYER INVITATIONS =====
 
   // Get invitations for a team
@@ -2726,6 +2854,66 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching my shared videos:", error);
       res.status(500).json({ message: "Failed to fetch shared videos" });
+    }
+  });
+
+  // ===== AGGREGATED SHARED VIDEOS =====
+
+  app.get("/api/coach/all-videos", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const teams = await storage.getCoachTeams(userId, "coach");
+      const allVideos: any[] = [];
+      for (const team of teams) {
+        const videos = await storage.getSharedVideos(team.id);
+        const members = await storage.getTeamMembers(team.id);
+        for (const video of videos) {
+          const member = members.find(m => m.userId === video.userId);
+          const [profile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, video.userId));
+          allVideos.push({
+            ...video,
+            teamId: team.id,
+            teamName: team.name,
+            position: member?.position || null,
+            ageGroup: team.ageGroup || null,
+            playerAge: profile?.age || null,
+          });
+        }
+      }
+      allVideos.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      res.json(allVideos);
+    } catch (error) {
+      console.error("Error fetching all coach videos:", error);
+      res.status(500).json({ message: "Failed to fetch videos" });
+    }
+  });
+
+  app.get("/api/trainer/all-videos", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const groups = await storage.getCoachTeams(userId, "trainer");
+      const allVideos: any[] = [];
+      for (const group of groups) {
+        const videos = await storage.getSharedVideos(group.id);
+        const members = await storage.getTeamMembers(group.id);
+        for (const video of videos) {
+          const member = members.find(m => m.userId === video.userId);
+          const [profile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, video.userId));
+          allVideos.push({
+            ...video,
+            groupId: group.id,
+            groupName: group.name,
+            position: member?.position || null,
+            ageGroup: group.ageGroup || null,
+            playerAge: profile?.age || null,
+          });
+        }
+      }
+      allVideos.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      res.json(allVideos);
+    } catch (error) {
+      console.error("Error fetching all trainer videos:", error);
+      res.status(500).json({ message: "Failed to fetch videos" });
     }
   });
 

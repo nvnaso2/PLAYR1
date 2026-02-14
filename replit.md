@@ -1,272 +1,44 @@
 # PLAYR1 Basketball Training Platform
 
 ## Overview
-A "Netflix for basketball drills" platform (app name: PLAYR1). Features Handlz branded drill content. Users can browse professional training videos, log their practice sessions, track progress, upload personal training videos, and benchmark against the community by age.
+PLAYR1 is a "Netflix for basketball drills" platform featuring Handlz branded drill content. It enables users to access professional training videos, log practice sessions, track progress, upload personal training videos, and benchmark their performance against a community of peers. The platform aims to provide a comprehensive basketball training experience, fostering skill development and community engagement.
 
-## Tech Stack
-- **Frontend**: React + TypeScript with Vite, Wouter routing, TanStack Query
-- **Backend**: Express.js with TypeScript
-- **Database**: PostgreSQL with Drizzle ORM
-- **Authentication**: Replit Auth (OIDC)
-- **Styling**: Tailwind CSS with shadcn/ui components
+## User Preferences
+- I prefer clear and concise explanations.
+- I like an iterative development process, where I can provide feedback frequently.
+- Please ask for my approval before implementing major changes or architectural decisions.
+- Focus on delivering functional features quickly.
+- Ensure the user interface is intuitive and user-friendly.
 
-## Key Features
-1. **Drill Library**: 500+ drills across 7 categories (ball handling, shooting, passing, finishing, defense, basketball IQ, workouts)
-2. **Training Log**: Multi-drill workout flow with table-based tracking and configurable drill metrics
-   - Select multiple drills for a workout session
-   - Track duration, score, notes per drill
-   - Dynamic metric inputs based on admin-configured drill metrics
-   - Required metric validation before saving
-   - **Shot Location Tracking**: For shooting drills, track per-round:
-     - Shot location (16 locations: free-throw, corners, wings, hashes, blocks, mid-range)
-     - Shots attempted and shots made
-     - Auto-classification: locations are auto-classified as Free Throw, 2-pointer, or 3-pointer
-   - **Half-Court Shot Chart**: Visual map showing made/missed shots by location
-3. **User-Created Drills**: Users can create and manage their own custom drills
-4. **Progress Tracking**: Charts and analytics showing improvement over time
-   - Shooting Heatmap: Visual half-court map showing shot performance by location
-   - Time period filtering (daily, weekly, monthly, annual)
-5. **Trophy Room**: Achievement and challenge tracking system
-   - **Challenges**: App-generated or self-created challenges (e.g., "100 Makes")
-     - Categories: Shooting, Ball Handling, Passing, Workout
-     - Metrics: Makes, Dribbles, Passes, Reps, Time, Score
-     - Goal Types: Total, Consecutive, Timed
-   - **Personal Records (PRs)**: Badges earned when beating prior records
-   - **Team Awards**: Awards from organized teams (manually added)
-6. **Personal Videos**: Upload and manage training videos
-7. **Community Benchmarks**: Compare performance against players your age
-8. **User Profiles**: Location-based profiles with skill level tracking
-9. **Admin Dashboard**: Full CRUD operations for drill management (admin users only)
-10. **Player Profile**: Recruiting-style public profile page
-    - Slug-based public URL (/player/:slug) accessible without auth
-    - Bio, measurements, grad year, social links, visibility settings
-    - **Season-level visibility**: Users can toggle which seasons appear on public profile
-    - Skills section removed from public profile (not shared publicly)
-    - Edit mode at /player-profile (authenticated)
-11. **Social Media Share Cards**: Share game stats across platforms
-    - Platform-specific templates: X/Twitter, Instagram, Facebook, YouTube, TikTok
-    - Copy-to-clipboard formatted stats text
-    - PNG download via html2canvas
-    - Integrated into Career page game rows (Share button)
-12. **Coach Mode** (/coach): Roster-based team management
-    - Create/manage teams with season year and age group
-    - Roster management with position and jersey number editing
-    - Assign drills to teams with due dates and notes
-    - View player training logs (integrated from player app usage)
-    - **Chat**: Player-Coach messaging with conversation list and real-time thread
-    - **Videos**: View training videos uploaded by team players
-    - **Invite**: Invite players by email or share team code
-    - Players join teams via code, view assigned drills, mark completed
-13. **Trainer Mode** (/trainer): Flexible player group management
-    - Create/manage player groups with age grouping
-    - Player list management with filtering
-    - Assign drills to groups with due dates and notes
-    - View player training logs (integrated from player app usage)
-    - **Chat**: Player-Trainer messaging with conversation list and real-time thread
-    - **Videos**: View training videos uploaded by group players
-    - **Invite**: Invite players by email or share group code
-    - Players join groups via code, view assigned drills, mark completed
-    - Both modes have 8 matching tabs: Roster/Players, Assign, Logs, Chat, Videos, Invite, Join, Assigned
+## System Architecture
+The platform is built with a modern web stack, utilizing React + TypeScript for the frontend, an Express.js backend, and a PostgreSQL database with Drizzle ORM. Authentication is handled via Replit Auth (OIDC). Styling is managed with Tailwind CSS and shadcn/ui components, adhering to a basketball-inspired theme with an orange primary color and dark mode enabled by default.
 
-## Project Structure
-```
-client/src/
-├── components/         # Reusable UI components
-│   ├── ui/            # shadcn/ui components
-│   ├── app-sidebar.tsx
-│   ├── category-card.tsx
-│   ├── drill-card.tsx
-│   ├── half-court-map.tsx  # Shot location visualization
-│   ├── share-card.tsx     # Social media share card dialog
-│   ├── stats-card.tsx
-│   ├── theme-provider.tsx
-│   └── theme-toggle.tsx
-├── pages/             # Route pages
-│   ├── landing.tsx    # Public landing page
-│   ├── dashboard.tsx  # User dashboard
-│   ├── drills.tsx     # Drill library
-│   ├── drill.tsx      # Single drill view
-│   ├── training-log.tsx
-│   ├── progress.tsx   # Stats & charts
-│   ├── videos.tsx     # User videos
-│   ├── profile.tsx    # User profile
-│   ├── career.tsx     # Baseball card stats & game logs
-│   ├── player-profile.tsx  # Player profile edit (authenticated)
-│   ├── player-public.tsx   # Public player profile (/player/:slug)
-│   ├── coach.tsx      # Coach Mode dashboard
-│   ├── trainer.tsx    # Trainer Mode dashboard
-│   └── admin.tsx      # Admin dashboard (drill management)
-├── hooks/
-│   ├── use-auth.ts    # Authentication hook
-│   ├── use-admin.ts   # Admin status hook
-│   └── use-toast.ts
-└── lib/
-    ├── queryClient.ts
-    └── auth-utils.ts
+**Key Features:**
 
-server/
-├── index.ts           # Express server entry
-├── routes.ts          # API routes
-├── storage.ts         # Database operations
-├── seed.ts            # Database seeding
-├── db.ts              # Drizzle connection
-└── replit_integrations/auth/  # Replit Auth
+*   **Drill Library & Training Log**: Offers a vast library of 500+ drills across seven categories. Users can select multiple drills for a workout, track duration, scores, and notes, with dynamic and validated metric inputs. Specific features include detailed shot location tracking and a visual half-court shot chart for shooting drills.
+*   **Progress Tracking & Achievements**: Provides charts and analytics to visualize improvement over time, including a shooting heatmap. A "Trophy Room" system tracks achievements, challenges (app-generated or user-created with various metrics and goal types), personal records, and team awards.
+*   **User-Generated Content**: Users can create their own custom drills and upload personal training videos.
+*   **Community & Social Features**: Allows users to compare performance against peers of the same age, maintain public player profiles with customizable visibility, and generate shareable social media cards for game stats.
+*   **Admin Dashboard**: A comprehensive dashboard for administrators to manage drills, video content, PDF resources, metric templates, and user accounts with full CRUD operations.
+*   **Coach & Trainer Modes**: Dedicated modes (`/coach` and `/trainer`) enable team and group management, drill assignment with due dates, player training log review, player-coach/trainer chat (1:1 DMs and group chats with team/position/custom scopes), and aggregated video viewing with comprehensive filters (Team/Group, Player, Position, Age, Date).
+*   **Group Chat**: Chat threads support team-based, position-based, and custom group conversations. Schema uses chatThreads, chatThreadMembers, chatThreadMessages tables with mode (coach/trainer) separation.
+*   **Mobile Support**: The platform is designed to be accessible via native iOS and Android apps using Capacitor, ensuring a touch-friendly and responsive experience with platform-specific configurations.
 
-shared/
-├── schema.ts          # Drizzle schema + types
-└── models/auth.ts     # Auth-related tables
-```
+**Technical Implementations:**
 
-## API Routes
-- `GET /api/drills` - List all drills
-- `GET /api/drills/featured` - Featured drills
-- `GET /api/drills/:id` - Single drill
-- `POST /api/drills` - Create drill (admin only)
-- `PUT /api/drills/:id` - Update drill (admin only)
-- `DELETE /api/drills/:id` - Delete drill (admin only)
-- `GET /api/drills/:id/metrics` - Get drill metrics configuration
-- `POST /api/drills/:id/metrics` - Assign metric templates to drill (admin only)
-- `PUT /api/drill-metrics/:id` - Update drill metric (admin only)
-- `DELETE /api/drill-metrics/:id` - Delete drill metric (admin only)
-- `GET /api/video-library` - List all videos in library (admin only)
-- `POST /api/video-library` - Add video to library (admin only)
-- `PUT /api/video-library/:id` - Update video (admin only)
-- `DELETE /api/video-library/:id` - Delete video (admin only)
-- `GET /api/pdf-library` - List all PDFs in library (admin only)
-- `GET /api/pdf-library/:id` - Get single PDF (admin only)
-- `POST /api/pdf-library` - Add PDF to library (admin only)
-- `PUT /api/pdf-library/:id` - Update PDF (admin only)
-- `DELETE /api/pdf-library/:id` - Delete PDF (admin only)
-- `GET /api/metric-templates` - List all metric templates (admin only)
-- `POST /api/metric-templates` - Create metric template (admin only)
-- `PUT /api/metric-templates/:id` - Update metric template (admin only)
-- `DELETE /api/metric-templates/:id` - Delete metric template (admin only)
-- `GET /api/admin/check` - Check if current user is admin
-- `GET /api/admin/users` - List all users (admin only)
-- `POST /api/admin/users` - Create new user (admin only)
-- `PUT /api/admin/users/:id/admin` - Toggle user admin status (admin only)
-- `GET /api/drills/my-drills` - User's drills with personal bests
-- `GET /api/training-logs` - User's training logs
-- `POST /api/training-logs` - Create training log
-- `GET /api/training-logs/:id/metrics` - Get training log metrics
-- `POST /api/training-logs/:id/metrics` - Save training log metrics
-- `GET /api/profile` - User profile
-- `PUT /api/profile` - Update profile
-- `GET /api/videos` - User's videos
-- `POST /api/videos` - Upload video
-- `DELETE /api/videos/:id` - Delete video
-- `GET /api/stats/overview` - User stats summary
-- `GET /api/stats/weekly` - Weekly stats
-- `GET /api/stats/by-category` - Stats by category
-- `GET /api/stats/shots` - Shot statistics by location (for heatmap)
-- `GET /api/benchmarks` - Community benchmarks
-- `GET /api/challenges` - List all challenges
-- `GET /api/challenges/my-challenges` - User's active challenges
-- `POST /api/challenges` - Create challenge
-- `POST /api/challenges/:id/start` - Start a challenge
-- `PUT /api/challenges/:id/progress` - Update challenge progress
-- `POST /api/challenges/:id/complete` - Complete a challenge
-- `DELETE /api/challenges/:id` - Delete challenge (owner only)
-- `GET /api/personal-records` - User's personal records
-- `GET /api/team-awards` - User's team awards
-- `POST /api/team-awards` - Add team award
-- `PUT /api/team-awards/:id` - Update team award
-- `DELETE /api/team-awards/:id` - Delete team award
+*   **Database Schema**: A well-defined PostgreSQL schema manages users, drills, training logs, user-generated content, progress data, challenges, and team/group-related information.
+*   **API Design**: A RESTful API provides endpoints for all major functionalities, with clear distinctions for user and admin actions.
+*   **File Uploads**: Secure direct-to-storage uploads for videos, images, and PDFs are handled via presigned URLs using Replit's App Storage, supporting various file types and size limits.
 
-## Database Schema
-- `users` - Auth users (Replit Auth)
-- `sessions` - Session storage
-- `user_profiles` - Extended user data (age, location, skill level, isAdmin flag)
-- `drills` - Training drills
-- `video_library` - Centralized video storage for admin-uploaded training videos
-- `pdf_library` - Centralized PDF storage for admin-uploaded training documents
-- `metric_templates` - Reusable metric definitions (e.g., Shot Attempts, Shots Made, Shooting %)
-- `drill_metrics` - Join table linking drills to metric templates
-- `training_logs` - User training sessions
-- `training_log_metrics` - Metric values recorded per training log
-- `user_videos` - Uploaded training videos
-- `drill_progress` - Aggregated drill progress
-- `benchmarks` - Community averages by age
-- `challenges` - User-created and app-generated challenges
-- `user_challenges` - User challenge progress/completion tracking
-- `personal_records` - PRs earned when beating prior records
-- `team_awards` - Awards from organized teams
-- `drill_ratings` - User ratings for drills (1-5 basketball scale, one per user per drill)
-
-## Admin Access
-- Admin status is determined by: 1) `ADMIN_USER_IDS` environment variable (bootstrap), or 2) `isAdmin` field in user_profiles table
-- Set `ADMIN_USER_IDS` to a comma-separated list of user IDs for initial bootstrap admins
-- Admin navigation appears in sidebar only for admin users
-- Non-admin users attempting to access /admin see an access denied message
-
-### Admin Dashboard Features
-The admin dashboard has five tabs for managing content:
-
-1. **Video Library Tab**: Centralized video management
-   - Upload training videos with thumbnails
-   - Assign categories and tags to videos
-   - Videos are stored in object storage and can be reused across drills
-
-2. **PDF Library Tab**: Centralized PDF document management
-   - Upload training PDFs (playbooks, instructions, guides)
-   - Assign categories and difficulty levels to PDFs
-   - Link PDFs to specific drills with bidirectional synchronization
-   - PDFs are stored in object storage (50MB limit)
-
-3. **Metrics Tab**: Reusable metric template configuration
-   - Create metric templates (e.g., "Shot Attempts", "Shots Made", "Shooting %")
-   - Support for number type (user enters value) and calculated type (auto-computed via formula)
-   - Formulas can reference other metrics and formula inputs
-   - Templates can be assigned to multiple drills
-
-4. **Drills Tab**: Create and manage training drills
-   - Select videos from the centralized Video Library
-   - Select PDFs from the centralized PDF Library
-   - Configure which metric templates apply to each drill
-   - Set featured drills, difficulty levels, categories
-   - **Track Shot Locations**: Enable shot location tracking for any drill (shows shot chart in training log)
-
-5. **Users Tab**: User and permission management
-   - View all users
-   - Create new users
-   - Toggle admin status for any user
-
-## File Uploads (Object Storage)
-- Admins can upload video, thumbnail, and PDF files directly using Replit's App Storage
-- Upload flow uses presigned URLs for secure direct-to-storage uploads
-- Supported video types: MP4, WebM, QuickTime, AVI (max 100MB)
-- Supported image types: JPEG, PNG, GIF, WebP (max 10MB)
-- Supported document types: PDF (max 50MB)
-- Files are served from `/objects/` paths
-- API: `POST /api/uploads/request-url` (requires auth + admin)
-- API: `GET /objects/{*objectPath}` (serves uploaded files)
-
-## Running the App
-- Development: `npm run dev`
-- Database push: `npm run db:push`
-
-## Mobile App (Capacitor)
-The platform supports native iOS and Android apps via Capacitor:
-
-### Configuration
-- **App ID**: com.handlz.training
-- **App Name**: Handlz Training
-- **Config File**: `capacitor.config.ts`
-
-### Build Process
-1. Run `./mobile/setup.sh` to initialize native platforms
-2. Use `./mobile/build-ios.sh` for iOS builds (requires Mac with Xcode)
-3. Use `./mobile/build-android.sh` for Android builds (requires Android Studio)
-
-### Mobile Features
-- Safe area support for iOS notch and Android navigation
-- Touch-friendly inputs with 16px minimum font size
-- Responsive layouts with stacking tabs on small screens
-- Native splash screens and app icons
-
-See `mobile/MOBILE_BUILD_GUIDE.md` for detailed deployment instructions.
-
-## Design Notes
-- Basketball-inspired theme with orange (#f97316) primary color
-- Dark mode enabled by default
-- Uses Handlz brand assets for hero images and logo
+## External Dependencies
+*   **Replit Auth**: For user authentication (OIDC).
+*   **PostgreSQL**: Relational database management system.
+*   **Drizzle ORM**: Object-Relational Mapper for database interactions.
+*   **Vite**: Frontend build tool.
+*   **Wouter**: Client-side routing for React.
+*   **TanStack Query**: Data fetching and caching library.
+*   **Tailwind CSS**: Utility-first CSS framework.
+*   **shadcn/ui**: UI component library.
+*   **html2canvas**: For generating PNG downloads of social media share cards.
+*   **Capacitor**: For building native iOS and Android applications.
+*   **Replit App Storage**: For object storage of uploaded media (videos, thumbnails, PDFs).

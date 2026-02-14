@@ -647,6 +647,34 @@ export const sharedVideos = pgTable("shared_videos", {
   createdAt: timestamp("created_at").defaultNow()
 });
 
+// Group chat threads
+export const chatThreads = pgTable("chat_threads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ownerId: varchar("owner_id").notNull(),
+  name: varchar("name").notNull(),
+  scopeType: varchar("scope_type").notNull(), // "team" | "group" | "position" | "custom"
+  scopeId: varchar("scope_id"), // teamId/groupId for team/group chats, position value for position chats
+  mode: varchar("mode").default("coach"), // "coach" | "trainer"
+  isSaved: boolean("is_saved").default(true),
+  createdAt: timestamp("created_at").defaultNow()
+});
+
+export const chatThreadMembers = pgTable("chat_thread_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  threadId: varchar("thread_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  addedAt: timestamp("added_at").defaultNow()
+});
+
+export const chatThreadMessages = pgTable("chat_thread_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  threadId: varchar("thread_id").notNull(),
+  senderId: varchar("sender_id").notNull(),
+  senderName: varchar("sender_name"),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow()
+});
+
 // Coach-managed players (independent of teams)
 export const coachPlayers = pgTable("coach_players", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -761,6 +789,9 @@ export const insertCoachPlayerSchema = createInsertSchema(coachPlayers).omit({ i
 export const insertCoachPlayerAssignmentSchema = createInsertSchema(coachPlayerAssignments).omit({ id: true, assignedAt: true });
 export const insertTrainerPlayerSchema = createInsertSchema(trainerPlayers).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertTrainerPlayerAssignmentSchema = createInsertSchema(trainerPlayerAssignments).omit({ id: true, assignedAt: true });
+export const insertChatThreadSchema = createInsertSchema(chatThreads).omit({ id: true, createdAt: true });
+export const insertChatThreadMemberSchema = createInsertSchema(chatThreadMembers).omit({ id: true, addedAt: true });
+export const insertChatThreadMessageSchema = createInsertSchema(chatThreadMessages).omit({ id: true, createdAt: true });
 
 // Types
 export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
@@ -830,6 +861,12 @@ export type InsertTrainerPlayer = z.infer<typeof insertTrainerPlayerSchema>;
 export type TrainerPlayer = typeof trainerPlayers.$inferSelect;
 export type InsertTrainerPlayerAssignment = z.infer<typeof insertTrainerPlayerAssignmentSchema>;
 export type TrainerPlayerAssignment = typeof trainerPlayerAssignments.$inferSelect;
+export type InsertChatThread = z.infer<typeof insertChatThreadSchema>;
+export type ChatThread = typeof chatThreads.$inferSelect;
+export type InsertChatThreadMember = z.infer<typeof insertChatThreadMemberSchema>;
+export type ChatThreadMember = typeof chatThreadMembers.$inferSelect;
+export type InsertChatThreadMessage = z.infer<typeof insertChatThreadMessageSchema>;
+export type ChatThreadMessage = typeof chatThreadMessages.$inferSelect;
 
 // ===== TEAM & LEAGUE FINDER =====
 
