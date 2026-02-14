@@ -48,11 +48,25 @@ A "Netflix for basketball drills" platform (app name: PLAYR1). Features Handlz b
     - Copy-to-clipboard formatted stats text
     - PNG download via html2canvas
     - Integrated into Career page game rows (Share button)
-12. **Trainer/Coach Dashboard**: Team management and drill assignments
-    - Create/manage teams with unique invite codes
+12. **Coach Mode** (/coach): Roster-based team management
+    - Create/manage teams with season year and age group
+    - Roster management with position and jersey number editing
     - Assign drills to teams with due dates and notes
-    - Players join teams via code, view assigned drills
-    - Mark assignments as completed
+    - View player training logs (integrated from player app usage)
+    - **Chat**: Player-Coach messaging with conversation list and real-time thread
+    - **Videos**: View training videos uploaded by team players
+    - **Invite**: Invite players by email or share team code
+    - Players join teams via code, view assigned drills, mark completed
+13. **Trainer Mode** (/trainer): Flexible player group management
+    - Create/manage player groups with age grouping
+    - Player list management with filtering
+    - Assign drills to groups with due dates and notes
+    - View player training logs (integrated from player app usage)
+    - **Chat**: Player-Trainer messaging with conversation list and real-time thread
+    - **Videos**: View training videos uploaded by group players
+    - **Invite**: Invite players by email or share group code
+    - Players join groups via code, view assigned drills, mark completed
+    - Both modes have 8 matching tabs: Roster/Players, Assign, Logs, Chat, Videos, Invite, Join, Assigned
 
 ## Project Structure
 ```
@@ -79,7 +93,8 @@ client/src/
 │   ├── career.tsx     # Baseball card stats & game logs
 │   ├── player-profile.tsx  # Player profile edit (authenticated)
 │   ├── player-public.tsx   # Public player profile (/player/:slug)
-│   ├── coach.tsx      # Trainer/Coach dashboard
+│   ├── coach.tsx      # Coach Mode dashboard
+│   ├── trainer.tsx    # Trainer Mode dashboard
 │   └── admin.tsx      # Admin dashboard (drill management)
 ├── hooks/
 │   ├── use-auth.ts    # Authentication hook

@@ -66,6 +66,10 @@ import {
   LogOut,
   FileText,
   Edit2,
+  MessageCircle,
+  Video,
+  Mail,
+  Send,
 } from "lucide-react";
 import { insertTrainerTeamSchema, insertDrillAssignmentSchema } from "@shared/schema";
 
@@ -131,6 +135,57 @@ interface TrainingLogEntry {
   completedAt: string;
   playerName: string;
   playerId: string;
+}
+
+interface ChatContact {
+  id: string;
+  name: string;
+  image?: string;
+  teamName: string;
+}
+
+interface Conversation {
+  partnerId: string;
+  partnerName: string;
+  partnerImage?: string;
+  lastMessage: string;
+  lastMessageAt: string;
+  unreadCount: number;
+  teamId?: string;
+  teamName?: string;
+}
+
+interface ChatMessage {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  content: string;
+  isRead: boolean;
+  createdAt: string;
+  teamId?: string;
+}
+
+interface Invitation {
+  id: string;
+  teamId: string;
+  invitedBy: string;
+  email: string;
+  playerName?: string;
+  status: string;
+  createdAt: string;
+}
+
+interface PlayerVideo {
+  userId: string;
+  playerName: string;
+  videos: Array<{
+    id: string;
+    title: string;
+    videoUrl: string;
+    thumbnailUrl?: string;
+    description?: string;
+    createdAt: string;
+  }>;
 }
 
 const currentYear = new Date().getFullYear();
@@ -963,6 +1018,439 @@ function TrainingLogsTab() {
   );
 }
 
+function ChatTab() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [selectedContact, setSelectedContact] = useState<string | null>(null);
+  const [selectedContactName, setSelectedContactName] = useState("");
+  const [messageText, setMessageText] = useState("");
+
+  const { data: conversations, isLoading: convsLoading } = useQuery<Conversation[]>({
+    queryKey: ["/api/messages/conversations"],
+    refetchInterval: 10000,
+  });
+
+  const { data: contacts } = useQuery<ChatContact[]>({
+    queryKey: ["/api/messages/contacts/coach"],
+  });
+
+  const { data: chatMessages, isLoading: messagesLoading } = useQuery<ChatMessage[]>({
+    queryKey: ["/api/messages", selectedContact],
+    enabled: !!selectedContact,
+    refetchInterval: 5000,
+  });
+
+  const sendMutation = useMutation({
+    mutationFn: (data: { receiverId: string; content: string }) =>
+      apiRequest("POST", "/api/messages", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/messages", selectedContact] });
+      queryClient.invalidateQueries({ queryKey: ["/api/messages/conversations"] });
+      setMessageText("");
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to send message", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleSend = () => {
+    if (!messageText.trim() || !selectedContact) return;
+    sendMutation.mutate({ receiverId: selectedContact, content: messageText.trim() });
+  };
+
+  if (selectedContact) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="ghost" onClick={() => setSelectedContact(null)} data-testid="button-back-to-conversations">
+            <Users className="w-4 h-4" />
+            Back
+          </Button>
+          <h2 className="text-lg font-semibold" data-testid="text-chat-partner-name">{selectedContactName}</h2>
+        </div>
+
+        <Card>
+          <CardContent className="p-3">
+            <div className="h-64 overflow-y-auto space-y-2 mb-3" data-testid="chat-messages-container">
+              {messagesLoading ? (
+                <div className="space-y-2">
+                  {[1, 2, 3].map((i) => <Skeleton key={i} className="h-10 rounded-lg" />)}
+                </div>
+              ) : !chatMessages?.length ? (
+                <p className="text-center text-sm text-muted-foreground py-8">No messages yet. Start the conversation!</p>
+              ) : (
+                chatMessages.map((msg) => (
+                  <div
+                    key={msg.id}
+                    className={`flex ${msg.senderId === user?.id ? "justify-end" : "justify-start"}`}
+                    data-testid={`chat-message-${msg.id}`}
+                  >
+                    <div
+                      className={`max-w-[75%] rounded-lg px-3 py-2 text-sm ${
+                        msg.senderId === user?.id
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted"
+                      }`}
+                    >
+                      <p>{msg.content}</p>
+                      <p className={`text-[10px] mt-1 ${msg.senderId === user?.id ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                        {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Input
+                value={messageText}
+                onChange={(e) => setMessageText(e.target.value)}
+                placeholder="Type a message..."
+                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+                data-testid="input-chat-message"
+              />
+              <Button
+                size="icon"
+                onClick={handleSend}
+                disabled={!messageText.trim() || sendMutation.isPending}
+                data-testid="button-send-message"
+              >
+                <Send className="w-4 h-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <h2 className="text-lg font-semibold" data-testid="text-coach-chat-heading">Messages</h2>
+
+      {contacts && contacts.length > 0 && (
+        <Card>
+          <CardHeader className="py-3">
+            <CardTitle className="text-sm">Start a New Conversation</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0 pb-3">
+            <div className="flex flex-wrap gap-2">
+              {contacts.map((contact) => (
+                <Button
+                  key={contact.id}
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setSelectedContact(contact.id);
+                    setSelectedContactName(contact.name);
+                  }}
+                  data-testid={`button-start-chat-${contact.id}`}
+                >
+                  <MessageCircle className="w-3 h-3" />
+                  {contact.name}
+                </Button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {convsLoading ? (
+        <div className="space-y-2">
+          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 rounded-lg" />)}
+        </div>
+      ) : !conversations?.length ? (
+        <Card>
+          <CardContent className="py-8 text-center text-muted-foreground" data-testid="text-no-conversations">
+            <MessageCircle className="w-10 h-10 mx-auto mb-3 opacity-50" />
+            <p>No conversations yet. Select a player above to start chatting.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {conversations.map((conv) => (
+            <Card
+              key={conv.partnerId}
+              className="hover-elevate cursor-pointer"
+              onClick={() => {
+                setSelectedContact(conv.partnerId);
+                setSelectedContactName(conv.partnerName);
+              }}
+              data-testid={`card-conversation-${conv.partnerId}`}
+            >
+              <CardContent className="py-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Avatar className="h-8 w-8 shrink-0">
+                      {conv.partnerImage && <AvatarImage src={conv.partnerImage} />}
+                      <AvatarFallback className="text-xs">{conv.partnerName.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{conv.partnerName}</p>
+                      <p className="text-xs text-muted-foreground truncate">{conv.lastMessage}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {conv.unreadCount > 0 && (
+                      <Badge variant="default" className="no-default-hover-elevate text-xs">{conv.unreadCount}</Badge>
+                    )}
+                    <span className="text-[10px] text-muted-foreground">
+                      {new Date(conv.lastMessageAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function VideosTab() {
+  const [selectedTeamId, setSelectedTeamId] = useState<string>("");
+
+  const { data: teams } = useQuery<CoachTeam[]>({
+    queryKey: ["/api/coach/teams"],
+  });
+
+  const { data: playerVideos, isLoading: videosLoading } = useQuery<PlayerVideo[]>({
+    queryKey: ["/api/coach/teams", selectedTeamId, "videos"],
+    enabled: !!selectedTeamId,
+  });
+
+  return (
+    <div className="space-y-4">
+      <h2 className="text-lg font-semibold" data-testid="text-coach-videos-heading">Player Videos</h2>
+
+      <div className="flex items-center gap-3">
+        <Select value={selectedTeamId} onValueChange={setSelectedTeamId}>
+          <SelectTrigger className="w-[220px]" data-testid="select-video-team">
+            <SelectValue placeholder="Select a team" />
+          </SelectTrigger>
+          <SelectContent>
+            {teams?.map((team) => (
+              <SelectItem key={team.id} value={team.id}>
+                {team.name} {team.seasonYear ? `(${team.seasonYear})` : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {selectedTeamId && (
+        <>
+          {videosLoading ? (
+            <div className="space-y-2">
+              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-20 rounded-lg" />)}
+            </div>
+          ) : !playerVideos?.length ? (
+            <Card>
+              <CardContent className="py-8 text-center text-muted-foreground" data-testid="text-no-player-videos">
+                <Video className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                <p>No player videos found for this team.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {playerVideos.map((player) => (
+                <div key={player.userId} className="space-y-2">
+                  <h3 className="text-sm font-semibold text-muted-foreground">{player.playerName}</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {player.videos.map((video: any) => (
+                      <Card key={video.id} data-testid={`card-player-video-${video.id}`}>
+                        <CardContent className="py-3">
+                          <div className="space-y-2">
+                            <p className="text-sm font-medium truncate">{video.title}</p>
+                            {video.description && (
+                              <p className="text-xs text-muted-foreground line-clamp-2">{video.description}</p>
+                            )}
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[10px] text-muted-foreground">
+                                {new Date(video.createdAt).toLocaleDateString()}
+                              </span>
+                              <Button size="sm" variant="ghost" asChild data-testid={`button-watch-video-${video.id}`}>
+                                <a href={video.videoUrl} target="_blank" rel="noopener noreferrer">
+                                  <Video className="w-3 h-3" />
+                                  Watch
+                                </a>
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function InvitePlayersTab() {
+  const { toast } = useToast();
+  const [selectedTeamId, setSelectedTeamId] = useState<string>("");
+  const [email, setEmail] = useState("");
+  const [playerName, setPlayerName] = useState("");
+
+  const { data: teams } = useQuery<CoachTeam[]>({
+    queryKey: ["/api/coach/teams"],
+  });
+
+  const { data: invitations, isLoading: invitationsLoading } = useQuery<Invitation[]>({
+    queryKey: ["/api/invitations", selectedTeamId],
+    enabled: !!selectedTeamId,
+  });
+
+  const inviteMutation = useMutation({
+    mutationFn: (data: { teamId: string; email: string; playerName?: string }) =>
+      apiRequest("POST", "/api/invitations", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/invitations", selectedTeamId] });
+      setEmail("");
+      setPlayerName("");
+      toast({ title: "Invitation sent!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to send invitation", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/invitations/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/invitations", selectedTeamId] });
+      toast({ title: "Invitation removed" });
+    },
+  });
+
+  const handleInvite = () => {
+    if (!selectedTeamId || !email.trim()) return;
+    inviteMutation.mutate({ teamId: selectedTeamId, email: email.trim(), playerName: playerName.trim() || undefined });
+  };
+
+  return (
+    <div className="space-y-4">
+      <h2 className="text-lg font-semibold" data-testid="text-invite-players-heading">Invite Players</h2>
+
+      <Card>
+        <CardContent className="pt-6 space-y-4">
+          <div>
+            <label className="text-sm font-medium">Select Team</label>
+            <Select value={selectedTeamId} onValueChange={setSelectedTeamId}>
+              <SelectTrigger className="mt-1" data-testid="select-invite-team">
+                <SelectValue placeholder="Choose a team..." />
+              </SelectTrigger>
+              <SelectContent>
+                {teams?.map((team) => (
+                  <SelectItem key={team.id} value={team.id}>
+                    {team.name} {team.seasonYear ? `(${team.seasonYear})` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {selectedTeamId && (
+            <>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex-1">
+                  <label className="text-sm font-medium">Player Email</label>
+                  <Input
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="player@email.com"
+                    type="email"
+                    className="mt-1"
+                    data-testid="input-invite-email"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="text-sm font-medium">Player Name (optional)</label>
+                  <Input
+                    value={playerName}
+                    onChange={(e) => setPlayerName(e.target.value)}
+                    placeholder="First Last"
+                    className="mt-1"
+                    data-testid="input-invite-name"
+                  />
+                </div>
+              </div>
+              <Button
+                onClick={handleInvite}
+                disabled={!email.trim() || inviteMutation.isPending}
+                className="w-full sm:w-auto"
+                data-testid="button-send-invite"
+              >
+                <Mail className="w-4 h-4" />
+                {inviteMutation.isPending ? "Sending..." : "Send Invite"}
+              </Button>
+
+              {selectedTeamId && (
+                <div className="space-y-2 pt-2 border-t">
+                  <p className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                    <Copy className="w-3 h-3" />
+                    Or share team code: <Badge variant="outline" className="no-default-hover-elevate font-mono">{teams?.find(t => t.id === selectedTeamId)?.teamCode}</Badge>
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {selectedTeamId && (
+        <>
+          <h3 className="text-base font-semibold">Pending Invitations</h3>
+          {invitationsLoading ? (
+            <Skeleton className="h-20 rounded-lg" />
+          ) : !invitations?.length ? (
+            <Card>
+              <CardContent className="py-6 text-center text-muted-foreground" data-testid="text-no-invitations">
+                <Mail className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">No pending invitations for this team.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {invitations.map((inv) => (
+                <Card key={inv.id} data-testid={`card-invitation-${inv.id}`}>
+                  <CardContent className="py-3">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{inv.playerName || inv.email}</p>
+                        <p className="text-xs text-muted-foreground">{inv.email}</p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Badge variant={inv.status === "accepted" ? "default" : "outline"} className="no-default-hover-elevate text-xs">
+                          {inv.status}
+                        </Badge>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => deleteMutation.mutate(inv.id)}
+                          data-testid={`button-delete-invite-${inv.id}`}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 function JoinTeamTab() {
   const { toast } = useToast();
   const [leaveTeamId, setLeaveTeamId] = useState<string | null>(null);
@@ -1219,7 +1707,7 @@ export default function CoachPage() {
       </div>
 
       <Tabs defaultValue="roster">
-        <TabsList className="w-full grid grid-cols-3 sm:grid-cols-5 gap-1 h-auto" data-testid="tabs-coach-main">
+        <TabsList className="w-full grid grid-cols-4 sm:grid-cols-8 gap-1 h-auto" data-testid="tabs-coach-main">
           <TabsTrigger value="roster" className="text-xs sm:text-sm py-2" data-testid="tab-roster">
             <Users className="w-4 h-4 mr-1 shrink-0" />
             <span className="truncate">Roster</span>
@@ -1231,6 +1719,18 @@ export default function CoachPage() {
           <TabsTrigger value="training-logs" className="text-xs sm:text-sm py-2" data-testid="tab-training-logs">
             <FileText className="w-4 h-4 mr-1 shrink-0" />
             <span className="truncate">Logs</span>
+          </TabsTrigger>
+          <TabsTrigger value="chat" className="text-xs sm:text-sm py-2" data-testid="tab-coach-chat">
+            <MessageCircle className="w-4 h-4 mr-1 shrink-0" />
+            <span className="truncate">Chat</span>
+          </TabsTrigger>
+          <TabsTrigger value="videos" className="text-xs sm:text-sm py-2" data-testid="tab-coach-videos">
+            <Video className="w-4 h-4 mr-1 shrink-0" />
+            <span className="truncate">Videos</span>
+          </TabsTrigger>
+          <TabsTrigger value="invite" className="text-xs sm:text-sm py-2" data-testid="tab-coach-invite">
+            <Mail className="w-4 h-4 mr-1 shrink-0" />
+            <span className="truncate">Invite</span>
           </TabsTrigger>
           <TabsTrigger value="join-team" className="text-xs sm:text-sm py-2" data-testid="tab-join-team">
             <UserPlus className="w-4 h-4 mr-1 shrink-0" />
@@ -1250,6 +1750,15 @@ export default function CoachPage() {
         </TabsContent>
         <TabsContent value="training-logs">
           <TrainingLogsTab />
+        </TabsContent>
+        <TabsContent value="chat">
+          <ChatTab />
+        </TabsContent>
+        <TabsContent value="videos">
+          <VideosTab />
+        </TabsContent>
+        <TabsContent value="invite">
+          <InvitePlayersTab />
         </TabsContent>
         <TabsContent value="join-team">
           <JoinTeamTab />

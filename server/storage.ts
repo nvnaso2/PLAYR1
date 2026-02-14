@@ -28,7 +28,9 @@ import {
   teamMembers, type TeamMember, type InsertTeamMember,
   drillAssignments, type DrillAssignment, type InsertDrillAssignment,
   teamClubs, type TeamClub, type InsertTeamClub,
-  leagues, type League, type InsertLeague
+  leagues, type League, type InsertLeague,
+  messages, type Message, type InsertMessage,
+  playerInvitations, type PlayerInvitation, type InsertPlayerInvitation
 } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
@@ -216,6 +218,23 @@ export interface IStorage {
   createDrillAssignment(assignment: InsertDrillAssignment): Promise<DrillAssignment>;
   updateDrillAssignmentStatus(id: string, status: string): Promise<DrillAssignment | undefined>;
   deleteDrillAssignment(id: string): Promise<boolean>;
+
+  // Messages
+  getConversations(userId: string): Promise<Array<{ partnerId: string; partnerName: string; partnerImage?: string; lastMessage: string; lastMessageAt: Date; unreadCount: number; teamId?: string; teamName?: string }>>;
+  getMessages(userId: string, partnerId: string): Promise<Message[]>;
+  sendMessage(message: InsertMessage): Promise<Message>;
+  markMessagesRead(userId: string, senderId: string): Promise<void>;
+  getUnreadCount(userId: string): Promise<number>;
+
+  // Player Invitations
+  getTeamInvitations(teamId: string): Promise<PlayerInvitation[]>;
+  createInvitation(invitation: InsertPlayerInvitation): Promise<PlayerInvitation>;
+  getInvitationsByEmail(email: string): Promise<PlayerInvitation[]>;
+  updateInvitationStatus(id: string, status: string): Promise<PlayerInvitation | undefined>;
+  deleteInvitation(id: string): Promise<boolean>;
+
+  // Player Videos (for coach/trainer viewing)
+  getPlayerVideos(playerIds: string[]): Promise<Array<{ userId: string; playerName: string; videos: any[] }>>;
 
   // Career Stats
   getCareerStats(userId: string): Promise<{
@@ -1991,6 +2010,130 @@ export class DatabaseStorage implements IStorage {
   async deleteLeague(id: string): Promise<boolean> {
     await db.delete(leagues).where(eq(leagues.id, id));
     return true;
+  }
+
+  // ===== MESSAGES =====
+
+  async getConversations(userId: string): Promise<Array<{ partnerId: string; partnerName: string; partnerImage?: string; lastMessage: string; lastMessageAt: Date; unreadCount: number; teamId?: string; teamName?: string }>> {
+    const sentMessages = await db.select().from(messages).where(eq(messages.senderId, userId));
+    const receivedMessages = await db.select().from(messages).where(eq(messages.receiverId, userId));
+    const allMessages = [...sentMessages, ...receivedMessages];
+    
+    const partnerMap = new Map<string, { messages: Message[] }>();
+    for (const msg of allMessages) {
+      const partnerId = msg.senderId === userId ? msg.receiverId : msg.senderId;
+      if (!partnerMap.has(partnerId)) {
+        partnerMap.set(partnerId, { messages: [] });
+      }
+      partnerMap.get(partnerId)!.messages.push(msg);
+    }
+
+    const conversations: Array<{ partnerId: string; partnerName: string; partnerImage?: string; lastMessage: string; lastMessageAt: Date; unreadCount: number; teamId?: string; teamName?: string }> = [];
+    
+    for (const [partnerId, data] of partnerMap) {
+      const sorted = data.messages.sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
+      const lastMsg = sorted[0];
+      const unreadCount = sorted.filter(m => m.receiverId === userId && !m.isRead).length;
+      
+      const [partner] = await db.select().from(users).where(eq(users.id, partnerId));
+      const partnerName = partner ? `${partner.firstName || ''} ${partner.lastName || ''}`.trim() || partner.email || 'Unknown' : 'Unknown';
+      
+      let teamName: string | undefined;
+      if (lastMsg.teamId) {
+        const team = await this.getTeamById(lastMsg.teamId);
+        teamName = team?.name;
+      }
+      
+      conversations.push({
+        partnerId,
+        partnerName,
+        partnerImage: partner?.profileImageUrl || undefined,
+        lastMessage: lastMsg.content,
+        lastMessageAt: lastMsg.createdAt!,
+        unreadCount,
+        teamId: lastMsg.teamId || undefined,
+        teamName,
+      });
+    }
+    
+    conversations.sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
+    return conversations;
+  }
+
+  async getMessages(userId: string, partnerId: string): Promise<Message[]> {
+    return await db.select().from(messages)
+      .where(
+        or(
+          and(eq(messages.senderId, userId), eq(messages.receiverId, partnerId)),
+          and(eq(messages.senderId, partnerId), eq(messages.receiverId, userId))
+        )
+      )
+      .orderBy(messages.createdAt);
+  }
+
+  async sendMessage(message: InsertMessage): Promise<Message> {
+    const [created] = await db.insert(messages).values(message).returning();
+    return created;
+  }
+
+  async markMessagesRead(userId: string, senderId: string): Promise<void> {
+    await db.update(messages)
+      .set({ isRead: true })
+      .where(and(eq(messages.receiverId, userId), eq(messages.senderId, senderId), eq(messages.isRead, false)));
+  }
+
+  async getUnreadCount(userId: string): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)` })
+      .from(messages)
+      .where(and(eq(messages.receiverId, userId), eq(messages.isRead, false)));
+    return Number(result[0]?.count || 0);
+  }
+
+  // ===== PLAYER INVITATIONS =====
+
+  async getTeamInvitations(teamId: string): Promise<PlayerInvitation[]> {
+    return await db.select().from(playerInvitations)
+      .where(eq(playerInvitations.teamId, teamId))
+      .orderBy(desc(playerInvitations.createdAt));
+  }
+
+  async createInvitation(invitation: InsertPlayerInvitation): Promise<PlayerInvitation> {
+    const [created] = await db.insert(playerInvitations).values(invitation).returning();
+    return created;
+  }
+
+  async getInvitationsByEmail(email: string): Promise<PlayerInvitation[]> {
+    return await db.select().from(playerInvitations)
+      .where(and(eq(playerInvitations.email, email), eq(playerInvitations.status, "pending")));
+  }
+
+  async updateInvitationStatus(id: string, status: string): Promise<PlayerInvitation | undefined> {
+    const [updated] = await db.update(playerInvitations)
+      .set({ status })
+      .where(eq(playerInvitations.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteInvitation(id: string): Promise<boolean> {
+    await db.delete(playerInvitations).where(eq(playerInvitations.id, id));
+    return true;
+  }
+
+  // ===== PLAYER VIDEOS (for coach/trainer) =====
+
+  async getPlayerVideos(playerIds: string[]): Promise<Array<{ userId: string; playerName: string; videos: any[] }>> {
+    if (playerIds.length === 0) return [];
+    const result: Array<{ userId: string; playerName: string; videos: any[] }> = [];
+    for (const playerId of playerIds) {
+      const videos = await db.select().from(userVideos).where(eq(userVideos.userId, playerId)).orderBy(desc(userVideos.createdAt));
+      const [user] = await db.select().from(users).where(eq(users.id, playerId));
+      const playerName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown' : 'Unknown';
+      if (videos.length > 0) {
+        result.push({ userId: playerId, playerName, videos });
+      }
+    }
+    return result;
   }
 }
 

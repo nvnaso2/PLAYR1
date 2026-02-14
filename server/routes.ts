@@ -2379,6 +2379,193 @@ export async function registerRoutes(
     }
   });
 
+  // ===== MESSAGING =====
+
+  // Get unread count (must be before :partnerId route)
+  app.get("/api/messages/unread/count", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const count = await storage.getUnreadCount(userId);
+      res.json({ count });
+    } catch (error) {
+      console.error("Error fetching unread count:", error);
+      res.status(500).json({ message: "Failed to fetch unread count" });
+    }
+  });
+
+  // Get conversations list (must be before :partnerId route)
+  app.get("/api/messages/conversations", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const conversations = await storage.getConversations(userId);
+      res.json(conversations);
+    } catch (error) {
+      console.error("Error fetching conversations:", error);
+      res.status(500).json({ message: "Failed to fetch conversations" });
+    }
+  });
+
+  // Get contactable players (must be before :partnerId route)
+  app.get("/api/messages/contacts/:mode", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const mode = req.params.mode;
+      const teamType = mode === "coach" ? "coach" : "trainer";
+      const teams = await storage.getCoachTeams(userId, teamType);
+      const contactsMap = new Map<string, { id: string; name: string; image?: string; teamName: string }>();
+      for (const team of teams) {
+        const members = await storage.getTeamMembers(team.id);
+        for (const member of members) {
+          if (member.userId !== userId && !contactsMap.has(member.userId)) {
+            contactsMap.set(member.userId, {
+              id: member.userId,
+              name: `${member.user.firstName || ''} ${member.user.lastName || ''}`.trim() || member.user.email || 'Unknown',
+              image: member.user.profileImageUrl || undefined,
+              teamName: team.name,
+            });
+          }
+        }
+      }
+      res.json(Array.from(contactsMap.values()));
+    } catch (error) {
+      console.error("Error fetching contacts:", error);
+      res.status(500).json({ message: "Failed to fetch contacts" });
+    }
+  });
+
+  // Send a message
+  app.post("/api/messages", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { receiverId, content, teamId } = req.body;
+      if (!receiverId || !content) {
+        return res.status(400).json({ message: "receiverId and content are required" });
+      }
+      const message = await storage.sendMessage({
+        senderId: userId,
+        receiverId,
+        content,
+        teamId: teamId || null,
+      });
+      res.status(201).json(message);
+    } catch (error) {
+      console.error("Error sending message:", error);
+      res.status(500).json({ message: "Failed to send message" });
+    }
+  });
+
+  // Mark messages as read
+  app.put("/api/messages/:senderId/read", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      await storage.markMessagesRead(userId, req.params.senderId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking messages read:", error);
+      res.status(500).json({ message: "Failed to mark messages read" });
+    }
+  });
+
+  // Get messages with a specific user (must be LAST among /api/messages/* routes)
+  app.get("/api/messages/:partnerId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const msgs = await storage.getMessages(userId, req.params.partnerId);
+      await storage.markMessagesRead(userId, req.params.partnerId);
+      res.json(msgs);
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+      res.status(500).json({ message: "Failed to fetch messages" });
+    }
+  });
+
+  // ===== PLAYER INVITATIONS =====
+
+  // Get invitations for a team
+  app.get("/api/invitations/:teamId", isAuthenticated, async (req: any, res) => {
+    try {
+      const invitations = await storage.getTeamInvitations(req.params.teamId);
+      res.json(invitations);
+    } catch (error) {
+      console.error("Error fetching invitations:", error);
+      res.status(500).json({ message: "Failed to fetch invitations" });
+    }
+  });
+
+  // Create invitation (invite player by email)
+  app.post("/api/invitations", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { teamId, email, playerName } = req.body;
+      if (!teamId || !email) {
+        return res.status(400).json({ message: "teamId and email are required" });
+      }
+      const team = await storage.getTeamById(teamId);
+      if (!team || team.coachId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      const invitation = await storage.createInvitation({
+        teamId,
+        invitedBy: userId,
+        email,
+        playerName: playerName || null,
+      });
+      res.status(201).json(invitation);
+    } catch (error) {
+      console.error("Error creating invitation:", error);
+      res.status(500).json({ message: "Failed to create invitation" });
+    }
+  });
+
+  // Delete invitation
+  app.delete("/api/invitations/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.deleteInvitation(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting invitation:", error);
+      res.status(500).json({ message: "Failed to delete invitation" });
+    }
+  });
+
+  // ===== PLAYER VIDEOS (for coach/trainer viewing) =====
+
+  // Get videos from team members
+  app.get("/api/coach/teams/:id/videos", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const team = await storage.getTeamById(req.params.id);
+      if (!team || team.coachId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      const members = await storage.getTeamMembers(req.params.id);
+      const playerIds = members.map(m => m.userId).filter(id => id !== userId);
+      const playerVideos = await storage.getPlayerVideos(playerIds);
+      res.json(playerVideos);
+    } catch (error) {
+      console.error("Error fetching player videos:", error);
+      res.status(500).json({ message: "Failed to fetch player videos" });
+    }
+  });
+
+  // Get videos from trainer group members
+  app.get("/api/trainer/groups/:id/videos", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const group = await storage.getTeamById(req.params.id);
+      if (!group || group.coachId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      const members = await storage.getTeamMembers(req.params.id);
+      const playerIds = members.map(m => m.userId).filter(id => id !== userId);
+      const playerVideos = await storage.getPlayerVideos(playerIds);
+      res.json(playerVideos);
+    } catch (error) {
+      console.error("Error fetching player videos:", error);
+      res.status(500).json({ message: "Failed to fetch player videos" });
+    }
+  });
+
   // ===== TEAM & LEAGUE FINDER =====
 
   // Get team clubs with optional filters
