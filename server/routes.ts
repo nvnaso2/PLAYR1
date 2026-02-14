@@ -2552,6 +2552,30 @@ export async function registerRoutes(
           }
         }
       }
+      if (mode === "trainer") {
+        const trainerPlayersList = await storage.getTrainerPlayers(userId);
+        for (const tp of trainerPlayersList) {
+          const tpName = `${tp.firstName} ${tp.lastName || ''}`.trim();
+          if (position && tp.position !== position) continue;
+          if (search && !tpName.toLowerCase().includes((search as string).toLowerCase())) continue;
+          const tpKey = tp.linkedUserId || `tp_${tp.id}`;
+          if (!contactsMap.has(tpKey)) {
+            const tpAssignments = await storage.getTrainerPlayerAssignments(tp.id);
+            const groupName = tpAssignments.length > 0 ? tpAssignments[0].groupName : "Unassigned";
+            contactsMap.set(tpKey, {
+              id: tp.linkedUserId || `tp_${tp.id}`,
+              name: tpName,
+              image: undefined,
+              teamName: groupName,
+              teamId: tpAssignments.length > 0 ? tpAssignments[0].groupId : "",
+              position: tp.position || undefined,
+              jerseyNumber: tp.jerseyNumber || undefined,
+              isAppUser: !!tp.linkedUserId,
+            });
+          }
+        }
+      }
+
       res.json(Array.from(contactsMap.values()));
     } catch (error) {
       console.error("Error fetching contacts:", error);

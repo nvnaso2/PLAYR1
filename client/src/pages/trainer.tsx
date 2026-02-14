@@ -1700,7 +1700,7 @@ function ChatTab() {
   const [threadMessageText, setThreadMessageText] = useState("");
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
-  const [newGroupScopeType, setNewGroupScopeType] = useState<"group" | "position" | "custom">("group");
+  const [newGroupScopeType, setNewGroupScopeType] = useState<"group" | "position" | "age" | "custom">("group");
   const [newGroupScopeId, setNewGroupScopeId] = useState("");
   const [newGroupMemberIds, setNewGroupMemberIds] = useState<Set<string>>(new Set());
   const [groupMemberSearch, setGroupMemberSearch] = useState("");
@@ -1755,10 +1755,31 @@ function ChatTab() {
     enabled: newGroupScopeType === "group" && !!newGroupScopeId,
   });
 
+  const { data: trainerPlayersForChat } = useQuery<TrainerPlayerData[]>({
+    queryKey: ["/api/trainer-players"],
+  });
+
   const positionContacts = useMemo(() => {
     if (!contacts || newGroupScopeType !== "position" || !newGroupScopeId) return [];
     return contacts.filter(c => c.position === newGroupScopeId);
   }, [contacts, newGroupScopeType, newGroupScopeId]);
+
+  const ageContacts = useMemo(() => {
+    if (!trainerPlayersForChat || newGroupScopeType !== "age" || !newGroupScopeId) return [];
+    return trainerPlayersForChat
+      .filter(p => p.ageGroup === newGroupScopeId && p.linkedUserId)
+      .map(p => ({
+        id: p.linkedUserId!,
+        name: `${p.firstName} ${p.lastName || ""}`.trim(),
+        position: p.position,
+      }));
+  }, [trainerPlayersForChat, newGroupScopeType, newGroupScopeId]);
+
+  const ageGroups = useMemo(() => {
+    if (!trainerPlayersForChat) return [];
+    const ageSet = new Set(trainerPlayersForChat.map(p => p.ageGroup).filter(Boolean));
+    return Array.from(ageSet) as string[];
+  }, [trainerPlayersForChat]);
 
   const positions = useMemo(() => {
     if (!contacts) return [];
@@ -1782,10 +1803,13 @@ function ChatTab() {
     if (newGroupScopeType === "position" && positionContacts.length > 0) {
       return positionContacts.map(c => c.id);
     }
+    if (newGroupScopeType === "age" && ageContacts.length > 0) {
+      return ageContacts.map(c => c.id);
+    }
     return [];
-  }, [newGroupScopeType, groupMembersForScope, positionContacts]);
+  }, [newGroupScopeType, groupMembersForScope, positionContacts, ageContacts]);
 
-  const handleScopeChange = (scopeType: "group" | "position" | "custom") => {
+  const handleScopeChange = (scopeType: "group" | "position" | "age" | "custom") => {
     setNewGroupScopeType(scopeType);
     setNewGroupScopeId("");
     setNewGroupMemberIds(new Set());
@@ -1841,6 +1865,7 @@ function ChatTab() {
       setNewGroupScopeId("");
       setNewGroupMemberIds(new Set());
       setGroupMemberSearch("");
+      queryClient.invalidateQueries({ queryKey: ["/api/chat-threads", "trainer"] });
       toast({ title: "Group chat created!" });
     },
     onError: (error: Error) => {
@@ -2223,13 +2248,14 @@ function ChatTab() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Scope Type</label>
-              <Select value={newGroupScopeType} onValueChange={(v) => handleScopeChange(v as "group" | "position" | "custom")}>
+              <Select value={newGroupScopeType} onValueChange={(v) => handleScopeChange(v as "group" | "position" | "age" | "custom")}>
                 <SelectTrigger data-testid="trainer-select-group-scope-type">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="group">Group Chat</SelectItem>
-                  <SelectItem value="position">Position Chat</SelectItem>
+                  <SelectItem value="group">Team / Group</SelectItem>
+                  <SelectItem value="position">Position Group</SelectItem>
+                  <SelectItem value="age">Age Group</SelectItem>
                   <SelectItem value="custom">Custom</SelectItem>
                 </SelectContent>
               </Select>
@@ -2263,6 +2289,22 @@ function ChatTab() {
                   <SelectContent>
                     {positions.map((p) => (
                       <SelectItem key={p} value={p}>{p}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {newGroupScopeType === "age" && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Select Age Group</label>
+                <Select value={newGroupScopeId} onValueChange={handleScopeIdChange}>
+                  <SelectTrigger data-testid="trainer-select-group-scope-age">
+                    <SelectValue placeholder="Choose an age group..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ageGroups.map((ag) => (
+                      <SelectItem key={ag} value={ag}>{ag}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -2364,6 +2406,33 @@ function ChatTab() {
                           <p className="text-sm truncate">{contact.name}</p>
                           <p className="text-[10px] text-muted-foreground">{contact.teamName}</p>
                         </div>
+                      </div>
+                    ))
+                  )
+                ) : newGroupScopeType === "age" ? (
+                  ageContacts.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-2">No linked players found for this age group.</p>
+                  ) : (
+                    ageContacts.map((ac) => (
+                      <div
+                        key={ac.id}
+                        className="flex items-center gap-2 p-1.5 rounded-md"
+                        data-testid={`trainer-group-member-option-${ac.id}`}
+                      >
+                        <Checkbox
+                          checked={newGroupMemberIds.has(ac.id)}
+                          onCheckedChange={() => toggleGroupMember(ac.id)}
+                          data-testid={`trainer-checkbox-group-member-${ac.id}`}
+                        />
+                        <Avatar className="h-6 w-6 shrink-0">
+                          <AvatarFallback className="text-[10px]">{ac.name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm truncate">{ac.name}</p>
+                        </div>
+                        {ac.position && (
+                          <Badge variant="outline" className="no-default-hover-elevate text-[10px]">{ac.position}</Badge>
+                        )}
                       </div>
                     ))
                   )
