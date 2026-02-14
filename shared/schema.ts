@@ -636,6 +636,16 @@ export const playerInvitations = pgTable("player_invitations", {
   createdAt: timestamp("created_at").defaultNow()
 });
 
+export const sharedVideos = pgTable("shared_videos", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  teamId: varchar("team_id").notNull(),
+  title: varchar("title").notNull(),
+  videoUrl: text("video_url").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow()
+});
+
 // Drill ratings - users rate drills 1-5
 export const drillRatings = pgTable("drill_ratings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -691,6 +701,7 @@ export const insertTeamMemberSchema = createInsertSchema(teamMembers).omit({ id:
 export const insertDrillAssignmentSchema = createInsertSchema(drillAssignments).omit({ id: true, createdAt: true });
 export const insertMessageSchema = createInsertSchema(messages).omit({ id: true, createdAt: true, isRead: true });
 export const insertPlayerInvitationSchema = createInsertSchema(playerInvitations).omit({ id: true, createdAt: true, status: true });
+export const insertSharedVideoSchema = createInsertSchema(sharedVideos).omit({ id: true, createdAt: true });
 
 // Types
 export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
@@ -750,6 +761,8 @@ export type InsertMessage = z.infer<typeof insertMessageSchema>;
 export type Message = typeof messages.$inferSelect;
 export type InsertPlayerInvitation = z.infer<typeof insertPlayerInvitationSchema>;
 export type PlayerInvitation = typeof playerInvitations.$inferSelect;
+export type InsertSharedVideo = z.infer<typeof insertSharedVideoSchema>;
+export type SharedVideo = typeof sharedVideos.$inferSelect;
 
 // ===== TEAM & LEAGUE FINDER =====
 
