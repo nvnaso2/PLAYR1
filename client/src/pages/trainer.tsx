@@ -77,8 +77,18 @@ import {
   ArrowRight,
   Check,
   User,
+  Settings,
+  Dumbbell,
+  MoreVertical,
+  Eye,
 } from "lucide-react";
-import { insertTrainerTeamSchema, insertDrillAssignmentSchema } from "@shared/schema";
+import { insertTrainerTeamSchema, insertDrillAssignmentSchema, DRILL_CATEGORIES, DIFFICULTY_LEVELS } from "@shared/schema";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface TrainerGroup {
   id: string;
@@ -124,6 +134,20 @@ interface DrillItem {
   title: string;
   category: string;
   difficulty: string;
+}
+
+interface TrainerDrill {
+  id: string;
+  title: string;
+  description: string | null;
+  category: string;
+  difficulty: string;
+  duration: number | null;
+  equipment: string[] | null;
+  tips: string[] | null;
+  trackShots: boolean | null;
+  userId: string;
+  createdAt: string;
 }
 
 interface Assignment {
@@ -924,7 +948,6 @@ function MyPlayersTab() {
   );
 }
 
-const DRILL_CATEGORIES = ["ball-handling", "shooting", "passing", "finishing", "defense", "film-session", "workouts"];
 const DRILL_DIFFICULTIES = ["beginner", "intermediate", "advanced"];
 
 function AssignDrillsTab() {
@@ -951,6 +974,22 @@ function AssignDrillsTab() {
   const { data: drills, isLoading: drillsLoading } = useQuery<DrillItem[]>({
     queryKey: ["/api/drills"],
   });
+
+  const { data: myCustomDrills } = useQuery<TrainerDrill[]>({
+    queryKey: ["/api/trainer/drills"],
+  });
+
+  const allDrills = useMemo(() => {
+    const base: DrillItem[] = drills || [];
+    const custom: DrillItem[] = (myCustomDrills || []).map(d => ({
+      id: d.id,
+      title: d.title,
+      category: d.category,
+      difficulty: d.difficulty,
+    }));
+    const ids = new Set(base.map(d => d.id));
+    return [...base, ...custom.filter(d => !ids.has(d.id))];
+  }, [drills, myCustomDrills]);
 
   const { data: trainerPlayers } = useQuery<TrainerPlayerData[]>({
     queryKey: ["/api/trainer-players"],
@@ -1014,13 +1053,12 @@ function AssignDrillsTab() {
   });
 
   const dialogDrills = useMemo(() => {
-    if (!drills) return [];
-    return drills.filter((d) => {
+    return allDrills.filter((d) => {
       if (drillSearch && !d.title.toLowerCase().includes(drillSearch.toLowerCase())) return false;
       if (drillCategoryFilter !== "all" && d.category !== drillCategoryFilter) return false;
       return true;
     });
-  }, [drills, drillSearch, drillCategoryFilter]);
+  }, [allDrills, drillSearch, drillCategoryFilter]);
 
   const dialogPlayers = useMemo(() => {
     if (!trainerPlayers) return [];
@@ -3107,6 +3145,589 @@ function JoinGroupTab() {
   );
 }
 
+function AdminTab() {
+  const { toast } = useToast();
+  const [adminSection, setAdminSection] = useState<"groups" | "drills">("groups");
+
+  const [createGroupOpen, setCreateGroupOpen] = useState(false);
+  const [editGroupId, setEditGroupId] = useState<string | null>(null);
+  const [deleteGroupId, setDeleteGroupId] = useState<string | null>(null);
+  const [viewMembersGroupId, setViewMembersGroupId] = useState<string | null>(null);
+  const [groupName, setGroupName] = useState("");
+  const [groupDescription, setGroupDescription] = useState("");
+  const [groupAgeGroup, setGroupAgeGroup] = useState("");
+
+  const [createDrillOpen, setCreateDrillOpen] = useState(false);
+  const [editDrillId, setEditDrillId] = useState<string | null>(null);
+  const [deleteDrillId, setDeleteDrillId] = useState<string | null>(null);
+  const [drillTitle, setDrillTitle] = useState("");
+  const [drillDescription, setDrillDescription] = useState("");
+  const [drillCategory, setDrillCategory] = useState("");
+  const [drillDifficulty, setDrillDifficulty] = useState("beginner");
+  const [drillDuration, setDrillDuration] = useState("");
+  const [drillTrackShots, setDrillTrackShots] = useState(false);
+
+  const { data: groups, isLoading: groupsLoading } = useQuery<TrainerGroup[]>({
+    queryKey: ["/api/trainer/groups"],
+  });
+
+  const { data: trainerDrills, isLoading: drillsLoading } = useQuery<TrainerDrill[]>({
+    queryKey: ["/api/trainer/drills"],
+  });
+
+  const { data: groupMembers } = useQuery<PlayerMember[]>({
+    queryKey: ["/api/trainer/groups", viewMembersGroupId, "members"],
+    queryFn: async () => {
+      const res = await fetch(`/api/trainer/groups/${viewMembersGroupId}/members`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch members");
+      return res.json();
+    },
+    enabled: !!viewMembersGroupId,
+  });
+
+  const createGroupMutation = useMutation({
+    mutationFn: (data: { name: string; description: string; ageGroup?: string }) =>
+      apiRequest("POST", "/api/trainer/groups", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer/groups"] });
+      setCreateGroupOpen(false);
+      resetGroupForm();
+      toast({ title: "Group created!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to create group", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const updateGroupMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { name: string; description: string; ageGroup?: string } }) =>
+      apiRequest("PUT", `/api/trainer/groups/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer/groups"] });
+      setEditGroupId(null);
+      resetGroupForm();
+      toast({ title: "Group updated!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to update group", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteGroupMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/trainer/groups/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer/groups"] });
+      setDeleteGroupId(null);
+      toast({ title: "Group deleted" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to delete group", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const removeMemberMutation = useMutation({
+    mutationFn: ({ groupId, userId }: { groupId: string; userId: string }) =>
+      apiRequest("DELETE", `/api/trainer/groups/${groupId}/members/${userId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer/groups", viewMembersGroupId, "members"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer/groups"] });
+      toast({ title: "Member removed" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to remove member", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const createDrillMutation = useMutation({
+    mutationFn: (data: { title: string; description?: string; category: string; difficulty: string; duration?: string; trackShots?: boolean }) =>
+      apiRequest("POST", "/api/trainer/drills", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer/drills"] });
+      setCreateDrillOpen(false);
+      resetDrillForm();
+      toast({ title: "Drill created!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to create drill", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const updateDrillMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { title: string; description?: string; category: string; difficulty: string; duration?: string; trackShots?: boolean } }) =>
+      apiRequest("PUT", `/api/trainer/drills/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer/drills"] });
+      setEditDrillId(null);
+      resetDrillForm();
+      toast({ title: "Drill updated!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to update drill", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteDrillMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/trainer/drills/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer/drills"] });
+      setDeleteDrillId(null);
+      toast({ title: "Drill deleted" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to delete drill", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const resetGroupForm = () => {
+    setGroupName("");
+    setGroupDescription("");
+    setGroupAgeGroup("");
+  };
+
+  const resetDrillForm = () => {
+    setDrillTitle("");
+    setDrillDescription("");
+    setDrillCategory("");
+    setDrillDifficulty("beginner");
+    setDrillDuration("");
+    setDrillTrackShots(false);
+  };
+
+  const openEditGroup = (group: TrainerGroup) => {
+    setEditGroupId(group.id);
+    setGroupName(group.name);
+    setGroupDescription(group.description || "");
+    setGroupAgeGroup(group.ageGroup || "");
+  };
+
+  const openEditDrill = (drill: TrainerDrill) => {
+    setEditDrillId(drill.id);
+    setDrillTitle(drill.title);
+    setDrillDescription(drill.description || "");
+    setDrillCategory(drill.category);
+    setDrillDifficulty(drill.difficulty);
+    setDrillDuration(drill.duration ? String(drill.duration) : "");
+    setDrillTrackShots(drill.trackShots || false);
+  };
+
+  const handleGroupSubmit = () => {
+    if (!groupName.trim()) return;
+    const data = { name: groupName.trim(), description: groupDescription.trim(), ageGroup: groupAgeGroup || undefined };
+    if (editGroupId) {
+      updateGroupMutation.mutate({ id: editGroupId, data });
+    } else {
+      createGroupMutation.mutate(data);
+    }
+  };
+
+  const handleDrillSubmit = () => {
+    if (!drillTitle.trim() || !drillCategory) return;
+    const data = {
+      title: drillTitle.trim(),
+      description: drillDescription.trim() || undefined,
+      category: drillCategory,
+      difficulty: drillDifficulty,
+      duration: drillDuration || undefined,
+      trackShots: drillTrackShots,
+    };
+    if (editDrillId) {
+      updateDrillMutation.mutate({ id: editDrillId, data });
+    } else {
+      createDrillMutation.mutate(data);
+    }
+  };
+
+  const formatCategory = (cat: string) => cat.split("-").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <h2 className="text-lg font-semibold" data-testid="text-admin-heading">Admin</h2>
+      </div>
+
+      <Tabs value={adminSection} onValueChange={(v) => setAdminSection(v as "groups" | "drills")} data-testid="tabs-admin-section">
+        <TabsList className="grid w-full grid-cols-2" data-testid="tabs-admin-list">
+          <TabsTrigger value="groups" data-testid="tab-admin-groups">
+            <Users className="w-4 h-4 mr-1" />
+            Groups
+          </TabsTrigger>
+          <TabsTrigger value="drills" data-testid="tab-admin-drills">
+            <Dumbbell className="w-4 h-4 mr-1" />
+            Custom Drills
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="groups" className="space-y-4 mt-4">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <p className="text-sm text-muted-foreground">Manage your training groups. Groups are available across all tabs.</p>
+            <Button onClick={() => { resetGroupForm(); setCreateGroupOpen(true); }} data-testid="button-admin-create-group">
+              <Plus className="w-4 h-4" />
+              New Group
+            </Button>
+          </div>
+
+          {groupsLoading ? (
+            <div className="space-y-2">
+              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-20 rounded-lg" />)}
+            </div>
+          ) : !groups?.length ? (
+            <Card>
+              <CardContent className="py-12 text-center text-muted-foreground" data-testid="text-no-admin-groups">
+                <Users className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                <p>No groups yet. Create your first group to organize players.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {groups.map((group) => (
+                <Card key={group.id} data-testid={`card-admin-group-${group.id}`}>
+                  <CardContent className="py-3">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-medium truncate" data-testid={`text-admin-group-name-${group.id}`}>{group.name}</h3>
+                          {group.ageGroup && (
+                            <Badge variant="secondary" className="no-default-hover-elevate text-xs">{group.ageGroup}</Badge>
+                          )}
+                          <Badge variant="outline" className="no-default-hover-elevate text-xs">
+                            {group.memberCount || 0} members
+                          </Badge>
+                        </div>
+                        {group.description && (
+                          <p className="text-sm text-muted-foreground mt-1 truncate">{group.description}</p>
+                        )}
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="outline" className="no-default-hover-elevate text-[10px] font-mono">
+                            <Copy className="w-3 h-3 mr-1" />
+                            {group.teamCode}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => setViewMembersGroupId(group.id)}
+                          data-testid={`button-admin-view-members-${group.id}`}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => openEditGroup(group)}
+                          data-testid={`button-admin-edit-group-${group.id}`}
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => setDeleteGroupId(group.id)}
+                          data-testid={`button-admin-delete-group-${group.id}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="drills" className="space-y-4 mt-4">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <p className="text-sm text-muted-foreground">Create custom drills you can assign to your players.</p>
+            <Button onClick={() => { resetDrillForm(); setCreateDrillOpen(true); }} data-testid="button-admin-create-drill">
+              <Plus className="w-4 h-4" />
+              New Drill
+            </Button>
+          </div>
+
+          {drillsLoading ? (
+            <div className="space-y-2">
+              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-20 rounded-lg" />)}
+            </div>
+          ) : !trainerDrills?.length ? (
+            <Card>
+              <CardContent className="py-12 text-center text-muted-foreground" data-testid="text-no-admin-drills">
+                <Dumbbell className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                <p>No custom drills yet. Create drills to assign to your players.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {trainerDrills.map((drill) => (
+                <Card key={drill.id} data-testid={`card-admin-drill-${drill.id}`}>
+                  <CardContent className="py-3">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-medium truncate" data-testid={`text-admin-drill-title-${drill.id}`}>{drill.title}</h3>
+                          <Badge variant="secondary" className="no-default-hover-elevate text-xs">{formatCategory(drill.category)}</Badge>
+                          <Badge variant="outline" className="no-default-hover-elevate text-xs capitalize">{drill.difficulty}</Badge>
+                        </div>
+                        {drill.description && (
+                          <p className="text-sm text-muted-foreground mt-1 truncate">{drill.description}</p>
+                        )}
+                        {drill.duration && (
+                          <p className="text-xs text-muted-foreground mt-1">{Math.floor(drill.duration / 60)}m {drill.duration % 60}s</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => openEditDrill(drill)}
+                          data-testid={`button-admin-edit-drill-${drill.id}`}
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => setDeleteDrillId(drill.id)}
+                          data-testid={`button-admin-delete-drill-${drill.id}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      <Dialog open={createGroupOpen || !!editGroupId} onOpenChange={(open) => { if (!open) { setCreateGroupOpen(false); setEditGroupId(null); resetGroupForm(); } }}>
+        <DialogContent data-testid="dialog-admin-group">
+          <DialogHeader>
+            <DialogTitle>{editGroupId ? "Edit Group" : "Create Group"}</DialogTitle>
+            <DialogDescription>{editGroupId ? "Update group details." : "Create a new training group."}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Group Name</label>
+              <Input
+                value={groupName}
+                onChange={(e) => setGroupName(e.target.value)}
+                placeholder="e.g. Team Alpha, U12 Guards"
+                data-testid="input-admin-group-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Description</label>
+              <Textarea
+                value={groupDescription}
+                onChange={(e) => setGroupDescription(e.target.value)}
+                placeholder="Optional description..."
+                className="resize-none"
+                data-testid="input-admin-group-description"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Age Group</label>
+              <Select value={groupAgeGroup} onValueChange={setGroupAgeGroup}>
+                <SelectTrigger data-testid="select-admin-group-age">
+                  <SelectValue placeholder="Select age group (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {PLAYER_AGE_GROUPS.map((ag) => (
+                    <SelectItem key={ag} value={ag}>{ag}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={handleGroupSubmit}
+              disabled={!groupName.trim() || createGroupMutation.isPending || updateGroupMutation.isPending}
+              data-testid="button-admin-submit-group"
+            >
+              {(createGroupMutation.isPending || updateGroupMutation.isPending) ? "Saving..." : (editGroupId ? "Update" : "Create")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!viewMembersGroupId} onOpenChange={(open) => { if (!open) setViewMembersGroupId(null); }}>
+        <DialogContent data-testid="dialog-admin-view-members">
+          <DialogHeader>
+            <DialogTitle>Group Members</DialogTitle>
+            <DialogDescription>
+              {groups?.find(g => g.id === viewMembersGroupId)?.name} - {groupMembers?.length || 0} members
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 max-h-[400px] overflow-y-auto">
+            {!groupMembers?.length ? (
+              <p className="text-sm text-muted-foreground text-center py-4">No members in this group yet.</p>
+            ) : (
+              groupMembers.map((member) => (
+                <div key={member.id} className="flex items-center justify-between gap-2 p-2 rounded-md" data-testid={`admin-member-${member.id}`}>
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <Avatar className="h-8 w-8 shrink-0">
+                      {member.profileImageUrl && <AvatarImage src={member.profileImageUrl} />}
+                      <AvatarFallback className="text-xs">{member.firstName?.charAt(0) || "?"}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{member.firstName} {member.lastName}</p>
+                      {member.position && (
+                        <Badge variant="outline" className="no-default-hover-elevate text-[10px]">{member.position}</Badge>
+                      )}
+                    </div>
+                  </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => removeMemberMutation.mutate({ groupId: viewMembersGroupId!, userId: member.userId })}
+                    disabled={removeMemberMutation.isPending}
+                    data-testid={`button-admin-remove-member-${member.id}`}
+                  >
+                    <UserMinus className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={createDrillOpen || !!editDrillId} onOpenChange={(open) => { if (!open) { setCreateDrillOpen(false); setEditDrillId(null); resetDrillForm(); } }}>
+        <DialogContent data-testid="dialog-admin-drill">
+          <DialogHeader>
+            <DialogTitle>{editDrillId ? "Edit Drill" : "Create Custom Drill"}</DialogTitle>
+            <DialogDescription>{editDrillId ? "Update drill details." : "Create a new drill to assign to players."}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Drill Title</label>
+              <Input
+                value={drillTitle}
+                onChange={(e) => setDrillTitle(e.target.value)}
+                placeholder="e.g. Crossover Combo, Free Throw Routine"
+                data-testid="input-admin-drill-title"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Description</label>
+              <Textarea
+                value={drillDescription}
+                onChange={(e) => setDrillDescription(e.target.value)}
+                placeholder="Describe the drill..."
+                className="resize-none"
+                data-testid="input-admin-drill-description"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Category</label>
+                <Select value={drillCategory} onValueChange={setDrillCategory}>
+                  <SelectTrigger data-testid="select-admin-drill-category">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DRILL_CATEGORIES.map((cat) => (
+                      <SelectItem key={cat} value={cat}>{formatCategory(cat)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Difficulty</label>
+                <Select value={drillDifficulty} onValueChange={setDrillDifficulty}>
+                  <SelectTrigger data-testid="select-admin-drill-difficulty">
+                    <SelectValue placeholder="Select difficulty" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DIFFICULTY_LEVELS.map((d) => (
+                      <SelectItem key={d} value={d} className="capitalize">{d.charAt(0).toUpperCase() + d.slice(1)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Duration (seconds)</label>
+                <Input
+                  value={drillDuration}
+                  onChange={(e) => setDrillDuration(e.target.value)}
+                  placeholder="e.g. 300"
+                  type="number"
+                  data-testid="input-admin-drill-duration"
+                />
+              </div>
+              <div className="flex items-center gap-2 pt-6">
+                <Checkbox
+                  checked={drillTrackShots}
+                  onCheckedChange={(c) => setDrillTrackShots(c === true)}
+                  data-testid="checkbox-admin-drill-track-shots"
+                />
+                <label className="text-sm">Track shot locations</label>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={handleDrillSubmit}
+              disabled={!drillTitle.trim() || !drillCategory || createDrillMutation.isPending || updateDrillMutation.isPending}
+              data-testid="button-admin-submit-drill"
+            >
+              {(createDrillMutation.isPending || updateDrillMutation.isPending) ? "Saving..." : (editDrillId ? "Update" : "Create")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!deleteGroupId} onOpenChange={(open) => { if (!open) setDeleteGroupId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Group</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this group? This will remove all member assignments. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-admin-group">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteGroupId && deleteGroupMutation.mutate(deleteGroupId)}
+              data-testid="button-confirm-delete-admin-group"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!deleteDrillId} onOpenChange={(open) => { if (!open) setDeleteDrillId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Drill</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this custom drill? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-admin-drill">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteDrillId && deleteDrillMutation.mutate(deleteDrillId)}
+              data-testid="button-confirm-delete-admin-drill"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
 function MyAssignmentsTab() {
   const { toast } = useToast();
 
@@ -3226,42 +3847,51 @@ export default function TrainerPage() {
         <h1 className="text-xl sm:text-2xl font-bold" data-testid="text-trainer-page-title">Trainer Mode</h1>
       </div>
 
-      <Tabs defaultValue="my-players">
-        <TabsList className="w-full grid grid-cols-4 sm:grid-cols-8 gap-1 h-auto" data-testid="tabs-trainer-main">
-          <TabsTrigger value="my-players" className="text-xs sm:text-sm py-2" data-testid="tab-my-players">
-            <Users className="w-4 h-4 mr-1 shrink-0" />
-            <span className="truncate">Players</span>
-          </TabsTrigger>
-          <TabsTrigger value="assign-drills" className="text-xs sm:text-sm py-2" data-testid="tab-trainer-assign">
-            <ClipboardList className="w-4 h-4 mr-1 shrink-0" />
-            <span className="truncate">Assign</span>
-          </TabsTrigger>
-          <TabsTrigger value="training-logs" className="text-xs sm:text-sm py-2" data-testid="tab-trainer-logs">
-            <FileText className="w-4 h-4 mr-1 shrink-0" />
-            <span className="truncate">Logs</span>
-          </TabsTrigger>
-          <TabsTrigger value="chat" className="text-xs sm:text-sm py-2" data-testid="tab-trainer-chat">
-            <MessageCircle className="w-4 h-4 mr-1 shrink-0" />
-            <span className="truncate">Chat</span>
-          </TabsTrigger>
-          <TabsTrigger value="videos" className="text-xs sm:text-sm py-2" data-testid="tab-trainer-videos">
-            <Video className="w-4 h-4 mr-1 shrink-0" />
-            <span className="truncate">Videos</span>
-          </TabsTrigger>
-          <TabsTrigger value="invite" className="text-xs sm:text-sm py-2" data-testid="tab-trainer-invite">
-            <Mail className="w-4 h-4 mr-1 shrink-0" />
-            <span className="truncate">Invite</span>
-          </TabsTrigger>
-          <TabsTrigger value="join-group" className="text-xs sm:text-sm py-2" data-testid="tab-join-group">
-            <UserPlus className="w-4 h-4 mr-1 shrink-0" />
-            <span className="truncate">Join</span>
-          </TabsTrigger>
-          <TabsTrigger value="my-assignments" className="text-xs sm:text-sm py-2" data-testid="tab-trainer-my-assignments">
-            <BookOpen className="w-4 h-4 mr-1 shrink-0" />
-            <span className="truncate">Assigned</span>
-          </TabsTrigger>
-        </TabsList>
+      <Tabs defaultValue="admin">
+        <div className="overflow-x-auto -mx-2 px-2">
+          <TabsList className="inline-flex w-max sm:w-full sm:grid sm:grid-cols-9 gap-1 h-auto" data-testid="tabs-trainer-main">
+            <TabsTrigger value="admin" className="text-xs sm:text-sm py-2" data-testid="tab-trainer-admin">
+              <Settings className="w-4 h-4 mr-1 shrink-0" />
+              <span className="truncate">Admin</span>
+            </TabsTrigger>
+            <TabsTrigger value="my-players" className="text-xs sm:text-sm py-2" data-testid="tab-my-players">
+              <Users className="w-4 h-4 mr-1 shrink-0" />
+              <span className="truncate">Players</span>
+            </TabsTrigger>
+            <TabsTrigger value="assign-drills" className="text-xs sm:text-sm py-2" data-testid="tab-trainer-assign">
+              <ClipboardList className="w-4 h-4 mr-1 shrink-0" />
+              <span className="truncate">Assign</span>
+            </TabsTrigger>
+            <TabsTrigger value="training-logs" className="text-xs sm:text-sm py-2" data-testid="tab-trainer-logs">
+              <FileText className="w-4 h-4 mr-1 shrink-0" />
+              <span className="truncate">Logs</span>
+            </TabsTrigger>
+            <TabsTrigger value="chat" className="text-xs sm:text-sm py-2" data-testid="tab-trainer-chat">
+              <MessageCircle className="w-4 h-4 mr-1 shrink-0" />
+              <span className="truncate">Chat</span>
+            </TabsTrigger>
+            <TabsTrigger value="videos" className="text-xs sm:text-sm py-2" data-testid="tab-trainer-videos">
+              <Video className="w-4 h-4 mr-1 shrink-0" />
+              <span className="truncate">Videos</span>
+            </TabsTrigger>
+            <TabsTrigger value="invite" className="text-xs sm:text-sm py-2" data-testid="tab-trainer-invite">
+              <Mail className="w-4 h-4 mr-1 shrink-0" />
+              <span className="truncate">Invite</span>
+            </TabsTrigger>
+            <TabsTrigger value="join-group" className="text-xs sm:text-sm py-2" data-testid="tab-join-group">
+              <UserPlus className="w-4 h-4 mr-1 shrink-0" />
+              <span className="truncate">Join</span>
+            </TabsTrigger>
+            <TabsTrigger value="my-assignments" className="text-xs sm:text-sm py-2" data-testid="tab-trainer-my-assignments">
+              <BookOpen className="w-4 h-4 mr-1 shrink-0" />
+              <span className="truncate">Assigned</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
+        <TabsContent value="admin">
+          <AdminTab />
+        </TabsContent>
         <TabsContent value="my-players">
           <MyPlayersTab />
         </TabsContent>

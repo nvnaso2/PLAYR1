@@ -2407,6 +2407,91 @@ export async function registerRoutes(
     }
   });
 
+  // ===== TRAINER CUSTOM DRILLS =====
+  app.get("/api/trainer/drills", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const allDrills = await storage.getDrillsForUser(userId);
+      const trainerDrills = allDrills.filter(d => d.userId === userId);
+      res.json(trainerDrills);
+    } catch (error) {
+      console.error("Error fetching trainer drills:", error);
+      res.status(500).json({ message: "Failed to fetch drills" });
+    }
+  });
+
+  app.post("/api/trainer/drills", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { title, description, category, difficulty, duration, equipment, tips, trackShots } = req.body;
+      if (!title || !category) {
+        return res.status(400).json({ message: "Title and category are required" });
+      }
+      const drill = await storage.createDrill({
+        title,
+        description: description || null,
+        category,
+        difficulty: difficulty || "beginner",
+        duration: duration ? parseInt(duration) : null,
+        equipment: equipment || [],
+        tips: tips || [],
+        trackShots: trackShots || false,
+        userId,
+        isFeatured: false,
+        isShared: false,
+        videoUrl: null,
+        thumbnailUrl: null,
+        pdfUrl: null,
+        videoLibraryId: null,
+        pdfLibraryId: null,
+      });
+      res.status(201).json(drill);
+    } catch (error) {
+      console.error("Error creating trainer drill:", error);
+      res.status(500).json({ message: "Failed to create drill" });
+    }
+  });
+
+  app.put("/api/trainer/drills/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const drill = await storage.getDrillById(req.params.id);
+      if (!drill || drill.userId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      const { title, description, category, difficulty, duration, equipment, tips, trackShots } = req.body;
+      const updated = await storage.updateDrill(req.params.id, {
+        title,
+        description: description || null,
+        category,
+        difficulty: difficulty || "beginner",
+        duration: duration ? parseInt(duration) : null,
+        equipment: equipment || [],
+        tips: tips || [],
+        trackShots: trackShots || false,
+      });
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating trainer drill:", error);
+      res.status(500).json({ message: "Failed to update drill" });
+    }
+  });
+
+  app.delete("/api/trainer/drills/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const drill = await storage.getDrillById(req.params.id);
+      if (!drill || drill.userId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      await storage.deleteDrill(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting trainer drill:", error);
+      res.status(500).json({ message: "Failed to delete drill" });
+    }
+  });
+
   // Get trainer group training logs
   app.get("/api/trainer/groups/:id/training-logs", isAuthenticated, async (req: any, res) => {
     try {
