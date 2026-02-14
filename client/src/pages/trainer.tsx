@@ -328,12 +328,21 @@ function MyPlayersTab() {
   });
 
   const createPlayerMutation = useMutation({
-    mutationFn: (data: TrainerPlayerForm) => apiRequest("POST", "/api/trainer-players", data),
-    onSuccess: () => {
+    mutationFn: async (data: TrainerPlayerForm) => {
+      const res = await apiRequest("POST", "/api/trainer-players", data);
+      return res.json();
+    },
+    onSuccess: (result: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/trainer-players"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer/groups"] });
       setAddOpen(false);
       addForm.reset();
-      toast({ title: "Player added successfully!" });
+      const groups = result?.autoAssignedGroups;
+      if (groups?.length) {
+        toast({ title: "Player added successfully!", description: `Auto-assigned to: ${groups.join(", ")}` });
+      } else {
+        toast({ title: "Player added successfully!" });
+      }
     },
     onError: (error: Error) => {
       toast({ title: "Failed to add player", description: error.message, variant: "destructive" });
@@ -341,11 +350,20 @@ function MyPlayersTab() {
   });
 
   const updatePlayerMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: TrainerPlayerForm }) => apiRequest("PUT", `/api/trainer-players/${id}`, data),
-    onSuccess: () => {
+    mutationFn: async ({ id, data }: { id: string; data: TrainerPlayerForm }) => {
+      const res = await apiRequest("PUT", `/api/trainer-players/${id}`, data);
+      return res.json();
+    },
+    onSuccess: (result: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/trainer-players"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer/groups"] });
       setEditingPlayer(null);
-      toast({ title: "Player updated successfully!" });
+      const groups = result?.autoAssignedGroups;
+      if (groups?.length) {
+        toast({ title: "Player updated!", description: `Auto-assigned to: ${groups.join(", ")}` });
+      } else {
+        toast({ title: "Player updated successfully!" });
+      }
     },
     onError: (error: Error) => {
       toast({ title: "Failed to update player", description: error.message, variant: "destructive" });

@@ -3111,7 +3111,48 @@ export async function registerRoutes(
         ageGroup: ageGroup || null,
         notes: notes || null,
       });
-      res.status(201).json(player);
+
+      const autoAssignedGroups: string[] = [];
+      if (position) {
+        const positionGroupMap: Record<string, string[]> = {
+          "PG": ["PG", "Guard"],
+          "SG": ["SG", "Guard", "Wing"],
+          "SF": ["SF", "Wing", "Forward"],
+          "PF": ["PF", "Forward", "Big"],
+          "C": ["C", "Big"],
+        };
+        const groupNames = positionGroupMap[position] || [];
+        if (groupNames.length > 0) {
+          const existingGroups = await storage.getCoachTeams(userId, "trainer");
+          for (const groupName of groupNames) {
+            let group = existingGroups.find(g => g.name === groupName);
+            if (!group) {
+              const teamCode = generateTeamCode();
+              group = await storage.createTeam({
+                name: groupName,
+                coachId: userId,
+                teamCode,
+                teamType: "trainer",
+                description: `Auto-created ${groupName} position group`,
+              });
+              existingGroups.push(group);
+            }
+            try {
+              await storage.assignTrainerPlayerToGroup({
+                trainerPlayerId: player.id,
+                groupId: group.id,
+                position: position,
+                jerseyNumber: jerseyNumber || null,
+              });
+              autoAssignedGroups.push(groupName);
+            } catch (assignErr) {
+              console.error(`Failed to auto-assign player to ${groupName}:`, assignErr);
+            }
+          }
+        }
+      }
+
+      res.status(201).json({ ...player, autoAssignedGroups });
     } catch (error) {
       console.error("Error creating trainer player:", error);
       res.status(500).json({ message: "Failed to create player" });
@@ -3125,8 +3166,56 @@ export async function registerRoutes(
       if (!player || player.trainerId !== userId) {
         return res.status(403).json({ message: "Not authorized" });
       }
+      const newPosition = req.body.position || null;
+      const oldPosition = player.position;
       const updated = await storage.updateTrainerPlayer(req.params.id, req.body);
-      res.json(updated);
+
+      const autoAssignedGroups: string[] = [];
+      if (newPosition && newPosition !== oldPosition) {
+        const positionGroupMap: Record<string, string[]> = {
+          "PG": ["PG", "Guard"],
+          "SG": ["SG", "Guard", "Wing"],
+          "SF": ["SF", "Wing", "Forward"],
+          "PF": ["PF", "Forward", "Big"],
+          "C": ["C", "Big"],
+        };
+        const groupNames = positionGroupMap[newPosition] || [];
+        if (groupNames.length > 0) {
+          const existingGroups = await storage.getCoachTeams(userId, "trainer");
+          const existingAssignments = await storage.getTrainerPlayerAssignments(req.params.id);
+          const assignedGroupIds = new Set(existingAssignments.map(a => a.groupId));
+
+          for (const groupName of groupNames) {
+            let group = existingGroups.find(g => g.name === groupName);
+            if (!group) {
+              const teamCode = generateTeamCode();
+              group = await storage.createTeam({
+                name: groupName,
+                coachId: userId,
+                teamCode,
+                teamType: "trainer",
+                description: `Auto-created ${groupName} position group`,
+              });
+              existingGroups.push(group);
+            }
+            if (!assignedGroupIds.has(group.id)) {
+              try {
+                await storage.assignTrainerPlayerToGroup({
+                  trainerPlayerId: req.params.id,
+                  groupId: group.id,
+                  position: newPosition,
+                  jerseyNumber: req.body.jerseyNumber || null,
+                });
+                autoAssignedGroups.push(groupName);
+              } catch (assignErr) {
+                console.error(`Failed to auto-assign player to ${groupName}:`, assignErr);
+              }
+            }
+          }
+        }
+      }
+
+      res.json({ ...updated, autoAssignedGroups });
     } catch (error) {
       console.error("Error updating trainer player:", error);
       res.status(500).json({ message: "Failed to update player" });
