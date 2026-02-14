@@ -122,6 +122,7 @@ interface TrainerPlayerData {
   position: string | null;
   jerseyNumber: string | null;
   ageGroup: string | null;
+  teamType: string | null;
   notes: string | null;
   linkedUserId: string | null;
   createdAt: string;
@@ -302,7 +303,8 @@ type CreateGroupForm = z.infer<typeof createGroupSchema>;
 type AssignDrillForm = z.infer<typeof assignDrillSchema>;
 
 const PLAYER_POSITIONS = ["PG", "SG", "SF", "PF", "C"];
-const PLAYER_AGE_GROUPS = ["8U", "9U", "10U", "11U", "12U", "13U", "14U", "15U", "16U", "17U", "18U", "High School"];
+const PLAYER_AGES = Array.from({ length: 53 }, (_, i) => String(i + 5));
+const TEAM_TYPES = ["None", "Rec", "Club/AAU", "High School", "College", "Pro"];
 
 const trainerPlayerSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -312,6 +314,7 @@ const trainerPlayerSchema = z.object({
   position: z.string().optional().default(""),
   jerseyNumber: z.string().optional().default(""),
   ageGroup: z.string().optional().default(""),
+  teamType: z.string().optional().default(""),
   notes: z.string().optional().default(""),
 });
 
@@ -335,12 +338,12 @@ function MyPlayersTab() {
 
   const addForm = useForm<TrainerPlayerForm>({
     resolver: zodResolver(trainerPlayerSchema),
-    defaultValues: { firstName: "", lastName: "", email: "", phone: "", position: "", jerseyNumber: "", ageGroup: "", notes: "" },
+    defaultValues: { firstName: "", lastName: "", email: "", phone: "", position: "", jerseyNumber: "", ageGroup: "", teamType: "", notes: "" },
   });
 
   const editForm = useForm<TrainerPlayerForm>({
     resolver: zodResolver(trainerPlayerSchema),
-    defaultValues: { firstName: "", lastName: "", email: "", phone: "", position: "", jerseyNumber: "", ageGroup: "", notes: "" },
+    defaultValues: { firstName: "", lastName: "", email: "", phone: "", position: "", jerseyNumber: "", ageGroup: "", teamType: "", notes: "" },
   });
 
   const { data: players, isLoading: playersLoading } = useQuery<TrainerPlayerData[]>({
@@ -485,6 +488,7 @@ function MyPlayersTab() {
       position: player.position || "",
       jerseyNumber: player.jerseyNumber || "",
       ageGroup: player.ageGroup || "",
+      teamType: player.teamType || "",
       notes: player.notes || "",
     });
   };
@@ -589,15 +593,37 @@ function MyPlayersTab() {
             name="ageGroup"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Age Group</FormLabel>
+                <FormLabel>Age</FormLabel>
                 <FormControl>
                   <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger data-testid="select-trainer-player-age-group">
+                    <SelectTrigger data-testid="select-trainer-player-age">
                       <SelectValue placeholder="Select" />
                     </SelectTrigger>
                     <SelectContent>
-                      {PLAYER_AGE_GROUPS.map((ag) => (
-                        <SelectItem key={ag} value={ag}>{ag}</SelectItem>
+                      {PLAYER_AGES.map((age) => (
+                        <SelectItem key={age} value={age}>{age}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="teamType"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Team Type</FormLabel>
+                <FormControl>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger data-testid="select-trainer-player-team-type">
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TEAM_TYPES.map((tt) => (
+                        <SelectItem key={tt} value={tt}>{tt}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -746,7 +772,12 @@ function MyPlayersTab() {
                       )}
                       {player.ageGroup && (
                         <Badge variant="secondary" className="no-default-hover-elevate text-xs" data-testid={`badge-trainer-player-age-${player.id}`}>
-                          {player.ageGroup}
+                          Age {player.ageGroup}
+                        </Badge>
+                      )}
+                      {player.teamType && player.teamType !== "None" && (
+                        <Badge variant="secondary" className="no-default-hover-elevate text-xs" data-testid={`badge-trainer-player-team-type-${player.id}`}>
+                          {player.teamType}
                         </Badge>
                       )}
                     </div>
@@ -3537,8 +3568,8 @@ function AdminTab() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">None</SelectItem>
-                  {PLAYER_AGE_GROUPS.map((ag) => (
-                    <SelectItem key={ag} value={ag}>{ag}</SelectItem>
+                  {PLAYER_AGES.map((age) => (
+                    <SelectItem key={age} value={age}>{age}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
