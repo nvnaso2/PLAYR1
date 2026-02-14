@@ -1425,12 +1425,12 @@ function ChatTab() {
 
   const positionContacts = useMemo(() => {
     if (!contacts || newGroupScopeType !== "position" || !newGroupScopeId) return [];
-    return contacts.filter(c => c.position === newGroupScopeId && c.isAppUser !== false);
+    return contacts.filter(c => c.position === newGroupScopeId);
   }, [contacts, newGroupScopeType, newGroupScopeId]);
 
   const groupMemberCandidates = useMemo(() => {
     if (!contacts) return [];
-    let candidates = contacts.filter(c => c.isAppUser !== false);
+    let candidates = [...contacts];
     if (groupMemberSearch) {
       candidates = candidates.filter(c => c.name.toLowerCase().includes(groupMemberSearch.toLowerCase()));
     }
@@ -1770,12 +1770,8 @@ function ChatTab() {
                     {filteredContacts.map((contact) => (
                       <div
                         key={contact.id}
-                        className={`flex items-center gap-2 p-2 rounded-md border ${contact.isAppUser !== false ? "hover-elevate cursor-pointer" : "opacity-60"}`}
+                        className="flex items-center gap-2 p-2 rounded-md border hover-elevate cursor-pointer"
                         onClick={() => {
-                          if (contact.isAppUser === false) {
-                            toast({ title: "Not on app yet", description: `${contact.name} hasn't joined the app. Send them an invite!`, variant: "destructive" });
-                            return;
-                          }
                           setSelectedContact(contact.id);
                           setSelectedContactName(contact.name);
                           setShowNewChat(false);
@@ -1793,16 +1789,9 @@ function ChatTab() {
                             {contact.position && (
                               <Badge variant="outline" className="no-default-hover-elevate text-[10px] px-1 py-0">{contact.position}</Badge>
                             )}
-                            {contact.isAppUser === false && (
-                              <Badge variant="secondary" className="no-default-hover-elevate text-[10px] px-1 py-0">Not on app</Badge>
-                            )}
                           </div>
                         </div>
-                        {contact.isAppUser !== false ? (
-                          <MessageCircle className="w-3 h-3 text-muted-foreground shrink-0" />
-                        ) : (
-                          <Mail className="w-3 h-3 text-muted-foreground shrink-0" />
-                        )}
+                        <MessageCircle className="w-3 h-3 text-muted-foreground shrink-0" />
                       </div>
                     ))}
                   </div>
