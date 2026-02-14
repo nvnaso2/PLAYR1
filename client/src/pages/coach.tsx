@@ -730,18 +730,16 @@ const DRILL_DIFFICULTIES = ["beginner", "intermediate", "advanced"];
 
 function AssignDrillsTab() {
   const { toast } = useToast();
-  const [selectedTeamId, setSelectedTeamId] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [difficultyFilter, setDifficultyFilter] = useState("all");
   const [assignOpen, setAssignOpen] = useState(false);
   const [selectedDrill, setSelectedDrill] = useState<DrillItem | null>(null);
+  const [assignTeamId, setAssignTeamId] = useState("");
+  const [assignDueDate, setAssignDueDate] = useState("");
+  const [assignNotes, setAssignNotes] = useState("");
+  const [assignmentsTeamFilter, setAssignmentsTeamFilter] = useState("all");
   const [deleteAssignmentId, setDeleteAssignmentId] = useState<string | null>(null);
-
-  const form = useForm<AssignDrillForm>({
-    resolver: zodResolver(assignDrillSchema),
-    defaultValues: { drillId: "", teamId: "", dueDate: "", notes: "" },
-  });
 
   const { data: teams } = useQuery<CoachTeam[]>({
     queryKey: ["/api/coach/teams"],
@@ -751,20 +749,48 @@ function AssignDrillsTab() {
     queryKey: ["/api/drills"],
   });
 
-  const { data: assignments, isLoading: assignmentsLoading } = useQuery<Assignment[]>({
-    queryKey: ["/api/coach/teams", selectedTeamId, "assignments"],
-    enabled: !!selectedTeamId,
+  const teamIds = useMemo(() => teams?.map(t => t.id).sort().join(",") || "", [teams]);
+  const { data: assignmentsByTeam, isLoading: assignmentsLoading } = useQuery<Record<string, Assignment[]>>({
+    queryKey: ["/api/coach/all-assignments", teamIds],
+    queryFn: async () => {
+      if (!teams?.length) return {};
+      const results: Record<string, Assignment[]> = {};
+      await Promise.all(teams.map(async (team) => {
+        const res = await fetch(`/api/coach/teams/${team.id}/assignments`, { credentials: "include" });
+        if (!res.ok) throw new Error(`Failed to fetch assignments for team ${team.name}`);
+        results[team.id] = await res.json();
+      }));
+      return results;
+    },
+    enabled: !!teams?.length,
   });
 
+  const flatAssignments = useMemo(() => {
+    if (!assignmentsByTeam) return [];
+    const all: { assignment: Assignment; teamName: string }[] = [];
+    Object.entries(assignmentsByTeam).forEach(([teamId, assigns]) => {
+      const team = teams?.find(t => t.id === teamId);
+      assigns.forEach(a => all.push({ assignment: a, teamName: team?.name || "Unknown" }));
+    });
+    return all;
+  }, [assignmentsByTeam, teams]);
+
+  const filteredAssignments = useMemo(() => {
+    if (assignmentsTeamFilter === "all") return flatAssignments;
+    return flatAssignments.filter(item => item.assignment.teamId === assignmentsTeamFilter);
+  }, [flatAssignments, assignmentsTeamFilter]);
+
   const assignMutation = useMutation({
-    mutationFn: (data: AssignDrillForm) => apiRequest("POST", "/api/coach/assignments", data),
+    mutationFn: (data: { drillId: string; teamId: string; dueDate?: string; notes?: string }) =>
+      apiRequest("POST", "/api/coach/assignments", data),
     onSuccess: () => {
-      if (selectedTeamId) {
-        queryClient.invalidateQueries({ queryKey: ["/api/coach/teams", selectedTeamId, "assignments"] });
-      }
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/all-assignments"] });
+      teams?.forEach(t => queryClient.invalidateQueries({ queryKey: ["/api/coach/teams", t.id, "assignments"] }));
       setAssignOpen(false);
       setSelectedDrill(null);
-      form.reset();
+      setAssignTeamId("");
+      setAssignDueDate("");
+      setAssignNotes("");
       toast({ title: "Drill assigned successfully!" });
     },
     onError: (error: Error) => {
@@ -775,9 +801,8 @@ function AssignDrillsTab() {
   const deleteAssignmentMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/coach/assignments/${id}`),
     onSuccess: () => {
-      if (selectedTeamId) {
-        queryClient.invalidateQueries({ queryKey: ["/api/coach/teams", selectedTeamId, "assignments"] });
-      }
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/all-assignments"] });
+      teams?.forEach(t => queryClient.invalidateQueries({ queryKey: ["/api/coach/teams", t.id, "assignments"] }));
       setDeleteAssignmentId(null);
       toast({ title: "Assignment removed" });
     },
@@ -786,18 +811,32 @@ function AssignDrillsTab() {
     },
   });
 
-  const filteredDrills = drills?.filter((d) => {
-    const matchesSearch = !searchQuery || d.title.toLowerCase().includes(searchQuery.toLowerCase()) || d.category.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = categoryFilter === "all" || d.category === categoryFilter;
-    const matchesDifficulty = difficultyFilter === "all" || d.difficulty === difficultyFilter;
-    return matchesSearch && matchesCategory && matchesDifficulty;
-  });
+  const filteredDrills = useMemo(() => {
+    if (!drills) return [];
+    return drills.filter((d) => {
+      const matchesSearch = !searchQuery || d.title.toLowerCase().includes(searchQuery.toLowerCase()) || d.category.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCategory = categoryFilter === "all" || d.category === categoryFilter;
+      const matchesDifficulty = difficultyFilter === "all" || d.difficulty === difficultyFilter;
+      return matchesSearch && matchesCategory && matchesDifficulty;
+    });
+  }, [drills, searchQuery, categoryFilter, difficultyFilter]);
 
   const openAssignDialog = (drill: DrillItem) => {
     setSelectedDrill(drill);
-    form.setValue("drillId", drill.id);
-    form.setValue("teamId", selectedTeamId);
+    setAssignTeamId("");
+    setAssignDueDate("");
+    setAssignNotes("");
     setAssignOpen(true);
+  };
+
+  const handleAssignSubmit = () => {
+    if (!selectedDrill || !assignTeamId) return;
+    assignMutation.mutate({
+      drillId: selectedDrill.id,
+      teamId: assignTeamId,
+      dueDate: assignDueDate || undefined,
+      notes: assignNotes || undefined,
+    });
   };
 
   return (
@@ -805,18 +844,16 @@ function AssignDrillsTab() {
       <h2 className="text-lg font-semibold" data-testid="text-assign-drills-heading">Assign Drills</h2>
 
       <div className="flex items-center gap-3 flex-wrap">
-        <Select value={selectedTeamId} onValueChange={setSelectedTeamId}>
-          <SelectTrigger className="w-full sm:w-[200px]" data-testid="select-team-for-assignment">
-            <SelectValue placeholder="Select a team" />
-          </SelectTrigger>
-          <SelectContent>
-            {teams?.map((team) => (
-              <SelectItem key={team.id} value={team.id} data-testid={`option-team-${team.id}`}>
-                {team.name} {team.seasonYear ? `(${team.seasonYear})` : ""}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="relative flex-1 min-w-[180px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search drills..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+            data-testid="input-search-drills"
+          />
+        </div>
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
           <SelectTrigger className="w-[160px]" data-testid="select-assign-category-filter">
             <SelectValue placeholder="All Categories" />
@@ -841,151 +878,161 @@ function AssignDrillsTab() {
         </Select>
       </div>
 
-      {selectedTeamId && (
-        <>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Search drills..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-              data-testid="input-search-drills"
-            />
-          </div>
-
-          {drillsLoading ? (
-            <div className="space-y-2">
-              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 rounded" />)}
-            </div>
-          ) : !filteredDrills?.length ? (
-            <p className="text-sm text-muted-foreground text-center py-4" data-testid="text-no-drills-found">
-              No drills found
-            </p>
-          ) : (
-            <div className="space-y-2 max-h-72 overflow-y-auto">
-              {filteredDrills.map((drill) => (
-                <div
-                  key={drill.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-md bg-muted/50"
-                  data-testid={`row-drill-${drill.id}`}
-                >
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{drill.title}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Badge variant="outline" className="no-default-hover-elevate text-xs">{drill.category}</Badge>
-                      <Badge variant="secondary" className="no-default-hover-elevate text-xs">{drill.difficulty}</Badge>
-                    </div>
-                  </div>
-                  <Button
-                    size="sm"
-                    onClick={() => openAssignDialog(drill)}
-                    className="self-end sm:self-center shrink-0"
-                    data-testid={`button-assign-drill-${drill.id}`}
-                  >
-                    <ClipboardList className="w-3 h-3" />
-                    Assign
-                  </Button>
+      {drillsLoading ? (
+        <div className="space-y-2">
+          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 rounded" />)}
+        </div>
+      ) : !filteredDrills.length ? (
+        <p className="text-sm text-muted-foreground text-center py-4" data-testid="text-no-drills-found">
+          No drills found
+        </p>
+      ) : (
+        <div className="space-y-2 max-h-80 overflow-y-auto">
+          {filteredDrills.map((drill) => (
+            <div
+              key={drill.id}
+              className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-md bg-muted/50"
+              data-testid={`row-drill-${drill.id}`}
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-medium truncate">{drill.title}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <Badge variant="outline" className="no-default-hover-elevate text-xs">{drill.category}</Badge>
+                  <Badge variant="secondary" className="no-default-hover-elevate text-xs">{drill.difficulty}</Badge>
                 </div>
-              ))}
+              </div>
+              <Button
+                size="sm"
+                onClick={() => openAssignDialog(drill)}
+                className="self-end sm:self-center shrink-0"
+                data-testid={`button-assign-drill-${drill.id}`}
+              >
+                <ClipboardList className="w-3 h-3" />
+                Assign
+              </Button>
             </div>
-          )}
-
-          <div className="pt-4 border-t">
-            <h3 className="text-sm font-semibold mb-3" data-testid="text-current-assignments-heading">Current Assignments</h3>
-            {assignmentsLoading ? (
-              <div className="space-y-2">
-                {[1, 2].map((i) => <Skeleton key={i} className="h-16 rounded" />)}
-              </div>
-            ) : !assignments?.length ? (
-              <p className="text-sm text-muted-foreground" data-testid="text-no-assignments">
-                No assignments for this team yet.
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {assignments.map((assignment) => (
-                  <div
-                    key={assignment.id}
-                    className="flex items-center justify-between gap-2 p-3 rounded-md bg-muted/50"
-                    data-testid={`row-assignment-${assignment.id}`}
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{assignment.drillTitle}</p>
-                      <div className="flex items-center gap-2 mt-1 flex-wrap">
-                        {assignment.dueDate && (
-                          <span className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
-                            Due: {new Date(assignment.dueDate).toLocaleDateString()}
-                          </span>
-                        )}
-                        <Badge
-                          variant={assignment.status === "completed" ? "default" : "outline"}
-                          className="no-default-hover-elevate text-xs"
-                        >
-                          {assignment.status}
-                        </Badge>
-                      </div>
-                    </div>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="shrink-0"
-                      onClick={() => setDeleteAssignmentId(assignment.id)}
-                      data-testid={`button-delete-assignment-${assignment.id}`}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </>
+          ))}
+        </div>
       )}
+
+      <div className="pt-4 border-t">
+        <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+          <h3 className="text-sm font-semibold" data-testid="text-current-assignments-heading">Current Assignments</h3>
+          <Select value={assignmentsTeamFilter} onValueChange={setAssignmentsTeamFilter}>
+            <SelectTrigger className="w-[200px]" data-testid="select-assignments-team-filter">
+              <SelectValue placeholder="All Teams" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Teams</SelectItem>
+              {teams?.map((team) => (
+                <SelectItem key={team.id} value={team.id}>
+                  {team.name} {team.seasonYear ? `(${team.seasonYear})` : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {assignmentsLoading ? (
+          <div className="space-y-2">
+            {[1, 2].map((i) => <Skeleton key={i} className="h-16 rounded" />)}
+          </div>
+        ) : !filteredAssignments.length ? (
+          <p className="text-sm text-muted-foreground" data-testid="text-no-assignments">
+            {!teams?.length ? "Create a team first to assign drills." : "No assignments yet."}
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {filteredAssignments.map(({ assignment, teamName }) => (
+              <div
+                key={assignment.id}
+                className="flex items-center justify-between gap-2 p-3 rounded-md bg-muted/50"
+                data-testid={`row-assignment-${assignment.id}`}
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium truncate">{assignment.drillTitle}</p>
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    <Badge variant="default" className="no-default-hover-elevate text-xs">{teamName}</Badge>
+                    {assignment.dueDate && (
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        Due: {new Date(assignment.dueDate).toLocaleDateString()}
+                      </span>
+                    )}
+                    <Badge
+                      variant={assignment.status === "completed" ? "default" : "outline"}
+                      className="no-default-hover-elevate text-xs"
+                    >
+                      {assignment.status}
+                    </Badge>
+                  </div>
+                </div>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="shrink-0"
+                  onClick={() => setDeleteAssignmentId(assignment.id)}
+                  data-testid={`button-delete-assignment-${assignment.id}`}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
         <DialogContent data-testid="dialog-assign-drill">
           <DialogHeader>
             <DialogTitle>Assign Drill</DialogTitle>
             <DialogDescription>
-              Assign "{selectedDrill?.title}" to the selected team.
+              Assign "{selectedDrill?.title}" to a team.
             </DialogDescription>
           </DialogHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit((data) => assignMutation.mutate(data))} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="dueDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Due Date (optional)</FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} data-testid="input-due-date" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Team</label>
+              <Select value={assignTeamId} onValueChange={setAssignTeamId}>
+                <SelectTrigger data-testid="select-assign-team">
+                  <SelectValue placeholder="Select a team" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teams?.map((team) => (
+                    <SelectItem key={team.id} value={team.id}>
+                      {team.name} {team.seasonYear ? `(${team.seasonYear})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Due Date (optional)</label>
+              <Input
+                type="date"
+                value={assignDueDate}
+                onChange={(e) => setAssignDueDate(e.target.value)}
+                data-testid="input-due-date"
               />
-              <FormField
-                control={form.control}
-                name="notes"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Notes (optional)</FormLabel>
-                    <FormControl>
-                      <Textarea placeholder="Any notes for the players..." {...field} data-testid="input-assignment-notes" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Notes (optional)</label>
+              <Textarea
+                placeholder="Any notes for the players..."
+                value={assignNotes}
+                onChange={(e) => setAssignNotes(e.target.value)}
+                data-testid="input-assignment-notes"
               />
-              <DialogFooter>
-                <Button type="submit" disabled={assignMutation.isPending} data-testid="button-submit-assign-drill">
-                  {assignMutation.isPending ? "Assigning..." : "Assign Drill"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
+            </div>
+            <DialogFooter>
+              <Button
+                onClick={handleAssignSubmit}
+                disabled={!assignTeamId || assignMutation.isPending}
+                data-testid="button-submit-assign-drill"
+              >
+                {assignMutation.isPending ? "Assigning..." : "Assign Drill"}
+              </Button>
+            </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
