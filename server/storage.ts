@@ -30,7 +30,8 @@ import {
   teamClubs, type TeamClub, type InsertTeamClub,
   leagues, type League, type InsertLeague,
   messages, type Message, type InsertMessage,
-  playerInvitations, type PlayerInvitation, type InsertPlayerInvitation
+  playerInvitations, type PlayerInvitation, type InsertPlayerInvitation,
+  sharedVideos
 } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
@@ -235,6 +236,11 @@ export interface IStorage {
 
   // Player Videos (for coach/trainer viewing)
   getPlayerVideos(playerIds: string[]): Promise<Array<{ userId: string; playerName: string; videos: any[] }>>;
+
+  // Shared Videos
+  getSharedVideos(teamId: string): Promise<Array<{ id: string; userId: string; playerName: string; title: string; videoUrl: string; description: string | null; createdAt: Date | null }>>;
+  createSharedVideo(data: { userId: string; teamId: string; title: string; videoUrl: string; description?: string }): Promise<any>;
+  deleteSharedVideo(id: string, userId: string): Promise<boolean>;
 
   // Career Stats
   getCareerStats(userId: string): Promise<{
@@ -2134,6 +2140,29 @@ export class DatabaseStorage implements IStorage {
       }
     }
     return result;
+  }
+
+  async getSharedVideos(teamId: string): Promise<Array<{ id: string; userId: string; playerName: string; title: string; videoUrl: string; description: string | null; createdAt: Date | null }>> {
+    const videos = await db.select().from(sharedVideos).where(eq(sharedVideos.teamId, teamId)).orderBy(desc(sharedVideos.createdAt));
+    const result = [];
+    for (const video of videos) {
+      const [user] = await db.select().from(users).where(eq(users.id, video.userId));
+      const playerName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown' : 'Unknown';
+      result.push({ ...video, playerName });
+    }
+    return result;
+  }
+
+  async createSharedVideo(data: { userId: string; teamId: string; title: string; videoUrl: string; description?: string }): Promise<any> {
+    const [video] = await db.insert(sharedVideos).values(data).returning();
+    return video;
+  }
+
+  async deleteSharedVideo(id: string, userId: string): Promise<boolean> {
+    const [video] = await db.select().from(sharedVideos).where(eq(sharedVideos.id, id));
+    if (!video || video.userId !== userId) return false;
+    await db.delete(sharedVideos).where(eq(sharedVideos.id, id));
+    return true;
   }
 }
 

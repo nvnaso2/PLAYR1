@@ -1215,14 +1215,22 @@ function VideosTab() {
     queryKey: ["/api/coach/teams"],
   });
 
-  const { data: playerVideos, isLoading: videosLoading } = useQuery<PlayerVideo[]>({
-    queryKey: ["/api/coach/teams", selectedTeamId, "videos"],
+  const { data: sharedVideos, isLoading: videosLoading } = useQuery<Array<{
+    id: string;
+    userId: string;
+    playerName: string;
+    title: string;
+    videoUrl: string;
+    description: string | null;
+    createdAt: string;
+  }>>({
+    queryKey: ["/api/shared-videos", selectedTeamId],
     enabled: !!selectedTeamId,
   });
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold" data-testid="text-coach-videos-heading">Player Videos</h2>
+      <h2 className="text-lg font-semibold" data-testid="text-coach-videos-heading">Shared Videos</h2>
 
       <div className="flex items-center gap-3">
         <Select value={selectedTeamId} onValueChange={setSelectedTeamId}>
@@ -1245,44 +1253,40 @@ function VideosTab() {
             <div className="space-y-2">
               {[1, 2, 3].map((i) => <Skeleton key={i} className="h-20 rounded-lg" />)}
             </div>
-          ) : !playerVideos?.length ? (
+          ) : !sharedVideos?.length ? (
             <Card>
               <CardContent className="py-8 text-center text-muted-foreground" data-testid="text-no-player-videos">
                 <Video className="w-10 h-10 mx-auto mb-3 opacity-50" />
-                <p>No player videos found for this team.</p>
+                <p>No shared videos yet. Players can share video links from their Join tab.</p>
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-4">
-              {playerVideos.map((player) => (
-                <div key={player.userId} className="space-y-2">
-                  <h3 className="text-sm font-semibold text-muted-foreground">{player.playerName}</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {player.videos.map((video: any) => (
-                      <Card key={video.id} data-testid={`card-player-video-${video.id}`}>
-                        <CardContent className="py-3">
-                          <div className="space-y-2">
-                            <p className="text-sm font-medium truncate">{video.title}</p>
-                            {video.description && (
-                              <p className="text-xs text-muted-foreground line-clamp-2">{video.description}</p>
-                            )}
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-[10px] text-muted-foreground">
-                                {new Date(video.createdAt).toLocaleDateString()}
-                              </span>
-                              <Button size="sm" variant="ghost" asChild data-testid={`button-watch-video-${video.id}`}>
-                                <a href={video.videoUrl} target="_blank" rel="noopener noreferrer">
-                                  <Video className="w-3 h-3" />
-                                  Watch
-                                </a>
-                              </Button>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </div>
+            <div className="space-y-2">
+              {sharedVideos.map((video) => (
+                <Card key={video.id} data-testid={`card-shared-video-${video.id}`}>
+                  <CardContent className="py-3">
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-medium">{video.title}</p>
+                          <Badge variant="outline" className="no-default-hover-elevate text-xs">{video.playerName}</Badge>
+                        </div>
+                        {video.description && (
+                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{video.description}</p>
+                        )}
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          {new Date(video.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <Button size="sm" variant="ghost" asChild className="shrink-0" data-testid={`button-watch-video-${video.id}`}>
+                        <a href={video.videoUrl} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="w-3 h-3" />
+                          Watch
+                        </a>
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           )}
@@ -1393,10 +1397,10 @@ function InvitePlayersTab() {
 
               {selectedTeamId && (
                 <div className="space-y-2 pt-2 border-t">
-                  <p className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                  <span className="text-sm font-medium text-muted-foreground flex items-center gap-1">
                     <Copy className="w-3 h-3" />
                     Or share team code: <Badge variant="outline" className="no-default-hover-elevate font-mono">{teams?.find(t => t.id === selectedTeamId)?.teamCode}</Badge>
-                  </p>
+                  </span>
                 </div>
               )}
             </>
@@ -1488,6 +1492,55 @@ function JoinTeamTab() {
     },
   });
 
+  const [shareTeamId, setShareTeamId] = useState<string>("");
+  const [shareTitle, setShareTitle] = useState("");
+  const [shareUrl, setShareUrl] = useState("");
+  const [shareDescription, setShareDescription] = useState("");
+
+  const { data: mySharedVideos, isLoading: sharedVideosLoading } = useQuery<Array<{
+    id: string;
+    title: string;
+    videoUrl: string;
+    description: string | null;
+    teamName: string;
+    createdAt: string;
+  }>>({
+    queryKey: ["/api/my-shared-videos"],
+  });
+
+  const shareVideoMutation = useMutation({
+    mutationFn: (data: { teamId: string; title: string; videoUrl: string; description?: string }) =>
+      apiRequest("POST", "/api/shared-videos", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/my-shared-videos"] });
+      setShareTitle("");
+      setShareUrl("");
+      setShareDescription("");
+      toast({ title: "Video shared with your team!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to share video", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteSharedVideoMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/shared-videos/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/my-shared-videos"] });
+      toast({ title: "Shared video removed" });
+    },
+  });
+
+  const handleShareVideo = () => {
+    if (!shareTeamId || !shareTitle.trim() || !shareUrl.trim()) return;
+    shareVideoMutation.mutate({
+      teamId: shareTeamId,
+      title: shareTitle.trim(),
+      videoUrl: shareUrl.trim(),
+      description: shareDescription.trim() || undefined,
+    });
+  };
+
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold" data-testid="text-join-team-heading">Join a Team</h2>
@@ -1554,6 +1607,105 @@ function JoinTeamTab() {
                     <LogOut className="w-3 h-3" />
                     Leave
                   </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <h3 className="text-base font-semibold mt-6" data-testid="text-share-video-heading">Share a Video</h3>
+
+      <Card>
+        <CardContent className="pt-6 space-y-3">
+          <div>
+            <label className="text-sm font-medium">Select Team</label>
+            <Select value={shareTeamId} onValueChange={setShareTeamId}>
+              <SelectTrigger className="mt-1" data-testid="select-share-video-team">
+                <SelectValue placeholder="Choose a team..." />
+              </SelectTrigger>
+              <SelectContent>
+                {myTeams?.map((team) => (
+                  <SelectItem key={team.id} value={team.id}>
+                    {team.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {shareTeamId && (
+            <>
+              <div>
+                <label className="text-sm font-medium">Video Title</label>
+                <Input
+                  value={shareTitle}
+                  onChange={(e) => setShareTitle(e.target.value)}
+                  placeholder="e.g. Ball Handling Drill Session"
+                  className="mt-1"
+                  data-testid="input-share-video-title"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Video Link</label>
+                <Input
+                  value={shareUrl}
+                  onChange={(e) => setShareUrl(e.target.value)}
+                  placeholder="https://youtube.com/watch?v=..."
+                  className="mt-1"
+                  data-testid="input-share-video-url"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Description (optional)</label>
+                <Input
+                  value={shareDescription}
+                  onChange={(e) => setShareDescription(e.target.value)}
+                  placeholder="What's in this video?"
+                  className="mt-1"
+                  data-testid="input-share-video-description"
+                />
+              </div>
+              <Button
+                onClick={handleShareVideo}
+                disabled={!shareTitle.trim() || !shareUrl.trim() || shareVideoMutation.isPending}
+                className="w-full sm:w-auto"
+                data-testid="button-share-video"
+              >
+                <Video className="w-4 h-4" />
+                {shareVideoMutation.isPending ? "Sharing..." : "Share Video"}
+              </Button>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {mySharedVideos && mySharedVideos.length > 0 && (
+        <div className="space-y-2">
+          <h4 className="text-sm font-medium text-muted-foreground">My Shared Videos</h4>
+          {mySharedVideos.map((video) => (
+            <Card key={video.id} data-testid={`card-my-shared-video-${video.id}`}>
+              <CardContent className="py-3">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{video.title}</p>
+                    <p className="text-xs text-muted-foreground">{video.teamName} - {new Date(video.createdAt).toLocaleDateString()}</p>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button size="sm" variant="ghost" asChild data-testid={`button-view-shared-${video.id}`}>
+                      <a href={video.videoUrl} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => deleteSharedVideoMutation.mutate(video.id)}
+                      data-testid={`button-delete-shared-${video.id}`}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>

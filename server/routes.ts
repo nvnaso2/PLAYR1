@@ -2528,41 +2528,77 @@ export async function registerRoutes(
     }
   });
 
-  // ===== PLAYER VIDEOS (for coach/trainer viewing) =====
+  // ===== SHARED VIDEOS (player shares links with coach/trainer) =====
 
-  // Get videos from team members
-  app.get("/api/coach/teams/:id/videos", isAuthenticated, async (req: any, res) => {
+  app.get("/api/shared-videos/:teamId", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const team = await storage.getTeamById(req.params.id);
-      if (!team || team.coachId !== userId) {
-        return res.status(403).json({ message: "Not authorized" });
+      const team = await storage.getTeamById(req.params.teamId);
+      if (!team) {
+        return res.status(404).json({ message: "Team not found" });
       }
-      const members = await storage.getTeamMembers(req.params.id);
-      const playerIds = members.map(m => m.userId).filter(id => id !== userId);
-      const playerVideos = await storage.getPlayerVideos(playerIds);
-      res.json(playerVideos);
+      const isCoach = team.coachId === userId;
+      const members = await storage.getTeamMembers(req.params.teamId);
+      const isMember = members.some(m => m.userId === userId);
+      if (!isCoach && !isMember) {
+        return res.status(403).json({ message: "Not authorized to view shared videos" });
+      }
+      const videos = await storage.getSharedVideos(req.params.teamId);
+      res.json(videos);
     } catch (error) {
-      console.error("Error fetching player videos:", error);
-      res.status(500).json({ message: "Failed to fetch player videos" });
+      console.error("Error fetching shared videos:", error);
+      res.status(500).json({ message: "Failed to fetch shared videos" });
     }
   });
 
-  // Get videos from trainer group members
-  app.get("/api/trainer/groups/:id/videos", isAuthenticated, async (req: any, res) => {
+  app.post("/api/shared-videos", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const group = await storage.getTeamById(req.params.id);
-      if (!group || group.coachId !== userId) {
-        return res.status(403).json({ message: "Not authorized" });
+      const { teamId, title, videoUrl, description } = req.body;
+      if (!teamId || !title || !videoUrl) {
+        return res.status(400).json({ message: "teamId, title, and videoUrl are required" });
       }
-      const members = await storage.getTeamMembers(req.params.id);
-      const playerIds = members.map(m => m.userId).filter(id => id !== userId);
-      const playerVideos = await storage.getPlayerVideos(playerIds);
-      res.json(playerVideos);
+      const members = await storage.getTeamMembers(teamId);
+      const isMember = members.some(m => m.userId === userId);
+      if (!isMember) {
+        return res.status(403).json({ message: "You must be a member of this team/group to share videos" });
+      }
+      const video = await storage.createSharedVideo({ userId, teamId, title, videoUrl, description });
+      res.json(video);
     } catch (error) {
-      console.error("Error fetching player videos:", error);
-      res.status(500).json({ message: "Failed to fetch player videos" });
+      console.error("Error sharing video:", error);
+      res.status(500).json({ message: "Failed to share video" });
+    }
+  });
+
+  app.delete("/api/shared-videos/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const deleted = await storage.deleteSharedVideo(req.params.id, userId);
+      if (!deleted) {
+        return res.status(404).json({ message: "Video not found or not authorized" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting shared video:", error);
+      res.status(500).json({ message: "Failed to delete shared video" });
+    }
+  });
+
+  app.get("/api/my-shared-videos", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const teams = await storage.getUserTeams(userId);
+      const allVideos: any[] = [];
+      for (const team of teams) {
+        const videos = await storage.getSharedVideos(team.id);
+        const myVideos = videos.filter(v => v.userId === userId);
+        allVideos.push(...myVideos.map(v => ({ ...v, teamName: team.name })));
+      }
+      res.json(allVideos);
+    } catch (error) {
+      console.error("Error fetching my shared videos:", error);
+      res.status(500).json({ message: "Failed to fetch shared videos" });
     }
   });
 
