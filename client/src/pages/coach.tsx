@@ -96,6 +96,9 @@ interface RosterMember {
   position?: string;
   jerseyNumber?: string;
   joinedAt: string;
+  isCoachPlayer?: boolean;
+  coachPlayerId?: string;
+  assignmentId?: string;
 }
 
 interface DrillItem {
@@ -208,7 +211,7 @@ interface CoachPlayerData {
   linkedUserId: string | null;
   createdAt: string;
   updatedAt: string;
-  teams: Array<{ id: string; coachPlayerId: string; teamId: string; teamName: string; position: string | null; jerseyNumber: string | null; assignedAt: string }>;
+  teams: Array<{ id: string; coachPlayerId: string; teamId: string; teamName: string; seasonYear?: number | null; ageGroup?: string | null; position: string | null; jerseyNumber: string | null; assignedAt: string }>;
 }
 
 const currentYear = new Date().getFullYear();
@@ -318,6 +321,20 @@ function RosterTab() {
     },
     onError: (error: Error) => {
       toast({ title: "Failed to update player", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const removeAssignmentMutation = useMutation({
+    mutationFn: (assignmentId: string) => apiRequest("DELETE", `/api/coach-player-assignments/${assignmentId}`),
+    onSuccess: () => {
+      if (selectedTeam) {
+        queryClient.invalidateQueries({ queryKey: ["/api/coach/teams", selectedTeam.id, "members"] });
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/coach-players"] });
+      toast({ title: "Player removed from team" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to remove player", description: error.message, variant: "destructive" });
     },
   });
 
@@ -441,7 +458,7 @@ function RosterTab() {
               </div>
             ) : !members?.length ? (
               <p className="text-sm text-muted-foreground" data-testid="text-no-roster-members">
-                No players on the roster yet. Share the team code for players to join.
+                No players on the roster yet. Add players in the Players tab or share the team code.
               </p>
             ) : (
               <div className="space-y-2">
@@ -465,9 +482,14 @@ function RosterTab() {
                       </AvatarFallback>
                     </Avatar>
                     <div className="min-w-0">
-                      <p className="text-sm font-medium truncate" data-testid={`text-roster-name-${member.userId}`}>
-                        {member.firstName} {member.lastName}
-                      </p>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="text-sm font-medium truncate" data-testid={`text-roster-name-${member.userId}`}>
+                          {member.firstName} {member.lastName}
+                        </p>
+                        {member.isCoachPlayer && (
+                          <Badge variant="secondary" className="no-default-hover-elevate text-[10px]">Added by coach</Badge>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground truncate">{member.email}</p>
                     </div>
                     <span className="w-10 text-center text-sm font-mono" data-testid={`text-jersey-${member.userId}`}>
@@ -481,18 +503,26 @@ function RosterTab() {
                       )}
                     </span>
                     <div className="w-16 flex items-center gap-1 justify-end">
+                      {!member.isCoachPlayer && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => openEditMember(member)}
+                          data-testid={`button-edit-member-${member.userId}`}
+                        >
+                          <Edit2 className="w-3 h-3" />
+                        </Button>
+                      )}
                       <Button
                         size="icon"
                         variant="ghost"
-                        onClick={() => openEditMember(member)}
-                        data-testid={`button-edit-member-${member.userId}`}
-                      >
-                        <Edit2 className="w-3 h-3" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => setRemoveMember({ teamId: selectedTeam.id, userId: member.userId, name: `${member.firstName} ${member.lastName}` })}
+                        onClick={() => {
+                          if (member.isCoachPlayer && member.assignmentId) {
+                            removeAssignmentMutation.mutate(member.assignmentId);
+                          } else {
+                            setRemoveMember({ teamId: selectedTeam.id, userId: member.userId, name: `${member.firstName} ${member.lastName}` });
+                          }
+                        }}
                         data-testid={`button-remove-member-${member.userId}`}
                       >
                         <UserMinus className="w-3 h-3" />
@@ -2573,7 +2603,7 @@ function PlayersTab() {
                             onClick={() => removeAssignmentMutation.mutate(t.id)}
                             title={`Click to remove from ${t.teamName}`}
                           >
-                            {t.teamName}
+                            {t.teamName}{t.seasonYear ? ` (${t.seasonYear}-${(t.seasonYear + 1).toString().slice(-2)})` : ""}{t.ageGroup ? ` - ${t.ageGroup}` : ""}
                             <Trash2 className="w-2.5 h-2.5 ml-1" />
                           </Badge>
                         ))}
@@ -2653,7 +2683,9 @@ function PlayersTab() {
                 </SelectTrigger>
                 <SelectContent>
                   {teams?.map((team) => (
-                    <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
+                    <SelectItem key={team.id} value={team.id}>
+                      {team.name}{team.seasonYear ? ` (${team.seasonYear}-${(team.seasonYear + 1).toString().slice(-2)})` : ""}{team.ageGroup ? ` - ${team.ageGroup}` : ""}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -2711,7 +2743,9 @@ function PlayersTab() {
                 </SelectTrigger>
                 <SelectContent>
                   {teams?.map((team) => (
-                    <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
+                    <SelectItem key={team.id} value={team.id}>
+                      {team.name}{team.seasonYear ? ` (${team.seasonYear}-${(team.seasonYear + 1).toString().slice(-2)})` : ""}{team.ageGroup ? ` - ${team.ageGroup}` : ""}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>

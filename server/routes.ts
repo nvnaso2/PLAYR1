@@ -1983,7 +1983,26 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Not authorized" });
       }
       const members = await storage.getTeamMembers(req.params.id);
-      res.json(members);
+      const coachPlayers = await storage.getCoachPlayersByTeam(req.params.id);
+      const linkedUserIds = new Set(members.map(m => m.userId));
+      const coachPlayerMembers = coachPlayers
+        .filter(cp => !cp.linkedUserId || !linkedUserIds.has(cp.linkedUserId))
+        .map(cp => ({
+          userId: cp.linkedUserId || `cp_${cp.id}`,
+          teamId: req.params.id,
+          role: "player",
+          position: cp.teamPosition || cp.position || null,
+          jerseyNumber: cp.teamJersey || cp.jerseyNumber || null,
+          joinedAt: cp.createdAt,
+          firstName: cp.firstName,
+          lastName: cp.lastName || "",
+          email: cp.email || "",
+          profileImageUrl: null,
+          isCoachPlayer: true,
+          coachPlayerId: cp.id,
+          assignmentId: cp.assignmentId,
+        }));
+      res.json([...members.map(m => ({ ...m, isCoachPlayer: false })), ...coachPlayerMembers]);
     } catch (error) {
       console.error("Error fetching team members:", error);
       res.status(500).json({ message: "Failed to fetch team members" });

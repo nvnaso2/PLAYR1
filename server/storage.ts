@@ -250,7 +250,7 @@ export interface IStorage {
   createCoachPlayer(player: InsertCoachPlayer): Promise<CoachPlayer>;
   updateCoachPlayer(id: string, data: Partial<InsertCoachPlayer>): Promise<CoachPlayer | undefined>;
   deleteCoachPlayer(id: string): Promise<boolean>;
-  getCoachPlayerAssignments(coachPlayerId: string): Promise<(CoachPlayerAssignment & { teamName: string })[]>;
+  getCoachPlayerAssignments(coachPlayerId: string): Promise<(CoachPlayerAssignment & { teamName: string; seasonYear?: number | null; ageGroup?: string | null })[]>;
   assignCoachPlayerToTeam(assignment: InsertCoachPlayerAssignment): Promise<CoachPlayerAssignment>;
   removeCoachPlayerFromTeam(assignmentId: string): Promise<boolean>;
   getCoachPlayersByTeam(teamId: string): Promise<(CoachPlayer & { assignmentId: string; teamPosition?: string | null; teamJersey?: string | null })[]>;
@@ -2207,12 +2207,12 @@ export class DatabaseStorage implements IStorage {
     return true;
   }
 
-  async getCoachPlayerAssignments(coachPlayerId: string): Promise<(CoachPlayerAssignment & { teamName: string })[]> {
+  async getCoachPlayerAssignments(coachPlayerId: string): Promise<(CoachPlayerAssignment & { teamName: string; seasonYear?: number | null; ageGroup?: string | null })[]> {
     const assignments = await db.select().from(coachPlayerAssignments).where(eq(coachPlayerAssignments.coachPlayerId, coachPlayerId));
     const result = [];
     for (const a of assignments) {
       const [team] = await db.select().from(trainerTeams).where(eq(trainerTeams.id, a.teamId));
-      result.push({ ...a, teamName: team?.name || "Unknown" });
+      result.push({ ...a, teamName: team?.name || "Unknown", seasonYear: team?.seasonYear, ageGroup: team?.ageGroup });
     }
     return result;
   }
