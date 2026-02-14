@@ -45,6 +45,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -70,6 +71,8 @@ import {
   Mail,
   Send,
   LogOut,
+  Edit2,
+  UserCheck,
 } from "lucide-react";
 import { insertTrainerTeamSchema, insertDrillAssignmentSchema } from "@shared/schema";
 
@@ -93,6 +96,23 @@ interface PlayerMember {
   position?: string;
   jerseyNumber?: string;
   joinedAt: string;
+}
+
+interface TrainerPlayerData {
+  id: string;
+  trainerId: string;
+  firstName: string;
+  lastName: string | null;
+  email: string | null;
+  phone: string | null;
+  position: string | null;
+  jerseyNumber: string | null;
+  ageGroup: string | null;
+  notes: string | null;
+  linkedUserId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  groups: Array<{ id: string; trainerPlayerId: string; groupId: string; groupName: string; ageGroup?: string | null; position: string | null; jerseyNumber: string | null; assignedAt: string }>;
 }
 
 interface DrillItem {
@@ -225,151 +245,490 @@ type JoinTeamForm = z.infer<typeof joinTeamSchema>;
 type CreateGroupForm = z.infer<typeof createGroupSchema>;
 type AssignDrillForm = z.infer<typeof assignDrillSchema>;
 
+const PLAYER_POSITIONS = ["PG", "SG", "SF", "PF", "C"];
+const PLAYER_AGE_GROUPS = ["8U", "9U", "10U", "11U", "12U", "13U", "14U", "15U", "16U", "17U", "18U", "High School"];
+
+const trainerPlayerSchema = z.object({
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().optional().default(""),
+  email: z.string().optional().default(""),
+  phone: z.string().optional().default(""),
+  position: z.string().optional().default(""),
+  jerseyNumber: z.string().optional().default(""),
+  ageGroup: z.string().optional().default(""),
+  notes: z.string().optional().default(""),
+});
+
+type TrainerPlayerForm = z.infer<typeof trainerPlayerSchema>;
+
 function MyPlayersTab() {
   const { toast } = useToast();
-  const [createOpen, setCreateOpen] = useState(false);
-  const [selectedGroup, setSelectedGroup] = useState<TrainerGroup | null>(null);
-  const [deleteGroupId, setDeleteGroupId] = useState<string | null>(null);
-  const [removeMember, setRemoveMember] = useState<{ groupId: string; userId: string; name: string } | null>(null);
-  const [filterPosition, setFilterPosition] = useState<string>("all");
+  const [addOpen, setAddOpen] = useState(false);
+  const [editingPlayer, setEditingPlayer] = useState<TrainerPlayerData | null>(null);
+  const [deletePlayerId, setDeletePlayerId] = useState<string | null>(null);
+  const [assignPlayerId, setAssignPlayerId] = useState<string | null>(null);
+  const [assignGroupId, setAssignGroupId] = useState("");
+  const [assignPosition, setAssignPosition] = useState("");
+  const [assignJersey, setAssignJersey] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [positionFilter, setPositionFilter] = useState("");
+  const [groupFilter, setGroupFilter] = useState("all");
+  const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(new Set());
+  const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
+  const [bulkGroupId, setBulkGroupId] = useState("");
 
-  const form = useForm<CreateGroupForm>({
-    resolver: zodResolver(createGroupSchema),
-    defaultValues: { name: "", description: "", ageGroup: "" },
+  const addForm = useForm<TrainerPlayerForm>({
+    resolver: zodResolver(trainerPlayerSchema),
+    defaultValues: { firstName: "", lastName: "", email: "", phone: "", position: "", jerseyNumber: "", ageGroup: "", notes: "" },
   });
 
-  const { data: groups, isLoading: groupsLoading } = useQuery<TrainerGroup[]>({
+  const editForm = useForm<TrainerPlayerForm>({
+    resolver: zodResolver(trainerPlayerSchema),
+    defaultValues: { firstName: "", lastName: "", email: "", phone: "", position: "", jerseyNumber: "", ageGroup: "", notes: "" },
+  });
+
+  const { data: players, isLoading: playersLoading } = useQuery<TrainerPlayerData[]>({
+    queryKey: ["/api/trainer-players"],
+  });
+
+  const { data: groups } = useQuery<TrainerGroup[]>({
     queryKey: ["/api/trainer/groups"],
   });
 
-  const { data: members, isLoading: membersLoading } = useQuery<PlayerMember[]>({
-    queryKey: ["/api/trainer/groups", selectedGroup?.id, "members"],
-    enabled: !!selectedGroup,
-  });
-
-  const createGroupMutation = useMutation({
-    mutationFn: (data: CreateGroupForm) => apiRequest("POST", "/api/trainer/groups", data),
+  const createPlayerMutation = useMutation({
+    mutationFn: (data: TrainerPlayerForm) => apiRequest("POST", "/api/trainer-players", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/trainer/groups"] });
-      setCreateOpen(false);
-      form.reset();
-      toast({ title: "Group created successfully!" });
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer-players"] });
+      setAddOpen(false);
+      addForm.reset();
+      toast({ title: "Player added successfully!" });
     },
     onError: (error: Error) => {
-      toast({ title: "Failed to create group", description: error.message, variant: "destructive" });
+      toast({ title: "Failed to add player", description: error.message, variant: "destructive" });
     },
   });
 
-  const deleteGroupMutation = useMutation({
-    mutationFn: (id: string) => apiRequest("DELETE", `/api/trainer/groups/${id}`),
+  const updatePlayerMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: TrainerPlayerForm }) => apiRequest("PUT", `/api/trainer-players/${id}`, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/trainer/groups"] });
-      setDeleteGroupId(null);
-      if (selectedGroup?.id === deleteGroupId) setSelectedGroup(null);
-      toast({ title: "Group deleted" });
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer-players"] });
+      setEditingPlayer(null);
+      toast({ title: "Player updated successfully!" });
     },
     onError: (error: Error) => {
-      toast({ title: "Failed to delete group", description: error.message, variant: "destructive" });
+      toast({ title: "Failed to update player", description: error.message, variant: "destructive" });
     },
   });
 
-  const removeMemberMutation = useMutation({
-    mutationFn: ({ groupId, userId }: { groupId: string; userId: string }) =>
-      apiRequest("DELETE", `/api/trainer/groups/${groupId}/members/${userId}`),
+  const deletePlayerMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/trainer-players/${id}`),
     onSuccess: () => {
-      if (selectedGroup) {
-        queryClient.invalidateQueries({ queryKey: ["/api/trainer/groups", selectedGroup.id, "members"] });
-      }
-      queryClient.invalidateQueries({ queryKey: ["/api/trainer/groups"] });
-      setRemoveMember(null);
-      toast({ title: "Player removed" });
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer-players"] });
+      setDeletePlayerId(null);
+      toast({ title: "Player deleted" });
     },
     onError: (error: Error) => {
-      toast({ title: "Failed to remove player", description: error.message, variant: "destructive" });
+      toast({ title: "Failed to delete player", description: error.message, variant: "destructive" });
     },
   });
 
-  const copyGroupCode = (code: string) => {
-    navigator.clipboard.writeText(code);
-    toast({ title: "Group code copied!" });
+  const assignPlayerMutation = useMutation({
+    mutationFn: ({ playerId, groupId, position, jerseyNumber }: { playerId: string; groupId: string; position?: string; jerseyNumber?: string }) =>
+      apiRequest("POST", `/api/trainer-players/${playerId}/assign`, { groupId, position: position || undefined, jerseyNumber: jerseyNumber || undefined }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer-players"] });
+      setAssignPlayerId(null);
+      setAssignGroupId("");
+      setAssignPosition("");
+      setAssignJersey("");
+      toast({ title: "Player assigned to group!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to assign player", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const bulkAssignMutation = useMutation({
+    mutationFn: ({ playerIds, groupId }: { playerIds: string[]; groupId: string }) =>
+      apiRequest("POST", "/api/trainer-players/bulk-assign", { playerIds, groupId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer-players"] });
+      setBulkAssignOpen(false);
+      setBulkGroupId("");
+      setSelectedPlayerIds(new Set());
+      toast({ title: "Players assigned to group!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to assign players", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const removeAssignmentMutation = useMutation({
+    mutationFn: (assignmentId: string) => apiRequest("DELETE", `/api/trainer-player-assignments/${assignmentId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer-players"] });
+      toast({ title: "Player removed from group" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to remove assignment", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const filteredPlayers = useMemo(() => {
+    if (!players) return [];
+    return players.filter((p) => {
+      const nameMatch = !searchQuery || `${p.firstName} ${p.lastName || ""}`.toLowerCase().includes(searchQuery.toLowerCase());
+      const posMatch = !positionFilter || positionFilter === "all" || p.position === positionFilter;
+      const groupMatch = groupFilter === "all" || p.groups.some(g => g.groupId === groupFilter);
+      return nameMatch && posMatch && groupMatch;
+    });
+  }, [players, searchQuery, positionFilter, groupFilter]);
+
+  const allSelected = filteredPlayers.length > 0 && filteredPlayers.every((p) => selectedPlayerIds.has(p.id));
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedPlayerIds(new Set());
+    } else {
+      setSelectedPlayerIds(new Set(filteredPlayers.map((p) => p.id)));
+    }
   };
 
-  const filteredMembers = members?.filter((m) => {
-    const matchesPosition = filterPosition === "all" || m.position === filterPosition;
-    const matchesSearch = searchQuery === "" || 
-      `${m.firstName} ${m.lastName}`.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesPosition && matchesSearch;
-  });
+  const togglePlayer = (id: string) => {
+    const next = new Set(selectedPlayerIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedPlayerIds(next);
+  };
 
-  const positions = ["all", ...Array.from(new Set(members?.map(m => m.position).filter(Boolean) || []))];
+  const openEditPlayer = (player: TrainerPlayerData) => {
+    setEditingPlayer(player);
+    editForm.reset({
+      firstName: player.firstName,
+      lastName: player.lastName || "",
+      email: player.email || "",
+      phone: player.phone || "",
+      position: player.position || "",
+      jerseyNumber: player.jerseyNumber || "",
+      ageGroup: player.ageGroup || "",
+      notes: player.notes || "",
+    });
+  };
+
+  const renderPlayerForm = (form: ReturnType<typeof useForm<TrainerPlayerForm>>, onSubmit: (data: TrainerPlayerForm) => void, isPending: boolean, submitLabel: string) => (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="firstName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>First Name</FormLabel>
+                <FormControl>
+                  <Input placeholder="First name" {...field} data-testid="input-trainer-player-first-name" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="lastName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Last Name</FormLabel>
+                <FormControl>
+                  <Input placeholder="Last name" {...field} data-testid="input-trainer-player-last-name" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Email</FormLabel>
+                <FormControl>
+                  <Input placeholder="email@example.com" type="email" {...field} data-testid="input-trainer-player-email" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="phone"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Phone</FormLabel>
+                <FormControl>
+                  <Input placeholder="Phone number" {...field} data-testid="input-trainer-player-phone" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          <FormField
+            control={form.control}
+            name="position"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Position</FormLabel>
+                <FormControl>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger data-testid="select-trainer-player-position">
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PLAYER_POSITIONS.map((pos) => (
+                        <SelectItem key={pos} value={pos}>{pos}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="jerseyNumber"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Jersey #</FormLabel>
+                <FormControl>
+                  <Input placeholder="#" maxLength={3} {...field} data-testid="input-trainer-player-jersey" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="ageGroup"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Age Group</FormLabel>
+                <FormControl>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger data-testid="select-trainer-player-age-group">
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PLAYER_AGE_GROUPS.map((ag) => (
+                        <SelectItem key={ag} value={ag}>{ag}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+        <FormField
+          control={form.control}
+          name="notes"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Notes</FormLabel>
+              <FormControl>
+                <Textarea placeholder="Optional notes..." {...field} data-testid="input-trainer-player-notes" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <DialogFooter>
+          <Button type="submit" disabled={isPending} data-testid="button-submit-trainer-player">
+            {isPending ? "Saving..." : submitLabel}
+          </Button>
+        </DialogFooter>
+      </form>
+    </Form>
+  );
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h2 className="text-lg font-semibold" data-testid="text-my-players-heading">My Players</h2>
-        <Button onClick={() => setCreateOpen(true)} data-testid="button-create-group">
+        <h2 className="text-lg font-semibold" data-testid="text-trainer-players-heading">Players</h2>
+        <Button onClick={() => { addForm.reset(); setAddOpen(true); }} data-testid="button-add-trainer-player">
           <Plus className="w-4 h-4" />
-          New Group
+          Add Player
         </Button>
       </div>
 
-      {groupsLoading ? (
-        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-28 rounded-lg" />)}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[180px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search players..."
+            className="pl-9"
+            data-testid="input-search-trainer-players"
+          />
         </div>
-      ) : !groups?.length ? (
+        <Select value={groupFilter} onValueChange={setGroupFilter}>
+          <SelectTrigger className="w-[180px]" data-testid="select-filter-trainer-group">
+            <SelectValue placeholder="All Groups" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Groups</SelectItem>
+            {groups?.map((g) => (
+              <SelectItem key={g.id} value={g.id}>{g.name}{g.ageGroup ? ` (${g.ageGroup})` : ""}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={positionFilter} onValueChange={setPositionFilter}>
+          <SelectTrigger className="w-[140px]" data-testid="select-filter-trainer-position">
+            <SelectValue placeholder="All Positions" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Positions</SelectItem>
+            {PLAYER_POSITIONS.map((pos) => (
+              <SelectItem key={pos} value={pos}>{pos}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {filteredPlayers.length > 0 && (
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              checked={allSelected}
+              onCheckedChange={toggleSelectAll}
+              data-testid="checkbox-select-all-trainer-players"
+            />
+            <span className="text-sm text-muted-foreground">Select All</span>
+          </div>
+          {selectedPlayerIds.size > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setBulkAssignOpen(true)}
+              data-testid="button-bulk-assign-trainer"
+            >
+              <UserPlus className="w-4 h-4" />
+              Assign {selectedPlayerIds.size} to Group
+            </Button>
+          )}
+        </div>
+      )}
+
+      {playersLoading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-24 rounded-lg" />)}
+        </div>
+      ) : !players?.length ? (
         <Card>
-          <CardContent className="py-12 text-center text-muted-foreground" data-testid="text-no-groups">
-            <Users className="w-10 h-10 mx-auto mb-3 opacity-50" />
-            <p>No player groups yet. Create a group and share the code with your players!</p>
+          <CardContent className="py-12 text-center text-muted-foreground" data-testid="text-no-trainer-players">
+            <UserCheck className="w-10 h-10 mx-auto mb-3 opacity-50" />
+            <p>No players yet. Add your first player to get started!</p>
+          </CardContent>
+        </Card>
+      ) : !filteredPlayers.length ? (
+        <Card>
+          <CardContent className="py-8 text-center text-muted-foreground" data-testid="text-no-matching-trainer-players">
+            <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">No players match your search criteria.</p>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {groups.map((group) => (
-            <Card
-              key={group.id}
-              className={`cursor-pointer transition-colors ${selectedGroup?.id === group.id ? "ring-2 ring-primary" : ""}`}
-              onClick={() => setSelectedGroup(selectedGroup?.id === group.id ? null : group)}
-              data-testid={`card-group-${group.id}`}
-            >
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <CardTitle className="text-base truncate" data-testid={`text-group-name-${group.id}`}>{group.name}</CardTitle>
-                    {group.description && (
-                      <CardDescription className="line-clamp-1 mt-1">{group.description}</CardDescription>
+        <div className="space-y-2">
+          {filteredPlayers.map((player) => (
+            <Card key={player.id} data-testid={`card-trainer-player-${player.id}`}>
+              <CardContent className="py-3">
+                <div className="flex items-start gap-3">
+                  <div className="pt-1">
+                    <Checkbox
+                      checked={selectedPlayerIds.has(player.id)}
+                      onCheckedChange={() => togglePlayer(player.id)}
+                      data-testid={`checkbox-trainer-player-${player.id}`}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-medium" data-testid={`text-trainer-player-name-${player.id}`}>
+                        {player.firstName} {player.lastName || ""}
+                      </p>
+                      {player.position && (
+                        <Badge variant="outline" className="no-default-hover-elevate text-xs" data-testid={`badge-trainer-player-position-${player.id}`}>
+                          {player.position}
+                        </Badge>
+                      )}
+                      {player.jerseyNumber && (
+                        <span className="text-xs font-mono text-muted-foreground" data-testid={`text-trainer-player-jersey-${player.id}`}>
+                          #{player.jerseyNumber}
+                        </span>
+                      )}
+                      {player.ageGroup && (
+                        <Badge variant="secondary" className="no-default-hover-elevate text-xs" data-testid={`badge-trainer-player-age-${player.id}`}>
+                          {player.ageGroup}
+                        </Badge>
+                      )}
+                    </div>
+                    {player.email && (
+                      <p className="text-xs text-muted-foreground mt-0.5" data-testid={`text-trainer-player-email-${player.id}`}>{player.email}</p>
+                    )}
+                    {player.groups.length > 0 && (
+                      <div className="flex items-center gap-1 mt-2 flex-wrap">
+                        <span className="text-xs text-muted-foreground">Groups:</span>
+                        {player.groups.map((g) => (
+                          <Badge
+                            key={g.id}
+                            variant="default"
+                            className="no-default-hover-elevate text-xs cursor-pointer"
+                            data-testid={`badge-trainer-player-group-${g.id}`}
+                            onClick={() => removeAssignmentMutation.mutate(g.id)}
+                            title={`Click to remove from ${g.groupName}`}
+                          >
+                            {g.groupName}{g.ageGroup ? ` - ${g.ageGroup}` : ""}
+                            <Trash2 className="w-2.5 h-2.5 ml-1" />
+                          </Badge>
+                        ))}
+                      </div>
                     )}
                   </div>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={(e) => { e.stopPropagation(); setDeleteGroupId(group.id); }}
-                    data-testid={`button-delete-group-${group.id}`}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  {group.ageGroup && (
-                    <Badge variant="secondary" className="no-default-hover-elevate text-xs">
-                      {group.ageGroup}
-                    </Badge>
-                  )}
-                  <Badge variant="outline" className="no-default-hover-elevate font-mono text-xs" data-testid={`badge-group-code-${group.id}`}>
-                    {group.teamCode}
-                  </Badge>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={(e) => { e.stopPropagation(); copyGroupCode(group.teamCode); }}
-                    data-testid={`button-copy-group-code-${group.id}`}
-                  >
-                    <Copy className="w-3 h-3" />
-                  </Button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => {
+                        setAssignPlayerId(player.id);
+                        setAssignGroupId("");
+                        setAssignPosition("");
+                        setAssignJersey("");
+                      }}
+                      data-testid={`button-assign-trainer-player-${player.id}`}
+                    >
+                      <UserPlus className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => openEditPlayer(player)}
+                      data-testid={`button-edit-trainer-player-${player.id}`}
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => setDeletePlayerId(player.id)}
+                      data-testid={`button-delete-trainer-player-${player.id}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -377,201 +736,136 @@ function MyPlayersTab() {
         </div>
       )}
 
-      {selectedGroup && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <CardTitle className="text-base" data-testid="text-group-players-heading">
-                Players in {selectedGroup.name}
-              </CardTitle>
-              <div className="flex items-center gap-2 flex-wrap">
-                {positions.length > 1 && (
-                  <Select value={filterPosition} onValueChange={setFilterPosition}>
-                    <SelectTrigger className="w-[130px]" data-testid="select-filter-position">
-                      <Filter className="w-3 h-3 mr-1" />
-                      <SelectValue placeholder="Position" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {positions.map((pos) => (
-                        <SelectItem key={pos} value={pos!} data-testid={`option-position-${pos}`}>
-                          {pos === "all" ? "All Positions" : pos}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-                <div className="relative">
-                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
-                  <Input
-                    placeholder="Search..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-7 w-[150px]"
-                    data-testid="input-search-players"
-                  />
-                </div>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {membersLoading ? (
-              <div className="space-y-2">
-                {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12 rounded" />)}
-              </div>
-            ) : !filteredMembers?.length ? (
-              <p className="text-sm text-muted-foreground" data-testid="text-no-players">
-                {members?.length ? "No players match your filters." : "No players yet. Share the group code for players to join."}
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {filteredMembers.map((member) => (
-                  <div
-                    key={member.userId}
-                    className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/50"
-                    data-testid={`row-player-${member.userId}`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={member.profileImageUrl} />
-                        <AvatarFallback className="text-xs">
-                          {(member.firstName?.[0] || '') + (member.lastName?.[0] || '')}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate" data-testid={`text-player-name-${member.userId}`}>
-                          {member.firstName} {member.lastName}
-                        </p>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-xs text-muted-foreground truncate">{member.email}</p>
-                          {member.position && (
-                            <Badge variant="outline" className="no-default-hover-elevate text-xs">{member.position}</Badge>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => setRemoveMember({ groupId: selectedGroup.id, userId: member.userId, name: `${member.firstName} ${member.lastName}` })}
-                      data-testid={`button-remove-player-${member.userId}`}
-                    >
-                      <UserMinus className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent data-testid="dialog-create-group">
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent data-testid="dialog-add-trainer-player">
           <DialogHeader>
-            <DialogTitle>Create Player Group</DialogTitle>
-            <DialogDescription>Create a group and share the code with your players so they can join.</DialogDescription>
+            <DialogTitle>Add Player</DialogTitle>
+            <DialogDescription>Add a new player to your roster. You can assign them to groups later.</DialogDescription>
           </DialogHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit((data) => createGroupMutation.mutate(data))} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Group Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g. Tuesday Evening Group" {...field} data-testid="input-group-name" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="ageGroup"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Age Group (optional)</FormLabel>
-                    <FormControl>
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <SelectTrigger data-testid="select-age-group">
-                          <SelectValue placeholder="Select age group" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="8U">8U</SelectItem>
-                          <SelectItem value="10U">10U</SelectItem>
-                          <SelectItem value="12U">12U</SelectItem>
-                          <SelectItem value="14U">14U</SelectItem>
-                          <SelectItem value="16U">16U</SelectItem>
-                          <SelectItem value="17U">17U</SelectItem>
-                          <SelectItem value="High School">High School</SelectItem>
-                          <SelectItem value="College">College</SelectItem>
-                          <SelectItem value="Adult">Adult</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description (optional)</FormLabel>
-                    <FormControl>
-                      <Textarea placeholder="Optional group description..." {...field} data-testid="input-group-description" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <DialogFooter>
-                <Button type="submit" disabled={createGroupMutation.isPending} data-testid="button-submit-create-group">
-                  {createGroupMutation.isPending ? "Creating..." : "Create Group"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
+          {renderPlayerForm(addForm, (data) => createPlayerMutation.mutate(data), createPlayerMutation.isPending, "Add Player")}
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={!!deleteGroupId} onOpenChange={(open) => !open && setDeleteGroupId(null)}>
-        <AlertDialogContent data-testid="dialog-delete-group-confirm">
+      <Dialog open={!!editingPlayer} onOpenChange={(open) => { if (!open) setEditingPlayer(null); }}>
+        <DialogContent data-testid="dialog-edit-trainer-player">
+          <DialogHeader>
+            <DialogTitle>Edit Player</DialogTitle>
+            <DialogDescription>Update player information.</DialogDescription>
+          </DialogHeader>
+          {editingPlayer && renderPlayerForm(editForm, (data) => updatePlayerMutation.mutate({ id: editingPlayer.id, data }), updatePlayerMutation.isPending, "Save Changes")}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!assignPlayerId} onOpenChange={(open) => { if (!open) setAssignPlayerId(null); }}>
+        <DialogContent data-testid="dialog-assign-trainer-player">
+          <DialogHeader>
+            <DialogTitle>Assign to Group</DialogTitle>
+            <DialogDescription>Select a group and optionally set position and jersey for this assignment.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Group</label>
+              <Select value={assignGroupId} onValueChange={setAssignGroupId}>
+                <SelectTrigger data-testid="select-assign-trainer-group">
+                  <SelectValue placeholder="Select a group" />
+                </SelectTrigger>
+                <SelectContent>
+                  {groups?.map((group) => (
+                    <SelectItem key={group.id} value={group.id}>
+                      {group.name}{group.ageGroup ? ` (${group.ageGroup})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Position (optional)</label>
+                <Select value={assignPosition} onValueChange={setAssignPosition}>
+                  <SelectTrigger data-testid="select-assign-trainer-position">
+                    <SelectValue placeholder="Position" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PLAYER_POSITIONS.map((pos) => (
+                      <SelectItem key={pos} value={pos}>{pos}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Jersey # (optional)</label>
+                <Input
+                  value={assignJersey}
+                  onChange={(e) => setAssignJersey(e.target.value)}
+                  placeholder="#"
+                  maxLength={3}
+                  data-testid="input-assign-trainer-jersey"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                onClick={() => assignPlayerId && assignPlayerMutation.mutate({ playerId: assignPlayerId, groupId: assignGroupId, position: assignPosition, jerseyNumber: assignJersey })}
+                disabled={!assignGroupId || assignPlayerMutation.isPending}
+                data-testid="button-confirm-assign-trainer"
+              >
+                {assignPlayerMutation.isPending ? "Assigning..." : "Assign"}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={bulkAssignOpen} onOpenChange={setBulkAssignOpen}>
+        <DialogContent data-testid="dialog-bulk-assign-trainer">
+          <DialogHeader>
+            <DialogTitle>Bulk Assign to Group</DialogTitle>
+            <DialogDescription>Assign {selectedPlayerIds.size} selected player(s) to a group.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Group</label>
+              <Select value={bulkGroupId} onValueChange={setBulkGroupId}>
+                <SelectTrigger data-testid="select-bulk-trainer-group">
+                  <SelectValue placeholder="Select a group" />
+                </SelectTrigger>
+                <SelectContent>
+                  {groups?.map((group) => (
+                    <SelectItem key={group.id} value={group.id}>
+                      {group.name}{group.ageGroup ? ` (${group.ageGroup})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter>
+              <Button
+                onClick={() => bulkAssignMutation.mutate({ playerIds: Array.from(selectedPlayerIds), groupId: bulkGroupId })}
+                disabled={!bulkGroupId || bulkAssignMutation.isPending}
+                data-testid="button-confirm-bulk-assign-trainer"
+              >
+                {bulkAssignMutation.isPending ? "Assigning..." : "Assign All"}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!deletePlayerId} onOpenChange={(open) => !open && setDeletePlayerId(null)}>
+        <AlertDialogContent data-testid="dialog-delete-trainer-player-confirm">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Group?</AlertDialogTitle>
+            <AlertDialogTitle>Delete Player?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the group and remove all players. This action cannot be undone.
+              This will permanently delete this player and remove them from all groups. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-delete-group">Cancel</AlertDialogCancel>
+            <AlertDialogCancel data-testid="button-cancel-delete-trainer-player">Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deleteGroupId && deleteGroupMutation.mutate(deleteGroupId)}
-              data-testid="button-confirm-delete-group"
+              onClick={() => deletePlayerId && deletePlayerMutation.mutate(deletePlayerId)}
+              data-testid="button-confirm-delete-trainer-player"
             >
               Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog open={!!removeMember} onOpenChange={(open) => !open && setRemoveMember(null)}>
-        <AlertDialogContent data-testid="dialog-remove-player-confirm">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove Player?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Remove {removeMember?.name} from the group?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-remove-player">Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => removeMember && removeMemberMutation.mutate(removeMember)}
-              data-testid="button-confirm-remove-player"
-            >
-              Remove
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

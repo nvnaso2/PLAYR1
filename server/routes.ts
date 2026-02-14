@@ -2810,6 +2810,163 @@ export async function registerRoutes(
     }
   });
 
+  // ===== TRAINER PLAYER MANAGEMENT =====
+
+  app.get("/api/trainer-players", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const players = await storage.getTrainerPlayers(userId);
+      const playersWithGroups = [];
+      for (const player of players) {
+        const assignments = await storage.getTrainerPlayerAssignments(player.id);
+        playersWithGroups.push({ ...player, groups: assignments });
+      }
+      res.json(playersWithGroups);
+    } catch (error) {
+      console.error("Error fetching trainer players:", error);
+      res.status(500).json({ message: "Failed to fetch trainer players" });
+    }
+  });
+
+  app.post("/api/trainer-players", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { firstName, lastName, email, phone, position, jerseyNumber, ageGroup, notes } = req.body;
+      if (!firstName) {
+        return res.status(400).json({ message: "First name is required" });
+      }
+      const player = await storage.createTrainerPlayer({
+        trainerId: userId,
+        firstName,
+        lastName: lastName || null,
+        email: email || null,
+        phone: phone || null,
+        position: position || null,
+        jerseyNumber: jerseyNumber || null,
+        ageGroup: ageGroup || null,
+        notes: notes || null,
+      });
+      res.status(201).json(player);
+    } catch (error) {
+      console.error("Error creating trainer player:", error);
+      res.status(500).json({ message: "Failed to create player" });
+    }
+  });
+
+  app.put("/api/trainer-players/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const player = await storage.getTrainerPlayerById(req.params.id);
+      if (!player || player.trainerId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      const updated = await storage.updateTrainerPlayer(req.params.id, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating trainer player:", error);
+      res.status(500).json({ message: "Failed to update player" });
+    }
+  });
+
+  app.delete("/api/trainer-players/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const player = await storage.getTrainerPlayerById(req.params.id);
+      if (!player || player.trainerId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      await storage.deleteTrainerPlayer(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting trainer player:", error);
+      res.status(500).json({ message: "Failed to delete player" });
+    }
+  });
+
+  app.post("/api/trainer-players/:id/assign", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const player = await storage.getTrainerPlayerById(req.params.id);
+      if (!player || player.trainerId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      const { groupId, position, jerseyNumber } = req.body;
+      if (!groupId) {
+        return res.status(400).json({ message: "groupId is required" });
+      }
+      const group = await storage.getTeamById(groupId);
+      if (!group || group.coachId !== userId) {
+        return res.status(403).json({ message: "Not authorized to assign to this group" });
+      }
+      const assignment = await storage.assignTrainerPlayerToGroup({
+        trainerPlayerId: req.params.id,
+        groupId,
+        position: position || player.position || null,
+        jerseyNumber: jerseyNumber || player.jerseyNumber || null,
+      });
+      res.status(201).json(assignment);
+    } catch (error) {
+      console.error("Error assigning trainer player to group:", error);
+      res.status(500).json({ message: "Failed to assign player" });
+    }
+  });
+
+  app.delete("/api/trainer-player-assignments/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.removeTrainerPlayerFromGroup(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error removing trainer assignment:", error);
+      res.status(500).json({ message: "Failed to remove assignment" });
+    }
+  });
+
+  app.get("/api/trainer-players/by-group/:groupId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const group = await storage.getTeamById(req.params.groupId);
+      if (!group || group.coachId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      const players = await storage.getTrainerPlayersByGroup(req.params.groupId);
+      res.json(players);
+    } catch (error) {
+      console.error("Error fetching group players:", error);
+      res.status(500).json({ message: "Failed to fetch group players" });
+    }
+  });
+
+  app.post("/api/trainer-players/bulk-assign", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { playerIds, groupId } = req.body;
+      if (!playerIds?.length || !groupId) {
+        return res.status(400).json({ message: "playerIds and groupId are required" });
+      }
+      const group = await storage.getTeamById(groupId);
+      if (!group || group.coachId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      const results = [];
+      for (const playerId of playerIds) {
+        const player = await storage.getTrainerPlayerById(playerId);
+        if (player && player.trainerId === userId) {
+          const assignment = await storage.assignTrainerPlayerToGroup({
+            trainerPlayerId: playerId,
+            groupId,
+            position: player.position || null,
+            jerseyNumber: player.jerseyNumber || null,
+          });
+          results.push(assignment);
+        }
+      }
+      res.status(201).json(results);
+    } catch (error) {
+      console.error("Error bulk assigning trainer players:", error);
+      res.status(500).json({ message: "Failed to bulk assign players" });
+    }
+  });
+
   // ===== TEAM & LEAGUE FINDER =====
 
   // Get team clubs with optional filters
