@@ -196,7 +196,7 @@ export interface IStorage {
   upsertPlayerProfile(profile: InsertPlayerProfile): Promise<PlayerProfile>;
 
   // Trainer Teams
-  getCoachTeams(coachId: string): Promise<TrainerTeam[]>;
+  getCoachTeams(coachId: string, teamType?: string): Promise<TrainerTeam[]>;
   getTeamById(id: string): Promise<TrainerTeam | undefined>;
   getTeamByCode(code: string): Promise<TrainerTeam | undefined>;
   createTeam(team: InsertTrainerTeam): Promise<TrainerTeam>;
@@ -204,9 +204,10 @@ export interface IStorage {
   deleteTeam(id: string): Promise<boolean>;
 
   // Team Members
-  getTeamMembers(teamId: string): Promise<Array<TeamMember & { user: { id: string; firstName: string | null; lastName: string | null; email: string | null } }>>;
+  getTeamMembers(teamId: string): Promise<Array<TeamMember & { user: { id: string; firstName: string | null; lastName: string | null; email: string | null; profileImageUrl: string | null } }>>;
   getUserTeams(userId: string): Promise<Array<TeamMember & { team: TrainerTeam }>>;
   addTeamMember(member: InsertTeamMember): Promise<TeamMember>;
+  updateTeamMember(teamId: string, userId: string, updates: { position?: string; jerseyNumber?: string }): Promise<TeamMember | undefined>;
   removeTeamMember(teamId: string, userId: string): Promise<boolean>;
 
   // Drill Assignments
@@ -1748,8 +1749,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Trainer Teams
-  async getCoachTeams(coachId: string): Promise<TrainerTeam[]> {
-    return await db.select().from(trainerTeams).where(eq(trainerTeams.coachId, coachId)).orderBy(desc(trainerTeams.createdAt));
+  async getCoachTeams(coachId: string, teamType?: string): Promise<TrainerTeam[]> {
+    const conditions = [eq(trainerTeams.coachId, coachId)];
+    if (teamType) {
+      conditions.push(eq(trainerTeams.teamType, teamType));
+    }
+    return await db.select().from(trainerTeams).where(and(...conditions)).orderBy(desc(trainerTeams.createdAt));
   }
 
   async getTeamById(id: string): Promise<TrainerTeam | undefined> {
@@ -1783,7 +1788,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Team Members
-  async getTeamMembers(teamId: string): Promise<Array<TeamMember & { user: { id: string; firstName: string | null; lastName: string | null; email: string | null } }>> {
+  async getTeamMembers(teamId: string): Promise<Array<TeamMember & { user: { id: string; firstName: string | null; lastName: string | null; email: string | null; profileImageUrl: string | null } }>> {
     const members = await db.select().from(teamMembers).where(eq(teamMembers.teamId, teamId));
     const result = [];
     for (const member of members) {
@@ -1791,7 +1796,8 @@ export class DatabaseStorage implements IStorage {
         id: users.id,
         firstName: users.firstName,
         lastName: users.lastName,
-        email: users.email
+        email: users.email,
+        profileImageUrl: users.profileImageUrl
       }).from(users).where(eq(users.id, member.userId));
       if (user) {
         result.push({ ...member, user });
@@ -1815,6 +1821,14 @@ export class DatabaseStorage implements IStorage {
   async addTeamMember(member: InsertTeamMember): Promise<TeamMember> {
     const [created] = await db.insert(teamMembers).values(member).returning();
     return created;
+  }
+
+  async updateTeamMember(teamId: string, userId: string, updates: { position?: string; jerseyNumber?: string }): Promise<TeamMember | undefined> {
+    const [updated] = await db.update(teamMembers)
+      .set(updates)
+      .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)))
+      .returning();
+    return updated;
   }
 
   async removeTeamMember(teamId: string, userId: string): Promise<boolean> {

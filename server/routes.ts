@@ -1915,13 +1915,13 @@ export async function registerRoutes(
     }
   });
 
-  // ===== TRAINER/COACH =====
+  // ===== COACH MODE =====
 
   // Get coach's teams
   app.get("/api/coach/teams", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const teams = await storage.getCoachTeams(userId);
+      const teams = await storage.getCoachTeams(userId, "coach");
       res.json(teams);
     } catch (error) {
       console.error("Error fetching coach teams:", error);
@@ -1929,12 +1929,12 @@ export async function registerRoutes(
     }
   });
 
-  // Create team
+  // Create coach team
   app.post("/api/coach/teams", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const teamCode = generateTeamCode();
-      const team = await storage.createTeam({ ...req.body, coachId: userId, teamCode });
+      const team = await storage.createTeam({ ...req.body, coachId: userId, teamCode, teamType: "coach" });
       res.status(201).json(team);
     } catch (error) {
       console.error("Error creating team:", error);
@@ -2117,6 +2117,265 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error updating assignment:", error);
       res.status(500).json({ message: "Failed to update assignment" });
+    }
+  });
+
+  // Update team member (position, jersey number)
+  app.put("/api/coach/teams/:teamId/members/:userId", isAuthenticated, async (req: any, res) => {
+    try {
+      const ownerId = req.user.claims.sub;
+      const team = await storage.getTeamById(req.params.teamId);
+      if (!team || team.coachId !== ownerId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      const { position, jerseyNumber } = req.body;
+      const updated = await storage.updateTeamMember(req.params.teamId, req.params.userId, { position, jerseyNumber });
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating team member:", error);
+      res.status(500).json({ message: "Failed to update team member" });
+    }
+  });
+
+  // Get player training logs for assigned drills (coach/trainer view)
+  app.get("/api/coach/teams/:id/training-logs", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const team = await storage.getTeamById(req.params.id);
+      if (!team || team.coachId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      const members = await storage.getTeamMembers(req.params.id);
+      const memberIds = members.map(m => m.userId);
+      const logs = [];
+      for (const memberId of memberIds) {
+        const memberLogs = await storage.getTrainingLogs(memberId);
+        const [user] = members.filter(m => m.userId === memberId);
+        for (const log of memberLogs) {
+          logs.push({
+            ...log,
+            playerName: user ? `${user.user.firstName || ''} ${user.user.lastName || ''}`.trim() : 'Unknown',
+            playerId: memberId,
+          });
+        }
+      }
+      logs.sort((a, b) => new Date(b.completedAt || 0).getTime() - new Date(a.completedAt || 0).getTime());
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching team training logs:", error);
+      res.status(500).json({ message: "Failed to fetch training logs" });
+    }
+  });
+
+  // ===== TRAINER MODE =====
+
+  // Get trainer's groups
+  app.get("/api/trainer/groups", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const teams = await storage.getCoachTeams(userId, "trainer");
+      res.json(teams);
+    } catch (error) {
+      console.error("Error fetching trainer groups:", error);
+      res.status(500).json({ message: "Failed to fetch groups" });
+    }
+  });
+
+  // Create trainer group
+  app.post("/api/trainer/groups", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const teamCode = generateTeamCode();
+      const group = await storage.createTeam({ ...req.body, coachId: userId, teamCode, teamType: "trainer" });
+      res.status(201).json(group);
+    } catch (error) {
+      console.error("Error creating trainer group:", error);
+      res.status(500).json({ message: "Failed to create group" });
+    }
+  });
+
+  // Update trainer group
+  app.put("/api/trainer/groups/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const group = await storage.getTeamById(req.params.id);
+      if (!group || group.coachId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      const updated = await storage.updateTeam(req.params.id, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating trainer group:", error);
+      res.status(500).json({ message: "Failed to update group" });
+    }
+  });
+
+  // Delete trainer group
+  app.delete("/api/trainer/groups/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const group = await storage.getTeamById(req.params.id);
+      if (!group || group.coachId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      await storage.deleteTeam(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting trainer group:", error);
+      res.status(500).json({ message: "Failed to delete group" });
+    }
+  });
+
+  // Get trainer group members
+  app.get("/api/trainer/groups/:id/members", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const group = await storage.getTeamById(req.params.id);
+      if (!group || group.coachId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      const members = await storage.getTeamMembers(req.params.id);
+      res.json(members.map(m => ({
+        id: m.id,
+        userId: m.userId,
+        firstName: m.user.firstName,
+        lastName: m.user.lastName,
+        email: m.user.email,
+        profileImageUrl: m.user.profileImageUrl,
+        position: m.position,
+        jerseyNumber: m.jerseyNumber,
+        joinedAt: m.joinedAt,
+      })));
+    } catch (error) {
+      console.error("Error fetching trainer group members:", error);
+      res.status(500).json({ message: "Failed to fetch group members" });
+    }
+  });
+
+  // Remove member from trainer group
+  app.delete("/api/trainer/groups/:groupId/members/:userId", isAuthenticated, async (req: any, res) => {
+    try {
+      const ownerId = req.user.claims.sub;
+      const group = await storage.getTeamById(req.params.groupId);
+      if (!group || group.coachId !== ownerId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      await storage.removeTeamMember(req.params.groupId, req.params.userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error removing trainer group member:", error);
+      res.status(500).json({ message: "Failed to remove member" });
+    }
+  });
+
+  // Update trainer group member
+  app.put("/api/trainer/groups/:groupId/members/:userId", isAuthenticated, async (req: any, res) => {
+    try {
+      const ownerId = req.user.claims.sub;
+      const group = await storage.getTeamById(req.params.groupId);
+      if (!group || group.coachId !== ownerId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      const { position, jerseyNumber } = req.body;
+      const updated = await storage.updateTeamMember(req.params.groupId, req.params.userId, { position, jerseyNumber });
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating trainer group member:", error);
+      res.status(500).json({ message: "Failed to update member" });
+    }
+  });
+
+  // Trainer assign drill
+  app.post("/api/trainer/assignments", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { drillId, teamId, assignedTo, dueDate, notes } = req.body;
+      if (teamId) {
+        const group = await storage.getTeamById(teamId);
+        if (!group || group.coachId !== userId) {
+          return res.status(403).json({ message: "Not authorized" });
+        }
+      }
+      const assignment = await storage.createDrillAssignment({
+        drillId,
+        assignedBy: userId,
+        teamId: teamId || null,
+        assignedTo: assignedTo || null,
+        dueDate: dueDate ? new Date(dueDate) : null,
+        notes: notes || null,
+        status: "assigned"
+      });
+      res.status(201).json(assignment);
+    } catch (error) {
+      console.error("Error assigning drill (trainer):", error);
+      res.status(500).json({ message: "Failed to assign drill" });
+    }
+  });
+
+  // Get trainer group assignments
+  app.get("/api/trainer/groups/:id/assignments", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const group = await storage.getTeamById(req.params.id);
+      if (!group || group.coachId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      const assignments = await storage.getTeamAssignments(req.params.id);
+      res.json(assignments.map(a => ({
+        id: a.id,
+        drillId: a.drillId,
+        drillTitle: a.drill.title,
+        teamId: a.teamId,
+        assignedBy: a.assignedBy,
+        dueDate: a.dueDate,
+        notes: a.notes,
+        status: a.status,
+        createdAt: a.createdAt,
+      })));
+    } catch (error) {
+      console.error("Error fetching trainer group assignments:", error);
+      res.status(500).json({ message: "Failed to fetch assignments" });
+    }
+  });
+
+  // Delete trainer assignment
+  app.delete("/api/trainer/assignments/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.deleteDrillAssignment(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting trainer assignment:", error);
+      res.status(500).json({ message: "Failed to delete assignment" });
+    }
+  });
+
+  // Get trainer group training logs
+  app.get("/api/trainer/groups/:id/training-logs", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const group = await storage.getTeamById(req.params.id);
+      if (!group || group.coachId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      const members = await storage.getTeamMembers(req.params.id);
+      const memberIds = members.map(m => m.userId);
+      const logs = [];
+      for (const memberId of memberIds) {
+        const memberLogs = await storage.getTrainingLogs(memberId);
+        const [user] = members.filter(m => m.userId === memberId);
+        for (const log of memberLogs) {
+          logs.push({
+            ...log,
+            playerName: user ? `${user.user.firstName || ''} ${user.user.lastName || ''}`.trim() : 'Unknown',
+            playerId: memberId,
+          });
+        }
+      }
+      logs.sort((a, b) => new Date(b.completedAt || 0).getTime() - new Date(a.completedAt || 0).getTime());
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching trainer group training logs:", error);
+      res.status(500).json({ message: "Failed to fetch training logs" });
     }
   });
 

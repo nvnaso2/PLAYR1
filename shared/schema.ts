@@ -583,6 +583,9 @@ export const trainerTeams = pgTable("trainer_teams", {
   description: text("description"),
   sport: varchar("sport").default("basketball"),
   teamCode: varchar("team_code").notNull().unique(),
+  teamType: varchar("team_type").default("coach"),
+  seasonYear: integer("season_year"),
+  ageGroup: varchar("age_group"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow()
 });
@@ -593,6 +596,8 @@ export const teamMembers = pgTable("team_members", {
   teamId: varchar("team_id").notNull(),
   userId: varchar("user_id").notNull(),
   role: varchar("role").default("player"),
+  position: varchar("position"),
+  jerseyNumber: varchar("jersey_number"),
   joinedAt: timestamp("joined_at").defaultNow()
 });
 

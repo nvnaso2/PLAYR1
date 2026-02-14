@@ -24,6 +24,7 @@ import PlayerProfile from "@/pages/player-profile";
 import PlayerPublic from "@/pages/player-public";
 import Admin from "@/pages/admin";
 import Coach from "@/pages/coach";
+import Trainer from "@/pages/trainer";
 import Finder from "@/pages/finder";
 import TeamProfile from "@/pages/team-profile";
 import LeagueProfile from "@/pages/league-profile";
@@ -96,6 +97,7 @@ function Router({ previewLanding }: { previewLanding: boolean }) {
                 <Route path="/player-profile" component={PlayerProfile} />
                 <Route path="/admin" component={Admin} />
                 <Route path="/coach" component={Coach} />
+                <Route path="/trainer" component={Trainer} />
                 <Route component={NotFound} />
               </Switch>
             </AuthenticatedLayout>

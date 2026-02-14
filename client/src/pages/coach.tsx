@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Dialog,
   DialogContent,
@@ -61,8 +62,10 @@ import {
   Copy,
   ExternalLink,
   UserMinus,
-  Dumbbell,
+  Shield,
   LogOut,
+  FileText,
+  Edit2,
 } from "lucide-react";
 import { insertTrainerTeamSchema, insertDrillAssignmentSchema } from "@shared/schema";
 
@@ -71,17 +74,21 @@ interface CoachTeam {
   name: string;
   description: string;
   teamCode: string;
+  seasonYear?: number;
+  ageGroup?: string;
   memberCount: number;
   createdAt: string;
 }
 
-interface TeamMember {
+interface RosterMember {
   id: string;
   userId: string;
   firstName: string;
   lastName: string;
   email: string;
   profileImageUrl?: string;
+  position?: string;
+  jerseyNumber?: string;
   joinedAt: string;
 }
 
@@ -114,11 +121,28 @@ interface PlayerTeam {
   joinedAt: string;
 }
 
+interface TrainingLogEntry {
+  id: string;
+  drillId: string;
+  drillTitle?: string;
+  duration: number;
+  score?: number;
+  notes?: string;
+  completedAt: string;
+  playerName: string;
+  playerId: string;
+}
+
+const currentYear = new Date().getFullYear();
+const yearOptions = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
+
 const createTeamSchema = insertTrainerTeamSchema
   .pick({ name: true, description: true })
   .extend({
     name: z.string().min(1, "Team name is required").max(100),
     description: z.string().max(500).optional().default(""),
+    seasonYear: z.coerce.number().optional(),
+    ageGroup: z.string().optional().default(""),
   });
 
 const joinTeamSchema = z.object({
@@ -138,23 +162,26 @@ type CreateTeamForm = z.infer<typeof createTeamSchema>;
 type JoinTeamForm = z.infer<typeof joinTeamSchema>;
 type AssignDrillForm = z.infer<typeof assignDrillSchema>;
 
-function MyTeamsTab() {
+function RosterTab() {
   const { toast } = useToast();
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState<CoachTeam | null>(null);
   const [deleteTeamId, setDeleteTeamId] = useState<string | null>(null);
   const [removeMember, setRemoveMember] = useState<{ teamId: string; userId: string; name: string } | null>(null);
+  const [editingMember, setEditingMember] = useState<RosterMember | null>(null);
+  const [editPosition, setEditPosition] = useState("");
+  const [editJersey, setEditJersey] = useState("");
 
   const form = useForm<CreateTeamForm>({
     resolver: zodResolver(createTeamSchema),
-    defaultValues: { name: "", description: "" },
+    defaultValues: { name: "", description: "", seasonYear: currentYear, ageGroup: "" },
   });
 
   const { data: teams, isLoading: teamsLoading } = useQuery<CoachTeam[]>({
     queryKey: ["/api/coach/teams"],
   });
 
-  const { data: members, isLoading: membersLoading } = useQuery<TeamMember[]>({
+  const { data: members, isLoading: membersLoading } = useQuery<RosterMember[]>({
     queryKey: ["/api/coach/teams", selectedTeam?.id, "members"],
     enabled: !!selectedTeam,
   });
@@ -194,10 +221,25 @@ function MyTeamsTab() {
       }
       queryClient.invalidateQueries({ queryKey: ["/api/coach/teams"] });
       setRemoveMember(null);
-      toast({ title: "Member removed" });
+      toast({ title: "Player removed from roster" });
     },
     onError: (error: Error) => {
-      toast({ title: "Failed to remove member", description: error.message, variant: "destructive" });
+      toast({ title: "Failed to remove player", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const updateMemberMutation = useMutation({
+    mutationFn: ({ teamId, userId, position, jerseyNumber }: { teamId: string; userId: string; position: string; jerseyNumber: string }) =>
+      apiRequest("PUT", `/api/coach/teams/${teamId}/members/${userId}`, { position, jerseyNumber }),
+    onSuccess: () => {
+      if (selectedTeam) {
+        queryClient.invalidateQueries({ queryKey: ["/api/coach/teams", selectedTeam.id, "members"] });
+      }
+      setEditingMember(null);
+      toast({ title: "Player updated" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to update player", description: error.message, variant: "destructive" });
     },
   });
 
@@ -206,13 +248,32 @@ function MyTeamsTab() {
     toast({ title: "Team code copied!" });
   };
 
+  const openEditMember = (member: RosterMember) => {
+    setEditingMember(member);
+    setEditPosition(member.position || "");
+    setEditJersey(member.jerseyNumber || "");
+  };
+
+  const saveEditMember = () => {
+    if (editingMember && selectedTeam) {
+      updateMemberMutation.mutate({
+        teamId: selectedTeam.id,
+        userId: editingMember.userId,
+        position: editPosition,
+        jerseyNumber: editJersey,
+      });
+    }
+  };
+
+  const positionOptions = ["PG", "SG", "SF", "PF", "C", "G", "F", "G/F"];
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h2 className="text-lg font-semibold" data-testid="text-my-teams-heading">My Teams</h2>
+        <h2 className="text-lg font-semibold" data-testid="text-roster-heading">Team Roster</h2>
         <Button onClick={() => setCreateOpen(true)} data-testid="button-create-team">
           <Plus className="w-4 h-4" />
-          Create Team
+          New Team
         </Button>
       </div>
 
@@ -224,7 +285,7 @@ function MyTeamsTab() {
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground" data-testid="text-no-teams">
             <Users className="w-10 h-10 mx-auto mb-3 opacity-50" />
-            <p>No teams yet. Create your first team to get started!</p>
+            <p>No teams yet. Create your first team roster to get started!</p>
           </CardContent>
         </Card>
       ) : (
@@ -240,9 +301,18 @@ function MyTeamsTab() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <CardTitle className="text-base truncate" data-testid={`text-team-name-${team.id}`}>{team.name}</CardTitle>
-                    {team.description && (
-                      <CardDescription className="line-clamp-2 mt-1">{team.description}</CardDescription>
-                    )}
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      {team.seasonYear && (
+                        <Badge variant="secondary" className="no-default-hover-elevate text-xs">
+                          {team.seasonYear}-{(team.seasonYear + 1).toString().slice(-2)}
+                        </Badge>
+                      )}
+                      {team.ageGroup && (
+                        <Badge variant="outline" className="no-default-hover-elevate text-xs">
+                          {team.ageGroup}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                   <Button
                     size="icon"
@@ -281,41 +351,75 @@ function MyTeamsTab() {
       {selectedTeam && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base" data-testid="text-members-heading">
-              Members of {selectedTeam.name}
+            <CardTitle className="text-base" data-testid="text-roster-members-heading">
+              Roster - {selectedTeam.name}
+              {selectedTeam.seasonYear && ` (${selectedTeam.seasonYear}-${(selectedTeam.seasonYear + 1).toString().slice(-2)})`}
             </CardTitle>
           </CardHeader>
           <CardContent>
             {membersLoading ? (
               <div className="space-y-2">
-                {[1, 2, 3].map((i) => <Skeleton key={i} className="h-10 rounded" />)}
+                {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12 rounded" />)}
               </div>
             ) : !members?.length ? (
-              <p className="text-sm text-muted-foreground" data-testid="text-no-members">
-                No members yet. Share the team code for players to join.
+              <p className="text-sm text-muted-foreground" data-testid="text-no-roster-members">
+                No players on the roster yet. Share the team code for players to join.
               </p>
             ) : (
               <div className="space-y-2">
+                <div className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-2 items-center px-2 text-xs font-medium text-muted-foreground">
+                  <span className="w-8"></span>
+                  <span>Player</span>
+                  <span className="w-10 text-center">#</span>
+                  <span className="w-12 text-center">Pos</span>
+                  <span className="w-16"></span>
+                </div>
                 {members.map((member) => (
                   <div
                     key={member.userId}
-                    className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/50"
-                    data-testid={`row-member-${member.userId}`}
+                    className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-2 items-center p-2 rounded-md bg-muted/50"
+                    data-testid={`row-roster-member-${member.userId}`}
                   >
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={member.profileImageUrl} />
+                      <AvatarFallback className="text-xs">
+                        {(member.firstName?.[0] || '') + (member.lastName?.[0] || '')}
+                      </AvatarFallback>
+                    </Avatar>
                     <div className="min-w-0">
-                      <p className="text-sm font-medium truncate" data-testid={`text-member-name-${member.userId}`}>
+                      <p className="text-sm font-medium truncate" data-testid={`text-roster-name-${member.userId}`}>
                         {member.firstName} {member.lastName}
                       </p>
                       <p className="text-xs text-muted-foreground truncate">{member.email}</p>
                     </div>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => setRemoveMember({ teamId: selectedTeam.id, userId: member.userId, name: `${member.firstName} ${member.lastName}` })}
-                      data-testid={`button-remove-member-${member.userId}`}
-                    >
-                      <UserMinus className="w-4 h-4" />
-                    </Button>
+                    <span className="w-10 text-center text-sm font-mono" data-testid={`text-jersey-${member.userId}`}>
+                      {member.jerseyNumber || "-"}
+                    </span>
+                    <span className="w-12 text-center">
+                      {member.position ? (
+                        <Badge variant="outline" className="no-default-hover-elevate text-xs">{member.position}</Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">-</span>
+                      )}
+                    </span>
+                    <div className="w-16 flex items-center gap-1 justify-end">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => openEditMember(member)}
+                        data-testid={`button-edit-member-${member.userId}`}
+                      >
+                        <Edit2 className="w-3 h-3" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => setRemoveMember({ teamId: selectedTeam.id, userId: member.userId, name: `${member.firstName} ${member.lastName}` })}
+                        data-testid={`button-remove-member-${member.userId}`}
+                      >
+                        <UserMinus className="w-3 h-3" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -328,7 +432,7 @@ function MyTeamsTab() {
         <DialogContent data-testid="dialog-create-team">
           <DialogHeader>
             <DialogTitle>Create Team</DialogTitle>
-            <DialogDescription>Create a new team and share the code with your players.</DialogDescription>
+            <DialogDescription>Create a new team roster and share the code with your players.</DialogDescription>
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit((data) => createTeamMutation.mutate(data))} className="space-y-4">
@@ -345,12 +449,68 @@ function MyTeamsTab() {
                   </FormItem>
                 )}
               />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="seasonYear"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Season Year</FormLabel>
+                      <FormControl>
+                        <Select value={field.value?.toString() || ""} onValueChange={(v) => field.onChange(parseInt(v))}>
+                          <SelectTrigger data-testid="select-season-year">
+                            <SelectValue placeholder="Year" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {yearOptions.map((y) => (
+                              <SelectItem key={y} value={y.toString()} data-testid={`option-year-${y}`}>
+                                {y}-{(y + 1).toString().slice(-2)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="ageGroup"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Age Group</FormLabel>
+                      <FormControl>
+                        <Select value={field.value} onValueChange={field.onChange}>
+                          <SelectTrigger data-testid="select-age-group">
+                            <SelectValue placeholder="Select" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Varsity">Varsity</SelectItem>
+                            <SelectItem value="JV">JV</SelectItem>
+                            <SelectItem value="Freshman">Freshman</SelectItem>
+                            <SelectItem value="8th Grade">8th Grade</SelectItem>
+                            <SelectItem value="7th Grade">7th Grade</SelectItem>
+                            <SelectItem value="8U">8U</SelectItem>
+                            <SelectItem value="10U">10U</SelectItem>
+                            <SelectItem value="12U">12U</SelectItem>
+                            <SelectItem value="14U">14U</SelectItem>
+                            <SelectItem value="16U">16U</SelectItem>
+                            <SelectItem value="17U">17U</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
               <FormField
                 control={form.control}
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Description</FormLabel>
+                    <FormLabel>Description (optional)</FormLabel>
                     <FormControl>
                       <Textarea placeholder="Optional team description..." {...field} data-testid="input-team-description" />
                     </FormControl>
@@ -368,12 +528,58 @@ function MyTeamsTab() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!editingMember} onOpenChange={(open) => !open && setEditingMember(null)}>
+        <DialogContent data-testid="dialog-edit-member">
+          <DialogHeader>
+            <DialogTitle>Edit Player</DialogTitle>
+            <DialogDescription>
+              Update roster details for {editingMember?.firstName} {editingMember?.lastName}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Position</label>
+              <Select value={editPosition} onValueChange={setEditPosition}>
+                <SelectTrigger data-testid="select-edit-position">
+                  <SelectValue placeholder="Select position" />
+                </SelectTrigger>
+                <SelectContent>
+                  {positionOptions.map((pos) => (
+                    <SelectItem key={pos} value={pos} data-testid={`option-pos-${pos}`}>
+                      {pos}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Jersey Number</label>
+              <Input
+                value={editJersey}
+                onChange={(e) => setEditJersey(e.target.value)}
+                placeholder="e.g. 23"
+                maxLength={3}
+                data-testid="input-edit-jersey"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingMember(null)} data-testid="button-cancel-edit-member">
+              Cancel
+            </Button>
+            <Button onClick={saveEditMember} disabled={updateMemberMutation.isPending} data-testid="button-save-edit-member">
+              {updateMemberMutation.isPending ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={!!deleteTeamId} onOpenChange={(open) => !open && setDeleteTeamId(null)}>
         <AlertDialogContent data-testid="dialog-delete-team-confirm">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Team?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the team and remove all members. This action cannot be undone.
+              This will permanently delete the team and its roster. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -391,9 +597,9 @@ function MyTeamsTab() {
       <AlertDialog open={!!removeMember} onOpenChange={(open) => !open && setRemoveMember(null)}>
         <AlertDialogContent data-testid="dialog-remove-member-confirm">
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove Member?</AlertDialogTitle>
+            <AlertDialogTitle>Remove from Roster?</AlertDialogTitle>
             <AlertDialogDescription>
-              Remove {removeMember?.name} from the team?
+              Remove {removeMember?.name} from the team roster?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -491,7 +697,7 @@ function AssignDrillsTab() {
           <SelectContent>
             {teams?.map((team) => (
               <SelectItem key={team.id} value={team.id} data-testid={`option-team-${team.id}`}>
-                {team.name}
+                {team.name} {team.seasonYear ? `(${team.seasonYear})` : ""}
               </SelectItem>
             ))}
           </SelectContent>
@@ -665,6 +871,94 @@ function AssignDrillsTab() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+function TrainingLogsTab() {
+  const [selectedTeamId, setSelectedTeamId] = useState<string>("");
+
+  const { data: teams } = useQuery<CoachTeam[]>({
+    queryKey: ["/api/coach/teams"],
+  });
+
+  const { data: logs, isLoading: logsLoading } = useQuery<TrainingLogEntry[]>({
+    queryKey: ["/api/coach/teams", selectedTeamId, "training-logs"],
+    enabled: !!selectedTeamId,
+  });
+
+  return (
+    <div className="space-y-4">
+      <h2 className="text-lg font-semibold" data-testid="text-coach-logs-heading">Player Training Logs</h2>
+
+      <div className="w-full">
+        <Select value={selectedTeamId} onValueChange={setSelectedTeamId}>
+          <SelectTrigger className="w-full sm:w-[240px]" data-testid="select-team-for-logs">
+            <SelectValue placeholder="Select a team" />
+          </SelectTrigger>
+          <SelectContent>
+            {teams?.map((team) => (
+              <SelectItem key={team.id} value={team.id} data-testid={`option-log-team-${team.id}`}>
+                {team.name} {team.seasonYear ? `(${team.seasonYear})` : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {selectedTeamId && (
+        <>
+          {logsLoading ? (
+            <div className="space-y-2">
+              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-20 rounded-lg" />)}
+            </div>
+          ) : !logs?.length ? (
+            <Card>
+              <CardContent className="py-8 text-center text-muted-foreground" data-testid="text-no-coach-logs">
+                <FileText className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                <p>No training logs yet from players on this team.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {logs.map((log) => (
+                <Card key={log.id} data-testid={`card-coach-log-${log.id}`}>
+                  <CardContent className="py-3">
+                    <div className="flex items-start justify-between gap-2 flex-wrap">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium" data-testid={`text-log-player-${log.id}`}>
+                          {log.playerName}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {log.drillTitle || `Drill ${log.drillId}`}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(log.completedAt).toLocaleDateString()}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="outline" className="no-default-hover-elevate text-xs">
+                            {log.duration} min
+                          </Badge>
+                          {log.score != null && (
+                            <Badge variant="secondary" className="no-default-hover-elevate text-xs">
+                              Score: {log.score}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    {log.notes && (
+                      <p className="text-xs text-muted-foreground mt-2 bg-muted/50 p-2 rounded">{log.notes}</p>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -920,23 +1214,27 @@ export default function CoachPage() {
   return (
     <div className="p-3 sm:p-6 max-w-4xl mx-auto space-y-4 sm:space-y-6">
       <div className="flex items-center gap-3">
-        <Dumbbell className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
-        <h1 className="text-xl sm:text-2xl font-bold" data-testid="text-coach-page-title">Trainer / Coach</h1>
+        <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+        <h1 className="text-xl sm:text-2xl font-bold" data-testid="text-coach-page-title">Coach Mode</h1>
       </div>
 
-      <Tabs defaultValue="my-teams">
-        <TabsList className="w-full grid grid-cols-2 sm:grid-cols-4 gap-1 h-auto" data-testid="tabs-coach-main">
-          <TabsTrigger value="my-teams" className="text-xs sm:text-sm py-2" data-testid="tab-my-teams">
+      <Tabs defaultValue="roster">
+        <TabsList className="w-full grid grid-cols-3 sm:grid-cols-5 gap-1 h-auto" data-testid="tabs-coach-main">
+          <TabsTrigger value="roster" className="text-xs sm:text-sm py-2" data-testid="tab-roster">
             <Users className="w-4 h-4 mr-1 shrink-0" />
-            <span className="truncate">My Teams</span>
+            <span className="truncate">Roster</span>
           </TabsTrigger>
           <TabsTrigger value="assign-drills" className="text-xs sm:text-sm py-2" data-testid="tab-assign-drills">
             <ClipboardList className="w-4 h-4 mr-1 shrink-0" />
             <span className="truncate">Assign</span>
           </TabsTrigger>
+          <TabsTrigger value="training-logs" className="text-xs sm:text-sm py-2" data-testid="tab-training-logs">
+            <FileText className="w-4 h-4 mr-1 shrink-0" />
+            <span className="truncate">Logs</span>
+          </TabsTrigger>
           <TabsTrigger value="join-team" className="text-xs sm:text-sm py-2" data-testid="tab-join-team">
             <UserPlus className="w-4 h-4 mr-1 shrink-0" />
-            <span className="truncate">Join Team</span>
+            <span className="truncate">Join</span>
           </TabsTrigger>
           <TabsTrigger value="my-assignments" className="text-xs sm:text-sm py-2" data-testid="tab-my-assignments">
             <BookOpen className="w-4 h-4 mr-1 shrink-0" />
@@ -944,11 +1242,14 @@ export default function CoachPage() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="my-teams">
-          <MyTeamsTab />
+        <TabsContent value="roster">
+          <RosterTab />
         </TabsContent>
         <TabsContent value="assign-drills">
           <AssignDrillsTab />
+        </TabsContent>
+        <TabsContent value="training-logs">
+          <TrainingLogsTab />
         </TabsContent>
         <TabsContent value="join-team">
           <JoinTeamTab />
