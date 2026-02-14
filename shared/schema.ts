@@ -614,6 +614,28 @@ export const drillAssignments = pgTable("drill_assignments", {
   createdAt: timestamp("created_at").defaultNow()
 });
 
+// Messages for Player-Coach/Trainer chat
+export const messages = pgTable("messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  senderId: varchar("sender_id").notNull(),
+  receiverId: varchar("receiver_id").notNull(),
+  teamId: varchar("team_id"),
+  content: text("content").notNull(),
+  isRead: boolean("is_read").default(false),
+  createdAt: timestamp("created_at").defaultNow()
+});
+
+// Player invitations
+export const playerInvitations = pgTable("player_invitations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  teamId: varchar("team_id").notNull(),
+  invitedBy: varchar("invited_by").notNull(),
+  email: varchar("email").notNull(),
+  playerName: varchar("player_name"),
+  status: varchar("status").default("pending"),
+  createdAt: timestamp("created_at").defaultNow()
+});
+
 // Drill ratings - users rate drills 1-5
 export const drillRatings = pgTable("drill_ratings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -667,6 +689,8 @@ export const insertPlayerProfileSchema = createInsertSchema(playerProfiles).omit
 export const insertTrainerTeamSchema = createInsertSchema(trainerTeams).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertTeamMemberSchema = createInsertSchema(teamMembers).omit({ id: true, joinedAt: true });
 export const insertDrillAssignmentSchema = createInsertSchema(drillAssignments).omit({ id: true, createdAt: true });
+export const insertMessageSchema = createInsertSchema(messages).omit({ id: true, createdAt: true, isRead: true });
+export const insertPlayerInvitationSchema = createInsertSchema(playerInvitations).omit({ id: true, createdAt: true, status: true });
 
 // Types
 export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
@@ -722,6 +746,10 @@ export type InsertTeamMember = z.infer<typeof insertTeamMemberSchema>;
 export type TeamMember = typeof teamMembers.$inferSelect;
 export type InsertDrillAssignment = z.infer<typeof insertDrillAssignmentSchema>;
 export type DrillAssignment = typeof drillAssignments.$inferSelect;
+export type InsertMessage = z.infer<typeof insertMessageSchema>;
+export type Message = typeof messages.$inferSelect;
+export type InsertPlayerInvitation = z.infer<typeof insertPlayerInvitationSchema>;
+export type PlayerInvitation = typeof playerInvitations.$inferSelect;
 
 // ===== TEAM & LEAGUE FINDER =====
 
