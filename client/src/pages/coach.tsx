@@ -725,10 +725,15 @@ function RosterTab() {
   );
 }
 
+const DRILL_CATEGORIES = ["ball-handling", "shooting", "passing", "finishing", "defense", "film-session", "workouts"];
+const DRILL_DIFFICULTIES = ["beginner", "intermediate", "advanced"];
+
 function AssignDrillsTab() {
   const { toast } = useToast();
   const [selectedTeamId, setSelectedTeamId] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [difficultyFilter, setDifficultyFilter] = useState("all");
   const [assignOpen, setAssignOpen] = useState(false);
   const [selectedDrill, setSelectedDrill] = useState<DrillItem | null>(null);
   const [deleteAssignmentId, setDeleteAssignmentId] = useState<string | null>(null);
@@ -781,10 +786,12 @@ function AssignDrillsTab() {
     },
   });
 
-  const filteredDrills = drills?.filter((d) =>
-    d.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    d.category.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredDrills = drills?.filter((d) => {
+    const matchesSearch = !searchQuery || d.title.toLowerCase().includes(searchQuery.toLowerCase()) || d.category.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = categoryFilter === "all" || d.category === categoryFilter;
+    const matchesDifficulty = difficultyFilter === "all" || d.difficulty === difficultyFilter;
+    return matchesSearch && matchesCategory && matchesDifficulty;
+  });
 
   const openAssignDialog = (drill: DrillItem) => {
     setSelectedDrill(drill);
@@ -797,9 +804,9 @@ function AssignDrillsTab() {
     <div className="space-y-4">
       <h2 className="text-lg font-semibold" data-testid="text-assign-drills-heading">Assign Drills</h2>
 
-      <div className="w-full">
+      <div className="flex items-center gap-3 flex-wrap">
         <Select value={selectedTeamId} onValueChange={setSelectedTeamId}>
-          <SelectTrigger className="w-full sm:w-[240px]" data-testid="select-team-for-assignment">
+          <SelectTrigger className="w-full sm:w-[200px]" data-testid="select-team-for-assignment">
             <SelectValue placeholder="Select a team" />
           </SelectTrigger>
           <SelectContent>
@@ -807,6 +814,28 @@ function AssignDrillsTab() {
               <SelectItem key={team.id} value={team.id} data-testid={`option-team-${team.id}`}>
                 {team.name} {team.seasonYear ? `(${team.seasonYear})` : ""}
               </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <SelectTrigger className="w-[160px]" data-testid="select-assign-category-filter">
+            <SelectValue placeholder="All Categories" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Categories</SelectItem>
+            {DRILL_CATEGORIES.map((cat) => (
+              <SelectItem key={cat} value={cat}>{cat.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
+          <SelectTrigger className="w-[140px]" data-testid="select-assign-difficulty-filter">
+            <SelectValue placeholder="All Levels" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Levels</SelectItem>
+            {DRILL_DIFFICULTIES.map((d) => (
+              <SelectItem key={d} value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -985,6 +1014,8 @@ function AssignDrillsTab() {
 
 function TrainingLogsTab() {
   const [selectedTeamId, setSelectedTeamId] = useState<string>("");
+  const [playerFilter, setPlayerFilter] = useState("all");
+  const [drillFilter, setDrillFilter] = useState("all");
 
   const { data: teams } = useQuery<CoachTeam[]>({
     queryKey: ["/api/coach/teams"],
@@ -995,13 +1026,40 @@ function TrainingLogsTab() {
     enabled: !!selectedTeamId,
   });
 
+  const uniquePlayers = useMemo(() => {
+    if (!logs) return [];
+    const seen = new Map<string, string>();
+    logs.forEach(l => { if (!seen.has(l.playerName)) seen.set(l.playerName, l.playerName); });
+    return Array.from(seen.keys());
+  }, [logs]);
+
+  const uniqueDrills = useMemo(() => {
+    if (!logs) return [];
+    const seen = new Map<string, string>();
+    logs.forEach(l => {
+      const title = l.drillTitle || `Drill ${l.drillId}`;
+      if (!seen.has(title)) seen.set(title, title);
+    });
+    return Array.from(seen.keys());
+  }, [logs]);
+
+  const filteredLogs = useMemo(() => {
+    if (!logs) return [];
+    return logs.filter(l => {
+      if (playerFilter !== "all" && l.playerName !== playerFilter) return false;
+      const title = l.drillTitle || `Drill ${l.drillId}`;
+      if (drillFilter !== "all" && title !== drillFilter) return false;
+      return true;
+    });
+  }, [logs, playerFilter, drillFilter]);
+
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold" data-testid="text-coach-logs-heading">Player Training Logs</h2>
 
-      <div className="w-full">
-        <Select value={selectedTeamId} onValueChange={setSelectedTeamId}>
-          <SelectTrigger className="w-full sm:w-[240px]" data-testid="select-team-for-logs">
+      <div className="flex items-center gap-3 flex-wrap">
+        <Select value={selectedTeamId} onValueChange={(v) => { setSelectedTeamId(v); setPlayerFilter("all"); setDrillFilter("all"); }}>
+          <SelectTrigger className="w-full sm:w-[200px]" data-testid="select-team-for-logs">
             <SelectValue placeholder="Select a team" />
           </SelectTrigger>
           <SelectContent>
@@ -1012,6 +1070,32 @@ function TrainingLogsTab() {
             ))}
           </SelectContent>
         </Select>
+        {selectedTeamId && uniquePlayers.length > 0 && (
+          <Select value={playerFilter} onValueChange={setPlayerFilter}>
+            <SelectTrigger className="w-[160px]" data-testid="select-logs-player-filter">
+              <SelectValue placeholder="All Players" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Players</SelectItem>
+              {uniquePlayers.map((p) => (
+                <SelectItem key={p} value={p}>{p}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        {selectedTeamId && uniqueDrills.length > 0 && (
+          <Select value={drillFilter} onValueChange={setDrillFilter}>
+            <SelectTrigger className="w-[160px]" data-testid="select-logs-drill-filter">
+              <SelectValue placeholder="All Drills" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Drills</SelectItem>
+              {uniqueDrills.map((d) => (
+                <SelectItem key={d} value={d}>{d}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {selectedTeamId && (
@@ -1020,16 +1104,16 @@ function TrainingLogsTab() {
             <div className="space-y-2">
               {[1, 2, 3].map((i) => <Skeleton key={i} className="h-20 rounded-lg" />)}
             </div>
-          ) : !logs?.length ? (
+          ) : !filteredLogs.length ? (
             <Card>
               <CardContent className="py-8 text-center text-muted-foreground" data-testid="text-no-coach-logs">
                 <FileText className="w-10 h-10 mx-auto mb-3 opacity-50" />
-                <p>No training logs yet from players on this team.</p>
+                <p>{logs?.length ? "No logs match your filters." : "No training logs yet from players on this team."}</p>
               </CardContent>
             </Card>
           ) : (
             <div className="space-y-2">
-              {logs.map((log) => (
+              {filteredLogs.map((log) => (
                 <Card key={log.id} data-testid={`card-coach-log-${log.id}`}>
                   <CardContent className="py-3">
                     <div className="flex items-start justify-between gap-2 flex-wrap">
@@ -1354,6 +1438,7 @@ function ChatTab() {
 function VideosTab() {
   const [selectedTeamId, setSelectedTeamId] = useState<string>("");
   const [filterAssignmentId, setFilterAssignmentId] = useState<string>("all");
+  const [filterPlayerName, setFilterPlayerName] = useState<string>("all");
 
   const { data: teams } = useQuery<CoachTeam[]>({
     queryKey: ["/api/coach/teams"],
@@ -1393,13 +1478,26 @@ function VideosTab() {
     enabled: !!selectedTeamId,
   });
 
+  const uniqueVideoPlayers = useMemo(() => {
+    if (!sharedVideos) return [];
+    const seen = new Set<string>();
+    sharedVideos.forEach(v => seen.add(v.playerName));
+    return Array.from(seen);
+  }, [sharedVideos]);
+
+  const filteredVideos = useMemo(() => {
+    if (!sharedVideos) return [];
+    if (filterPlayerName === "all") return sharedVideos;
+    return sharedVideos.filter(v => v.playerName === filterPlayerName);
+  }, [sharedVideos, filterPlayerName]);
+
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold" data-testid="text-coach-videos-heading">Shared Videos</h2>
 
       <div className="flex items-center gap-3 flex-wrap">
-        <Select value={selectedTeamId} onValueChange={(v) => { setSelectedTeamId(v); setFilterAssignmentId("all"); }}>
-          <SelectTrigger className="w-[220px]" data-testid="select-video-team">
+        <Select value={selectedTeamId} onValueChange={(v) => { setSelectedTeamId(v); setFilterAssignmentId("all"); setFilterPlayerName("all"); }}>
+          <SelectTrigger className="w-[200px]" data-testid="select-video-team">
             <SelectValue placeholder="Select a team" />
           </SelectTrigger>
           <SelectContent>
@@ -1413,15 +1511,29 @@ function VideosTab() {
 
         {selectedTeamId && teamAssignments && teamAssignments.length > 0 && (
           <Select value={filterAssignmentId} onValueChange={setFilterAssignmentId}>
-            <SelectTrigger className="w-[220px]" data-testid="select-video-assignment-filter">
-              <SelectValue placeholder="Filter by assignment" />
+            <SelectTrigger className="w-[180px]" data-testid="select-video-assignment-filter">
+              <SelectValue placeholder="All Assignments" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Videos</SelectItem>
+              <SelectItem value="all">All Assignments</SelectItem>
               {teamAssignments.map((a) => (
                 <SelectItem key={a.id} value={a.id}>
                   {a.drill?.name || "Unknown Drill"}
                 </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
+        {selectedTeamId && uniqueVideoPlayers.length > 0 && (
+          <Select value={filterPlayerName} onValueChange={setFilterPlayerName}>
+            <SelectTrigger className="w-[160px]" data-testid="select-video-player-filter">
+              <SelectValue placeholder="All Players" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Players</SelectItem>
+              {uniqueVideoPlayers.map((p) => (
+                <SelectItem key={p} value={p}>{p}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -1434,16 +1546,16 @@ function VideosTab() {
             <div className="space-y-2">
               {[1, 2, 3].map((i) => <Skeleton key={i} className="h-20 rounded-lg" />)}
             </div>
-          ) : !sharedVideos?.length ? (
+          ) : !filteredVideos.length ? (
             <Card>
               <CardContent className="py-8 text-center text-muted-foreground" data-testid="text-no-player-videos">
                 <Video className="w-10 h-10 mx-auto mb-3 opacity-50" />
-                <p>No shared videos yet. Players can share video links from their Join tab.</p>
+                <p>{sharedVideos?.length ? "No videos match your filters." : "No shared videos yet. Players can share video links from their Join tab."}</p>
               </CardContent>
             </Card>
           ) : (
             <div className="space-y-2">
-              {sharedVideos.map((video) => (
+              {filteredVideos.map((video) => (
                 <Card key={video.id} data-testid={`card-shared-video-${video.id}`}>
                   <CardContent className="py-3">
                     <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -2197,6 +2309,7 @@ function PlayersTab() {
   const [assignJersey, setAssignJersey] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [positionFilter, setPositionFilter] = useState("");
+  const [teamFilter, setTeamFilter] = useState("all");
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(new Set());
   const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
   const [bulkTeamId, setBulkTeamId] = useState("");
@@ -2303,9 +2416,10 @@ function PlayersTab() {
     return players.filter((p) => {
       const nameMatch = !searchQuery || `${p.firstName} ${p.lastName || ""}`.toLowerCase().includes(searchQuery.toLowerCase());
       const posMatch = !positionFilter || positionFilter === "all" || p.position === positionFilter;
-      return nameMatch && posMatch;
+      const teamMatch = teamFilter === "all" || p.teams.some(t => t.teamId === teamFilter);
+      return nameMatch && posMatch && teamMatch;
     });
-  }, [players, searchQuery, positionFilter]);
+  }, [players, searchQuery, positionFilter, teamFilter]);
 
   const allSelected = filteredPlayers.length > 0 && filteredPlayers.every((p) => selectedPlayerIds.has(p.id));
 
@@ -2499,6 +2613,17 @@ function PlayersTab() {
             data-testid="input-search-players"
           />
         </div>
+        <Select value={teamFilter} onValueChange={setTeamFilter}>
+          <SelectTrigger className="w-[180px]" data-testid="select-filter-team">
+            <SelectValue placeholder="All Teams" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Teams</SelectItem>
+            {teams?.map((t) => (
+              <SelectItem key={t.id} value={t.id}>{t.name} {t.seasonYear ? `(${t.seasonYear})` : ""}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select value={positionFilter} onValueChange={setPositionFilter}>
           <SelectTrigger className="w-[140px]" data-testid="select-filter-position">
             <SelectValue placeholder="All Positions" />

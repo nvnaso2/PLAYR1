@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -580,10 +580,15 @@ function MyPlayersTab() {
   );
 }
 
+const DRILL_CATEGORIES = ["ball-handling", "shooting", "passing", "finishing", "defense", "film-session", "workouts"];
+const DRILL_DIFFICULTIES = ["beginner", "intermediate", "advanced"];
+
 function AssignDrillsTab() {
   const { toast } = useToast();
   const [selectedGroupId, setSelectedGroupId] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [difficultyFilter, setDifficultyFilter] = useState("all");
   const [assignOpen, setAssignOpen] = useState(false);
   const [selectedDrill, setSelectedDrill] = useState<DrillItem | null>(null);
   const [deleteAssignmentId, setDeleteAssignmentId] = useState<string | null>(null);
@@ -636,10 +641,12 @@ function AssignDrillsTab() {
     },
   });
 
-  const filteredDrills = drills?.filter((d) =>
-    d.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    d.category.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredDrills = drills?.filter((d) => {
+    const matchesSearch = !searchQuery || d.title.toLowerCase().includes(searchQuery.toLowerCase()) || d.category.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = categoryFilter === "all" || d.category === categoryFilter;
+    const matchesDifficulty = difficultyFilter === "all" || d.difficulty === difficultyFilter;
+    return matchesSearch && matchesCategory && matchesDifficulty;
+  });
 
   const openAssignDialog = (drill: DrillItem) => {
     setSelectedDrill(drill);
@@ -652,9 +659,9 @@ function AssignDrillsTab() {
     <div className="space-y-4">
       <h2 className="text-lg font-semibold" data-testid="text-trainer-assign-heading">Assign Drills</h2>
 
-      <div className="w-full">
+      <div className="flex items-center gap-3 flex-wrap">
         <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
-          <SelectTrigger className="w-full sm:w-[240px]" data-testid="select-group-for-assignment">
+          <SelectTrigger className="w-full sm:w-[200px]" data-testid="select-group-for-assignment">
             <SelectValue placeholder="Select a group" />
           </SelectTrigger>
           <SelectContent>
@@ -662,6 +669,28 @@ function AssignDrillsTab() {
               <SelectItem key={group.id} value={group.id} data-testid={`option-group-${group.id}`}>
                 {group.name}
               </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <SelectTrigger className="w-[160px]" data-testid="select-trainer-assign-category-filter">
+            <SelectValue placeholder="All Categories" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Categories</SelectItem>
+            {DRILL_CATEGORIES.map((cat) => (
+              <SelectItem key={cat} value={cat}>{cat.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
+          <SelectTrigger className="w-[140px]" data-testid="select-trainer-assign-difficulty-filter">
+            <SelectValue placeholder="All Levels" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Levels</SelectItem>
+            {DRILL_DIFFICULTIES.map((d) => (
+              <SelectItem key={d} value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -840,6 +869,8 @@ function AssignDrillsTab() {
 
 function TrainingLogsTab() {
   const [selectedGroupId, setSelectedGroupId] = useState<string>("");
+  const [playerFilter, setPlayerFilter] = useState("all");
+  const [drillFilter, setDrillFilter] = useState("all");
 
   const { data: groups } = useQuery<TrainerGroup[]>({
     queryKey: ["/api/trainer/groups"],
@@ -850,13 +881,37 @@ function TrainingLogsTab() {
     enabled: !!selectedGroupId,
   });
 
+  const uniquePlayers = useMemo(() => {
+    if (!logs) return [];
+    const seen = new Set<string>();
+    logs.forEach(l => seen.add(l.playerName));
+    return Array.from(seen);
+  }, [logs]);
+
+  const uniqueDrills = useMemo(() => {
+    if (!logs) return [];
+    const seen = new Set<string>();
+    logs.forEach(l => seen.add(l.drillTitle || `Drill ${l.drillId}`));
+    return Array.from(seen);
+  }, [logs]);
+
+  const filteredLogs = useMemo(() => {
+    if (!logs) return [];
+    return logs.filter(l => {
+      if (playerFilter !== "all" && l.playerName !== playerFilter) return false;
+      const title = l.drillTitle || `Drill ${l.drillId}`;
+      if (drillFilter !== "all" && title !== drillFilter) return false;
+      return true;
+    });
+  }, [logs, playerFilter, drillFilter]);
+
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold" data-testid="text-trainer-logs-heading">Player Training Logs</h2>
 
-      <div className="w-full">
-        <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
-          <SelectTrigger className="w-full sm:w-[240px]" data-testid="select-group-for-logs">
+      <div className="flex items-center gap-3 flex-wrap">
+        <Select value={selectedGroupId} onValueChange={(v) => { setSelectedGroupId(v); setPlayerFilter("all"); setDrillFilter("all"); }}>
+          <SelectTrigger className="w-full sm:w-[200px]" data-testid="select-group-for-logs">
             <SelectValue placeholder="Select a group" />
           </SelectTrigger>
           <SelectContent>
@@ -867,6 +922,32 @@ function TrainingLogsTab() {
             ))}
           </SelectContent>
         </Select>
+        {selectedGroupId && uniquePlayers.length > 0 && (
+          <Select value={playerFilter} onValueChange={setPlayerFilter}>
+            <SelectTrigger className="w-[160px]" data-testid="select-trainer-logs-player-filter">
+              <SelectValue placeholder="All Players" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Players</SelectItem>
+              {uniquePlayers.map((p) => (
+                <SelectItem key={p} value={p}>{p}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        {selectedGroupId && uniqueDrills.length > 0 && (
+          <Select value={drillFilter} onValueChange={setDrillFilter}>
+            <SelectTrigger className="w-[160px]" data-testid="select-trainer-logs-drill-filter">
+              <SelectValue placeholder="All Drills" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Drills</SelectItem>
+              {uniqueDrills.map((d) => (
+                <SelectItem key={d} value={d}>{d}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {selectedGroupId && (
@@ -875,16 +956,16 @@ function TrainingLogsTab() {
             <div className="space-y-2">
               {[1, 2, 3].map((i) => <Skeleton key={i} className="h-20 rounded-lg" />)}
             </div>
-          ) : !logs?.length ? (
+          ) : !filteredLogs.length ? (
             <Card>
               <CardContent className="py-8 text-center text-muted-foreground" data-testid="text-no-trainer-logs">
                 <FileText className="w-10 h-10 mx-auto mb-3 opacity-50" />
-                <p>No training logs yet from players in this group.</p>
+                <p>{logs?.length ? "No logs match your filters." : "No training logs yet from players in this group."}</p>
               </CardContent>
             </Card>
           ) : (
             <div className="space-y-2">
-              {logs.map((log) => (
+              {filteredLogs.map((log) => (
                 <Card key={log.id} data-testid={`card-trainer-log-${log.id}`}>
                   <CardContent className="py-3">
                     <div className="flex items-start justify-between gap-2 flex-wrap">
