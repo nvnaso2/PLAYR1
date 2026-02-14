@@ -1311,10 +1311,26 @@ function ChatTab() {
 
 function VideosTab() {
   const [selectedTeamId, setSelectedTeamId] = useState<string>("");
+  const [filterAssignmentId, setFilterAssignmentId] = useState<string>("all");
 
   const { data: teams } = useQuery<CoachTeam[]>({
     queryKey: ["/api/coach/teams"],
   });
+
+  const { data: teamAssignments } = useQuery<Array<{
+    id: string;
+    drillId: string;
+    notes: string | null;
+    dueDate: string | null;
+    drill: { id: number; name: string };
+  }>>({
+    queryKey: ["/api/coach/assignments", selectedTeamId],
+    enabled: !!selectedTeamId,
+  });
+
+  const videoQueryUrl = filterAssignmentId && filterAssignmentId !== "all"
+    ? `/api/shared-videos/${selectedTeamId}?assignmentId=${filterAssignmentId}`
+    : `/api/shared-videos/${selectedTeamId}`;
 
   const { data: sharedVideos, isLoading: videosLoading } = useQuery<Array<{
     id: string;
@@ -1323,9 +1339,15 @@ function VideosTab() {
     title: string;
     videoUrl: string;
     description: string | null;
+    assignmentId: string | null;
     createdAt: string;
   }>>({
-    queryKey: ["/api/shared-videos", selectedTeamId],
+    queryKey: ["/api/shared-videos", selectedTeamId, filterAssignmentId],
+    queryFn: async () => {
+      const res = await fetch(videoQueryUrl, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch videos");
+      return res.json();
+    },
     enabled: !!selectedTeamId,
   });
 
@@ -1333,8 +1355,8 @@ function VideosTab() {
     <div className="space-y-4">
       <h2 className="text-lg font-semibold" data-testid="text-coach-videos-heading">Shared Videos</h2>
 
-      <div className="flex items-center gap-3">
-        <Select value={selectedTeamId} onValueChange={setSelectedTeamId}>
+      <div className="flex items-center gap-3 flex-wrap">
+        <Select value={selectedTeamId} onValueChange={(v) => { setSelectedTeamId(v); setFilterAssignmentId("all"); }}>
           <SelectTrigger className="w-[220px]" data-testid="select-video-team">
             <SelectValue placeholder="Select a team" />
           </SelectTrigger>
@@ -1346,6 +1368,22 @@ function VideosTab() {
             ))}
           </SelectContent>
         </Select>
+
+        {selectedTeamId && teamAssignments && teamAssignments.length > 0 && (
+          <Select value={filterAssignmentId} onValueChange={setFilterAssignmentId}>
+            <SelectTrigger className="w-[220px]" data-testid="select-video-assignment-filter">
+              <SelectValue placeholder="Filter by assignment" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Videos</SelectItem>
+              {teamAssignments.map((a) => (
+                <SelectItem key={a.id} value={a.id}>
+                  {a.drill?.name || "Unknown Drill"}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {selectedTeamId && (
@@ -1371,6 +1409,12 @@ function VideosTab() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm font-medium">{video.title}</p>
                           <Badge variant="outline" className="no-default-hover-elevate text-xs">{video.playerName}</Badge>
+                          {video.assignmentId && teamAssignments && (() => {
+                            const assignment = teamAssignments.find(a => a.id === video.assignmentId);
+                            return assignment ? (
+                              <Badge variant="secondary" className="no-default-hover-elevate text-xs">{assignment.drill?.name}</Badge>
+                            ) : null;
+                          })()}
                         </div>
                         {video.description && (
                           <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{video.description}</p>
@@ -1700,6 +1744,18 @@ function JoinTeamTab() {
   const [shareTitle, setShareTitle] = useState("");
   const [shareUrl, setShareUrl] = useState("");
   const [shareDescription, setShareDescription] = useState("");
+  const [shareAssignmentId, setShareAssignmentId] = useState<string>("");
+
+  const { data: shareTeamAssignments } = useQuery<Array<{
+    id: string;
+    drillId: string;
+    notes: string | null;
+    dueDate: string | null;
+    drill: { id: number; name: string };
+  }>>({
+    queryKey: ["/api/coach/assignments", shareTeamId],
+    enabled: !!shareTeamId,
+  });
 
   const { data: mySharedVideos, isLoading: sharedVideosLoading } = useQuery<Array<{
     id: string;
@@ -1713,13 +1769,14 @@ function JoinTeamTab() {
   });
 
   const shareVideoMutation = useMutation({
-    mutationFn: (data: { teamId: string; title: string; videoUrl: string; description?: string }) =>
+    mutationFn: (data: { teamId: string; title: string; videoUrl: string; description?: string; assignmentId?: string }) =>
       apiRequest("POST", "/api/shared-videos", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/my-shared-videos"] });
       setShareTitle("");
       setShareUrl("");
       setShareDescription("");
+      setShareAssignmentId("");
       toast({ title: "Video shared with your team!" });
     },
     onError: (error: Error) => {
@@ -1742,6 +1799,7 @@ function JoinTeamTab() {
       title: shareTitle.trim(),
       videoUrl: shareUrl.trim(),
       description: shareDescription.trim() || undefined,
+      assignmentId: shareAssignmentId && shareAssignmentId !== "none" ? shareAssignmentId : undefined,
     });
   };
 
@@ -1824,7 +1882,7 @@ function JoinTeamTab() {
         <CardContent className="pt-6 space-y-3">
           <div>
             <label className="text-sm font-medium">Select Team</label>
-            <Select value={shareTeamId} onValueChange={setShareTeamId}>
+            <Select value={shareTeamId} onValueChange={(v) => { setShareTeamId(v); setShareAssignmentId(""); }}>
               <SelectTrigger className="mt-1" data-testid="select-share-video-team">
                 <SelectValue placeholder="Choose a team..." />
               </SelectTrigger>
@@ -1870,6 +1928,24 @@ function JoinTeamTab() {
                   data-testid="input-share-video-description"
                 />
               </div>
+              {shareTeamAssignments && shareTeamAssignments.length > 0 && (
+                <div>
+                  <label className="text-sm font-medium">Link to Assignment (optional)</label>
+                  <Select value={shareAssignmentId} onValueChange={setShareAssignmentId}>
+                    <SelectTrigger className="mt-1" data-testid="select-share-video-assignment">
+                      <SelectValue placeholder="No assignment" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No assignment</SelectItem>
+                      {shareTeamAssignments.map((a) => (
+                        <SelectItem key={a.id} value={a.id}>
+                          {a.drill?.name || "Unknown Drill"}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <Button
                 onClick={handleShareVideo}
                 disabled={!shareTitle.trim() || !shareUrl.trim() || shareVideoMutation.isPending}

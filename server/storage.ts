@@ -240,8 +240,8 @@ export interface IStorage {
   getPlayerVideos(playerIds: string[]): Promise<Array<{ userId: string; playerName: string; videos: any[] }>>;
 
   // Shared Videos
-  getSharedVideos(teamId: string): Promise<Array<{ id: string; userId: string; playerName: string; title: string; videoUrl: string; description: string | null; createdAt: Date | null }>>;
-  createSharedVideo(data: { userId: string; teamId: string; title: string; videoUrl: string; description?: string }): Promise<any>;
+  getSharedVideos(teamId: string, assignmentId?: string): Promise<Array<{ id: string; userId: string; playerName: string; title: string; videoUrl: string; description: string | null; assignmentId: string | null; createdAt: Date | null }>>;
+  createSharedVideo(data: { userId: string; teamId: string; title: string; videoUrl: string; description?: string; assignmentId?: string }): Promise<any>;
   deleteSharedVideo(id: string, userId: string): Promise<boolean>;
 
   // Coach Players
@@ -2155,8 +2155,12 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  async getSharedVideos(teamId: string): Promise<Array<{ id: string; userId: string; playerName: string; title: string; videoUrl: string; description: string | null; createdAt: Date | null }>> {
-    const videos = await db.select().from(sharedVideos).where(eq(sharedVideos.teamId, teamId)).orderBy(desc(sharedVideos.createdAt));
+  async getSharedVideos(teamId: string, assignmentId?: string): Promise<Array<{ id: string; userId: string; playerName: string; title: string; videoUrl: string; description: string | null; assignmentId: string | null; createdAt: Date | null }>> {
+    const conditions = [eq(sharedVideos.teamId, teamId)];
+    if (assignmentId) {
+      conditions.push(eq(sharedVideos.assignmentId, assignmentId));
+    }
+    const videos = await db.select().from(sharedVideos).where(and(...conditions)).orderBy(desc(sharedVideos.createdAt));
     const result = [];
     for (const video of videos) {
       const [user] = await db.select().from(users).where(eq(users.id, video.userId));
@@ -2166,7 +2170,7 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  async createSharedVideo(data: { userId: string; teamId: string; title: string; videoUrl: string; description?: string }): Promise<any> {
+  async createSharedVideo(data: { userId: string; teamId: string; title: string; videoUrl: string; description?: string; assignmentId?: string }): Promise<any> {
     const [video] = await db.insert(sharedVideos).values(data).returning();
     return video;
   }

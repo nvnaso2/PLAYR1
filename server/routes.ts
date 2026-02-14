@@ -2553,7 +2553,8 @@ export async function registerRoutes(
       if (!isCoach && !isMember) {
         return res.status(403).json({ message: "Not authorized to view shared videos" });
       }
-      const videos = await storage.getSharedVideos(req.params.teamId);
+      const assignmentId = req.query.assignmentId as string | undefined;
+      const videos = await storage.getSharedVideos(req.params.teamId, assignmentId);
       res.json(videos);
     } catch (error) {
       console.error("Error fetching shared videos:", error);
@@ -2564,7 +2565,7 @@ export async function registerRoutes(
   app.post("/api/shared-videos", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { teamId, title, videoUrl, description } = req.body;
+      const { teamId, title, videoUrl, description, assignmentId } = req.body;
       if (!teamId || !title || !videoUrl) {
         return res.status(400).json({ message: "teamId, title, and videoUrl are required" });
       }
@@ -2573,7 +2574,7 @@ export async function registerRoutes(
       if (!isMember) {
         return res.status(403).json({ message: "You must be a member of this team/group to share videos" });
       }
-      const video = await storage.createSharedVideo({ userId, teamId, title, videoUrl, description });
+      const video = await storage.createSharedVideo({ userId, teamId, title, videoUrl, description, assignmentId: assignmentId || undefined });
       res.json(video);
     } catch (error) {
       console.error("Error sharing video:", error);

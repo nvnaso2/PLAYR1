@@ -1117,10 +1117,26 @@ function ChatTab() {
 
 function VideosTab() {
   const [selectedGroupId, setSelectedGroupId] = useState<string>("");
+  const [filterAssignmentId, setFilterAssignmentId] = useState<string>("all");
 
   const { data: groups } = useQuery<TrainerGroup[]>({
     queryKey: ["/api/trainer/groups"],
   });
+
+  const { data: groupAssignments } = useQuery<Array<{
+    id: string;
+    drillId: string;
+    notes: string | null;
+    dueDate: string | null;
+    drill: { id: number; name: string };
+  }>>({
+    queryKey: ["/api/coach/assignments", selectedGroupId],
+    enabled: !!selectedGroupId,
+  });
+
+  const videoQueryUrl = filterAssignmentId && filterAssignmentId !== "all"
+    ? `/api/shared-videos/${selectedGroupId}?assignmentId=${filterAssignmentId}`
+    : `/api/shared-videos/${selectedGroupId}`;
 
   const { data: sharedVideos, isLoading: videosLoading } = useQuery<Array<{
     id: string;
@@ -1129,9 +1145,15 @@ function VideosTab() {
     title: string;
     videoUrl: string;
     description: string | null;
+    assignmentId: string | null;
     createdAt: string;
   }>>({
-    queryKey: ["/api/shared-videos", selectedGroupId],
+    queryKey: ["/api/shared-videos", selectedGroupId, filterAssignmentId],
+    queryFn: async () => {
+      const res = await fetch(videoQueryUrl, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch videos");
+      return res.json();
+    },
     enabled: !!selectedGroupId,
   });
 
@@ -1139,8 +1161,8 @@ function VideosTab() {
     <div className="space-y-4">
       <h2 className="text-lg font-semibold" data-testid="text-trainer-videos-heading">Shared Videos</h2>
 
-      <div className="flex items-center gap-3">
-        <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
+      <div className="flex items-center gap-3 flex-wrap">
+        <Select value={selectedGroupId} onValueChange={(v) => { setSelectedGroupId(v); setFilterAssignmentId("all"); }}>
           <SelectTrigger className="w-[220px]" data-testid="select-video-group">
             <SelectValue placeholder="Select a group" />
           </SelectTrigger>
@@ -1152,6 +1174,22 @@ function VideosTab() {
             ))}
           </SelectContent>
         </Select>
+
+        {selectedGroupId && groupAssignments && groupAssignments.length > 0 && (
+          <Select value={filterAssignmentId} onValueChange={setFilterAssignmentId}>
+            <SelectTrigger className="w-[220px]" data-testid="select-video-assignment-filter">
+              <SelectValue placeholder="Filter by assignment" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Videos</SelectItem>
+              {groupAssignments.map((a) => (
+                <SelectItem key={a.id} value={a.id}>
+                  {a.drill?.name || "Unknown Drill"}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {selectedGroupId && (
@@ -1177,6 +1215,12 @@ function VideosTab() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm font-medium">{video.title}</p>
                           <Badge variant="outline" className="no-default-hover-elevate text-xs">{video.playerName}</Badge>
+                          {video.assignmentId && groupAssignments && (() => {
+                            const assignment = groupAssignments.find(a => a.id === video.assignmentId);
+                            return assignment ? (
+                              <Badge variant="secondary" className="no-default-hover-elevate text-xs">{assignment.drill?.name}</Badge>
+                            ) : null;
+                          })()}
                         </div>
                         {video.description && (
                           <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{video.description}</p>

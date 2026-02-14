@@ -640,6 +640,7 @@ export const sharedVideos = pgTable("shared_videos", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull(),
   teamId: varchar("team_id").notNull(),
+  assignmentId: varchar("assignment_id"),
   title: varchar("title").notNull(),
   videoUrl: text("video_url").notNull(),
   description: text("description"),
