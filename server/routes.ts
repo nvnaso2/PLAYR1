@@ -2414,7 +2414,7 @@ export async function registerRoutes(
       const { search, teamId, position } = req.query;
       const teams = await storage.getCoachTeams(userId, teamType);
       const filteredTeams = teamId ? teams.filter(t => t.id === teamId) : teams;
-      const contactsMap = new Map<string, { id: string; name: string; image?: string; teamName: string; teamId: string; position?: string; jerseyNumber?: string }>();
+      const contactsMap = new Map<string, { id: string; name: string; image?: string; teamName: string; teamId: string; position?: string; jerseyNumber?: string; isAppUser: boolean }>();
       for (const team of filteredTeams) {
         const members = await storage.getTeamMembers(team.id);
         for (const member of members) {
@@ -2431,8 +2431,28 @@ export async function registerRoutes(
                 teamId: team.id,
                 position: member.position || undefined,
                 jerseyNumber: member.jerseyNumber || undefined,
+                isAppUser: true,
               });
             }
+          }
+        }
+        const coachPlayers = await storage.getCoachPlayersByTeam(team.id);
+        for (const cp of coachPlayers) {
+          const cpName = `${cp.firstName} ${cp.lastName || ''}`.trim();
+          if (position && cp.position !== position && cp.teamPosition !== position) continue;
+          if (search && !cpName.toLowerCase().includes((search as string).toLowerCase())) continue;
+          const cpKey = cp.linkedUserId || `cp_${cp.id}`;
+          if (!contactsMap.has(cpKey)) {
+            contactsMap.set(cpKey, {
+              id: cp.linkedUserId || `cp_${cp.id}`,
+              name: cpName,
+              image: undefined,
+              teamName: team.name,
+              teamId: team.id,
+              position: cp.teamPosition || cp.position || undefined,
+              jerseyNumber: cp.teamJersey || cp.jerseyNumber || undefined,
+              isAppUser: !!cp.linkedUserId,
+            });
           }
         }
       }
@@ -2602,9 +2622,9 @@ export async function registerRoutes(
       const teams = await storage.getUserTeams(userId);
       const allVideos: any[] = [];
       for (const team of teams) {
-        const videos = await storage.getSharedVideos(team.id);
+        const videos = await storage.getSharedVideos(team.teamId);
         const myVideos = videos.filter(v => v.userId === userId);
-        allVideos.push(...myVideos.map(v => ({ ...v, teamName: team.name })));
+        allVideos.push(...myVideos.map(v => ({ ...v, teamName: team.team.name })));
       }
       res.json(allVideos);
     } catch (error) {

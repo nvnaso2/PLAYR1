@@ -147,6 +147,7 @@ interface ChatContact {
   teamId: string;
   position?: string;
   jerseyNumber?: string;
+  isAppUser?: boolean;
 }
 
 interface Conversation {
@@ -1226,8 +1227,12 @@ function ChatTab() {
                 {filteredContacts.map((contact) => (
                   <div
                     key={contact.id}
-                    className="flex items-center gap-2 p-2 rounded-md hover-elevate cursor-pointer border"
+                    className={`flex items-center gap-2 p-2 rounded-md border ${contact.isAppUser !== false ? "hover-elevate cursor-pointer" : "opacity-60"}`}
                     onClick={() => {
+                      if (contact.isAppUser === false) {
+                        toast({ title: "Not on app yet", description: `${contact.name} hasn't joined the app. Send them an invite!`, variant: "destructive" });
+                        return;
+                      }
                       setSelectedContact(contact.id);
                       setSelectedContactName(contact.name);
                       setShowNewChat(false);
@@ -1245,9 +1250,16 @@ function ChatTab() {
                         {contact.position && (
                           <Badge variant="outline" className="no-default-hover-elevate text-[10px] px-1 py-0">{contact.position}</Badge>
                         )}
+                        {contact.isAppUser === false && (
+                          <Badge variant="secondary" className="no-default-hover-elevate text-[10px] px-1 py-0">Not on app</Badge>
+                        )}
                       </div>
                     </div>
-                    <MessageCircle className="w-3 h-3 text-muted-foreground shrink-0" />
+                    {contact.isAppUser !== false ? (
+                      <MessageCircle className="w-3 h-3 text-muted-foreground shrink-0" />
+                    ) : (
+                      <Mail className="w-3 h-3 text-muted-foreground shrink-0" />
+                    )}
                   </div>
                 ))}
               </div>

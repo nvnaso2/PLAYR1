@@ -131,6 +131,7 @@ interface ChatContact {
   name: string;
   image?: string;
   teamName: string;
+  isAppUser?: boolean;
 }
 
 interface Conversation {
@@ -1046,15 +1047,26 @@ function ChatTab() {
                 <Button
                   key={contact.id}
                   size="sm"
-                  variant="outline"
+                  variant={contact.isAppUser === false ? "secondary" : "outline"}
                   onClick={() => {
+                    if (contact.isAppUser === false) {
+                      toast({ title: "Not on app yet", description: `${contact.name} hasn't joined the app. Send them an invite!`, variant: "destructive" });
+                      return;
+                    }
                     setSelectedContact(contact.id);
                     setSelectedContactName(contact.name);
                   }}
                   data-testid={`button-start-chat-${contact.id}`}
                 >
-                  <MessageCircle className="w-3 h-3" />
+                  {contact.isAppUser !== false ? (
+                    <MessageCircle className="w-3 h-3" />
+                  ) : (
+                    <Mail className="w-3 h-3" />
+                  )}
                   {contact.name}
+                  {contact.isAppUser === false && (
+                    <Badge variant="secondary" className="no-default-hover-elevate text-[10px] ml-1">Not on app</Badge>
+                  )}
                 </Button>
               ))}
             </div>
