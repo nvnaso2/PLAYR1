@@ -140,6 +140,11 @@ interface TrainingLogEntry {
   completedAt: string;
   playerName: string;
   playerId: string;
+  teamId?: string;
+  teamName?: string;
+  seasonYear?: number;
+  position?: string | null;
+  ageGroup?: string | null;
 }
 
 interface ChatContact {
@@ -1060,143 +1065,247 @@ function AssignDrillsTab() {
 }
 
 function TrainingLogsTab() {
-  const [selectedTeamId, setSelectedTeamId] = useState<string>("");
+  const [teamFilter, setTeamFilter] = useState("all");
   const [playerFilter, setPlayerFilter] = useState("all");
   const [drillFilter, setDrillFilter] = useState("all");
+  const [positionFilter, setPositionFilter] = useState("all");
+  const [ageFilter, setAgeFilter] = useState("all");
+  const [dateFilter, setDateFilter] = useState("all");
 
   const { data: teams } = useQuery<CoachTeam[]>({
     queryKey: ["/api/coach/teams"],
   });
 
   const { data: logs, isLoading: logsLoading } = useQuery<TrainingLogEntry[]>({
-    queryKey: ["/api/coach/teams", selectedTeamId, "training-logs"],
-    enabled: !!selectedTeamId,
+    queryKey: ["/api/coach/all-training-logs"],
   });
+
+  const uniqueTeams = useMemo(() => {
+    if (!logs) return [];
+    const seen = new Map<string, { id: string; name: string }>();
+    logs.forEach(l => {
+      if (l.teamId && l.teamName && !seen.has(l.teamId)) {
+        seen.set(l.teamId, { id: l.teamId, name: l.teamName });
+      }
+    });
+    return Array.from(seen.values());
+  }, [logs]);
 
   const uniquePlayers = useMemo(() => {
     if (!logs) return [];
-    const seen = new Map<string, string>();
-    logs.forEach(l => { if (!seen.has(l.playerName)) seen.set(l.playerName, l.playerName); });
-    return Array.from(seen.keys());
+    const seen = new Set<string>();
+    logs.forEach(l => seen.add(l.playerName));
+    return Array.from(seen).sort();
   }, [logs]);
 
   const uniqueDrills = useMemo(() => {
     if (!logs) return [];
-    const seen = new Map<string, string>();
-    logs.forEach(l => {
-      const title = l.drillTitle || `Drill ${l.drillId}`;
-      if (!seen.has(title)) seen.set(title, title);
-    });
-    return Array.from(seen.keys());
+    const seen = new Set<string>();
+    logs.forEach(l => seen.add(l.drillTitle || `Drill ${l.drillId}`));
+    return Array.from(seen).sort();
+  }, [logs]);
+
+  const uniquePositions = useMemo(() => {
+    if (!logs) return [];
+    const seen = new Set<string>();
+    logs.forEach(l => { if (l.position) seen.add(l.position); });
+    return Array.from(seen).sort();
+  }, [logs]);
+
+  const uniqueAgeGroups = useMemo(() => {
+    if (!logs) return [];
+    const seen = new Set<string>();
+    logs.forEach(l => { if (l.ageGroup) seen.add(l.ageGroup); });
+    return Array.from(seen).sort();
   }, [logs]);
 
   const filteredLogs = useMemo(() => {
     if (!logs) return [];
+    const now = new Date();
     return logs.filter(l => {
+      if (teamFilter !== "all" && l.teamId !== teamFilter) return false;
       if (playerFilter !== "all" && l.playerName !== playerFilter) return false;
+      if (positionFilter !== "all" && l.position !== positionFilter) return false;
+      if (ageFilter !== "all" && l.ageGroup !== ageFilter) return false;
       const title = l.drillTitle || `Drill ${l.drillId}`;
       if (drillFilter !== "all" && title !== drillFilter) return false;
+      if (dateFilter !== "all") {
+        const logDate = new Date(l.completedAt);
+        if (dateFilter === "today") {
+          if (logDate.toDateString() !== now.toDateString()) return false;
+        } else if (dateFilter === "week") {
+          const weekAgo = new Date(now); weekAgo.setDate(weekAgo.getDate() - 7);
+          if (logDate < weekAgo) return false;
+        } else if (dateFilter === "month") {
+          const monthAgo = new Date(now); monthAgo.setMonth(monthAgo.getMonth() - 1);
+          if (logDate < monthAgo) return false;
+        } else if (dateFilter === "year") {
+          const yearAgo = new Date(now); yearAgo.setFullYear(yearAgo.getFullYear() - 1);
+          if (logDate < yearAgo) return false;
+        }
+      }
       return true;
     });
-  }, [logs, playerFilter, drillFilter]);
+  }, [logs, teamFilter, playerFilter, drillFilter, positionFilter, ageFilter, dateFilter]);
+
+  const activeFilterCount = [teamFilter, playerFilter, drillFilter, positionFilter, ageFilter, dateFilter].filter(f => f !== "all").length;
+
+  const clearFilters = () => {
+    setTeamFilter("all");
+    setPlayerFilter("all");
+    setDrillFilter("all");
+    setPositionFilter("all");
+    setAgeFilter("all");
+    setDateFilter("all");
+  };
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold" data-testid="text-coach-logs-heading">Player Training Logs</h2>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <h2 className="text-lg font-semibold" data-testid="text-coach-logs-heading">Player Training Logs</h2>
+        {activeFilterCount > 0 && (
+          <Button size="sm" variant="ghost" onClick={clearFilters} data-testid="button-clear-log-filters">
+            Clear Filters ({activeFilterCount})
+          </Button>
+        )}
+      </div>
 
-      <div className="flex items-center gap-3 flex-wrap">
-        <Select value={selectedTeamId} onValueChange={(v) => { setSelectedTeamId(v); setPlayerFilter("all"); setDrillFilter("all"); }}>
-          <SelectTrigger className="w-full sm:w-[200px]" data-testid="select-team-for-logs">
-            <SelectValue placeholder="Select a team" />
+      <div className="flex items-center gap-2 flex-wrap">
+        <Select value={teamFilter} onValueChange={setTeamFilter}>
+          <SelectTrigger className="w-[160px]" data-testid="select-logs-team-filter">
+            <SelectValue placeholder="All Teams" />
           </SelectTrigger>
           <SelectContent>
-            {teams?.map((team) => (
-              <SelectItem key={team.id} value={team.id} data-testid={`option-log-team-${team.id}`}>
-                {team.name} {team.seasonYear ? `(${team.seasonYear})` : ""}
-              </SelectItem>
+            <SelectItem value="all">All Teams</SelectItem>
+            {uniqueTeams.map((t) => (
+              <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
             ))}
           </SelectContent>
         </Select>
-        {selectedTeamId && uniquePlayers.length > 0 && (
-          <Select value={playerFilter} onValueChange={setPlayerFilter}>
-            <SelectTrigger className="w-[160px]" data-testid="select-logs-player-filter">
-              <SelectValue placeholder="All Players" />
+        <Select value={playerFilter} onValueChange={setPlayerFilter}>
+          <SelectTrigger className="w-[160px]" data-testid="select-logs-player-filter">
+            <SelectValue placeholder="All Players" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Players</SelectItem>
+            {uniquePlayers.map((p) => (
+              <SelectItem key={p} value={p}>{p}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={drillFilter} onValueChange={setDrillFilter}>
+          <SelectTrigger className="w-[160px]" data-testid="select-logs-drill-filter">
+            <SelectValue placeholder="All Drills" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Drills</SelectItem>
+            {uniqueDrills.map((d) => (
+              <SelectItem key={d} value={d}>{d}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {uniquePositions.length > 0 && (
+          <Select value={positionFilter} onValueChange={setPositionFilter}>
+            <SelectTrigger className="w-[140px]" data-testid="select-logs-position-filter">
+              <SelectValue placeholder="All Positions" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Players</SelectItem>
-              {uniquePlayers.map((p) => (
+              <SelectItem value="all">All Positions</SelectItem>
+              {uniquePositions.map((p) => (
                 <SelectItem key={p} value={p}>{p}</SelectItem>
               ))}
             </SelectContent>
           </Select>
         )}
-        {selectedTeamId && uniqueDrills.length > 0 && (
-          <Select value={drillFilter} onValueChange={setDrillFilter}>
-            <SelectTrigger className="w-[160px]" data-testid="select-logs-drill-filter">
-              <SelectValue placeholder="All Drills" />
+        {uniqueAgeGroups.length > 0 && (
+          <Select value={ageFilter} onValueChange={setAgeFilter}>
+            <SelectTrigger className="w-[140px]" data-testid="select-logs-age-filter">
+              <SelectValue placeholder="All Ages" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Drills</SelectItem>
-              {uniqueDrills.map((d) => (
-                <SelectItem key={d} value={d}>{d}</SelectItem>
+              <SelectItem value="all">All Ages</SelectItem>
+              {uniqueAgeGroups.map((a) => (
+                <SelectItem key={a} value={a}>{a}</SelectItem>
               ))}
             </SelectContent>
           </Select>
         )}
+        <Select value={dateFilter} onValueChange={setDateFilter}>
+          <SelectTrigger className="w-[140px]" data-testid="select-logs-date-filter">
+            <SelectValue placeholder="All Time" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Time</SelectItem>
+            <SelectItem value="today">Today</SelectItem>
+            <SelectItem value="week">This Week</SelectItem>
+            <SelectItem value="month">This Month</SelectItem>
+            <SelectItem value="year">This Year</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      {selectedTeamId && (
-        <>
-          {logsLoading ? (
-            <div className="space-y-2">
-              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-20 rounded-lg" />)}
-            </div>
-          ) : !filteredLogs.length ? (
-            <Card>
-              <CardContent className="py-8 text-center text-muted-foreground" data-testid="text-no-coach-logs">
-                <FileText className="w-10 h-10 mx-auto mb-3 opacity-50" />
-                <p>{logs?.length ? "No logs match your filters." : "No training logs yet from players on this team."}</p>
+      {logsLoading ? (
+        <div className="space-y-2">
+          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-20 rounded-lg" />)}
+        </div>
+      ) : !filteredLogs.length ? (
+        <Card>
+          <CardContent className="py-8 text-center text-muted-foreground" data-testid="text-no-coach-logs">
+            <FileText className="w-10 h-10 mx-auto mb-3 opacity-50" />
+            <p>{!teams?.length ? "Create a team first to view training logs." : logs?.length ? "No logs match your filters." : "No training logs yet from your players."}</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground" data-testid="text-logs-count">
+            Showing {filteredLogs.length} of {logs?.length || 0} logs
+          </p>
+          {filteredLogs.map((log) => (
+            <Card key={log.id} data-testid={`card-coach-log-${log.id}`}>
+              <CardContent className="py-3">
+                <div className="flex items-start justify-between gap-2 flex-wrap">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium" data-testid={`text-log-player-${log.id}`}>
+                      {log.playerName}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {log.drillTitle || `Drill ${log.drillId}`}
+                    </p>
+                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                      {log.teamName && (
+                        <Badge variant="default" className="no-default-hover-elevate text-xs">{log.teamName}</Badge>
+                      )}
+                      {log.position && (
+                        <Badge variant="outline" className="no-default-hover-elevate text-xs">{log.position}</Badge>
+                      )}
+                      {log.ageGroup && (
+                        <Badge variant="secondary" className="no-default-hover-elevate text-xs">{log.ageGroup}</Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(log.completedAt).toLocaleDateString()}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge variant="outline" className="no-default-hover-elevate text-xs">
+                        {log.duration} min
+                      </Badge>
+                      {log.score != null && (
+                        <Badge variant="secondary" className="no-default-hover-elevate text-xs">
+                          Score: {log.score}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                {log.notes && (
+                  <p className="text-xs text-muted-foreground mt-2 bg-muted/50 p-2 rounded">{log.notes}</p>
+                )}
               </CardContent>
             </Card>
-          ) : (
-            <div className="space-y-2">
-              {filteredLogs.map((log) => (
-                <Card key={log.id} data-testid={`card-coach-log-${log.id}`}>
-                  <CardContent className="py-3">
-                    <div className="flex items-start justify-between gap-2 flex-wrap">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium" data-testid={`text-log-player-${log.id}`}>
-                          {log.playerName}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {log.drillTitle || `Drill ${log.drillId}`}
-                        </p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(log.completedAt).toLocaleDateString()}
-                        </p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Badge variant="outline" className="no-default-hover-elevate text-xs">
-                            {log.duration} min
-                          </Badge>
-                          {log.score != null && (
-                            <Badge variant="secondary" className="no-default-hover-elevate text-xs">
-                              Score: {log.score}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    {log.notes && (
-                      <p className="text-xs text-muted-foreground mt-2 bg-muted/50 p-2 rounded">{log.notes}</p>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </>
+          ))}
+        </div>
       )}
     </div>
   );

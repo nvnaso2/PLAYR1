@@ -2186,6 +2186,45 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/coach/all-training-logs", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const teams = await storage.getCoachTeams(userId, "coach");
+      const allPlayers = await storage.getCoachPlayers(userId);
+      const enrichedLogs: any[] = [];
+
+      for (const team of teams) {
+        const members = await storage.getTeamMembers(team.id);
+        const teamPlayers = await storage.getCoachPlayersByTeam(team.id);
+
+        for (const member of members) {
+          const memberLogs = await storage.getTrainingLogs(member.userId);
+          const matchedPlayer = teamPlayers.find(p => p.linkedUserId === member.userId)
+            || allPlayers.find(p => p.linkedUserId === member.userId);
+
+          for (const log of memberLogs) {
+            enrichedLogs.push({
+              ...log,
+              playerName: member.user ? `${member.user.firstName || ''} ${member.user.lastName || ''}`.trim() || 'Unknown' : 'Unknown',
+              playerId: member.userId,
+              teamId: team.id,
+              teamName: team.name,
+              seasonYear: team.seasonYear,
+              position: matchedPlayer?.position || member.position || null,
+              ageGroup: matchedPlayer?.ageGroup || team.ageGroup || null,
+            });
+          }
+        }
+      }
+
+      enrichedLogs.sort((a, b) => new Date(b.completedAt || 0).getTime() - new Date(a.completedAt || 0).getTime());
+      res.json(enrichedLogs);
+    } catch (error) {
+      console.error("Error fetching all coach training logs:", error);
+      res.status(500).json({ message: "Failed to fetch training logs" });
+    }
+  });
+
   // ===== TRAINER MODE =====
 
   // Get trainer's groups
@@ -2394,6 +2433,44 @@ export async function registerRoutes(
       res.json(logs);
     } catch (error) {
       console.error("Error fetching trainer group training logs:", error);
+      res.status(500).json({ message: "Failed to fetch training logs" });
+    }
+  });
+
+  app.get("/api/trainer/all-training-logs", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const groups = await storage.getCoachTeams(userId, "trainer");
+      const allPlayers = await storage.getTrainerPlayers(userId);
+      const enrichedLogs: any[] = [];
+
+      for (const group of groups) {
+        const members = await storage.getTeamMembers(group.id);
+        const groupPlayers = await storage.getTrainerPlayersByGroup(group.id);
+
+        for (const member of members) {
+          const memberLogs = await storage.getTrainingLogs(member.userId);
+          const matchedPlayer = groupPlayers.find(p => p.linkedUserId === member.userId)
+            || allPlayers.find(p => p.linkedUserId === member.userId);
+
+          for (const log of memberLogs) {
+            enrichedLogs.push({
+              ...log,
+              playerName: member.user ? `${member.user.firstName || ''} ${member.user.lastName || ''}`.trim() || 'Unknown' : 'Unknown',
+              playerId: member.userId,
+              groupId: group.id,
+              groupName: group.name,
+              position: matchedPlayer?.position || member.position || null,
+              ageGroup: matchedPlayer?.ageGroup || group.ageGroup || null,
+            });
+          }
+        }
+      }
+
+      enrichedLogs.sort((a, b) => new Date(b.completedAt || 0).getTime() - new Date(a.completedAt || 0).getTime());
+      res.json(enrichedLogs);
+    } catch (error) {
+      console.error("Error fetching all trainer training logs:", error);
       res.status(500).json({ message: "Failed to fetch training logs" });
     }
   });
