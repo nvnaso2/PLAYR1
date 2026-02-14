@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link } from "wouter";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,6 +71,7 @@ import {
   Video,
   Mail,
   Send,
+  UserCheck,
 } from "lucide-react";
 import { insertTrainerTeamSchema, insertDrillAssignmentSchema } from "@shared/schema";
 
@@ -142,6 +144,9 @@ interface ChatContact {
   name: string;
   image?: string;
   teamName: string;
+  teamId: string;
+  position?: string;
+  jerseyNumber?: string;
 }
 
 interface Conversation {
@@ -186,6 +191,23 @@ interface PlayerVideo {
     description?: string;
     createdAt: string;
   }>;
+}
+
+interface CoachPlayerData {
+  id: string;
+  coachId: string;
+  firstName: string;
+  lastName: string | null;
+  email: string | null;
+  phone: string | null;
+  position: string | null;
+  jerseyNumber: string | null;
+  ageGroup: string | null;
+  notes: string | null;
+  linkedUserId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  teams: Array<{ id: string; coachPlayerId: string; teamId: string; teamName: string; position: string | null; jerseyNumber: string | null; assignedAt: string }>;
 }
 
 const currentYear = new Date().getFullYear();
@@ -1024,6 +1046,10 @@ function ChatTab() {
   const [selectedContact, setSelectedContact] = useState<string | null>(null);
   const [selectedContactName, setSelectedContactName] = useState("");
   const [messageText, setMessageText] = useState("");
+  const [contactSearch, setContactSearch] = useState("");
+  const [contactTeamFilter, setContactTeamFilter] = useState("all");
+  const [contactPositionFilter, setContactPositionFilter] = useState("all");
+  const [showNewChat, setShowNewChat] = useState(false);
 
   const { data: conversations, isLoading: convsLoading } = useQuery<Conversation[]>({
     queryKey: ["/api/messages/conversations"],
@@ -1034,11 +1060,31 @@ function ChatTab() {
     queryKey: ["/api/messages/contacts/coach"],
   });
 
+  const { data: teams } = useQuery<CoachTeam[]>({
+    queryKey: ["/api/coach/teams"],
+  });
+
   const { data: chatMessages, isLoading: messagesLoading } = useQuery<ChatMessage[]>({
     queryKey: ["/api/messages", selectedContact],
     enabled: !!selectedContact,
     refetchInterval: 5000,
   });
+
+  const filteredContacts = useMemo(() => {
+    if (!contacts) return [];
+    return contacts.filter((c) => {
+      if (contactSearch && !c.name.toLowerCase().includes(contactSearch.toLowerCase())) return false;
+      if (contactTeamFilter !== "all" && c.teamId !== contactTeamFilter) return false;
+      if (contactPositionFilter !== "all" && c.position !== contactPositionFilter) return false;
+      return true;
+    });
+  }, [contacts, contactSearch, contactTeamFilter, contactPositionFilter]);
+
+  const positions = useMemo(() => {
+    if (!contacts) return [];
+    const posSet = new Set(contacts.map(c => c.position).filter(Boolean));
+    return Array.from(posSet) as string[];
+  }, [contacts]);
 
   const sendMutation = useMutation({
     mutationFn: (data: { receiverId: string; content: string }) =>
@@ -1126,31 +1172,86 @@ function ChatTab() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold" data-testid="text-coach-chat-heading">Messages</h2>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <h2 className="text-lg font-semibold" data-testid="text-coach-chat-heading">Messages</h2>
+        <Button size="sm" variant={showNewChat ? "default" : "outline"} onClick={() => setShowNewChat(!showNewChat)} data-testid="button-toggle-new-chat">
+          <MessageCircle className="w-4 h-4" />
+          {showNewChat ? "Hide Players" : "New Chat"}
+        </Button>
+      </div>
 
-      {contacts && contacts.length > 0 && (
+      {showNewChat && contacts && (
         <Card>
           <CardHeader className="py-3">
-            <CardTitle className="text-sm">Start a New Conversation</CardTitle>
+            <CardTitle className="text-sm">Select a Player to Chat With</CardTitle>
           </CardHeader>
-          <CardContent className="pt-0 pb-3">
-            <div className="flex flex-wrap gap-2">
-              {contacts.map((contact) => (
-                <Button
-                  key={contact.id}
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setSelectedContact(contact.id);
-                    setSelectedContactName(contact.name);
-                  }}
-                  data-testid={`button-start-chat-${contact.id}`}
-                >
-                  <MessageCircle className="w-3 h-3" />
-                  {contact.name}
-                </Button>
-              ))}
+          <CardContent className="pt-0 pb-3 space-y-3">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="flex-1">
+                <Input
+                  placeholder="Search by name..."
+                  value={contactSearch}
+                  onChange={(e) => setContactSearch(e.target.value)}
+                  data-testid="input-chat-contact-search"
+                />
+              </div>
+              <Select value={contactTeamFilter} onValueChange={setContactTeamFilter}>
+                <SelectTrigger className="w-full sm:w-40" data-testid="select-chat-team-filter">
+                  <SelectValue placeholder="All Teams" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Teams</SelectItem>
+                  {teams?.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={contactPositionFilter} onValueChange={setContactPositionFilter}>
+                <SelectTrigger className="w-full sm:w-32" data-testid="select-chat-position-filter">
+                  <SelectValue placeholder="All Positions" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Positions</SelectItem>
+                  {positions.map((p) => (
+                    <SelectItem key={p} value={p}>{p}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
+
+            {filteredContacts.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-3">No players found matching your filters.</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto">
+                {filteredContacts.map((contact) => (
+                  <div
+                    key={contact.id}
+                    className="flex items-center gap-2 p-2 rounded-md hover-elevate cursor-pointer border"
+                    onClick={() => {
+                      setSelectedContact(contact.id);
+                      setSelectedContactName(contact.name);
+                      setShowNewChat(false);
+                    }}
+                    data-testid={`button-start-chat-${contact.id}`}
+                  >
+                    <Avatar className="h-7 w-7 shrink-0">
+                      {contact.image && <AvatarImage src={contact.image} />}
+                      <AvatarFallback className="text-xs">{contact.name.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate">{contact.name}</p>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <span className="text-[10px] text-muted-foreground">{contact.teamName}</span>
+                        {contact.position && (
+                          <Badge variant="outline" className="no-default-hover-elevate text-[10px] px-1 py-0">{contact.position}</Badge>
+                        )}
+                      </div>
+                    </div>
+                    <MessageCircle className="w-3 h-3 text-muted-foreground shrink-0" />
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -1163,7 +1264,7 @@ function ChatTab() {
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground" data-testid="text-no-conversations">
             <MessageCircle className="w-10 h-10 mx-auto mb-3 opacity-50" />
-            <p>No conversations yet. Select a player above to start chatting.</p>
+            <p>No conversations yet. Click "New Chat" to find a player.</p>
           </CardContent>
         </Card>
       ) : (
@@ -1301,15 +1402,25 @@ function InvitePlayersTab() {
   const [selectedTeamId, setSelectedTeamId] = useState<string>("");
   const [email, setEmail] = useState("");
   const [playerName, setPlayerName] = useState("");
+  const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(new Set());
+  const [bulkSending, setBulkSending] = useState(false);
 
   const { data: teams } = useQuery<CoachTeam[]>({
     queryKey: ["/api/coach/teams"],
+  });
+
+  const { data: coachPlayersList } = useQuery<CoachPlayerData[]>({
+    queryKey: ["/api/coach-players"],
   });
 
   const { data: invitations, isLoading: invitationsLoading } = useQuery<Invitation[]>({
     queryKey: ["/api/invitations", selectedTeamId],
     enabled: !!selectedTeamId,
   });
+
+  const playersWithEmail = useMemo(() => {
+    return coachPlayersList?.filter(p => p.email) || [];
+  }, [coachPlayersList]);
 
   const inviteMutation = useMutation({
     mutationFn: (data: { teamId: string; email: string; playerName?: string }) =>
@@ -1336,6 +1447,49 @@ function InvitePlayersTab() {
   const handleInvite = () => {
     if (!selectedTeamId || !email.trim()) return;
     inviteMutation.mutate({ teamId: selectedTeamId, email: email.trim(), playerName: playerName.trim() || undefined });
+  };
+
+  const handleBulkInvite = async () => {
+    if (!selectedTeamId || selectedPlayerIds.size === 0) return;
+    setBulkSending(true);
+    let sent = 0;
+    const playerIdArray = Array.from(selectedPlayerIds);
+    for (const playerId of playerIdArray) {
+      const player = coachPlayersList?.find(p => p.id === playerId);
+      if (player?.email) {
+        try {
+          await apiRequest("POST", "/api/invitations", {
+            teamId: selectedTeamId,
+            email: player.email,
+            playerName: `${player.firstName} ${player.lastName || ""}`.trim(),
+          });
+          sent++;
+        } catch (e) {
+          // continue with others
+        }
+      }
+    }
+    setBulkSending(false);
+    setSelectedPlayerIds(new Set());
+    queryClient.invalidateQueries({ queryKey: ["/api/invitations", selectedTeamId] });
+    toast({ title: `${sent} invitation${sent !== 1 ? "s" : ""} sent!` });
+  };
+
+  const togglePlayer = (id: string) => {
+    setSelectedPlayerIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (selectedPlayerIds.size === playersWithEmail.length) {
+      setSelectedPlayerIds(new Set());
+    } else {
+      setSelectedPlayerIds(new Set(playersWithEmail.map(p => p.id)));
+    }
   };
 
   return (
@@ -1395,12 +1549,62 @@ function InvitePlayersTab() {
                 {inviteMutation.isPending ? "Sending..." : "Send Invite"}
               </Button>
 
-              {selectedTeamId && (
-                <div className="space-y-2 pt-2 border-t">
-                  <span className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-                    <Copy className="w-3 h-3" />
-                    Or share team code: <Badge variant="outline" className="no-default-hover-elevate font-mono">{teams?.find(t => t.id === selectedTeamId)?.teamCode}</Badge>
-                  </span>
+              <div className="space-y-2 pt-2 border-t">
+                <span className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                  <Copy className="w-3 h-3" />
+                  Or share team code: <Badge variant="outline" className="no-default-hover-elevate font-mono">{teams?.find(t => t.id === selectedTeamId)?.teamCode}</Badge>
+                </span>
+              </div>
+
+              {playersWithEmail.length > 0 && (
+                <div className="space-y-3 pt-2 border-t">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <h3 className="text-sm font-semibold">Invite from Your Players</h3>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <Checkbox
+                          id="select-all-invite"
+                          checked={selectedPlayerIds.size === playersWithEmail.length && playersWithEmail.length > 0}
+                          onCheckedChange={toggleAll}
+                          data-testid="checkbox-select-all-invite"
+                        />
+                        <label htmlFor="select-all-invite" className="text-xs text-muted-foreground cursor-pointer">Select All</label>
+                      </div>
+                      {selectedPlayerIds.size > 0 && (
+                        <Button
+                          size="sm"
+                          onClick={handleBulkInvite}
+                          disabled={bulkSending}
+                          data-testid="button-bulk-invite"
+                        >
+                          <Mail className="w-3 h-3" />
+                          {bulkSending ? "Sending..." : `Invite ${selectedPlayerIds.size} Player${selectedPlayerIds.size !== 1 ? "s" : ""}`}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                    {playersWithEmail.map((player) => (
+                      <div
+                        key={player.id}
+                        className="flex items-center gap-2 p-2 rounded-md border"
+                        data-testid={`invite-player-${player.id}`}
+                      >
+                        <Checkbox
+                          checked={selectedPlayerIds.has(player.id)}
+                          onCheckedChange={() => togglePlayer(player.id)}
+                          data-testid={`checkbox-invite-player-${player.id}`}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate">{player.firstName} {player.lastName || ""}</p>
+                          <p className="text-xs text-muted-foreground truncate">{player.email}</p>
+                        </div>
+                        {player.position && (
+                          <Badge variant="outline" className="no-default-hover-elevate text-xs shrink-0">{player.position}</Badge>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </>
@@ -1848,6 +2052,618 @@ function MyAssignmentsTab() {
   );
 }
 
+const coachPlayerSchema = z.object({
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().optional().default(""),
+  email: z.string().optional().default(""),
+  phone: z.string().optional().default(""),
+  position: z.string().optional().default(""),
+  jerseyNumber: z.string().optional().default(""),
+  ageGroup: z.string().optional().default(""),
+  notes: z.string().optional().default(""),
+});
+
+type CoachPlayerForm = z.infer<typeof coachPlayerSchema>;
+
+const PLAYER_POSITIONS = ["PG", "SG", "SF", "PF", "C"];
+const PLAYER_AGE_GROUPS = ["8U", "9U", "10U", "11U", "12U", "13U", "14U", "15U", "16U", "17U", "18U", "High School"];
+
+function PlayersTab() {
+  const { toast } = useToast();
+  const [addOpen, setAddOpen] = useState(false);
+  const [editingPlayer, setEditingPlayer] = useState<CoachPlayerData | null>(null);
+  const [deletePlayerId, setDeletePlayerId] = useState<string | null>(null);
+  const [assignPlayerId, setAssignPlayerId] = useState<string | null>(null);
+  const [assignTeamId, setAssignTeamId] = useState("");
+  const [assignPosition, setAssignPosition] = useState("");
+  const [assignJersey, setAssignJersey] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [positionFilter, setPositionFilter] = useState("");
+  const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(new Set());
+  const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
+  const [bulkTeamId, setBulkTeamId] = useState("");
+
+  const addForm = useForm<CoachPlayerForm>({
+    resolver: zodResolver(coachPlayerSchema),
+    defaultValues: { firstName: "", lastName: "", email: "", phone: "", position: "", jerseyNumber: "", ageGroup: "", notes: "" },
+  });
+
+  const editForm = useForm<CoachPlayerForm>({
+    resolver: zodResolver(coachPlayerSchema),
+    defaultValues: { firstName: "", lastName: "", email: "", phone: "", position: "", jerseyNumber: "", ageGroup: "", notes: "" },
+  });
+
+  const { data: players, isLoading: playersLoading } = useQuery<CoachPlayerData[]>({
+    queryKey: ["/api/coach-players"],
+  });
+
+  const { data: teams } = useQuery<CoachTeam[]>({
+    queryKey: ["/api/coach/teams"],
+  });
+
+  const createPlayerMutation = useMutation({
+    mutationFn: (data: CoachPlayerForm) => apiRequest("POST", "/api/coach-players", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/coach-players"] });
+      setAddOpen(false);
+      addForm.reset();
+      toast({ title: "Player added successfully!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to add player", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const updatePlayerMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: CoachPlayerForm }) => apiRequest("PUT", `/api/coach-players/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/coach-players"] });
+      setEditingPlayer(null);
+      toast({ title: "Player updated successfully!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to update player", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deletePlayerMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/coach-players/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/coach-players"] });
+      setDeletePlayerId(null);
+      toast({ title: "Player deleted" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to delete player", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const assignPlayerMutation = useMutation({
+    mutationFn: ({ playerId, teamId, position, jerseyNumber }: { playerId: string; teamId: string; position?: string; jerseyNumber?: string }) =>
+      apiRequest("POST", `/api/coach-players/${playerId}/assign`, { teamId, position: position || undefined, jerseyNumber: jerseyNumber || undefined }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/coach-players"] });
+      setAssignPlayerId(null);
+      setAssignTeamId("");
+      setAssignPosition("");
+      setAssignJersey("");
+      toast({ title: "Player assigned to team!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to assign player", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const bulkAssignMutation = useMutation({
+    mutationFn: ({ playerIds, teamId }: { playerIds: string[]; teamId: string }) =>
+      apiRequest("POST", "/api/coach-players/bulk-assign", { playerIds, teamId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/coach-players"] });
+      setBulkAssignOpen(false);
+      setBulkTeamId("");
+      setSelectedPlayerIds(new Set());
+      toast({ title: "Players assigned to team!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to assign players", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const removeAssignmentMutation = useMutation({
+    mutationFn: (assignmentId: string) => apiRequest("DELETE", `/api/coach-player-assignments/${assignmentId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/coach-players"] });
+      toast({ title: "Player removed from team" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to remove assignment", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const filteredPlayers = useMemo(() => {
+    if (!players) return [];
+    return players.filter((p) => {
+      const nameMatch = !searchQuery || `${p.firstName} ${p.lastName || ""}`.toLowerCase().includes(searchQuery.toLowerCase());
+      const posMatch = !positionFilter || positionFilter === "all" || p.position === positionFilter;
+      return nameMatch && posMatch;
+    });
+  }, [players, searchQuery, positionFilter]);
+
+  const allSelected = filteredPlayers.length > 0 && filteredPlayers.every((p) => selectedPlayerIds.has(p.id));
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedPlayerIds(new Set());
+    } else {
+      setSelectedPlayerIds(new Set(filteredPlayers.map((p) => p.id)));
+    }
+  };
+
+  const togglePlayer = (id: string) => {
+    const next = new Set(selectedPlayerIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedPlayerIds(next);
+  };
+
+  const openEditPlayer = (player: CoachPlayerData) => {
+    setEditingPlayer(player);
+    editForm.reset({
+      firstName: player.firstName,
+      lastName: player.lastName || "",
+      email: player.email || "",
+      phone: player.phone || "",
+      position: player.position || "",
+      jerseyNumber: player.jerseyNumber || "",
+      ageGroup: player.ageGroup || "",
+      notes: player.notes || "",
+    });
+  };
+
+  const renderPlayerForm = (form: ReturnType<typeof useForm<CoachPlayerForm>>, onSubmit: (data: CoachPlayerForm) => void, isPending: boolean, submitLabel: string) => (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="firstName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>First Name</FormLabel>
+                <FormControl>
+                  <Input placeholder="First name" {...field} data-testid="input-player-first-name" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="lastName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Last Name</FormLabel>
+                <FormControl>
+                  <Input placeholder="Last name" {...field} data-testid="input-player-last-name" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Email</FormLabel>
+                <FormControl>
+                  <Input placeholder="email@example.com" type="email" {...field} data-testid="input-player-email" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="phone"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Phone</FormLabel>
+                <FormControl>
+                  <Input placeholder="Phone number" {...field} data-testid="input-player-phone" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          <FormField
+            control={form.control}
+            name="position"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Position</FormLabel>
+                <FormControl>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger data-testid="select-player-position">
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PLAYER_POSITIONS.map((pos) => (
+                        <SelectItem key={pos} value={pos}>{pos}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="jerseyNumber"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Jersey #</FormLabel>
+                <FormControl>
+                  <Input placeholder="#" maxLength={3} {...field} data-testid="input-player-jersey" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="ageGroup"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Age Group</FormLabel>
+                <FormControl>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger data-testid="select-player-age-group">
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PLAYER_AGE_GROUPS.map((ag) => (
+                        <SelectItem key={ag} value={ag}>{ag}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+        <FormField
+          control={form.control}
+          name="notes"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Notes</FormLabel>
+              <FormControl>
+                <Textarea placeholder="Optional notes..." {...field} data-testid="input-player-notes" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <DialogFooter>
+          <Button type="submit" disabled={isPending} data-testid="button-submit-player">
+            {isPending ? "Saving..." : submitLabel}
+          </Button>
+        </DialogFooter>
+      </form>
+    </Form>
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <h2 className="text-lg font-semibold" data-testid="text-players-heading">Players</h2>
+        <Button onClick={() => { addForm.reset(); setAddOpen(true); }} data-testid="button-add-player">
+          <Plus className="w-4 h-4" />
+          Add Player
+        </Button>
+      </div>
+
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[180px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search players..."
+            className="pl-9"
+            data-testid="input-search-players"
+          />
+        </div>
+        <Select value={positionFilter} onValueChange={setPositionFilter}>
+          <SelectTrigger className="w-[140px]" data-testid="select-filter-position">
+            <SelectValue placeholder="All Positions" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Positions</SelectItem>
+            {PLAYER_POSITIONS.map((pos) => (
+              <SelectItem key={pos} value={pos}>{pos}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {filteredPlayers.length > 0 && (
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              checked={allSelected}
+              onCheckedChange={toggleSelectAll}
+              data-testid="checkbox-select-all-players"
+            />
+            <span className="text-sm text-muted-foreground">Select All</span>
+          </div>
+          {selectedPlayerIds.size > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setBulkAssignOpen(true)}
+              data-testid="button-bulk-assign"
+            >
+              <UserPlus className="w-4 h-4" />
+              Assign {selectedPlayerIds.size} to Team
+            </Button>
+          )}
+        </div>
+      )}
+
+      {playersLoading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-24 rounded-lg" />)}
+        </div>
+      ) : !players?.length ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground" data-testid="text-no-players">
+            <UserCheck className="w-10 h-10 mx-auto mb-3 opacity-50" />
+            <p>No players yet. Add your first player to get started!</p>
+          </CardContent>
+        </Card>
+      ) : !filteredPlayers.length ? (
+        <Card>
+          <CardContent className="py-8 text-center text-muted-foreground" data-testid="text-no-matching-players">
+            <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">No players match your search criteria.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {filteredPlayers.map((player) => (
+            <Card key={player.id} data-testid={`card-player-${player.id}`}>
+              <CardContent className="py-3">
+                <div className="flex items-start gap-3">
+                  <div className="pt-1">
+                    <Checkbox
+                      checked={selectedPlayerIds.has(player.id)}
+                      onCheckedChange={() => togglePlayer(player.id)}
+                      data-testid={`checkbox-player-${player.id}`}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-medium" data-testid={`text-player-name-${player.id}`}>
+                        {player.firstName} {player.lastName || ""}
+                      </p>
+                      {player.position && (
+                        <Badge variant="outline" className="no-default-hover-elevate text-xs" data-testid={`badge-player-position-${player.id}`}>
+                          {player.position}
+                        </Badge>
+                      )}
+                      {player.jerseyNumber && (
+                        <span className="text-xs font-mono text-muted-foreground" data-testid={`text-player-jersey-${player.id}`}>
+                          #{player.jerseyNumber}
+                        </span>
+                      )}
+                      {player.ageGroup && (
+                        <Badge variant="secondary" className="no-default-hover-elevate text-xs" data-testid={`badge-player-age-${player.id}`}>
+                          {player.ageGroup}
+                        </Badge>
+                      )}
+                    </div>
+                    {player.email && (
+                      <p className="text-xs text-muted-foreground mt-0.5" data-testid={`text-player-email-${player.id}`}>{player.email}</p>
+                    )}
+                    {player.teams.length > 0 && (
+                      <div className="flex items-center gap-1 mt-2 flex-wrap">
+                        <span className="text-xs text-muted-foreground">Teams:</span>
+                        {player.teams.map((t) => (
+                          <Badge
+                            key={t.id}
+                            variant="default"
+                            className="no-default-hover-elevate text-xs cursor-pointer"
+                            data-testid={`badge-player-team-${t.id}`}
+                            onClick={() => removeAssignmentMutation.mutate(t.id)}
+                            title={`Click to remove from ${t.teamName}`}
+                          >
+                            {t.teamName}
+                            <Trash2 className="w-2.5 h-2.5 ml-1" />
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => {
+                        setAssignPlayerId(player.id);
+                        setAssignTeamId("");
+                        setAssignPosition("");
+                        setAssignJersey("");
+                      }}
+                      data-testid={`button-assign-player-${player.id}`}
+                    >
+                      <UserPlus className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => openEditPlayer(player)}
+                      data-testid={`button-edit-player-${player.id}`}
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => setDeletePlayerId(player.id)}
+                      data-testid={`button-delete-player-${player.id}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent data-testid="dialog-add-player">
+          <DialogHeader>
+            <DialogTitle>Add Player</DialogTitle>
+            <DialogDescription>Add a new player to your roster. You can assign them to teams later.</DialogDescription>
+          </DialogHeader>
+          {renderPlayerForm(addForm, (data) => createPlayerMutation.mutate(data), createPlayerMutation.isPending, "Add Player")}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editingPlayer} onOpenChange={(open) => { if (!open) setEditingPlayer(null); }}>
+        <DialogContent data-testid="dialog-edit-player">
+          <DialogHeader>
+            <DialogTitle>Edit Player</DialogTitle>
+            <DialogDescription>Update player information.</DialogDescription>
+          </DialogHeader>
+          {editingPlayer && renderPlayerForm(editForm, (data) => updatePlayerMutation.mutate({ id: editingPlayer.id, data }), updatePlayerMutation.isPending, "Save Changes")}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!assignPlayerId} onOpenChange={(open) => { if (!open) setAssignPlayerId(null); }}>
+        <DialogContent data-testid="dialog-assign-player">
+          <DialogHeader>
+            <DialogTitle>Assign to Team</DialogTitle>
+            <DialogDescription>Select a team and optionally set position and jersey for this assignment.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Team</label>
+              <Select value={assignTeamId} onValueChange={setAssignTeamId}>
+                <SelectTrigger data-testid="select-assign-team">
+                  <SelectValue placeholder="Select a team" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teams?.map((team) => (
+                    <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Position (optional)</label>
+                <Select value={assignPosition} onValueChange={setAssignPosition}>
+                  <SelectTrigger data-testid="select-assign-position">
+                    <SelectValue placeholder="Position" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PLAYER_POSITIONS.map((pos) => (
+                      <SelectItem key={pos} value={pos}>{pos}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Jersey # (optional)</label>
+                <Input
+                  value={assignJersey}
+                  onChange={(e) => setAssignJersey(e.target.value)}
+                  placeholder="#"
+                  maxLength={3}
+                  data-testid="input-assign-jersey"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                onClick={() => assignPlayerId && assignPlayerMutation.mutate({ playerId: assignPlayerId, teamId: assignTeamId, position: assignPosition, jerseyNumber: assignJersey })}
+                disabled={!assignTeamId || assignPlayerMutation.isPending}
+                data-testid="button-confirm-assign"
+              >
+                {assignPlayerMutation.isPending ? "Assigning..." : "Assign"}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={bulkAssignOpen} onOpenChange={setBulkAssignOpen}>
+        <DialogContent data-testid="dialog-bulk-assign">
+          <DialogHeader>
+            <DialogTitle>Bulk Assign to Team</DialogTitle>
+            <DialogDescription>Assign {selectedPlayerIds.size} selected player(s) to a team.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Team</label>
+              <Select value={bulkTeamId} onValueChange={setBulkTeamId}>
+                <SelectTrigger data-testid="select-bulk-team">
+                  <SelectValue placeholder="Select a team" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teams?.map((team) => (
+                    <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter>
+              <Button
+                onClick={() => bulkAssignMutation.mutate({ playerIds: Array.from(selectedPlayerIds), teamId: bulkTeamId })}
+                disabled={!bulkTeamId || bulkAssignMutation.isPending}
+                data-testid="button-confirm-bulk-assign"
+              >
+                {bulkAssignMutation.isPending ? "Assigning..." : "Assign All"}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!deletePlayerId} onOpenChange={(open) => !open && setDeletePlayerId(null)}>
+        <AlertDialogContent data-testid="dialog-delete-player-confirm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Player?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this player and remove them from all teams. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-player">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deletePlayerId && deletePlayerMutation.mutate(deletePlayerId)}
+              data-testid="button-confirm-delete-player"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
 export default function CoachPage() {
   const { user } = useAuth();
 
@@ -1859,10 +2675,14 @@ export default function CoachPage() {
       </div>
 
       <Tabs defaultValue="roster">
-        <TabsList className="w-full grid grid-cols-4 sm:grid-cols-8 gap-1 h-auto" data-testid="tabs-coach-main">
+        <TabsList className="w-full grid grid-cols-4 sm:grid-cols-9 gap-1 h-auto" data-testid="tabs-coach-main">
           <TabsTrigger value="roster" className="text-xs sm:text-sm py-2" data-testid="tab-roster">
             <Users className="w-4 h-4 mr-1 shrink-0" />
             <span className="truncate">Roster</span>
+          </TabsTrigger>
+          <TabsTrigger value="players" className="text-xs sm:text-sm py-2" data-testid="tab-players">
+            <UserCheck className="w-4 h-4 mr-1 shrink-0" />
+            <span className="truncate">Players</span>
           </TabsTrigger>
           <TabsTrigger value="assign-drills" className="text-xs sm:text-sm py-2" data-testid="tab-assign-drills">
             <ClipboardList className="w-4 h-4 mr-1 shrink-0" />
@@ -1896,6 +2716,9 @@ export default function CoachPage() {
 
         <TabsContent value="roster">
           <RosterTab />
+        </TabsContent>
+        <TabsContent value="players">
+          <PlayersTab />
         </TabsContent>
         <TabsContent value="assign-drills">
           <AssignDrillsTab />

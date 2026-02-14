@@ -31,7 +31,9 @@ import {
   leagues, type League, type InsertLeague,
   messages, type Message, type InsertMessage,
   playerInvitations, type PlayerInvitation, type InsertPlayerInvitation,
-  sharedVideos
+  sharedVideos,
+  coachPlayers, type CoachPlayer, type InsertCoachPlayer,
+  coachPlayerAssignments, type CoachPlayerAssignment, type InsertCoachPlayerAssignment
 } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
@@ -241,6 +243,17 @@ export interface IStorage {
   getSharedVideos(teamId: string): Promise<Array<{ id: string; userId: string; playerName: string; title: string; videoUrl: string; description: string | null; createdAt: Date | null }>>;
   createSharedVideo(data: { userId: string; teamId: string; title: string; videoUrl: string; description?: string }): Promise<any>;
   deleteSharedVideo(id: string, userId: string): Promise<boolean>;
+
+  // Coach Players
+  getCoachPlayers(coachId: string): Promise<CoachPlayer[]>;
+  getCoachPlayerById(id: string): Promise<CoachPlayer | undefined>;
+  createCoachPlayer(player: InsertCoachPlayer): Promise<CoachPlayer>;
+  updateCoachPlayer(id: string, data: Partial<InsertCoachPlayer>): Promise<CoachPlayer | undefined>;
+  deleteCoachPlayer(id: string): Promise<boolean>;
+  getCoachPlayerAssignments(coachPlayerId: string): Promise<(CoachPlayerAssignment & { teamName: string })[]>;
+  assignCoachPlayerToTeam(assignment: InsertCoachPlayerAssignment): Promise<CoachPlayerAssignment>;
+  removeCoachPlayerFromTeam(assignmentId: string): Promise<boolean>;
+  getCoachPlayersByTeam(teamId: string): Promise<(CoachPlayer & { assignmentId: string; teamPosition?: string | null; teamJersey?: string | null })[]>;
 
   // Career Stats
   getCareerStats(userId: string): Promise<{
@@ -2163,6 +2176,63 @@ export class DatabaseStorage implements IStorage {
     if (!video || video.userId !== userId) return false;
     await db.delete(sharedVideos).where(eq(sharedVideos.id, id));
     return true;
+  }
+
+  async getCoachPlayers(coachId: string): Promise<CoachPlayer[]> {
+    return db.select().from(coachPlayers).where(eq(coachPlayers.coachId, coachId)).orderBy(desc(coachPlayers.createdAt));
+  }
+
+  async getCoachPlayerById(id: string): Promise<CoachPlayer | undefined> {
+    const [player] = await db.select().from(coachPlayers).where(eq(coachPlayers.id, id));
+    return player;
+  }
+
+  async createCoachPlayer(player: InsertCoachPlayer): Promise<CoachPlayer> {
+    const [created] = await db.insert(coachPlayers).values(player).returning();
+    return created;
+  }
+
+  async updateCoachPlayer(id: string, data: Partial<InsertCoachPlayer>): Promise<CoachPlayer | undefined> {
+    const [updated] = await db.update(coachPlayers).set({ ...data, updatedAt: new Date() }).where(eq(coachPlayers.id, id)).returning();
+    return updated;
+  }
+
+  async deleteCoachPlayer(id: string): Promise<boolean> {
+    await db.delete(coachPlayerAssignments).where(eq(coachPlayerAssignments.coachPlayerId, id));
+    await db.delete(coachPlayers).where(eq(coachPlayers.id, id));
+    return true;
+  }
+
+  async getCoachPlayerAssignments(coachPlayerId: string): Promise<(CoachPlayerAssignment & { teamName: string })[]> {
+    const assignments = await db.select().from(coachPlayerAssignments).where(eq(coachPlayerAssignments.coachPlayerId, coachPlayerId));
+    const result = [];
+    for (const a of assignments) {
+      const [team] = await db.select().from(trainerTeams).where(eq(trainerTeams.id, a.teamId));
+      result.push({ ...a, teamName: team?.name || "Unknown" });
+    }
+    return result;
+  }
+
+  async assignCoachPlayerToTeam(assignment: InsertCoachPlayerAssignment): Promise<CoachPlayerAssignment> {
+    const [created] = await db.insert(coachPlayerAssignments).values(assignment).returning();
+    return created;
+  }
+
+  async removeCoachPlayerFromTeam(assignmentId: string): Promise<boolean> {
+    await db.delete(coachPlayerAssignments).where(eq(coachPlayerAssignments.id, assignmentId));
+    return true;
+  }
+
+  async getCoachPlayersByTeam(teamId: string): Promise<(CoachPlayer & { assignmentId: string; teamPosition?: string | null; teamJersey?: string | null })[]> {
+    const assignments = await db.select().from(coachPlayerAssignments).where(eq(coachPlayerAssignments.teamId, teamId));
+    const result = [];
+    for (const a of assignments) {
+      const [player] = await db.select().from(coachPlayers).where(eq(coachPlayers.id, a.coachPlayerId));
+      if (player) {
+        result.push({ ...player, assignmentId: a.id, teamPosition: a.position, teamJersey: a.jerseyNumber });
+      }
+    }
+    return result;
   }
 }
 

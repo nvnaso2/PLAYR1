@@ -2411,18 +2411,28 @@ export async function registerRoutes(
       const userId = req.user.claims.sub;
       const mode = req.params.mode;
       const teamType = mode === "coach" ? "coach" : "trainer";
+      const { search, teamId, position } = req.query;
       const teams = await storage.getCoachTeams(userId, teamType);
-      const contactsMap = new Map<string, { id: string; name: string; image?: string; teamName: string }>();
-      for (const team of teams) {
+      const filteredTeams = teamId ? teams.filter(t => t.id === teamId) : teams;
+      const contactsMap = new Map<string, { id: string; name: string; image?: string; teamName: string; teamId: string; position?: string; jerseyNumber?: string }>();
+      for (const team of filteredTeams) {
         const members = await storage.getTeamMembers(team.id);
         for (const member of members) {
-          if (member.userId !== userId && !contactsMap.has(member.userId)) {
-            contactsMap.set(member.userId, {
-              id: member.userId,
-              name: `${member.user.firstName || ''} ${member.user.lastName || ''}`.trim() || member.user.email || 'Unknown',
-              image: member.user.profileImageUrl || undefined,
-              teamName: team.name,
-            });
+          if (member.userId !== userId) {
+            if (position && member.position !== position) continue;
+            const name = `${member.user.firstName || ''} ${member.user.lastName || ''}`.trim() || member.user.email || 'Unknown';
+            if (search && !name.toLowerCase().includes((search as string).toLowerCase())) continue;
+            if (!contactsMap.has(member.userId)) {
+              contactsMap.set(member.userId, {
+                id: member.userId,
+                name,
+                image: member.user.profileImageUrl || undefined,
+                teamName: team.name,
+                teamId: team.id,
+                position: member.position || undefined,
+                jerseyNumber: member.jerseyNumber || undefined,
+              });
+            }
           }
         }
       }
@@ -2599,6 +2609,164 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching my shared videos:", error);
       res.status(500).json({ message: "Failed to fetch shared videos" });
+    }
+  });
+
+  // ===== COACH PLAYERS (independent player management) =====
+
+  app.get("/api/coach-players", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const players = await storage.getCoachPlayers(userId);
+      const playersWithTeams = [];
+      for (const player of players) {
+        const assignments = await storage.getCoachPlayerAssignments(player.id);
+        playersWithTeams.push({ ...player, teams: assignments });
+      }
+      res.json(playersWithTeams);
+    } catch (error) {
+      console.error("Error fetching coach players:", error);
+      res.status(500).json({ message: "Failed to fetch coach players" });
+    }
+  });
+
+  app.post("/api/coach-players", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { firstName, lastName, email, phone, position, jerseyNumber, ageGroup, notes } = req.body;
+      if (!firstName) {
+        return res.status(400).json({ message: "First name is required" });
+      }
+      const player = await storage.createCoachPlayer({
+        coachId: userId,
+        firstName,
+        lastName: lastName || null,
+        email: email || null,
+        phone: phone || null,
+        position: position || null,
+        jerseyNumber: jerseyNumber || null,
+        ageGroup: ageGroup || null,
+        notes: notes || null,
+      });
+      res.status(201).json(player);
+    } catch (error) {
+      console.error("Error creating coach player:", error);
+      res.status(500).json({ message: "Failed to create player" });
+    }
+  });
+
+  app.put("/api/coach-players/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const player = await storage.getCoachPlayerById(req.params.id);
+      if (!player || player.coachId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      const updated = await storage.updateCoachPlayer(req.params.id, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating coach player:", error);
+      res.status(500).json({ message: "Failed to update player" });
+    }
+  });
+
+  app.delete("/api/coach-players/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const player = await storage.getCoachPlayerById(req.params.id);
+      if (!player || player.coachId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      await storage.deleteCoachPlayer(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting coach player:", error);
+      res.status(500).json({ message: "Failed to delete player" });
+    }
+  });
+
+  app.post("/api/coach-players/:id/assign", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const player = await storage.getCoachPlayerById(req.params.id);
+      if (!player || player.coachId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      const { teamId, position, jerseyNumber } = req.body;
+      if (!teamId) {
+        return res.status(400).json({ message: "teamId is required" });
+      }
+      const team = await storage.getTeamById(teamId);
+      if (!team || team.coachId !== userId) {
+        return res.status(403).json({ message: "Not authorized to assign to this team" });
+      }
+      const assignment = await storage.assignCoachPlayerToTeam({
+        coachPlayerId: req.params.id,
+        teamId,
+        position: position || player.position || null,
+        jerseyNumber: jerseyNumber || player.jerseyNumber || null,
+      });
+      res.status(201).json(assignment);
+    } catch (error) {
+      console.error("Error assigning player to team:", error);
+      res.status(500).json({ message: "Failed to assign player" });
+    }
+  });
+
+  app.delete("/api/coach-player-assignments/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.removeCoachPlayerFromTeam(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error removing assignment:", error);
+      res.status(500).json({ message: "Failed to remove assignment" });
+    }
+  });
+
+  app.get("/api/coach-players/by-team/:teamId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const team = await storage.getTeamById(req.params.teamId);
+      if (!team || team.coachId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      const players = await storage.getCoachPlayersByTeam(req.params.teamId);
+      res.json(players);
+    } catch (error) {
+      console.error("Error fetching team players:", error);
+      res.status(500).json({ message: "Failed to fetch team players" });
+    }
+  });
+
+  // Bulk assign players to team
+  app.post("/api/coach-players/bulk-assign", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { playerIds, teamId } = req.body;
+      if (!playerIds?.length || !teamId) {
+        return res.status(400).json({ message: "playerIds and teamId are required" });
+      }
+      const team = await storage.getTeamById(teamId);
+      if (!team || team.coachId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      const results = [];
+      for (const playerId of playerIds) {
+        const player = await storage.getCoachPlayerById(playerId);
+        if (player && player.coachId === userId) {
+          const assignment = await storage.assignCoachPlayerToTeam({
+            coachPlayerId: playerId,
+            teamId,
+            position: player.position || null,
+            jerseyNumber: player.jerseyNumber || null,
+          });
+          results.push(assignment);
+        }
+      }
+      res.status(201).json(results);
+    } catch (error) {
+      console.error("Error bulk assigning players:", error);
+      res.status(500).json({ message: "Failed to bulk assign players" });
     }
   });
 
