@@ -674,6 +674,33 @@ export const coachPlayerAssignments = pgTable("coach_player_assignments", {
   assignedAt: timestamp("assigned_at").defaultNow()
 });
 
+// Trainer-managed players (independent of groups)
+export const trainerPlayers = pgTable("trainer_players", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  trainerId: varchar("trainer_id").notNull(),
+  firstName: varchar("first_name").notNull(),
+  lastName: varchar("last_name"),
+  email: varchar("email"),
+  phone: varchar("phone"),
+  position: varchar("position"),
+  jerseyNumber: varchar("jersey_number"),
+  ageGroup: varchar("age_group"),
+  notes: text("notes"),
+  linkedUserId: varchar("linked_user_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+
+// Trainer player to group assignments
+export const trainerPlayerAssignments = pgTable("trainer_player_assignments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  trainerPlayerId: varchar("trainer_player_id").notNull(),
+  groupId: varchar("group_id").notNull(),
+  position: varchar("position"),
+  jerseyNumber: varchar("jersey_number"),
+  assignedAt: timestamp("assigned_at").defaultNow()
+});
+
 // Drill ratings - users rate drills 1-5
 export const drillRatings = pgTable("drill_ratings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -732,6 +759,8 @@ export const insertPlayerInvitationSchema = createInsertSchema(playerInvitations
 export const insertSharedVideoSchema = createInsertSchema(sharedVideos).omit({ id: true, createdAt: true });
 export const insertCoachPlayerSchema = createInsertSchema(coachPlayers).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertCoachPlayerAssignmentSchema = createInsertSchema(coachPlayerAssignments).omit({ id: true, assignedAt: true });
+export const insertTrainerPlayerSchema = createInsertSchema(trainerPlayers).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertTrainerPlayerAssignmentSchema = createInsertSchema(trainerPlayerAssignments).omit({ id: true, assignedAt: true });
 
 // Types
 export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
@@ -797,6 +826,10 @@ export type InsertCoachPlayer = z.infer<typeof insertCoachPlayerSchema>;
 export type CoachPlayer = typeof coachPlayers.$inferSelect;
 export type InsertCoachPlayerAssignment = z.infer<typeof insertCoachPlayerAssignmentSchema>;
 export type CoachPlayerAssignment = typeof coachPlayerAssignments.$inferSelect;
+export type InsertTrainerPlayer = z.infer<typeof insertTrainerPlayerSchema>;
+export type TrainerPlayer = typeof trainerPlayers.$inferSelect;
+export type InsertTrainerPlayerAssignment = z.infer<typeof insertTrainerPlayerAssignmentSchema>;
+export type TrainerPlayerAssignment = typeof trainerPlayerAssignments.$inferSelect;
 
 // ===== TEAM & LEAGUE FINDER =====
 
