@@ -721,6 +721,7 @@ export const trainerPlayers = pgTable("trainer_players", {
   jerseyNumber: varchar("jersey_number"),
   ageGroup: varchar("age_group"),
   teamType: varchar("team_type"),
+  gradYear: integer("grad_year"),
   notes: text("notes"),
   linkedUserId: varchar("linked_user_id"),
   createdAt: timestamp("created_at").defaultNow(),
