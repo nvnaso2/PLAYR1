@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Switch, Route, Redirect } from "wouter";
+import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -95,8 +95,7 @@ function Router({ previewLanding }: { previewLanding: boolean }) {
                 <Route path="/profile" component={Profile} />
                 <Route path="/player-profile" component={PlayerProfile} />
                 <Route path="/admin" component={Admin} />
-                <Route path="/coach-trainer" component={CoachTrainer} />
-                <Route path="/coach">{() => <Redirect to="/coach-trainer" />}</Route>
+                <Route path="/coach" component={CoachTrainer} />
                 <Route component={NotFound} />
               </Switch>
             </AuthenticatedLayout>

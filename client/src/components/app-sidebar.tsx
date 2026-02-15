@@ -53,7 +53,7 @@ const mainNavItems = [
   { title: "Drill Library", url: "/drills", icon: Play },
   { title: "Training Log", url: "/log", icon: ClipboardList },
   { title: "My Filmroom", url: "/videos", icon: Video },
-  { title: "Coach / Trainer", url: "/coach-trainer", icon: Shield },
+  { title: "Coach / Trainer", url: "/coach", icon: Shield },
   { title: "Find Teams & Leagues", url: "/finder", icon: Search },
 ];
 
