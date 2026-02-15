@@ -1951,30 +1951,36 @@ function AssignDrillsTab() {
   });
 
   const groupIds = useMemo(() => groups?.map(g => g.id).sort().join(",") || "", [groups]);
+  const teamIds = useMemo(() => coachTeams?.map(t => t.id).sort().join(",") || "", [coachTeams]);
   const { data: assignmentsByGroup, isLoading: assignmentsLoading } = useQuery<Record<string, Assignment[]>>({
-    queryKey: ["/api/trainer/all-assignments", groupIds],
+    queryKey: ["/api/trainer/all-assignments", groupIds, teamIds],
     queryFn: async () => {
-      if (!groups?.length) return {};
       const results: Record<string, Assignment[]> = {};
-      await Promise.all(groups.map(async (group) => {
-        const res = await fetch(`/api/trainer/groups/${group.id}/assignments`, { credentials: "include" });
-        if (!res.ok) throw new Error(`Failed to fetch assignments for group ${group.name}`);
-        results[group.id] = await res.json();
+      const allEntities = [...(groups || []), ...(coachTeams || [])];
+      if (!allEntities.length) return {};
+      const seen = new Set<string>();
+      const unique = allEntities.filter(e => { if (seen.has(e.id)) return false; seen.add(e.id); return true; });
+      await Promise.all(unique.map(async (entity) => {
+        const res = await fetch(`/api/trainer/groups/${entity.id}/assignments`, { credentials: "include" });
+        if (!res.ok) return;
+        results[entity.id] = await res.json();
       }));
       return results;
     },
-    enabled: !!groups?.length,
+    enabled: !!(groups?.length || coachTeams?.length),
   });
 
   const flatAssignments = useMemo(() => {
     if (!assignmentsByGroup) return [];
     const all: { assignment: Assignment; groupName: string }[] = [];
-    Object.entries(assignmentsByGroup).forEach(([groupId, assigns]) => {
-      const group = groups?.find(g => g.id === groupId);
-      assigns.forEach(a => all.push({ assignment: a, groupName: group?.name || "Unknown" }));
+    Object.entries(assignmentsByGroup).forEach(([entityId, assigns]) => {
+      const group = groups?.find(g => g.id === entityId);
+      const team = coachTeams?.find(t => t.id === entityId);
+      const name = group?.name || team?.name || "Unknown";
+      assigns.forEach(a => all.push({ assignment: a, groupName: name }));
     });
     return all;
-  }, [assignmentsByGroup, groups]);
+  }, [assignmentsByGroup, groups, coachTeams]);
 
   const filteredAssignments = flatAssignments;
 
@@ -2079,6 +2085,13 @@ function AssignDrillsTab() {
       await assignMutation.mutateAsync({
         drillId: selectedDrill.id,
         teamId: assignGroupId,
+        dueDate: assignDueDate || undefined,
+        notes: assignNotes || undefined,
+      });
+    } else if (assignTeamId && !assignGroupId && !hasAnyAttrFilter) {
+      await assignMutation.mutateAsync({
+        drillId: selectedDrill.id,
+        teamId: assignTeamId,
         dueDate: assignDueDate || undefined,
         notes: assignNotes || undefined,
       });
@@ -2188,7 +2201,7 @@ function AssignDrillsTab() {
           </div>
         ) : !filteredAssignments.length ? (
           <p className="text-sm text-muted-foreground" data-testid="text-no-trainer-assignments">
-            {!groups?.length ? "Create a group first to assign drills." : "No assignments yet. Hit Assign to get started."}
+            {!groups?.length && !coachTeams?.length ? "Create a group or team first to assign drills." : "No assignments yet. Hit Assign to get started."}
           </p>
         ) : (
           <div className="space-y-2">
