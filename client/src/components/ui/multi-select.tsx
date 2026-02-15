@@ -75,7 +75,8 @@ export function MultiSelect({
           <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-1 max-h-[200px] overflow-y-auto" align="start">
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-1" align="start" onWheel={(e) => e.stopPropagation()}>
+        <div className="max-h-[200px] overflow-y-auto">
         {options.map((option) => (
           <button
             key={option}
@@ -96,6 +97,7 @@ export function MultiSelect({
             <span>{option}</span>
           </button>
         ))}
+        </div>
       </PopoverContent>
     </Popover>
   )

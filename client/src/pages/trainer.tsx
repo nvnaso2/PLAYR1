@@ -311,7 +311,7 @@ const PLAYER_AGES = ["6U", "7U", "8U", "9U", "10U", "11U", "12U", "13U", "14U", 
 const TEAM_TYPES = ["None", "Rec", "Club/AAU", "High School", "College", "Pro"];
 const LEVEL_OPTIONS = ["Beginner", "Intermediate", "Advanced", "Elite"];
 const CLASS_OPTIONS = ["3rd Grade", "4th Grade", "5th Grade", "6th Grade", "7th Grade", "8th Grade", "Freshman", "Sophomore", "Junior", "Senior", "Post-Grad"];
-const AGE_GROUP_OPTIONS = ["Varsity", "JV", "Freshman", "8th Grade", "7th Grade", "8U", "10U", "12U", "14U", "16U", "17U"];
+const AGE_GROUP_OPTIONS = ["6U", "7U", "8U", "9U", "10U", "11U", "12U", "13U", "14U", "15U", "16U", "17U", "18U", "Adult"];
 
 const trainerPlayerSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
