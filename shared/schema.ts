@@ -737,6 +737,16 @@ export const trainerPlayerAssignments = pgTable("trainer_player_assignments", {
   assignedAt: timestamp("assigned_at").defaultNow()
 });
 
+// Player to team assignments (unified: links trainerPlayers to coachTeams)
+export const playerTeamAssignments = pgTable("player_team_assignments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").notNull(),
+  teamId: varchar("team_id").notNull(),
+  position: varchar("position"),
+  jerseyNumber: varchar("jersey_number"),
+  assignedAt: timestamp("assigned_at").defaultNow()
+});
+
 // Drill ratings - users rate drills 1-5
 export const drillRatings = pgTable("drill_ratings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -797,6 +807,7 @@ export const insertCoachPlayerSchema = createInsertSchema(coachPlayers).omit({ i
 export const insertCoachPlayerAssignmentSchema = createInsertSchema(coachPlayerAssignments).omit({ id: true, assignedAt: true });
 export const insertTrainerPlayerSchema = createInsertSchema(trainerPlayers).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertTrainerPlayerAssignmentSchema = createInsertSchema(trainerPlayerAssignments).omit({ id: true, assignedAt: true });
+export const insertPlayerTeamAssignmentSchema = createInsertSchema(playerTeamAssignments).omit({ id: true, assignedAt: true });
 export const insertChatThreadSchema = createInsertSchema(chatThreads).omit({ id: true, createdAt: true });
 export const insertChatThreadMemberSchema = createInsertSchema(chatThreadMembers).omit({ id: true, addedAt: true });
 export const insertChatThreadMessageSchema = createInsertSchema(chatThreadMessages).omit({ id: true, createdAt: true });
@@ -869,6 +880,8 @@ export type InsertTrainerPlayer = z.infer<typeof insertTrainerPlayerSchema>;
 export type TrainerPlayer = typeof trainerPlayers.$inferSelect;
 export type InsertTrainerPlayerAssignment = z.infer<typeof insertTrainerPlayerAssignmentSchema>;
 export type TrainerPlayerAssignment = typeof trainerPlayerAssignments.$inferSelect;
+export type InsertPlayerTeamAssignment = z.infer<typeof insertPlayerTeamAssignmentSchema>;
+export type PlayerTeamAssignment = typeof playerTeamAssignments.$inferSelect;
 export type InsertChatThread = z.infer<typeof insertChatThreadSchema>;
 export type ChatThread = typeof chatThreads.$inferSelect;
 export type InsertChatThreadMember = z.infer<typeof insertChatThreadMemberSchema>;
