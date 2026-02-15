@@ -1935,8 +1935,31 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const teamCode = generateTeamCode();
-      const team = await storage.createTeam({ ...req.body, coachId: userId, teamCode, teamType: "coach" });
-      res.status(201).json(team);
+      const { playerIds, ...teamData } = req.body;
+      const team = await storage.createTeam({ ...teamData, coachId: userId, teamCode, teamType: "coach" });
+
+      const assignedPlayers: string[] = [];
+      const uniquePlayerIds = playerIds && Array.isArray(playerIds) ? [...new Set(playerIds as string[])] : [];
+      if (uniquePlayerIds.length > 0) {
+        for (const playerId of uniquePlayerIds) {
+          try {
+            const player = await storage.getTrainerPlayerById(playerId);
+            if (player && player.trainerId === userId) {
+              await storage.assignPlayerToTeam({
+                playerId,
+                teamId: team.id,
+                position: player.position || null,
+                jerseyNumber: player.jerseyNumber || null,
+              });
+              assignedPlayers.push(`${player.firstName} ${player.lastName || ""}`.trim());
+            }
+          } catch (assignErr) {
+            console.error(`Failed to assign player ${playerId} to new team:`, assignErr);
+          }
+        }
+      }
+
+      res.status(201).json({ ...team, assignedPlayers });
     } catch (error) {
       console.error("Error creating team:", error);
       res.status(500).json({ message: "Failed to create team" });
@@ -2003,7 +2026,28 @@ export async function registerRoutes(
           coachPlayerId: cp.id,
           assignmentId: cp.assignmentId,
         }));
-      res.json([...members.map(m => ({ ...m, isCoachPlayer: false })), ...coachPlayerMembers]);
+
+      const trainerPlayerAssignments = await storage.getTrainerPlayersByTeam(req.params.id);
+      const existingIds = new Set([...linkedUserIds, ...coachPlayerMembers.map(cp => cp.userId)]);
+      const trainerPlayerMembers = trainerPlayerAssignments
+        .filter(tp => !existingIds.has(`tp_${tp.id}`))
+        .map(tp => ({
+          id: tp.id,
+          userId: tp.linkedUserId || `tp_${tp.id}`,
+          teamId: req.params.id,
+          role: "player",
+          position: tp.teamPosition || tp.position || null,
+          jerseyNumber: tp.teamJersey || tp.jerseyNumber || null,
+          joinedAt: tp.assignedAt || tp.createdAt,
+          firstName: tp.firstName,
+          lastName: tp.lastName || "",
+          email: tp.email || "",
+          profileImageUrl: null,
+          isCoachPlayer: false,
+          assignmentId: tp.assignmentId,
+        }));
+
+      res.json([...members.map(m => ({ ...m, isCoachPlayer: false })), ...coachPlayerMembers, ...trainerPlayerMembers]);
     } catch (error) {
       console.error("Error fetching team members:", error);
       res.status(500).json({ message: "Failed to fetch team members" });
@@ -3207,7 +3251,7 @@ export async function registerRoutes(
   app.post("/api/trainer-players", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { firstName, lastName, email, phone, position, jerseyNumber, ageGroup, notes } = req.body;
+      const { firstName, lastName, email, phone, position, jerseyNumber, ageGroup, notes, teamIds } = req.body;
       if (!firstName) {
         return res.status(400).json({ message: "First name is required" });
       }
@@ -3222,6 +3266,27 @@ export async function registerRoutes(
         ageGroup: ageGroup || null,
         notes: notes || null,
       });
+
+      const autoAssignedTeams: string[] = [];
+      const uniqueTeamIds = teamIds && Array.isArray(teamIds) ? [...new Set(teamIds as string[])] : [];
+      if (uniqueTeamIds.length > 0) {
+        for (const teamId of uniqueTeamIds) {
+          try {
+            const team = await storage.getTeamById(teamId);
+            if (team && team.coachId === userId) {
+              await storage.assignPlayerToTeam({
+                playerId: player.id,
+                teamId,
+                position: position || null,
+                jerseyNumber: jerseyNumber || null,
+              });
+              autoAssignedTeams.push(team.name);
+            }
+          } catch (assignErr) {
+            console.error(`Failed to auto-assign player to team ${teamId}:`, assignErr);
+          }
+        }
+      }
 
       const autoAssignedGroups: string[] = [];
       if (position) {
@@ -3263,7 +3328,7 @@ export async function registerRoutes(
         }
       }
 
-      res.status(201).json({ ...player, autoAssignedGroups });
+      res.status(201).json({ ...player, autoAssignedGroups, autoAssignedTeams });
     } catch (error) {
       console.error("Error creating trainer player:", error);
       res.status(500).json({ message: "Failed to create player" });

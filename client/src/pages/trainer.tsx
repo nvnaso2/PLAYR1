@@ -386,6 +386,8 @@ function RosterTab() {
   const [editingMember, setEditingMember] = useState<RosterMember | null>(null);
   const [editPosition, setEditPosition] = useState("");
   const [editJersey, setEditJersey] = useState("");
+  const [newTeamPlayerIds, setNewTeamPlayerIds] = useState<string[]>([]);
+  const [playerSearchQuery, setPlayerSearchQuery] = useState("");
 
   const form = useForm<CreateTeamForm>({
     resolver: zodResolver(createTeamSchema),
@@ -401,13 +403,35 @@ function RosterTab() {
     enabled: !!selectedTeam,
   });
 
+  const { data: allPlayers } = useQuery<TrainerPlayerData[]>({
+    queryKey: ["/api/trainer-players"],
+  });
+
+  const filteredCreatePlayers = useMemo(() => {
+    if (!allPlayers) return [];
+    if (!playerSearchQuery) return allPlayers;
+    const q = playerSearchQuery.toLowerCase();
+    return allPlayers.filter(p => `${p.firstName} ${p.lastName || ""}`.toLowerCase().includes(q));
+  }, [allPlayers, playerSearchQuery]);
+
+  const toggleNewTeamPlayer = (playerId: string) => {
+    setNewTeamPlayerIds(prev => prev.includes(playerId) ? prev.filter(id => id !== playerId) : [...prev, playerId]);
+  };
+
   const createTeamMutation = useMutation({
-    mutationFn: (data: CreateTeamForm) => apiRequest("POST", "/api/coach/teams", data),
-    onSuccess: () => {
+    mutationFn: async (data: CreateTeamForm) => {
+      const res = await apiRequest("POST", "/api/coach/teams", { ...data, playerIds: newTeamPlayerIds });
+      return res.json();
+    },
+    onSuccess: (result: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/coach/teams"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer-players"] });
       setCreateOpen(false);
       form.reset();
-      toast({ title: "Team created successfully!" });
+      setNewTeamPlayerIds([]);
+      setPlayerSearchQuery("");
+      const assignedCount = result?.assignedPlayers?.length || 0;
+      toast({ title: "Team created successfully!", description: assignedCount > 0 ? `${assignedCount} player(s) added to team` : undefined });
     },
     onError: (error: Error) => {
       toast({ title: "Failed to create team", description: error.message, variant: "destructive" });
@@ -500,7 +524,7 @@ function RosterTab() {
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h2 className="text-lg font-semibold" data-testid="text-roster-heading">Team Roster</h2>
-        <Button onClick={() => setCreateOpen(true)} data-testid="button-create-team">
+        <Button onClick={() => { form.reset(); setNewTeamPlayerIds([]); setPlayerSearchQuery(""); setCreateOpen(true); }} data-testid="button-create-team">
           <Plus className="w-4 h-4" />
           New Team
         </Button>
@@ -823,6 +847,48 @@ function RosterTab() {
                   )}
                 />
               </div>
+              {allPlayers && allPlayers.length > 0 && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Add Players (optional)</label>
+                  {allPlayers.length > 5 && (
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+                      <Input
+                        value={playerSearchQuery}
+                        onChange={(e) => setPlayerSearchQuery(e.target.value)}
+                        placeholder="Search players..."
+                        className="pl-8 h-8 text-sm"
+                        data-testid="input-team-player-search"
+                      />
+                    </div>
+                  )}
+                  <div className="space-y-1 max-h-36 overflow-y-auto">
+                    {filteredCreatePlayers.map((player) => (
+                      <div
+                        key={player.id}
+                        className={`flex items-center justify-between gap-2 p-2 rounded-md border cursor-pointer ${newTeamPlayerIds.includes(player.id) ? "border-primary bg-primary/10" : "hover-elevate"}`}
+                        onClick={() => toggleNewTeamPlayer(player.id)}
+                        data-testid={`button-team-player-pick-${player.id}`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-sm font-medium truncate">{player.firstName} {player.lastName || ""}</span>
+                          {player.position && <Badge variant="outline" className="no-default-hover-elevate text-xs shrink-0">{player.position}</Badge>}
+                          {player.jerseyNumber && <span className="text-xs text-muted-foreground shrink-0">#{player.jerseyNumber}</span>}
+                        </div>
+                        {newTeamPlayerIds.includes(player.id) && <Check className="w-4 h-4 text-primary shrink-0" />}
+                      </div>
+                    ))}
+                    {filteredCreatePlayers.length === 0 && (
+                      <p className="text-xs text-muted-foreground text-center py-2">
+                        {playerSearchQuery ? "No matching players." : "No players yet."}
+                      </p>
+                    )}
+                  </div>
+                  {newTeamPlayerIds.length > 0 && (
+                    <p className="text-xs text-muted-foreground">{newTeamPlayerIds.length} player(s) selected</p>
+                  )}
+                </div>
+              )}
               <DialogFooter>
                 <Button type="submit" disabled={createTeamMutation.isPending} data-testid="button-submit-create-team">
                   {createTeamMutation.isPending ? "Creating..." : "Create Team"}
@@ -945,6 +1011,7 @@ function PlayersTab() {
   const [bulkAssignGroupOpen, setBulkAssignGroupOpen] = useState(false);
   const [bulkTeamId, setBulkTeamId] = useState("");
   const [bulkGroupId, setBulkGroupId] = useState("");
+  const [newPlayerTeamIds, setNewPlayerTeamIds] = useState<string[]>([]);
 
   const addForm = useForm<TrainerPlayerForm>({
     resolver: zodResolver(trainerPlayerSchema),
@@ -970,20 +1037,20 @@ function PlayersTab() {
 
   const createPlayerMutation = useMutation({
     mutationFn: async (data: TrainerPlayerForm) => {
-      const res = await apiRequest("POST", "/api/trainer-players", data);
+      const res = await apiRequest("POST", "/api/trainer-players", { ...data, teamIds: newPlayerTeamIds });
       return res.json();
     },
     onSuccess: (result: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/trainer-players"] });
       queryClient.invalidateQueries({ queryKey: ["/api/trainer/groups"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/teams"] });
       setAddOpen(false);
       addForm.reset();
-      const autoGroups = result?.autoAssignedGroups;
-      if (autoGroups?.length) {
-        toast({ title: "Player added successfully!", description: `Auto-assigned to: ${autoGroups.join(", ")}` });
-      } else {
-        toast({ title: "Player added successfully!" });
-      }
+      setNewPlayerTeamIds([]);
+      const parts: string[] = [];
+      if (result?.autoAssignedTeams?.length) parts.push(`Teams: ${result.autoAssignedTeams.join(", ")}`);
+      if (result?.autoAssignedGroups?.length) parts.push(`Groups: ${result.autoAssignedGroups.join(", ")}`);
+      toast({ title: "Player added successfully!", description: parts.length ? `Assigned to ${parts.join(" | ")}` : undefined });
     },
     onError: (error: Error) => {
       toast({ title: "Failed to add player", description: error.message, variant: "destructive" });
@@ -1180,7 +1247,11 @@ function PlayersTab() {
 
   const assignPending = assignTargetType === "team" ? assignPlayerToTeamMutation.isPending : assignPlayerToGroupMutation.isPending;
 
-  const renderPlayerForm = (form: ReturnType<typeof useForm<TrainerPlayerForm>>, onSubmit: (data: TrainerPlayerForm) => void, isPending: boolean, submitLabel: string) => (
+  const toggleNewPlayerTeam = (teamId: string) => {
+    setNewPlayerTeamIds(prev => prev.includes(teamId) ? prev.filter(id => id !== teamId) : [...prev, teamId]);
+  };
+
+  const renderPlayerForm = (form: ReturnType<typeof useForm<TrainerPlayerForm>>, onSubmit: (data: TrainerPlayerForm) => void, isPending: boolean, submitLabel: string, options?: { showTeamPicker?: boolean }) => (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
@@ -1333,6 +1404,24 @@ function PlayersTab() {
             </FormItem>
           )}
         />
+        {options?.showTeamPicker && teams && teams.length > 0 && (
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Assign to Teams (optional)</label>
+            <div className="space-y-1 max-h-32 overflow-y-auto">
+              {teams.map((team) => (
+                <div
+                  key={team.id}
+                  className={`flex items-center justify-between gap-2 p-2 rounded-md border cursor-pointer ${newPlayerTeamIds.includes(team.id) ? "border-primary bg-primary/10" : "hover-elevate"}`}
+                  onClick={() => toggleNewPlayerTeam(team.id)}
+                  data-testid={`button-player-team-pick-${team.id}`}
+                >
+                  <span className="text-sm truncate">{team.name}{team.seasonYear ? ` (${team.seasonYear})` : ""}{team.ageGroup ? ` - ${team.ageGroup}` : ""}</span>
+                  {newPlayerTeamIds.includes(team.id) && <Check className="w-4 h-4 text-primary shrink-0" />}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <DialogFooter>
           <Button type="submit" disabled={isPending} data-testid="button-submit-player">
             {isPending ? "Saving..." : submitLabel}
@@ -1346,7 +1435,7 @@ function PlayersTab() {
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h2 className="text-lg font-semibold" data-testid="text-players-heading">Players</h2>
-        <Button onClick={() => { addForm.reset(); setAddOpen(true); }} data-testid="button-add-player">
+        <Button onClick={() => { addForm.reset(); setNewPlayerTeamIds([]); setAddOpen(true); }} data-testid="button-add-player">
           <Plus className="w-4 h-4" />
           Add Player
         </Button>
@@ -1609,7 +1698,7 @@ function PlayersTab() {
             <DialogTitle>Add Player</DialogTitle>
             <DialogDescription>Add a new player to your roster. You can assign them to teams or groups later.</DialogDescription>
           </DialogHeader>
-          {renderPlayerForm(addForm, (data) => createPlayerMutation.mutate(data), createPlayerMutation.isPending, "Add Player")}
+          {renderPlayerForm(addForm, (data) => createPlayerMutation.mutate(data), createPlayerMutation.isPending, "Add Player", { showTeamPicker: true })}
         </DialogContent>
       </Dialog>
 
@@ -4193,6 +4282,7 @@ function AdminTab() {
   const [adminAddPlayerOpen, setAdminAddPlayerOpen] = useState(false);
   const [adminEditPlayer, setAdminEditPlayer] = useState<TrainerPlayerData | null>(null);
   const [adminDeletePlayerId, setAdminDeletePlayerId] = useState<string | null>(null);
+  const [adminNewPlayerTeamIds, setAdminNewPlayerTeamIds] = useState<string[]>([]);
 
   const [createDrillOpen, setCreateDrillOpen] = useState(false);
   const [editDrillId, setEditDrillId] = useState<string | null>(null);
@@ -4276,20 +4366,20 @@ function AdminTab() {
 
   const adminCreatePlayerMutation = useMutation({
     mutationFn: async (data: TrainerPlayerForm) => {
-      const res = await apiRequest("POST", "/api/trainer-players", data);
+      const res = await apiRequest("POST", "/api/trainer-players", { ...data, teamIds: adminNewPlayerTeamIds });
       return res.json();
     },
     onSuccess: (result: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/trainer-players"] });
       queryClient.invalidateQueries({ queryKey: ["/api/trainer/groups"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/teams"] });
       setAdminAddPlayerOpen(false);
       adminAddForm.reset();
-      const groups = result?.autoAssignedGroups;
-      if (groups?.length) {
-        toast({ title: "Player added!", description: `Auto-assigned to: ${groups.join(", ")}` });
-      } else {
-        toast({ title: "Player added!" });
-      }
+      setAdminNewPlayerTeamIds([]);
+      const parts: string[] = [];
+      if (result?.autoAssignedTeams?.length) parts.push(`Teams: ${result.autoAssignedTeams.join(", ")}`);
+      if (result?.autoAssignedGroups?.length) parts.push(`Groups: ${result.autoAssignedGroups.join(", ")}`);
+      toast({ title: "Player added!", description: parts.length ? `Assigned to ${parts.join(" | ")}` : undefined });
     },
     onError: (error: Error) => {
       toast({ title: "Failed to add player", description: error.message, variant: "destructive" });
@@ -4729,7 +4819,7 @@ function AdminTab() {
         <TabsContent value="players" className="space-y-4 mt-4">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <p className="text-sm text-muted-foreground">Manage all your players from one place.</p>
-            <Button onClick={() => { adminAddForm.reset(); setAdminAddPlayerOpen(true); }} data-testid="button-admin-create-player">
+            <Button onClick={() => { adminAddForm.reset(); setAdminNewPlayerTeamIds([]); setAdminAddPlayerOpen(true); }} data-testid="button-admin-create-player">
               <Plus className="w-4 h-4" />
               New Player
             </Button>
@@ -5218,6 +5308,24 @@ function AdminTab() {
                   <FormMessage />
                 </FormItem>
               )} />
+              {!adminEditPlayer && coachTeams && coachTeams.length > 0 && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Assign to Teams (optional)</label>
+                  <div className="space-y-1 max-h-32 overflow-y-auto">
+                    {coachTeams.map((team) => (
+                      <div
+                        key={team.id}
+                        className={`flex items-center justify-between gap-2 p-2 rounded-md border cursor-pointer ${adminNewPlayerTeamIds.includes(team.id) ? "border-primary bg-primary/10" : "hover-elevate"}`}
+                        onClick={() => setAdminNewPlayerTeamIds(prev => prev.includes(team.id) ? prev.filter(id => id !== team.id) : [...prev, team.id])}
+                        data-testid={`button-admin-player-team-pick-${team.id}`}
+                      >
+                        <span className="text-sm truncate">{team.name}{team.seasonYear ? ` (${team.seasonYear})` : ""}{team.ageGroup ? ` - ${team.ageGroup}` : ""}</span>
+                        {adminNewPlayerTeamIds.includes(team.id) && <Check className="w-4 h-4 text-primary shrink-0" />}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <DialogFooter>
                 <Button type="submit" disabled={adminCreatePlayerMutation.isPending || adminUpdatePlayerMutation.isPending} data-testid="button-submit-admin-player">
                   {(adminCreatePlayerMutation.isPending || adminUpdatePlayerMutation.isPending) ? "Saving..." : (adminEditPlayer ? "Update" : "Add Player")}

@@ -282,6 +282,7 @@ export interface IStorage {
   assignTrainerPlayerToGroup(assignment: InsertTrainerPlayerAssignment): Promise<TrainerPlayerAssignment>;
   removeTrainerPlayerFromGroup(assignmentId: string): Promise<boolean>;
   getTrainerPlayersByGroup(groupId: string): Promise<(TrainerPlayer & { assignmentId: string; groupPosition?: string | null; groupJersey?: string | null })[]>;
+  getTrainerPlayersByTeam(teamId: string): Promise<(TrainerPlayer & { assignmentId: string; teamPosition?: string | null; teamJersey?: string | null; assignedAt?: Date | null })[]>;
 
   // Unified Player Team Assignments
   getPlayerTeamAssignments(playerId: string): Promise<any[]>;
@@ -2327,6 +2328,18 @@ export class DatabaseStorage implements IStorage {
       const [player] = await db.select().from(trainerPlayers).where(eq(trainerPlayers.id, a.trainerPlayerId));
       if (player) {
         result.push({ ...player, assignmentId: a.id, groupPosition: a.position, groupJersey: a.jerseyNumber });
+      }
+    }
+    return result;
+  }
+
+  async getTrainerPlayersByTeam(teamId: string): Promise<(TrainerPlayer & { assignmentId: string; teamPosition?: string | null; teamJersey?: string | null; assignedAt?: Date | null })[]> {
+    const assignments = await db.select().from(playerTeamAssignments).where(eq(playerTeamAssignments.teamId, teamId));
+    const result = [];
+    for (const a of assignments) {
+      const [player] = await db.select().from(trainerPlayers).where(eq(trainerPlayers.id, a.playerId));
+      if (player) {
+        result.push({ ...player, assignmentId: a.id, teamPosition: a.position, teamJersey: a.jerseyNumber, assignedAt: a.assignedAt });
       }
     }
     return result;
