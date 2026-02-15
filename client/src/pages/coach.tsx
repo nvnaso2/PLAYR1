@@ -28,6 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { MultiSelect } from "@/components/ui/multi-select";
 import {
   Form,
   FormControl,
@@ -644,24 +645,13 @@ function RosterTab() {
                     <FormItem>
                       <FormLabel>Age Group</FormLabel>
                       <FormControl>
-                        <Select value={field.value} onValueChange={field.onChange}>
-                          <SelectTrigger data-testid="select-age-group">
-                            <SelectValue placeholder="Select" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Varsity">Varsity</SelectItem>
-                            <SelectItem value="JV">JV</SelectItem>
-                            <SelectItem value="Freshman">Freshman</SelectItem>
-                            <SelectItem value="8th Grade">8th Grade</SelectItem>
-                            <SelectItem value="7th Grade">7th Grade</SelectItem>
-                            <SelectItem value="8U">8U</SelectItem>
-                            <SelectItem value="10U">10U</SelectItem>
-                            <SelectItem value="12U">12U</SelectItem>
-                            <SelectItem value="14U">14U</SelectItem>
-                            <SelectItem value="16U">16U</SelectItem>
-                            <SelectItem value="17U">17U</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <MultiSelect
+                          options={AGE_GROUP_OPTIONS}
+                          selected={field.value ? field.value.split(",").map(s => s.trim()).filter(Boolean) : []}
+                          onChange={(vals) => field.onChange(vals.join(", "))}
+                          placeholder="Select age groups"
+                          data-testid="select-age-group"
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -689,15 +679,13 @@ function RosterTab() {
                     <FormItem>
                       <FormLabel>Position</FormLabel>
                       <FormControl>
-                        <Select value={field.value} onValueChange={field.onChange}>
-                          <SelectTrigger data-testid="select-team-position">
-                            <SelectValue placeholder="Optional" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">None</SelectItem>
-                            {PLAYER_POSITIONS.map((pos) => (<SelectItem key={pos} value={pos}>{pos}</SelectItem>))}
-                          </SelectContent>
-                        </Select>
+                        <MultiSelect
+                          options={PLAYER_POSITIONS}
+                          selected={field.value ? field.value.split(",").map(s => s.trim()).filter(Boolean) : []}
+                          onChange={(vals) => field.onChange(vals.join(", "))}
+                          placeholder="Select positions"
+                          data-testid="select-team-position"
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -710,18 +698,13 @@ function RosterTab() {
                     <FormItem>
                       <FormLabel>Level</FormLabel>
                       <FormControl>
-                        <Select value={field.value} onValueChange={field.onChange}>
-                          <SelectTrigger data-testid="select-team-level">
-                            <SelectValue placeholder="Optional" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">None</SelectItem>
-                            <SelectItem value="Beginner">Beginner</SelectItem>
-                            <SelectItem value="Intermediate">Intermediate</SelectItem>
-                            <SelectItem value="Advanced">Advanced</SelectItem>
-                            <SelectItem value="Elite">Elite</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <MultiSelect
+                          options={LEVEL_OPTIONS}
+                          selected={field.value ? field.value.split(",").map(s => s.trim()).filter(Boolean) : []}
+                          onChange={(vals) => field.onChange(vals.join(", "))}
+                          placeholder="Select levels"
+                          data-testid="select-team-level"
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -734,19 +717,13 @@ function RosterTab() {
                     <FormItem>
                       <FormLabel>Class</FormLabel>
                       <FormControl>
-                        <Select value={field.value} onValueChange={field.onChange}>
-                          <SelectTrigger data-testid="select-team-class">
-                            <SelectValue placeholder="Optional" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">None</SelectItem>
-                            <SelectItem value="Freshman">Freshman</SelectItem>
-                            <SelectItem value="Sophomore">Sophomore</SelectItem>
-                            <SelectItem value="Junior">Junior</SelectItem>
-                            <SelectItem value="Senior">Senior</SelectItem>
-                            <SelectItem value="Post-Grad">Post-Grad</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <MultiSelect
+                          options={CLASS_OPTIONS}
+                          selected={field.value ? field.value.split(",").map(s => s.trim()).filter(Boolean) : []}
+                          onChange={(vals) => field.onChange(vals.join(", "))}
+                          placeholder="Select classes"
+                          data-testid="select-team-class"
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -3306,6 +3283,9 @@ type CoachPlayerForm = z.infer<typeof coachPlayerSchema>;
 const PLAYER_POSITIONS = ["PG", "SG", "SF", "PF", "C", "Guard", "Wing", "Forward", "Bigs"];
 const PLAYER_AGES = Array.from({ length: 53 }, (_, i) => String(i + 5));
 const TEAM_TYPES = ["None", "Rec", "Club/AAU", "High School", "College", "Pro"];
+const LEVEL_OPTIONS = ["Beginner", "Intermediate", "Advanced", "Elite"];
+const CLASS_OPTIONS = ["3rd Grade", "4th Grade", "5th Grade", "6th Grade", "7th Grade", "8th Grade", "Freshman", "Sophomore", "Junior", "Senior", "Post-Grad"];
+const AGE_GROUP_OPTIONS = ["Varsity", "JV", "Freshman", "8th Grade", "7th Grade", "8U", "10U", "12U", "14U", "16U", "17U"];
 
 function PlayersTab() {
   const { toast } = useToast();
@@ -3958,10 +3938,10 @@ function CoachAdminTab() {
   const [teamName, setTeamName] = useState("");
   const [teamDescription, setTeamDescription] = useState("");
   const [teamSeasonYear, setTeamSeasonYear] = useState<string>(String(currentYear));
-  const [teamAgeGroup, setTeamAgeGroup] = useState("");
-  const [teamPosition, setTeamPosition] = useState("");
-  const [teamLevel, setTeamLevel] = useState("");
-  const [teamPlayerClass, setTeamPlayerClass] = useState("");
+  const [teamAgeGroup, setTeamAgeGroup] = useState<string[]>([]);
+  const [teamPosition, setTeamPosition] = useState<string[]>([]);
+  const [teamLevel, setTeamLevel] = useState<string[]>([]);
+  const [teamPlayerClass, setTeamPlayerClass] = useState<string[]>([]);
 
   const [adminAddPlayerOpen, setAdminAddPlayerOpen] = useState(false);
   const [adminEditPlayer, setAdminEditPlayer] = useState<CoachPlayerData | null>(null);
@@ -4061,10 +4041,10 @@ function CoachAdminTab() {
     setTeamName("");
     setTeamDescription("");
     setTeamSeasonYear(String(currentYear));
-    setTeamAgeGroup("");
-    setTeamPosition("");
-    setTeamLevel("");
-    setTeamPlayerClass("");
+    setTeamAgeGroup([]);
+    setTeamPosition([]);
+    setTeamLevel([]);
+    setTeamPlayerClass([]);
   };
 
   const openEditTeam = (team: CoachTeam) => {
@@ -4072,10 +4052,10 @@ function CoachAdminTab() {
     setTeamName(team.name);
     setTeamDescription(team.description || "");
     setTeamSeasonYear(team.seasonYear ? String(team.seasonYear) : String(currentYear));
-    setTeamAgeGroup(team.ageGroup || "");
-    setTeamPosition(team.position || "");
-    setTeamLevel(team.level || "");
-    setTeamPlayerClass(team.playerClass || "");
+    setTeamAgeGroup(team.ageGroup ? team.ageGroup.split(",").map(s => s.trim()).filter(Boolean) : []);
+    setTeamPosition(team.position ? team.position.split(",").map(s => s.trim()).filter(Boolean) : []);
+    setTeamLevel(team.level ? team.level.split(",").map(s => s.trim()).filter(Boolean) : []);
+    setTeamPlayerClass(team.playerClass ? team.playerClass.split(",").map(s => s.trim()).filter(Boolean) : []);
   };
 
   const handleTeamSubmit = () => {
@@ -4084,10 +4064,10 @@ function CoachAdminTab() {
       name: teamName.trim(),
       description: teamDescription.trim(),
       seasonYear: teamSeasonYear ? parseInt(teamSeasonYear) : undefined,
-      ageGroup: teamAgeGroup && teamAgeGroup !== "none" ? teamAgeGroup : undefined,
-      position: teamPosition && teamPosition !== "none" ? teamPosition : undefined,
-      level: teamLevel && teamLevel !== "none" ? teamLevel : undefined,
-      playerClass: teamPlayerClass && teamPlayerClass !== "none" ? teamPlayerClass : undefined,
+      ageGroup: teamAgeGroup.length > 0 ? teamAgeGroup.join(", ") : undefined,
+      position: teamPosition.length > 0 ? teamPosition.join(", ") : undefined,
+      level: teamLevel.length > 0 ? teamLevel.join(", ") : undefined,
+      playerClass: teamPlayerClass.length > 0 ? teamPlayerClass.join(", ") : undefined,
     };
     if (editTeamId) {
       updateTeamMutation.mutate({ id: editTeamId, data });
@@ -4304,62 +4284,21 @@ function CoachAdminTab() {
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Age Group</label>
-                <Select value={teamAgeGroup} onValueChange={setTeamAgeGroup}>
-                  <SelectTrigger data-testid="select-coach-admin-age-group"><SelectValue placeholder="Select (optional)" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    <SelectItem value="Varsity">Varsity</SelectItem>
-                    <SelectItem value="JV">JV</SelectItem>
-                    <SelectItem value="Freshman">Freshman</SelectItem>
-                    <SelectItem value="8th Grade">8th Grade</SelectItem>
-                    <SelectItem value="7th Grade">7th Grade</SelectItem>
-                    <SelectItem value="8U">8U</SelectItem>
-                    <SelectItem value="10U">10U</SelectItem>
-                    <SelectItem value="12U">12U</SelectItem>
-                    <SelectItem value="14U">14U</SelectItem>
-                    <SelectItem value="16U">16U</SelectItem>
-                    <SelectItem value="17U">17U</SelectItem>
-                  </SelectContent>
-                </Select>
+                <MultiSelect options={AGE_GROUP_OPTIONS} selected={teamAgeGroup} onChange={setTeamAgeGroup} placeholder="Select age groups (optional)" data-testid="select-coach-admin-age-group" />
               </div>
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Position</label>
-                <Select value={teamPosition} onValueChange={setTeamPosition}>
-                  <SelectTrigger data-testid="select-coach-admin-team-position"><SelectValue placeholder="Optional" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {PLAYER_POSITIONS.map((pos) => (<SelectItem key={pos} value={pos}>{pos}</SelectItem>))}
-                  </SelectContent>
-                </Select>
+                <MultiSelect options={PLAYER_POSITIONS} selected={teamPosition} onChange={setTeamPosition} placeholder="Select positions" data-testid="select-coach-admin-team-position" />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Level</label>
-                <Select value={teamLevel} onValueChange={setTeamLevel}>
-                  <SelectTrigger data-testid="select-coach-admin-team-level"><SelectValue placeholder="Optional" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    <SelectItem value="Beginner">Beginner</SelectItem>
-                    <SelectItem value="Intermediate">Intermediate</SelectItem>
-                    <SelectItem value="Advanced">Advanced</SelectItem>
-                    <SelectItem value="Elite">Elite</SelectItem>
-                  </SelectContent>
-                </Select>
+                <MultiSelect options={LEVEL_OPTIONS} selected={teamLevel} onChange={setTeamLevel} placeholder="Select levels" data-testid="select-coach-admin-team-level" />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Class</label>
-                <Select value={teamPlayerClass} onValueChange={setTeamPlayerClass}>
-                  <SelectTrigger data-testid="select-coach-admin-team-class"><SelectValue placeholder="Optional" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    <SelectItem value="Freshman">Freshman</SelectItem>
-                    <SelectItem value="Sophomore">Sophomore</SelectItem>
-                    <SelectItem value="Junior">Junior</SelectItem>
-                    <SelectItem value="Senior">Senior</SelectItem>
-                    <SelectItem value="Post-Grad">Post-Grad</SelectItem>
-                  </SelectContent>
-                </Select>
+                <MultiSelect options={CLASS_OPTIONS} selected={teamPlayerClass} onChange={setTeamPlayerClass} placeholder="Select classes" data-testid="select-coach-admin-team-class" />
               </div>
             </div>
           </div>

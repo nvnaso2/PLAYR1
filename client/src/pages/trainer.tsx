@@ -27,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { MultiSelect } from "@/components/ui/multi-select";
 import {
   Form,
   FormControl,
@@ -308,6 +309,9 @@ type AssignDrillForm = z.infer<typeof assignDrillSchema>;
 const PLAYER_POSITIONS = ["PG", "SG", "SF", "PF", "C", "Guard", "Wing", "Forward", "Bigs"];
 const PLAYER_AGES = Array.from({ length: 53 }, (_, i) => String(i + 5));
 const TEAM_TYPES = ["None", "Rec", "Club/AAU", "High School", "College", "Pro"];
+const LEVEL_OPTIONS = ["Beginner", "Intermediate", "Advanced", "Elite"];
+const CLASS_OPTIONS = ["3rd Grade", "4th Grade", "5th Grade", "6th Grade", "7th Grade", "8th Grade", "Freshman", "Sophomore", "Junior", "Senior", "Post-Grad"];
+const AGE_GROUP_OPTIONS = ["Varsity", "JV", "Freshman", "8th Grade", "7th Grade", "8U", "10U", "12U", "14U", "16U", "17U"];
 
 const trainerPlayerSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -3189,10 +3193,10 @@ function AdminTab() {
   const [viewMembersGroupId, setViewMembersGroupId] = useState<string | null>(null);
   const [groupName, setGroupName] = useState("");
   const [groupDescription, setGroupDescription] = useState("");
-  const [groupAgeGroup, setGroupAgeGroup] = useState("");
-  const [groupPosition, setGroupPosition] = useState("");
-  const [groupLevel, setGroupLevel] = useState("");
-  const [groupPlayerClass, setGroupPlayerClass] = useState("");
+  const [groupAgeGroup, setGroupAgeGroup] = useState<string[]>([]);
+  const [groupPosition, setGroupPosition] = useState<string[]>([]);
+  const [groupLevel, setGroupLevel] = useState<string[]>([]);
+  const [groupPlayerClass, setGroupPlayerClass] = useState<string[]>([]);
 
   const [adminAddPlayerOpen, setAdminAddPlayerOpen] = useState(false);
   const [adminEditPlayer, setAdminEditPlayer] = useState<TrainerPlayerData | null>(null);
@@ -3385,10 +3389,10 @@ function AdminTab() {
   const resetGroupForm = () => {
     setGroupName("");
     setGroupDescription("");
-    setGroupAgeGroup("");
-    setGroupPosition("");
-    setGroupLevel("");
-    setGroupPlayerClass("");
+    setGroupAgeGroup([]);
+    setGroupPosition([]);
+    setGroupLevel([]);
+    setGroupPlayerClass([]);
   };
 
   const resetDrillForm = () => {
@@ -3404,10 +3408,10 @@ function AdminTab() {
     setEditGroupId(group.id);
     setGroupName(group.name);
     setGroupDescription(group.description || "");
-    setGroupAgeGroup(group.ageGroup || "");
-    setGroupPosition(group.position || "");
-    setGroupLevel(group.level || "");
-    setGroupPlayerClass(group.playerClass || "");
+    setGroupAgeGroup(group.ageGroup ? group.ageGroup.split(",").map(s => s.trim()).filter(Boolean) : []);
+    setGroupPosition(group.position ? group.position.split(",").map(s => s.trim()).filter(Boolean) : []);
+    setGroupLevel(group.level ? group.level.split(",").map(s => s.trim()).filter(Boolean) : []);
+    setGroupPlayerClass(group.playerClass ? group.playerClass.split(",").map(s => s.trim()).filter(Boolean) : []);
   };
 
   const openEditDrill = (drill: TrainerDrill) => {
@@ -3425,10 +3429,10 @@ function AdminTab() {
     const data = {
       name: groupName.trim(),
       description: groupDescription.trim(),
-      ageGroup: groupAgeGroup && groupAgeGroup !== "none" ? groupAgeGroup : undefined,
-      position: groupPosition && groupPosition !== "none" ? groupPosition : undefined,
-      level: groupLevel && groupLevel !== "none" ? groupLevel : undefined,
-      playerClass: groupPlayerClass && groupPlayerClass !== "none" ? groupPlayerClass : undefined,
+      ageGroup: groupAgeGroup.length > 0 ? groupAgeGroup.join(", ") : undefined,
+      position: groupPosition.length > 0 ? groupPosition.join(", ") : undefined,
+      level: groupLevel.length > 0 ? groupLevel.join(", ") : undefined,
+      playerClass: groupPlayerClass.length > 0 ? groupPlayerClass.join(", ") : undefined,
     };
     if (editGroupId) {
       updateGroupMutation.mutate({ id: editGroupId, data });
@@ -3756,64 +3760,21 @@ function AdminTab() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Age</label>
-                <Select value={groupAgeGroup} onValueChange={setGroupAgeGroup}>
-                  <SelectTrigger data-testid="select-admin-group-age">
-                    <SelectValue placeholder="Select age (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {PLAYER_AGES.map((age) => (
-                      <SelectItem key={age} value={age}>{age}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <MultiSelect options={AGE_GROUP_OPTIONS} selected={groupAgeGroup} onChange={setGroupAgeGroup} placeholder="Select age groups (optional)" data-testid="select-admin-group-age" />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Position</label>
-                <Select value={groupPosition} onValueChange={setGroupPosition}>
-                  <SelectTrigger data-testid="select-admin-group-position">
-                    <SelectValue placeholder="Select position (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {PLAYER_POSITIONS.map((pos) => (
-                      <SelectItem key={pos} value={pos}>{pos}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <MultiSelect options={PLAYER_POSITIONS} selected={groupPosition} onChange={setGroupPosition} placeholder="Select positions (optional)" data-testid="select-admin-group-position" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Level</label>
-                <Select value={groupLevel} onValueChange={setGroupLevel}>
-                  <SelectTrigger data-testid="select-admin-group-level">
-                    <SelectValue placeholder="Select level (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    <SelectItem value="Beginner">Beginner</SelectItem>
-                    <SelectItem value="Intermediate">Intermediate</SelectItem>
-                    <SelectItem value="Advanced">Advanced</SelectItem>
-                    <SelectItem value="Elite">Elite</SelectItem>
-                  </SelectContent>
-                </Select>
+                <MultiSelect options={LEVEL_OPTIONS} selected={groupLevel} onChange={setGroupLevel} placeholder="Select levels (optional)" data-testid="select-admin-group-level" />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Class</label>
-                <Select value={groupPlayerClass} onValueChange={setGroupPlayerClass}>
-                  <SelectTrigger data-testid="select-admin-group-class">
-                    <SelectValue placeholder="Select class (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    <SelectItem value="Freshman">Freshman</SelectItem>
-                    <SelectItem value="Sophomore">Sophomore</SelectItem>
-                    <SelectItem value="Junior">Junior</SelectItem>
-                    <SelectItem value="Senior">Senior</SelectItem>
-                    <SelectItem value="Post-Grad">Post-Grad</SelectItem>
-                  </SelectContent>
-                </Select>
+                <MultiSelect options={CLASS_OPTIONS} selected={groupPlayerClass} onChange={setGroupPlayerClass} placeholder="Select classes (optional)" data-testid="select-admin-group-class" />
               </div>
             </div>
           </div>
