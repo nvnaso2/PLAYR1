@@ -1221,6 +1221,7 @@ export async function registerRoutes(
         'avatarSkinTone', 'avatarHairStyle', 'avatarHairColor', 'avatarAccessory',
         'cardPhotoUrl',
         'trophyRoomOrder',
+        'staffRole',
         'onboardingCompleted'
       ];
       
