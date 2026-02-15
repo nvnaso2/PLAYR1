@@ -5404,8 +5404,8 @@ export default function CoachTrainerPage() {
       </div>
 
       <Tabs defaultValue="roster">
-        <div className="overflow-x-auto -mx-2 px-2">
-          <TabsList className="inline-flex w-max sm:w-full sm:grid sm:grid-cols-10 gap-1 h-auto" data-testid="tabs-trainer-main">
+        <div className="-mx-2 px-2">
+          <TabsList className="grid w-full grid-cols-5 gap-1 h-auto flex-wrap" data-testid="tabs-trainer-main">
             <TabsTrigger value="admin" className="text-xs sm:text-sm py-2" data-testid="tab-trainer-admin">
               <Settings className="w-4 h-4 mr-1 shrink-0" />
               <span className="truncate">Admin</span>
