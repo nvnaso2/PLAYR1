@@ -3297,8 +3297,11 @@ function PlayersTab() {
   const [assignPosition, setAssignPosition] = useState("");
   const [assignJersey, setAssignJersey] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [positionFilter, setPositionFilter] = useState("");
+  const [positionFilter, setPositionFilter] = useState("all");
   const [teamFilter, setTeamFilter] = useState("all");
+  const [ageFilter, setAgeFilter] = useState("all");
+  const [levelFilter, setLevelFilter] = useState("all");
+  const [classFilter, setClassFilter] = useState("all");
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(new Set());
   const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
   const [bulkTeamId, setBulkTeamId] = useState("");
@@ -3404,11 +3407,20 @@ function PlayersTab() {
     if (!players) return [];
     return players.filter((p) => {
       const nameMatch = !searchQuery || `${p.firstName} ${p.lastName || ""}`.toLowerCase().includes(searchQuery.toLowerCase());
-      const posMatch = !positionFilter || positionFilter === "all" || p.position === positionFilter;
+      const posMatch = positionFilter === "all" || p.position === positionFilter;
       const teamMatch = teamFilter === "all" || p.teams.some(t => t.teamId === teamFilter);
-      return nameMatch && posMatch && teamMatch;
+      const ageMatch = ageFilter === "all" || p.ageGroup === ageFilter;
+      const levelMatch = levelFilter === "all" || p.teams.some(t => {
+        const team = teams?.find(tm => tm.id === t.teamId);
+        return team?.level?.split(",").map(s => s.trim()).includes(levelFilter);
+      });
+      const classMatch = classFilter === "all" || p.teams.some(t => {
+        const team = teams?.find(tm => tm.id === t.teamId);
+        return team?.playerClass?.split(",").map(s => s.trim()).includes(classFilter);
+      });
+      return nameMatch && posMatch && teamMatch && ageMatch && levelMatch && classMatch;
     });
-  }, [players, searchQuery, positionFilter, teamFilter]);
+  }, [players, teams, searchQuery, positionFilter, teamFilter, ageFilter, levelFilter, classFilter]);
 
   const allSelected = filteredPlayers.length > 0 && filteredPlayers.every((p) => selectedPlayerIds.has(p.id));
 
@@ -3626,7 +3638,7 @@ function PlayersTab() {
           />
         </div>
         <Select value={teamFilter} onValueChange={setTeamFilter}>
-          <SelectTrigger className="w-[180px]" data-testid="select-filter-team">
+          <SelectTrigger className="w-[160px]" data-testid="select-filter-team">
             <SelectValue placeholder="All Teams" />
           </SelectTrigger>
           <SelectContent>
@@ -3644,6 +3656,39 @@ function PlayersTab() {
             <SelectItem value="all">All Positions</SelectItem>
             {PLAYER_POSITIONS.map((pos) => (
               <SelectItem key={pos} value={pos}>{pos}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={ageFilter} onValueChange={setAgeFilter}>
+          <SelectTrigger className="w-[120px]" data-testid="select-filter-age">
+            <SelectValue placeholder="All Ages" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Ages</SelectItem>
+            {PLAYER_AGES.map((age) => (
+              <SelectItem key={age} value={age}>{age}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={levelFilter} onValueChange={setLevelFilter}>
+          <SelectTrigger className="w-[140px]" data-testid="select-filter-level">
+            <SelectValue placeholder="All Levels" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Levels</SelectItem>
+            {LEVEL_OPTIONS.map((lvl) => (
+              <SelectItem key={lvl} value={lvl}>{lvl}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={classFilter} onValueChange={setClassFilter}>
+          <SelectTrigger className="w-[140px]" data-testid="select-filter-class">
+            <SelectValue placeholder="All Classes" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Classes</SelectItem>
+            {CLASS_OPTIONS.map((cls) => (
+              <SelectItem key={cls} value={cls}>{cls}</SelectItem>
             ))}
           </SelectContent>
         </Select>
