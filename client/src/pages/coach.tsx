@@ -835,10 +835,9 @@ const DRILL_DIFFICULTIES = ["beginner", "intermediate", "advanced"];
 function AssignDrillsTab() {
   const { toast } = useToast();
   const [assignOpen, setAssignOpen] = useState(false);
-  const [assignStep, setAssignStep] = useState<"choose" | "drill" | "target" | "details">("choose");
-  const [assignPath, setAssignPath] = useState<"drill-first" | "target-first" | null>(null);
+  const [assignStep, setAssignStep] = useState<"choose" | "drill" | "cohort" | "details">("choose");
+  const [assignPath, setAssignPath] = useState<"drill-first" | "cohort-first" | null>(null);
   const [selectedDrill, setSelectedDrill] = useState<DrillItem | null>(null);
-  const [assignTargetType, setAssignTargetType] = useState<"team" | "player">("team");
   const [assignTeamId, setAssignTeamId] = useState("");
   const [assignPlayerIds, setAssignPlayerIds] = useState<Set<string>>(new Set());
   const [assignDueDate, setAssignDueDate] = useState("");
@@ -850,7 +849,7 @@ function AssignDrillsTab() {
   const [assignAgeFilter, setAssignAgeFilter] = useState("all");
   const [assignLevelFilter, setAssignLevelFilter] = useState("all");
   const [assignClassFilter, setAssignClassFilter] = useState("all");
-  const [assignTeamFilter, setAssignTeamFilter] = useState("all");
+  const [activeCohortAttr, setActiveCohortAttr] = useState<"player" | "team" | "position" | "age" | "level" | "class" | null>(null);
   const [assignmentsTeamFilter, setAssignmentsTeamFilter] = useState("all");
   const [deleteAssignmentId, setDeleteAssignmentId] = useState<string | null>(null);
 
@@ -932,13 +931,12 @@ function AssignDrillsTab() {
     });
   }, [drills, drillSearch, drillCategoryFilter]);
 
-  const dialogPlayers = useMemo(() => {
+  const cohortPlayers = useMemo(() => {
     if (!coachPlayers) return [];
     return coachPlayers.filter(p => {
-      const nameMatch = !playerSearch || `${p.firstName} ${p.lastName || ""}`.toLowerCase().includes(playerSearch.toLowerCase());
       const posMatch = assignPosFilter === "all" || p.position === assignPosFilter;
       const ageMatch = assignAgeFilter === "all" || p.ageGroup === assignAgeFilter;
-      const teamMatch = assignTeamFilter === "all" || p.teams.some(t => t.teamId === assignTeamFilter);
+      const teamMatch = !assignTeamId || p.teams.some(t => t.teamId === assignTeamId);
       const levelMatch = assignLevelFilter === "all" || p.teams.some(t => {
         const team = teams?.find(tm => tm.id === t.teamId);
         const levels = team?.level?.split(",").map(s => s.trim()) ?? [];
@@ -949,15 +947,25 @@ function AssignDrillsTab() {
         const classes = team?.playerClass?.split(",").map(s => s.trim()) ?? [];
         return classes.includes(assignClassFilter);
       });
-      return nameMatch && posMatch && ageMatch && teamMatch && levelMatch && classMatch;
+      return posMatch && ageMatch && teamMatch && levelMatch && classMatch;
     });
-  }, [coachPlayers, teams, playerSearch, assignPosFilter, assignAgeFilter, assignTeamFilter, assignLevelFilter, assignClassFilter]);
+  }, [coachPlayers, teams, assignTeamId, assignPosFilter, assignAgeFilter, assignLevelFilter, assignClassFilter]);
+
+  const visibleCohortPlayers = useMemo(() => {
+    if (!playerSearch) return cohortPlayers;
+    return cohortPlayers.filter(p => {
+      const name = `${p.firstName} ${p.lastName || ""}`.toLowerCase();
+      return name.includes(playerSearch.toLowerCase());
+    });
+  }, [cohortPlayers, playerSearch]);
+
+  const hasAnyAttrFilter = assignPosFilter !== "all" || assignAgeFilter !== "all" || assignLevelFilter !== "all" || assignClassFilter !== "all";
+  const hasAnyFilter = assignTeamId !== "" || hasAnyAttrFilter;
 
   const openAssignDialog = () => {
     setAssignStep("choose");
     setAssignPath(null);
     setSelectedDrill(null);
-    setAssignTargetType("team");
     setAssignTeamId("");
     setAssignPlayerIds(new Set());
     setAssignDueDate("");
@@ -969,16 +977,22 @@ function AssignDrillsTab() {
     setAssignAgeFilter("all");
     setAssignLevelFilter("all");
     setAssignClassFilter("all");
-    setAssignTeamFilter("all");
+    setActiveCohortAttr(null);
     setAssignOpen(true);
   };
 
   const handleAssignSubmit = async () => {
     if (!selectedDrill) return;
-    if (assignTargetType === "team" && !assignTeamId) return;
-    if (assignTargetType === "player" && assignPlayerIds.size === 0) return;
-
-    if (assignTargetType === "team") {
+    if (assignPlayerIds.size > 0) {
+      for (const playerId of Array.from(assignPlayerIds)) {
+        await assignMutation.mutateAsync({
+          drillId: selectedDrill.id,
+          assignedTo: playerId,
+          dueDate: assignDueDate || undefined,
+          notes: assignNotes || undefined,
+        });
+      }
+    } else if (assignTeamId && !hasAnyAttrFilter) {
       await assignMutation.mutateAsync({
         drillId: selectedDrill.id,
         teamId: assignTeamId,
@@ -986,10 +1000,10 @@ function AssignDrillsTab() {
         notes: assignNotes || undefined,
       });
     } else {
-      for (const playerId of Array.from(assignPlayerIds)) {
+      for (const player of cohortPlayers) {
         await assignMutation.mutateAsync({
           drillId: selectedDrill.id,
-          assignedTo: playerId,
+          assignedTo: player.id,
           dueDate: assignDueDate || undefined,
           notes: assignNotes || undefined,
         });
@@ -1006,51 +1020,62 @@ function AssignDrillsTab() {
     });
   };
 
-  const canProceedToDetails = () => {
-    if (assignPath === "drill-first") {
-      return !!selectedDrill && (assignTargetType === "team" ? !!assignTeamId : assignPlayerIds.size > 0);
-    }
-    if (assignPath === "target-first") {
-      return !!selectedDrill && (assignTargetType === "team" ? !!assignTeamId : assignPlayerIds.size > 0);
-    }
-    return false;
-  };
-
-  const getStepAfterChoose = (path: "drill-first" | "target-first") => {
+  const getStepAfterChoose = (path: "drill-first" | "cohort-first") => {
     setAssignPath(path);
-    setAssignStep(path === "drill-first" ? "drill" : "target");
+    setAssignStep(path === "drill-first" ? "drill" : "cohort");
   };
 
   const getNextStep = () => {
-    if (assignPath === "drill-first" && assignStep === "drill") setAssignStep("target");
-    else if (assignPath === "target-first" && assignStep === "target") setAssignStep("drill");
-    else if (assignStep === "drill" || assignStep === "target") setAssignStep("details");
+    if (assignPath === "drill-first" && assignStep === "drill") setAssignStep("cohort");
+    else if (assignPath === "cohort-first" && assignStep === "cohort") setAssignStep("drill");
+    else if (assignStep === "drill" || assignStep === "cohort") setAssignStep("details");
   };
 
   const canGoNext = () => {
     if (assignStep === "drill") return !!selectedDrill;
-    if (assignStep === "target") return assignTargetType === "team" ? !!assignTeamId : assignPlayerIds.size > 0;
+    if (assignStep === "cohort") {
+      if (assignPlayerIds.size > 0) return true;
+      if (assignTeamId && !hasAnyAttrFilter) return true;
+      if ((assignTeamId || hasAnyAttrFilter) && cohortPlayers.length > 0) return true;
+      return false;
+    }
     return false;
   };
 
   const getSecondStep = () => {
-    if (assignPath === "drill-first") return "target";
+    if (assignPath === "drill-first") return "cohort";
     return "drill";
   };
 
   const isOnSecondStep = () => {
-    if (assignPath === "drill-first" && assignStep === "target") return true;
-    if (assignPath === "target-first" && assignStep === "drill") return true;
+    if (assignPath === "drill-first" && assignStep === "cohort") return true;
+    if (assignPath === "cohort-first" && assignStep === "drill") return true;
     return false;
   };
 
-  const targetSummary = () => {
-    if (assignTargetType === "team") {
-      const team = teams?.find(t => t.id === assignTeamId);
-      return team ? team.name : "";
+  const cohortSummary = () => {
+    if (assignPlayerIds.size > 0) {
+      const names = coachPlayers?.filter(p => assignPlayerIds.has(p.id)).map(p => `${p.firstName} ${p.lastName || ""}`.trim());
+      return names?.join(", ") || "";
     }
-    const names = coachPlayers?.filter(p => assignPlayerIds.has(p.id)).map(p => `${p.firstName} ${p.lastName || ""}`.trim());
-    return names?.join(", ") || "";
+    if (assignTeamId && !hasAnyAttrFilter) {
+      const team = teams?.find(t => t.id === assignTeamId);
+      return team ? `Team: ${team.name}` : "";
+    }
+    const parts: string[] = [];
+    if (assignTeamId) {
+      const team = teams?.find(t => t.id === assignTeamId);
+      if (team) parts.push(team.name);
+    }
+    if (assignPosFilter !== "all") parts.push(assignPosFilter);
+    if (assignAgeFilter !== "all") parts.push(assignAgeFilter);
+    if (assignLevelFilter !== "all") parts.push(assignLevelFilter);
+    if (assignClassFilter !== "all") parts.push(assignClassFilter);
+    return `${parts.join(" / ")} (${cohortPlayers.length} player${cohortPlayers.length !== 1 ? "s" : ""})`;
+  };
+
+  const toggleCohortAttr = (attr: typeof activeCohortAttr) => {
+    setActiveCohortAttr(prev => prev === attr ? null : attr);
   };
 
   return (
@@ -1135,14 +1160,14 @@ function AssignDrillsTab() {
             <DialogTitle>
               {assignStep === "choose" && "Assign a Drill"}
               {assignStep === "drill" && "Select a Drill"}
-              {assignStep === "target" && "Assign To"}
+              {assignStep === "cohort" && "Build Your Cohort"}
               {assignStep === "details" && "Assignment Details"}
             </DialogTitle>
             <DialogDescription>
               {assignStep === "choose" && "How would you like to start?"}
               {assignStep === "drill" && "Search and pick a drill to assign."}
-              {assignStep === "target" && "Choose a team or individual player(s)."}
-              {assignStep === "details" && `"${selectedDrill?.title}" → ${targetSummary()}`}
+              {assignStep === "cohort" && "Select attributes to define who receives this drill."}
+              {assignStep === "details" && `"${selectedDrill?.title}" → ${cohortSummary()}`}
             </DialogDescription>
           </DialogHeader>
 
@@ -1154,17 +1179,17 @@ function AssignDrillsTab() {
                 data-testid="button-path-drill-first"
               >
                 <ClipboardList className="w-6 h-6" />
-                <span className="text-sm font-medium text-center">Start with Drill</span>
+                <span className="text-sm font-medium text-center">Drill</span>
                 <span className="text-xs text-muted-foreground text-center">Pick a drill, then choose who to assign it to</span>
               </div>
               <div
                 className="flex flex-col items-center gap-2 p-4 rounded-md border hover-elevate cursor-pointer"
-                onClick={() => getStepAfterChoose("target-first")}
-                data-testid="button-path-target-first"
+                onClick={() => getStepAfterChoose("cohort-first")}
+                data-testid="button-path-cohort-first"
               >
                 <Users className="w-6 h-6" />
-                <span className="text-sm font-medium text-center">Start with Player/Team</span>
-                <span className="text-xs text-muted-foreground text-center">Pick who to assign to, then choose the drill</span>
+                <span className="text-sm font-medium text-center">Cohort</span>
+                <span className="text-xs text-muted-foreground text-center">Define your target audience, then pick the drill</span>
               </div>
             </div>
           )}
@@ -1220,7 +1245,7 @@ function AssignDrillsTab() {
                 )}
               </div>
               <DialogFooter className="gap-2">
-                <Button variant="ghost" size="sm" onClick={() => setAssignStep(assignPath === "drill-first" ? "choose" : "target")} data-testid="button-assign-back">
+                <Button variant="ghost" size="sm" onClick={() => setAssignStep(assignPath === "drill-first" ? "choose" : "cohort")} data-testid="button-assign-back">
                   <ArrowLeft className="w-3 h-3" /> Back
                 </Button>
                 <Button size="sm" disabled={!selectedDrill} onClick={() => { isOnSecondStep() ? setAssignStep("details") : getNextStep(); }} data-testid="button-assign-next-drill">
@@ -1230,138 +1255,168 @@ function AssignDrillsTab() {
             </div>
           )}
 
-          {assignStep === "target" && (
+          {assignStep === "cohort" && (
             <div className="space-y-3">
-              <Tabs value={assignTargetType} onValueChange={(v) => { setAssignTargetType(v as "team" | "player"); setAssignTeamId(""); setAssignPlayerIds(new Set()); }}>
-                <TabsList className="w-full" data-testid="tabs-assign-target-type">
-                  <TabsTrigger value="team" className="flex-1" data-testid="tab-assign-team">Team</TabsTrigger>
-                  <TabsTrigger value="player" className="flex-1" data-testid="tab-assign-player">Player(s)</TabsTrigger>
-                </TabsList>
-                <TabsContent value="team" className="mt-3">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Select Team</label>
-                    <Select value={assignTeamId} onValueChange={setAssignTeamId}>
-                      <SelectTrigger data-testid="select-assign-team">
-                        <SelectValue placeholder="Choose a team..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {teams?.map((team) => (
-                          <SelectItem key={team.id} value={team.id}>
-                            {team.name} {team.seasonYear ? `(${team.seasonYear})` : ""}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button size="sm" variant={activeCohortAttr === "player" ? "default" : (assignPlayerIds.size > 0 ? "secondary" : "outline")} onClick={() => toggleCohortAttr("player")} data-testid="button-cohort-player">
+                  <User className="w-3 h-3" /> Player {assignPlayerIds.size > 0 && `(${assignPlayerIds.size})`}
+                </Button>
+                <Button size="sm" variant={activeCohortAttr === "team" ? "default" : (assignTeamId ? "secondary" : "outline")} onClick={() => toggleCohortAttr("team")} data-testid="button-cohort-team">
+                  <Users className="w-3 h-3" /> Team {assignTeamId && teams?.find(t => t.id === assignTeamId) ? `(${teams.find(t => t.id === assignTeamId)!.name})` : ""}
+                </Button>
+                <Button size="sm" variant={activeCohortAttr === "position" ? "default" : (assignPosFilter !== "all" ? "secondary" : "outline")} onClick={() => toggleCohortAttr("position")} data-testid="button-cohort-position">
+                  Position {assignPosFilter !== "all" && `(${assignPosFilter})`}
+                </Button>
+                <Button size="sm" variant={activeCohortAttr === "age" ? "default" : (assignAgeFilter !== "all" ? "secondary" : "outline")} onClick={() => toggleCohortAttr("age")} data-testid="button-cohort-age">
+                  Age {assignAgeFilter !== "all" && `(${assignAgeFilter})`}
+                </Button>
+                <Button size="sm" variant={activeCohortAttr === "level" ? "default" : (assignLevelFilter !== "all" ? "secondary" : "outline")} onClick={() => toggleCohortAttr("level")} data-testid="button-cohort-level">
+                  Level {assignLevelFilter !== "all" && `(${assignLevelFilter})`}
+                </Button>
+                <Button size="sm" variant={activeCohortAttr === "class" ? "default" : (assignClassFilter !== "all" ? "secondary" : "outline")} onClick={() => toggleCohortAttr("class")} data-testid="button-cohort-class">
+                  Class {assignClassFilter !== "all" && `(${assignClassFilter})`}
+                </Button>
+              </div>
+
+              {activeCohortAttr === "team" && (
+                <div className="space-y-1 max-h-40 overflow-y-auto">
+                  {teams?.map((team) => (
+                    <div
+                      key={team.id}
+                      className={`flex items-center justify-between gap-2 p-2 rounded-md border cursor-pointer ${assignTeamId === team.id ? "border-primary bg-primary/10" : "hover-elevate"}`}
+                      onClick={() => setAssignTeamId(prev => prev === team.id ? "" : team.id)}
+                      data-testid={`button-cohort-pick-team-${team.id}`}
+                    >
+                      <span className="text-sm font-medium truncate">{team.name} {team.seasonYear ? `(${team.seasonYear})` : ""}</span>
+                      {assignTeamId === team.id && <Check className="w-4 h-4 text-primary shrink-0" />}
+                    </div>
+                  ))}
+                  {!teams?.length && <p className="text-xs text-muted-foreground text-center py-2">No teams found.</p>}
+                </div>
+              )}
+
+              {activeCohortAttr === "position" && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {PLAYER_POSITIONS.map((pos) => (
+                    <Button
+                      key={pos}
+                      size="sm"
+                      variant={assignPosFilter === pos ? "default" : "outline"}
+                      onClick={() => setAssignPosFilter(prev => prev === pos ? "all" : pos)}
+                      data-testid={`button-cohort-pos-${pos}`}
+                    >
+                      {pos}
+                    </Button>
+                  ))}
+                </div>
+              )}
+
+              {activeCohortAttr === "age" && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {PLAYER_AGES.map((age) => (
+                    <Button
+                      key={age}
+                      size="sm"
+                      variant={assignAgeFilter === age ? "default" : "outline"}
+                      onClick={() => setAssignAgeFilter(prev => prev === age ? "all" : age)}
+                      data-testid={`button-cohort-age-${age}`}
+                    >
+                      {age}
+                    </Button>
+                  ))}
+                </div>
+              )}
+
+              {activeCohortAttr === "level" && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {LEVEL_OPTIONS.map((lvl) => (
+                    <Button
+                      key={lvl}
+                      size="sm"
+                      variant={assignLevelFilter === lvl ? "default" : "outline"}
+                      onClick={() => setAssignLevelFilter(prev => prev === lvl ? "all" : lvl)}
+                      data-testid={`button-cohort-level-${lvl}`}
+                    >
+                      {lvl}
+                    </Button>
+                  ))}
+                </div>
+              )}
+
+              {activeCohortAttr === "class" && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {CLASS_OPTIONS.map((cls) => (
+                    <Button
+                      key={cls}
+                      size="sm"
+                      variant={assignClassFilter === cls ? "default" : "outline"}
+                      onClick={() => setAssignClassFilter(prev => prev === cls ? "all" : cls)}
+                      data-testid={`button-cohort-class-${cls}`}
+                    >
+                      {cls}
+                    </Button>
+                  ))}
+                </div>
+              )}
+
+              {activeCohortAttr === "player" && (
+                <div className="space-y-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search players..."
+                      value={playerSearch}
+                      onChange={(e) => setPlayerSearch(e.target.value)}
+                      className="pl-9"
+                      data-testid="input-assign-player-search"
+                    />
                   </div>
-                </TabsContent>
-                <TabsContent value="player" className="mt-3">
-                  <div className="space-y-2">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        placeholder="Search players..."
-                        value={playerSearch}
-                        onChange={(e) => setPlayerSearch(e.target.value)}
-                        className="pl-9"
-                        data-testid="input-assign-player-search"
-                      />
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Select value={assignPosFilter} onValueChange={setAssignPosFilter}>
-                        <SelectTrigger className="w-[110px] h-8 text-xs" data-testid="select-assign-pos-filter">
-                          <SelectValue placeholder="Position" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Positions</SelectItem>
-                          {PLAYER_POSITIONS.map((pos) => (
-                            <SelectItem key={pos} value={pos}>{pos}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Select value={assignAgeFilter} onValueChange={setAssignAgeFilter}>
-                        <SelectTrigger className="w-[100px] h-8 text-xs" data-testid="select-assign-age-filter">
-                          <SelectValue placeholder="Age" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Ages</SelectItem>
-                          {PLAYER_AGES.map((age) => (
-                            <SelectItem key={age} value={age}>{age}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Select value={assignLevelFilter} onValueChange={setAssignLevelFilter}>
-                        <SelectTrigger className="w-[110px] h-8 text-xs" data-testid="select-assign-level-filter">
-                          <SelectValue placeholder="Level" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Levels</SelectItem>
-                          {LEVEL_OPTIONS.map((lvl) => (
-                            <SelectItem key={lvl} value={lvl}>{lvl}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Select value={assignClassFilter} onValueChange={setAssignClassFilter}>
-                        <SelectTrigger className="w-[110px] h-8 text-xs" data-testid="select-assign-class-filter">
-                          <SelectValue placeholder="Class" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Classes</SelectItem>
-                          {CLASS_OPTIONS.map((cls) => (
-                            <SelectItem key={cls} value={cls}>{cls}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Select value={assignTeamFilter} onValueChange={setAssignTeamFilter}>
-                        <SelectTrigger className="w-[120px] h-8 text-xs" data-testid="select-assign-team-filter">
-                          <SelectValue placeholder="Team" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Teams</SelectItem>
-                          {teams?.map((t) => (
-                            <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {assignPlayerIds.size > 0 && (
-                      <p className="text-xs text-muted-foreground">{assignPlayerIds.size} player{assignPlayerIds.size > 1 ? "s" : ""} selected</p>
-                    )}
-                    <div className="max-h-44 overflow-y-auto space-y-1">
-                      {dialogPlayers.length === 0 ? (
-                        <p className="text-sm text-muted-foreground text-center py-3">No players found. Add players in the Players tab.</p>
-                      ) : (
-                        dialogPlayers.map((player) => (
-                          <div
-                            key={player.id}
-                            className={`flex items-center gap-2 p-2 rounded-md border cursor-pointer ${assignPlayerIds.has(player.id) ? "border-primary bg-primary/10" : "hover-elevate"}`}
-                            onClick={() => togglePlayer(player.id)}
-                            data-testid={`button-pick-player-${player.id}`}
-                          >
-                            <Avatar className="h-6 w-6 shrink-0">
-                              <AvatarFallback className="text-[10px]">{player.firstName.charAt(0)}</AvatarFallback>
-                            </Avatar>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-medium truncate">{player.firstName} {player.lastName || ""}</p>
-                              <div className="flex items-center gap-1">
-                                {player.position && <Badge variant="outline" className="no-default-hover-elevate text-[10px]">{player.position}</Badge>}
-                                {player.teams.length > 0 && (
-                                  <span className="text-[10px] text-muted-foreground truncate">{player.teams[0].teamName}</span>
-                                )}
-                              </div>
+                  <div className="max-h-40 overflow-y-auto space-y-1">
+                    {visibleCohortPlayers.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-3">No players found.</p>
+                    ) : (
+                      visibleCohortPlayers.map((player) => (
+                        <div
+                          key={player.id}
+                          className={`flex items-center gap-2 p-2 rounded-md border cursor-pointer ${assignPlayerIds.has(player.id) ? "border-primary bg-primary/10" : "hover-elevate"}`}
+                          onClick={() => togglePlayer(player.id)}
+                          data-testid={`button-pick-player-${player.id}`}
+                        >
+                          <Avatar className="h-6 w-6 shrink-0">
+                            <AvatarFallback className="text-[10px]">{player.firstName.charAt(0)}</AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium truncate">{player.firstName} {player.lastName || ""}</p>
+                            <div className="flex items-center gap-1">
+                              {player.position && <Badge variant="outline" className="no-default-hover-elevate text-[10px]">{player.position}</Badge>}
+                              {player.teams.length > 0 && (
+                                <span className="text-[10px] text-muted-foreground truncate">{player.teams[0].teamName}</span>
+                              )}
                             </div>
-                            {assignPlayerIds.has(player.id) && <Check className="w-4 h-4 text-primary shrink-0" />}
                           </div>
-                        ))
-                      )}
-                    </div>
+                          {assignPlayerIds.has(player.id) && <Check className="w-4 h-4 text-primary shrink-0" />}
+                        </div>
+                      ))
+                    )}
                   </div>
-                </TabsContent>
-              </Tabs>
+                </div>
+              )}
+
+              <div className="text-xs text-muted-foreground pt-1">
+                {assignPlayerIds.size > 0
+                  ? `${assignPlayerIds.size} player${assignPlayerIds.size !== 1 ? "s" : ""} manually selected`
+                  : assignTeamId && !hasAnyAttrFilter
+                    ? `Entire team: ${teams?.find(t => t.id === assignTeamId)?.name || ""}`
+                    : hasAnyFilter || assignTeamId
+                      ? `${cohortPlayers.length} player${cohortPlayers.length !== 1 ? "s" : ""} matching`
+                      : "Select at least one attribute to build your cohort"}
+              </div>
+
               <DialogFooter className="gap-2">
-                <Button variant="ghost" size="sm" onClick={() => setAssignStep(assignPath === "target-first" ? "choose" : "drill")} data-testid="button-assign-back-target">
+                <Button variant="ghost" size="sm" onClick={() => setAssignStep(assignPath === "cohort-first" ? "choose" : "drill")} data-testid="button-assign-back-cohort">
                   <ArrowLeft className="w-3 h-3" /> Back
                 </Button>
-                <Button size="sm" disabled={!canGoNext()} onClick={() => { isOnSecondStep() ? setAssignStep("details") : getNextStep(); }} data-testid="button-assign-next-target">
+                <Button size="sm" disabled={!canGoNext()} onClick={() => { isOnSecondStep() ? setAssignStep("details") : getNextStep(); }} data-testid="button-assign-next-cohort">
                   Next <ArrowRight className="w-3 h-3" />
                 </Button>
               </DialogFooter>
@@ -1376,8 +1431,8 @@ function AssignDrillsTab() {
                   <span className="text-sm font-medium">{selectedDrill?.title}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  {assignTargetType === "team" ? <Users className="w-4 h-4 text-muted-foreground shrink-0" /> : <User className="w-4 h-4 text-muted-foreground shrink-0" />}
-                  <span className="text-sm text-muted-foreground">{targetSummary()}</span>
+                  <Users className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <span className="text-sm text-muted-foreground">{cohortSummary()}</span>
                 </div>
               </div>
               <div className="space-y-2">
@@ -1399,7 +1454,7 @@ function AssignDrillsTab() {
                 />
               </div>
               <DialogFooter className="gap-2">
-                <Button variant="ghost" size="sm" onClick={() => setAssignStep(getSecondStep() as "drill" | "target")} data-testid="button-assign-back-details">
+                <Button variant="ghost" size="sm" onClick={() => setAssignStep(getSecondStep() as "drill" | "cohort")} data-testid="button-assign-back-details">
                   <ArrowLeft className="w-3 h-3" /> Back
                 </Button>
                 <Button onClick={handleAssignSubmit} disabled={assignMutation.isPending} data-testid="button-submit-assign-drill">
