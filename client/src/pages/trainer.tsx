@@ -1047,6 +1047,11 @@ function AssignDrillsTab() {
   const [drillSearch, setDrillSearch] = useState("");
   const [drillCategoryFilter, setDrillCategoryFilter] = useState("all");
   const [playerSearch, setPlayerSearch] = useState("");
+  const [assignPosFilter, setAssignPosFilter] = useState("all");
+  const [assignAgeFilter, setAssignAgeFilter] = useState("all");
+  const [assignLevelFilter, setAssignLevelFilter] = useState("all");
+  const [assignClassFilter, setAssignClassFilter] = useState("all");
+  const [assignGroupFilter, setAssignGroupFilter] = useState("all");
   const [assignmentsGroupFilter, setAssignmentsGroupFilter] = useState("all");
   const [deleteAssignmentId, setDeleteAssignmentId] = useState<string | null>(null);
 
@@ -1145,12 +1150,24 @@ function AssignDrillsTab() {
 
   const dialogPlayers = useMemo(() => {
     if (!trainerPlayers) return [];
-    if (!playerSearch) return trainerPlayers;
     return trainerPlayers.filter(p => {
-      const name = `${p.firstName} ${p.lastName || ""}`.toLowerCase();
-      return name.includes(playerSearch.toLowerCase());
+      const nameMatch = !playerSearch || `${p.firstName} ${p.lastName || ""}`.toLowerCase().includes(playerSearch.toLowerCase());
+      const posMatch = assignPosFilter === "all" || p.position === assignPosFilter;
+      const ageMatch = assignAgeFilter === "all" || p.ageGroup === assignAgeFilter;
+      const groupMatch = assignGroupFilter === "all" || p.groups.some(g => g.groupId === assignGroupFilter);
+      const levelMatch = assignLevelFilter === "all" || p.groups.some(g => {
+        const group = groups?.find(gr => gr.id === g.groupId);
+        const levels = group?.level?.split(",").map(s => s.trim()) ?? [];
+        return levels.includes(assignLevelFilter);
+      });
+      const classMatch = assignClassFilter === "all" || p.groups.some(g => {
+        const group = groups?.find(gr => gr.id === g.groupId);
+        const classes = group?.playerClass?.split(",").map(s => s.trim()) ?? [];
+        return classes.includes(assignClassFilter);
+      });
+      return nameMatch && posMatch && ageMatch && groupMatch && levelMatch && classMatch;
     });
-  }, [trainerPlayers, playerSearch]);
+  }, [trainerPlayers, groups, playerSearch, assignPosFilter, assignAgeFilter, assignGroupFilter, assignLevelFilter, assignClassFilter]);
 
   const openAssignDialog = () => {
     setAssignStep("choose");
@@ -1164,6 +1181,11 @@ function AssignDrillsTab() {
     setDrillSearch("");
     setDrillCategoryFilter("all");
     setPlayerSearch("");
+    setAssignPosFilter("all");
+    setAssignAgeFilter("all");
+    setAssignLevelFilter("all");
+    setAssignClassFilter("all");
+    setAssignGroupFilter("all");
     setAssignOpen(true);
   };
 
@@ -1449,6 +1471,63 @@ function AssignDrillsTab() {
                         className="pl-9"
                         data-testid="input-trainer-assign-player-search"
                       />
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Select value={assignPosFilter} onValueChange={setAssignPosFilter}>
+                        <SelectTrigger className="w-[110px] h-8 text-xs" data-testid="select-trainer-assign-pos-filter">
+                          <SelectValue placeholder="Position" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Positions</SelectItem>
+                          {PLAYER_POSITIONS.map((pos) => (
+                            <SelectItem key={pos} value={pos}>{pos}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={assignAgeFilter} onValueChange={setAssignAgeFilter}>
+                        <SelectTrigger className="w-[100px] h-8 text-xs" data-testid="select-trainer-assign-age-filter">
+                          <SelectValue placeholder="Age" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Ages</SelectItem>
+                          {PLAYER_AGES.map((age) => (
+                            <SelectItem key={age} value={age}>{age}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={assignLevelFilter} onValueChange={setAssignLevelFilter}>
+                        <SelectTrigger className="w-[110px] h-8 text-xs" data-testid="select-trainer-assign-level-filter">
+                          <SelectValue placeholder="Level" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Levels</SelectItem>
+                          {LEVEL_OPTIONS.map((lvl) => (
+                            <SelectItem key={lvl} value={lvl}>{lvl}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={assignClassFilter} onValueChange={setAssignClassFilter}>
+                        <SelectTrigger className="w-[110px] h-8 text-xs" data-testid="select-trainer-assign-class-filter">
+                          <SelectValue placeholder="Class" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Classes</SelectItem>
+                          {CLASS_OPTIONS.map((cls) => (
+                            <SelectItem key={cls} value={cls}>{cls}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={assignGroupFilter} onValueChange={setAssignGroupFilter}>
+                        <SelectTrigger className="w-[120px] h-8 text-xs" data-testid="select-trainer-assign-group-filter">
+                          <SelectValue placeholder="Group" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Groups</SelectItem>
+                          {groups?.map((g) => (
+                            <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     {assignPlayerIds.size > 0 && (
                       <p className="text-xs text-muted-foreground">{assignPlayerIds.size} player{assignPlayerIds.size > 1 ? "s" : ""} selected</p>

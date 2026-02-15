@@ -846,6 +846,11 @@ function AssignDrillsTab() {
   const [drillSearch, setDrillSearch] = useState("");
   const [drillCategoryFilter, setDrillCategoryFilter] = useState("all");
   const [playerSearch, setPlayerSearch] = useState("");
+  const [assignPosFilter, setAssignPosFilter] = useState("all");
+  const [assignAgeFilter, setAssignAgeFilter] = useState("all");
+  const [assignLevelFilter, setAssignLevelFilter] = useState("all");
+  const [assignClassFilter, setAssignClassFilter] = useState("all");
+  const [assignTeamFilter, setAssignTeamFilter] = useState("all");
   const [assignmentsTeamFilter, setAssignmentsTeamFilter] = useState("all");
   const [deleteAssignmentId, setDeleteAssignmentId] = useState<string | null>(null);
 
@@ -929,12 +934,24 @@ function AssignDrillsTab() {
 
   const dialogPlayers = useMemo(() => {
     if (!coachPlayers) return [];
-    if (!playerSearch) return coachPlayers;
     return coachPlayers.filter(p => {
-      const name = `${p.firstName} ${p.lastName || ""}`.toLowerCase();
-      return name.includes(playerSearch.toLowerCase());
+      const nameMatch = !playerSearch || `${p.firstName} ${p.lastName || ""}`.toLowerCase().includes(playerSearch.toLowerCase());
+      const posMatch = assignPosFilter === "all" || p.position === assignPosFilter;
+      const ageMatch = assignAgeFilter === "all" || p.ageGroup === assignAgeFilter;
+      const teamMatch = assignTeamFilter === "all" || p.teams.some(t => t.teamId === assignTeamFilter);
+      const levelMatch = assignLevelFilter === "all" || p.teams.some(t => {
+        const team = teams?.find(tm => tm.id === t.teamId);
+        const levels = team?.level?.split(",").map(s => s.trim()) ?? [];
+        return levels.includes(assignLevelFilter);
+      });
+      const classMatch = assignClassFilter === "all" || p.teams.some(t => {
+        const team = teams?.find(tm => tm.id === t.teamId);
+        const classes = team?.playerClass?.split(",").map(s => s.trim()) ?? [];
+        return classes.includes(assignClassFilter);
+      });
+      return nameMatch && posMatch && ageMatch && teamMatch && levelMatch && classMatch;
     });
-  }, [coachPlayers, playerSearch]);
+  }, [coachPlayers, teams, playerSearch, assignPosFilter, assignAgeFilter, assignTeamFilter, assignLevelFilter, assignClassFilter]);
 
   const openAssignDialog = () => {
     setAssignStep("choose");
@@ -948,6 +965,11 @@ function AssignDrillsTab() {
     setDrillSearch("");
     setDrillCategoryFilter("all");
     setPlayerSearch("");
+    setAssignPosFilter("all");
+    setAssignAgeFilter("all");
+    setAssignLevelFilter("all");
+    setAssignClassFilter("all");
+    setAssignTeamFilter("all");
     setAssignOpen(true);
   };
 
@@ -1243,6 +1265,63 @@ function AssignDrillsTab() {
                         className="pl-9"
                         data-testid="input-assign-player-search"
                       />
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Select value={assignPosFilter} onValueChange={setAssignPosFilter}>
+                        <SelectTrigger className="w-[110px] h-8 text-xs" data-testid="select-assign-pos-filter">
+                          <SelectValue placeholder="Position" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Positions</SelectItem>
+                          {PLAYER_POSITIONS.map((pos) => (
+                            <SelectItem key={pos} value={pos}>{pos}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={assignAgeFilter} onValueChange={setAssignAgeFilter}>
+                        <SelectTrigger className="w-[100px] h-8 text-xs" data-testid="select-assign-age-filter">
+                          <SelectValue placeholder="Age" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Ages</SelectItem>
+                          {PLAYER_AGES.map((age) => (
+                            <SelectItem key={age} value={age}>{age}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={assignLevelFilter} onValueChange={setAssignLevelFilter}>
+                        <SelectTrigger className="w-[110px] h-8 text-xs" data-testid="select-assign-level-filter">
+                          <SelectValue placeholder="Level" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Levels</SelectItem>
+                          {LEVEL_OPTIONS.map((lvl) => (
+                            <SelectItem key={lvl} value={lvl}>{lvl}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={assignClassFilter} onValueChange={setAssignClassFilter}>
+                        <SelectTrigger className="w-[110px] h-8 text-xs" data-testid="select-assign-class-filter">
+                          <SelectValue placeholder="Class" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Classes</SelectItem>
+                          {CLASS_OPTIONS.map((cls) => (
+                            <SelectItem key={cls} value={cls}>{cls}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={assignTeamFilter} onValueChange={setAssignTeamFilter}>
+                        <SelectTrigger className="w-[120px] h-8 text-xs" data-testid="select-assign-team-filter">
+                          <SelectValue placeholder="Team" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Teams</SelectItem>
+                          {teams?.map((t) => (
+                            <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     {assignPlayerIds.size > 0 && (
                       <p className="text-xs text-muted-foreground">{assignPlayerIds.size} player{assignPlayerIds.size > 1 ? "s" : ""} selected</p>
