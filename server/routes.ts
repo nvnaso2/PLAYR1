@@ -3191,12 +3191,13 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const players = await storage.getTrainerPlayers(userId);
-      const playersWithGroups = [];
+      const playersWithAssignments = [];
       for (const player of players) {
-        const assignments = await storage.getTrainerPlayerAssignments(player.id);
-        playersWithGroups.push({ ...player, groups: assignments });
+        const groupAssignments = await storage.getTrainerPlayerAssignments(player.id);
+        const teamAssignments = await storage.getPlayerTeamAssignments(player.id);
+        playersWithAssignments.push({ ...player, groups: groupAssignments, teams: teamAssignments });
       }
-      res.json(playersWithGroups);
+      res.json(playersWithAssignments);
     } catch (error) {
       console.error("Error fetching trainer players:", error);
       res.status(500).json({ message: "Failed to fetch trainer players" });
@@ -3428,6 +3429,75 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error bulk assigning trainer players:", error);
       res.status(500).json({ message: "Failed to bulk assign players" });
+    }
+  });
+
+  // ===== PLAYER-TEAM ASSIGNMENTS (Unified) =====
+
+  app.post("/api/trainer-players/:id/assign-team", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const player = await storage.getTrainerPlayerById(req.params.id);
+      if (!player || player.trainerId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      const { teamId, position, jerseyNumber } = req.body;
+      if (!teamId) {
+        return res.status(400).json({ message: "teamId is required" });
+      }
+      const team = await storage.getTeamById(teamId);
+      if (!team || team.coachId !== userId) {
+        return res.status(403).json({ message: "Not authorized for this team" });
+      }
+      const assignment = await storage.assignPlayerToTeam({
+        playerId: player.id,
+        teamId,
+        position: position || null,
+        jerseyNumber: jerseyNumber || null,
+      });
+      res.status(201).json(assignment);
+    } catch (error) {
+      console.error("Error assigning player to team:", error);
+      res.status(500).json({ message: "Failed to assign player to team" });
+    }
+  });
+
+  app.delete("/api/player-team-assignments/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.removePlayerFromTeam(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error removing player-team assignment:", error);
+      res.status(500).json({ message: "Failed to remove assignment" });
+    }
+  });
+
+  app.post("/api/trainer-players/bulk-assign-team", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { playerIds, teamId } = req.body;
+      if (!playerIds?.length || !teamId) {
+        return res.status(400).json({ message: "playerIds and teamId are required" });
+      }
+      const team = await storage.getTeamById(teamId);
+      if (!team || team.coachId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      for (const playerId of playerIds) {
+        const player = await storage.getTrainerPlayerById(playerId);
+        if (player && player.trainerId === userId) {
+          await storage.assignPlayerToTeam({
+            playerId,
+            teamId,
+            position: player.position || null,
+            jerseyNumber: player.jerseyNumber || null,
+          });
+        }
+      }
+      res.status(201).json({ success: true });
+    } catch (error) {
+      console.error("Error bulk assigning players to team:", error);
+      res.status(500).json({ message: "Failed to bulk assign players to team" });
     }
   });
 

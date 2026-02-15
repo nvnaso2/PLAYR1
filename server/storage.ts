@@ -36,6 +36,7 @@ import {
   coachPlayerAssignments, type CoachPlayerAssignment, type InsertCoachPlayerAssignment,
   trainerPlayers, type TrainerPlayer, type InsertTrainerPlayer,
   trainerPlayerAssignments, type TrainerPlayerAssignment, type InsertTrainerPlayerAssignment,
+  playerTeamAssignments,
   chatThreads, type ChatThread, type InsertChatThread,
   chatThreadMembers, type ChatThreadMember, type InsertChatThreadMember,
   chatThreadMessages, type ChatThreadMessage, type InsertChatThreadMessage
@@ -281,6 +282,12 @@ export interface IStorage {
   assignTrainerPlayerToGroup(assignment: InsertTrainerPlayerAssignment): Promise<TrainerPlayerAssignment>;
   removeTrainerPlayerFromGroup(assignmentId: string): Promise<boolean>;
   getTrainerPlayersByGroup(groupId: string): Promise<(TrainerPlayer & { assignmentId: string; groupPosition?: string | null; groupJersey?: string | null })[]>;
+
+  // Unified Player Team Assignments
+  getPlayerTeamAssignments(playerId: string): Promise<any[]>;
+  assignPlayerToTeam(assignment: { playerId: string; teamId: string; position?: string | null; jerseyNumber?: string | null }): Promise<any>;
+  removePlayerFromTeam(assignmentId: string): Promise<boolean>;
+  bulkAssignPlayersToTeam(playerIds: string[], teamId: string): Promise<void>;
 
   // Career Stats
   getCareerStats(userId: string): Promise<{
@@ -2323,6 +2330,52 @@ export class DatabaseStorage implements IStorage {
       }
     }
     return result;
+  }
+
+  async getPlayerTeamAssignments(playerId: string): Promise<any[]> {
+    const assignments = await db.select().from(playerTeamAssignments).where(eq(playerTeamAssignments.playerId, playerId));
+    const result = [];
+    for (const a of assignments) {
+      const [team] = await db.select().from(trainerTeams).where(eq(trainerTeams.id, a.teamId));
+      if (team) {
+        result.push({
+          id: a.id,
+          playerId: a.playerId,
+          teamId: a.teamId,
+          teamName: team.name,
+          seasonYear: team.seasonYear ?? null,
+          ageGroup: team.ageGroup ?? null,
+          position: a.position,
+          jerseyNumber: a.jerseyNumber,
+          assignedAt: a.assignedAt?.toISOString() ?? new Date().toISOString(),
+        });
+      }
+    }
+    return result;
+  }
+
+  async assignPlayerToTeam(assignment: { playerId: string; teamId: string; position?: string | null; jerseyNumber?: string | null }): Promise<any> {
+    const [created] = await db.insert(playerTeamAssignments).values({
+      playerId: assignment.playerId,
+      teamId: assignment.teamId,
+      position: assignment.position ?? null,
+      jerseyNumber: assignment.jerseyNumber ?? null,
+    }).returning();
+    return created;
+  }
+
+  async removePlayerFromTeam(assignmentId: string): Promise<boolean> {
+    await db.delete(playerTeamAssignments).where(eq(playerTeamAssignments.id, assignmentId));
+    return true;
+  }
+
+  async bulkAssignPlayersToTeam(playerIds: string[], teamId: string): Promise<void> {
+    for (const playerId of playerIds) {
+      await db.insert(playerTeamAssignments).values({
+        playerId,
+        teamId,
+      });
+    }
   }
 
   async getChatThreads(userId: string, mode: string): Promise<Array<ChatThread & { memberCount: number; lastMessage?: string; lastMessageAt?: Date }>> {

@@ -133,7 +133,9 @@ interface TrainerPlayerData {
   createdAt: string;
   updatedAt: string;
   groups: Array<{ id: string; trainerPlayerId: string; groupId: string; groupName: string; ageGroup?: string | null; position: string | null; jerseyNumber: string | null; assignedAt: string }>;
+  teams: Array<{ id: string; playerId: string; teamId: string; teamName: string; seasonYear?: number | null; ageGroup?: string | null; position: string | null; jerseyNumber: string | null; assignedAt: string }>;
 }
+
 
 interface CoachTeam {
   id: string;
@@ -164,23 +166,6 @@ interface RosterMember {
   assignmentId?: string;
 }
 
-interface CoachPlayerData {
-  id: string;
-  coachId: string;
-  firstName: string;
-  lastName: string | null;
-  email: string | null;
-  phone: string | null;
-  position: string | null;
-  jerseyNumber: string | null;
-  ageGroup: string | null;
-  teamType: string | null;
-  notes: string | null;
-  linkedUserId: string | null;
-  createdAt: string;
-  updatedAt: string;
-  teams: Array<{ id: string; coachPlayerId: string; teamId: string; teamName: string; seasonYear?: number | null; ageGroup?: string | null; position: string | null; jerseyNumber: string | null; assignedAt: string }>;
-}
 
 interface DrillItem {
   id: string;
@@ -367,20 +352,6 @@ const createTeamSchema = insertTrainerTeamSchema
   });
 
 type CreateTeamForm = z.infer<typeof createTeamSchema>;
-
-const coachPlayerSchema = z.object({
-  firstName: z.string().min(1, "First name is required"),
-  lastName: z.string().optional().default(""),
-  email: z.string().optional().default(""),
-  phone: z.string().optional().default(""),
-  position: z.string().optional().default(""),
-  jerseyNumber: z.string().optional().default(""),
-  ageGroup: z.string().optional().default(""),
-  teamType: z.string().optional().default(""),
-  notes: z.string().optional().default(""),
-});
-
-type CoachPlayerForm = z.infer<typeof coachPlayerSchema>;
 
 type CreateGroupForm = z.infer<typeof createGroupSchema>;
 type AssignDrillForm = z.infer<typeof assignDrillSchema>;
@@ -951,37 +922,46 @@ function RosterTab() {
   );
 }
 
-function CoachPlayersTab() {
+function PlayersTab() {
   const { toast } = useToast();
   const [addOpen, setAddOpen] = useState(false);
-  const [editingPlayer, setEditingPlayer] = useState<CoachPlayerData | null>(null);
+  const [editingPlayer, setEditingPlayer] = useState<TrainerPlayerData | null>(null);
   const [deletePlayerId, setDeletePlayerId] = useState<string | null>(null);
   const [assignPlayerId, setAssignPlayerId] = useState<string | null>(null);
+  const [assignTargetType, setAssignTargetType] = useState<"team" | "group">("group");
+  const [assignGroupId, setAssignGroupId] = useState("");
   const [assignTeamId, setAssignTeamId] = useState("");
   const [assignPosition, setAssignPosition] = useState("");
   const [assignJersey, setAssignJersey] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [positionFilter, setPositionFilter] = useState("all");
   const [teamFilter, setTeamFilter] = useState("all");
+  const [groupFilter, setGroupFilter] = useState("all");
   const [ageFilter, setAgeFilter] = useState("all");
   const [levelFilter, setLevelFilter] = useState("all");
   const [classFilter, setClassFilter] = useState("all");
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(new Set());
-  const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
+  const [bulkAssignTeamOpen, setBulkAssignTeamOpen] = useState(false);
+  const [bulkAssignGroupOpen, setBulkAssignGroupOpen] = useState(false);
   const [bulkTeamId, setBulkTeamId] = useState("");
+  const [bulkGroupId, setBulkGroupId] = useState("");
 
-  const addForm = useForm<CoachPlayerForm>({
-    resolver: zodResolver(coachPlayerSchema),
+  const addForm = useForm<TrainerPlayerForm>({
+    resolver: zodResolver(trainerPlayerSchema),
     defaultValues: { firstName: "", lastName: "", email: "", phone: "", position: "", jerseyNumber: "", ageGroup: "", teamType: "", notes: "" },
   });
 
-  const editForm = useForm<CoachPlayerForm>({
-    resolver: zodResolver(coachPlayerSchema),
+  const editForm = useForm<TrainerPlayerForm>({
+    resolver: zodResolver(trainerPlayerSchema),
     defaultValues: { firstName: "", lastName: "", email: "", phone: "", position: "", jerseyNumber: "", ageGroup: "", teamType: "", notes: "" },
   });
 
-  const { data: players, isLoading: playersLoading } = useQuery<CoachPlayerData[]>({
-    queryKey: ["/api/coach-players"],
+  const { data: players, isLoading: playersLoading } = useQuery<TrainerPlayerData[]>({
+    queryKey: ["/api/trainer-players"],
+  });
+
+  const { data: groups } = useQuery<TrainerGroup[]>({
+    queryKey: ["/api/trainer/groups"],
   });
 
   const { data: teams } = useQuery<CoachTeam[]>({
@@ -989,12 +969,21 @@ function CoachPlayersTab() {
   });
 
   const createPlayerMutation = useMutation({
-    mutationFn: (data: CoachPlayerForm) => apiRequest("POST", "/api/coach-players", data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/coach-players"] });
+    mutationFn: async (data: TrainerPlayerForm) => {
+      const res = await apiRequest("POST", "/api/trainer-players", data);
+      return res.json();
+    },
+    onSuccess: (result: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer-players"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer/groups"] });
       setAddOpen(false);
       addForm.reset();
-      toast({ title: "Player added successfully!" });
+      const autoGroups = result?.autoAssignedGroups;
+      if (autoGroups?.length) {
+        toast({ title: "Player added successfully!", description: `Auto-assigned to: ${autoGroups.join(", ")}` });
+      } else {
+        toast({ title: "Player added successfully!" });
+      }
     },
     onError: (error: Error) => {
       toast({ title: "Failed to add player", description: error.message, variant: "destructive" });
@@ -1002,11 +991,20 @@ function CoachPlayersTab() {
   });
 
   const updatePlayerMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: CoachPlayerForm }) => apiRequest("PUT", `/api/coach-players/${id}`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/coach-players"] });
+    mutationFn: async ({ id, data }: { id: string; data: TrainerPlayerForm }) => {
+      const res = await apiRequest("PUT", `/api/trainer-players/${id}`, data);
+      return res.json();
+    },
+    onSuccess: (result: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer-players"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer/groups"] });
       setEditingPlayer(null);
-      toast({ title: "Player updated successfully!" });
+      const autoGroups = result?.autoAssignedGroups;
+      if (autoGroups?.length) {
+        toast({ title: "Player updated!", description: `Auto-assigned to: ${autoGroups.join(", ")}` });
+      } else {
+        toast({ title: "Player updated successfully!" });
+      }
     },
     onError: (error: Error) => {
       toast({ title: "Failed to update player", description: error.message, variant: "destructive" });
@@ -1014,9 +1012,9 @@ function CoachPlayersTab() {
   });
 
   const deletePlayerMutation = useMutation({
-    mutationFn: (id: string) => apiRequest("DELETE", `/api/coach-players/${id}`),
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/trainer-players/${id}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/coach-players"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer-players"] });
       setDeletePlayerId(null);
       toast({ title: "Player deleted" });
     },
@@ -1025,11 +1023,27 @@ function CoachPlayersTab() {
     },
   });
 
-  const assignPlayerMutation = useMutation({
-    mutationFn: ({ playerId, teamId, position, jerseyNumber }: { playerId: string; teamId: string; position?: string; jerseyNumber?: string }) =>
-      apiRequest("POST", `/api/coach-players/${playerId}/assign`, { teamId, position: position || undefined, jerseyNumber: jerseyNumber || undefined }),
+  const assignPlayerToGroupMutation = useMutation({
+    mutationFn: ({ playerId, groupId, position, jerseyNumber }: { playerId: string; groupId: string; position?: string; jerseyNumber?: string }) =>
+      apiRequest("POST", `/api/trainer-players/${playerId}/assign`, { groupId, position: position || undefined, jerseyNumber: jerseyNumber || undefined }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/coach-players"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer-players"] });
+      setAssignPlayerId(null);
+      setAssignGroupId("");
+      setAssignPosition("");
+      setAssignJersey("");
+      toast({ title: "Player assigned to group!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to assign player", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const assignPlayerToTeamMutation = useMutation({
+    mutationFn: ({ playerId, teamId, position, jerseyNumber }: { playerId: string; teamId: string; position?: string; jerseyNumber?: string }) =>
+      apiRequest("POST", `/api/trainer-players/${playerId}/assign-team`, { teamId, position: position || undefined, jerseyNumber: jerseyNumber || undefined }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer-players"] });
       setAssignPlayerId(null);
       setAssignTeamId("");
       setAssignPosition("");
@@ -1041,12 +1055,27 @@ function CoachPlayersTab() {
     },
   });
 
-  const bulkAssignMutation = useMutation({
-    mutationFn: ({ playerIds, teamId }: { playerIds: string[]; teamId: string }) =>
-      apiRequest("POST", "/api/coach-players/bulk-assign", { playerIds, teamId }),
+  const bulkAssignToGroupMutation = useMutation({
+    mutationFn: ({ playerIds, groupId }: { playerIds: string[]; groupId: string }) =>
+      apiRequest("POST", "/api/trainer-players/bulk-assign", { playerIds, groupId }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/coach-players"] });
-      setBulkAssignOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer-players"] });
+      setBulkAssignGroupOpen(false);
+      setBulkGroupId("");
+      setSelectedPlayerIds(new Set());
+      toast({ title: "Players assigned to group!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to assign players", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const bulkAssignToTeamMutation = useMutation({
+    mutationFn: ({ playerIds, teamId }: { playerIds: string[]; teamId: string }) =>
+      apiRequest("POST", "/api/trainer-players/bulk-assign-team", { playerIds, teamId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer-players"] });
+      setBulkAssignTeamOpen(false);
       setBulkTeamId("");
       setSelectedPlayerIds(new Set());
       toast({ title: "Players assigned to team!" });
@@ -1056,10 +1085,21 @@ function CoachPlayersTab() {
     },
   });
 
-  const removeAssignmentMutation = useMutation({
-    mutationFn: (assignmentId: string) => apiRequest("DELETE", `/api/coach-player-assignments/${assignmentId}`),
+  const removeGroupAssignmentMutation = useMutation({
+    mutationFn: (assignmentId: string) => apiRequest("DELETE", `/api/trainer-player-assignments/${assignmentId}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/coach-players"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer-players"] });
+      toast({ title: "Player removed from group" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to remove assignment", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const removeTeamAssignmentMutation = useMutation({
+    mutationFn: (assignmentId: string) => apiRequest("DELETE", `/api/player-team-assignments/${assignmentId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer-players"] });
       toast({ title: "Player removed from team" });
     },
     onError: (error: Error) => {
@@ -1072,19 +1112,26 @@ function CoachPlayersTab() {
     return players.filter((p) => {
       const nameMatch = !searchQuery || `${p.firstName} ${p.lastName || ""}`.toLowerCase().includes(searchQuery.toLowerCase());
       const posMatch = positionFilter === "all" || p.position === positionFilter;
-      const teamMatch = teamFilter === "all" || p.teams.some(t => t.teamId === teamFilter);
+      const teamMatch = teamFilter === "all" || (p.teams || []).some(t => t.teamId === teamFilter);
+      const groupMatch = groupFilter === "all" || p.groups.some(g => g.groupId === groupFilter);
       const ageMatch = ageFilter === "all" || p.ageGroup === ageFilter;
-      const levelMatch = levelFilter === "all" || p.teams.some(t => {
+      const levelMatch = levelFilter === "all" || p.groups.some(g => {
+        const group = groups?.find(gr => gr.id === g.groupId);
+        return group?.level?.split(",").map(s => s.trim()).includes(levelFilter);
+      }) || (p.teams || []).some(t => {
         const team = teams?.find(tm => tm.id === t.teamId);
         return team?.level?.split(",").map(s => s.trim()).includes(levelFilter);
       });
-      const classMatch = classFilter === "all" || p.teams.some(t => {
+      const classMatch = classFilter === "all" || p.groups.some(g => {
+        const group = groups?.find(gr => gr.id === g.groupId);
+        return group?.playerClass?.split(",").map(s => s.trim()).includes(classFilter);
+      }) || (p.teams || []).some(t => {
         const team = teams?.find(tm => tm.id === t.teamId);
         return team?.playerClass?.split(",").map(s => s.trim()).includes(classFilter);
       });
-      return nameMatch && posMatch && teamMatch && ageMatch && levelMatch && classMatch;
+      return nameMatch && posMatch && teamMatch && groupMatch && ageMatch && levelMatch && classMatch;
     });
-  }, [players, teams, searchQuery, positionFilter, teamFilter, ageFilter, levelFilter, classFilter]);
+  }, [players, groups, teams, searchQuery, positionFilter, teamFilter, groupFilter, ageFilter, levelFilter, classFilter]);
 
   const allSelected = filteredPlayers.length > 0 && filteredPlayers.every((p) => selectedPlayerIds.has(p.id));
 
@@ -1103,7 +1150,7 @@ function CoachPlayersTab() {
     setSelectedPlayerIds(next);
   };
 
-  const openEditPlayer = (player: CoachPlayerData) => {
+  const openEditPlayer = (player: TrainerPlayerData) => {
     setEditingPlayer(player);
     editForm.reset({
       firstName: player.firstName,
@@ -1118,7 +1165,22 @@ function CoachPlayersTab() {
     });
   };
 
-  const renderPlayerForm = (form: ReturnType<typeof useForm<CoachPlayerForm>>, onSubmit: (data: CoachPlayerForm) => void, isPending: boolean, submitLabel: string) => (
+  const handleAssignSubmit = () => {
+    if (!assignPlayerId) return;
+    if (assignTargetType === "team") {
+      assignPlayerToTeamMutation.mutate({ playerId: assignPlayerId, teamId: assignTeamId, position: assignPosition, jerseyNumber: assignJersey });
+    } else {
+      assignPlayerToGroupMutation.mutate({ playerId: assignPlayerId, groupId: assignGroupId, position: assignPosition, jerseyNumber: assignJersey });
+    }
+  };
+
+  const assignDisabled = assignTargetType === "team"
+    ? (!assignTeamId || assignPlayerToTeamMutation.isPending)
+    : (!assignGroupId || assignPlayerToGroupMutation.isPending);
+
+  const assignPending = assignTargetType === "team" ? assignPlayerToTeamMutation.isPending : assignPlayerToGroupMutation.isPending;
+
+  const renderPlayerForm = (form: ReturnType<typeof useForm<TrainerPlayerForm>>, onSubmit: (data: TrainerPlayerForm) => void, isPending: boolean, submitLabel: string) => (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
@@ -1283,8 +1345,8 @@ function CoachPlayersTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h2 className="text-lg font-semibold" data-testid="text-coach-players-heading">Coach Players</h2>
-        <Button onClick={() => { addForm.reset(); setAddOpen(true); }} data-testid="button-add-coach-player">
+        <h2 className="text-lg font-semibold" data-testid="text-players-heading">Players</h2>
+        <Button onClick={() => { addForm.reset(); setAddOpen(true); }} data-testid="button-add-player">
           <Plus className="w-4 h-4" />
           Add Player
         </Button>
@@ -1298,715 +1360,22 @@ function CoachPlayersTab() {
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search players..."
             className="pl-9"
-            data-testid="input-search-coach-players"
+            data-testid="input-search-players"
           />
         </div>
         <Select value={teamFilter} onValueChange={setTeamFilter}>
-          <SelectTrigger className="w-[160px]" data-testid="select-filter-coach-team">
+          <SelectTrigger className="w-[160px]" data-testid="select-filter-team">
             <SelectValue placeholder="All Teams" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Teams</SelectItem>
             {teams?.map((t) => (
-              <SelectItem key={t.id} value={t.id}>{t.name} {t.seasonYear ? `(${t.seasonYear})` : ""}</SelectItem>
+              <SelectItem key={t.id} value={t.id}>{t.name}{t.seasonYear ? ` (${t.seasonYear})` : ""}</SelectItem>
             ))}
           </SelectContent>
         </Select>
-        <Select value={positionFilter} onValueChange={setPositionFilter}>
-          <SelectTrigger className="w-[140px]" data-testid="select-filter-coach-position">
-            <SelectValue placeholder="All Positions" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Positions</SelectItem>
-            {PLAYER_POSITIONS.map((pos) => (
-              <SelectItem key={pos} value={pos}>{pos}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={ageFilter} onValueChange={setAgeFilter}>
-          <SelectTrigger className="w-[120px]" data-testid="select-filter-coach-age">
-            <SelectValue placeholder="All Ages" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Ages</SelectItem>
-            {PLAYER_AGES.map((age) => (
-              <SelectItem key={age} value={age}>{age}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={levelFilter} onValueChange={setLevelFilter}>
-          <SelectTrigger className="w-[140px]" data-testid="select-filter-coach-level">
-            <SelectValue placeholder="All Levels" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Levels</SelectItem>
-            {LEVEL_OPTIONS.map((lvl) => (
-              <SelectItem key={lvl} value={lvl}>{lvl}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={classFilter} onValueChange={setClassFilter}>
-          <SelectTrigger className="w-[140px]" data-testid="select-filter-coach-class">
-            <SelectValue placeholder="All Classes" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Classes</SelectItem>
-            {CLASS_OPTIONS.map((cls) => (
-              <SelectItem key={cls} value={cls}>{cls}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {filteredPlayers.length > 0 && (
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-2">
-            <Checkbox
-              checked={allSelected}
-              onCheckedChange={toggleSelectAll}
-              data-testid="checkbox-select-all-coach-players"
-            />
-            <span className="text-sm text-muted-foreground">Select All</span>
-          </div>
-          {selectedPlayerIds.size > 0 && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setBulkAssignOpen(true)}
-              data-testid="button-bulk-assign-coach"
-            >
-              <UserPlus className="w-4 h-4" />
-              Assign {selectedPlayerIds.size} to Team
-            </Button>
-          )}
-        </div>
-      )}
-
-      {playersLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-24 rounded-lg" />)}
-        </div>
-      ) : !players?.length ? (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground" data-testid="text-no-coach-players">
-            <UserCheck className="w-10 h-10 mx-auto mb-3 opacity-50" />
-            <p>No players yet. Add your first player to get started!</p>
-          </CardContent>
-        </Card>
-      ) : !filteredPlayers.length ? (
-        <Card>
-          <CardContent className="py-8 text-center text-muted-foreground" data-testid="text-no-matching-coach-players">
-            <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
-            <p className="text-sm">No players match your search criteria.</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-2">
-          {filteredPlayers.map((player) => (
-            <Card key={player.id} data-testid={`card-coach-player-${player.id}`}>
-              <CardContent className="py-3">
-                <div className="flex items-start gap-3">
-                  <div className="pt-1">
-                    <Checkbox
-                      checked={selectedPlayerIds.has(player.id)}
-                      onCheckedChange={() => togglePlayer(player.id)}
-                      data-testid={`checkbox-coach-player-${player.id}`}
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-sm font-medium" data-testid={`text-coach-player-name-${player.id}`}>
-                        {player.firstName} {player.lastName || ""}
-                      </p>
-                      {player.position && (
-                        <Badge variant="outline" className="no-default-hover-elevate text-xs" data-testid={`badge-coach-player-position-${player.id}`}>
-                          {player.position}
-                        </Badge>
-                      )}
-                      {player.jerseyNumber && (
-                        <span className="text-xs font-mono text-muted-foreground" data-testid={`text-coach-player-jersey-${player.id}`}>
-                          #{player.jerseyNumber}
-                        </span>
-                      )}
-                      {player.ageGroup && (
-                        <Badge variant="secondary" className="no-default-hover-elevate text-xs" data-testid={`badge-coach-player-age-${player.id}`}>
-                          Age {player.ageGroup}
-                        </Badge>
-                      )}
-                      {player.teamType && player.teamType !== "None" && (
-                        <Badge variant="secondary" className="no-default-hover-elevate text-xs" data-testid={`badge-coach-player-team-type-${player.id}`}>
-                          {player.teamType}
-                        </Badge>
-                      )}
-                    </div>
-                    {player.email && (
-                      <p className="text-xs text-muted-foreground mt-0.5" data-testid={`text-coach-player-email-${player.id}`}>{player.email}</p>
-                    )}
-                    {player.teams.length > 0 && (
-                      <div className="flex items-center gap-1 mt-2 flex-wrap">
-                        <span className="text-xs text-muted-foreground">Teams:</span>
-                        {player.teams.map((t) => (
-                          <Badge
-                            key={t.id}
-                            variant="default"
-                            className="no-default-hover-elevate text-xs cursor-pointer"
-                            data-testid={`badge-coach-player-team-${t.id}`}
-                            onClick={() => removeAssignmentMutation.mutate(t.id)}
-                            title={`Click to remove from ${t.teamName}`}
-                          >
-                            {t.teamName}{t.seasonYear ? ` (${t.seasonYear}-${(t.seasonYear + 1).toString().slice(-2)})` : ""}{t.ageGroup ? ` - ${t.ageGroup}` : ""}
-                            <Trash2 className="w-2.5 h-2.5 ml-1" />
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => {
-                        setAssignPlayerId(player.id);
-                        setAssignTeamId("");
-                        setAssignPosition("");
-                        setAssignJersey("");
-                      }}
-                      data-testid={`button-assign-coach-player-${player.id}`}
-                    >
-                      <UserPlus className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => openEditPlayer(player)}
-                      data-testid={`button-edit-coach-player-${player.id}`}
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => setDeletePlayerId(player.id)}
-                      data-testid={`button-delete-coach-player-${player.id}`}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent data-testid="dialog-add-coach-player">
-          <DialogHeader>
-            <DialogTitle>Add Player</DialogTitle>
-            <DialogDescription>Add a new player to your roster. You can assign them to teams later.</DialogDescription>
-          </DialogHeader>
-          {renderPlayerForm(addForm, (data) => createPlayerMutation.mutate(data), createPlayerMutation.isPending, "Add Player")}
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={!!editingPlayer} onOpenChange={(open) => { if (!open) setEditingPlayer(null); }}>
-        <DialogContent data-testid="dialog-edit-coach-player">
-          <DialogHeader>
-            <DialogTitle>Edit Player</DialogTitle>
-            <DialogDescription>Update player information.</DialogDescription>
-          </DialogHeader>
-          {editingPlayer && renderPlayerForm(editForm, (data) => updatePlayerMutation.mutate({ id: editingPlayer.id, data }), updatePlayerMutation.isPending, "Save Changes")}
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={!!assignPlayerId} onOpenChange={(open) => { if (!open) setAssignPlayerId(null); }}>
-        <DialogContent data-testid="dialog-assign-coach-player">
-          <DialogHeader>
-            <DialogTitle>Assign to Team</DialogTitle>
-            <DialogDescription>Select a team and optionally set position and jersey for this assignment.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Team</label>
-              <Select value={assignTeamId} onValueChange={setAssignTeamId}>
-                <SelectTrigger data-testid="select-assign-coach-team">
-                  <SelectValue placeholder="Select a team" />
-                </SelectTrigger>
-                <SelectContent>
-                  {teams?.map((team) => (
-                    <SelectItem key={team.id} value={team.id}>
-                      {team.name}{team.seasonYear ? ` (${team.seasonYear}-${(team.seasonYear + 1).toString().slice(-2)})` : ""}{team.ageGroup ? ` - ${team.ageGroup}` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Position (optional)</label>
-                <Select value={assignPosition} onValueChange={setAssignPosition}>
-                  <SelectTrigger data-testid="select-assign-coach-position">
-                    <SelectValue placeholder="Position" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PLAYER_POSITIONS.map((pos) => (
-                      <SelectItem key={pos} value={pos}>{pos}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Jersey # (optional)</label>
-                <Input
-                  value={assignJersey}
-                  onChange={(e) => setAssignJersey(e.target.value)}
-                  placeholder="#"
-                  maxLength={3}
-                  data-testid="input-assign-coach-jersey"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                onClick={() => assignPlayerId && assignPlayerMutation.mutate({ playerId: assignPlayerId, teamId: assignTeamId, position: assignPosition, jerseyNumber: assignJersey })}
-                disabled={!assignTeamId || assignPlayerMutation.isPending}
-                data-testid="button-confirm-assign-coach"
-              >
-                {assignPlayerMutation.isPending ? "Assigning..." : "Assign"}
-              </Button>
-            </DialogFooter>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={bulkAssignOpen} onOpenChange={setBulkAssignOpen}>
-        <DialogContent data-testid="dialog-bulk-assign-coach">
-          <DialogHeader>
-            <DialogTitle>Bulk Assign to Team</DialogTitle>
-            <DialogDescription>Assign {selectedPlayerIds.size} selected player(s) to a team.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Team</label>
-              <Select value={bulkTeamId} onValueChange={setBulkTeamId}>
-                <SelectTrigger data-testid="select-bulk-coach-team">
-                  <SelectValue placeholder="Select a team" />
-                </SelectTrigger>
-                <SelectContent>
-                  {teams?.map((team) => (
-                    <SelectItem key={team.id} value={team.id}>
-                      {team.name}{team.seasonYear ? ` (${team.seasonYear}-${(team.seasonYear + 1).toString().slice(-2)})` : ""}{team.ageGroup ? ` - ${team.ageGroup}` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <DialogFooter>
-              <Button
-                onClick={() => bulkAssignMutation.mutate({ playerIds: Array.from(selectedPlayerIds), teamId: bulkTeamId })}
-                disabled={!bulkTeamId || bulkAssignMutation.isPending}
-                data-testid="button-confirm-bulk-assign-coach"
-              >
-                {bulkAssignMutation.isPending ? "Assigning..." : "Assign All"}
-              </Button>
-            </DialogFooter>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <AlertDialog open={!!deletePlayerId} onOpenChange={(open) => !open && setDeletePlayerId(null)}>
-        <AlertDialogContent data-testid="dialog-delete-coach-player-confirm">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Player?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete this player and remove them from all teams. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-delete-coach-player">Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => deletePlayerId && deletePlayerMutation.mutate(deletePlayerId)}
-              data-testid="button-confirm-delete-coach-player"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
-  );
-}
-
-function MyPlayersTab() {
-  const { toast } = useToast();
-  const [addOpen, setAddOpen] = useState(false);
-  const [editingPlayer, setEditingPlayer] = useState<TrainerPlayerData | null>(null);
-  const [deletePlayerId, setDeletePlayerId] = useState<string | null>(null);
-  const [assignPlayerId, setAssignPlayerId] = useState<string | null>(null);
-  const [assignGroupId, setAssignGroupId] = useState("");
-  const [assignPosition, setAssignPosition] = useState("");
-  const [assignJersey, setAssignJersey] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [positionFilter, setPositionFilter] = useState("all");
-  const [groupFilter, setGroupFilter] = useState("all");
-  const [ageFilter, setAgeFilter] = useState("all");
-  const [levelFilter, setLevelFilter] = useState("all");
-  const [classFilter, setClassFilter] = useState("all");
-  const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(new Set());
-  const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
-  const [bulkGroupId, setBulkGroupId] = useState("");
-
-  const addForm = useForm<TrainerPlayerForm>({
-    resolver: zodResolver(trainerPlayerSchema),
-    defaultValues: { firstName: "", lastName: "", email: "", phone: "", position: "", jerseyNumber: "", ageGroup: "", teamType: "", notes: "" },
-  });
-
-  const editForm = useForm<TrainerPlayerForm>({
-    resolver: zodResolver(trainerPlayerSchema),
-    defaultValues: { firstName: "", lastName: "", email: "", phone: "", position: "", jerseyNumber: "", ageGroup: "", teamType: "", notes: "" },
-  });
-
-  const { data: players, isLoading: playersLoading } = useQuery<TrainerPlayerData[]>({
-    queryKey: ["/api/trainer-players"],
-  });
-
-  const { data: groups } = useQuery<TrainerGroup[]>({
-    queryKey: ["/api/trainer/groups"],
-  });
-
-  const createPlayerMutation = useMutation({
-    mutationFn: async (data: TrainerPlayerForm) => {
-      const res = await apiRequest("POST", "/api/trainer-players", data);
-      return res.json();
-    },
-    onSuccess: (result: any) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/trainer-players"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/trainer/groups"] });
-      setAddOpen(false);
-      addForm.reset();
-      const groups = result?.autoAssignedGroups;
-      if (groups?.length) {
-        toast({ title: "Player added successfully!", description: `Auto-assigned to: ${groups.join(", ")}` });
-      } else {
-        toast({ title: "Player added successfully!" });
-      }
-    },
-    onError: (error: Error) => {
-      toast({ title: "Failed to add player", description: error.message, variant: "destructive" });
-    },
-  });
-
-  const updatePlayerMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: TrainerPlayerForm }) => {
-      const res = await apiRequest("PUT", `/api/trainer-players/${id}`, data);
-      return res.json();
-    },
-    onSuccess: (result: any) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/trainer-players"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/trainer/groups"] });
-      setEditingPlayer(null);
-      const groups = result?.autoAssignedGroups;
-      if (groups?.length) {
-        toast({ title: "Player updated!", description: `Auto-assigned to: ${groups.join(", ")}` });
-      } else {
-        toast({ title: "Player updated successfully!" });
-      }
-    },
-    onError: (error: Error) => {
-      toast({ title: "Failed to update player", description: error.message, variant: "destructive" });
-    },
-  });
-
-  const deletePlayerMutation = useMutation({
-    mutationFn: (id: string) => apiRequest("DELETE", `/api/trainer-players/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/trainer-players"] });
-      setDeletePlayerId(null);
-      toast({ title: "Player deleted" });
-    },
-    onError: (error: Error) => {
-      toast({ title: "Failed to delete player", description: error.message, variant: "destructive" });
-    },
-  });
-
-  const assignPlayerMutation = useMutation({
-    mutationFn: ({ playerId, groupId, position, jerseyNumber }: { playerId: string; groupId: string; position?: string; jerseyNumber?: string }) =>
-      apiRequest("POST", `/api/trainer-players/${playerId}/assign`, { groupId, position: position || undefined, jerseyNumber: jerseyNumber || undefined }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/trainer-players"] });
-      setAssignPlayerId(null);
-      setAssignGroupId("");
-      setAssignPosition("");
-      setAssignJersey("");
-      toast({ title: "Player assigned to group!" });
-    },
-    onError: (error: Error) => {
-      toast({ title: "Failed to assign player", description: error.message, variant: "destructive" });
-    },
-  });
-
-  const bulkAssignMutation = useMutation({
-    mutationFn: ({ playerIds, groupId }: { playerIds: string[]; groupId: string }) =>
-      apiRequest("POST", "/api/trainer-players/bulk-assign", { playerIds, groupId }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/trainer-players"] });
-      setBulkAssignOpen(false);
-      setBulkGroupId("");
-      setSelectedPlayerIds(new Set());
-      toast({ title: "Players assigned to group!" });
-    },
-    onError: (error: Error) => {
-      toast({ title: "Failed to assign players", description: error.message, variant: "destructive" });
-    },
-  });
-
-  const removeAssignmentMutation = useMutation({
-    mutationFn: (assignmentId: string) => apiRequest("DELETE", `/api/trainer-player-assignments/${assignmentId}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/trainer-players"] });
-      toast({ title: "Player removed from group" });
-    },
-    onError: (error: Error) => {
-      toast({ title: "Failed to remove assignment", description: error.message, variant: "destructive" });
-    },
-  });
-
-  const filteredPlayers = useMemo(() => {
-    if (!players) return [];
-    return players.filter((p) => {
-      const nameMatch = !searchQuery || `${p.firstName} ${p.lastName || ""}`.toLowerCase().includes(searchQuery.toLowerCase());
-      const posMatch = positionFilter === "all" || p.position === positionFilter;
-      const groupMatch = groupFilter === "all" || p.groups.some(g => g.groupId === groupFilter);
-      const ageMatch = ageFilter === "all" || p.ageGroup === ageFilter;
-      const levelMatch = levelFilter === "all" || p.groups.some(g => {
-        const group = groups?.find(gr => gr.id === g.groupId);
-        return group?.level?.split(",").map(s => s.trim()).includes(levelFilter);
-      });
-      const classMatch = classFilter === "all" || p.groups.some(g => {
-        const group = groups?.find(gr => gr.id === g.groupId);
-        return group?.playerClass?.split(",").map(s => s.trim()).includes(classFilter);
-      });
-      return nameMatch && posMatch && groupMatch && ageMatch && levelMatch && classMatch;
-    });
-  }, [players, groups, searchQuery, positionFilter, groupFilter, ageFilter, levelFilter, classFilter]);
-
-  const allSelected = filteredPlayers.length > 0 && filteredPlayers.every((p) => selectedPlayerIds.has(p.id));
-
-  const toggleSelectAll = () => {
-    if (allSelected) {
-      setSelectedPlayerIds(new Set());
-    } else {
-      setSelectedPlayerIds(new Set(filteredPlayers.map((p) => p.id)));
-    }
-  };
-
-  const togglePlayer = (id: string) => {
-    const next = new Set(selectedPlayerIds);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setSelectedPlayerIds(next);
-  };
-
-  const openEditPlayer = (player: TrainerPlayerData) => {
-    setEditingPlayer(player);
-    editForm.reset({
-      firstName: player.firstName,
-      lastName: player.lastName || "",
-      email: player.email || "",
-      phone: player.phone || "",
-      position: player.position || "",
-      jerseyNumber: player.jerseyNumber || "",
-      ageGroup: player.ageGroup || "",
-      teamType: player.teamType || "",
-      notes: player.notes || "",
-    });
-  };
-
-  const renderPlayerForm = (form: ReturnType<typeof useForm<TrainerPlayerForm>>, onSubmit: (data: TrainerPlayerForm) => void, isPending: boolean, submitLabel: string) => (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="firstName"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>First Name</FormLabel>
-                <FormControl>
-                  <Input placeholder="First name" {...field} data-testid="input-trainer-player-first-name" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="lastName"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Last Name</FormLabel>
-                <FormControl>
-                  <Input placeholder="Last name" {...field} data-testid="input-trainer-player-last-name" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Email</FormLabel>
-                <FormControl>
-                  <Input placeholder="email@example.com" type="email" {...field} data-testid="input-trainer-player-email" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="phone"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Phone</FormLabel>
-                <FormControl>
-                  <Input placeholder="Phone number" {...field} data-testid="input-trainer-player-phone" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-        <div className="grid grid-cols-3 gap-4">
-          <FormField
-            control={form.control}
-            name="position"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Position</FormLabel>
-                <FormControl>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger data-testid="select-trainer-player-position">
-                      <SelectValue placeholder="Select" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PLAYER_POSITIONS.map((pos) => (
-                        <SelectItem key={pos} value={pos}>{pos}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="jerseyNumber"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Jersey #</FormLabel>
-                <FormControl>
-                  <Input placeholder="#" maxLength={3} {...field} data-testid="input-trainer-player-jersey" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="ageGroup"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Age</FormLabel>
-                <FormControl>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger data-testid="select-trainer-player-age">
-                      <SelectValue placeholder="Select" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PLAYER_AGES.map((age) => (
-                        <SelectItem key={age} value={age}>{age}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="teamType"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Team Type</FormLabel>
-                <FormControl>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger data-testid="select-trainer-player-team-type">
-                      <SelectValue placeholder="Select" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {TEAM_TYPES.map((tt) => (
-                        <SelectItem key={tt} value={tt}>{tt}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-        <FormField
-          control={form.control}
-          name="notes"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Notes</FormLabel>
-              <FormControl>
-                <Textarea placeholder="Optional notes..." {...field} data-testid="input-trainer-player-notes" />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <DialogFooter>
-          <Button type="submit" disabled={isPending} data-testid="button-submit-trainer-player">
-            {isPending ? "Saving..." : submitLabel}
-          </Button>
-        </DialogFooter>
-      </form>
-    </Form>
-  );
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <h2 className="text-lg font-semibold" data-testid="text-trainer-players-heading">Players</h2>
-        <Button onClick={() => { addForm.reset(); setAddOpen(true); }} data-testid="button-add-trainer-player">
-          <Plus className="w-4 h-4" />
-          Add Player
-        </Button>
-      </div>
-
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-[180px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search players..."
-            className="pl-9"
-            data-testid="input-search-trainer-players"
-          />
-        </div>
         <Select value={groupFilter} onValueChange={setGroupFilter}>
-          <SelectTrigger className="w-[160px]" data-testid="select-filter-trainer-group">
+          <SelectTrigger className="w-[160px]" data-testid="select-filter-group">
             <SelectValue placeholder="All Groups" />
           </SelectTrigger>
           <SelectContent>
@@ -2017,7 +1386,7 @@ function MyPlayersTab() {
           </SelectContent>
         </Select>
         <Select value={positionFilter} onValueChange={setPositionFilter}>
-          <SelectTrigger className="w-[140px]" data-testid="select-filter-trainer-position">
+          <SelectTrigger className="w-[140px]" data-testid="select-filter-position">
             <SelectValue placeholder="All Positions" />
           </SelectTrigger>
           <SelectContent>
@@ -2028,7 +1397,7 @@ function MyPlayersTab() {
           </SelectContent>
         </Select>
         <Select value={ageFilter} onValueChange={setAgeFilter}>
-          <SelectTrigger className="w-[120px]" data-testid="select-filter-trainer-age">
+          <SelectTrigger className="w-[120px]" data-testid="select-filter-age">
             <SelectValue placeholder="All Ages" />
           </SelectTrigger>
           <SelectContent>
@@ -2039,7 +1408,7 @@ function MyPlayersTab() {
           </SelectContent>
         </Select>
         <Select value={levelFilter} onValueChange={setLevelFilter}>
-          <SelectTrigger className="w-[140px]" data-testid="select-filter-trainer-level">
+          <SelectTrigger className="w-[140px]" data-testid="select-filter-level">
             <SelectValue placeholder="All Levels" />
           </SelectTrigger>
           <SelectContent>
@@ -2050,7 +1419,7 @@ function MyPlayersTab() {
           </SelectContent>
         </Select>
         <Select value={classFilter} onValueChange={setClassFilter}>
-          <SelectTrigger className="w-[140px]" data-testid="select-filter-trainer-class">
+          <SelectTrigger className="w-[140px]" data-testid="select-filter-class">
             <SelectValue placeholder="All Classes" />
           </SelectTrigger>
           <SelectContent>
@@ -2068,20 +1437,31 @@ function MyPlayersTab() {
             <Checkbox
               checked={allSelected}
               onCheckedChange={toggleSelectAll}
-              data-testid="checkbox-select-all-trainer-players"
+              data-testid="checkbox-select-all-players"
             />
             <span className="text-sm text-muted-foreground">Select All</span>
           </div>
           {selectedPlayerIds.size > 0 && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setBulkAssignOpen(true)}
-              data-testid="button-bulk-assign-trainer"
-            >
-              <UserPlus className="w-4 h-4" />
-              Assign {selectedPlayerIds.size} to Group
-            </Button>
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setBulkAssignTeamOpen(true)}
+                data-testid="button-bulk-assign-team"
+              >
+                <Shield className="w-4 h-4" />
+                Assign {selectedPlayerIds.size} to Team
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setBulkAssignGroupOpen(true)}
+                data-testid="button-bulk-assign-group"
+              >
+                <Users className="w-4 h-4" />
+                Assign {selectedPlayerIds.size} to Group
+              </Button>
+            </>
           )}
         </div>
       )}
@@ -2092,14 +1472,14 @@ function MyPlayersTab() {
         </div>
       ) : !players?.length ? (
         <Card>
-          <CardContent className="py-12 text-center text-muted-foreground" data-testid="text-no-trainer-players">
+          <CardContent className="py-12 text-center text-muted-foreground" data-testid="text-no-players">
             <UserCheck className="w-10 h-10 mx-auto mb-3 opacity-50" />
             <p>No players yet. Add your first player to get started!</p>
           </CardContent>
         </Card>
       ) : !filteredPlayers.length ? (
         <Card>
-          <CardContent className="py-8 text-center text-muted-foreground" data-testid="text-no-matching-trainer-players">
+          <CardContent className="py-8 text-center text-muted-foreground" data-testid="text-no-matching-players">
             <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
             <p className="text-sm">No players match your search criteria.</p>
           </CardContent>
@@ -2107,44 +1487,62 @@ function MyPlayersTab() {
       ) : (
         <div className="space-y-2">
           {filteredPlayers.map((player) => (
-            <Card key={player.id} data-testid={`card-trainer-player-${player.id}`}>
+            <Card key={player.id} data-testid={`card-player-${player.id}`}>
               <CardContent className="py-3">
                 <div className="flex items-start gap-3">
                   <div className="pt-1">
                     <Checkbox
                       checked={selectedPlayerIds.has(player.id)}
                       onCheckedChange={() => togglePlayer(player.id)}
-                      data-testid={`checkbox-trainer-player-${player.id}`}
+                      data-testid={`checkbox-player-${player.id}`}
                     />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-sm font-medium" data-testid={`text-trainer-player-name-${player.id}`}>
+                      <p className="text-sm font-medium" data-testid={`text-player-name-${player.id}`}>
                         {player.firstName} {player.lastName || ""}
                       </p>
                       {player.position && (
-                        <Badge variant="outline" className="no-default-hover-elevate text-xs" data-testid={`badge-trainer-player-position-${player.id}`}>
+                        <Badge variant="outline" className="no-default-hover-elevate text-xs" data-testid={`badge-player-position-${player.id}`}>
                           {player.position}
                         </Badge>
                       )}
                       {player.jerseyNumber && (
-                        <span className="text-xs font-mono text-muted-foreground" data-testid={`text-trainer-player-jersey-${player.id}`}>
+                        <span className="text-xs font-mono text-muted-foreground" data-testid={`text-player-jersey-${player.id}`}>
                           #{player.jerseyNumber}
                         </span>
                       )}
                       {player.ageGroup && (
-                        <Badge variant="secondary" className="no-default-hover-elevate text-xs" data-testid={`badge-trainer-player-age-${player.id}`}>
+                        <Badge variant="secondary" className="no-default-hover-elevate text-xs" data-testid={`badge-player-age-${player.id}`}>
                           Age {player.ageGroup}
                         </Badge>
                       )}
                       {player.teamType && player.teamType !== "None" && (
-                        <Badge variant="secondary" className="no-default-hover-elevate text-xs" data-testid={`badge-trainer-player-team-type-${player.id}`}>
+                        <Badge variant="secondary" className="no-default-hover-elevate text-xs" data-testid={`badge-player-team-type-${player.id}`}>
                           {player.teamType}
                         </Badge>
                       )}
                     </div>
                     {player.email && (
-                      <p className="text-xs text-muted-foreground mt-0.5" data-testid={`text-trainer-player-email-${player.id}`}>{player.email}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5" data-testid={`text-player-email-${player.id}`}>{player.email}</p>
+                    )}
+                    {(player.teams || []).length > 0 && (
+                      <div className="flex items-center gap-1 mt-2 flex-wrap">
+                        <span className="text-xs text-muted-foreground">Teams:</span>
+                        {(player.teams || []).map((t) => (
+                          <Badge
+                            key={t.id}
+                            variant="default"
+                            className="no-default-hover-elevate text-xs cursor-pointer"
+                            data-testid={`badge-player-team-${t.id}`}
+                            onClick={() => removeTeamAssignmentMutation.mutate(t.id)}
+                            title={`Click to remove from ${t.teamName}`}
+                          >
+                            {t.teamName}{t.seasonYear ? ` (${t.seasonYear}-${(t.seasonYear + 1).toString().slice(-2)})` : ""}{t.ageGroup ? ` - ${t.ageGroup}` : ""}
+                            <Trash2 className="w-2.5 h-2.5 ml-1" />
+                          </Badge>
+                        ))}
+                      </div>
                     )}
                     {player.groups.length > 0 && (
                       <div className="flex items-center gap-1 mt-2 flex-wrap">
@@ -2153,9 +1551,9 @@ function MyPlayersTab() {
                           <Badge
                             key={g.id}
                             variant="default"
-                            className="no-default-hover-elevate text-xs cursor-pointer"
-                            data-testid={`badge-trainer-player-group-${g.id}`}
-                            onClick={() => removeAssignmentMutation.mutate(g.id)}
+                            className="no-default-hover-elevate text-xs cursor-pointer bg-secondary text-secondary-foreground"
+                            data-testid={`badge-player-group-${g.id}`}
+                            onClick={() => removeGroupAssignmentMutation.mutate(g.id)}
                             title={`Click to remove from ${g.groupName}`}
                           >
                             {g.groupName}{g.ageGroup ? ` - ${g.ageGroup}` : ""}
@@ -2171,11 +1569,13 @@ function MyPlayersTab() {
                       variant="ghost"
                       onClick={() => {
                         setAssignPlayerId(player.id);
+                        setAssignTargetType("group");
                         setAssignGroupId("");
+                        setAssignTeamId("");
                         setAssignPosition("");
                         setAssignJersey("");
                       }}
-                      data-testid={`button-assign-trainer-player-${player.id}`}
+                      data-testid={`button-assign-player-${player.id}`}
                     >
                       <UserPlus className="w-4 h-4" />
                     </Button>
@@ -2183,7 +1583,7 @@ function MyPlayersTab() {
                       size="icon"
                       variant="ghost"
                       onClick={() => openEditPlayer(player)}
-                      data-testid={`button-edit-trainer-player-${player.id}`}
+                      data-testid={`button-edit-player-${player.id}`}
                     >
                       <Edit2 className="w-4 h-4" />
                     </Button>
@@ -2191,7 +1591,7 @@ function MyPlayersTab() {
                       size="icon"
                       variant="ghost"
                       onClick={() => setDeletePlayerId(player.id)}
-                      data-testid={`button-delete-trainer-player-${player.id}`}
+                      data-testid={`button-delete-player-${player.id}`}
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
@@ -2204,17 +1604,17 @@ function MyPlayersTab() {
       )}
 
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent data-testid="dialog-add-trainer-player">
+        <DialogContent data-testid="dialog-add-player">
           <DialogHeader>
             <DialogTitle>Add Player</DialogTitle>
-            <DialogDescription>Add a new player to your roster. You can assign them to groups later.</DialogDescription>
+            <DialogDescription>Add a new player to your roster. You can assign them to teams or groups later.</DialogDescription>
           </DialogHeader>
           {renderPlayerForm(addForm, (data) => createPlayerMutation.mutate(data), createPlayerMutation.isPending, "Add Player")}
         </DialogContent>
       </Dialog>
 
       <Dialog open={!!editingPlayer} onOpenChange={(open) => { if (!open) setEditingPlayer(null); }}>
-        <DialogContent data-testid="dialog-edit-trainer-player">
+        <DialogContent data-testid="dialog-edit-player">
           <DialogHeader>
             <DialogTitle>Edit Player</DialogTitle>
             <DialogDescription>Update player information.</DialogDescription>
@@ -2224,32 +1624,62 @@ function MyPlayersTab() {
       </Dialog>
 
       <Dialog open={!!assignPlayerId} onOpenChange={(open) => { if (!open) setAssignPlayerId(null); }}>
-        <DialogContent data-testid="dialog-assign-trainer-player">
+        <DialogContent data-testid="dialog-assign-player">
           <DialogHeader>
-            <DialogTitle>Assign to Group</DialogTitle>
-            <DialogDescription>Select a group and optionally set position and jersey for this assignment.</DialogDescription>
+            <DialogTitle>Assign Player</DialogTitle>
+            <DialogDescription>Choose a team or group, and optionally set position and jersey number.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Group</label>
-              <Select value={assignGroupId} onValueChange={setAssignGroupId}>
-                <SelectTrigger data-testid="select-assign-trainer-group">
-                  <SelectValue placeholder="Select a group" />
+              <label className="text-sm font-medium">Assign to</label>
+              <Select value={assignTargetType} onValueChange={(v) => setAssignTargetType(v as "team" | "group")}>
+                <SelectTrigger data-testid="select-assign-target-type">
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {groups?.map((group) => (
-                    <SelectItem key={group.id} value={group.id}>
-                      {group.name}{group.ageGroup ? ` (${group.ageGroup})` : ""}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="group">Group</SelectItem>
+                  <SelectItem value="team">Team</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+            {assignTargetType === "team" ? (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Team</label>
+                <Select value={assignTeamId} onValueChange={setAssignTeamId}>
+                  <SelectTrigger data-testid="select-assign-team">
+                    <SelectValue placeholder="Select a team" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teams?.map((team) => (
+                      <SelectItem key={team.id} value={team.id}>
+                        {team.name}{team.seasonYear ? ` (${team.seasonYear}-${(team.seasonYear + 1).toString().slice(-2)})` : ""}{team.ageGroup ? ` - ${team.ageGroup}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Group</label>
+                <Select value={assignGroupId} onValueChange={setAssignGroupId}>
+                  <SelectTrigger data-testid="select-assign-group">
+                    <SelectValue placeholder="Select a group" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {groups?.map((group) => (
+                      <SelectItem key={group.id} value={group.id}>
+                        {group.name}{group.ageGroup ? ` (${group.ageGroup})` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Position (optional)</label>
                 <Select value={assignPosition} onValueChange={setAssignPosition}>
-                  <SelectTrigger data-testid="select-assign-trainer-position">
+                  <SelectTrigger data-testid="select-assign-position">
                     <SelectValue placeholder="Position" />
                   </SelectTrigger>
                   <SelectContent>
@@ -2266,25 +1696,60 @@ function MyPlayersTab() {
                   onChange={(e) => setAssignJersey(e.target.value)}
                   placeholder="#"
                   maxLength={3}
-                  data-testid="input-assign-trainer-jersey"
+                  data-testid="input-assign-jersey"
                 />
               </div>
             </div>
             <DialogFooter>
               <Button
-                onClick={() => assignPlayerId && assignPlayerMutation.mutate({ playerId: assignPlayerId, groupId: assignGroupId, position: assignPosition, jerseyNumber: assignJersey })}
-                disabled={!assignGroupId || assignPlayerMutation.isPending}
-                data-testid="button-confirm-assign-trainer"
+                onClick={handleAssignSubmit}
+                disabled={assignDisabled}
+                data-testid="button-confirm-assign"
               >
-                {assignPlayerMutation.isPending ? "Assigning..." : "Assign"}
+                {assignPending ? "Assigning..." : "Assign"}
               </Button>
             </DialogFooter>
           </div>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={bulkAssignOpen} onOpenChange={setBulkAssignOpen}>
-        <DialogContent data-testid="dialog-bulk-assign-trainer">
+      <Dialog open={bulkAssignTeamOpen} onOpenChange={setBulkAssignTeamOpen}>
+        <DialogContent data-testid="dialog-bulk-assign-team">
+          <DialogHeader>
+            <DialogTitle>Bulk Assign to Team</DialogTitle>
+            <DialogDescription>Assign {selectedPlayerIds.size} selected player(s) to a team.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Team</label>
+              <Select value={bulkTeamId} onValueChange={setBulkTeamId}>
+                <SelectTrigger data-testid="select-bulk-team">
+                  <SelectValue placeholder="Select a team" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teams?.map((team) => (
+                    <SelectItem key={team.id} value={team.id}>
+                      {team.name}{team.seasonYear ? ` (${team.seasonYear}-${(team.seasonYear + 1).toString().slice(-2)})` : ""}{team.ageGroup ? ` - ${team.ageGroup}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter>
+              <Button
+                onClick={() => bulkAssignToTeamMutation.mutate({ playerIds: Array.from(selectedPlayerIds), teamId: bulkTeamId })}
+                disabled={!bulkTeamId || bulkAssignToTeamMutation.isPending}
+                data-testid="button-confirm-bulk-assign-team"
+              >
+                {bulkAssignToTeamMutation.isPending ? "Assigning..." : "Assign All"}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={bulkAssignGroupOpen} onOpenChange={setBulkAssignGroupOpen}>
+        <DialogContent data-testid="dialog-bulk-assign-group">
           <DialogHeader>
             <DialogTitle>Bulk Assign to Group</DialogTitle>
             <DialogDescription>Assign {selectedPlayerIds.size} selected player(s) to a group.</DialogDescription>
@@ -2293,7 +1758,7 @@ function MyPlayersTab() {
             <div className="space-y-2">
               <label className="text-sm font-medium">Group</label>
               <Select value={bulkGroupId} onValueChange={setBulkGroupId}>
-                <SelectTrigger data-testid="select-bulk-trainer-group">
+                <SelectTrigger data-testid="select-bulk-group">
                   <SelectValue placeholder="Select a group" />
                 </SelectTrigger>
                 <SelectContent>
@@ -2307,11 +1772,11 @@ function MyPlayersTab() {
             </div>
             <DialogFooter>
               <Button
-                onClick={() => bulkAssignMutation.mutate({ playerIds: Array.from(selectedPlayerIds), groupId: bulkGroupId })}
-                disabled={!bulkGroupId || bulkAssignMutation.isPending}
-                data-testid="button-confirm-bulk-assign-trainer"
+                onClick={() => bulkAssignToGroupMutation.mutate({ playerIds: Array.from(selectedPlayerIds), groupId: bulkGroupId })}
+                disabled={!bulkGroupId || bulkAssignToGroupMutation.isPending}
+                data-testid="button-confirm-bulk-assign-group"
               >
-                {bulkAssignMutation.isPending ? "Assigning..." : "Assign All"}
+                {bulkAssignToGroupMutation.isPending ? "Assigning..." : "Assign All"}
               </Button>
             </DialogFooter>
           </div>
@@ -2319,18 +1784,18 @@ function MyPlayersTab() {
       </Dialog>
 
       <AlertDialog open={!!deletePlayerId} onOpenChange={(open) => !open && setDeletePlayerId(null)}>
-        <AlertDialogContent data-testid="dialog-delete-trainer-player-confirm">
+        <AlertDialogContent data-testid="dialog-delete-player-confirm">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Player?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete this player and remove them from all groups. This action cannot be undone.
+              This will permanently delete this player and remove them from all teams and groups. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-delete-trainer-player">Cancel</AlertDialogCancel>
+            <AlertDialogCancel data-testid="button-cancel-delete-player">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deletePlayerId && deletePlayerMutation.mutate(deletePlayerId)}
-              data-testid="button-confirm-delete-trainer-player"
+              data-testid="button-confirm-delete-player"
             >
               Delete
             </AlertDialogAction>
@@ -4665,7 +4130,7 @@ function JoinGroupTab() {
 
 function AdminTab() {
   const { toast } = useToast();
-  const [adminSection, setAdminSection] = useState<"teams" | "groups" | "players" | "coach-players" | "drills">("teams");
+  const [adminSection, setAdminSection] = useState<"teams" | "groups" | "players" | "drills">("teams");
 
   const [createTeamOpen, setCreateTeamOpen] = useState(false);
   const [editTeamId, setEditTeamId] = useState<string | null>(null);
@@ -4692,10 +4157,6 @@ function AdminTab() {
   const [adminAddPlayerOpen, setAdminAddPlayerOpen] = useState(false);
   const [adminEditPlayer, setAdminEditPlayer] = useState<TrainerPlayerData | null>(null);
   const [adminDeletePlayerId, setAdminDeletePlayerId] = useState<string | null>(null);
-
-  const [coachAdminAddPlayerOpen, setCoachAdminAddPlayerOpen] = useState(false);
-  const [coachAdminEditPlayer, setCoachAdminEditPlayer] = useState<CoachPlayerData | null>(null);
-  const [coachAdminDeletePlayerId, setCoachAdminDeletePlayerId] = useState<string | null>(null);
 
   const [createDrillOpen, setCreateDrillOpen] = useState(false);
   const [editDrillId, setEditDrillId] = useState<string | null>(null);
@@ -4731,15 +4192,6 @@ function AdminTab() {
 
   const { data: coachTeams, isLoading: coachTeamsLoading } = useQuery<CoachTeam[]>({
     queryKey: ["/api/coach/teams"],
-  });
-
-  const { data: coachAdminPlayers, isLoading: coachAdminPlayersLoading } = useQuery<CoachPlayerData[]>({
-    queryKey: ["/api/coach-players"],
-  });
-
-  const coachAdminAddForm = useForm<CoachPlayerForm>({
-    resolver: zodResolver(coachPlayerSchema),
-    defaultValues: { firstName: "", lastName: "", email: "", phone: "", position: "", jerseyNumber: "", ageGroup: "", teamType: "None", notes: "" },
   });
 
   const createTeamMutation = useMutation({
@@ -4779,43 +4231,6 @@ function AdminTab() {
     },
     onError: (error: Error) => {
       toast({ title: "Failed to delete team", description: error.message, variant: "destructive" });
-    },
-  });
-
-  const coachAdminCreatePlayerMutation = useMutation({
-    mutationFn: (data: CoachPlayerForm) => apiRequest("POST", "/api/coach-players", data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/coach-players"] });
-      setCoachAdminAddPlayerOpen(false);
-      coachAdminAddForm.reset();
-      toast({ title: "Player added!" });
-    },
-    onError: (error: Error) => {
-      toast({ title: "Failed to add player", description: error.message, variant: "destructive" });
-    },
-  });
-
-  const coachAdminUpdatePlayerMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: CoachPlayerForm }) => apiRequest("PUT", `/api/coach-players/${id}`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/coach-players"] });
-      setCoachAdminEditPlayer(null);
-      toast({ title: "Player updated!" });
-    },
-    onError: (error: Error) => {
-      toast({ title: "Failed to update player", description: error.message, variant: "destructive" });
-    },
-  });
-
-  const coachAdminDeletePlayerMutation = useMutation({
-    mutationFn: (id: string) => apiRequest("DELETE", `/api/coach-players/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/coach-players"] });
-      setCoachAdminDeletePlayerId(null);
-      toast({ title: "Player deleted" });
-    },
-    onError: (error: Error) => {
-      toast({ title: "Failed to delete player", description: error.message, variant: "destructive" });
     },
   });
 
@@ -5090,8 +4505,8 @@ function AdminTab() {
         <h2 className="text-lg font-semibold" data-testid="text-admin-heading">Admin</h2>
       </div>
 
-      <Tabs value={adminSection} onValueChange={(v) => setAdminSection(v as "teams" | "groups" | "players" | "coach-players" | "drills")} data-testid="tabs-admin-section">
-        <TabsList className="grid w-full grid-cols-5" data-testid="tabs-admin-list">
+      <Tabs value={adminSection} onValueChange={(v) => setAdminSection(v as "teams" | "groups" | "players" | "drills")} data-testid="tabs-admin-section">
+        <TabsList className="grid w-full grid-cols-4" data-testid="tabs-admin-list">
           <TabsTrigger value="teams" data-testid="tab-admin-teams">
             <Shield className="w-4 h-4 mr-1" />
             Teams
@@ -5103,10 +4518,6 @@ function AdminTab() {
           <TabsTrigger value="players" data-testid="tab-admin-players">
             <UserPlus className="w-4 h-4 mr-1" />
             Players
-          </TabsTrigger>
-          <TabsTrigger value="coach-players" data-testid="tab-admin-coach-players">
-            <UserCheck className="w-4 h-4 mr-1" />
-            Coach Players
           </TabsTrigger>
           <TabsTrigger value="drills" data-testid="tab-admin-drills">
             <Dumbbell className="w-4 h-4 mr-1" />
@@ -5362,90 +4773,6 @@ function AdminTab() {
                           onClick={() => setAdminDeletePlayerId(player.id)}
                           data-testid={`button-admin-delete-player-${player.id}`}
                         >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="coach-players" className="space-y-4 mt-4">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <p className="text-sm text-muted-foreground">Manage all your coach players from one place.</p>
-            <Button onClick={() => { coachAdminAddForm.reset(); setCoachAdminAddPlayerOpen(true); }} data-testid="button-coach-admin-create-player">
-              <Plus className="w-4 h-4" />
-              New Player
-            </Button>
-          </div>
-
-          {coachAdminPlayersLoading ? (
-            <div className="space-y-2">
-              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 rounded-lg" />)}
-            </div>
-          ) : !coachAdminPlayers?.length ? (
-            <Card>
-              <CardContent className="py-12 text-center text-muted-foreground" data-testid="text-no-coach-admin-players">
-                <UserPlus className="w-10 h-10 mx-auto mb-3 opacity-50" />
-                <p>No players yet. Add your first player to get started.</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-2">
-              {coachAdminPlayers.map((player) => (
-                <Card key={player.id} data-testid={`card-coach-admin-player-${player.id}`}>
-                  <CardContent className="py-3">
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-medium truncate" data-testid={`text-coach-admin-player-name-${player.id}`}>
-                            {player.firstName} {player.lastName || ""}
-                          </h3>
-                          {player.position && (
-                            <Badge variant="secondary" className="no-default-hover-elevate text-xs">{player.position}</Badge>
-                          )}
-                          {player.ageGroup && (
-                            <Badge variant="secondary" className="no-default-hover-elevate text-xs">Age {player.ageGroup}</Badge>
-                          )}
-                          {player.teamType && player.teamType !== "None" && (
-                            <Badge variant="outline" className="no-default-hover-elevate text-xs">{player.teamType}</Badge>
-                          )}
-                          {player.jerseyNumber && (
-                            <Badge variant="outline" className="no-default-hover-elevate text-xs">#{player.jerseyNumber}</Badge>
-                          )}
-                        </div>
-                        {player.email && (
-                          <p className="text-xs text-muted-foreground mt-1">{player.email}</p>
-                        )}
-                        {player.teams?.length > 0 && (
-                          <div className="flex items-center gap-1 mt-1 flex-wrap">
-                            {player.teams.map((t) => (
-                              <Badge key={t.id} variant="outline" className="no-default-hover-elevate text-[10px]">{t.teamName}</Badge>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Button size="icon" variant="ghost" onClick={() => {
-                          setCoachAdminEditPlayer(player);
-                          coachAdminAddForm.reset({
-                            firstName: player.firstName,
-                            lastName: player.lastName || "",
-                            email: player.email || "",
-                            phone: player.phone || "",
-                            position: player.position || "",
-                            jerseyNumber: player.jerseyNumber || "",
-                            ageGroup: player.ageGroup || "",
-                            teamType: player.teamType || "None",
-                            notes: player.notes || "",
-                          });
-                        }} data-testid={`button-coach-admin-edit-player-${player.id}`}>
-                          <Edit2 className="w-4 h-4" />
-                        </Button>
-                        <Button size="icon" variant="ghost" onClick={() => setCoachAdminDeletePlayerId(player.id)} data-testid={`button-coach-admin-delete-player-${player.id}`}>
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
@@ -5940,78 +5267,6 @@ function AdminTab() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={coachAdminAddPlayerOpen || !!coachAdminEditPlayer} onOpenChange={(open) => { if (!open) { setCoachAdminAddPlayerOpen(false); setCoachAdminEditPlayer(null); coachAdminAddForm.reset(); } }}>
-        <DialogContent data-testid="dialog-coach-admin-player">
-          <DialogHeader>
-            <DialogTitle>{coachAdminEditPlayer ? "Edit Player" : "Add Player"}</DialogTitle>
-            <DialogDescription>{coachAdminEditPlayer ? "Update player details." : "Add a new player to your roster."}</DialogDescription>
-          </DialogHeader>
-          <Form {...coachAdminAddForm}>
-            <form onSubmit={coachAdminAddForm.handleSubmit((data) => {
-              if (coachAdminEditPlayer) {
-                coachAdminUpdatePlayerMutation.mutate({ id: coachAdminEditPlayer.id, data });
-              } else {
-                coachAdminCreatePlayerMutation.mutate(data);
-              }
-            })} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <FormField control={coachAdminAddForm.control} name="firstName" render={({ field }) => (
-                  <FormItem><FormLabel>First Name</FormLabel><FormControl><Input placeholder="First name" {...field} data-testid="input-coach-admin-player-first-name" /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={coachAdminAddForm.control} name="lastName" render={({ field }) => (
-                  <FormItem><FormLabel>Last Name</FormLabel><FormControl><Input placeholder="Last name" {...field} data-testid="input-coach-admin-player-last-name" /></FormControl><FormMessage /></FormItem>
-                )} />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <FormField control={coachAdminAddForm.control} name="email" render={({ field }) => (
-                  <FormItem><FormLabel>Email</FormLabel><FormControl><Input placeholder="email@example.com" type="email" {...field} data-testid="input-coach-admin-player-email" /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={coachAdminAddForm.control} name="phone" render={({ field }) => (
-                  <FormItem><FormLabel>Phone</FormLabel><FormControl><Input placeholder="Phone number" {...field} data-testid="input-coach-admin-player-phone" /></FormControl><FormMessage /></FormItem>
-                )} />
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <FormField control={coachAdminAddForm.control} name="position" render={({ field }) => (
-                  <FormItem><FormLabel>Position</FormLabel><FormControl>
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger data-testid="select-coach-admin-player-position"><SelectValue placeholder="Select" /></SelectTrigger>
-                      <SelectContent>{PLAYER_POSITIONS.map((pos) => (<SelectItem key={pos} value={pos}>{pos}</SelectItem>))}</SelectContent>
-                    </Select>
-                  </FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={coachAdminAddForm.control} name="jerseyNumber" render={({ field }) => (
-                  <FormItem><FormLabel>Jersey #</FormLabel><FormControl><Input placeholder="#" maxLength={3} {...field} data-testid="input-coach-admin-player-jersey" /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={coachAdminAddForm.control} name="ageGroup" render={({ field }) => (
-                  <FormItem><FormLabel>Age</FormLabel><FormControl>
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger data-testid="select-coach-admin-player-age"><SelectValue placeholder="Select" /></SelectTrigger>
-                      <SelectContent>{PLAYER_AGES.map((age) => (<SelectItem key={age} value={age}>{age}</SelectItem>))}</SelectContent>
-                    </Select>
-                  </FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={coachAdminAddForm.control} name="teamType" render={({ field }) => (
-                  <FormItem><FormLabel>Team Type</FormLabel><FormControl>
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger data-testid="select-coach-admin-player-team-type"><SelectValue placeholder="Select" /></SelectTrigger>
-                      <SelectContent>{TEAM_TYPES.map((tt) => (<SelectItem key={tt} value={tt}>{tt}</SelectItem>))}</SelectContent>
-                    </Select>
-                  </FormControl><FormMessage /></FormItem>
-                )} />
-              </div>
-              <FormField control={coachAdminAddForm.control} name="notes" render={({ field }) => (
-                <FormItem><FormLabel>Notes</FormLabel><FormControl><Textarea placeholder="Optional notes..." {...field} data-testid="input-coach-admin-player-notes" /></FormControl><FormMessage /></FormItem>
-              )} />
-              <DialogFooter>
-                <Button type="submit" disabled={coachAdminCreatePlayerMutation.isPending || coachAdminUpdatePlayerMutation.isPending} data-testid="button-submit-coach-admin-player">
-                  {(coachAdminCreatePlayerMutation.isPending || coachAdminUpdatePlayerMutation.isPending) ? "Saving..." : (coachAdminEditPlayer ? "Update" : "Add Player")}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-
       <AlertDialog open={!!deleteTeamId} onOpenChange={(open) => { if (!open) setDeleteTeamId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -6025,18 +5280,6 @@ function AdminTab() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={!!coachAdminDeletePlayerId} onOpenChange={(open) => { if (!open) setCoachAdminDeletePlayerId(null); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Player</AlertDialogTitle>
-            <AlertDialogDescription>Are you sure you want to delete this player? This will remove all their team assignments. This action cannot be undone.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-delete-coach-admin-player">Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => coachAdminDeletePlayerId && coachAdminDeletePlayerMutation.mutate(coachAdminDeletePlayerId)} data-testid="button-confirm-delete-coach-admin-player">Delete</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
@@ -6162,7 +5405,7 @@ export default function CoachTrainerPage() {
 
       <Tabs defaultValue="roster">
         <div className="overflow-x-auto -mx-2 px-2">
-          <TabsList className="inline-flex w-max sm:w-full sm:grid sm:grid-cols-11 gap-1 h-auto" data-testid="tabs-trainer-main">
+          <TabsList className="inline-flex w-max sm:w-full sm:grid sm:grid-cols-10 gap-1 h-auto" data-testid="tabs-trainer-main">
             <TabsTrigger value="admin" className="text-xs sm:text-sm py-2" data-testid="tab-trainer-admin">
               <Settings className="w-4 h-4 mr-1 shrink-0" />
               <span className="truncate">Admin</span>
@@ -6171,11 +5414,7 @@ export default function CoachTrainerPage() {
               <Shield className="w-4 h-4 mr-1 shrink-0" />
               <span className="truncate">Roster</span>
             </TabsTrigger>
-            <TabsTrigger value="coach-players" className="text-xs sm:text-sm py-2" data-testid="tab-coach-players">
-              <Dumbbell className="w-4 h-4 mr-1 shrink-0" />
-              <span className="truncate">Coach Players</span>
-            </TabsTrigger>
-            <TabsTrigger value="my-players" className="text-xs sm:text-sm py-2" data-testid="tab-my-players">
+            <TabsTrigger value="players" className="text-xs sm:text-sm py-2" data-testid="tab-players">
               <Users className="w-4 h-4 mr-1 shrink-0" />
               <span className="truncate">Players</span>
             </TabsTrigger>
@@ -6216,11 +5455,8 @@ export default function CoachTrainerPage() {
         <TabsContent value="roster">
           <RosterTab />
         </TabsContent>
-        <TabsContent value="coach-players">
-          <CoachPlayersTab />
-        </TabsContent>
-        <TabsContent value="my-players">
-          <MyPlayersTab />
+        <TabsContent value="players">
+          <PlayersTab />
         </TabsContent>
         <TabsContent value="assign-drills">
           <AssignDrillsTab />
