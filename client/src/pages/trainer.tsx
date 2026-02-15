@@ -2361,7 +2361,6 @@ function AssignDrillsTab() {
   const [assignLevelFilter, setAssignLevelFilter] = useState("all");
   const [assignClassFilter, setAssignClassFilter] = useState("all");
   const [activeCohortAttr, setActiveCohortAttr] = useState<"player" | "group" | "position" | "age" | "level" | "class" | null>(null);
-  const [assignmentsGroupFilter, setAssignmentsGroupFilter] = useState("all");
   const [deleteAssignmentId, setDeleteAssignmentId] = useState<string | null>(null);
 
   const { data: groups } = useQuery<TrainerGroup[]>({
@@ -2418,10 +2417,7 @@ function AssignDrillsTab() {
     return all;
   }, [assignmentsByGroup, groups]);
 
-  const filteredAssignments = useMemo(() => {
-    if (assignmentsGroupFilter === "all") return flatAssignments;
-    return flatAssignments.filter(item => item.assignment.teamId === assignmentsGroupFilter);
-  }, [flatAssignments, assignmentsGroupFilter]);
+  const filteredAssignments = flatAssignments;
 
   const assignMutation = useMutation({
     mutationFn: (data: { drillId: string; teamId?: string; assignedTo?: string; dueDate?: string; notes?: string }) =>
@@ -2615,22 +2611,7 @@ function AssignDrillsTab() {
       </div>
 
       <div className="pt-2">
-        <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
-          <h3 className="text-sm font-semibold" data-testid="text-trainer-current-assignments-heading">Current Assignments</h3>
-          <Select value={assignmentsGroupFilter} onValueChange={setAssignmentsGroupFilter}>
-            <SelectTrigger className="w-[200px]" data-testid="select-trainer-assignments-group-filter">
-              <SelectValue placeholder="All Groups" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Groups</SelectItem>
-              {groups?.map((group) => (
-                <SelectItem key={group.id} value={group.id}>
-                  {group.name}{group.ageGroup ? ` (${group.ageGroup})` : ""}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <h3 className="text-sm font-semibold mb-3" data-testid="text-trainer-current-assignments-heading">Current Assignments</h3>
         {assignmentsLoading ? (
           <div className="space-y-2">
             {[1, 2].map((i) => <Skeleton key={i} className="h-16 rounded" />)}
