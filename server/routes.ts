@@ -3251,7 +3251,7 @@ export async function registerRoutes(
   app.post("/api/trainer-players", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { firstName, lastName, email, phone, position, jerseyNumber, ageGroup, notes, teamIds } = req.body;
+      const { firstName, lastName, email, phone, position, jerseyNumber, ageGroup, teamType, gradYear, notes, teamIds } = req.body;
       if (!firstName) {
         return res.status(400).json({ message: "First name is required" });
       }
@@ -3264,6 +3264,8 @@ export async function registerRoutes(
         position: position || null,
         jerseyNumber: jerseyNumber || null,
         ageGroup: ageGroup || null,
+        teamType: teamType || null,
+        gradYear: gradYear && gradYear !== "none" ? parseInt(gradYear, 10) : null,
         notes: notes || null,
       });
 
@@ -3344,7 +3346,11 @@ export async function registerRoutes(
       }
       const newPosition = req.body.position || null;
       const oldPosition = player.position;
-      const updated = await storage.updateTrainerPlayer(req.params.id, req.body);
+      const updateData = { ...req.body };
+      if (updateData.gradYear !== undefined) {
+        updateData.gradYear = updateData.gradYear && updateData.gradYear !== "none" ? parseInt(updateData.gradYear, 10) : null;
+      }
+      const updated = await storage.updateTrainerPlayer(req.params.id, updateData);
 
       const autoAssignedGroups: string[] = [];
       if (newPosition && newPosition !== oldPosition) {

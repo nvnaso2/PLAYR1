@@ -128,6 +128,7 @@ interface TrainerPlayerData {
   jerseyNumber: string | null;
   ageGroup: string | null;
   teamType: string | null;
+  gradYear: number | null;
   notes: string | null;
   linkedUserId: string | null;
   createdAt: string;
@@ -360,7 +361,7 @@ const PLAYER_POSITIONS = ["PG", "SG", "SF", "PF", "C", "Guard", "Wing", "Forward
 const PLAYER_AGES = ["6U", "7U", "8U", "9U", "10U", "11U", "12U", "13U", "14U", "15U", "16U", "17U", "18U", "Adult"];
 const TEAM_TYPES = ["None", "Rec", "Club/AAU", "Middle School", "MS - 7th Grade", "MS - 8th Grade", "High School", "HS - Freshman", "HS - JV", "HS - Varsity", "College", "Post Grad", "Pro"];
 const LEVEL_OPTIONS = ["Beginner", "Intermediate", "Advanced", "Elite"];
-const CLASS_OPTIONS = ["3rd Grade", "4th Grade", "5th Grade", "6th Grade", "7th Grade", "8th Grade", "Freshman", "Sophomore", "Junior", "Senior", "Post-Grad"];
+const CLASS_OPTIONS = Array.from({ length: 11 }, (_, i) => String(new Date().getFullYear() + i));
 const AGE_GROUP_OPTIONS = ["6U", "7U", "8U", "9U", "10U", "11U", "12U", "13U", "14U", "15U", "16U", "17U", "18U", "Adult"];
 
 const trainerPlayerSchema = z.object({
@@ -372,6 +373,7 @@ const trainerPlayerSchema = z.object({
   jerseyNumber: z.string().optional().default(""),
   ageGroup: z.string().optional().default(""),
   teamType: z.string().optional().default(""),
+  gradYear: z.string().optional().default(""),
   notes: z.string().optional().default(""),
 });
 
@@ -1015,12 +1017,12 @@ function PlayersTab() {
 
   const addForm = useForm<TrainerPlayerForm>({
     resolver: zodResolver(trainerPlayerSchema),
-    defaultValues: { firstName: "", lastName: "", email: "", phone: "", position: "", jerseyNumber: "", ageGroup: "", teamType: "", notes: "" },
+    defaultValues: { firstName: "", lastName: "", email: "", phone: "", position: "", jerseyNumber: "", ageGroup: "", teamType: "", gradYear: "", notes: "" },
   });
 
   const editForm = useForm<TrainerPlayerForm>({
     resolver: zodResolver(trainerPlayerSchema),
-    defaultValues: { firstName: "", lastName: "", email: "", phone: "", position: "", jerseyNumber: "", ageGroup: "", teamType: "", notes: "" },
+    defaultValues: { firstName: "", lastName: "", email: "", phone: "", position: "", jerseyNumber: "", ageGroup: "", teamType: "", gradYear: "", notes: "" },
   });
 
   const { data: players, isLoading: playersLoading } = useQuery<TrainerPlayerData[]>({
@@ -1189,7 +1191,7 @@ function PlayersTab() {
         const team = teams?.find(tm => tm.id === t.teamId);
         return team?.level?.split(",").map(s => s.trim()).includes(levelFilter);
       });
-      const classMatch = classFilter === "all" || p.groups.some(g => {
+      const classMatch = classFilter === "all" || (p.gradYear && String(p.gradYear) === classFilter) || p.groups.some(g => {
         const group = groups?.find(gr => gr.id === g.groupId);
         return group?.playerClass?.split(",").map(s => s.trim()).includes(classFilter);
       }) || (p.teams || []).some(t => {
@@ -1228,6 +1230,7 @@ function PlayersTab() {
       jerseyNumber: player.jerseyNumber || "",
       ageGroup: player.ageGroup || "",
       teamType: player.teamType || "",
+      gradYear: player.gradYear ? String(player.gradYear) : "",
       notes: player.notes || "",
     });
   };
@@ -1382,6 +1385,29 @@ function PlayersTab() {
                     <SelectContent>
                       {TEAM_TYPES.map((tt) => (
                         <SelectItem key={tt} value={tt}>{tt}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="gradYear"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Class (Grad Year)</FormLabel>
+                <FormControl>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger data-testid="select-player-grad-year">
+                      <SelectValue placeholder="Select year" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {CLASS_OPTIONS.map((yr) => (
+                        <SelectItem key={yr} value={yr}>{yr}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -1609,6 +1635,11 @@ function PlayersTab() {
                       {player.teamType && player.teamType !== "None" && (
                         <Badge variant="secondary" className="no-default-hover-elevate text-xs" data-testid={`badge-player-team-type-${player.id}`}>
                           {player.teamType}
+                        </Badge>
+                      )}
+                      {player.gradYear && (
+                        <Badge variant="secondary" className="no-default-hover-elevate text-xs" data-testid={`badge-player-grad-year-${player.id}`}>
+                          Class of {player.gradYear}
                         </Badge>
                       )}
                     </div>
@@ -2030,14 +2061,17 @@ function AssignDrillsTab() {
         const levels = group?.level?.split(",").map(s => s.trim()) ?? [];
         return levels.includes(assignLevelFilter);
       });
-      const classMatch = assignClassFilter === "all" || p.groups.some(g => {
+      const classMatch = assignClassFilter === "all" || (p.gradYear && String(p.gradYear) === assignClassFilter) || p.groups.some(g => {
         const group = groups?.find(gr => gr.id === g.groupId);
         const classes = group?.playerClass?.split(",").map(s => s.trim()) ?? [];
         return classes.includes(assignClassFilter);
+      }) || (p.teams || []).some(t => {
+        const team = teams?.find(tm => tm.id === t.teamId);
+        return team?.playerClass?.split(",").map(s => s.trim()).includes(assignClassFilter);
       });
       return posMatch && ageMatch && groupMatch && teamMatch && levelMatch && classMatch;
     });
-  }, [trainerPlayers, groups, assignGroupId, assignTeamId, assignPosFilter, assignAgeFilter, assignLevelFilter, assignClassFilter]);
+  }, [trainerPlayers, groups, teams, assignGroupId, assignTeamId, assignPosFilter, assignAgeFilter, assignLevelFilter, assignClassFilter]);
 
   const visibleCohortPlayers = useMemo(() => {
     if (!playerSearch) return cohortPlayers;
@@ -4374,7 +4408,7 @@ function AdminTab() {
   });
 
   const adminAddForm = useForm<TrainerPlayerForm>({
-    defaultValues: { firstName: "", lastName: "", email: "", phone: "", position: "", jerseyNumber: "", ageGroup: "", teamType: "None", notes: "" },
+    defaultValues: { firstName: "", lastName: "", email: "", phone: "", position: "", jerseyNumber: "", ageGroup: "", teamType: "None", gradYear: "", notes: "" },
   });
 
   const adminCreatePlayerMutation = useMutation({
@@ -4869,6 +4903,9 @@ function AdminTab() {
                           {player.teamType && player.teamType !== "None" && (
                             <Badge variant="outline" className="no-default-hover-elevate text-xs">{player.teamType}</Badge>
                           )}
+                          {player.gradYear && (
+                            <Badge variant="secondary" className="no-default-hover-elevate text-xs">Class of {player.gradYear}</Badge>
+                          )}
                           {player.jerseyNumber && (
                             <Badge variant="outline" className="no-default-hover-elevate text-xs">#{player.jerseyNumber}</Badge>
                           )}
@@ -4899,6 +4936,7 @@ function AdminTab() {
                               jerseyNumber: player.jerseyNumber || "",
                               ageGroup: player.ageGroup || "",
                               teamType: player.teamType || "None",
+                              gradYear: player.gradYear ? String(player.gradYear) : "",
                               notes: player.notes || "",
                             });
                           }}
