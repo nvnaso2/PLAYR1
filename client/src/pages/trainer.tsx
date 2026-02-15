@@ -1815,6 +1815,7 @@ function AssignDrillsTab() {
   const [assignPath, setAssignPath] = useState<"drill-first" | "cohort-first" | null>(null);
   const [selectedDrill, setSelectedDrill] = useState<DrillItem | null>(null);
   const [assignGroupId, setAssignGroupId] = useState("");
+  const [assignTeamId, setAssignTeamId] = useState("");
   const [assignPlayerIds, setAssignPlayerIds] = useState<Set<string>>(new Set());
   const [assignDueDate, setAssignDueDate] = useState("");
   const [assignNotes, setAssignNotes] = useState("");
@@ -1825,11 +1826,15 @@ function AssignDrillsTab() {
   const [assignAgeFilter, setAssignAgeFilter] = useState("all");
   const [assignLevelFilter, setAssignLevelFilter] = useState("all");
   const [assignClassFilter, setAssignClassFilter] = useState("all");
-  const [activeCohortAttr, setActiveCohortAttr] = useState<"player" | "group" | "position" | "age" | "level" | "class" | null>(null);
+  const [activeCohortAttr, setActiveCohortAttr] = useState<"player" | "team" | "group" | "position" | "age" | "level" | "class" | null>(null);
   const [deleteAssignmentId, setDeleteAssignmentId] = useState<string | null>(null);
 
   const { data: groups } = useQuery<TrainerGroup[]>({
     queryKey: ["/api/trainer/groups"],
+  });
+
+  const { data: coachTeams } = useQuery<CoachTeam[]>({
+    queryKey: ["/api/coach/teams"],
   });
 
   const { data: drills, isLoading: drillsLoading } = useQuery<DrillItem[]>({
@@ -1924,6 +1929,7 @@ function AssignDrillsTab() {
       const posMatch = assignPosFilter === "all" || p.position === assignPosFilter;
       const ageMatch = assignAgeFilter === "all" || p.ageGroup === assignAgeFilter;
       const groupMatch = !assignGroupId || p.groups.some(g => g.groupId === assignGroupId);
+      const teamMatch = !assignTeamId || p.teams.some(t => t.teamId === assignTeamId);
       const levelMatch = assignLevelFilter === "all" || p.groups.some(g => {
         const group = groups?.find(gr => gr.id === g.groupId);
         const levels = group?.level?.split(",").map(s => s.trim()) ?? [];
@@ -1934,9 +1940,9 @@ function AssignDrillsTab() {
         const classes = group?.playerClass?.split(",").map(s => s.trim()) ?? [];
         return classes.includes(assignClassFilter);
       });
-      return posMatch && ageMatch && groupMatch && levelMatch && classMatch;
+      return posMatch && ageMatch && groupMatch && teamMatch && levelMatch && classMatch;
     });
-  }, [trainerPlayers, groups, assignGroupId, assignPosFilter, assignAgeFilter, assignLevelFilter, assignClassFilter]);
+  }, [trainerPlayers, groups, assignGroupId, assignTeamId, assignPosFilter, assignAgeFilter, assignLevelFilter, assignClassFilter]);
 
   const visibleCohortPlayers = useMemo(() => {
     if (!playerSearch) return cohortPlayers;
@@ -1947,13 +1953,14 @@ function AssignDrillsTab() {
   }, [cohortPlayers, playerSearch]);
 
   const hasAnyAttrFilter = assignPosFilter !== "all" || assignAgeFilter !== "all" || assignLevelFilter !== "all" || assignClassFilter !== "all";
-  const hasAnyFilter = assignGroupId !== "" || hasAnyAttrFilter;
+  const hasAnyFilter = assignGroupId !== "" || assignTeamId !== "" || hasAnyAttrFilter;
 
   const openAssignDialog = () => {
     setAssignStep("choose");
     setAssignPath(null);
     setSelectedDrill(null);
     setAssignGroupId("");
+    setAssignTeamId("");
     setAssignPlayerIds(new Set());
     setAssignDueDate("");
     setAssignNotes("");
@@ -1979,7 +1986,7 @@ function AssignDrillsTab() {
           notes: assignNotes || undefined,
         });
       }
-    } else if (assignGroupId && !hasAnyAttrFilter) {
+    } else if (assignGroupId && !assignTeamId && !hasAnyAttrFilter) {
       await assignMutation.mutateAsync({
         drillId: selectedDrill.id,
         teamId: assignGroupId,
@@ -2022,8 +2029,9 @@ function AssignDrillsTab() {
     if (assignStep === "drill") return !!selectedDrill;
     if (assignStep === "cohort") {
       if (assignPlayerIds.size > 0) return true;
-      if (assignGroupId && !hasAnyAttrFilter) return true;
-      if ((assignGroupId || hasAnyAttrFilter) && cohortPlayers.length > 0) return true;
+      if (assignGroupId && !assignTeamId && !hasAnyAttrFilter) return true;
+      if (assignTeamId && !assignGroupId && !hasAnyAttrFilter) return true;
+      if ((assignGroupId || assignTeamId || hasAnyAttrFilter) && cohortPlayers.length > 0) return true;
       return false;
     }
     return false;
@@ -2045,14 +2053,22 @@ function AssignDrillsTab() {
       const names = trainerPlayers?.filter(p => assignPlayerIds.has(p.id)).map(p => `${p.firstName} ${p.lastName || ""}`.trim());
       return names?.join(", ") || "";
     }
-    if (assignGroupId && !hasAnyAttrFilter) {
+    if (assignGroupId && !assignTeamId && !hasAnyAttrFilter) {
       const group = groups?.find(g => g.id === assignGroupId);
       return group ? `Group: ${group.name}` : "";
+    }
+    if (assignTeamId && !assignGroupId && !hasAnyAttrFilter) {
+      const team = coachTeams?.find(t => t.id === assignTeamId);
+      return team ? `Team: ${team.name}` : "";
     }
     const parts: string[] = [];
     if (assignGroupId) {
       const group = groups?.find(g => g.id === assignGroupId);
       if (group) parts.push(group.name);
+    }
+    if (assignTeamId) {
+      const team = coachTeams?.find(t => t.id === assignTeamId);
+      if (team) parts.push(team.name);
     }
     if (assignPosFilter !== "all") parts.push(assignPosFilter);
     if (assignAgeFilter !== "all") parts.push(assignAgeFilter);
@@ -2217,7 +2233,7 @@ function AssignDrillsTab() {
                 )}
               </div>
               <DialogFooter className="gap-2">
-                <Button variant="ghost" size="sm" onClick={() => setAssignStep(assignPath === "drill-first" ? "choose" : "target")} data-testid="button-trainer-assign-back">
+                <Button variant="ghost" size="sm" onClick={() => setAssignStep(assignPath === "drill-first" ? "choose" : "cohort")} data-testid="button-trainer-assign-back">
                   <ArrowLeft className="w-3 h-3" /> Back
                 </Button>
                 <Button size="sm" disabled={!selectedDrill} onClick={() => { isOnSecondStep() ? setAssignStep("details") : getNextStep(); }} data-testid="button-trainer-assign-next-drill">
@@ -2232,6 +2248,9 @@ function AssignDrillsTab() {
               <div className="flex items-center gap-2 flex-wrap">
                 <Button size="sm" variant={activeCohortAttr === "player" ? "default" : (assignPlayerIds.size > 0 ? "secondary" : "outline")} onClick={() => toggleCohortAttr("player")} data-testid="button-trainer-cohort-player">
                   <User className="w-3 h-3" /> Player {assignPlayerIds.size > 0 && `(${assignPlayerIds.size})`}
+                </Button>
+                <Button size="sm" variant={activeCohortAttr === "team" ? "default" : (assignTeamId ? "secondary" : "outline")} onClick={() => toggleCohortAttr("team")} data-testid="button-trainer-cohort-team">
+                  <Shield className="w-3 h-3" /> Team {assignTeamId && coachTeams?.find(t => t.id === assignTeamId) ? `(${coachTeams.find(t => t.id === assignTeamId)!.name})` : ""}
                 </Button>
                 <Button size="sm" variant={activeCohortAttr === "group" ? "default" : (assignGroupId ? "secondary" : "outline")} onClick={() => toggleCohortAttr("group")} data-testid="button-trainer-cohort-group">
                   <Users className="w-3 h-3" /> Group {assignGroupId && groups?.find(g => g.id === assignGroupId) ? `(${groups.find(g => g.id === assignGroupId)!.name})` : ""}
@@ -2264,6 +2283,23 @@ function AssignDrillsTab() {
                     </div>
                   ))}
                   {!groups?.length && <p className="text-xs text-muted-foreground text-center py-2">No groups found.</p>}
+                </div>
+              )}
+
+              {activeCohortAttr === "team" && (
+                <div className="space-y-1 max-h-40 overflow-y-auto">
+                  {coachTeams?.map((team) => (
+                    <div
+                      key={team.id}
+                      className={`flex items-center justify-between gap-2 p-2 rounded-md border cursor-pointer ${assignTeamId === team.id ? "border-primary bg-primary/10" : "hover-elevate"}`}
+                      onClick={() => setAssignTeamId(prev => prev === team.id ? "" : team.id)}
+                      data-testid={`button-cohort-pick-team-${team.id}`}
+                    >
+                      <span className="text-sm font-medium truncate">{team.name}{team.seasonYear ? ` (${team.seasonYear})` : ""}{team.ageGroup ? ` - ${team.ageGroup}` : ""}</span>
+                      {assignTeamId === team.id && <Check className="w-4 h-4 text-primary shrink-0" />}
+                    </div>
+                  ))}
+                  {!coachTeams?.length && <p className="text-xs text-muted-foreground text-center py-2">No teams found.</p>}
                 </div>
               )}
 
