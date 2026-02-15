@@ -390,6 +390,9 @@ function RosterTab() {
   const [editJersey, setEditJersey] = useState("");
   const [newTeamPlayerIds, setNewTeamPlayerIds] = useState<string[]>([]);
   const [playerSearchQuery, setPlayerSearchQuery] = useState("");
+  const [addPlayersOpen, setAddPlayersOpen] = useState(false);
+  const [rosterAddPlayerIds, setRosterAddPlayerIds] = useState<string[]>([]);
+  const [rosterPlayerSearch, setRosterPlayerSearch] = useState("");
 
   const form = useForm<CreateTeamForm>({
     resolver: zodResolver(createTeamSchema),
@@ -497,6 +500,42 @@ function RosterTab() {
       toast({ title: "Failed to remove player", description: error.message, variant: "destructive" });
     },
   });
+
+  const addPlayersToTeamMutation = useMutation({
+    mutationFn: async ({ teamId, playerIds }: { teamId: string; playerIds: string[] }) => {
+      for (const playerId of playerIds) {
+        await apiRequest("POST", `/api/trainer-players/${playerId}/assign-team`, { teamId });
+      }
+    },
+    onSuccess: () => {
+      if (selectedTeam) {
+        queryClient.invalidateQueries({ queryKey: ["/api/coach/teams", selectedTeam.id, "members"] });
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer-players"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/teams"] });
+      setAddPlayersOpen(false);
+      setRosterAddPlayerIds([]);
+      setRosterPlayerSearch("");
+      toast({ title: "Players added to team!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to add players", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const availablePlayersForRoster = useMemo(() => {
+    if (!allPlayers || !selectedTeam) return [];
+    const memberUserIds = new Set(members?.map(m => m.userId) || []);
+    const alreadyAssigned = new Set(
+      allPlayers.filter(p => (p.teams || []).some(t => t.teamId === selectedTeam.id)).map(p => p.id)
+    );
+    let available = allPlayers.filter(p => !alreadyAssigned.has(p.id));
+    if (rosterPlayerSearch) {
+      const q = rosterPlayerSearch.toLowerCase();
+      available = available.filter(p => `${p.firstName} ${p.lastName || ""}`.toLowerCase().includes(q));
+    }
+    return available;
+  }, [allPlayers, members, selectedTeam, rosterPlayerSearch]);
 
   const copyTeamCode = (code: string) => {
     navigator.clipboard.writeText(code);
@@ -620,11 +659,15 @@ function RosterTab() {
 
       {selectedTeam && (
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between gap-2">
             <CardTitle className="text-base" data-testid="text-roster-members-heading">
               Roster - {selectedTeam.name}
               {selectedTeam.seasonYear && ` (${selectedTeam.seasonYear}-${(selectedTeam.seasonYear + 1).toString().slice(-2)})`}
             </CardTitle>
+            <Button size="sm" onClick={() => { setRosterAddPlayerIds([]); setRosterPlayerSearch(""); setAddPlayersOpen(true); }} data-testid="button-roster-add-players">
+              <UserPlus className="w-4 h-4" />
+              Add Players
+            </Button>
           </CardHeader>
           <CardContent>
             {membersLoading ? (
@@ -710,6 +753,67 @@ function RosterTab() {
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={addPlayersOpen} onOpenChange={setAddPlayersOpen}>
+        <DialogContent data-testid="dialog-roster-add-players">
+          <DialogHeader>
+            <DialogTitle>Add Players to {selectedTeam?.name}</DialogTitle>
+            <DialogDescription>Select players to add to this team roster.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {allPlayers && allPlayers.length > 5 && (
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+                <Input
+                  value={rosterPlayerSearch}
+                  onChange={(e) => setRosterPlayerSearch(e.target.value)}
+                  placeholder="Search players..."
+                  className="pl-8"
+                  data-testid="input-roster-player-search"
+                />
+              </div>
+            )}
+            <div className="space-y-1 max-h-60 overflow-y-auto">
+              {availablePlayersForRoster.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  {allPlayers?.length ? "All players are already on this team." : "No players created yet. Add players in the Players tab first."}
+                </p>
+              ) : (
+                availablePlayersForRoster.map((player) => (
+                  <div
+                    key={player.id}
+                    className={`flex items-center justify-between gap-2 p-2 rounded-md border cursor-pointer ${rosterAddPlayerIds.includes(player.id) ? "border-primary bg-primary/10" : "hover-elevate"}`}
+                    onClick={() => setRosterAddPlayerIds(prev => prev.includes(player.id) ? prev.filter(id => id !== player.id) : [...prev, player.id])}
+                    data-testid={`button-roster-pick-player-${player.id}`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-sm font-medium truncate">{player.firstName} {player.lastName || ""}</span>
+                      {player.position && (
+                        <Badge variant="outline" className="no-default-hover-elevate text-xs">{player.position}</Badge>
+                      )}
+                      {player.jerseyNumber && (
+                        <span className="text-xs text-muted-foreground">#{player.jerseyNumber}</span>
+                      )}
+                    </div>
+                    {rosterAddPlayerIds.includes(player.id) && (
+                      <CheckCircle className="w-4 h-4 text-primary shrink-0" />
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={() => selectedTeam && addPlayersToTeamMutation.mutate({ teamId: selectedTeam.id, playerIds: rosterAddPlayerIds })}
+              disabled={rosterAddPlayerIds.length === 0 || addPlayersToTeamMutation.isPending}
+              data-testid="button-roster-confirm-add-players"
+            >
+              {addPlayersToTeamMutation.isPending ? "Adding..." : `Add ${rosterAddPlayerIds.length} Player${rosterAddPlayerIds.length !== 1 ? "s" : ""}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent data-testid="dialog-create-team">
