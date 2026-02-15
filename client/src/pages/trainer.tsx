@@ -3181,7 +3181,7 @@ function JoinGroupTab() {
 
 function AdminTab() {
   const { toast } = useToast();
-  const [adminSection, setAdminSection] = useState<"groups" | "drills">("groups");
+  const [adminSection, setAdminSection] = useState<"groups" | "players" | "drills">("groups");
 
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
   const [editGroupId, setEditGroupId] = useState<string | null>(null);
@@ -3190,6 +3190,13 @@ function AdminTab() {
   const [groupName, setGroupName] = useState("");
   const [groupDescription, setGroupDescription] = useState("");
   const [groupAgeGroup, setGroupAgeGroup] = useState("");
+  const [groupPosition, setGroupPosition] = useState("");
+  const [groupLevel, setGroupLevel] = useState("");
+  const [groupPlayerClass, setGroupPlayerClass] = useState("");
+
+  const [adminAddPlayerOpen, setAdminAddPlayerOpen] = useState(false);
+  const [adminEditPlayer, setAdminEditPlayer] = useState<TrainerPlayerData | null>(null);
+  const [adminDeletePlayerId, setAdminDeletePlayerId] = useState<string | null>(null);
 
   const [createDrillOpen, setCreateDrillOpen] = useState(false);
   const [editDrillId, setEditDrillId] = useState<string | null>(null);
@@ -3219,8 +3226,71 @@ function AdminTab() {
     enabled: !!viewMembersGroupId,
   });
 
+  const { data: adminPlayers, isLoading: adminPlayersLoading } = useQuery<TrainerPlayerData[]>({
+    queryKey: ["/api/trainer-players"],
+  });
+
+  const adminAddForm = useForm<TrainerPlayerForm>({
+    defaultValues: { firstName: "", lastName: "", email: "", phone: "", position: "", jerseyNumber: "", ageGroup: "", teamType: "None", notes: "" },
+  });
+
+  const adminCreatePlayerMutation = useMutation({
+    mutationFn: async (data: TrainerPlayerForm) => {
+      const res = await apiRequest("POST", "/api/trainer-players", data);
+      return res.json();
+    },
+    onSuccess: (result: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer-players"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer/groups"] });
+      setAdminAddPlayerOpen(false);
+      adminAddForm.reset();
+      const groups = result?.autoAssignedGroups;
+      if (groups?.length) {
+        toast({ title: "Player added!", description: `Auto-assigned to: ${groups.join(", ")}` });
+      } else {
+        toast({ title: "Player added!" });
+      }
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to add player", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const adminUpdatePlayerMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: TrainerPlayerForm }) => {
+      const res = await apiRequest("PUT", `/api/trainer-players/${id}`, data);
+      return res.json();
+    },
+    onSuccess: (result: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer-players"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer/groups"] });
+      setAdminEditPlayer(null);
+      const groups = result?.autoAssignedGroups;
+      if (groups?.length) {
+        toast({ title: "Player updated!", description: `Auto-assigned to: ${groups.join(", ")}` });
+      } else {
+        toast({ title: "Player updated!" });
+      }
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to update player", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const adminDeletePlayerMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/trainer-players/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer-players"] });
+      setAdminDeletePlayerId(null);
+      toast({ title: "Player deleted" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to delete player", description: error.message, variant: "destructive" });
+    },
+  });
+
   const createGroupMutation = useMutation({
-    mutationFn: (data: { name: string; description: string; ageGroup?: string }) =>
+    mutationFn: (data: { name: string; description: string; ageGroup?: string; position?: string; level?: string; playerClass?: string }) =>
       apiRequest("POST", "/api/trainer/groups", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/trainer/groups"] });
@@ -3234,7 +3304,7 @@ function AdminTab() {
   });
 
   const updateGroupMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: { name: string; description: string; ageGroup?: string } }) =>
+    mutationFn: ({ id, data }: { id: string; data: { name: string; description: string; ageGroup?: string; position?: string; level?: string; playerClass?: string } }) =>
       apiRequest("PUT", `/api/trainer/groups/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/trainer/groups"] });
@@ -3316,6 +3386,9 @@ function AdminTab() {
     setGroupName("");
     setGroupDescription("");
     setGroupAgeGroup("");
+    setGroupPosition("");
+    setGroupLevel("");
+    setGroupPlayerClass("");
   };
 
   const resetDrillForm = () => {
@@ -3332,6 +3405,9 @@ function AdminTab() {
     setGroupName(group.name);
     setGroupDescription(group.description || "");
     setGroupAgeGroup(group.ageGroup || "");
+    setGroupPosition(group.position || "");
+    setGroupLevel(group.level || "");
+    setGroupPlayerClass(group.playerClass || "");
   };
 
   const openEditDrill = (drill: TrainerDrill) => {
@@ -3346,7 +3422,14 @@ function AdminTab() {
 
   const handleGroupSubmit = () => {
     if (!groupName.trim()) return;
-    const data = { name: groupName.trim(), description: groupDescription.trim(), ageGroup: groupAgeGroup || undefined };
+    const data = {
+      name: groupName.trim(),
+      description: groupDescription.trim(),
+      ageGroup: groupAgeGroup && groupAgeGroup !== "none" ? groupAgeGroup : undefined,
+      position: groupPosition && groupPosition !== "none" ? groupPosition : undefined,
+      level: groupLevel && groupLevel !== "none" ? groupLevel : undefined,
+      playerClass: groupPlayerClass && groupPlayerClass !== "none" ? groupPlayerClass : undefined,
+    };
     if (editGroupId) {
       updateGroupMutation.mutate({ id: editGroupId, data });
     } else {
@@ -3379,11 +3462,15 @@ function AdminTab() {
         <h2 className="text-lg font-semibold" data-testid="text-admin-heading">Admin</h2>
       </div>
 
-      <Tabs value={adminSection} onValueChange={(v) => setAdminSection(v as "groups" | "drills")} data-testid="tabs-admin-section">
-        <TabsList className="grid w-full grid-cols-2" data-testid="tabs-admin-list">
+      <Tabs value={adminSection} onValueChange={(v) => setAdminSection(v as "groups" | "players" | "drills")} data-testid="tabs-admin-section">
+        <TabsList className="grid w-full grid-cols-3" data-testid="tabs-admin-list">
           <TabsTrigger value="groups" data-testid="tab-admin-groups">
             <Users className="w-4 h-4 mr-1" />
             Groups
+          </TabsTrigger>
+          <TabsTrigger value="players" data-testid="tab-admin-players">
+            <UserPlus className="w-4 h-4 mr-1" />
+            Players
           </TabsTrigger>
           <TabsTrigger value="drills" data-testid="tab-admin-drills">
             <Dumbbell className="w-4 h-4 mr-1" />
@@ -3421,7 +3508,16 @@ function AdminTab() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-medium truncate" data-testid={`text-admin-group-name-${group.id}`}>{group.name}</h3>
                           {group.ageGroup && (
-                            <Badge variant="secondary" className="no-default-hover-elevate text-xs">{group.ageGroup}</Badge>
+                            <Badge variant="secondary" className="no-default-hover-elevate text-xs">Age {group.ageGroup}</Badge>
+                          )}
+                          {group.position && (
+                            <Badge variant="secondary" className="no-default-hover-elevate text-xs">{group.position}</Badge>
+                          )}
+                          {group.level && (
+                            <Badge variant="secondary" className="no-default-hover-elevate text-xs">{group.level}</Badge>
+                          )}
+                          {group.playerClass && (
+                            <Badge variant="secondary" className="no-default-hover-elevate text-xs">{group.playerClass}</Badge>
                           )}
                           <Badge variant="outline" className="no-default-hover-elevate text-xs">
                             {group.memberCount || 0} members
@@ -3459,6 +3555,100 @@ function AdminTab() {
                           variant="ghost"
                           onClick={() => setDeleteGroupId(group.id)}
                           data-testid={`button-admin-delete-group-${group.id}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="players" className="space-y-4 mt-4">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <p className="text-sm text-muted-foreground">Manage all your players from one place.</p>
+            <Button onClick={() => { adminAddForm.reset(); setAdminAddPlayerOpen(true); }} data-testid="button-admin-create-player">
+              <Plus className="w-4 h-4" />
+              New Player
+            </Button>
+          </div>
+
+          {adminPlayersLoading ? (
+            <div className="space-y-2">
+              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 rounded-lg" />)}
+            </div>
+          ) : !adminPlayers?.length ? (
+            <Card>
+              <CardContent className="py-12 text-center text-muted-foreground" data-testid="text-no-admin-players">
+                <UserPlus className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                <p>No players yet. Add your first player to get started.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {adminPlayers.map((player) => (
+                <Card key={player.id} data-testid={`card-admin-player-${player.id}`}>
+                  <CardContent className="py-3">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-medium truncate" data-testid={`text-admin-player-name-${player.id}`}>
+                            {player.firstName} {player.lastName || ""}
+                          </h3>
+                          {player.position && (
+                            <Badge variant="secondary" className="no-default-hover-elevate text-xs">{player.position}</Badge>
+                          )}
+                          {player.ageGroup && (
+                            <Badge variant="secondary" className="no-default-hover-elevate text-xs">Age {player.ageGroup}</Badge>
+                          )}
+                          {player.teamType && player.teamType !== "None" && (
+                            <Badge variant="outline" className="no-default-hover-elevate text-xs">{player.teamType}</Badge>
+                          )}
+                          {player.jerseyNumber && (
+                            <Badge variant="outline" className="no-default-hover-elevate text-xs">#{player.jerseyNumber}</Badge>
+                          )}
+                        </div>
+                        {player.email && (
+                          <p className="text-xs text-muted-foreground mt-1">{player.email}</p>
+                        )}
+                        {player.groups?.length > 0 && (
+                          <div className="flex items-center gap-1 mt-1 flex-wrap">
+                            {player.groups.map((g) => (
+                              <Badge key={g.id} variant="outline" className="no-default-hover-elevate text-[10px]">{g.groupName}</Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => {
+                            setAdminEditPlayer(player);
+                            adminAddForm.reset({
+                              firstName: player.firstName,
+                              lastName: player.lastName || "",
+                              email: player.email || "",
+                              phone: player.phone || "",
+                              position: player.position || "",
+                              jerseyNumber: player.jerseyNumber || "",
+                              ageGroup: player.ageGroup || "",
+                              teamType: player.teamType || "None",
+                              notes: player.notes || "",
+                            });
+                          }}
+                          data-testid={`button-admin-edit-player-${player.id}`}
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => setAdminDeletePlayerId(player.id)}
+                          data-testid={`button-admin-delete-player-${player.id}`}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
@@ -3563,19 +3753,68 @@ function AdminTab() {
                 data-testid="input-admin-group-description"
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Age Group</label>
-              <Select value={groupAgeGroup} onValueChange={setGroupAgeGroup}>
-                <SelectTrigger data-testid="select-admin-group-age">
-                  <SelectValue placeholder="Select age group (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {PLAYER_AGES.map((age) => (
-                    <SelectItem key={age} value={age}>{age}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Age</label>
+                <Select value={groupAgeGroup} onValueChange={setGroupAgeGroup}>
+                  <SelectTrigger data-testid="select-admin-group-age">
+                    <SelectValue placeholder="Select age (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {PLAYER_AGES.map((age) => (
+                      <SelectItem key={age} value={age}>{age}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Position</label>
+                <Select value={groupPosition} onValueChange={setGroupPosition}>
+                  <SelectTrigger data-testid="select-admin-group-position">
+                    <SelectValue placeholder="Select position (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {PLAYER_POSITIONS.map((pos) => (
+                      <SelectItem key={pos} value={pos}>{pos}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Level</label>
+                <Select value={groupLevel} onValueChange={setGroupLevel}>
+                  <SelectTrigger data-testid="select-admin-group-level">
+                    <SelectValue placeholder="Select level (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="Beginner">Beginner</SelectItem>
+                    <SelectItem value="Intermediate">Intermediate</SelectItem>
+                    <SelectItem value="Advanced">Advanced</SelectItem>
+                    <SelectItem value="Elite">Elite</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Class</label>
+                <Select value={groupPlayerClass} onValueChange={setGroupPlayerClass}>
+                  <SelectTrigger data-testid="select-admin-group-class">
+                    <SelectValue placeholder="Select class (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="Freshman">Freshman</SelectItem>
+                    <SelectItem value="Sophomore">Sophomore</SelectItem>
+                    <SelectItem value="Junior">Junior</SelectItem>
+                    <SelectItem value="Senior">Senior</SelectItem>
+                    <SelectItem value="Post-Grad">Post-Grad</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -3752,6 +3991,140 @@ function AdminTab() {
             <AlertDialogAction
               onClick={() => deleteDrillId && deleteDrillMutation.mutate(deleteDrillId)}
               data-testid="button-confirm-delete-admin-drill"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={adminAddPlayerOpen || !!adminEditPlayer} onOpenChange={(open) => { if (!open) { setAdminAddPlayerOpen(false); setAdminEditPlayer(null); adminAddForm.reset(); } }}>
+        <DialogContent data-testid="dialog-admin-player">
+          <DialogHeader>
+            <DialogTitle>{adminEditPlayer ? "Edit Player" : "Add Player"}</DialogTitle>
+            <DialogDescription>{adminEditPlayer ? "Update player details." : "Add a new player to your roster."}</DialogDescription>
+          </DialogHeader>
+          <Form {...adminAddForm}>
+            <form onSubmit={adminAddForm.handleSubmit((data) => {
+              if (adminEditPlayer) {
+                adminUpdatePlayerMutation.mutate({ id: adminEditPlayer.id, data });
+              } else {
+                adminCreatePlayerMutation.mutate(data);
+              }
+            })} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <FormField control={adminAddForm.control} name="firstName" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>First Name</FormLabel>
+                    <FormControl><Input placeholder="First name" {...field} data-testid="input-admin-player-first-name" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={adminAddForm.control} name="lastName" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Last Name</FormLabel>
+                    <FormControl><Input placeholder="Last name" {...field} data-testid="input-admin-player-last-name" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField control={adminAddForm.control} name="email" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl><Input placeholder="email@example.com" type="email" {...field} data-testid="input-admin-player-email" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={adminAddForm.control} name="phone" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Phone</FormLabel>
+                    <FormControl><Input placeholder="Phone number" {...field} data-testid="input-admin-player-phone" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <FormField control={adminAddForm.control} name="position" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Position</FormLabel>
+                    <FormControl>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <SelectTrigger data-testid="select-admin-player-position"><SelectValue placeholder="Select" /></SelectTrigger>
+                        <SelectContent>
+                          {PLAYER_POSITIONS.map((pos) => (<SelectItem key={pos} value={pos}>{pos}</SelectItem>))}
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={adminAddForm.control} name="jerseyNumber" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Jersey #</FormLabel>
+                    <FormControl><Input placeholder="#" maxLength={3} {...field} data-testid="input-admin-player-jersey" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={adminAddForm.control} name="ageGroup" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Age</FormLabel>
+                    <FormControl>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <SelectTrigger data-testid="select-admin-player-age"><SelectValue placeholder="Select" /></SelectTrigger>
+                        <SelectContent>
+                          {PLAYER_AGES.map((age) => (<SelectItem key={age} value={age}>{age}</SelectItem>))}
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={adminAddForm.control} name="teamType" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Team Type</FormLabel>
+                    <FormControl>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <SelectTrigger data-testid="select-admin-player-team-type"><SelectValue placeholder="Select" /></SelectTrigger>
+                        <SelectContent>
+                          {TEAM_TYPES.map((tt) => (<SelectItem key={tt} value={tt}>{tt}</SelectItem>))}
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              </div>
+              <FormField control={adminAddForm.control} name="notes" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Notes</FormLabel>
+                  <FormControl><Textarea placeholder="Optional notes..." {...field} data-testid="input-admin-player-notes" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <DialogFooter>
+                <Button type="submit" disabled={adminCreatePlayerMutation.isPending || adminUpdatePlayerMutation.isPending} data-testid="button-submit-admin-player">
+                  {(adminCreatePlayerMutation.isPending || adminUpdatePlayerMutation.isPending) ? "Saving..." : (adminEditPlayer ? "Update" : "Add Player")}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!adminDeletePlayerId} onOpenChange={(open) => { if (!open) setAdminDeletePlayerId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Player</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this player? This will remove all their group assignments. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-admin-player">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => adminDeletePlayerId && adminDeletePlayerMutation.mutate(adminDeletePlayerId)}
+              data-testid="button-confirm-delete-admin-player"
             >
               Delete
             </AlertDialogAction>
