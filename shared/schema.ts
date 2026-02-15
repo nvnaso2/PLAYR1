@@ -586,6 +586,9 @@ export const trainerTeams = pgTable("trainer_teams", {
   teamType: varchar("team_type").default("coach"),
   seasonYear: integer("season_year"),
   ageGroup: varchar("age_group"),
+  position: varchar("position"),
+  level: varchar("level"),
+  playerClass: varchar("player_class"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow()
 });

@@ -96,6 +96,9 @@ interface TrainerGroup {
   description: string;
   teamCode: string;
   ageGroup?: string;
+  position?: string;
+  level?: string;
+  playerClass?: string;
   memberCount?: number;
   createdAt: string;
 }
