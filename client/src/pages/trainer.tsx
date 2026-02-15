@@ -2066,12 +2066,12 @@ function AssignDrillsTab() {
         const classes = group?.playerClass?.split(",").map(s => s.trim()) ?? [];
         return classes.includes(assignClassFilter);
       }) || (p.teams || []).some(t => {
-        const team = teams?.find(tm => tm.id === t.teamId);
+        const team = coachTeams?.find(tm => tm.id === t.teamId);
         return team?.playerClass?.split(",").map(s => s.trim()).includes(assignClassFilter);
       });
       return posMatch && ageMatch && groupMatch && teamMatch && levelMatch && classMatch;
     });
-  }, [trainerPlayers, groups, teams, assignGroupId, assignTeamId, assignPosFilter, assignAgeFilter, assignLevelFilter, assignClassFilter]);
+  }, [trainerPlayers, groups, coachTeams, assignGroupId, assignTeamId, assignPosFilter, assignAgeFilter, assignLevelFilter, assignClassFilter]);
 
   const visibleCohortPlayers = useMemo(() => {
     if (!playerSearch) return cohortPlayers;
