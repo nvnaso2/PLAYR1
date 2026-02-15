@@ -400,7 +400,7 @@ function RosterTab() {
     }
   };
 
-  const positionOptions = ["PG", "SG", "SF", "PF", "C", "G", "F", "G/F"];
+  const positionOptions = ["PG", "SG", "SF", "PF", "C", "Guard", "Wing", "Forward", "Bigs", "G", "F", "G/F"];
 
   return (
     <div className="space-y-4">
@@ -695,11 +695,7 @@ function RosterTab() {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none">None</SelectItem>
-                            <SelectItem value="PG">PG</SelectItem>
-                            <SelectItem value="SG">SG</SelectItem>
-                            <SelectItem value="SF">SF</SelectItem>
-                            <SelectItem value="PF">PF</SelectItem>
-                            <SelectItem value="C">C</SelectItem>
+                            {PLAYER_POSITIONS.map((pos) => (<SelectItem key={pos} value={pos}>{pos}</SelectItem>))}
                           </SelectContent>
                         </Select>
                       </FormControl>
@@ -3307,7 +3303,7 @@ const coachPlayerSchema = z.object({
 
 type CoachPlayerForm = z.infer<typeof coachPlayerSchema>;
 
-const PLAYER_POSITIONS = ["PG", "SG", "SF", "PF", "C"];
+const PLAYER_POSITIONS = ["PG", "SG", "SF", "PF", "C", "Guard", "Wing", "Forward", "Bigs"];
 const PLAYER_AGES = Array.from({ length: 53 }, (_, i) => String(i + 5));
 const TEAM_TYPES = ["None", "Rec", "Club/AAU", "High School", "College", "Pro"];
 

@@ -305,7 +305,7 @@ type JoinTeamForm = z.infer<typeof joinTeamSchema>;
 type CreateGroupForm = z.infer<typeof createGroupSchema>;
 type AssignDrillForm = z.infer<typeof assignDrillSchema>;
 
-const PLAYER_POSITIONS = ["PG", "SG", "SF", "PF", "C"];
+const PLAYER_POSITIONS = ["PG", "SG", "SF", "PF", "C", "Guard", "Wing", "Forward", "Bigs"];
 const PLAYER_AGES = Array.from({ length: 53 }, (_, i) => String(i + 5));
 const TEAM_TYPES = ["None", "Rec", "Club/AAU", "High School", "College", "Pro"];
 
