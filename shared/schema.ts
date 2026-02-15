@@ -107,6 +107,9 @@ export const careerProfiles = pgTable("career_profiles", {
   
   trophyRoomOrder: text("trophy_room_order").array(),
   
+  // Staff role for Coach/Trainer mode
+  staffRole: varchar("staff_role"), // "coach", "trainer", or "both"
+  
   // Onboarding status
   onboardingCompleted: boolean("onboarding_completed").default(false),
   
