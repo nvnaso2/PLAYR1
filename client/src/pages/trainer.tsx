@@ -1180,7 +1180,13 @@ function PlayersTab() {
     if (!players) return [];
     return players.filter((p) => {
       const nameMatch = !searchQuery || `${p.firstName} ${p.lastName || ""}`.toLowerCase().includes(searchQuery.toLowerCase());
-      const posMatch = positionFilter === "all" || p.position === positionFilter;
+      const posGroupMap: Record<string, string[]> = {
+        "Guard": ["PG", "SG", "Guard"],
+        "Wing": ["SG", "SF", "Wing"],
+        "Forward": ["SF", "PF", "Forward"],
+        "Bigs": ["PF", "C", "Bigs"],
+      };
+      const posMatch = positionFilter === "all" || p.position === positionFilter || (posGroupMap[positionFilter]?.includes(p.position || "")) || (p.position && posGroupMap[p.position]?.includes(positionFilter));
       const teamMatch = teamFilter === "all" || (p.teams || []).some(t => t.teamId === teamFilter);
       const groupMatch = groupFilter === "all" || p.groups.some(g => g.groupId === groupFilter);
       const ageMatch = ageFilter === "all" || p.ageGroup === ageFilter;
@@ -2052,7 +2058,13 @@ function AssignDrillsTab() {
   const cohortPlayers = useMemo(() => {
     if (!trainerPlayers) return [];
     return trainerPlayers.filter(p => {
-      const posMatch = assignPosFilter === "all" || p.position === assignPosFilter;
+      const posGroupMap: Record<string, string[]> = {
+        "Guard": ["PG", "SG", "Guard"],
+        "Wing": ["SG", "SF", "Wing"],
+        "Forward": ["SF", "PF", "Forward"],
+        "Bigs": ["PF", "C", "Bigs"],
+      };
+      const posMatch = assignPosFilter === "all" || p.position === assignPosFilter || (posGroupMap[assignPosFilter]?.includes(p.position || "")) || (p.position && posGroupMap[p.position]?.includes(assignPosFilter));
       const ageMatch = assignAgeFilter === "all" || p.ageGroup === assignAgeFilter;
       const groupMatch = !assignGroupId || p.groups.some(g => g.groupId === assignGroupId);
       const teamMatch = !assignTeamId || p.teams.some(t => t.teamId === assignTeamId);
