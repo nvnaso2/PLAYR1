@@ -276,6 +276,7 @@ export interface IStorage {
   getTrainerPlayers(trainerId: string): Promise<TrainerPlayer[]>;
   getTrainerPlayerById(id: string): Promise<TrainerPlayer | undefined>;
   createTrainerPlayer(player: InsertTrainerPlayer): Promise<TrainerPlayer>;
+  findOrCreateTrainerPlayerForUser(trainerId: string, appUserId: string): Promise<TrainerPlayer>;
   updateTrainerPlayer(id: string, data: Partial<InsertTrainerPlayer>): Promise<TrainerPlayer | undefined>;
   deleteTrainerPlayer(id: string): Promise<boolean>;
   getTrainerPlayerAssignments(trainerPlayerId: string): Promise<(TrainerPlayerAssignment & { groupName: string; ageGroup?: string | null })[]>;
@@ -2290,6 +2291,51 @@ export class DatabaseStorage implements IStorage {
 
   async createTrainerPlayer(player: InsertTrainerPlayer): Promise<TrainerPlayer> {
     const [created] = await db.insert(trainerPlayers).values(player).returning();
+    return created;
+  }
+
+  async findOrCreateTrainerPlayerForUser(trainerId: string, appUserId: string): Promise<TrainerPlayer> {
+    const byLinked = await db.select().from(trainerPlayers)
+      .where(and(eq(trainerPlayers.trainerId, trainerId), eq(trainerPlayers.linkedUserId, appUserId)));
+    if (byLinked.length > 0) return byLinked[0];
+
+    const [user] = await db.select().from(users).where(eq(users.id, appUserId));
+    let firstName = user?.firstName || "";
+    let lastName = user?.lastName || "";
+    let email = user?.email || null;
+
+    if (email) {
+      const allForTrainer = await db.select().from(trainerPlayers)
+        .where(eq(trainerPlayers.trainerId, trainerId));
+      const emailMatch = allForTrainer.find(tp => tp.email && tp.email.toLowerCase() === email!.toLowerCase());
+      if (emailMatch) {
+        const [updated] = await db.update(trainerPlayers)
+          .set({ linkedUserId: appUserId, updatedAt: new Date() })
+          .where(eq(trainerPlayers.id, emailMatch.id))
+          .returning();
+        return updated;
+      }
+    }
+
+    if (!firstName) {
+      const [profile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, appUserId));
+      if (profile?.displayName) {
+        const parts = profile.displayName.split(" ");
+        firstName = parts[0] || "Player";
+        lastName = parts.slice(1).join(" ");
+      }
+    }
+    if (!firstName) {
+      firstName = email ? email.split("@")[0] : "Player";
+    }
+
+    const [created] = await db.insert(trainerPlayers).values({
+      trainerId,
+      firstName,
+      lastName,
+      email,
+      linkedUserId: appUserId,
+    }).returning();
     return created;
   }
 

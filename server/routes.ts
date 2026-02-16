@@ -2007,6 +2007,24 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Not authorized" });
       }
       const members = await storage.getTeamMembers(req.params.id);
+
+      // Auto-sync: create trainer_player entries for team members who don't have one
+      let teamPlayerIds = new Set((await storage.getTrainerPlayersByTeam(req.params.id)).map(tp => tp.id));
+      for (const member of members) {
+        if (member.userId !== userId) {
+          const trainerPlayer = await storage.findOrCreateTrainerPlayerForUser(userId, member.userId);
+          if (!teamPlayerIds.has(trainerPlayer.id)) {
+            await storage.assignPlayerToTeam({
+              playerId: trainerPlayer.id,
+              teamId: req.params.id,
+              position: member.position || null,
+              jerseyNumber: member.jerseyNumber || null,
+            });
+            teamPlayerIds.add(trainerPlayer.id);
+          }
+        }
+      }
+
       const coachPlayers = await storage.getCoachPlayersByTeam(req.params.id);
       const linkedUserIds = new Set(members.map(m => m.userId));
       const coachPlayerMembers = coachPlayers
@@ -2085,6 +2103,20 @@ export async function registerRoutes(
         return res.status(400).json({ message: "You're already a member of this team." });
       }
       const member = await storage.addTeamMember({ teamId: team.id, userId, role: "player" });
+
+      // Auto-create trainer_player entry so user appears in Players tab
+      const trainerPlayer = await storage.findOrCreateTrainerPlayerForUser(team.coachId, userId);
+      const teamPlayers = await storage.getTrainerPlayersByTeam(team.id);
+      const alreadyAssigned = teamPlayers.find(tp => tp.id === trainerPlayer.id);
+      if (!alreadyAssigned) {
+        await storage.assignPlayerToTeam({
+          playerId: trainerPlayer.id,
+          teamId: team.id,
+          position: null,
+          jerseyNumber: null,
+        });
+      }
+
       res.status(201).json({ member, team });
     } catch (error) {
       console.error("Error joining team:", error);
@@ -3292,6 +3324,42 @@ export async function registerRoutes(
   app.get("/api/trainer-players", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+
+      // Auto-sync: ensure all coachPlayers also exist as trainerPlayers
+      const coachPlayersList = await storage.getCoachPlayers(userId);
+      const existingTrainerPlayers = await storage.getTrainerPlayers(userId);
+      const existingEmails = new Set(existingTrainerPlayers.filter(tp => tp.email).map(tp => tp.email!.toLowerCase()));
+      const existingLinkedUserIds = new Set(existingTrainerPlayers.filter(tp => tp.linkedUserId).map(tp => tp.linkedUserId));
+      for (const cp of coachPlayersList) {
+        const emailMatch = cp.email && existingEmails.has(cp.email.toLowerCase());
+        const linkedMatch = cp.linkedUserId && existingLinkedUserIds.has(cp.linkedUserId);
+        if (!emailMatch && !linkedMatch) {
+          const newTp = await storage.createTrainerPlayer({
+            trainerId: userId,
+            firstName: cp.firstName,
+            lastName: cp.lastName || null,
+            email: cp.email || null,
+            phone: cp.phone || null,
+            position: cp.position || null,
+            jerseyNumber: cp.jerseyNumber || null,
+            ageGroup: cp.ageGroup || null,
+            teamType: cp.teamType || null,
+            notes: cp.notes || null,
+            linkedUserId: cp.linkedUserId || null,
+          });
+          // Sync team assignments from coach player
+          const cpAssignments = await storage.getCoachPlayerAssignments(cp.id);
+          for (const cpa of cpAssignments) {
+            await storage.assignPlayerToTeam({
+              playerId: newTp.id,
+              teamId: cpa.teamId,
+              position: cpa.position || null,
+              jerseyNumber: cpa.jerseyNumber || null,
+            });
+          }
+        }
+      }
+
       const players = await storage.getTrainerPlayers(userId);
       const playersWithAssignments = [];
       for (const player of players) {
