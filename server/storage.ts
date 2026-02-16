@@ -2457,15 +2457,20 @@ export class DatabaseStorage implements IStorage {
 
   async getPlayerMessages(playerId: string, trainerId: string): Promise<Message[]> {
     const player = await this.getTrainerPlayerById(playerId);
-    if (!player || !player.linkedUserId) return [];
-    const linkedUserId = player.linkedUserId;
+    if (!player) return [];
+    const tpId = `tp_${playerId}`;
+    const conditions = [
+      and(eq(messages.senderId, trainerId), eq(messages.receiverId, tpId)),
+      and(eq(messages.senderId, tpId), eq(messages.receiverId, trainerId)),
+    ];
+    if (player.linkedUserId) {
+      conditions.push(
+        and(eq(messages.senderId, trainerId), eq(messages.receiverId, player.linkedUserId))!,
+        and(eq(messages.senderId, player.linkedUserId), eq(messages.receiverId, trainerId))!,
+      );
+    }
     const msgs = await db.select().from(messages)
-      .where(
-        or(
-          and(eq(messages.senderId, trainerId), eq(messages.receiverId, linkedUserId)),
-          and(eq(messages.senderId, linkedUserId), eq(messages.receiverId, trainerId))
-        )
-      )
+      .where(or(...conditions))
       .orderBy(desc(messages.createdAt));
     return msgs;
   }
