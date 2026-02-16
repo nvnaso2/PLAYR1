@@ -47,6 +47,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -83,6 +90,10 @@ import {
   MoreVertical,
   Eye,
   Shield,
+  ChevronRight,
+  Clock,
+  Play,
+  X,
 } from "lucide-react";
 import { insertTrainerTeamSchema, insertDrillAssignmentSchema, DRILL_CATEGORIES, DIFFICULTY_LEVELS } from "@shared/schema";
 import {
@@ -379,6 +390,253 @@ const trainerPlayerSchema = z.object({
 
 type TrainerPlayerForm = z.infer<typeof trainerPlayerSchema>;
 
+interface PlayerDetailAssignment {
+  id: string;
+  drillId: string;
+  drillTitle: string;
+  drillCategory: string;
+  teamId: string | null;
+  teamName?: string;
+  assignedTo: string | null;
+  dueDate: string | null;
+  notes: string | null;
+  status: string;
+  createdAt: string;
+}
+
+interface PlayerDetailVideo {
+  id: string;
+  userId: string;
+  playerName: string;
+  title: string;
+  videoUrl: string;
+  description: string | null;
+  assignmentId: string | null;
+  teamName: string;
+  createdAt: string | null;
+}
+
+interface PlayerDetailMessage {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  content: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
+function PlayerDetailPanel({ player, open, onClose }: { player: TrainerPlayerData | null; open: boolean; onClose: () => void }) {
+  const [detailTab, setDetailTab] = useState("assignments");
+
+  const { data: assignments, isLoading: assignmentsLoading } = useQuery<PlayerDetailAssignment[]>({
+    queryKey: ["/api/trainer/players", player?.id, "assignments"],
+    enabled: !!player && open,
+  });
+
+  const { data: videos, isLoading: videosLoading } = useQuery<PlayerDetailVideo[]>({
+    queryKey: ["/api/trainer/players", player?.id, "videos"],
+    enabled: !!player && open,
+  });
+
+  const { data: chatMessages, isLoading: messagesLoading } = useQuery<PlayerDetailMessage[]>({
+    queryKey: ["/api/trainer/players", player?.id, "messages"],
+    enabled: !!player && open,
+  });
+
+  if (!player) return null;
+
+  const statusColor = (status: string) => {
+    switch (status) {
+      case "completed": return "text-green-500";
+      case "in-progress": return "text-yellow-500";
+      default: return "text-muted-foreground";
+    }
+  };
+
+  const statusIcon = (status: string) => {
+    switch (status) {
+      case "completed": return <CheckCircle className="w-4 h-4 text-green-500" />;
+      case "in-progress": return <Clock className="w-4 h-4 text-yellow-500" />;
+      default: return <Circle className="w-4 h-4 text-muted-foreground" />;
+    }
+  };
+
+  return (
+    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
+      <SheetContent className="w-full sm:max-w-lg overflow-y-auto" data-testid="sheet-player-detail">
+        <SheetHeader>
+          <SheetTitle className="flex items-center gap-2" data-testid="text-player-detail-name">
+            <Avatar className="h-8 w-8">
+              <AvatarFallback className="text-xs">
+                {(player.firstName?.[0] || '') + (player.lastName?.[0] || '')}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <span>{player.firstName} {player.lastName || ""}</span>
+              <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                {player.position && <Badge variant="outline" className="no-default-hover-elevate text-[10px]">{player.position}</Badge>}
+                {player.jerseyNumber && <span className="text-[10px] font-mono text-muted-foreground">#{player.jerseyNumber}</span>}
+                {player.gradYear && <Badge variant="secondary" className="no-default-hover-elevate text-[10px]">Class of {player.gradYear}</Badge>}
+              </div>
+            </div>
+          </SheetTitle>
+          <SheetDescription className="sr-only">Player detail view</SheetDescription>
+        </SheetHeader>
+
+        <div className="mt-4">
+          <Tabs value={detailTab} onValueChange={setDetailTab}>
+            <TabsList className="w-full" data-testid="tabs-player-detail">
+              <TabsTrigger value="assignments" className="flex-1 text-xs" data-testid="tab-player-assignments">
+                <ClipboardList className="w-3 h-3 mr-1" />
+                Drills ({assignments?.length || 0})
+              </TabsTrigger>
+              <TabsTrigger value="videos" className="flex-1 text-xs" data-testid="tab-player-videos">
+                <Video className="w-3 h-3 mr-1" />
+                Videos ({videos?.length || 0})
+              </TabsTrigger>
+              <TabsTrigger value="chat" className="flex-1 text-xs" data-testid="tab-player-chat">
+                <MessageCircle className="w-3 h-3 mr-1" />
+                Chat ({chatMessages?.length || 0})
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="assignments" className="mt-3 space-y-2">
+              {assignmentsLoading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-16 w-full" />
+                  <Skeleton className="h-16 w-full" />
+                </div>
+              ) : !assignments?.length ? (
+                <div className="py-8 text-center text-muted-foreground">
+                  <ClipboardList className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No drills assigned yet.</p>
+                </div>
+              ) : (
+                assignments.map((a) => (
+                  <Card key={a.id} data-testid={`card-player-assignment-${a.id}`}>
+                    <CardContent className="py-3">
+                      <div className="flex items-start gap-2">
+                        {statusIcon(a.status)}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate" data-testid={`text-assignment-title-${a.id}`}>{a.drillTitle}</p>
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                            <Badge variant="secondary" className="no-default-hover-elevate text-[10px]">{a.drillCategory}</Badge>
+                            <span className={`text-xs capitalize ${statusColor(a.status)}`} data-testid={`text-assignment-status-${a.id}`}>{a.status}</span>
+                            {a.teamName && (
+                              <span className="text-xs text-muted-foreground">{a.teamName}</span>
+                            )}
+                            {a.assignedTo && !a.teamId && (
+                              <Badge variant="outline" className="no-default-hover-elevate text-[10px]">Direct</Badge>
+                            )}
+                          </div>
+                          {a.dueDate && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              <Calendar className="w-3 h-3 inline mr-1" />
+                              Due: {new Date(a.dueDate).toLocaleDateString()}
+                            </p>
+                          )}
+                          {a.notes && (
+                            <p className="text-xs text-muted-foreground mt-1 italic">{a.notes}</p>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </TabsContent>
+
+            <TabsContent value="videos" className="mt-3 space-y-2">
+              {videosLoading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-16 w-full" />
+                  <Skeleton className="h-16 w-full" />
+                </div>
+              ) : !videos?.length ? (
+                <div className="py-8 text-center text-muted-foreground">
+                  <Video className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No shared videos yet.</p>
+                </div>
+              ) : (
+                videos.map((v) => (
+                  <Card key={v.id} data-testid={`card-player-video-${v.id}`}>
+                    <CardContent className="py-3">
+                      <div className="flex items-start gap-2">
+                        <Play className="w-4 h-4 mt-0.5 text-primary shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <a
+                            href={v.videoUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm font-medium hover:underline truncate block"
+                            data-testid={`link-player-video-${v.id}`}
+                          >
+                            {v.title}
+                            <ExternalLink className="w-3 h-3 inline ml-1" />
+                          </a>
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                            <span className="text-xs text-muted-foreground">{v.teamName}</span>
+                            <span className="text-xs text-muted-foreground">by {v.playerName}</span>
+                          </div>
+                          {v.description && (
+                            <p className="text-xs text-muted-foreground mt-1">{v.description}</p>
+                          )}
+                          {v.createdAt && (
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {new Date(v.createdAt).toLocaleDateString()}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </TabsContent>
+
+            <TabsContent value="chat" className="mt-3 space-y-2">
+              {messagesLoading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                </div>
+              ) : !chatMessages?.length ? (
+                <div className="py-8 text-center text-muted-foreground">
+                  <MessageCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No chat history with this player.</p>
+                  {!player.linkedUserId && (
+                    <p className="text-xs mt-1">This player doesn't have a linked account yet.</p>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {chatMessages.map((msg) => {
+                    const isFromCoach = msg.senderId !== player.linkedUserId;
+                    return (
+                      <div
+                        key={msg.id}
+                        className={`flex ${isFromCoach ? "justify-end" : "justify-start"}`}
+                        data-testid={`message-${msg.id}`}
+                      >
+                        <div className={`max-w-[80%] rounded-md px-3 py-2 ${isFromCoach ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                          <p className="text-sm">{msg.content}</p>
+                          <p className={`text-[10px] mt-0.5 ${isFromCoach ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                            {new Date(msg.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 function RosterTab() {
   const { toast } = useToast();
   const [createOpen, setCreateOpen] = useState(false);
@@ -393,6 +651,7 @@ function RosterTab() {
   const [addPlayersOpen, setAddPlayersOpen] = useState(false);
   const [rosterAddPlayerIds, setRosterAddPlayerIds] = useState<string[]>([]);
   const [rosterPlayerSearch, setRosterPlayerSearch] = useState("");
+  const [rosterDetailPlayer, setRosterDetailPlayer] = useState<TrainerPlayerData | null>(null);
 
   const form = useForm<CreateTeamForm>({
     resolver: zodResolver(createTeamSchema),
@@ -699,9 +958,40 @@ function RosterTab() {
                         {(member.firstName?.[0] || '') + (member.lastName?.[0] || '')}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="min-w-0">
+                    <div
+                      className="min-w-0 cursor-pointer"
+                      onClick={() => {
+                        const playerId = member.userId.startsWith("tp_") ? member.userId.slice(3) : member.userId;
+                        const found = allPlayers?.find(p => p.id === playerId || p.linkedUserId === member.userId);
+                        if (found) {
+                          setRosterDetailPlayer(found);
+                        } else {
+                          const synthPlayer: TrainerPlayerData = {
+                            id: member.userId,
+                            trainerId: "",
+                            firstName: member.firstName,
+                            lastName: member.lastName,
+                            email: member.email,
+                            phone: null,
+                            position: member.position || null,
+                            jerseyNumber: member.jerseyNumber || null,
+                            ageGroup: null,
+                            teamType: null,
+                            gradYear: null,
+                            notes: null,
+                            linkedUserId: member.userId,
+                            createdAt: member.joinedAt,
+                            updatedAt: member.joinedAt,
+                            groups: [],
+                            teams: [],
+                          };
+                          setRosterDetailPlayer(synthPlayer);
+                        }
+                      }}
+                      data-testid={`button-roster-view-player-${member.userId}`}
+                    >
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <p className="text-sm font-medium truncate" data-testid={`text-roster-name-${member.userId}`}>
+                        <p className="text-sm font-medium truncate hover:underline" data-testid={`text-roster-name-${member.userId}`}>
                           {member.firstName} {member.lastName}
                         </p>
                         {member.isCoachPlayer && (
@@ -1090,6 +1380,12 @@ function RosterTab() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <PlayerDetailPanel
+        player={rosterDetailPlayer}
+        open={!!rosterDetailPlayer}
+        onClose={() => setRosterDetailPlayer(null)}
+      />
     </div>
   );
 }
@@ -1118,6 +1414,7 @@ function PlayersTab() {
   const [bulkTeamId, setBulkTeamId] = useState("");
   const [bulkGroupId, setBulkGroupId] = useState("");
   const [newPlayerTeamIds, setNewPlayerTeamIds] = useState<string[]>([]);
+  const [detailPlayer, setDetailPlayer] = useState<TrainerPlayerData | null>(null);
 
   const addForm = useForm<TrainerPlayerForm>({
     resolver: zodResolver(trainerPlayerSchema),
@@ -1722,9 +2019,9 @@ function PlayersTab() {
                       data-testid={`checkbox-player-${player.id}`}
                     />
                   </div>
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setDetailPlayer(player)} data-testid={`button-view-player-${player.id}`}>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-sm font-medium" data-testid={`text-player-name-${player.id}`}>
+                      <p className="text-sm font-medium hover:underline" data-testid={`text-player-name-${player.id}`}>
                         {player.firstName} {player.lastName || ""}
                       </p>
                       {player.position && (
@@ -2032,6 +2329,12 @@ function PlayersTab() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <PlayerDetailPanel
+        player={detailPlayer}
+        open={!!detailPlayer}
+        onClose={() => setDetailPlayer(null)}
+      />
     </div>
   );
 }

@@ -2452,6 +2452,64 @@ export async function registerRoutes(
     }
   });
 
+  // ===== PLAYER DETAIL DATA =====
+  app.get("/api/trainer/players/:playerId/assignments", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const player = await storage.getTrainerPlayerById(req.params.playerId);
+      if (!player || player.trainerId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      const assignments = await storage.getPlayerDrillAssignments(req.params.playerId, userId);
+      res.json(assignments.map(a => ({
+        id: a.id,
+        drillId: a.drillId,
+        drillTitle: a.drill.title,
+        drillCategory: a.drill.category,
+        teamId: a.teamId,
+        teamName: a.teamName,
+        assignedTo: a.assignedTo,
+        dueDate: a.dueDate,
+        notes: a.notes,
+        status: a.status,
+        createdAt: a.createdAt,
+      })));
+    } catch (error) {
+      console.error("Error fetching player assignments:", error);
+      res.status(500).json({ message: "Failed to fetch player assignments" });
+    }
+  });
+
+  app.get("/api/trainer/players/:playerId/videos", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const player = await storage.getTrainerPlayerById(req.params.playerId);
+      if (!player || player.trainerId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      const videos = await storage.getPlayerSharedVideos(req.params.playerId, userId);
+      res.json(videos);
+    } catch (error) {
+      console.error("Error fetching player videos:", error);
+      res.status(500).json({ message: "Failed to fetch player videos" });
+    }
+  });
+
+  app.get("/api/trainer/players/:playerId/messages", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const player = await storage.getTrainerPlayerById(req.params.playerId);
+      if (!player || player.trainerId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      const msgs = await storage.getPlayerMessages(req.params.playerId, userId);
+      res.json(msgs);
+    } catch (error) {
+      console.error("Error fetching player messages:", error);
+      res.status(500).json({ message: "Failed to fetch player messages" });
+    }
+  });
+
   // ===== TRAINER CUSTOM DRILLS =====
   app.get("/api/trainer/drills", isAuthenticated, async (req: any, res) => {
     try {

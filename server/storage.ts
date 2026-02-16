@@ -284,6 +284,11 @@ export interface IStorage {
   getTrainerPlayersByGroup(groupId: string): Promise<(TrainerPlayer & { assignmentId: string; groupPosition?: string | null; groupJersey?: string | null })[]>;
   getTrainerPlayersByTeam(teamId: string): Promise<(TrainerPlayer & { assignmentId: string; teamPosition?: string | null; teamJersey?: string | null; assignedAt?: Date | null })[]>;
 
+  // Player Detail Data
+  getPlayerDrillAssignments(playerId: string, trainerId: string): Promise<Array<DrillAssignment & { drill: Drill; teamName?: string }>>;
+  getPlayerSharedVideos(playerId: string, trainerId: string): Promise<Array<{ id: string; userId: string; playerName: string; title: string; videoUrl: string; description: string | null; assignmentId: string | null; teamName: string; createdAt: Date | null }>>;
+  getPlayerMessages(playerId: string, trainerId: string): Promise<Message[]>;
+
   // Unified Player Team Assignments
   getPlayerTeamAssignments(playerId: string): Promise<any[]>;
   assignPlayerToTeam(assignment: { playerId: string; teamId: string; position?: string | null; jerseyNumber?: string | null }): Promise<any>;
@@ -2343,6 +2348,80 @@ export class DatabaseStorage implements IStorage {
       }
     }
     return result;
+  }
+
+  async getPlayerDrillAssignments(playerId: string, trainerId: string): Promise<Array<DrillAssignment & { drill: Drill; teamName?: string }>> {
+    const groupAssignments = await db.select().from(trainerPlayerAssignments).where(eq(trainerPlayerAssignments.trainerPlayerId, playerId));
+    const teamAssignments = await db.select().from(playerTeamAssignments).where(eq(playerTeamAssignments.playerId, playerId));
+    const groupIds = groupAssignments.map(a => a.groupId);
+    const teamIds = teamAssignments.map(a => a.teamId);
+    const allTeamGroupIds = Array.from(new Set([...groupIds, ...teamIds]));
+
+    const directAssignments = await db.select().from(drillAssignments)
+      .where(and(eq(drillAssignments.assignedTo, playerId), eq(drillAssignments.assignedBy, trainerId)))
+      .orderBy(desc(drillAssignments.createdAt));
+
+    let teamGroupAssignments: (typeof drillAssignments.$inferSelect)[] = [];
+    if (allTeamGroupIds.length > 0) {
+      teamGroupAssignments = await db.select().from(drillAssignments)
+        .where(and(inArray(drillAssignments.teamId, allTeamGroupIds), eq(drillAssignments.assignedBy, trainerId)))
+        .orderBy(desc(drillAssignments.createdAt));
+    }
+
+    const seenIds = new Set<string>();
+    const allAssignmentsRaw = [...directAssignments, ...teamGroupAssignments].filter(a => {
+      if (seenIds.has(a.id)) return false;
+      seenIds.add(a.id);
+      return true;
+    });
+
+    const result: Array<DrillAssignment & { drill: Drill; teamName?: string }> = [];
+    for (const assignment of allAssignmentsRaw) {
+      const [drill] = await db.select().from(drills).where(eq(drills.id, assignment.drillId));
+      if (drill) {
+        let teamName: string | undefined;
+        if (assignment.teamId) {
+          const [team] = await db.select().from(trainerTeams).where(eq(trainerTeams.id, assignment.teamId));
+          teamName = team?.name;
+        }
+        result.push({ ...assignment, drill, teamName });
+      }
+    }
+    return result;
+  }
+
+  async getPlayerSharedVideos(playerId: string, trainerId: string): Promise<Array<{ id: string; userId: string; playerName: string; title: string; videoUrl: string; description: string | null; assignmentId: string | null; teamName: string; createdAt: Date | null }>> {
+    const groupAssignments = await db.select().from(trainerPlayerAssignments).where(eq(trainerPlayerAssignments.trainerPlayerId, playerId));
+    const teamAssignments = await db.select().from(playerTeamAssignments).where(eq(playerTeamAssignments.playerId, playerId));
+    const allIds = Array.from(new Set([...groupAssignments.map(a => a.groupId), ...teamAssignments.map(a => a.teamId)]));
+
+    const result: Array<{ id: string; userId: string; playerName: string; title: string; videoUrl: string; description: string | null; assignmentId: string | null; teamName: string; createdAt: Date | null }> = [];
+    for (const tId of allIds) {
+      const [team] = await db.select().from(trainerTeams).where(eq(trainerTeams.id, tId));
+      if (!team || team.coachId !== trainerId) continue;
+      const videos = await db.select().from(sharedVideos).where(eq(sharedVideos.teamId, tId)).orderBy(desc(sharedVideos.createdAt));
+      for (const video of videos) {
+        const [user] = await db.select().from(users).where(eq(users.id, video.userId));
+        const playerName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown' : 'Unknown';
+        result.push({ ...video, playerName, teamName: team.name });
+      }
+    }
+    return result;
+  }
+
+  async getPlayerMessages(playerId: string, trainerId: string): Promise<Message[]> {
+    const player = await this.getTrainerPlayerById(playerId);
+    if (!player || !player.linkedUserId) return [];
+    const linkedUserId = player.linkedUserId;
+    const msgs = await db.select().from(messages)
+      .where(
+        or(
+          and(eq(messages.senderId, trainerId), eq(messages.receiverId, linkedUserId)),
+          and(eq(messages.senderId, linkedUserId), eq(messages.receiverId, trainerId))
+        )
+      )
+      .orderBy(desc(messages.createdAt));
+    return msgs;
   }
 
   async getPlayerTeamAssignments(playerId: string): Promise<any[]> {
