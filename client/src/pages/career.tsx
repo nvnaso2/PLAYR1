@@ -81,6 +81,10 @@ import {
 import type { CareerProfile, UserAchievement, CareerAchievement, Challenge, UserChallenge, PersonalRecord, TeamAward, Season, Game, InsertTeamAward, InsertChallenge } from "@shared/schema";
 import { insertTeamAwardSchema, insertChallengeSchema } from "@shared/schema";
 import defaultPlayerImg from "@assets/default-player.jpg";
+import tutorialStep1Img from "@assets/generated_images/tutorial_step1_find_drill.png";
+import tutorialStep2Img from "@assets/generated_images/tutorial_step2_log_drill.png";
+import tutorialStep3Img from "@assets/generated_images/tutorial_step3_history.png";
+import tutorialStep4Img from "@assets/generated_images/tutorial_step4_progress.png";
 import { 
   BASKETBALL_POSITIONS, 
   BASKETBALL_ASPIRATIONS, 
@@ -217,6 +221,66 @@ const gameSchema = z.object({
 
 type GameFormData = z.infer<typeof gameSchema>;
 
+const LOG_TRAINING_STEPS = [
+  {
+    image: tutorialStep1Img,
+    title: "Find a Drill",
+    icon: Target,
+    iconBg: "bg-primary/10",
+    iconColor: "text-primary",
+    bullets: [
+      "Open the sidebar and tap Drills to browse the full library",
+      "Switch between Handlz (pro drills), Community, or your own",
+      "Filter by category and difficulty, or search by name",
+      "Tap any drill to watch the video and see pro tips",
+    ],
+    tip: "Start with a drill in the category you want to improve most.",
+  },
+  {
+    image: tutorialStep2Img,
+    title: "Log the Drill",
+    icon: Flame,
+    iconBg: "bg-orange-500/10",
+    iconColor: "text-orange-500",
+    bullets: [
+      "From a drill's page, tap \"Log Training Session\"",
+      "Enter your metrics — makes, attempts, time, etc.",
+      "For shooting drills, tap the court map to log shot locations",
+      "Use the built-in timer to auto-track your duration",
+      "Rate yourself (1-10), add notes, then save",
+    ],
+    tip: "You can also add drills from the Training Log page directly.",
+  },
+  {
+    image: tutorialStep3Img,
+    title: "View Your History",
+    icon: Calendar,
+    iconBg: "bg-blue-500/10",
+    iconColor: "text-blue-500",
+    bullets: [
+      "Go to Training Log and switch to the History tab",
+      "See every past session with drill name, time, and score",
+      "Repeat drills regularly to watch your numbers climb",
+    ],
+    tip: "Consistency is key. Even 15 minutes of focused work moves the needle.",
+  },
+  {
+    image: tutorialStep4Img,
+    title: "Track Your Progress",
+    icon: BarChart3,
+    iconBg: "bg-green-500/10",
+    iconColor: "text-green-500",
+    bullets: [
+      "Dashboard shows total sessions, hours trained, and your streak",
+      "Progress page has your shooting heatmap and skill breakdown charts",
+      "Every drill earns XP toward your Career level",
+      "Set challenges like \"Make 500 shots\" — they track automatically",
+      "Your stats show up on your Player Profile for recruiting",
+    ],
+    tip: "Check the Trophy Room for achievements, personal records, and awards.",
+  },
+];
+
 function TutorialVideoStep({
   tutorialKey,
   title,
@@ -236,42 +300,122 @@ function TutorialVideoStep({
     queryKey: ["/api/tutorial-videos", tutorialKey],
   });
   const [finishing, setFinishing] = useState(false);
+  const [slideIdx, setSlideIdx] = useState(0);
 
-  return (
-    <div className="min-h-screen flex items-start justify-center p-4 py-8 bg-gradient-to-b from-background to-muted/20">
-      <Card className="w-full max-w-2xl">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0">
-              <GraduationCap className="w-5 h-5 text-blue-500" />
+  const hasVideo = !isLoading && tutorial?.videoUrl;
+  const steps = tutorialKey === "log-training" ? LOG_TRAINING_STEPS : LOG_TRAINING_STEPS;
+  const slide = steps[slideIdx];
+  const SlideIcon = slide.icon;
+  const isLastSlide = slideIdx === steps.length - 1;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-background to-muted/20">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (hasVideo) {
+    return (
+      <div className="min-h-screen flex items-start justify-center p-4 py-8 bg-gradient-to-b from-background to-muted/20">
+        <Card className="w-full max-w-2xl">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-3 mb-1">
+              <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0">
+                <GraduationCap className="w-5 h-5 text-blue-500" />
+              </div>
+              <div className="flex-1">
+                <CardTitle className="text-lg font-bold">{title}</CardTitle>
+              </div>
             </div>
-            <div className="flex-1">
-              <CardTitle className="text-lg font-bold">{title}</CardTitle>
-            </div>
-          </div>
-          <CardDescription>{description}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {isLoading ? (
-            <div className="aspect-video bg-muted rounded-lg flex items-center justify-center">
-              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : tutorial?.videoUrl ? (
+            <CardDescription>{description}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
             <div className="aspect-video bg-black rounded-lg overflow-hidden">
               <video
-                src={tutorial.videoUrl}
+                src={tutorial!.videoUrl}
                 controls
                 className="w-full h-full"
                 data-testid="tutorial-video-player"
               />
             </div>
-          ) : (
-            <div className="aspect-video bg-muted rounded-lg flex items-center justify-center">
-              <div className="text-center space-y-2 p-4">
-                <Play className="w-12 h-12 mx-auto text-muted-foreground" />
-                <p className="text-muted-foreground font-medium">Tutorial video coming soon</p>
-                <p className="text-sm text-muted-foreground">This tutorial is being prepared. You can skip ahead for now.</p>
+            <div className="flex justify-between pt-2">
+              <Button type="button" variant="outline" onClick={onBack} data-testid="button-tutorial-back">
+                <ChevronLeft className="w-4 h-4 mr-1" /> Back
+              </Button>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" disabled={finishing}
+                  onClick={async () => { setFinishing(true); await onDone(); setFinishing(false); }}
+                  data-testid="button-tutorial-finish">
+                  {finishing ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null} Done
+                </Button>
+                <Button type="button" disabled={finishing}
+                  onClick={async () => { setFinishing(true); await onGoToDrills(); setFinishing(false); }}
+                  data-testid="button-tutorial-go-drills">
+                  Go to Drills <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex items-start justify-center p-4 py-6 bg-gradient-to-b from-background to-muted/20">
+      <Card className="w-full max-w-2xl">
+        <CardHeader className="pb-2">
+          <div className="flex items-center gap-3 mb-1">
+            <div className={`w-9 h-9 rounded-full ${slide.iconBg} flex items-center justify-center shrink-0`}>
+              <SlideIcon className={`w-4 h-4 ${slide.iconColor}`} />
+            </div>
+            <div className="flex-1">
+              <CardTitle className="text-lg font-bold">
+                Step {slideIdx + 1}: {slide.title}
+              </CardTitle>
+            </div>
+          </div>
+          <div className="flex gap-1.5 mt-2">
+            {steps.map((_, idx) => (
+              <button
+                key={idx}
+                onClick={() => setSlideIdx(idx)}
+                className={`h-1.5 flex-1 rounded-full transition-colors cursor-pointer ${idx <= slideIdx ? 'bg-primary' : 'bg-muted'}`}
+                data-testid={`tutorial-progress-${idx}`}
+              />
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">{slideIdx + 1} of {steps.length}</p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="rounded-lg overflow-hidden border border-border">
+            <img
+              src={slide.image}
+              alt={slide.title}
+              className="w-full h-auto"
+              data-testid={`tutorial-image-${slideIdx}`}
+            />
+          </div>
+
+          <div className="space-y-2">
+            {slide.bullets.map((bullet, idx) => (
+              <div key={idx} className="flex gap-2.5" data-testid={`tutorial-bullet-${slideIdx}-${idx}`}>
+                <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <span className="text-[10px] font-bold text-primary">{idx + 1}</span>
+                </div>
+                <p className="text-sm text-muted-foreground">{bullet}</p>
+              </div>
+            ))}
+          </div>
+
+          {slide.tip && (
+            <div className="flex gap-2 p-3 rounded-lg bg-primary/5 border border-primary/10">
+              <Zap className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+              <p className="text-xs text-muted-foreground">
+                <span className="font-semibold text-foreground">Tip: </span>{slide.tip}
+              </p>
             </div>
           )}
 
@@ -279,41 +423,29 @@ function TutorialVideoStep({
             <Button
               type="button"
               variant="outline"
-              onClick={onBack}
+              onClick={() => slideIdx === 0 ? onBack() : setSlideIdx(prev => prev - 1)}
               data-testid="button-tutorial-back"
             >
-              <ChevronLeft className="w-4 h-4 mr-1" />
-              Back
+              <ChevronLeft className="w-4 h-4 mr-1" /> Back
             </Button>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                disabled={finishing}
-                onClick={async () => {
-                  setFinishing(true);
-                  await onDone();
-                  setFinishing(false);
-                }}
-                data-testid="button-tutorial-finish"
-              >
-                {finishing ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}
-                Done
+            {isLastSlide ? (
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" disabled={finishing}
+                  onClick={async () => { setFinishing(true); await onDone(); setFinishing(false); }}
+                  data-testid="button-tutorial-finish">
+                  {finishing ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null} Done
+                </Button>
+                <Button type="button" disabled={finishing}
+                  onClick={async () => { setFinishing(true); await onGoToDrills(); setFinishing(false); }}
+                  data-testid="button-tutorial-go-drills">
+                  Go to Drills <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
+              </div>
+            ) : (
+              <Button type="button" onClick={() => setSlideIdx(prev => prev + 1)} data-testid="button-tutorial-next">
+                Next <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
-              <Button
-                type="button"
-                disabled={finishing}
-                onClick={async () => {
-                  setFinishing(true);
-                  await onGoToDrills();
-                  setFinishing(false);
-                }}
-                data-testid="button-tutorial-go-drills"
-              >
-                Go to Drills
-                <ChevronRight className="w-4 h-4 ml-1" />
-              </Button>
-            </div>
+            )}
           </div>
         </CardContent>
       </Card>
