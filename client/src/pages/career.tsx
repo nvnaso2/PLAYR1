@@ -1028,13 +1028,6 @@ function BaseballCard({ profile, careerStats, onPhotoUpdated, userName }: { prof
   );
 }
 
-type UserStats = {
-  totalSessions: number;
-  totalMinutes: number;
-  avgScore: number;
-  streak: number;
-};
-
 type CareerStats = {
   totalGames: number;
   totalPoints: number;
@@ -2853,9 +2846,6 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
     teamName: profile.teamName || "",
     aspiration: profile.aspiration || "",
   });
-  const { data: userStats } = useQuery<UserStats>({
-    queryKey: ['/api/stats/overview']
-  });
 
   const { data: careerStats } = useQuery<CareerStats>({
     queryKey: ['/api/stats/career']
@@ -3096,36 +3086,6 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
         </Card>
       </div>
 
-      {userStats && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Award className="w-5 h-5" />
-              Training Stats
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center p-4 rounded-md bg-muted/50">
-                <div className="text-2xl font-bold text-primary">{userStats.totalSessions}</div>
-                <div className="text-sm text-muted-foreground">Sessions</div>
-              </div>
-              <div className="text-center p-4 rounded-md bg-muted/50">
-                <div className="text-2xl font-bold text-primary">{userStats.totalMinutes}</div>
-                <div className="text-sm text-muted-foreground">Minutes</div>
-              </div>
-              <div className="text-center p-4 rounded-md bg-muted/50">
-                <div className="text-2xl font-bold text-primary">{userStats.avgScore}</div>
-                <div className="text-sm text-muted-foreground">Avg Score</div>
-              </div>
-              <div className="text-center p-4 rounded-md bg-muted/50">
-                <div className="text-2xl font-bold text-primary">{userStats.streak}</div>
-                <div className="text-sm text-muted-foreground">Day Streak</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
         </TabsContent>
 
         <TabsContent value="trophy-room" className="space-y-6">
