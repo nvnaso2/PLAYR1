@@ -33,7 +33,8 @@ import {
   Flame,
   Users,
   User,
-  Share2
+  Share2,
+  Plus
 } from "lucide-react";
 import type { Drill, DrillCategory, DifficultyLevel } from "@shared/schema";
 
@@ -137,6 +138,7 @@ export default function Drills() {
   const [selectedCategory, setSelectedCategory] = useState(urlCategory);
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [, setLocation] = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -211,11 +213,20 @@ export default function Drills() {
 
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto">
-      <div>
-        <h1 className="text-xl sm:text-2xl font-bold mb-1" data-testid="text-page-title">Drill Library</h1>
-        <p className="text-sm sm:text-base text-muted-foreground">
-          Browse our collection of professional basketball drills
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold mb-1" data-testid="text-page-title">Drill Library</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
+            Browse our collection of professional basketball drills
+          </p>
+        </div>
+        {user && (
+          <Button onClick={() => setLocation("/log?create=1")} className="gap-2 shrink-0" data-testid="button-create-drill-nav">
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Create a Drill</span>
+            <span className="sm:hidden">Create</span>
+          </Button>
+        )}
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>

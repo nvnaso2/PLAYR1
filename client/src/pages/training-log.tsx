@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -134,10 +134,13 @@ type SaveWorkoutFormData = z.infer<typeof saveWorkoutFormSchema>;
 
 export default function TrainingLogPage() {
   const { toast } = useToast();
+  const searchParams = useSearch();
   const [selectedDrillIds, setSelectedDrillIds] = useState<Set<string>>(new Set());
   const [workoutInProgress, setWorkoutInProgress] = useState(false);
   const [workoutEntries, setWorkoutEntries] = useState<WorkoutDrillEntry[]>([]);
-  const [isCreateDrillOpen, setIsCreateDrillOpen] = useState(false);
+  const [isCreateDrillOpen, setIsCreateDrillOpen] = useState(() => {
+    return new URLSearchParams(searchParams).get('create') === '1';
+  });
   const [isSaveWorkoutOpen, setIsSaveWorkoutOpen] = useState(false);
   const [isAddDrillToWorkoutOpen, setIsAddDrillToWorkoutOpen] = useState(false);
   const [selectedMetricTemplateIds, setSelectedMetricTemplateIds] = useState<string[]>([]);
