@@ -57,7 +57,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText, Play, ChevronDown } from "lucide-react";
+import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText, Play, ChevronDown, GraduationCap } from "lucide-react";
 import type { Drill, DrillCategory, DifficultyLevel, DrillMetric, VideoLibrary, PdfLibrary, MetricTemplate, Workout, WorkoutDrill } from "@shared/schema";
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, METRIC_TYPES } from "@shared/schema";
 import { Layers, GripVertical } from "lucide-react";
@@ -1924,6 +1924,149 @@ function MetricTemplateForm({
   );
 }
 
+const TUTORIAL_KEYS = [
+  { key: "log-training", label: "Log Training", description: "Tutorial for logging training sessions (shown during onboarding)" },
+  { key: "create-drill", label: "Create a Drill", description: "Tutorial for creating custom drills (shown during onboarding)" },
+] as const;
+
+function TutorialVideosManager() {
+  const { toast } = useToast();
+  const { data: tutorials, isLoading } = useQuery<Array<{ id: string; key: string; title: string; description: string | null; videoUrl: string; thumbnailUrl: string | null }>>({
+    queryKey: ["/api/tutorial-videos"],
+  });
+
+  const { uploadFile, isUploading } = useUpload({
+    onError: (err) => toast({ title: "Upload failed", description: err.message, variant: "destructive" }),
+  });
+
+  const [uploadingKey, setUploadingKey] = useState<string | null>(null);
+
+  const saveMutation = useMutation({
+    mutationFn: async ({ key, title, description, videoUrl }: { key: string; title: string; description: string; videoUrl: string }) => {
+      const res = await apiRequest("PUT", `/api/tutorial-videos/${key}`, { title, description, videoUrl });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tutorial-videos"] });
+      toast({ title: "Tutorial video saved" });
+    },
+    onError: () => toast({ title: "Failed to save tutorial video", variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (key: string) => {
+      await apiRequest("DELETE", `/api/tutorial-videos/${key}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tutorial-videos"] });
+      toast({ title: "Tutorial video removed" });
+    },
+    onError: () => toast({ title: "Failed to remove tutorial video", variant: "destructive" }),
+  });
+
+  const handleUpload = async (key: string, label: string, description: string) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "video/*";
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      setUploadingKey(key);
+      const result = await uploadFile(file);
+      if (result) {
+        await saveMutation.mutateAsync({
+          key,
+          title: label,
+          description,
+          videoUrl: result.objectPath,
+        });
+      }
+      setUploadingKey(null);
+    };
+    input.click();
+  };
+
+  const getTutorial = (key: string) => tutorials?.find(t => t.key === key);
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-xl font-semibold">Tutorial Videos</h2>
+        <p className="text-sm text-muted-foreground">Upload tutorial videos shown to new users during onboarding</p>
+      </div>
+
+      {isLoading ? (
+        <div className="space-y-2">
+          {[1, 2].map(i => <Skeleton key={i} className="h-32 w-full" />)}
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2">
+          {TUTORIAL_KEYS.map(({ key, label, description }) => {
+            const tutorial = getTutorial(key);
+            const isThisUploading = uploadingKey === key && isUploading;
+            return (
+              <Card key={key} className="overflow-hidden">
+                {tutorial ? (
+                  <div className="aspect-video bg-black relative group">
+                    <video
+                      src={tutorial.videoUrl}
+                      className="w-full h-full object-contain"
+                      controls
+                      data-testid={`tutorial-video-${key}`}
+                    />
+                  </div>
+                ) : (
+                  <div className="aspect-video bg-muted flex items-center justify-center">
+                    <div className="text-center space-y-2">
+                      <GraduationCap className="w-12 h-12 mx-auto text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground">No video uploaded</p>
+                    </div>
+                  </div>
+                )}
+                <CardContent className="p-4 space-y-3">
+                  <div>
+                    <h3 className="font-semibold" data-testid={`tutorial-title-${key}`}>{label}</h3>
+                    <p className="text-sm text-muted-foreground">{description}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant={tutorial ? "outline" : "default"}
+                      onClick={() => handleUpload(key, label, description)}
+                      disabled={isThisUploading}
+                      data-testid={`button-upload-tutorial-${key}`}
+                    >
+                      {isThisUploading ? (
+                        <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Uploading...</>
+                      ) : tutorial ? (
+                        <><Upload className="w-4 h-4 mr-1" /> Replace Video</>
+                      ) : (
+                        <><Upload className="w-4 h-4 mr-1" /> Upload Video</>
+                      )}
+                    </Button>
+                    {tutorial && (
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => deleteMutation.mutate(key)}
+                        disabled={deleteMutation.isPending}
+                        data-testid={`button-delete-tutorial-${key}`}
+                      >
+                        <Trash2 className="w-4 h-4 mr-1" />
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AdminPage() {
   const { toast } = useToast();
   const { isAdmin, isLoading: adminLoading } = useAdmin();
@@ -2239,7 +2382,7 @@ export default function AdminPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1 h-auto p-1">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1 h-auto p-1">
           <TabsTrigger value="videos" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-videos">
             <Film className="w-4 h-4 shrink-0" />
             <span>Videos</span>
@@ -2259,6 +2402,10 @@ export default function AdminPage() {
           <TabsTrigger value="workouts" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-workouts">
             <Play className="w-4 h-4 shrink-0" />
             <span>Workouts</span>
+          </TabsTrigger>
+          <TabsTrigger value="tutorials" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-tutorials">
+            <GraduationCap className="w-4 h-4 shrink-0" />
+            <span>Tutorials</span>
           </TabsTrigger>
           <TabsTrigger value="users" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-users">
             <Users className="w-4 h-4 shrink-0" />
@@ -3124,6 +3271,10 @@ export default function AdminPage() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="tutorials" className="space-y-6">
+          <TutorialVideosManager />
         </TabsContent>
 
         <TabsContent value="users" className="space-y-6">

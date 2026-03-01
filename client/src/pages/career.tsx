@@ -74,7 +74,9 @@ import {
   BarChart,
   Camera,
   RefreshCw,
-  Share2
+  Share2,
+  Loader2,
+  Play
 } from "lucide-react";
 import type { CareerProfile, UserAchievement, CareerAchievement, Challenge, UserChallenge, PersonalRecord, TeamAward, Season, Game, InsertTeamAward, InsertChallenge } from "@shared/schema";
 import { insertTeamAwardSchema, insertChallengeSchema } from "@shared/schema";
@@ -215,10 +217,114 @@ const gameSchema = z.object({
 
 type GameFormData = z.infer<typeof gameSchema>;
 
+function TutorialVideoStep({
+  tutorialKey,
+  title,
+  description,
+  onBack,
+  onDone,
+  onGoToDrills,
+}: {
+  tutorialKey: string;
+  title: string;
+  description: string;
+  onBack: () => void;
+  onDone: () => Promise<void>;
+  onGoToDrills: () => Promise<void>;
+}) {
+  const { data: tutorial, isLoading } = useQuery<{ id: string; key: string; title: string; description: string | null; videoUrl: string }>({
+    queryKey: ["/api/tutorial-videos", tutorialKey],
+  });
+  const [finishing, setFinishing] = useState(false);
+
+  return (
+    <div className="min-h-screen flex items-start justify-center p-4 py-8 bg-gradient-to-b from-background to-muted/20">
+      <Card className="w-full max-w-2xl">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0">
+              <GraduationCap className="w-5 h-5 text-blue-500" />
+            </div>
+            <div className="flex-1">
+              <CardTitle className="text-lg font-bold">{title}</CardTitle>
+            </div>
+          </div>
+          <CardDescription>{description}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {isLoading ? (
+            <div className="aspect-video bg-muted rounded-lg flex items-center justify-center">
+              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : tutorial?.videoUrl ? (
+            <div className="aspect-video bg-black rounded-lg overflow-hidden">
+              <video
+                src={tutorial.videoUrl}
+                controls
+                className="w-full h-full"
+                data-testid="tutorial-video-player"
+              />
+            </div>
+          ) : (
+            <div className="aspect-video bg-muted rounded-lg flex items-center justify-center">
+              <div className="text-center space-y-2 p-4">
+                <Play className="w-12 h-12 mx-auto text-muted-foreground" />
+                <p className="text-muted-foreground font-medium">Tutorial video coming soon</p>
+                <p className="text-sm text-muted-foreground">This tutorial is being prepared. You can skip ahead for now.</p>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-between pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onBack}
+              data-testid="button-tutorial-back"
+            >
+              <ChevronLeft className="w-4 h-4 mr-1" />
+              Back
+            </Button>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={finishing}
+                onClick={async () => {
+                  setFinishing(true);
+                  await onDone();
+                  setFinishing(false);
+                }}
+                data-testid="button-tutorial-finish"
+              >
+                {finishing ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}
+                Done
+              </Button>
+              <Button
+                type="button"
+                disabled={finishing}
+                onClick={async () => {
+                  setFinishing(true);
+                  await onGoToDrills();
+                  setFinishing(false);
+                }}
+                data-testid="button-tutorial-go-drills"
+              >
+                Go to Drills
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   const { toast } = useToast();
   const { user } = useAuth();
-  const [step, setStep] = useState<"role" | "profile" | "reason" | "select-teams" | "log-game" | "no-season" | "season-start" | "dev-priority" | "dev-log-next" | "dev-create-next" | "tutorial-log">("role");
+  const [step, setStep] = useState<"role" | "profile" | "reason" | "select-teams" | "log-game" | "no-season" | "season-start" | "dev-priority" | "dev-log-next" | "dev-create-next" | "tutorial-log" | "tutorial-create">("role");
   const [selectedRole, setSelectedRole] = useState<"player" | "trainer" | "coach" | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -1076,9 +1182,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
           </CardHeader>
           <CardContent className="space-y-3">
             <div
-              onClick={async () => {
-                await completeOnboarding();
-              }}
+              onClick={() => setStep("tutorial-create")}
               className="cursor-pointer p-5 rounded-lg border-2 border-border flex items-center gap-4 transition-all hover:border-primary/50 hover:bg-muted/30"
               data-testid="dev-create-tutorial"
             >
@@ -1120,162 +1224,25 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   }
 
   if (step === "tutorial-log") {
-    const TUTORIAL_SLIDES = [
-      {
-        title: "Step 1: Find a Drill",
-        icon: Target,
-        iconBg: "bg-primary/10",
-        iconColor: "text-primary",
-        content: [
-          { heading: "Go to the Drill Library", text: "Open the sidebar and tap \"Drills\" to browse the full library." },
-          { heading: "Browse or Search", text: "Use the tabs to switch between Handlz (pro drills), Community drills, or your own. Filter by category (Ball Handling, Shooting, etc.) and difficulty level." },
-          { heading: "Pick a Drill", text: "Tap any drill to see the details — watch the video, read pro tips, and check the equipment needed." },
-        ],
-        tip: "Start with a drill in the category you want to improve most.",
-      },
-      {
-        title: "Step 2: Log the Drill",
-        icon: Flame,
-        iconBg: "bg-orange-500/10",
-        iconColor: "text-orange-500",
-        content: [
-          { heading: "Start a Session", text: "From any drill's detail page, tap \"Log Training Session.\" This takes you to the Training Log with that drill pre-loaded." },
-          { heading: "Track Your Reps", text: "Enter your metrics — makes, attempts, time, or whatever the drill requires. For shooting drills, use the half-court map to log shot locations." },
-          { heading: "Use the Timer", text: "Hit the play button to start a live timer so your duration is tracked automatically. Stop it when you're done." },
-          { heading: "Rate & Save", text: "Give yourself a score (1-10), add any notes, then save your session." },
-        ],
-        tip: "You can also log drills from the Training Log page directly — just tap the \"+\" to add drills to your workout.",
-      },
-      {
-        title: "Step 3: View Your History",
-        icon: Calendar,
-        iconBg: "bg-blue-500/10",
-        iconColor: "text-blue-500",
-        content: [
-          { heading: "Training Log History", text: "Go to the Training Log page and switch to the \"History\" tab to see all your past sessions in order." },
-          { heading: "Drill Details", text: "Each log shows the drill name, duration, your score, and the metrics you entered." },
-          { heading: "Track Improvement", text: "Come back to the same drill regularly — you'll see how your numbers improve over time." },
-        ],
-        tip: "Consistency is key. Even 15 minutes of focused work moves the needle.",
-      },
-      {
-        title: "Step 4: See Your Progress",
-        icon: BarChart3,
-        iconBg: "bg-green-500/10",
-        iconColor: "text-green-500",
-        content: [
-          { heading: "Dashboard", text: "Your home dashboard shows total sessions, hours trained, and your current streak. Check the category breakdown to see where you're spending your time." },
-          { heading: "Progress Page", text: "Dive deeper on the Progress page — see your shooting heatmap, skill breakdown charts, and weekly activity." },
-          { heading: "Career & Trophy Room", text: "Every drill you log earns XP toward your Career level. Hit milestones to unlock achievements, and track personal records in your Trophy Room." },
-          { heading: "Challenges", text: "Set goals like \"Make 500 shots\" or \"Train 30 days in a row.\" Your drill logs automatically count toward active challenges." },
-        ],
-        tip: "Your stats show up on your Player Profile too — great for recruiting and showcasing your work ethic.",
-      },
-    ];
+    return <TutorialVideoStep
+      tutorialKey="log-training"
+      title="How to Log Training"
+      description="Watch this quick walkthrough to learn how to find drills, log your sessions, view your history, and track your progress."
+      onBack={() => setStep("dev-log-next")}
+      onDone={async () => { await completeOnboarding(); }}
+      onGoToDrills={async () => { await completeOnboarding(); window.location.href = "/drills"; }}
+    />;
+  }
 
-    const slide = TUTORIAL_SLIDES[tutorialSlide];
-    const SlideIcon = slide.icon;
-    const isLast = tutorialSlide === TUTORIAL_SLIDES.length - 1;
-
-    return (
-      <div className="min-h-screen flex items-start justify-center p-4 py-8 bg-gradient-to-b from-background to-muted/20">
-        <Card className="w-full max-w-lg">
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-3 mb-2">
-              <div className={`w-10 h-10 rounded-full ${slide.iconBg} flex items-center justify-center shrink-0`}>
-                <SlideIcon className={`w-5 h-5 ${slide.iconColor}`} />
-              </div>
-              <div className="flex-1">
-                <CardTitle className="text-lg font-bold">{slide.title}</CardTitle>
-              </div>
-            </div>
-            <div className="flex gap-1.5">
-              {TUTORIAL_SLIDES.map((_, idx) => (
-                <div
-                  key={idx}
-                  className={`h-1.5 flex-1 rounded-full transition-colors ${idx <= tutorialSlide ? 'bg-primary' : 'bg-muted'}`}
-                />
-              ))}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1.5">{tutorialSlide + 1} of {TUTORIAL_SLIDES.length}</p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-3">
-              {slide.content.map((item, idx) => (
-                <div key={idx} className="flex gap-3" data-testid={`tutorial-item-${tutorialSlide}-${idx}`}>
-                  <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                    <span className="text-xs font-bold text-primary">{idx + 1}</span>
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold">{item.heading}</p>
-                    <p className="text-sm text-muted-foreground">{item.text}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {slide.tip && (
-              <div className="flex gap-2 p-3 rounded-lg bg-primary/5 border border-primary/10">
-                <Zap className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                <p className="text-xs text-muted-foreground"><span className="font-semibold text-foreground">Tip:</span> {slide.tip}</p>
-              </div>
-            )}
-
-            <div className="flex justify-between pt-3">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  if (tutorialSlide === 0) {
-                    setStep("dev-log-next");
-                  } else {
-                    setTutorialSlide(prev => prev - 1);
-                  }
-                }}
-                data-testid="button-tutorial-back"
-              >
-                <ChevronLeft className="w-4 h-4 mr-1" />
-                Back
-              </Button>
-              {isLast ? (
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={async () => {
-                      await completeOnboarding();
-                    }}
-                    data-testid="button-tutorial-finish"
-                  >
-                    Done
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={async () => {
-                      await completeOnboarding();
-                      window.location.href = "/drills";
-                    }}
-                    data-testid="button-tutorial-go-drills"
-                  >
-                    Go to Drills
-                    <ChevronRight className="w-4 h-4 ml-1" />
-                  </Button>
-                </div>
-              ) : (
-                <Button
-                  type="button"
-                  onClick={() => setTutorialSlide(prev => prev + 1)}
-                  data-testid="button-tutorial-next"
-                >
-                  Next
-                  <ChevronRight className="w-4 h-4 ml-1" />
-                </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
+  if (step === "tutorial-create") {
+    return <TutorialVideoStep
+      tutorialKey="create-drill"
+      title="How to Create Your Own Drill"
+      description="Watch this quick walkthrough to learn how to build custom drills with your own videos, metrics, and pro tips."
+      onBack={() => setStep("dev-create-next")}
+      onDone={async () => { await completeOnboarding(); }}
+      onGoToDrills={async () => { await completeOnboarding(); window.location.href = "/drills"; }}
+    />;
   }
 
   if (step === "select-teams") {

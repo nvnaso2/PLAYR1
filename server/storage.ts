@@ -39,7 +39,8 @@ import {
   playerTeamAssignments,
   chatThreads, type ChatThread, type InsertChatThread,
   chatThreadMembers, type ChatThreadMember, type InsertChatThreadMember,
-  chatThreadMessages, type ChatThreadMessage, type InsertChatThreadMessage
+  chatThreadMessages, type ChatThreadMessage, type InsertChatThreadMessage,
+  tutorialVideos, type TutorialVideo, type InsertTutorialVideo
 } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
@@ -113,6 +114,12 @@ export interface IStorage {
   createPdfLibraryItem(pdf: InsertPdfLibrary): Promise<PdfLibrary>;
   updatePdfLibraryItem(id: string, pdf: Partial<InsertPdfLibrary>): Promise<PdfLibrary | undefined>;
   deletePdfLibraryItem(id: string): Promise<boolean>;
+
+  // Tutorial Videos
+  getTutorialVideos(): Promise<TutorialVideo[]>;
+  getTutorialVideoByKey(key: string): Promise<TutorialVideo | undefined>;
+  upsertTutorialVideo(data: InsertTutorialVideo): Promise<TutorialVideo>;
+  deleteTutorialVideo(key: string): Promise<boolean>;
 
   // Metric Templates
   getMetricTemplates(): Promise<MetricTemplate[]>;
@@ -1004,6 +1011,33 @@ export class DatabaseStorage implements IStorage {
 
   async deletePdfLibraryItem(id: string): Promise<boolean> {
     await db.delete(pdfLibrary).where(eq(pdfLibrary.id, id));
+    return true;
+  }
+
+  async getTutorialVideos(): Promise<TutorialVideo[]> {
+    return await db.select().from(tutorialVideos).orderBy(desc(tutorialVideos.createdAt));
+  }
+
+  async getTutorialVideoByKey(key: string): Promise<TutorialVideo | undefined> {
+    const [video] = await db.select().from(tutorialVideos).where(eq(tutorialVideos.key, key));
+    return video;
+  }
+
+  async upsertTutorialVideo(data: InsertTutorialVideo): Promise<TutorialVideo> {
+    const existing = await this.getTutorialVideoByKey(data.key);
+    if (existing) {
+      const [updated] = await db.update(tutorialVideos)
+        .set({ ...data, updatedAt: new Date() } as any)
+        .where(eq(tutorialVideos.key, data.key))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(tutorialVideos).values(data as any).returning();
+    return created;
+  }
+
+  async deleteTutorialVideo(key: string): Promise<boolean> {
+    await db.delete(tutorialVideos).where(eq(tutorialVideos.key, key));
     return true;
   }
 

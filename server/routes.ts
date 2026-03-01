@@ -481,6 +481,52 @@ export async function registerRoutes(
     }
   });
 
+  // ===== TUTORIAL VIDEOS =====
+
+  app.get("/api/tutorial-videos", isAuthenticated, async (req: any, res) => {
+    try {
+      const videos = await storage.getTutorialVideos();
+      res.json(videos);
+    } catch (error) {
+      console.error("Error fetching tutorial videos:", error);
+      res.status(500).json({ message: "Failed to fetch tutorial videos" });
+    }
+  });
+
+  app.get("/api/tutorial-videos/:key", async (req: any, res) => {
+    try {
+      const video = await storage.getTutorialVideoByKey(req.params.key);
+      if (!video) {
+        return res.status(404).json({ message: "Tutorial video not found" });
+      }
+      res.json(video);
+    } catch (error) {
+      console.error("Error fetching tutorial video:", error);
+      res.status(500).json({ message: "Failed to fetch tutorial video" });
+    }
+  });
+
+  app.put("/api/tutorial-videos/:key", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const data = { ...req.body, key: req.params.key };
+      const video = await storage.upsertTutorialVideo(data);
+      res.json(video);
+    } catch (error) {
+      console.error("Error saving tutorial video:", error);
+      res.status(500).json({ message: "Failed to save tutorial video" });
+    }
+  });
+
+  app.delete("/api/tutorial-videos/:key", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      await storage.deleteTutorialVideo(req.params.key);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting tutorial video:", error);
+      res.status(500).json({ message: "Failed to delete tutorial video" });
+    }
+  });
+
   // ===== METRIC TEMPLATES =====
 
   // Get all metric templates (accessible to all authenticated users for drill configuration)

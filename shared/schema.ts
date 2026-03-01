@@ -346,6 +346,17 @@ export const pdfLibrary = pgTable("pdf_library", {
   createdAt: timestamp("created_at").defaultNow()
 });
 
+export const tutorialVideos = pgTable("tutorial_videos", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: varchar("key").notNull().unique(),
+  title: varchar("title").notNull(),
+  description: text("description"),
+  videoUrl: varchar("video_url").notNull(),
+  thumbnailUrl: varchar("thumbnail_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+
 // Metric types for drill configuration
 export const METRIC_TYPES = ["number", "calculated"] as const;
 export type MetricType = typeof METRIC_TYPES[number];
@@ -827,6 +838,14 @@ export type InsertDrill = z.infer<typeof insertDrillSchema>;
 export type Drill = typeof drills.$inferSelect;
 export type InsertVideoLibrary = z.infer<typeof insertVideoLibrarySchema>;
 export type VideoLibrary = typeof videoLibrary.$inferSelect;
+export const insertTutorialVideoSchema = createInsertSchema(tutorialVideos).omit({ id: true, createdAt: true, updatedAt: true }).extend({
+  videoUrl: z.string().refine(
+    (val) => val.startsWith("http://") || val.startsWith("https://") || val.startsWith("/objects/"),
+    { message: "Must be a valid URL or object storage path" }
+  ),
+});
+export type InsertTutorialVideo = z.infer<typeof insertTutorialVideoSchema>;
+export type TutorialVideo = typeof tutorialVideos.$inferSelect;
 export type InsertPdfLibrary = z.infer<typeof insertPdfLibrarySchema>;
 export type PdfLibrary = typeof pdfLibrary.$inferSelect;
 export type InsertMetricTemplate = z.infer<typeof insertMetricTemplateSchema>;
