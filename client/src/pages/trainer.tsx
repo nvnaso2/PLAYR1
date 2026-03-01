@@ -1720,7 +1720,7 @@ function PlayersTab() {
             )}
           />
         </div>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <FormField
             control={form.control}
             name="position"
@@ -2131,7 +2131,7 @@ function PlayersTab() {
       )}
 
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent data-testid="dialog-add-player">
+        <DialogContent className="max-h-[85vh] overflow-y-auto" data-testid="dialog-add-player">
           <DialogHeader>
             <DialogTitle>Add Player</DialogTitle>
             <DialogDescription>Add a new player to your roster. You can assign them to teams or groups later.</DialogDescription>
@@ -2141,7 +2141,7 @@ function PlayersTab() {
       </Dialog>
 
       <Dialog open={!!editingPlayer} onOpenChange={(open) => { if (!open) setEditingPlayer(null); }}>
-        <DialogContent data-testid="dialog-edit-player">
+        <DialogContent className="max-h-[85vh] overflow-y-auto" data-testid="dialog-edit-player">
           <DialogHeader>
             <DialogTitle>Edit Player</DialogTitle>
             <DialogDescription>Update player information.</DialogDescription>
@@ -5720,7 +5720,7 @@ function AdminTab({ initialSection }: { initialSection?: string }) {
       </AlertDialog>
 
       <Dialog open={adminAddPlayerOpen || !!adminEditPlayer} onOpenChange={(open) => { if (!open) { setAdminAddPlayerOpen(false); setAdminEditPlayer(null); adminAddForm.reset(); } }}>
-        <DialogContent data-testid="dialog-admin-player">
+        <DialogContent className="max-h-[85vh] overflow-y-auto" data-testid="dialog-admin-player">
           <DialogHeader>
             <DialogTitle>{adminEditPlayer ? "Edit Player" : "Add Player"}</DialogTitle>
             <DialogDescription>{adminEditPlayer ? "Update player details." : "Add a new player to your roster."}</DialogDescription>
@@ -5765,7 +5765,7 @@ function AdminTab({ initialSection }: { initialSection?: string }) {
                   </FormItem>
                 )} />
               </div>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 <FormField control={adminAddForm.control} name="position" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Position</FormLabel>
@@ -6058,6 +6058,7 @@ export default function CoachTrainerPage() {
   const trainerParams = new URLSearchParams(trainerSearch);
   const initialTab = trainerParams.get('tab') || "roster";
   const initialAdminSub = trainerParams.get('adminTab') || undefined;
+  const [activeTab, setActiveTab] = useState(initialTab);
 
   return (
     <div className="p-3 sm:p-6 max-w-4xl mx-auto space-y-4 sm:space-y-6">
@@ -6066,7 +6067,7 @@ export default function CoachTrainerPage() {
         <h1 className="text-xl sm:text-2xl font-bold" data-testid="text-trainer-page-title">Coach / Trainer</h1>
       </div>
 
-      <Tabs defaultValue={initialTab}>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <div className="-mx-2 px-2">
           <TabsList className="grid w-full grid-cols-5 gap-1 h-auto flex-wrap" data-testid="tabs-trainer-main">
             <TabsTrigger value="admin" className="text-xs sm:text-sm py-2" data-testid="tab-trainer-admin">
