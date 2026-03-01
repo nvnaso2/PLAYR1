@@ -706,17 +706,23 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
             <div>
               <Label className="text-sm font-medium">Your Teams</Label>
               <p className="text-xs text-muted-foreground mb-2">Add all the teams you play on</p>
-              <div className="flex gap-2 mb-2">
-                <Input
-                  value={newTeamName}
-                  onChange={e => setNewTeamName(e.target.value)}
-                  placeholder="Team name"
-                  className="flex-1"
-                  data-testid="input-new-team-name"
-                  onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addTeam(); } }}
-                />
+              <div className="space-y-2 mb-2">
+                <div className="flex gap-2">
+                  <Input
+                    value={newTeamName}
+                    onChange={e => setNewTeamName(e.target.value)}
+                    placeholder="Team name"
+                    className="flex-1 min-w-0"
+                    data-testid="input-new-team-name"
+                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addTeam(); } }}
+                  />
+                  <Button type="button" size="sm" onClick={addTeam} data-testid="button-add-team" className="shrink-0 h-9">
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add
+                  </Button>
+                </div>
                 <Select onValueChange={v => setNewTeamType(v as any)} value={newTeamType}>
-                  <SelectTrigger className="w-[140px]" data-testid="select-team-type">
+                  <SelectTrigger className="w-full" data-testid="select-team-type">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -726,9 +732,6 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
                     ))}
                   </SelectContent>
                 </Select>
-                <Button type="button" size="sm" onClick={addTeam} data-testid="button-add-team" className="shrink-0">
-                  <Plus className="w-4 h-4" />
-                </Button>
               </div>
               {teams.length > 0 && (
                 <div className="space-y-2">
@@ -777,11 +780,14 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
             <div>
               <Label className="text-sm font-medium">Jersey Number</Label>
               <Input
-                type="number"
-                min={0}
-                max={99}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={jerseyNumber ?? ""}
-                onChange={e => setJerseyNumber(e.target.value ? parseInt(e.target.value) : undefined)}
+                onChange={e => {
+                  const val = e.target.value.replace(/[^0-9]/g, '');
+                  setJerseyNumber(val ? Math.min(parseInt(val), 99) : undefined);
+                }}
                 placeholder="00"
                 className="mt-1.5 w-24"
                 data-testid="input-jersey-number"
@@ -839,57 +845,8 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
                 return (
                   <div
                     key={option.value}
-                    draggable
-                    onDragStart={(e) => {
-                      setDraggedInterestIdx(index);
-                      interestDragging.current = true;
-                      e.dataTransfer.effectAllowed = "move";
-                    }}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      e.dataTransfer.dropEffect = "move";
-                      setOverInterestIdx(index);
-                    }}
-                    onDragLeave={() => {
-                      if (overInterestIdx === index) setOverInterestIdx(null);
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      if (draggedInterestIdx !== null && draggedInterestIdx !== index) {
-                        commitInterestReorder(draggedInterestIdx, index);
-                      }
-                      setDraggedInterestIdx(null);
-                      setOverInterestIdx(null);
-                      interestDragging.current = false;
-                    }}
-                    onDragEnd={() => {
-                      setDraggedInterestIdx(null);
-                      setOverInterestIdx(null);
-                      interestDragging.current = false;
-                    }}
-                    onTouchStart={() => {
-                      setDraggedInterestIdx(index);
-                      interestDragging.current = true;
-                    }}
-                    onTouchMove={(e) => {
-                      const touch = e.touches[0];
-                      const elements = document.elementsFromPoint(touch.clientX, touch.clientY);
-                      const target = elements.find(el => el.getAttribute('data-interest-idx') !== null);
-                      if (target) {
-                        const idx = parseInt(target.getAttribute('data-interest-idx')!);
-                        setOverInterestIdx(idx);
-                      }
-                    }}
-                    onTouchEnd={() => {
-                      if (draggedInterestIdx !== null && overInterestIdx !== null && draggedInterestIdx !== overInterestIdx) {
-                        commitInterestReorder(draggedInterestIdx, overInterestIdx);
-                      }
-                      setDraggedInterestIdx(null);
-                      setOverInterestIdx(null);
-                      interestDragging.current = false;
-                    }}
                     data-interest-idx={index}
-                    className={`p-4 rounded-lg border-2 flex items-center gap-3 cursor-grab active:cursor-grabbing select-none transition-all ${
+                    className={`p-4 rounded-lg border-2 flex items-center gap-3 select-none transition-all ${
                       draggedInterestIdx === index ? 'opacity-50 scale-[0.98] border-primary' : ''
                     } ${
                       overInterestIdx === index && draggedInterestIdx !== null && draggedInterestIdx !== index
@@ -900,7 +857,39 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
                     <div className="flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary text-sm font-bold shrink-0">
                       {index + 1}
                     </div>
-                    <GripVertical className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <div
+                      className="cursor-grab active:cursor-grabbing touch-none p-1"
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        (e.target as HTMLElement).setPointerCapture(e.pointerId);
+                        setDraggedInterestIdx(index);
+                        interestDragging.current = true;
+                      }}
+                      onPointerMove={(e) => {
+                        if (!interestDragging.current || draggedInterestIdx === null) return;
+                        const elements = document.elementsFromPoint(e.clientX, e.clientY);
+                        const target = elements.find(el => el.getAttribute('data-interest-idx') !== null);
+                        if (target) {
+                          const idx = parseInt(target.getAttribute('data-interest-idx')!);
+                          setOverInterestIdx(idx);
+                        }
+                      }}
+                      onPointerUp={() => {
+                        if (draggedInterestIdx !== null && overInterestIdx !== null && draggedInterestIdx !== overInterestIdx) {
+                          commitInterestReorder(draggedInterestIdx, overInterestIdx);
+                        }
+                        setDraggedInterestIdx(null);
+                        setOverInterestIdx(null);
+                        interestDragging.current = false;
+                      }}
+                      onPointerCancel={() => {
+                        setDraggedInterestIdx(null);
+                        setOverInterestIdx(null);
+                        interestDragging.current = false;
+                      }}
+                    >
+                      <GripVertical className="w-5 h-5 text-muted-foreground" />
+                    </div>
                     <div className="w-9 h-9 rounded-full bg-muted/50 flex items-center justify-center shrink-0">
                       <Icon className="w-4 h-4 text-primary" />
                     </div>
@@ -1126,18 +1115,18 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
               </div>
               <div>
                 <Label className="text-sm">Minutes</Label>
-                <Input type="number" min={0} value={minutesPlayed} onChange={e => setMinutesPlayed(parseInt(e.target.value) || 0)} className="mt-1" data-testid="input-minutes" />
+                <Input type="text" inputMode="numeric" value={minutesPlayed || ""} onChange={e => setMinutesPlayed(parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0)} className="mt-1" data-testid="input-minutes" />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-sm">Your Score</Label>
-                <Input type="number" min={0} value={teamScore} onChange={e => setTeamScore(parseInt(e.target.value) || 0)} className="mt-1" data-testid="input-team-score" />
+                <Input type="text" inputMode="numeric" value={teamScore || ""} onChange={e => setTeamScore(parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0)} className="mt-1" data-testid="input-team-score" />
               </div>
               <div>
                 <Label className="text-sm">Opponent Score</Label>
-                <Input type="number" min={0} value={opponentScore} onChange={e => setOpponentScore(parseInt(e.target.value) || 0)} className="mt-1" data-testid="input-opponent-score" />
+                <Input type="text" inputMode="numeric" value={opponentScore || ""} onChange={e => setOpponentScore(parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0)} className="mt-1" data-testid="input-opponent-score" />
               </div>
             </div>
 
@@ -1155,7 +1144,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
                 ].map(stat => (
                   <div key={stat.label}>
                     <Label className="text-xs text-muted-foreground">{stat.label}</Label>
-                    <Input type="number" min={0} value={stat.value} onChange={e => stat.set(parseInt(e.target.value) || 0)} className="mt-0.5 h-9 text-center" data-testid={`input-stat-${stat.label.toLowerCase()}`} />
+                    <Input type="text" inputMode="numeric" value={stat.value || ""} onChange={e => stat.set(parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0)} className="mt-0.5 h-9 text-center" data-testid={`input-stat-${stat.label.toLowerCase()}`} />
                   </div>
                 ))}
               </div>
@@ -1167,25 +1156,25 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
                 <div>
                   <Label className="text-xs text-muted-foreground">FG</Label>
                   <div className="flex gap-1 mt-0.5">
-                    <Input type="number" min={0} value={fgMade} onChange={e => setFgMade(parseInt(e.target.value) || 0)} placeholder="M" className="h-9 text-center" data-testid="input-fg-made" />
+                    <Input type="text" inputMode="numeric" value={fgMade || ""} onChange={e => setFgMade(parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0)} placeholder="M" className="h-9 text-center" data-testid="input-fg-made" />
                     <span className="flex items-center text-muted-foreground text-xs">/</span>
-                    <Input type="number" min={0} value={fgAttempted} onChange={e => setFgAttempted(parseInt(e.target.value) || 0)} placeholder="A" className="h-9 text-center" data-testid="input-fg-attempted" />
+                    <Input type="text" inputMode="numeric" value={fgAttempted || ""} onChange={e => setFgAttempted(parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0)} placeholder="A" className="h-9 text-center" data-testid="input-fg-attempted" />
                   </div>
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">3PT</Label>
                   <div className="flex gap-1 mt-0.5">
-                    <Input type="number" min={0} value={threePtMade} onChange={e => setThreePtMade(parseInt(e.target.value) || 0)} placeholder="M" className="h-9 text-center" data-testid="input-3pt-made" />
+                    <Input type="text" inputMode="numeric" value={threePtMade || ""} onChange={e => setThreePtMade(parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0)} placeholder="M" className="h-9 text-center" data-testid="input-3pt-made" />
                     <span className="flex items-center text-muted-foreground text-xs">/</span>
-                    <Input type="number" min={0} value={threePtAttempted} onChange={e => setThreePtAttempted(parseInt(e.target.value) || 0)} placeholder="A" className="h-9 text-center" data-testid="input-3pt-attempted" />
+                    <Input type="text" inputMode="numeric" value={threePtAttempted || ""} onChange={e => setThreePtAttempted(parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0)} placeholder="A" className="h-9 text-center" data-testid="input-3pt-attempted" />
                   </div>
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">FT</Label>
                   <div className="flex gap-1 mt-0.5">
-                    <Input type="number" min={0} value={ftMade} onChange={e => setFtMade(parseInt(e.target.value) || 0)} placeholder="M" className="h-9 text-center" data-testid="input-ft-made" />
+                    <Input type="text" inputMode="numeric" value={ftMade || ""} onChange={e => setFtMade(parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0)} placeholder="M" className="h-9 text-center" data-testid="input-ft-made" />
                     <span className="flex items-center text-muted-foreground text-xs">/</span>
-                    <Input type="number" min={0} value={ftAttempted} onChange={e => setFtAttempted(parseInt(e.target.value) || 0)} placeholder="A" className="h-9 text-center" data-testid="input-ft-attempted" />
+                    <Input type="text" inputMode="numeric" value={ftAttempted || ""} onChange={e => setFtAttempted(parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0)} placeholder="A" className="h-9 text-center" data-testid="input-ft-attempted" />
                   </div>
                 </div>
               </div>
