@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -4719,9 +4719,9 @@ function JoinGroupTab() {
   );
 }
 
-function AdminTab() {
+function AdminTab({ initialSection }: { initialSection?: string }) {
   const { toast } = useToast();
-  const [adminSection, setAdminSection] = useState<"teams" | "groups" | "players" | "drills">("teams");
+  const [adminSection, setAdminSection] = useState<"teams" | "groups" | "players" | "drills">((initialSection as any) || "teams");
 
   const [createTeamOpen, setCreateTeamOpen] = useState(false);
   const [editTeamId, setEditTeamId] = useState<string | null>(null);
@@ -6009,6 +6009,10 @@ function MyAssignmentsTab() {
 
 export default function CoachTrainerPage() {
   const { user } = useAuth();
+  const trainerSearch = useSearch();
+  const trainerParams = new URLSearchParams(trainerSearch);
+  const initialTab = trainerParams.get('tab') || "roster";
+  const initialAdminSub = trainerParams.get('adminTab') || undefined;
 
   return (
     <div className="p-3 sm:p-6 max-w-4xl mx-auto space-y-4 sm:space-y-6">
@@ -6017,7 +6021,7 @@ export default function CoachTrainerPage() {
         <h1 className="text-xl sm:text-2xl font-bold" data-testid="text-trainer-page-title">Coach / Trainer</h1>
       </div>
 
-      <Tabs defaultValue="roster">
+      <Tabs defaultValue={initialTab}>
         <div className="-mx-2 px-2">
           <TabsList className="grid w-full grid-cols-5 gap-1 h-auto flex-wrap" data-testid="tabs-trainer-main">
             <TabsTrigger value="admin" className="text-xs sm:text-sm py-2" data-testid="tab-trainer-admin">
@@ -6064,7 +6068,7 @@ export default function CoachTrainerPage() {
         </div>
 
         <TabsContent value="admin">
-          <AdminTab />
+          <AdminTab initialSection={initialAdminSub} />
         </TabsContent>
         <TabsContent value="roster">
           <RosterTab />
