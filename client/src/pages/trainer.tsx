@@ -4759,6 +4759,7 @@ function AdminTab({ initialSection }: { initialSection?: string }) {
   const [drillDifficulty, setDrillDifficulty] = useState("beginner");
   const [drillDuration, setDrillDuration] = useState("");
   const [drillTrackShots, setDrillTrackShots] = useState(false);
+  const [drillInstructions, setDrillInstructions] = useState<string[]>([]);
 
   const { data: groups, isLoading: groupsLoading } = useQuery<TrainerGroup[]>({
     queryKey: ["/api/trainer/groups"],
@@ -5033,6 +5034,7 @@ function AdminTab({ initialSection }: { initialSection?: string }) {
     setDrillDifficulty("beginner");
     setDrillDuration("");
     setDrillTrackShots(false);
+    setDrillInstructions([]);
   };
 
   const openEditGroup = (group: TrainerGroup) => {
@@ -5053,6 +5055,7 @@ function AdminTab({ initialSection }: { initialSection?: string }) {
     setDrillDifficulty(drill.difficulty);
     setDrillDuration(drill.duration ? String(drill.duration) : "");
     setDrillTrackShots(drill.trackShots || false);
+    setDrillInstructions(drill.tips || []);
   };
 
   const handleGroupSubmit = () => {
@@ -5081,6 +5084,7 @@ function AdminTab({ initialSection }: { initialSection?: string }) {
       difficulty: drillDifficulty,
       duration: drillDuration || undefined,
       trackShots: drillTrackShots,
+      tips: drillInstructions.filter(s => s.trim()),
     };
     if (editDrillId) {
       updateDrillMutation.mutate({ id: editDrillId, data });
@@ -5548,7 +5552,7 @@ function AdminTab({ initialSection }: { initialSection?: string }) {
       </Dialog>
 
       <Dialog open={createDrillOpen || !!editDrillId} onOpenChange={(open) => { if (!open) { setCreateDrillOpen(false); setEditDrillId(null); resetDrillForm(); } }}>
-        <DialogContent data-testid="dialog-admin-drill">
+        <DialogContent className="max-h-[85vh] overflow-y-auto" data-testid="dialog-admin-drill">
           <DialogHeader>
             <DialogTitle>{editDrillId ? "Edit Drill" : "Create Custom Drill"}</DialogTitle>
             <DialogDescription>{editDrillId ? "Update drill details." : "Create a new drill to assign to players."}</DialogDescription>
@@ -5619,6 +5623,47 @@ function AdminTab({ initialSection }: { initialSection?: string }) {
                   data-testid="checkbox-admin-drill-track-shots"
                 />
                 <label className="text-sm">Track shot locations</label>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Instructions / Steps</label>
+              <div className="space-y-2">
+                {drillInstructions.map((step, idx) => (
+                  <div key={idx} className="flex items-start gap-2">
+                    <span className="text-xs font-bold text-muted-foreground mt-2.5 w-5 shrink-0">{idx + 1}.</span>
+                    <Input
+                      value={step}
+                      onChange={(e) => {
+                        const updated = [...drillInstructions];
+                        updated[idx] = e.target.value;
+                        setDrillInstructions(updated);
+                      }}
+                      placeholder={`Step ${idx + 1}`}
+                      data-testid={`input-drill-instruction-${idx}`}
+                    />
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="shrink-0 h-9 w-9"
+                      onClick={() => setDrillInstructions(prev => prev.filter((_, i) => i !== idx))}
+                      data-testid={`button-remove-instruction-${idx}`}
+                    >
+                      <Trash2 className="w-4 h-4 text-muted-foreground" />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1"
+                  onClick={() => setDrillInstructions(prev => [...prev, ""])}
+                  data-testid="button-add-instruction"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Add Step
+                </Button>
               </div>
             </div>
           </div>
