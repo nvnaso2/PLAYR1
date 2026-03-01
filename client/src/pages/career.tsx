@@ -1063,6 +1063,154 @@ type CareerStats = {
   }>;
 };
 
+function StatsOverviewCard({ careerStats }: { careerStats?: CareerStats }) {
+  const [statsView, setStatsView] = useState<"averages" | "totals">("averages");
+  const [statsPeriod, setStatsPeriod] = useState<"career" | "current">("career");
+
+  if (!careerStats || careerStats.totalGames === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart className="w-5 h-5 text-blue-500" />
+            Stats
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center p-8">
+            <BarChart className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+            <p className="text-muted-foreground">No game stats yet. Add seasons and games below!</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const breakdown = careerStats.seasonBreakdown;
+  const currentSeason = breakdown.length > 0 ? breakdown[breakdown.length - 1] : null;
+  const displaySeasons = statsPeriod === "current" && currentSeason ? [currentSeason] : breakdown;
+
+  const totalGames = displaySeasons.reduce((s, ss) => s + ss.gamesPlayed, 0);
+  const totalPts = displaySeasons.reduce((s, ss) => s + ss.totalPoints, 0);
+  const totalReb = displaySeasons.reduce((s, ss) => s + ss.totalRebounds, 0);
+  const totalAst = displaySeasons.reduce((s, ss) => s + ss.totalAssists, 0);
+  const totalStl = displaySeasons.reduce((s, ss) => s + ss.totalSteals, 0);
+  const totalBlk = displaySeasons.reduce((s, ss) => s + ss.totalBlocks, 0);
+  const displayWins = statsPeriod === "current" && currentSeason ? currentSeason.wins : (careerStats.wins ?? 0);
+  const displayLosses = statsPeriod === "current" && currentSeason ? currentSeason.losses : (careerStats.losses ?? 0);
+
+  const statItems = statsView === "averages" ? [
+    { label: "PPG", value: totalGames > 0 ? (totalPts / totalGames).toFixed(1) : "0.0", highlight: true },
+    { label: "RPG", value: totalGames > 0 ? (totalReb / totalGames).toFixed(1) : "0.0" },
+    { label: "APG", value: totalGames > 0 ? (totalAst / totalGames).toFixed(1) : "0.0" },
+    { label: "SPG", value: totalGames > 0 ? (totalStl / totalGames).toFixed(1) : "0.0" },
+    { label: "BPG", value: totalGames > 0 ? (totalBlk / totalGames).toFixed(1) : "0.0" },
+  ] : [
+    { label: "PTS", value: totalPts.toString(), highlight: true },
+    { label: "REB", value: totalReb.toString() },
+    { label: "AST", value: totalAst.toString() },
+    { label: "STL", value: totalStl.toString() },
+    { label: "BLK", value: totalBlk.toString() },
+  ];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <BarChart className="w-5 h-5 text-blue-500" />
+          Stats
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
+          <div className="flex gap-1">
+            <Button size="sm" variant={statsView === "averages" ? "default" : "outline"} onClick={() => setStatsView("averages")} data-testid="btn-stats-averages">
+              Averages
+            </Button>
+            <Button size="sm" variant={statsView === "totals" ? "default" : "outline"} onClick={() => setStatsView("totals")} data-testid="btn-stats-totals">
+              Totals
+            </Button>
+          </div>
+          <div className="flex gap-1">
+            <Button size="sm" variant={statsPeriod === "career" ? "default" : "outline"} onClick={() => setStatsPeriod("career")} data-testid="btn-stats-career">
+              Career
+            </Button>
+            <Button size="sm" variant={statsPeriod === "current" ? "default" : "outline"} onClick={() => setStatsPeriod("current")} data-testid="btn-stats-current">
+              <span className="hidden sm:inline">Current Season</span>
+              <span className="sm:hidden">Season</span>
+            </Button>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className={`grid gap-2 sm:gap-3 ${(displayWins + displayLosses) > 0 ? 'grid-cols-4' : 'grid-cols-3'}`}>
+            <div className="text-center p-2 sm:p-3 rounded-md bg-muted/50">
+              <p className="text-lg sm:text-2xl font-bold">{totalGames}</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground">GP</p>
+            </div>
+            <div className="text-center p-2 sm:p-3 rounded-md bg-muted/50">
+              <p className="text-lg sm:text-2xl font-bold text-green-600 dark:text-green-400">{displayWins}</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground">Wins</p>
+            </div>
+            <div className="text-center p-2 sm:p-3 rounded-md bg-muted/50">
+              <p className="text-lg sm:text-2xl font-bold text-red-600 dark:text-red-400">{displayLosses}</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground">Losses</p>
+            </div>
+            {(displayWins + displayLosses) > 0 && (
+              <div className="text-center p-2 sm:p-3 rounded-md bg-muted/50">
+                <p className="text-lg sm:text-2xl font-bold">{((displayWins / (displayWins + displayLosses)) * 100).toFixed(0)}%</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Win %</p>
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-5 gap-2 sm:gap-3">
+            {statItems.map((item) => (
+              <div key={item.label} className="text-center p-2 sm:p-3 rounded-md bg-muted/50">
+                <p className={`text-lg sm:text-2xl font-bold ${item.highlight ? 'text-primary' : ''}`}>{item.value}</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">{item.label}</p>
+              </div>
+            ))}
+          </div>
+
+          {statsPeriod === "career" && breakdown.length > 1 && (
+            <div className="mt-4">
+              <p className="text-sm font-medium mb-2 text-muted-foreground">Season Breakdown</p>
+              <div className="space-y-2">
+                {breakdown.map((s, i) => (
+                  <div key={i} className="p-2 rounded-md bg-muted/30 space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium text-xs sm:text-sm">
+                        {SEASON_TYPE_LABELS[s.seasonType]?.split(" ")[0] || s.seasonType} '{s.year?.slice(-2) || ""}
+                      </span>
+                      <span className="text-xs text-muted-foreground">{s.gamesPlayed} GP</span>
+                    </div>
+                    <div className="flex gap-2 sm:gap-3 text-muted-foreground text-xs flex-wrap">
+                      {statsView === "averages" ? (
+                        <>
+                          <span className="font-semibold text-foreground">{s.avgPoints.toFixed(1)} PPG</span>
+                          <span>{s.avgRebounds.toFixed(1)} RPG</span>
+                          <span>{s.avgAssists.toFixed(1)} APG</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="font-semibold text-foreground">{s.totalPoints} PTS</span>
+                          <span>{s.totalRebounds} REB</span>
+                          <span>{s.totalAssists} AST</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function StatsTab() {
   const { toast } = useToast();
   const [selectedSeasonId, setSelectedSeasonId] = useState<string | null>(null);
@@ -1278,43 +1426,7 @@ function StatsTab() {
 
   return (
     <div className="space-y-6">
-      {careerStats && careerStats.totalGames > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-primary" />
-              Career Totals
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-5 gap-2 sm:gap-4">
-              <div className="text-center p-2 sm:p-3 bg-primary/10 rounded-lg">
-                <p className="text-lg sm:text-2xl font-bold">{careerStats.avgPoints}</p>
-                <p className="text-[10px] sm:text-sm text-muted-foreground">PPG</p>
-              </div>
-              <div className="text-center p-2 sm:p-3 bg-primary/10 rounded-lg">
-                <p className="text-lg sm:text-2xl font-bold">{careerStats.avgRebounds}</p>
-                <p className="text-[10px] sm:text-sm text-muted-foreground">RPG</p>
-              </div>
-              <div className="text-center p-2 sm:p-3 bg-primary/10 rounded-lg">
-                <p className="text-lg sm:text-2xl font-bold">{careerStats.avgAssists}</p>
-                <p className="text-[10px] sm:text-sm text-muted-foreground">APG</p>
-              </div>
-              <div className="text-center p-2 sm:p-3 bg-primary/10 rounded-lg">
-                <p className="text-lg sm:text-2xl font-bold">{careerStats.avgSteals}</p>
-                <p className="text-[10px] sm:text-sm text-muted-foreground">SPG</p>
-              </div>
-              <div className="text-center p-2 sm:p-3 bg-primary/10 rounded-lg">
-                <p className="text-lg sm:text-2xl font-bold">{careerStats.avgBlocks}</p>
-                <p className="text-[10px] sm:text-sm text-muted-foreground">BPG</p>
-              </div>
-            </div>
-            <div className="mt-4 text-center text-sm text-muted-foreground">
-              {careerStats.totalGames} career games | {careerStats.totalPoints} total points
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <StatsOverviewCard careerStats={careerStats} />
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-4">
@@ -1955,25 +2067,23 @@ function StatsTab() {
   );
 }
 
-type TrophySection = "achievements" | "challenges" | "prs" | "awards" | "stats";
+type TrophySection = "achievements" | "challenges" | "prs" | "awards";
 
 function TrophyRoomTab({ 
   achievements, 
   userChallenges, 
   personalRecords, 
   teamAwards,
-  careerStats,
   profile
 }: { 
   achievements?: Array<UserAchievement & { achievement: CareerAchievement }>;
   userChallenges?: Array<UserChallenge & { challenge: Challenge }>;
   personalRecords?: Array<PersonalRecord & { drill: { title: string } }>;
   teamAwards?: TeamAward[];
-  careerStats?: CareerStats;
   profile: CareerProfile;
 }) {
   const { toast } = useToast();
-  const defaultOrder: TrophySection[] = ["achievements", "challenges", "prs", "awards", "stats"];
+  const defaultOrder: TrophySection[] = ["achievements", "challenges", "prs", "awards"];
   if (!profile) return null;
   const savedOrder = profile.trophyRoomOrder as TrophySection[] | null;
   const initialOrder = savedOrder && savedOrder.length === defaultOrder.length && savedOrder.every(s => defaultOrder.includes(s))
@@ -1983,8 +2093,6 @@ function TrophyRoomTab({
   const [collapsedSections, setCollapsedSections] = useState<Set<TrophySection>>(new Set());
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [overIdx, setOverIdx] = useState<number | null>(null);
-  const [statsView, setStatsView] = useState<"averages" | "totals">("averages");
-  const [statsPeriod, setStatsPeriod] = useState<"career" | "current">("career");
   const containerRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
 
@@ -2431,139 +2539,6 @@ function TrophyRoomTab({
                   <p className="text-muted-foreground">No awards yet. Add your team awards and achievements!</p>
                 </div>
               )}
-            </CardContent>}
-          </Card>
-        );
-
-      case "stats":
-        return (
-          <Card key="stats">
-            {renderSectionHeader("stats", <BarChart className="w-5 h-5 text-blue-500" />, "Stats", "Season and career statistics")}
-            {!collapsedSections.has("stats") && <CardContent>
-              <div className="flex items-center gap-2 mb-4 flex-wrap">
-                <div className="flex gap-1">
-                  <Button size="sm" variant={statsView === "averages" ? "default" : "outline"} onClick={() => setStatsView("averages")} data-testid="btn-stats-averages">
-                    Averages
-                  </Button>
-                  <Button size="sm" variant={statsView === "totals" ? "default" : "outline"} onClick={() => setStatsView("totals")} data-testid="btn-stats-totals">
-                    Totals
-                  </Button>
-                </div>
-                <div className="flex gap-1">
-                  <Button size="sm" variant={statsPeriod === "career" ? "default" : "outline"} onClick={() => setStatsPeriod("career")} data-testid="btn-stats-career">
-                    Career
-                  </Button>
-                  <Button size="sm" variant={statsPeriod === "current" ? "default" : "outline"} onClick={() => setStatsPeriod("current")} data-testid="btn-stats-current">
-                    <span className="hidden sm:inline">Current Season</span>
-                    <span className="sm:hidden">Season</span>
-                  </Button>
-                </div>
-              </div>
-
-              {(() => {
-                if (!careerStats || careerStats.totalGames === 0) {
-                  return (
-                    <div className="text-center p-8">
-                      <BarChart className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-                      <p className="text-muted-foreground">No game stats yet. Add seasons and games in the Stats tab!</p>
-                    </div>
-                  );
-                }
-
-                const breakdown = careerStats.seasonBreakdown;
-                const currentSeason = breakdown.length > 0 ? breakdown[breakdown.length - 1] : null;
-                const displaySeasons = statsPeriod === "current" && currentSeason ? [currentSeason] : breakdown;
-
-                const totalGames = displaySeasons.reduce((s, ss) => s + ss.gamesPlayed, 0);
-                const totalPts = displaySeasons.reduce((s, ss) => s + ss.totalPoints, 0);
-                const totalReb = displaySeasons.reduce((s, ss) => s + ss.totalRebounds, 0);
-                const totalAst = displaySeasons.reduce((s, ss) => s + ss.totalAssists, 0);
-                const totalStl = displaySeasons.reduce((s, ss) => s + ss.totalSteals, 0);
-                const totalBlk = displaySeasons.reduce((s, ss) => s + ss.totalBlocks, 0);
-                const displayWins = statsPeriod === "current" && currentSeason ? currentSeason.wins : (careerStats.wins ?? 0);
-                const displayLosses = statsPeriod === "current" && currentSeason ? currentSeason.losses : (careerStats.losses ?? 0);
-
-                const statItems = statsView === "averages" ? [
-                  { label: "PPG", value: totalGames > 0 ? (totalPts / totalGames).toFixed(1) : "0.0", highlight: true },
-                  { label: "RPG", value: totalGames > 0 ? (totalReb / totalGames).toFixed(1) : "0.0" },
-                  { label: "APG", value: totalGames > 0 ? (totalAst / totalGames).toFixed(1) : "0.0" },
-                  { label: "SPG", value: totalGames > 0 ? (totalStl / totalGames).toFixed(1) : "0.0" },
-                  { label: "BPG", value: totalGames > 0 ? (totalBlk / totalGames).toFixed(1) : "0.0" },
-                ] : [
-                  { label: "PTS", value: totalPts.toString(), highlight: true },
-                  { label: "REB", value: totalReb.toString() },
-                  { label: "AST", value: totalAst.toString() },
-                  { label: "STL", value: totalStl.toString() },
-                  { label: "BLK", value: totalBlk.toString() },
-                ];
-
-                return (
-                  <div className="space-y-4">
-                    <div className={`grid gap-2 sm:gap-3 ${(displayWins + displayLosses) > 0 ? 'grid-cols-4' : 'grid-cols-3'}`}>
-                      <div className="text-center p-2 sm:p-3 rounded-md bg-muted/50">
-                        <p className="text-lg sm:text-2xl font-bold">{totalGames}</p>
-                        <p className="text-[10px] sm:text-xs text-muted-foreground">GP</p>
-                      </div>
-                      <div className="text-center p-2 sm:p-3 rounded-md bg-muted/50">
-                        <p className="text-lg sm:text-2xl font-bold text-green-600 dark:text-green-400">{displayWins}</p>
-                        <p className="text-[10px] sm:text-xs text-muted-foreground">Wins</p>
-                      </div>
-                      <div className="text-center p-2 sm:p-3 rounded-md bg-muted/50">
-                        <p className="text-lg sm:text-2xl font-bold text-red-600 dark:text-red-400">{displayLosses}</p>
-                        <p className="text-[10px] sm:text-xs text-muted-foreground">Losses</p>
-                      </div>
-                      {(displayWins + displayLosses) > 0 && (
-                        <div className="text-center p-2 sm:p-3 rounded-md bg-muted/50">
-                          <p className="text-lg sm:text-2xl font-bold">{((displayWins / (displayWins + displayLosses)) * 100).toFixed(0)}%</p>
-                          <p className="text-[10px] sm:text-xs text-muted-foreground">Win %</p>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-5 gap-2 sm:gap-3">
-                      {statItems.map((item) => (
-                        <div key={item.label} className="text-center p-2 sm:p-3 rounded-md bg-muted/50">
-                          <p className={`text-lg sm:text-2xl font-bold ${item.highlight ? 'text-primary' : ''}`}>{item.value}</p>
-                          <p className="text-[10px] sm:text-xs text-muted-foreground">{item.label}</p>
-                        </div>
-                      ))}
-                    </div>
-
-                    {statsPeriod === "career" && breakdown.length > 1 && (
-                      <div className="mt-4">
-                        <p className="text-sm font-medium mb-2 text-muted-foreground">Season Breakdown</p>
-                        <div className="space-y-2">
-                          {breakdown.map((s, i) => (
-                            <div key={i} className="p-2 rounded-md bg-muted/30 space-y-1">
-                              <div className="flex items-center justify-between text-sm">
-                                <span className="font-medium text-xs sm:text-sm">
-                                  {SEASON_TYPE_LABELS[s.seasonType]?.split(" ")[0] || s.seasonType} '{s.year?.slice(-2) || ""}
-                                </span>
-                                <span className="text-xs text-muted-foreground">{s.gamesPlayed} GP</span>
-                              </div>
-                              <div className="flex gap-2 sm:gap-3 text-muted-foreground text-xs flex-wrap">
-                                {statsView === "averages" ? (
-                                  <>
-                                    <span className="font-semibold text-foreground">{s.avgPoints.toFixed(1)} PPG</span>
-                                    <span>{s.avgRebounds.toFixed(1)} RPG</span>
-                                    <span>{s.avgAssists.toFixed(1)} APG</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <span className="font-semibold text-foreground">{s.totalPoints} PTS</span>
-                                    <span>{s.totalRebounds} REB</span>
-                                    <span>{s.totalAssists} AST</span>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
             </CardContent>}
           </Card>
         );
@@ -3094,7 +3069,6 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
             userChallenges={userChallenges}
             personalRecords={personalRecords}
             teamAwards={teamAwards}
-            careerStats={careerStats}
             profile={profile}
           />
         </TabsContent>
