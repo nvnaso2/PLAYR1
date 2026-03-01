@@ -2131,22 +2131,26 @@ function PlayersTab() {
       )}
 
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto" data-testid="dialog-add-player">
+        <DialogContent className="max-h-[85vh] flex flex-col" data-testid="dialog-add-player">
           <DialogHeader>
             <DialogTitle>Add Player</DialogTitle>
             <DialogDescription>Add a new player to your roster. You can assign them to teams or groups later.</DialogDescription>
           </DialogHeader>
-          {renderPlayerForm(addForm, (data) => createPlayerMutation.mutate(data), createPlayerMutation.isPending, "Add Player", { showTeamPicker: true })}
+          <div className="overflow-y-auto flex-1 pr-1">
+            {renderPlayerForm(addForm, (data) => createPlayerMutation.mutate(data), createPlayerMutation.isPending, "Add Player", { showTeamPicker: true })}
+          </div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={!!editingPlayer} onOpenChange={(open) => { if (!open) setEditingPlayer(null); }}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto" data-testid="dialog-edit-player">
+        <DialogContent className="max-h-[85vh] flex flex-col" data-testid="dialog-edit-player">
           <DialogHeader>
             <DialogTitle>Edit Player</DialogTitle>
             <DialogDescription>Update player information.</DialogDescription>
           </DialogHeader>
-          {editingPlayer && renderPlayerForm(editForm, (data) => updatePlayerMutation.mutate({ id: editingPlayer.id, data }), updatePlayerMutation.isPending, "Save Changes")}
+          <div className="overflow-y-auto flex-1 pr-1">
+            {editingPlayer && renderPlayerForm(editForm, (data) => updatePlayerMutation.mutate({ id: editingPlayer.id, data }), updatePlayerMutation.isPending, "Save Changes")}
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -5720,11 +5724,12 @@ function AdminTab({ initialSection }: { initialSection?: string }) {
       </AlertDialog>
 
       <Dialog open={adminAddPlayerOpen || !!adminEditPlayer} onOpenChange={(open) => { if (!open) { setAdminAddPlayerOpen(false); setAdminEditPlayer(null); adminAddForm.reset(); } }}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto" data-testid="dialog-admin-player">
+        <DialogContent className="max-h-[85vh] flex flex-col" data-testid="dialog-admin-player">
           <DialogHeader>
             <DialogTitle>{adminEditPlayer ? "Edit Player" : "Add Player"}</DialogTitle>
             <DialogDescription>{adminEditPlayer ? "Update player details." : "Add a new player to your roster."}</DialogDescription>
           </DialogHeader>
+          <div className="overflow-y-auto flex-1 pr-1">
           <Form {...adminAddForm}>
             <form onSubmit={adminAddForm.handleSubmit((data) => {
               if (adminEditPlayer) {
@@ -5848,6 +5853,7 @@ function AdminTab({ initialSection }: { initialSection?: string }) {
               </DialogFooter>
             </form>
           </Form>
+        </div>
         </DialogContent>
       </Dialog>
 
