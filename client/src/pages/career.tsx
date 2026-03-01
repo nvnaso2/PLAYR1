@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -76,7 +77,11 @@ import {
   RefreshCw,
   Share2,
   Loader2,
-  Play
+  Play,
+  HandMetal,
+  Shield,
+  Brain,
+  Upload
 } from "lucide-react";
 import type { CareerProfile, UserAchievement, CareerAchievement, Challenge, UserChallenge, PersonalRecord, TeamAward, Season, Game, InsertTeamAward, InsertChallenge } from "@shared/schema";
 import { insertTeamAwardSchema, insertChallengeSchema } from "@shared/schema";
@@ -178,6 +183,16 @@ const INTEREST_OPTIONS = [
   { value: "skill-development", label: "Player / Skill Development", icon: Target, description: "Improve your skills with drills" },
   { value: "find-trainer", label: "Find a Trainer", icon: Users, description: "Connect with a trainer" },
   { value: "find-team", label: "Find a Team", icon: Award, description: "Find a team to play on" },
+] as const;
+
+const TRAINER_SPECIALTIES = [
+  { value: "ball-handling", label: "Ball Handling", icon: HandMetal },
+  { value: "shooting", label: "Shooting", icon: Target },
+  { value: "defense", label: "Defense", icon: Shield },
+  { value: "strength-conditioning", label: "Strength & Conditioning", icon: Dumbbell },
+  { value: "basketball-iq", label: "Basketball IQ / Film", icon: Brain },
+  { value: "finishing", label: "Finishing", icon: Flame },
+  { value: "passing", label: "Passing", icon: Crosshair },
 ] as const;
 
 const seasonSchema = z.object({
@@ -474,7 +489,7 @@ function TutorialVideoStep({
 function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   const { toast } = useToast();
   const { user } = useAuth();
-  const [step, setStep] = useState<"role" | "profile" | "reason" | "select-teams" | "log-game" | "no-season" | "season-start" | "dev-priority" | "dev-log-next" | "dev-create-next" | "tutorial-log" | "tutorial-create">("role");
+  const [step, setStep] = useState<"role" | "profile" | "reason" | "select-teams" | "log-game" | "no-season" | "season-start" | "dev-priority" | "dev-log-next" | "dev-create-next" | "tutorial-log" | "tutorial-create" | "trainer-profile" | "trainer-specialties" | "trainer-begin">("role");
   const [selectedRole, setSelectedRole] = useState<"player" | "trainer" | "coach" | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -501,6 +516,13 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   const [devPriority, setDevPriority] = useState<"log-training" | "drill-library" | "create-drills" | null>(null);
   const [wantAiSuggestions, setWantAiSuggestions] = useState<boolean | null>(null);
   const [tutorialSlide, setTutorialSlide] = useState(0);
+
+  const [trainerSpecialties, setTrainerSpecialties] = useState(TRAINER_SPECIALTIES.map(s => s.value));
+  const [draggedSpecIdx, setDraggedSpecIdx] = useState<number | null>(null);
+  const [overSpecIdx, setOverSpecIdx] = useState<number | null>(null);
+  const specDragging = useRef(false);
+  const [trainerAlsoCoaches, setTrainerAlsoCoaches] = useState(false);
+  const [trainerTeamName, setTrainerTeamName] = useState("");
 
   const [gameStatsTeams, setGameStatsTeams] = useState<string[]>([]);
   const [logPastGames, setLogPastGames] = useState<boolean | null>(null);
@@ -733,7 +755,11 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
 
   const handleRoleSelect = (role: "player" | "trainer" | "coach") => {
     setSelectedRole(role);
-    setStep("profile");
+    if (role === "trainer") {
+      setStep("trainer-profile");
+    } else {
+      setStep("profile");
+    }
   };
 
   const handleProfileNext = async () => {
@@ -743,6 +769,75 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
     }
     await saveProfile();
     setStep("reason");
+  };
+
+  const commitSpecReorder = (from: number, to: number) => {
+    setTrainerSpecialties(prev => {
+      const updated = [...prev];
+      const [moved] = updated.splice(from, 1);
+      updated.splice(to, 0, moved);
+      return updated;
+    });
+  };
+
+  const handleTrainerProfileNext = async () => {
+    if (!firstName.trim()) {
+      toast({ title: "Please enter your first name", variant: "destructive" });
+      return;
+    }
+    if (trainerAlsoCoaches && !trainerTeamName.trim()) {
+      toast({ title: "Please enter your team name", variant: "destructive" });
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await apiRequest("PUT", "/api/user/name", { firstName, lastName });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+
+      let cardPhotoUrl: string | undefined;
+      if (cardPhotoFile) {
+        const path = await uploadCardPhoto();
+        if (path) cardPhotoUrl = path;
+      }
+
+      const profileData: Record<string, any> = {
+        staffRole: trainerAlsoCoaches ? "both" : "trainer",
+        trainerAlsoCoaches,
+        trainerTeamName: trainerAlsoCoaches ? trainerTeamName : null,
+      };
+      if (cardPhotoUrl) profileData.cardPhotoUrl = cardPhotoUrl;
+
+      const existing = await fetch("/api/career", { credentials: "include" }).then(r => r.ok ? r.json() : null);
+      if (existing) {
+        await apiRequest("PUT", "/api/career", profileData);
+      } else {
+        await apiRequest("POST", "/api/career", profileData);
+      }
+      queryClient.invalidateQueries({ queryKey: ['/api/career'] });
+      setStep("trainer-specialties");
+    } catch (error) {
+      toast({ title: "Failed to save profile", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleTrainerSpecialtiesNext = async () => {
+    const rankedJson = JSON.stringify(trainerSpecialties);
+    await apiRequest("PUT", "/api/career", { trainerSpecialties: rankedJson });
+    queryClient.invalidateQueries({ queryKey: ['/api/career'] });
+    setStep("trainer-begin");
+  };
+
+  const handleTrainerBeginChoice = async (choice: "create-drill" | "invite-players" | "upload-content") => {
+    await completeOnboarding();
+    if (choice === "create-drill") {
+      window.location.href = "/log?create=1";
+    } else if (choice === "invite-players") {
+      window.location.href = "/coach-trainer";
+    } else {
+      window.location.href = "/coach-trainer";
+    }
   };
 
   const handleInterestRankingNext = async () => {
@@ -1389,6 +1484,237 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
       onDone={async () => { await completeOnboarding(); }}
       onGoToDrills={async () => { await completeOnboarding(); window.location.href = "/drills"; }}
     />;
+  }
+
+  if (step === "trainer-profile") {
+    return (
+      <div className="min-h-screen flex items-start justify-center p-4 py-8 bg-gradient-to-b from-background to-muted/20">
+        <Card className="w-full max-w-lg">
+          <CardHeader className="text-center pb-4">
+            <CardTitle className="text-xl font-bold">Trainer Profile</CardTitle>
+            <CardDescription>Tell us about yourself</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="flex justify-center">
+              <div className="relative">
+                <div className="w-24 h-24 rounded-full bg-muted border-2 border-border overflow-hidden flex items-center justify-center">
+                  {cardPhotoPreview ? (
+                    <img src={cardPhotoPreview} alt="Profile" className="w-full h-full object-cover" />
+                  ) : (
+                    <Camera className="w-8 h-8 text-muted-foreground" />
+                  )}
+                </div>
+                <label className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center cursor-pointer hover:bg-primary/90 transition-colors">
+                  <Camera className="w-4 h-4" />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setCardPhotoFile(file);
+                        setCardPhotoPreview(URL.createObjectURL(file));
+                      }
+                    }}
+                    data-testid="input-trainer-photo"
+                  />
+                </label>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">First Name *</Label>
+                <Input
+                  value={firstName}
+                  onChange={e => setFirstName(e.target.value)}
+                  placeholder="First name"
+                  data-testid="input-trainer-first-name"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">Last Name</Label>
+                <Input
+                  value={lastName}
+                  onChange={e => setLastName(e.target.value)}
+                  placeholder="Last name"
+                  data-testid="input-trainer-last-name"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-4 rounded-lg border-2 border-border">
+                <div>
+                  <p className="font-medium text-sm">Do you also coach a team?</p>
+                  <p className="text-xs text-muted-foreground">We'll set you up with coach tools too</p>
+                </div>
+                <Switch
+                  checked={trainerAlsoCoaches}
+                  onCheckedChange={setTrainerAlsoCoaches}
+                  data-testid="switch-also-coaches"
+                />
+              </div>
+              {trainerAlsoCoaches && (
+                <div className="space-y-1.5 pl-2 animate-in slide-in-from-top-2">
+                  <Label className="text-sm font-medium">Team Name *</Label>
+                  <Input
+                    value={trainerTeamName}
+                    onChange={e => setTrainerTeamName(e.target.value)}
+                    placeholder="e.g., West Side Warriors"
+                    data-testid="input-trainer-team-name"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-between pt-2">
+              <Button type="button" variant="outline" onClick={() => { setSelectedRole(null); setStep("role"); }} data-testid="button-back-role">
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                Back
+              </Button>
+              <Button type="button" onClick={handleTrainerProfileNext} disabled={isSaving} data-testid="button-next-trainer-profile">
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+                Next
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (step === "trainer-specialties") {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-background to-muted/20">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle className="text-xl font-bold">Rank Your Specialties</CardTitle>
+            <CardDescription>Drag to rank from strongest to developing</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="space-y-2">
+              {trainerSpecialties.map((specValue, index) => {
+                const spec = TRAINER_SPECIALTIES.find(s => s.value === specValue)!;
+                const Icon = spec.icon;
+                return (
+                  <div
+                    key={spec.value}
+                    data-spec-idx={index}
+                    className={`p-4 rounded-lg border-2 flex items-center gap-3 select-none transition-all ${
+                      draggedSpecIdx === index ? 'opacity-50 scale-[0.98] border-primary' : ''
+                    } ${
+                      overSpecIdx === index && draggedSpecIdx !== null && draggedSpecIdx !== index
+                        ? 'border-primary/50 bg-primary/5' : 'border-border'
+                    }`}
+                    data-testid={`specialty-${spec.value}`}
+                  >
+                    <div className="flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary text-sm font-bold shrink-0">
+                      {index + 1}
+                    </div>
+                    <div
+                      className="cursor-grab active:cursor-grabbing touch-none p-1"
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        (e.target as HTMLElement).setPointerCapture(e.pointerId);
+                        setDraggedSpecIdx(index);
+                        specDragging.current = true;
+                      }}
+                      onPointerMove={(e) => {
+                        if (!specDragging.current || draggedSpecIdx === null) return;
+                        const elements = document.elementsFromPoint(e.clientX, e.clientY);
+                        const target = elements.find(el => el.getAttribute('data-spec-idx') !== null);
+                        if (target) {
+                          const idx = parseInt(target.getAttribute('data-spec-idx')!);
+                          setOverSpecIdx(idx);
+                        }
+                      }}
+                      onPointerUp={() => {
+                        if (draggedSpecIdx !== null && overSpecIdx !== null && draggedSpecIdx !== overSpecIdx) {
+                          commitSpecReorder(draggedSpecIdx, overSpecIdx);
+                        }
+                        setDraggedSpecIdx(null);
+                        setOverSpecIdx(null);
+                        specDragging.current = false;
+                      }}
+                      onPointerCancel={() => {
+                        setDraggedSpecIdx(null);
+                        setOverSpecIdx(null);
+                        specDragging.current = false;
+                      }}
+                    >
+                      <GripVertical className="w-5 h-5 text-muted-foreground" />
+                    </div>
+                    <div className="w-9 h-9 rounded-full bg-muted/50 flex items-center justify-center shrink-0">
+                      <Icon className="w-4 h-4 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm">{spec.label}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex justify-between pt-4">
+              <Button type="button" variant="outline" onClick={() => setStep("trainer-profile")} data-testid="button-back-trainer-profile">
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                Back
+              </Button>
+              <Button type="button" onClick={handleTrainerSpecialtiesNext} data-testid="button-next-specialties">
+                Next
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (step === "trainer-begin") {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-background to-muted/20">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle className="text-xl font-bold">Where Do You Want to Begin?</CardTitle>
+            <CardDescription>Pick one to get started — you can do everything else later</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {[
+              { value: "create-drill" as const, label: "Create a Drill or Workout", desc: "Build custom drills for your players", icon: Plus },
+              { value: "invite-players" as const, label: "Create Trainee Roster / Invite Players", desc: "Set up your roster and share a join code", icon: Users },
+              { value: "upload-content" as const, label: "Upload Your Own Content", desc: "Add videos, drills, or resources", icon: Upload },
+            ].map(opt => {
+              const Icon = opt.icon;
+              return (
+                <div
+                  key={opt.value}
+                  onClick={() => handleTrainerBeginChoice(opt.value)}
+                  className="cursor-pointer p-5 rounded-lg border-2 border-border flex items-center gap-4 transition-all hover:border-primary/50 hover:bg-muted/30"
+                  data-testid={`trainer-begin-${opt.value}`}
+                >
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <Icon className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-semibold">{opt.label}</p>
+                    <p className="text-sm text-muted-foreground">{opt.desc}</p>
+                  </div>
+                </div>
+              );
+            })}
+            <div className="pt-2">
+              <Button type="button" variant="outline" onClick={() => setStep("trainer-specialties")} data-testid="button-back-specialties">
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                Back
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   if (step === "select-teams") {
