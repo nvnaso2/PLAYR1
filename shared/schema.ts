@@ -110,6 +110,12 @@ export const careerProfiles = pgTable("career_profiles", {
   // Staff role for Coach/Trainer mode
   staffRole: varchar("staff_role"), // "coach", "trainer", or "both"
   
+  // Primary reason for using the app
+  primaryReason: varchar("primary_reason"), // "game-stats", "skill-development", "find-trainer", "find-team"
+  
+  // Onboarding teams (JSON array of team objects with in-season flags)
+  onboardingTeams: text("onboarding_teams"), // JSON string: [{name, type, inSeason, seasonStartMonth?}]
+  
   // Onboarding status
   onboardingCompleted: boolean("onboarding_completed").default(false),
   

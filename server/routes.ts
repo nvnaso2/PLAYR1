@@ -1222,6 +1222,8 @@ export async function registerRoutes(
         'cardPhotoUrl',
         'trophyRoomOrder',
         'staffRole',
+        'primaryReason',
+        'onboardingTeams',
         'onboardingCompleted'
       ];
       
@@ -1244,6 +1246,22 @@ export async function registerRoutes(
       }
       console.error("Error updating career profile:", error);
       res.status(500).json({ message: "Failed to update career profile" });
+    }
+  });
+
+  // Update user name (used during onboarding)
+  app.put("/api/user/name", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { firstName, lastName } = req.body;
+      const [updated] = await db.update(users)
+        .set({ firstName: firstName || null, lastName: lastName || null, updatedAt: new Date() })
+        .where(eq(users.id, userId))
+        .returning();
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating user name:", error);
+      res.status(500).json({ message: "Failed to update name" });
     }
   });
 

@@ -158,26 +158,25 @@ const SEASON_TYPE_LABELS: Record<string, string> = {
   "recreational": "Recreational"
 };
 
-const onboardingSchema = z.object({
-  birthMonth: z.coerce.number().min(1).max(12).optional(),
-  birthYear: z.coerce.number().min(1990).max(2025).optional(),
-  gradeLevel: z.string().optional(),
-  teamName: z.string().optional(),
-  schoolName: z.string().optional(),
-  positions: z.array(z.string()).default([]),
-  jerseyNumber: z.coerce.number().min(0).max(99).optional(),
-  aspiration: z.string().optional(),
-  focusSkill: z.string().optional(),
-  skillBallHandling: z.coerce.number().min(1).max(10).default(5),
-  skillShooting: z.coerce.number().min(1).max(10).default(5),
-  skillPassing: z.coerce.number().min(1).max(10).default(5),
-  skillFinishing: z.coerce.number().min(1).max(10).default(5),
-  skillDefense: z.coerce.number().min(1).max(10).default(5),
-  skillBasketballIQ: z.coerce.number().min(1).max(10).default(5),
-  skillAthletics: z.coerce.number().min(1).max(10).default(5),
-});
+type OnboardingTeam = {
+  name: string;
+  type: "school" | "club" | "rec" | "intramural";
+  inSeason: boolean;
+  seasonStartMonth?: number;
+};
 
-type OnboardingData = z.infer<typeof onboardingSchema>;
+const NON_SCHOOL_TEAM_TYPES = [
+  { value: "club", label: "Club / Travel / AAU" },
+  { value: "rec", label: "Recreational" },
+  { value: "intramural", label: "Intramural" },
+] as const;
+
+const PRIMARY_REASONS = [
+  { value: "game-stats", label: "Track Game Stats", icon: BarChart3, description: "Log games and track your stats" },
+  { value: "skill-development", label: "Player / Skill Development", icon: Target, description: "Improve your skills with drills" },
+  { value: "find-trainer", label: "Find a Trainer", icon: Users, description: "Connect with a trainer" },
+  { value: "find-team", label: "Find a Team", icon: Award, description: "Find a team to play on" },
+] as const;
 
 const seasonSchema = z.object({
   name: z.string().min(1, "Season name is required"),
@@ -216,511 +215,826 @@ const gameSchema = z.object({
 
 type GameFormData = z.infer<typeof gameSchema>;
 
-const ONBOARDING_STEPS = [
-  { id: "welcome", title: "Welcome", icon: User },
-  { id: "birthdate", title: "Birth Date", icon: Calendar },
-  { id: "school", title: "School & Team", icon: School },
-  { id: "player", title: "Player Info", icon: Hash },
-  { id: "goals", title: "Goals", icon: Target },
-  { id: "skills", title: "Rate Your Skills", icon: Star },
-  { id: "focus", title: "Focus Area", icon: Crosshair },
-  { id: "complete", title: "Ready!", icon: Trophy }
-];
-
 function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
-  const [step, setStep] = useState(0);
   const { toast } = useToast();
-  
-  const form = useForm<OnboardingData>({
-    resolver: zodResolver(onboardingSchema),
-    defaultValues: {
-      birthMonth: undefined,
-      birthYear: undefined,
-      gradeLevel: "",
-      teamName: "",
-      schoolName: "",
-      positions: [],
-      jerseyNumber: undefined,
-      aspiration: "",
-      focusSkill: "",
-      skillBallHandling: 5,
-      skillShooting: 5,
-      skillPassing: 5,
-      skillFinishing: 5,
-      skillDefense: 5,
-      skillBasketballIQ: 5,
-      skillAthletics: 5,
-    }
-  });
+  const { user } = useAuth();
+  const [step, setStep] = useState<"role" | "profile" | "reason" | "select-teams" | "log-game" | "no-season" | "season-start">("role");
+  const [selectedRole, setSelectedRole] = useState<"player" | "trainer" | "coach" | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const createCareerMutation = useMutation({
-    mutationFn: async (data: OnboardingData) => {
-      const response = await apiRequest("POST", "/api/career", data);
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/career'] });
-    }
-  });
+  const [firstName, setFirstName] = useState(user?.firstName || "");
+  const [lastName, setLastName] = useState(user?.lastName || "");
+  const [birthMonth, setBirthMonth] = useState<number | undefined>();
+  const [birthYear, setBirthYear] = useState<number | undefined>();
+  const [gradeLevel, setGradeLevel] = useState("");
+  const [positions, setPositions] = useState<string[]>([]);
+  const [jerseyNumber, setJerseyNumber] = useState<number | undefined>();
+  const [aspiration, setAspiration] = useState("");
+  const [teams, setTeams] = useState<OnboardingTeam[]>([]);
+  const [newTeamName, setNewTeamName] = useState("");
+  const [newTeamType, setNewTeamType] = useState<"school" | "club" | "rec" | "intramural">("school");
+  const [primaryReason, setPrimaryReason] = useState("");
 
-  const completeOnboardingMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/career/complete-onboarding");
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/career'] });
-      toast({ title: "Welcome to My Career!", description: "Your basketball journey begins now." });
-      onComplete();
-    }
-  });
+  const [gameStatsTeams, setGameStatsTeams] = useState<string[]>([]);
+  const [logPastGames, setLogPastGames] = useState<boolean | null>(null);
+  const [seasonStartMonths, setSeasonStartMonths] = useState<Record<string, number>>({});
+  const [wantReminders, setWantReminders] = useState<boolean | null>(null);
 
-  const nextStep = async () => {
-    if (step === 0) {
-      setStep(1);
-      return;
-    }
-    
-    if (step === ONBOARDING_STEPS.length - 2) {
-      const data = form.getValues();
-      try {
-        await createCareerMutation.mutateAsync(data);
-        setStep(step + 1);
-      } catch (error) {
-        toast({ title: "Error saving profile", variant: "destructive" });
+  const [currentGameTeamIdx, setCurrentGameTeamIdx] = useState(0);
+  const [createdSeasonIds, setCreatedSeasonIds] = useState<Record<string, string>>({});
+
+  const [gameDate, setGameDate] = useState(new Date().toISOString().split('T')[0]);
+  const [opponent, setOpponent] = useState("");
+  const [isHome, setIsHome] = useState(true);
+  const [result, setResult] = useState("");
+  const [teamScore, setTeamScore] = useState(0);
+  const [opponentScore, setOpponentScore] = useState(0);
+  const [points, setPoints] = useState(0);
+  const [rebounds, setRebounds] = useState(0);
+  const [assists, setAssists] = useState(0);
+  const [steals, setSteals] = useState(0);
+  const [blocks, setBlocks] = useState(0);
+  const [turnovers, setTurnovers] = useState(0);
+  const [fouls, setFouls] = useState(0);
+  const [fgMade, setFgMade] = useState(0);
+  const [fgAttempted, setFgAttempted] = useState(0);
+  const [threePtMade, setThreePtMade] = useState(0);
+  const [threePtAttempted, setThreePtAttempted] = useState(0);
+  const [ftMade, setFtMade] = useState(0);
+  const [ftAttempted, setFtAttempted] = useState(0);
+  const [minutesPlayed, setMinutesPlayed] = useState(0);
+
+  const resetGameForm = () => {
+    setGameDate(new Date().toISOString().split('T')[0]);
+    setOpponent("");
+    setIsHome(true);
+    setResult("");
+    setTeamScore(0);
+    setOpponentScore(0);
+    setPoints(0);
+    setRebounds(0);
+    setAssists(0);
+    setSteals(0);
+    setBlocks(0);
+    setTurnovers(0);
+    setFouls(0);
+    setFgMade(0);
+    setFgAttempted(0);
+    setThreePtMade(0);
+    setThreePtAttempted(0);
+    setFtMade(0);
+    setFtAttempted(0);
+    setMinutesPlayed(0);
+  };
+
+  const togglePosition = (pos: string) => {
+    setPositions(prev => prev.includes(pos) ? prev.filter(p => p !== pos) : [...prev, pos]);
+  };
+
+  const addTeam = () => {
+    if (!newTeamName.trim()) return;
+    setTeams(prev => [...prev, { name: newTeamName.trim(), type: newTeamType, inSeason: false }]);
+    setNewTeamName("");
+    setNewTeamType("school");
+  };
+
+  const removeTeam = (idx: number) => {
+    setTeams(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const toggleTeamInSeason = (idx: number) => {
+    setTeams(prev => prev.map((t, i) => i === idx ? { ...t, inSeason: !t.inSeason } : t));
+  };
+
+  const teamTypeLabel = (type: string) => {
+    if (type === "school") return "School";
+    return NON_SCHOOL_TEAM_TYPES.find(t => t.value === type)?.label || type;
+  };
+
+  const saveProfile = async () => {
+    setIsSaving(true);
+    try {
+      await apiRequest("PUT", "/api/user/name", { firstName, lastName });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+
+      const profileData = {
+        birthMonth,
+        birthYear,
+        gradeLevel: gradeLevel || undefined,
+        schoolName: teams.filter(t => t.type === "school").map(t => t.name).join(", ") || undefined,
+        teamName: teams.filter(t => t.type !== "school").map(t => t.name).join(", ") || undefined,
+        positions,
+        jerseyNumber,
+        aspiration: aspiration || undefined,
+        onboardingTeams: JSON.stringify(teams),
+        staffRole: selectedRole === "player" ? null : selectedRole,
+      };
+
+      const existing = await fetch("/api/career", { credentials: "include" }).then(r => r.ok ? r.json() : null);
+      if (existing) {
+        await apiRequest("PUT", "/api/career", profileData);
+      } else {
+        await apiRequest("POST", "/api/career", profileData);
       }
-      return;
+      queryClient.invalidateQueries({ queryKey: ['/api/career'] });
+    } catch (error) {
+      toast({ title: "Error saving profile", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
     }
-    
-    if (step === ONBOARDING_STEPS.length - 1) {
-      await completeOnboardingMutation.mutateAsync();
-      return;
-    }
-    
-    setStep(step + 1);
   };
 
-  const prevStep = () => {
-    if (step > 0) setStep(step - 1);
+  const getOrCreateSeason = async (teamName: string): Promise<string> => {
+    if (createdSeasonIds[teamName]) return createdSeasonIds[teamName];
+    const team = teams.find(t => t.name === teamName);
+    const typeMap: Record<string, string> = { school: "high-school", club: "aau-travel-club", rec: "recreational", intramural: "recreational" };
+    const seasonType = typeMap[team?.type || "school"] || "high-school";
+    const resp = await apiRequest("POST", "/api/seasons", {
+      name: `${teamName} ${new Date().getFullYear()}`,
+      teamName,
+      seasonType,
+      year: new Date().getFullYear().toString(),
+    });
+    const season = await resp.json();
+    setCreatedSeasonIds(prev => ({ ...prev, [teamName]: season.id }));
+    return season.id;
   };
 
-  const progress = ((step + 1) / ONBOARDING_STEPS.length) * 100;
-  const currentStep = ONBOARDING_STEPS[step];
-  const StepIcon = currentStep.icon;
+  const submitGame = async () => {
+    const teamName = gameStatsTeams[currentGameTeamIdx];
+    if (!teamName) return;
+    setIsSaving(true);
+    try {
+      const seasonId = await getOrCreateSeason(teamName);
+      await apiRequest("POST", `/api/seasons/${seasonId}/games`, {
+        gameDate,
+        opponent,
+        isHome,
+        result,
+        teamScore,
+        opponentScore,
+        points,
+        rebounds,
+        assists,
+        steals,
+        blocks,
+        turnovers,
+        fouls,
+        fgMade,
+        fgAttempted,
+        threePtMade,
+        threePtAttempted,
+        ftMade,
+        ftAttempted,
+        minutesPlayed,
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/stats/career'] });
+      toast({ title: "Game logged!" });
+      resetGameForm();
 
-  const togglePosition = (position: string) => {
-    const current = form.getValues("positions");
-    if (current.includes(position)) {
-      form.setValue("positions", current.filter(p => p !== position));
+      if (currentGameTeamIdx < gameStatsTeams.length - 1) {
+        setCurrentGameTeamIdx(prev => prev + 1);
+      } else {
+        await completeOnboarding();
+      }
+    } catch (error) {
+      toast({ title: "Error logging game", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const completeOnboarding = async () => {
+    try {
+      await apiRequest("POST", "/api/career/complete-onboarding");
+      queryClient.invalidateQueries({ queryKey: ['/api/career'] });
+      toast({ title: "Welcome to PLAYR1!", description: "Your basketball journey begins now." });
+      onComplete();
+    } catch (error) {
+      toast({ title: "Error", variant: "destructive" });
+    }
+  };
+
+  const handleRoleSelect = (role: "player" | "trainer" | "coach") => {
+    setSelectedRole(role);
+    setStep("profile");
+  };
+
+  const handleProfileNext = async () => {
+    if (!firstName.trim()) {
+      toast({ title: "Please enter your first name", variant: "destructive" });
+      return;
+    }
+    await saveProfile();
+    setStep("reason");
+  };
+
+  const handleReasonSelect = async (reason: string) => {
+    setPrimaryReason(reason);
+    if (reason === "game-stats") {
+      if (teams.length === 0) {
+        toast({ title: "No teams added", description: "Go back and add at least one team to track stats for.", variant: "destructive" });
+        return;
+      }
+      await apiRequest("PUT", "/api/career", { primaryReason: reason });
+      queryClient.invalidateQueries({ queryKey: ['/api/career'] });
+      setStep("select-teams");
     } else {
-      form.setValue("positions", [...current, position]);
+      await apiRequest("PUT", "/api/career", { primaryReason: reason });
+      queryClient.invalidateQueries({ queryKey: ['/api/career'] });
+      await completeOnboarding();
     }
   };
 
-  return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-background to-muted/20">
-      <Card className="w-full max-w-2xl">
-        <CardHeader className="text-center pb-2">
-          <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-              <StepIcon className="w-8 h-8 text-primary" />
+  const handleTeamsSelected = () => {
+    if (gameStatsTeams.length === 0) {
+      toast({ title: "Select at least one team", variant: "destructive" });
+      return;
+    }
+    const selectedTeamObjects = teams.filter(t => gameStatsTeams.includes(t.name));
+    const anyInSeason = selectedTeamObjects.some(t => t.inSeason);
+    if (anyInSeason) {
+      setCurrentGameTeamIdx(0);
+      setStep("log-game");
+    } else {
+      setStep("no-season");
+    }
+  };
+
+  const handleNoSeasonResponse = (wantToPast: boolean) => {
+    setLogPastGames(wantToPast);
+    if (wantToPast) {
+      setCurrentGameTeamIdx(0);
+      setStep("log-game");
+    } else {
+      setStep("season-start");
+    }
+  };
+
+  const handleSeasonStartDone = async () => {
+    const teamsWithMonths = teams.map(t => {
+      const month = seasonStartMonths[t.name];
+      return month ? { ...t, seasonStartMonth: month } : t;
+    });
+    await apiRequest("PUT", "/api/career", { onboardingTeams: JSON.stringify(teamsWithMonths) });
+    await completeOnboarding();
+  };
+
+  if (step === "role") {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-background to-muted/20">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl font-bold">Welcome to PLAYR1</CardTitle>
+            <CardDescription>How will you be using the app?</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {[
+              { value: "player" as const, label: "Player", desc: "Track your development and stats", icon: User },
+              { value: "trainer" as const, label: "Trainer", desc: "Manage and develop players", icon: Dumbbell },
+              { value: "coach" as const, label: "Coach", desc: "Lead your team", icon: GraduationCap },
+            ].map(role => {
+              const Icon = role.icon;
+              return (
+                <div
+                  key={role.value}
+                  onClick={() => handleRoleSelect(role.value)}
+                  className={`cursor-pointer p-4 rounded-lg border-2 flex items-center gap-4 transition-all hover:border-primary/50 hover:bg-muted/30 ${
+                    selectedRole === role.value ? 'border-primary bg-primary/5' : 'border-border'
+                  }`}
+                  data-testid={`role-${role.value}`}
+                >
+                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <Icon className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-lg">{role.label}</p>
+                    <p className="text-sm text-muted-foreground">{role.desc}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (step === "profile") {
+    return (
+      <div className="min-h-screen flex items-start justify-center p-4 py-8 bg-gradient-to-b from-background to-muted/20">
+        <Card className="w-full max-w-lg">
+          <CardHeader className="text-center pb-4">
+            <CardTitle className="text-xl font-bold">Build Your Player Profile</CardTitle>
+            <CardDescription>Tell us about yourself</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-sm font-medium">First Name *</Label>
+                <Input
+                  value={firstName}
+                  onChange={e => setFirstName(e.target.value)}
+                  placeholder="First name"
+                  data-testid="input-first-name"
+                  className="mt-1.5"
+                />
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Last Name</Label>
+                <Input
+                  value={lastName}
+                  onChange={e => setLastName(e.target.value)}
+                  placeholder="Last name"
+                  data-testid="input-last-name"
+                  className="mt-1.5"
+                />
+              </div>
             </div>
-          </div>
-          <CardTitle className="text-2xl font-bold">{currentStep.title}</CardTitle>
-          <Progress value={progress} className="mt-4" />
-          <p className="text-sm text-muted-foreground mt-2">
-            Step {step + 1} of {ONBOARDING_STEPS.length}
-          </p>
-        </CardHeader>
-        <CardContent className="pt-6">
-          <Form {...form}>
-            <form className="space-y-6">
-              {step === 0 && (
-                <div className="text-center space-y-4">
-                  <h3 className="text-xl font-semibold">Welcome to My Career Mode</h3>
-                  <p className="text-muted-foreground">
-                    Track your basketball development like the pros. Build your player profile, 
-                    set goals, and watch yourself level up as you train with PLAYR1.
-                  </p>
-                  <div className="flex justify-center gap-4 py-6">
-                    <div className="text-center">
-                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-2">
-                        <Trophy className="w-6 h-6 text-primary" />
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-sm font-medium">Birth Month</Label>
+                <Select onValueChange={v => setBirthMonth(parseInt(v))} value={birthMonth?.toString()}>
+                  <SelectTrigger data-testid="select-birth-month" className="mt-1.5">
+                    <SelectValue placeholder="Month" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MONTHS.map(m => (
+                      <SelectItem key={m.value} value={m.value.toString()}>{m.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Birth Year</Label>
+                <Select onValueChange={v => setBirthYear(parseInt(v))} value={birthYear?.toString()}>
+                  <SelectTrigger data-testid="select-birth-year" className="mt-1.5">
+                    <SelectValue placeholder="Year" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 36 }, (_, i) => 2026 - i).map(year => (
+                      <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-sm font-medium">Grade</Label>
+              <Select onValueChange={setGradeLevel} value={gradeLevel}>
+                <SelectTrigger data-testid="select-grade" className="mt-1.5">
+                  <SelectValue placeholder="Select grade" />
+                </SelectTrigger>
+                <SelectContent>
+                  {GRADE_LEVELS.map(grade => (
+                    <SelectItem key={grade} value={grade}>{GRADE_LABELS[grade] || grade}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="text-sm font-medium">Your Teams</Label>
+              <p className="text-xs text-muted-foreground mb-2">Add all the teams you play on</p>
+              <div className="flex gap-2 mb-2">
+                <Input
+                  value={newTeamName}
+                  onChange={e => setNewTeamName(e.target.value)}
+                  placeholder="Team name"
+                  className="flex-1"
+                  data-testid="input-new-team-name"
+                  onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addTeam(); } }}
+                />
+                <Select onValueChange={v => setNewTeamType(v as any)} value={newTeamType}>
+                  <SelectTrigger className="w-[140px]" data-testid="select-team-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="school">School</SelectItem>
+                    {NON_SCHOOL_TEAM_TYPES.map(t => (
+                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button type="button" size="sm" onClick={addTeam} data-testid="button-add-team" className="shrink-0">
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
+              {teams.length > 0 && (
+                <div className="space-y-2">
+                  {teams.map((team, idx) => (
+                    <div key={idx} className="flex items-center gap-2 p-2.5 rounded-md border bg-muted/30" data-testid={`team-row-${idx}`}>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">{team.name}</p>
+                        <p className="text-xs text-muted-foreground">{teamTypeLabel(team.type)}</p>
                       </div>
-                      <p className="text-sm font-medium">Earn Achievements</p>
+                      <label className="flex items-center gap-1.5 text-xs cursor-pointer shrink-0">
+                        <Checkbox
+                          checked={team.inSeason}
+                          onCheckedChange={() => toggleTeamInSeason(idx)}
+                          data-testid={`checkbox-in-season-${idx}`}
+                        />
+                        In Season
+                      </label>
+                      <Button type="button" size="icon" variant="ghost" onClick={() => removeTeam(idx)} className="h-7 w-7 shrink-0" data-testid={`button-remove-team-${idx}`}>
+                        <X className="w-3.5 h-3.5" />
+                      </Button>
                     </div>
-                    <div className="text-center">
-                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-2">
-                        <Zap className="w-6 h-6 text-primary" />
-                      </div>
-                      <p className="text-sm font-medium">Level Up</p>
-                    </div>
-                    <div className="text-center">
-                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-2">
-                        <Target className="w-6 h-6 text-primary" />
-                      </div>
-                      <p className="text-sm font-medium">Track Progress</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {step === 1 && (
-                <div className="space-y-4">
-                  <p className="text-center text-muted-foreground mb-6">
-                    When were you born? This helps us compare you with players your age.
-                  </p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="birthMonth"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Month</FormLabel>
-                          <Select 
-                            onValueChange={(v) => field.onChange(parseInt(v))} 
-                            value={field.value?.toString()}
-                          >
-                            <FormControl>
-                              <SelectTrigger data-testid="select-birth-month">
-                                <SelectValue placeholder="Select month" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {MONTHS.map(m => (
-                                <SelectItem key={m.value} value={m.value.toString()}>
-                                  {m.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="birthYear"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Year</FormLabel>
-                          <Select 
-                            onValueChange={(v) => field.onChange(parseInt(v))} 
-                            value={field.value?.toString()}
-                          >
-                            <FormControl>
-                              <SelectTrigger data-testid="select-birth-year">
-                                <SelectValue placeholder="Select year" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {Array.from({ length: 36 }, (_, i) => 2025 - i).map(year => (
-                                <SelectItem key={year} value={year.toString()}>
-                                  {year}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  <FormField
-                    control={form.control}
-                    name="gradeLevel"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Current Grade</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-grade">
-                              <SelectValue placeholder="What grade are you in?" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {GRADE_LEVELS.map(grade => (
-                              <SelectItem key={grade} value={grade}>
-                                {GRADE_LABELS[grade] || grade}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              )}
-
-              {step === 2 && (
-                <div className="space-y-4">
-                  <p className="text-center text-muted-foreground mb-6">
-                    Tell us about your team and school.
-                  </p>
-                  <FormField
-                    control={form.control}
-                    name="schoolName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>School Name</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="e.g., Lincoln High School" 
-                            {...field} 
-                            data-testid="input-school-name"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="teamName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Team Name (optional)</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="e.g., Lincoln Lions, AAU Elite" 
-                            {...field} 
-                            data-testid="input-team-name"
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Your school team, AAU team, or rec league team
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              )}
-
-              {step === 3 && (
-                <div className="space-y-6">
-                  <p className="text-center text-muted-foreground mb-4">
-                    What position(s) do you play?
-                  </p>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
-                    {BASKETBALL_POSITIONS.map(pos => {
-                      const isSelected = form.watch("positions").includes(pos);
-                      return (
-                        <div
-                          key={pos}
-                          onClick={() => togglePosition(pos)}
-                          className={`cursor-pointer p-4 rounded-md border text-center hover-elevate ${
-                            isSelected ? 'bg-primary text-primary-foreground border-primary' : ''
-                          }`}
-                          data-testid={`position-${pos}`}
-                        >
-                          <div className="font-bold text-lg">{pos}</div>
-                          <div className="text-xs opacity-80">{POSITION_LABELS[pos]?.split(' ')[0]}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <FormField
-                    control={form.control}
-                    name="jerseyNumber"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Jersey Number</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="number" 
-                            min={0} 
-                            max={99}
-                            placeholder="00"
-                            {...field}
-                            onChange={(e) => field.onChange(parseInt(e.target.value) || undefined)}
-                            data-testid="input-jersey-number"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              )}
-
-              {step === 4 && (
-                <div className="space-y-4">
-                  <p className="text-center text-muted-foreground mb-6">
-                    What do you aspire to achieve in basketball?
-                  </p>
-                  <FormField
-                    control={form.control}
-                    name="aspiration"
-                    render={({ field }) => (
-                      <FormItem>
-                        <div className="grid grid-cols-2 gap-3">
-                          {BASKETBALL_ASPIRATIONS.map(asp => {
-                            const isSelected = field.value === asp;
-                            return (
-                              <div
-                                key={asp}
-                                onClick={() => field.onChange(asp)}
-                                className={`cursor-pointer p-4 rounded-md border text-center hover-elevate ${
-                                  isSelected ? 'bg-primary text-primary-foreground border-primary' : ''
-                                }`}
-                                data-testid={`aspiration-${asp}`}
-                              >
-                                <div className="font-medium">{ASPIRATION_LABELS[asp]}</div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              )}
-
-              {step === 5 && (
-                <div className="space-y-6">
-                  <p className="text-center text-muted-foreground mb-4">
-                    Rate your current skills (1-10) compared to others your age.
-                  </p>
-                  {[
-                    { name: "skillBallHandling" as const, label: "Ball Handling" },
-                    { name: "skillShooting" as const, label: "Shooting" },
-                    { name: "skillPassing" as const, label: "Passing" },
-                    { name: "skillFinishing" as const, label: "Finishing" },
-                    { name: "skillDefense" as const, label: "Defense" },
-                    { name: "skillBasketballIQ" as const, label: "Basketball IQ" },
-                    { name: "skillAthletics" as const, label: "Athletics" }
-                  ].map(skill => (
-                    <FormField
-                      key={skill.name}
-                      control={form.control}
-                      name={skill.name}
-                      render={({ field }) => (
-                        <FormItem>
-                          <div className="flex justify-between items-center">
-                            <FormLabel>{skill.label}</FormLabel>
-                            <Badge variant="secondary">{field.value}/10</Badge>
-                          </div>
-                          <FormControl>
-                            <Slider
-                              min={1}
-                              max={10}
-                              step={1}
-                              value={[field.value]}
-                              onValueChange={(v) => field.onChange(v[0])}
-                              data-testid={`slider-${skill.name}`}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
                   ))}
                 </div>
               )}
+            </div>
 
-              {step === 6 && (
-                <div className="space-y-4">
-                  <p className="text-center text-muted-foreground mb-6">
-                    Which skill do you want to focus on improving the most?
-                  </p>
-                  <FormField
-                    control={form.control}
-                    name="focusSkill"
-                    render={({ field }) => (
-                      <FormItem>
-                        <div className="grid grid-cols-2 gap-3">
-                          {DRILL_CATEGORIES.filter(cat => cat !== "film-session" && cat !== "workouts").map(cat => {
-                            const isSelected = field.value === cat;
-                            const skillInfo = SKILL_LABELS[cat] || { label: cat, icon: Star };
-                            const Icon = skillInfo.icon;
-                            return (
-                              <div
-                                key={cat}
-                                onClick={() => field.onChange(cat)}
-                                className={`cursor-pointer p-4 rounded-md border flex items-center gap-3 hover-elevate ${
-                                  isSelected ? 'bg-primary text-primary-foreground border-primary' : ''
-                                }`}
-                                data-testid={`focus-${cat}`}
-                              >
-                                <Icon className="w-5 h-5" />
-                                <div className="font-medium">
-                                  {skillInfo.label}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              )}
+            <div>
+              <Label className="text-sm font-medium">Position(s)</Label>
+              <div className="grid grid-cols-5 gap-2 mt-1.5">
+                {BASKETBALL_POSITIONS.map(pos => (
+                  <div
+                    key={pos}
+                    onClick={() => togglePosition(pos)}
+                    className={`cursor-pointer p-2.5 rounded-md border text-center transition-all ${
+                      positions.includes(pos) ? 'bg-primary text-primary-foreground border-primary' : 'hover:border-primary/50'
+                    }`}
+                    data-testid={`position-${pos}`}
+                  >
+                    <div className="font-bold text-sm">{pos}</div>
+                    <div className="text-[10px] opacity-80">{POSITION_LABELS[pos]?.split(' ')[0]}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
 
-              {step === 7 && (
-                <div className="text-center space-y-6">
+            <div>
+              <Label className="text-sm font-medium">Jersey Number</Label>
+              <Input
+                type="number"
+                min={0}
+                max={99}
+                value={jerseyNumber ?? ""}
+                onChange={e => setJerseyNumber(e.target.value ? parseInt(e.target.value) : undefined)}
+                placeholder="00"
+                className="mt-1.5 w-24"
+                data-testid="input-jersey-number"
+              />
+            </div>
+
+            <div>
+              <Label className="text-sm font-medium">Aspiration</Label>
+              <p className="text-xs text-muted-foreground mb-2">What do you aspire to achieve in basketball?</p>
+              <div className="grid grid-cols-2 gap-2">
+                {BASKETBALL_ASPIRATIONS.map(asp => (
+                  <div
+                    key={asp}
+                    onClick={() => setAspiration(asp)}
+                    className={`cursor-pointer p-3 rounded-md border text-center text-sm transition-all ${
+                      aspiration === asp ? 'bg-primary text-primary-foreground border-primary' : 'hover:border-primary/50'
+                    }`}
+                    data-testid={`aspiration-${asp}`}
+                  >
+                    {ASPIRATION_LABELS[asp]}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-between pt-4">
+              <Button type="button" variant="outline" onClick={() => { setSelectedRole(null); setStep("role"); }} data-testid="button-back-role">
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                Back
+              </Button>
+              <Button type="button" onClick={handleProfileNext} disabled={isSaving} data-testid="button-next-reason">
+                {isSaving ? "Saving..." : "Next"}
+                {!isSaving && <ChevronRight className="w-4 h-4 ml-1" />}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (step === "reason") {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-background to-muted/20">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle className="text-xl font-bold">What brings you to PLAYR1?</CardTitle>
+            <CardDescription>Select your primary reason</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {PRIMARY_REASONS.map(reason => {
+              const Icon = reason.icon;
+              return (
+                <div
+                  key={reason.value}
+                  onClick={() => handleReasonSelect(reason.value)}
+                  className="cursor-pointer p-4 rounded-lg border-2 border-border flex items-center gap-4 transition-all hover:border-primary/50 hover:bg-muted/30"
+                  data-testid={`reason-${reason.value}`}
+                >
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <Icon className="w-5 h-5 text-primary" />
+                  </div>
                   <div>
-                    <h3 className="text-xl font-semibold">You're All Set!</h3>
-                    <p className="text-muted-foreground mt-2">
-                      Your career starts at Level 1. Complete drills, earn XP, and unlock achievements 
-                      as you develop your skills. Let's get to work!
-                    </p>
-                  </div>
-                  <div className="flex justify-center gap-8 py-4">
-                    <div className="text-center">
-                      <div className="text-3xl font-bold text-primary">1</div>
-                      <div className="text-sm text-muted-foreground">Level</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-3xl font-bold text-primary">0</div>
-                      <div className="text-sm text-muted-foreground">XP</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-3xl font-bold text-primary">0</div>
-                      <div className="text-sm text-muted-foreground">Achievements</div>
-                    </div>
+                    <p className="font-semibold">{reason.label}</p>
+                    <p className="text-sm text-muted-foreground">{reason.description}</p>
                   </div>
                 </div>
-              )}
+              );
+            })}
+            <div className="pt-2">
+              <Button type="button" variant="outline" onClick={() => setStep("profile")} data-testid="button-back-profile">
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                Back
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
-              <div className="flex justify-between pt-6">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={prevStep}
-                  disabled={step === 0}
-                  data-testid="button-prev-step"
+  if (step === "select-teams") {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-background to-muted/20">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle className="text-xl font-bold">Track Game Stats</CardTitle>
+            <CardDescription>Which team(s) do you want to track stats for?</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {teams.map((team, idx) => {
+              const isSelected = gameStatsTeams.includes(team.name);
+              return (
+                <div
+                  key={idx}
+                  onClick={() => setGameStatsTeams(prev => isSelected ? prev.filter(n => n !== team.name) : [...prev, team.name])}
+                  className={`cursor-pointer p-4 rounded-lg border-2 flex items-center gap-3 transition-all ${
+                    isSelected ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
+                  }`}
+                  data-testid={`select-team-${idx}`}
                 >
-                  <ChevronLeft className="w-4 h-4 mr-2" />
-                  Back
+                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? 'border-primary bg-primary' : 'border-muted-foreground/30'}`}>
+                    {isSelected && <CheckCircle className="w-4 h-4 text-primary-foreground" />}
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium">{team.name}</p>
+                    <p className="text-xs text-muted-foreground">{teamTypeLabel(team.type)} {team.inSeason ? "· In Season" : ""}</p>
+                  </div>
+                </div>
+              );
+            })}
+            <div className="flex justify-between pt-4">
+              <Button type="button" variant="outline" onClick={() => setStep("reason")} data-testid="button-back-reason">
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                Back
+              </Button>
+              <Button type="button" onClick={handleTeamsSelected} data-testid="button-next-teams">
+                Next
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (step === "no-season") {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-background to-muted/20">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle className="text-xl font-bold">No Teams In Season</CardTitle>
+            <CardDescription>Would you like to log games from your most recent season?</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                variant="outline"
+                className="h-auto p-6 flex flex-col gap-2"
+                onClick={() => handleNoSeasonResponse(true)}
+                data-testid="button-log-past-yes"
+              >
+                <CheckCircle className="w-8 h-8 text-green-500" />
+                <span className="font-semibold">Yes, log games</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-auto p-6 flex flex-col gap-2"
+                onClick={() => handleNoSeasonResponse(false)}
+                data-testid="button-log-past-no"
+              >
+                <X className="w-8 h-8 text-muted-foreground" />
+                <span className="font-semibold">No, skip for now</span>
+              </Button>
+            </div>
+            <div className="pt-2">
+              <Button type="button" variant="outline" onClick={() => setStep("select-teams")} data-testid="button-back-select-teams">
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                Back
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (step === "season-start") {
+    const offSeasonTeams = teams.filter(t => gameStatsTeams.includes(t.name) && !t.inSeason);
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-background to-muted/20">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle className="text-xl font-bold">When does the season start?</CardTitle>
+            <CardDescription>We can remind you to start logging stats</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {offSeasonTeams.map((team, idx) => (
+              <div key={idx} className="space-y-2">
+                <Label className="text-sm font-medium">{team.name}</Label>
+                <Select
+                  onValueChange={v => setSeasonStartMonths(prev => ({ ...prev, [team.name]: parseInt(v) }))}
+                  value={seasonStartMonths[team.name]?.toString()}
+                >
+                  <SelectTrigger data-testid={`select-season-start-${idx}`}>
+                    <SelectValue placeholder="Select month" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MONTHS.map(m => (
+                      <SelectItem key={m.value} value={m.value.toString()}>{m.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ))}
+
+            <div className="pt-2">
+              <Label className="text-sm font-medium">Want a reminder when your season starts?</Label>
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                <Button
+                  variant={wantReminders === true ? "default" : "outline"}
+                  onClick={() => setWantReminders(true)}
+                  data-testid="button-reminder-yes"
+                >
+                  Yes, remind me
                 </Button>
-                <Button 
-                  type="button" 
-                  onClick={nextStep}
-                  disabled={createCareerMutation.isPending || completeOnboardingMutation.isPending}
-                  data-testid="button-next-step"
+                <Button
+                  variant={wantReminders === false ? "default" : "outline"}
+                  onClick={() => setWantReminders(false)}
+                  data-testid="button-reminder-no"
                 >
-                  {step === ONBOARDING_STEPS.length - 1 ? (
-                    <>
-                      Start My Career
-                      <Trophy className="w-4 h-4 ml-2" />
-                    </>
-                  ) : (
-                    <>
-                      Next
-                      <ChevronRight className="w-4 h-4 ml-2" />
-                    </>
-                  )}
+                  No thanks
                 </Button>
               </div>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
-    </div>
-  );
+            </div>
+
+            <div className="flex justify-between pt-4">
+              <Button type="button" variant="outline" onClick={() => setStep("no-season")} data-testid="button-back-no-season">
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                Back
+              </Button>
+              <Button type="button" onClick={handleSeasonStartDone} data-testid="button-finish-onboarding">
+                Finish Setup
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (step === "log-game") {
+    const currentTeam = gameStatsTeams[currentGameTeamIdx];
+    return (
+      <div className="min-h-screen flex items-start justify-center p-4 py-8 bg-gradient-to-b from-background to-muted/20">
+        <Card className="w-full max-w-lg">
+          <CardHeader className="text-center pb-4">
+            <CardTitle className="text-xl font-bold">Log a Game</CardTitle>
+            <CardDescription>
+              {currentTeam} {gameStatsTeams.length > 1 ? `(${currentGameTeamIdx + 1} of ${gameStatsTeams.length})` : ""}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-sm">Date</Label>
+                <Input type="date" value={gameDate} onChange={e => setGameDate(e.target.value)} className="mt-1" data-testid="input-game-date" />
+              </div>
+              <div>
+                <Label className="text-sm">Opponent</Label>
+                <Input value={opponent} onChange={e => setOpponent(e.target.value)} placeholder="vs." className="mt-1" data-testid="input-opponent" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <Label className="text-sm">Home/Away</Label>
+                <Select onValueChange={v => setIsHome(v === "home")} value={isHome ? "home" : "away"}>
+                  <SelectTrigger className="mt-1" data-testid="select-home-away"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="home">Home</SelectItem>
+                    <SelectItem value="away">Away</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-sm">Result</Label>
+                <Select onValueChange={setResult} value={result}>
+                  <SelectTrigger className="mt-1" data-testid="select-result"><SelectValue placeholder="W/L" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="W">Win</SelectItem>
+                    <SelectItem value="L">Loss</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-sm">Minutes</Label>
+                <Input type="number" min={0} value={minutesPlayed} onChange={e => setMinutesPlayed(parseInt(e.target.value) || 0)} className="mt-1" data-testid="input-minutes" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-sm">Your Score</Label>
+                <Input type="number" min={0} value={teamScore} onChange={e => setTeamScore(parseInt(e.target.value) || 0)} className="mt-1" data-testid="input-team-score" />
+              </div>
+              <div>
+                <Label className="text-sm">Opponent Score</Label>
+                <Input type="number" min={0} value={opponentScore} onChange={e => setOpponentScore(parseInt(e.target.value) || 0)} className="mt-1" data-testid="input-opponent-score" />
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-sm font-medium mb-2 block">Your Stats</Label>
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                {[
+                  { label: "PTS", value: points, set: setPoints },
+                  { label: "REB", value: rebounds, set: setRebounds },
+                  { label: "AST", value: assists, set: setAssists },
+                  { label: "STL", value: steals, set: setSteals },
+                  { label: "BLK", value: blocks, set: setBlocks },
+                  { label: "TO", value: turnovers, set: setTurnovers },
+                  { label: "PF", value: fouls, set: setFouls },
+                ].map(stat => (
+                  <div key={stat.label}>
+                    <Label className="text-xs text-muted-foreground">{stat.label}</Label>
+                    <Input type="number" min={0} value={stat.value} onChange={e => stat.set(parseInt(e.target.value) || 0)} className="mt-0.5 h-9 text-center" data-testid={`input-stat-${stat.label.toLowerCase()}`} />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-sm font-medium mb-2 block">Shooting</Label>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <Label className="text-xs text-muted-foreground">FG</Label>
+                  <div className="flex gap-1 mt-0.5">
+                    <Input type="number" min={0} value={fgMade} onChange={e => setFgMade(parseInt(e.target.value) || 0)} placeholder="M" className="h-9 text-center" data-testid="input-fg-made" />
+                    <span className="flex items-center text-muted-foreground text-xs">/</span>
+                    <Input type="number" min={0} value={fgAttempted} onChange={e => setFgAttempted(parseInt(e.target.value) || 0)} placeholder="A" className="h-9 text-center" data-testid="input-fg-attempted" />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">3PT</Label>
+                  <div className="flex gap-1 mt-0.5">
+                    <Input type="number" min={0} value={threePtMade} onChange={e => setThreePtMade(parseInt(e.target.value) || 0)} placeholder="M" className="h-9 text-center" data-testid="input-3pt-made" />
+                    <span className="flex items-center text-muted-foreground text-xs">/</span>
+                    <Input type="number" min={0} value={threePtAttempted} onChange={e => setThreePtAttempted(parseInt(e.target.value) || 0)} placeholder="A" className="h-9 text-center" data-testid="input-3pt-attempted" />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">FT</Label>
+                  <div className="flex gap-1 mt-0.5">
+                    <Input type="number" min={0} value={ftMade} onChange={e => setFtMade(parseInt(e.target.value) || 0)} placeholder="M" className="h-9 text-center" data-testid="input-ft-made" />
+                    <span className="flex items-center text-muted-foreground text-xs">/</span>
+                    <Input type="number" min={0} value={ftAttempted} onChange={e => setFtAttempted(parseInt(e.target.value) || 0)} placeholder="A" className="h-9 text-center" data-testid="input-ft-attempted" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-between pt-4">
+              <Button type="button" variant="outline" onClick={() => setStep("select-teams")} data-testid="button-back-log-game">
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                Back
+              </Button>
+              <Button type="button" onClick={submitGame} disabled={isSaving} data-testid="button-submit-game">
+                {isSaving ? "Saving..." : (currentGameTeamIdx < gameStatsTeams.length - 1 ? "Save & Next Team" : "Save & Finish")}
+                {!isSaving && <ChevronRight className="w-4 h-4 ml-1" />}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return null;
 }
 
 function BaseballCard({ profile, careerStats, onPhotoUpdated, userName }: { profile: CareerProfile; careerStats?: CareerStats; onPhotoUpdated?: () => void; userName?: string }) {
