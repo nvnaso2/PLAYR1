@@ -81,10 +81,6 @@ import {
 import type { CareerProfile, UserAchievement, CareerAchievement, Challenge, UserChallenge, PersonalRecord, TeamAward, Season, Game, InsertTeamAward, InsertChallenge } from "@shared/schema";
 import { insertTeamAwardSchema, insertChallengeSchema } from "@shared/schema";
 import defaultPlayerImg from "@assets/default-player.jpg";
-import tutorialStep1Img from "@assets/generated_images/tutorial_step1_find_drill.png";
-import tutorialStep2Img from "@assets/generated_images/tutorial_step2_log_drill.png";
-import tutorialStep3Img from "@assets/generated_images/tutorial_step3_history.png";
-import tutorialStep4Img from "@assets/generated_images/tutorial_step4_progress.png";
 import { 
   BASKETBALL_POSITIONS, 
   BASKETBALL_ASPIRATIONS, 
@@ -221,65 +217,98 @@ const gameSchema = z.object({
 
 type GameFormData = z.infer<typeof gameSchema>;
 
-const LOG_TRAINING_STEPS = [
-  {
-    image: tutorialStep1Img,
-    title: "Find a Drill",
-    icon: Target,
-    iconBg: "bg-primary/10",
-    iconColor: "text-primary",
-    bullets: [
-      "Open the sidebar and tap Drills to browse the full library",
-      "Switch between Handlz (pro drills), Community, or your own",
-      "Filter by category and difficulty, or search by name",
-      "Tap any drill to watch the video and see pro tips",
-    ],
-    tip: "Start with a drill in the category you want to improve most.",
-  },
-  {
-    image: tutorialStep2Img,
-    title: "Log the Drill",
-    icon: Flame,
-    iconBg: "bg-orange-500/10",
-    iconColor: "text-orange-500",
-    bullets: [
-      "From a drill's page, tap \"Log Training Session\"",
-      "Enter your metrics — makes, attempts, time, etc.",
-      "For shooting drills, tap the court map to log shot locations",
-      "Use the built-in timer to auto-track your duration",
-      "Rate yourself (1-10), add notes, then save",
-    ],
-    tip: "You can also add drills from the Training Log page directly.",
-  },
-  {
-    image: tutorialStep3Img,
-    title: "View Your History",
-    icon: Calendar,
-    iconBg: "bg-blue-500/10",
-    iconColor: "text-blue-500",
-    bullets: [
-      "Go to Training Log and switch to the History tab",
-      "See every past session with drill name, time, and score",
-      "Repeat drills regularly to watch your numbers climb",
-    ],
-    tip: "Consistency is key. Even 15 minutes of focused work moves the needle.",
-  },
-  {
-    image: tutorialStep4Img,
-    title: "Track Your Progress",
-    icon: BarChart3,
-    iconBg: "bg-green-500/10",
-    iconColor: "text-green-500",
-    bullets: [
-      "Dashboard shows total sessions, hours trained, and your streak",
-      "Progress page has your shooting heatmap and skill breakdown charts",
-      "Every drill earns XP toward your Career level",
-      "Set challenges like \"Make 500 shots\" — they track automatically",
-      "Your stats show up on your Player Profile for recruiting",
-    ],
-    tip: "Check the Trophy Room for achievements, personal records, and awards.",
-  },
-];
+const TUTORIAL_SLIDES = {
+  "log-training": [
+    {
+      title: "Step 1: Find a Drill",
+      icon: Target,
+      iconBg: "bg-primary/10",
+      iconColor: "text-primary",
+      content: [
+        { heading: "Go to the Drill Library", text: "Open the sidebar and tap \"Drills\" to browse the full library." },
+        { heading: "Browse or Search", text: "Use the tabs to switch between Handlz (pro drills), Community drills, or your own. Filter by category (Ball Handling, Shooting, etc.) and difficulty level." },
+        { heading: "Pick a Drill", text: "Tap any drill to see the details — watch the video, read pro tips, and check the equipment needed." },
+      ],
+      tip: "Start with a drill in the category you want to improve most.",
+    },
+    {
+      title: "Step 2: Log the Drill",
+      icon: Flame,
+      iconBg: "bg-orange-500/10",
+      iconColor: "text-orange-500",
+      content: [
+        { heading: "Start a Session", text: "From any drill's detail page, tap \"Log Training Session.\" This takes you to the Training Log with that drill pre-loaded." },
+        { heading: "Track Your Reps", text: "Enter your metrics — makes, attempts, time, or whatever the drill requires. For shooting drills, use the half-court map to log shot locations." },
+        { heading: "Use the Timer", text: "Hit the play button to start a live timer so your duration is tracked automatically. Stop it when you're done." },
+        { heading: "Rate & Save", text: "Give yourself a score (1-10), add any notes, then save your session." },
+      ],
+      tip: "You can also log drills from the Training Log page directly — just tap the \"+\" to add drills to your workout.",
+    },
+    {
+      title: "Step 3: View Your History",
+      icon: Calendar,
+      iconBg: "bg-blue-500/10",
+      iconColor: "text-blue-500",
+      content: [
+        { heading: "Training Log History", text: "Go to the Training Log page and switch to the \"History\" tab to see all your past sessions in order." },
+        { heading: "Drill Details", text: "Each log shows the drill name, duration, your score, and the metrics you entered." },
+        { heading: "Track Improvement", text: "Come back to the same drill regularly — you'll see how your numbers improve over time." },
+      ],
+      tip: "Consistency is key. Even 15 minutes of focused work moves the needle.",
+    },
+    {
+      title: "Step 4: See Your Progress",
+      icon: BarChart3,
+      iconBg: "bg-green-500/10",
+      iconColor: "text-green-500",
+      content: [
+        { heading: "Dashboard", text: "Your home dashboard shows total sessions, hours trained, and your current streak. Check the category breakdown to see where you're spending your time." },
+        { heading: "Progress Page", text: "Dive deeper on the Progress page — see your shooting heatmap, skill breakdown charts, and weekly activity." },
+        { heading: "Career & Trophy Room", text: "Every drill you log earns XP toward your Career level. Hit milestones to unlock achievements, and track personal records in your Trophy Room." },
+        { heading: "Challenges", text: "Set goals like \"Make 500 shots\" or \"Train 30 days in a row.\" Your drill logs automatically count toward active challenges." },
+      ],
+      tip: "Your stats show up on your Player Profile too — great for recruiting and showcasing your work ethic.",
+    },
+  ],
+  "create-drill": [
+    {
+      title: "Step 1: Start Creating",
+      icon: Plus,
+      iconBg: "bg-primary/10",
+      iconColor: "text-primary",
+      content: [
+        { heading: "Go to Drills", text: "Open the sidebar and tap \"Drills\" to go to the Drill Library." },
+        { heading: "Tap Create", text: "Switch to the \"Mine\" tab and tap \"Create Drill\" to open the drill builder." },
+        { heading: "Name & Describe", text: "Give your drill a clear name and description so you (and others) know exactly what it covers." },
+      ],
+      tip: "Think about what skill gap you want to fill — then build a drill around it.",
+    },
+    {
+      title: "Step 2: Set It Up",
+      icon: Target,
+      iconBg: "bg-orange-500/10",
+      iconColor: "text-orange-500",
+      content: [
+        { heading: "Pick Category & Difficulty", text: "Choose a category (Ball Handling, Shooting, etc.) and set the difficulty level." },
+        { heading: "Add Metrics", text: "Define what you want to track — makes, attempts, time, or custom metrics. These show up when you log the drill." },
+        { heading: "Add Video & Tips", text: "Upload a video demo and write pro tips or equipment notes to make the drill complete." },
+      ],
+      tip: "Adding metrics makes your drill trackable — you'll see your improvement over time.",
+    },
+    {
+      title: "Step 3: Use & Share",
+      icon: Users,
+      iconBg: "bg-blue-500/10",
+      iconColor: "text-blue-500",
+      content: [
+        { heading: "Log It", text: "Your new drill appears in your \"Mine\" tab. Tap it and hit \"Log Training Session\" to start using it." },
+        { heading: "Share It", text: "Toggle sharing on to make your drill available in the Community tab for other players to use." },
+        { heading: "Iterate", text: "Edit your drill anytime to refine the metrics, tips, or video as you improve the routine." },
+      ],
+      tip: "Great drills get used by the community — build something you'd want to find.",
+    },
+  ],
+};
 
 function TutorialVideoStep({
   tutorialKey,
@@ -303,10 +332,10 @@ function TutorialVideoStep({
   const [slideIdx, setSlideIdx] = useState(0);
 
   const hasVideo = !isLoading && tutorial?.videoUrl;
-  const steps = tutorialKey === "log-training" ? LOG_TRAINING_STEPS : LOG_TRAINING_STEPS;
-  const slide = steps[slideIdx];
+  const slides = TUTORIAL_SLIDES[tutorialKey as keyof typeof TUTORIAL_SLIDES] || TUTORIAL_SLIDES["log-training"];
+  const slide = slides[slideIdx];
   const SlideIcon = slide.icon;
-  const isLastSlide = slideIdx === steps.length - 1;
+  const isLastSlide = slideIdx === slides.length - 1;
 
   if (isLoading) {
     return (
@@ -364,48 +393,38 @@ function TutorialVideoStep({
   }
 
   return (
-    <div className="min-h-screen flex items-start justify-center p-4 py-6 bg-gradient-to-b from-background to-muted/20">
-      <Card className="w-full max-w-2xl">
-        <CardHeader className="pb-2">
-          <div className="flex items-center gap-3 mb-1">
-            <div className={`w-9 h-9 rounded-full ${slide.iconBg} flex items-center justify-center shrink-0`}>
-              <SlideIcon className={`w-4 h-4 ${slide.iconColor}`} />
+    <div className="min-h-screen flex items-start justify-center p-4 py-8 bg-gradient-to-b from-background to-muted/20">
+      <Card className="w-full max-w-lg">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-3 mb-2">
+            <div className={`w-10 h-10 rounded-full ${slide.iconBg} flex items-center justify-center shrink-0`}>
+              <SlideIcon className={`w-5 h-5 ${slide.iconColor}`} />
             </div>
             <div className="flex-1">
-              <CardTitle className="text-lg font-bold">
-                Step {slideIdx + 1}: {slide.title}
-              </CardTitle>
+              <CardTitle className="text-lg font-bold">{slide.title}</CardTitle>
             </div>
           </div>
-          <div className="flex gap-1.5 mt-2">
-            {steps.map((_, idx) => (
-              <button
+          <div className="flex gap-1.5">
+            {slides.map((_, idx) => (
+              <div
                 key={idx}
-                onClick={() => setSlideIdx(idx)}
-                className={`h-1.5 flex-1 rounded-full transition-colors cursor-pointer ${idx <= slideIdx ? 'bg-primary' : 'bg-muted'}`}
-                data-testid={`tutorial-progress-${idx}`}
+                className={`h-1.5 flex-1 rounded-full transition-colors ${idx <= slideIdx ? 'bg-primary' : 'bg-muted'}`}
               />
             ))}
           </div>
-          <p className="text-xs text-muted-foreground mt-1">{slideIdx + 1} of {steps.length}</p>
+          <p className="text-xs text-muted-foreground mt-1.5">{slideIdx + 1} of {slides.length}</p>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="rounded-lg overflow-hidden border border-border">
-            <img
-              src={slide.image}
-              alt={slide.title}
-              className="w-full h-auto"
-              data-testid={`tutorial-image-${slideIdx}`}
-            />
-          </div>
-
-          <div className="space-y-2">
-            {slide.bullets.map((bullet, idx) => (
-              <div key={idx} className="flex gap-2.5" data-testid={`tutorial-bullet-${slideIdx}-${idx}`}>
-                <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                  <span className="text-[10px] font-bold text-primary">{idx + 1}</span>
+          <div className="space-y-3">
+            {slide.content.map((item, idx) => (
+              <div key={idx} className="flex gap-3" data-testid={`tutorial-item-${slideIdx}-${idx}`}>
+                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <span className="text-xs font-bold text-primary">{idx + 1}</span>
                 </div>
-                <p className="text-sm text-muted-foreground">{bullet}</p>
+                <div>
+                  <p className="text-sm font-semibold">{item.heading}</p>
+                  <p className="text-sm text-muted-foreground">{item.text}</p>
+                </div>
               </div>
             ))}
           </div>
@@ -413,20 +432,19 @@ function TutorialVideoStep({
           {slide.tip && (
             <div className="flex gap-2 p-3 rounded-lg bg-primary/5 border border-primary/10">
               <Zap className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-              <p className="text-xs text-muted-foreground">
-                <span className="font-semibold text-foreground">Tip: </span>{slide.tip}
-              </p>
+              <p className="text-xs text-muted-foreground"><span className="font-semibold text-foreground">Tip:</span> {slide.tip}</p>
             </div>
           )}
 
-          <div className="flex justify-between pt-2">
+          <div className="flex justify-between pt-3">
             <Button
               type="button"
               variant="outline"
               onClick={() => slideIdx === 0 ? onBack() : setSlideIdx(prev => prev - 1)}
               data-testid="button-tutorial-back"
             >
-              <ChevronLeft className="w-4 h-4 mr-1" /> Back
+              <ChevronLeft className="w-4 h-4 mr-1" />
+              Back
             </Button>
             {isLastSlide ? (
               <div className="flex gap-2">
