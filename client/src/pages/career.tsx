@@ -2461,16 +2461,22 @@ function TrophyRoomTab({
                   display: PR_DISPLAY[key] || { label: key },
                 }));
 
+                const categoryStyles: Record<string, { border: string; bg: string; leftBorder: string; badgeBorder: string; badgeText: string; label: string; icon: string }> = {
+                  game: { border: "border-green-500/20", bg: "bg-green-500/5", leftBorder: "border-l-green-500", badgeBorder: "border-green-500/40", badgeText: "text-green-600 dark:text-green-400", label: "Game", icon: "🏀" },
+                  season: { border: "border-blue-500/20", bg: "bg-blue-500/5", leftBorder: "border-l-blue-500", badgeBorder: "border-blue-500/40", badgeText: "text-blue-600 dark:text-blue-400", label: "Season", icon: "📅" },
+                  drill: { border: "border-orange-500/20", bg: "bg-orange-500/5", leftBorder: "border-l-orange-500", badgeBorder: "border-orange-500/40", badgeText: "text-orange-600 dark:text-orange-400", label: "Training", icon: "🎯" },
+                };
+
                 return (
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {entries.map((entry) => {
-                      const isGame = entry.source === "game";
+                      const cat = categoryStyles[entry.source] || categoryStyles.drill;
                       const formattedVal = entry.value % 1 === 0 ? entry.value.toString() : entry.value.toFixed(1);
                       const dateStr = entry.achievedAt ? new Date(entry.achievedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null;
                       return (
                         <div
                           key={entry.key}
-                          className={`text-center px-3 py-2 rounded-md border ${isGame ? "border-orange-500/20 bg-orange-500/5" : "border-amber-500/20 bg-amber-500/5"}`}
+                          className={`text-center px-3 py-2 rounded-md border border-l-4 ${cat.border} ${cat.bg} ${cat.leftBorder}`}
                           data-testid={`pr-card-${entry.key.toLowerCase().replace(/\s+/g, "-")}`}
                         >
                           <p className="text-2xl font-bold">
@@ -2478,8 +2484,8 @@ function TrophyRoomTab({
                           </p>
                           <p className="text-xs text-muted-foreground mt-1 leading-tight">{entry.display.label}</p>
                           <div className="flex items-center justify-center gap-1.5 mt-2 flex-wrap">
-                            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${isGame ? "border-orange-500/40 text-orange-500" : "border-amber-500/40 text-amber-500"}`}>
-                              {isGame ? "Game" : "Drill"}
+                            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${cat.badgeBorder} ${cat.badgeText}`}>
+                              {cat.label}
                             </Badge>
                             {dateStr && (
                               <span className="text-[10px] text-muted-foreground">{dateStr}</span>
