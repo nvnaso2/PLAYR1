@@ -1296,7 +1296,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
             <div
               onClick={async () => {
                 await completeOnboarding();
-                window.location.href = "/drills";
+                window.location.href = "/log";
               }}
               className="cursor-pointer p-5 rounded-lg border-2 border-border flex items-center gap-4 transition-all hover:border-primary/50 hover:bg-muted/30"
               data-testid="dev-log-now"
