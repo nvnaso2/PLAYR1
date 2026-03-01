@@ -171,7 +171,7 @@ const NON_SCHOOL_TEAM_TYPES = [
   { value: "intramural", label: "Intramural" },
 ] as const;
 
-const PRIMARY_REASONS = [
+const INTEREST_OPTIONS = [
   { value: "game-stats", label: "Track Game Stats", icon: BarChart3, description: "Log games and track your stats" },
   { value: "skill-development", label: "Player / Skill Development", icon: Target, description: "Improve your skills with drills" },
   { value: "find-trainer", label: "Find a Trainer", icon: Users, description: "Connect with a trainer" },
@@ -233,7 +233,14 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   const [teams, setTeams] = useState<OnboardingTeam[]>([]);
   const [newTeamName, setNewTeamName] = useState("");
   const [newTeamType, setNewTeamType] = useState<"school" | "club" | "rec" | "intramural">("school");
-  const [primaryReason, setPrimaryReason] = useState("");
+  const [rankedInterests, setRankedInterests] = useState(INTEREST_OPTIONS.map(o => o.value));
+  const [draggedInterestIdx, setDraggedInterestIdx] = useState<number | null>(null);
+  const [overInterestIdx, setOverInterestIdx] = useState<number | null>(null);
+  const interestDragging = useRef(false);
+
+  const [cardPhotoFile, setCardPhotoFile] = useState<File | null>(null);
+  const [cardPhotoPreview, setCardPhotoPreview] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const [gameStatsTeams, setGameStatsTeams] = useState<string[]>([]);
   const [logPastGames, setLogPastGames] = useState<boolean | null>(null);
@@ -287,6 +294,48 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
     setMinutesPlayed(0);
   };
 
+  const handleCardPhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+    if (!allowedTypes.includes(file.type)) {
+      toast({ title: "Invalid file type", description: "Please upload a JPEG, PNG, GIF, or WebP image.", variant: "destructive" });
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Maximum file size is 10MB.", variant: "destructive" });
+      return;
+    }
+    setCardPhotoFile(file);
+    const reader = new FileReader();
+    reader.onload = (ev) => setCardPhotoPreview(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const uploadCardPhoto = async (): Promise<string | null> => {
+    if (!cardPhotoFile) return null;
+    setUploadingPhoto(true);
+    try {
+      const urlRes = await apiRequest("POST", "/api/user/uploads/photo-url", {
+        name: cardPhotoFile.name,
+        size: cardPhotoFile.size,
+        contentType: cardPhotoFile.type,
+      });
+      const { uploadURL, objectPath } = await urlRes.json();
+      await fetch(uploadURL, {
+        method: "PUT",
+        headers: { "Content-Type": cardPhotoFile.type },
+        body: cardPhotoFile,
+      });
+      return objectPath;
+    } catch {
+      toast({ title: "Photo upload failed", variant: "destructive" });
+      return null;
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
   const togglePosition = (pos: string) => {
     setPositions(prev => prev.includes(pos) ? prev.filter(p => p !== pos) : [...prev, pos]);
   };
@@ -317,7 +366,13 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
       await apiRequest("PUT", "/api/user/name", { firstName, lastName });
       queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
 
-      const profileData = {
+      let cardPhotoUrl: string | undefined;
+      if (cardPhotoFile) {
+        const path = await uploadCardPhoto();
+        if (path) cardPhotoUrl = path;
+      }
+
+      const profileData: Record<string, any> = {
         birthMonth,
         birthYear,
         gradeLevel: gradeLevel || undefined,
@@ -329,6 +384,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
         onboardingTeams: JSON.stringify(teams),
         staffRole: selectedRole === "player" ? null : selectedRole,
       };
+      if (cardPhotoUrl) profileData.cardPhotoUrl = cardPhotoUrl;
 
       const existing = await fetch("/api/career", { credentials: "include" }).then(r => r.ok ? r.json() : null);
       if (existing) {
@@ -429,21 +485,30 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
     setStep("reason");
   };
 
-  const handleReasonSelect = async (reason: string) => {
-    setPrimaryReason(reason);
-    if (reason === "game-stats") {
+  const handleInterestRankingNext = async () => {
+    const topInterest = rankedInterests[0];
+    const rankedJson = JSON.stringify(rankedInterests);
+    await apiRequest("PUT", "/api/career", { primaryReason: rankedJson });
+    queryClient.invalidateQueries({ queryKey: ['/api/career'] });
+
+    if (topInterest === "game-stats") {
       if (teams.length === 0) {
-        toast({ title: "No teams added", description: "Go back and add at least one team to track stats for.", variant: "destructive" });
+        await completeOnboarding();
         return;
       }
-      await apiRequest("PUT", "/api/career", { primaryReason: reason });
-      queryClient.invalidateQueries({ queryKey: ['/api/career'] });
       setStep("select-teams");
     } else {
-      await apiRequest("PUT", "/api/career", { primaryReason: reason });
-      queryClient.invalidateQueries({ queryKey: ['/api/career'] });
       await completeOnboarding();
     }
+  };
+
+  const commitInterestReorder = (fromIdx: number, toIdx: number) => {
+    setRankedInterests(prev => {
+      const newOrder = [...prev];
+      const [moved] = newOrder.splice(fromIdx, 1);
+      newOrder.splice(toIdx, 0, moved);
+      return newOrder;
+    });
   };
 
   const handleTeamsSelected = () => {
@@ -529,6 +594,49 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
             <CardDescription>Tell us about yourself</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
+            <div className="flex flex-col items-center">
+              <Label className="text-sm font-medium mb-2">Card Photo <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <div className="relative group">
+                <div className="w-28 h-28 rounded-xl border-2 border-dashed border-muted-foreground/30 flex items-center justify-center overflow-hidden bg-muted/30 hover:border-primary/50 transition-colors cursor-pointer"
+                  onClick={() => document.getElementById('onboarding-card-photo')?.click()}
+                  data-testid="button-upload-card-photo"
+                >
+                  {cardPhotoPreview ? (
+                    <img src={cardPhotoPreview} alt="Card photo" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="text-center p-2">
+                      <Camera className="w-6 h-6 text-muted-foreground mx-auto mb-1" />
+                      <p className="text-[10px] text-muted-foreground">Upload photo</p>
+                    </div>
+                  )}
+                  {uploadingPhoto && (
+                    <div className="absolute inset-0 bg-background/70 flex items-center justify-center">
+                      <RefreshCw className="w-5 h-5 animate-spin text-primary" />
+                    </div>
+                  )}
+                </div>
+                {cardPhotoPreview && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setCardPhotoFile(null); setCardPhotoPreview(null); }}
+                    className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-xs"
+                    data-testid="button-remove-card-photo"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+              <input
+                id="onboarding-card-photo"
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                className="hidden"
+                onChange={handleCardPhotoSelect}
+                data-testid="input-card-photo"
+              />
+              <p className="text-[11px] text-muted-foreground mt-1.5">This will be the front of your basketball card</p>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-sm font-medium">First Name *</Label>
@@ -720,33 +828,98 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
       <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-background to-muted/20">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <CardTitle className="text-xl font-bold">What brings you to PLAYR1?</CardTitle>
-            <CardDescription>Select your primary reason</CardDescription>
+            <CardTitle className="text-xl font-bold">Rank Your Interests</CardTitle>
+            <CardDescription>Drag to rank from most to least important</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {PRIMARY_REASONS.map(reason => {
-              const Icon = reason.icon;
-              return (
-                <div
-                  key={reason.value}
-                  onClick={() => handleReasonSelect(reason.value)}
-                  className="cursor-pointer p-4 rounded-lg border-2 border-border flex items-center gap-4 transition-all hover:border-primary/50 hover:bg-muted/30"
-                  data-testid={`reason-${reason.value}`}
-                >
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <Icon className="w-5 h-5 text-primary" />
+            <div className="space-y-2">
+              {rankedInterests.map((interestValue, index) => {
+                const option = INTEREST_OPTIONS.find(o => o.value === interestValue)!;
+                const Icon = option.icon;
+                return (
+                  <div
+                    key={option.value}
+                    draggable
+                    onDragStart={(e) => {
+                      setDraggedInterestIdx(index);
+                      interestDragging.current = true;
+                      e.dataTransfer.effectAllowed = "move";
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "move";
+                      setOverInterestIdx(index);
+                    }}
+                    onDragLeave={() => {
+                      if (overInterestIdx === index) setOverInterestIdx(null);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (draggedInterestIdx !== null && draggedInterestIdx !== index) {
+                        commitInterestReorder(draggedInterestIdx, index);
+                      }
+                      setDraggedInterestIdx(null);
+                      setOverInterestIdx(null);
+                      interestDragging.current = false;
+                    }}
+                    onDragEnd={() => {
+                      setDraggedInterestIdx(null);
+                      setOverInterestIdx(null);
+                      interestDragging.current = false;
+                    }}
+                    onTouchStart={() => {
+                      setDraggedInterestIdx(index);
+                      interestDragging.current = true;
+                    }}
+                    onTouchMove={(e) => {
+                      const touch = e.touches[0];
+                      const elements = document.elementsFromPoint(touch.clientX, touch.clientY);
+                      const target = elements.find(el => el.getAttribute('data-interest-idx') !== null);
+                      if (target) {
+                        const idx = parseInt(target.getAttribute('data-interest-idx')!);
+                        setOverInterestIdx(idx);
+                      }
+                    }}
+                    onTouchEnd={() => {
+                      if (draggedInterestIdx !== null && overInterestIdx !== null && draggedInterestIdx !== overInterestIdx) {
+                        commitInterestReorder(draggedInterestIdx, overInterestIdx);
+                      }
+                      setDraggedInterestIdx(null);
+                      setOverInterestIdx(null);
+                      interestDragging.current = false;
+                    }}
+                    data-interest-idx={index}
+                    className={`p-4 rounded-lg border-2 flex items-center gap-3 cursor-grab active:cursor-grabbing select-none transition-all ${
+                      draggedInterestIdx === index ? 'opacity-50 scale-[0.98] border-primary' : ''
+                    } ${
+                      overInterestIdx === index && draggedInterestIdx !== null && draggedInterestIdx !== index
+                        ? 'border-primary/50 bg-primary/5' : 'border-border'
+                    }`}
+                    data-testid={`interest-${option.value}`}
+                  >
+                    <div className="flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary text-sm font-bold shrink-0">
+                      {index + 1}
+                    </div>
+                    <GripVertical className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <div className="w-9 h-9 rounded-full bg-muted/50 flex items-center justify-center shrink-0">
+                      <Icon className="w-4 h-4 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm">{option.label}</p>
+                      <p className="text-xs text-muted-foreground">{option.description}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-semibold">{reason.label}</p>
-                    <p className="text-sm text-muted-foreground">{reason.description}</p>
-                  </div>
-                </div>
-              );
-            })}
-            <div className="pt-2">
+                );
+              })}
+            </div>
+            <div className="flex justify-between pt-4">
               <Button type="button" variant="outline" onClick={() => setStep("profile")} data-testid="button-back-profile">
                 <ChevronLeft className="w-4 h-4 mr-1" />
                 Back
+              </Button>
+              <Button type="button" onClick={handleInterestRankingNext} data-testid="button-next-interests">
+                Next
+                <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
             </div>
           </CardContent>
