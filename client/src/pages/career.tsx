@@ -752,10 +752,6 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
     queryClient.invalidateQueries({ queryKey: ['/api/career'] });
 
     if (topInterest === "game-stats") {
-      if (teams.length === 0) {
-        await completeOnboarding();
-        return;
-      }
       setStep("select-teams");
     } else if (topInterest === "skill-development") {
       setStep("dev-priority");
@@ -1404,36 +1400,50 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
             <CardDescription>Which team(s) do you want to track stats for?</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {teams.map((team, idx) => {
-              const isSelected = gameStatsTeams.includes(team.name);
-              return (
-                <div
-                  key={idx}
-                  onClick={() => setGameStatsTeams(prev => isSelected ? prev.filter(n => n !== team.name) : [...prev, team.name])}
-                  className={`cursor-pointer p-4 rounded-lg border-2 flex items-center gap-3 transition-all ${
-                    isSelected ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
-                  }`}
-                  data-testid={`select-team-${idx}`}
-                >
-                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? 'border-primary bg-primary' : 'border-muted-foreground/30'}`}>
-                    {isSelected && <CheckCircle className="w-4 h-4 text-primary-foreground" />}
+            {teams.length === 0 ? (
+              <div className="text-center py-6 space-y-3">
+                <p className="text-muted-foreground">You haven't added any teams yet.</p>
+                <p className="text-sm text-muted-foreground">Go back to your profile to add a team, or skip ahead to start tracking stats later.</p>
+              </div>
+            ) : (
+              teams.map((team, idx) => {
+                const isSelected = gameStatsTeams.includes(team.name);
+                return (
+                  <div
+                    key={idx}
+                    onClick={() => setGameStatsTeams(prev => isSelected ? prev.filter(n => n !== team.name) : [...prev, team.name])}
+                    className={`cursor-pointer p-4 rounded-lg border-2 flex items-center gap-3 transition-all ${
+                      isSelected ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
+                    }`}
+                    data-testid={`select-team-${idx}`}
+                  >
+                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? 'border-primary bg-primary' : 'border-muted-foreground/30'}`}>
+                      {isSelected && <CheckCircle className="w-4 h-4 text-primary-foreground" />}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium">{team.name}</p>
+                      <p className="text-xs text-muted-foreground">{teamTypeLabel(team.type)} {team.inSeason ? "· In Season" : ""}</p>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <p className="font-medium">{team.name}</p>
-                    <p className="text-xs text-muted-foreground">{teamTypeLabel(team.type)} {team.inSeason ? "· In Season" : ""}</p>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
             <div className="flex justify-between pt-4">
-              <Button type="button" variant="outline" onClick={() => setStep("reason")} data-testid="button-back-reason">
+              <Button type="button" variant="outline" onClick={() => teams.length === 0 ? setStep("profile") : setStep("reason")} data-testid="button-back-reason">
                 <ChevronLeft className="w-4 h-4 mr-1" />
-                Back
+                {teams.length === 0 ? "Add Teams" : "Back"}
               </Button>
-              <Button type="button" onClick={handleTeamsSelected} data-testid="button-next-teams">
-                Next
-                <ChevronRight className="w-4 h-4 ml-1" />
-              </Button>
+              {teams.length === 0 ? (
+                <Button type="button" onClick={async () => { await completeOnboarding(); window.location.href = "/log"; }} data-testid="button-skip-teams">
+                  Skip for Now
+                  <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
+              ) : (
+                <Button type="button" onClick={handleTeamsSelected} data-testid="button-next-teams">
+                  Next
+                  <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
