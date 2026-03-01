@@ -201,6 +201,7 @@ export const teamAwards = pgTable("team_awards", {
   teamName: varchar("team_name").notNull(),
   awardName: varchar("award_name").notNull(),
   description: text("description"),
+  awardType: varchar("award_type").default("team"),
   season: varchar("season"), // e.g., "2024-25"
   awardedAt: timestamp("awarded_at"),
   icon: varchar("icon"),

@@ -2103,18 +2103,20 @@ function TrophyRoomTab({
   const awardFormSchema = insertTeamAwardSchema.pick({
     awardName: true,
     teamName: true,
+    awardType: true,
     season: true,
     description: true,
   }).extend({
     awardName: z.string().min(1, "Award name is required"),
     teamName: z.string().min(1, "Team name is required"),
+    awardType: z.string().default("team"),
     season: z.string().optional(),
     description: z.string().optional(),
   });
 
   const awardForm = useForm<z.infer<typeof awardFormSchema>>({
     resolver: zodResolver(awardFormSchema),
-    defaultValues: { awardName: "", teamName: "", season: "", description: "" },
+    defaultValues: { awardName: "", teamName: "", awardType: "team", season: "", description: "" },
   });
 
   const challengeFormSchema = insertChallengeSchema.pick({
@@ -2206,6 +2208,7 @@ function TrophyRoomTab({
     awardForm.reset({
       awardName: award.awardName,
       teamName: award.teamName,
+      awardType: award.awardType || "team",
       season: award.season || "",
       description: award.description || ""
     });
@@ -2214,7 +2217,7 @@ function TrophyRoomTab({
 
   const openNewAward = () => {
     setEditingAward(null);
-    awardForm.reset({ awardName: "", teamName: "", season: "", description: "" });
+    awardForm.reset({ awardName: "", teamName: "", awardType: "team", season: "", description: "" });
     setShowAwardDialog(true);
   };
 
@@ -2534,7 +2537,12 @@ function TrophyRoomTab({
                       <Trophy className="w-10 h-10 text-yellow-500 mx-auto mb-2" />
                       <p className="font-medium">{award.awardName}</p>
                       <p className="text-sm text-muted-foreground">{award.teamName}</p>
-                      {award.season && <Badge variant="outline" className="mt-2">{award.season}</Badge>}
+                      <div className="flex items-center justify-center gap-1.5 mt-2 flex-wrap">
+                        <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${award.awardType === "personal" ? "border-purple-500/40 text-purple-600 dark:text-purple-400" : "border-blue-500/40 text-blue-600 dark:text-blue-400"}`}>
+                          {award.awardType === "personal" ? "Personal" : "Team"}
+                        </Badge>
+                        {award.season && <Badge variant="outline" className="text-[10px] px-1.5 py-0">{award.season}</Badge>}
+                      </div>
                       {award.description && <p className="text-xs text-muted-foreground mt-1">{award.description}</p>}
                     </div>
                   ))}
@@ -2597,6 +2605,27 @@ function TrophyRoomTab({
                     <FormControl>
                       <Input placeholder="e.g., Most Valuable Player" {...field} data-testid="input-award-name" />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={awardForm.control}
+                name="awardType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Award Type</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || "team"}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-award-type">
+                          <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="team">Team</SelectItem>
+                        <SelectItem value="personal">Personal</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
