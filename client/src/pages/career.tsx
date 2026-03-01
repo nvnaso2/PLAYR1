@@ -218,7 +218,7 @@ type GameFormData = z.infer<typeof gameSchema>;
 function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   const { toast } = useToast();
   const { user } = useAuth();
-  const [step, setStep] = useState<"role" | "profile" | "reason" | "select-teams" | "log-game" | "no-season" | "season-start">("role");
+  const [step, setStep] = useState<"role" | "profile" | "reason" | "select-teams" | "log-game" | "no-season" | "season-start" | "dev-priority" | "dev-log-next" | "dev-create-next">("role");
   const [selectedRole, setSelectedRole] = useState<"player" | "trainer" | "coach" | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -241,6 +241,9 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   const [cardPhotoFile, setCardPhotoFile] = useState<File | null>(null);
   const [cardPhotoPreview, setCardPhotoPreview] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+  const [devPriority, setDevPriority] = useState<"log-training" | "drill-library" | "create-drills" | null>(null);
+  const [wantAiSuggestions, setWantAiSuggestions] = useState<boolean | null>(null);
 
   const [gameStatsTeams, setGameStatsTeams] = useState<string[]>([]);
   const [logPastGames, setLogPastGames] = useState<boolean | null>(null);
@@ -497,8 +500,25 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
         return;
       }
       setStep("select-teams");
+    } else if (topInterest === "skill-development") {
+      setStep("dev-priority");
     } else {
       await completeOnboarding();
+    }
+  };
+
+  const handleDevPriorityNext = async () => {
+    if (!devPriority) {
+      toast({ title: "Please select an option", variant: "destructive" });
+      return;
+    }
+    if (devPriority === "log-training") {
+      setStep("dev-log-next");
+    } else if (devPriority === "drill-library") {
+      await completeOnboarding();
+      window.location.href = "/drills";
+    } else if (devPriority === "create-drills") {
+      setStep("dev-create-next");
     }
   };
 
@@ -909,6 +929,189 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
               <Button type="button" onClick={handleInterestRankingNext} data-testid="button-next-interests">
                 Next
                 <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (step === "dev-priority") {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-background to-muted/20">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle className="text-xl font-bold">Skill Development</CardTitle>
+            <CardDescription>What would you like to do first?</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {[
+              { value: "log-training" as const, label: "Log Training Activity", desc: "Track your drills and workouts", icon: Flame },
+              { value: "drill-library" as const, label: "Access Drill Library", desc: "Browse drills from PLAYR1 and the community", icon: Target },
+              { value: "create-drills" as const, label: "Create Your Own", desc: "Build custom drills and workouts", icon: Plus },
+            ].map(opt => {
+              const Icon = opt.icon;
+              return (
+                <div
+                  key={opt.value}
+                  onClick={() => setDevPriority(opt.value)}
+                  className={`cursor-pointer p-4 rounded-lg border-2 flex items-center gap-4 transition-all ${
+                    devPriority === opt.value ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-muted/30'
+                  }`}
+                  data-testid={`dev-priority-${opt.value}`}
+                >
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <Icon className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-semibold">{opt.label}</p>
+                    <p className="text-sm text-muted-foreground">{opt.desc}</p>
+                  </div>
+                </div>
+              );
+            })}
+
+            <div className="pt-3 border-t">
+              <p className="text-sm font-medium mb-3">Would you like PLAYR1 to suggest custom Drills and Workouts based on your goals, skill level, and age?</p>
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  type="button"
+                  variant={wantAiSuggestions === true ? "default" : "outline"}
+                  onClick={() => setWantAiSuggestions(true)}
+                  className="h-auto py-3"
+                  data-testid="button-ai-suggestions-yes"
+                >
+                  <CheckCircle className={`w-4 h-4 mr-2 ${wantAiSuggestions === true ? '' : 'text-green-500'}`} />
+                  Yes, please
+                </Button>
+                <Button
+                  type="button"
+                  variant={wantAiSuggestions === false ? "default" : "outline"}
+                  onClick={() => setWantAiSuggestions(false)}
+                  className="h-auto py-3"
+                  data-testid="button-ai-suggestions-no"
+                >
+                  <X className={`w-4 h-4 mr-2 ${wantAiSuggestions === false ? '' : 'text-muted-foreground'}`} />
+                  No thanks
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex justify-between pt-4">
+              <Button type="button" variant="outline" onClick={() => setStep("reason")} data-testid="button-back-reason">
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                Back
+              </Button>
+              <Button type="button" onClick={handleDevPriorityNext} data-testid="button-next-dev-priority">
+                Next
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (step === "dev-log-next") {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-background to-muted/20">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle className="text-xl font-bold">Log Training</CardTitle>
+            <CardDescription>How would you like to get started?</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div
+              onClick={async () => {
+                await completeOnboarding();
+              }}
+              className="cursor-pointer p-5 rounded-lg border-2 border-border flex items-center gap-4 transition-all hover:border-primary/50 hover:bg-muted/30"
+              data-testid="dev-log-tutorial"
+            >
+              <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0">
+                <GraduationCap className="w-5 h-5 text-blue-500" />
+              </div>
+              <div>
+                <p className="font-semibold">View Tutorial</p>
+                <p className="text-sm text-muted-foreground">Learn how to log drills and workouts</p>
+              </div>
+            </div>
+            <div
+              onClick={async () => {
+                await completeOnboarding();
+                window.location.href = "/drills";
+              }}
+              className="cursor-pointer p-5 rounded-lg border-2 border-border flex items-center gap-4 transition-all hover:border-primary/50 hover:bg-muted/30"
+              data-testid="dev-log-now"
+            >
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <Flame className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-semibold">Log a Drill Now</p>
+                <p className="text-sm text-muted-foreground">Jump in and log a recent or active drill</p>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <Button type="button" variant="outline" onClick={() => setStep("dev-priority")} data-testid="button-back-dev-priority">
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                Back
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (step === "dev-create-next") {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-background to-muted/20">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle className="text-xl font-bold">Create Your Own</CardTitle>
+            <CardDescription>How would you like to get started?</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div
+              onClick={async () => {
+                await completeOnboarding();
+              }}
+              className="cursor-pointer p-5 rounded-lg border-2 border-border flex items-center gap-4 transition-all hover:border-primary/50 hover:bg-muted/30"
+              data-testid="dev-create-tutorial"
+            >
+              <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0">
+                <GraduationCap className="w-5 h-5 text-blue-500" />
+              </div>
+              <div>
+                <p className="font-semibold">View Tutorial</p>
+                <p className="text-sm text-muted-foreground">Learn how to create custom drills</p>
+              </div>
+            </div>
+            <div
+              onClick={async () => {
+                await completeOnboarding();
+                window.location.href = "/drills";
+              }}
+              className="cursor-pointer p-5 rounded-lg border-2 border-border flex items-center gap-4 transition-all hover:border-primary/50 hover:bg-muted/30"
+              data-testid="dev-create-now"
+            >
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <Plus className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-semibold">Create a Drill</p>
+                <p className="text-sm text-muted-foreground">Start building your own drill now</p>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <Button type="button" variant="outline" onClick={() => setStep("dev-priority")} data-testid="button-back-dev-priority">
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                Back
               </Button>
             </div>
           </CardContent>
