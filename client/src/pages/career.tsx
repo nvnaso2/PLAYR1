@@ -836,7 +836,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
     } else if (choice === "invite-players") {
       window.location.href = "/coach?tab=players";
     } else {
-      window.location.href = "/coach?tab=admin&adminTab=drills";
+      window.location.href = "/coach?tab=admin&adminTab=videos";
     }
   };
 

@@ -921,6 +921,31 @@ export type ChatThreadMember = typeof chatThreadMembers.$inferSelect;
 export type InsertChatThreadMessage = z.infer<typeof insertChatThreadMessageSchema>;
 export type ChatThreadMessage = typeof chatThreadMessages.$inferSelect;
 
+// Trainer content videos (instructional videos created by trainers)
+export const trainerVideos = pgTable("trainer_videos", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  trainerId: varchar("trainer_id").notNull(),
+  title: varchar("title").notNull(),
+  description: text("description"),
+  videoUrl: varchar("video_url").notNull(),
+  thumbnailUrl: varchar("thumbnail_url"),
+  category: varchar("category").$type<DrillCategory>(),
+  difficulty: varchar("difficulty").$type<DifficultyLevel>(),
+  tags: text("tags").array(),
+  createdAt: timestamp("created_at").defaultNow()
+});
+
+export const insertTrainerVideoSchema = createInsertSchema(trainerVideos).omit({ id: true, createdAt: true }).extend({
+  videoUrl: z.string().refine(
+    (val) => val.startsWith("http://") || val.startsWith("https://") || val.startsWith("/objects/"),
+    { message: "Must be a valid URL or object storage path" }
+  ),
+  thumbnailUrl: urlOrObjectPath,
+});
+
+export type InsertTrainerVideo = z.infer<typeof insertTrainerVideoSchema>;
+export type TrainerVideo = typeof trainerVideos.$inferSelect;
+
 // ===== TEAM & LEAGUE FINDER =====
 
 export const TEAM_ORGANIZATION_TYPES = ["AAU", "Travel", "Club", "Competitive", "Select", "Prep"] as const;

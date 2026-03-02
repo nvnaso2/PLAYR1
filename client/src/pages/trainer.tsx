@@ -94,6 +94,7 @@ import {
   Clock,
   Play,
   X,
+  Upload,
 } from "lucide-react";
 import { insertTrainerTeamSchema, insertDrillAssignmentSchema, DRILL_CATEGORIES, DIFFICULTY_LEVELS } from "@shared/schema";
 import {
@@ -4483,6 +4484,43 @@ function JoinGroupTab() {
   const [shareTitle, setShareTitle] = useState("");
   const [shareUrl, setShareUrl] = useState("");
   const [shareDescription, setShareDescription] = useState("");
+  const [shareVideoUploading, setShareVideoUploading] = useState(false);
+  const [shareVideoUploadProgress, setShareVideoUploadProgress] = useState(0);
+
+  const handleShareVideoFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setShareVideoUploading(true);
+    setShareVideoUploadProgress(10);
+    try {
+      const metaRes = await fetch("/api/user/uploads/request-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type || "video/mp4" }),
+      });
+      if (!metaRes.ok) {
+        const err = await metaRes.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to get upload URL");
+      }
+      const { uploadURL, objectPath } = await metaRes.json();
+      setShareVideoUploadProgress(30);
+      const uploadRes = await fetch(uploadURL, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type || "video/mp4" },
+      });
+      if (!uploadRes.ok) throw new Error("Failed to upload file");
+      setShareVideoUploadProgress(100);
+      setShareUrl(objectPath);
+      toast({ title: "Video uploaded!" });
+    } catch (err: any) {
+      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+    } finally {
+      setShareVideoUploading(false);
+      setShareVideoUploadProgress(0);
+    }
+  };
 
   const { data: mySharedVideos, isLoading: sharedVideosLoading } = useQuery<Array<{
     id: string;
@@ -4634,14 +4672,51 @@ function JoinGroupTab() {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium">Video Link</label>
-                <Input
-                  value={shareUrl}
-                  onChange={(e) => setShareUrl(e.target.value)}
-                  placeholder="https://youtube.com/watch?v=..."
-                  className="mt-1"
-                  data-testid="input-share-video-url"
-                />
+                <label className="text-sm font-medium">Video</label>
+                {shareUrl ? (
+                  <div className="flex items-center gap-2 p-2 mt-1 rounded-md border border-primary/30 bg-primary/5">
+                    <Video className="w-4 h-4 text-primary shrink-0" />
+                    <span className="text-sm truncate flex-1" data-testid="text-share-video-attached">
+                      {shareUrl.startsWith("http") && !shareUrl.includes("/uploads/") ? shareUrl : "Video file attached"}
+                    </span>
+                    <Button size="sm" variant="ghost" onClick={() => setShareUrl("")} data-testid="button-remove-share-video">
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="mt-1 space-y-2">
+                    <label className="flex items-center justify-center gap-2 p-3 rounded-md border-2 border-dashed cursor-pointer hover:border-primary/50 transition-colors">
+                      <Upload className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">
+                        {shareVideoUploading ? `Uploading... ${shareVideoUploadProgress}%` : "Upload a video file"}
+                      </span>
+                      <input
+                        type="file"
+                        accept="video/*"
+                        className="hidden"
+                        onChange={handleShareVideoFileUpload}
+                        disabled={shareVideoUploading}
+                        data-testid="input-share-video-file"
+                      />
+                    </label>
+                    {shareVideoUploading && (
+                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div className="h-full bg-primary transition-all" style={{ width: `${shareVideoUploadProgress}%` }} />
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-px bg-border" />
+                      <span className="text-xs text-muted-foreground">or paste a link</span>
+                      <div className="flex-1 h-px bg-border" />
+                    </div>
+                    <Input
+                      value={shareUrl}
+                      onChange={(e) => setShareUrl(e.target.value)}
+                      placeholder="https://youtube.com/watch?v=..."
+                      data-testid="input-share-video-url"
+                    />
+                  </div>
+                )}
               </div>
               <div>
                 <label className="text-sm font-medium">Description (optional)</label>
@@ -4725,7 +4800,7 @@ function JoinGroupTab() {
 
 function AdminTab({ initialSection }: { initialSection?: string }) {
   const { toast } = useToast();
-  const [adminSection, setAdminSection] = useState<"teams" | "groups" | "players" | "drills">((initialSection as any) || "teams");
+  const [adminSection, setAdminSection] = useState<"teams" | "groups" | "players" | "drills" | "videos">((initialSection as any) || "teams");
 
   const [createTeamOpen, setCreateTeamOpen] = useState(false);
   const [editTeamId, setEditTeamId] = useState<string | null>(null);
@@ -4765,6 +4840,19 @@ function AdminTab({ initialSection }: { initialSection?: string }) {
   const [drillTrackShots, setDrillTrackShots] = useState(false);
   const [drillInstructions, setDrillInstructions] = useState<string[]>([]);
 
+  const [createVideoOpen, setCreateVideoOpen] = useState(false);
+  const [editVideoId, setEditVideoId] = useState<string | null>(null);
+  const [deleteVideoId, setDeleteVideoId] = useState<string | null>(null);
+  const [videoTitle, setVideoTitle] = useState("");
+  const [videoDescription, setVideoDescription] = useState("");
+  const [videoCategory, setVideoCategory] = useState("");
+  const [videoDifficulty, setVideoDifficulty] = useState("beginner");
+  const [videoUrl, setVideoUrl] = useState("");
+  const [videoThumbnailUrl, setVideoThumbnailUrl] = useState("");
+  const [videoUploading, setVideoUploading] = useState(false);
+  const [videoUploadProgress, setVideoUploadProgress] = useState(0);
+  const [playVideoUrl, setPlayVideoUrl] = useState<string | null>(null);
+
   const { data: groups, isLoading: groupsLoading } = useQuery<TrainerGroup[]>({
     queryKey: ["/api/trainer/groups"],
   });
@@ -4790,6 +4878,143 @@ function AdminTab({ initialSection }: { initialSection?: string }) {
   const { data: coachTeams, isLoading: coachTeamsLoading } = useQuery<CoachTeam[]>({
     queryKey: ["/api/coach/teams"],
   });
+
+  interface TrainerVideoData {
+    id: string;
+    trainerId: string;
+    title: string;
+    description: string | null;
+    videoUrl: string;
+    thumbnailUrl: string | null;
+    category: string | null;
+    difficulty: string | null;
+    tags: string[] | null;
+    createdAt: string;
+  }
+
+  const { data: trainerContentVideos, isLoading: contentVideosLoading } = useQuery<TrainerVideoData[]>({
+    queryKey: ["/api/trainer/videos"],
+  });
+
+  const createVideoMutation = useMutation({
+    mutationFn: (data: { title: string; description?: string; videoUrl: string; thumbnailUrl?: string; category?: string; difficulty?: string }) =>
+      apiRequest("POST", "/api/trainer/videos", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer/videos"] });
+      setCreateVideoOpen(false);
+      resetVideoForm();
+      toast({ title: "Video uploaded!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to upload video", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const updateVideoMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { title: string; description?: string; videoUrl: string; thumbnailUrl?: string; category?: string; difficulty?: string } }) =>
+      apiRequest("PUT", `/api/trainer/videos/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer/videos"] });
+      setEditVideoId(null);
+      resetVideoForm();
+      toast({ title: "Video updated!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to update video", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteVideoMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/trainer/videos/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer/videos"] });
+      setDeleteVideoId(null);
+      toast({ title: "Video deleted" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to delete video", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const resetVideoForm = () => {
+    setVideoTitle("");
+    setVideoDescription("");
+    setVideoCategory("");
+    setVideoDifficulty("beginner");
+    setVideoUrl("");
+    setVideoThumbnailUrl("");
+  };
+
+  const openEditVideo = (video: TrainerVideoData) => {
+    setEditVideoId(video.id);
+    setVideoTitle(video.title);
+    setVideoDescription(video.description || "");
+    setVideoCategory(video.category || "");
+    setVideoDifficulty(video.difficulty || "beginner");
+    setVideoUrl(video.videoUrl);
+    setVideoThumbnailUrl(video.thumbnailUrl || "");
+    setCreateVideoOpen(true);
+  };
+
+  const handleVideoFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setVideoUploading(true);
+    setVideoUploadProgress(10);
+    try {
+      const metaRes = await fetch("/api/user/uploads/request-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type || "video/mp4" }),
+      });
+      if (!metaRes.ok) {
+        const err = await metaRes.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to get upload URL");
+      }
+      const { uploadURL, objectPath } = await metaRes.json();
+      setVideoUploadProgress(30);
+      const uploadRes = await fetch(uploadURL, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type || "video/mp4" },
+      });
+      if (!uploadRes.ok) throw new Error("Failed to upload file");
+      setVideoUploadProgress(100);
+      setVideoUrl(objectPath);
+      toast({ title: "Video file uploaded!" });
+    } catch (err: any) {
+      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+    } finally {
+      setVideoUploading(false);
+      setVideoUploadProgress(0);
+    }
+  };
+
+  const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const metaRes = await fetch("/api/user/uploads/request-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type || "image/jpeg" }),
+      });
+      if (!metaRes.ok) throw new Error("Failed to get upload URL");
+      const { uploadURL, objectPath } = await metaRes.json();
+      const uploadRes = await fetch(uploadURL, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type || "image/jpeg" },
+      });
+      if (!uploadRes.ok) throw new Error("Failed to upload thumbnail");
+      setVideoThumbnailUrl(objectPath);
+      toast({ title: "Thumbnail uploaded!" });
+    } catch (err: any) {
+      toast({ title: "Thumbnail upload failed", description: err.message, variant: "destructive" });
+    }
+  };
 
   const createTeamMutation = useMutation({
     mutationFn: (data: { name: string; description: string; seasonYear?: number; ageGroup?: string; position?: string; level?: string; playerClass?: string }) =>
@@ -5105,23 +5330,27 @@ function AdminTab({ initialSection }: { initialSection?: string }) {
         <h2 className="text-lg font-semibold" data-testid="text-admin-heading">Admin</h2>
       </div>
 
-      <Tabs value={adminSection} onValueChange={(v) => setAdminSection(v as "teams" | "groups" | "players" | "drills")} data-testid="tabs-admin-section">
-        <TabsList className="grid w-full grid-cols-4" data-testid="tabs-admin-list">
-          <TabsTrigger value="teams" data-testid="tab-admin-teams">
-            <Shield className="w-4 h-4 mr-1" />
-            Teams
+      <Tabs value={adminSection} onValueChange={(v) => setAdminSection(v as "teams" | "groups" | "players" | "drills" | "videos")} data-testid="tabs-admin-section">
+        <TabsList className="grid w-full grid-cols-5" data-testid="tabs-admin-list">
+          <TabsTrigger value="teams" className="text-xs sm:text-sm" data-testid="tab-admin-teams">
+            <Shield className="w-4 h-4 mr-1 shrink-0" />
+            <span className="truncate">Teams</span>
           </TabsTrigger>
-          <TabsTrigger value="groups" data-testid="tab-admin-groups">
-            <Users className="w-4 h-4 mr-1" />
-            Groups
+          <TabsTrigger value="groups" className="text-xs sm:text-sm" data-testid="tab-admin-groups">
+            <Users className="w-4 h-4 mr-1 shrink-0" />
+            <span className="truncate">Groups</span>
           </TabsTrigger>
-          <TabsTrigger value="players" data-testid="tab-admin-players">
-            <UserPlus className="w-4 h-4 mr-1" />
-            Players
+          <TabsTrigger value="players" className="text-xs sm:text-sm" data-testid="tab-admin-players">
+            <UserPlus className="w-4 h-4 mr-1 shrink-0" />
+            <span className="truncate">Players</span>
           </TabsTrigger>
-          <TabsTrigger value="drills" data-testid="tab-admin-drills">
-            <Dumbbell className="w-4 h-4 mr-1" />
-            Custom Drills
+          <TabsTrigger value="drills" className="text-xs sm:text-sm" data-testid="tab-admin-drills">
+            <Dumbbell className="w-4 h-4 mr-1 shrink-0" />
+            <span className="truncate">Drills</span>
+          </TabsTrigger>
+          <TabsTrigger value="videos" className="text-xs sm:text-sm" data-testid="tab-admin-videos">
+            <Video className="w-4 h-4 mr-1 shrink-0" />
+            <span className="truncate">Videos</span>
           </TabsTrigger>
         </TabsList>
 
@@ -5452,7 +5681,259 @@ function AdminTab({ initialSection }: { initialSection?: string }) {
             </div>
           )}
         </TabsContent>
+
+        <TabsContent value="videos" className="space-y-4 mt-4">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <p className="text-sm text-muted-foreground">Upload instructional videos for your drills and workouts.</p>
+            <Button onClick={() => { resetVideoForm(); setEditVideoId(null); setCreateVideoOpen(true); }} data-testid="button-admin-upload-video">
+              <Upload className="w-4 h-4" />
+              Upload Video
+            </Button>
+          </div>
+
+          {contentVideosLoading ? (
+            <div className="space-y-2">
+              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-20 rounded-lg" />)}
+            </div>
+          ) : !trainerContentVideos?.length ? (
+            <Card>
+              <CardContent className="py-12 text-center text-muted-foreground" data-testid="text-no-trainer-videos">
+                <Video className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                <p>No videos yet. Upload your first instructional video.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {trainerContentVideos.map((video) => (
+                <Card key={video.id} data-testid={`card-trainer-video-${video.id}`}>
+                  <CardContent className="py-3">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-medium truncate" data-testid={`text-trainer-video-title-${video.id}`}>{video.title}</h3>
+                          {video.category && (
+                            <Badge variant="secondary" className="no-default-hover-elevate text-xs">{formatCategory(video.category)}</Badge>
+                          )}
+                          {video.difficulty && (
+                            <Badge variant="outline" className="no-default-hover-elevate text-xs capitalize">{video.difficulty}</Badge>
+                          )}
+                        </div>
+                        {video.description && (
+                          <p className="text-sm text-muted-foreground mt-1 truncate">{video.description}</p>
+                        )}
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {new Date(video.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => setPlayVideoUrl(video.videoUrl)}
+                          data-testid={`button-play-trainer-video-${video.id}`}
+                        >
+                          <Play className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => openEditVideo(video)}
+                          data-testid={`button-edit-trainer-video-${video.id}`}
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => setDeleteVideoId(video.id)}
+                          data-testid={`button-delete-trainer-video-${video.id}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
       </Tabs>
+
+      <Dialog open={createVideoOpen} onOpenChange={(open) => { if (!open) { setCreateVideoOpen(false); setEditVideoId(null); resetVideoForm(); } }}>
+        <DialogContent className="max-h-[85vh] flex flex-col" data-testid="dialog-trainer-video">
+          <DialogHeader>
+            <DialogTitle>{editVideoId ? "Edit Video" : "Upload Video"}</DialogTitle>
+            <DialogDescription>{editVideoId ? "Update video details." : "Upload an instructional video for your players."}</DialogDescription>
+          </DialogHeader>
+          <div className="overflow-y-auto flex-1 pr-1 space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Title</label>
+              <Input
+                value={videoTitle}
+                onChange={(e) => setVideoTitle(e.target.value)}
+                placeholder="e.g. Crossover Drill Breakdown"
+                data-testid="input-trainer-video-title"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Description</label>
+              <Textarea
+                value={videoDescription}
+                onChange={(e) => setVideoDescription(e.target.value)}
+                placeholder="What does this video cover?"
+                className="resize-none"
+                data-testid="input-trainer-video-description"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Category</label>
+                <Select value={videoCategory} onValueChange={setVideoCategory}>
+                  <SelectTrigger data-testid="select-trainer-video-category">
+                    <SelectValue placeholder="Select" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DRILL_CATEGORIES.map((cat) => (
+                      <SelectItem key={cat} value={cat}>{formatCategory(cat)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Difficulty</label>
+                <Select value={videoDifficulty} onValueChange={setVideoDifficulty}>
+                  <SelectTrigger data-testid="select-trainer-video-difficulty">
+                    <SelectValue placeholder="Select" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DIFFICULTY_LEVELS.map((d) => (
+                      <SelectItem key={d} value={d} className="capitalize">{d}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Video File</label>
+              {videoUrl ? (
+                <div className="flex items-center gap-2 p-2 rounded-md border border-primary/30 bg-primary/5">
+                  <Video className="w-4 h-4 text-primary shrink-0" />
+                  <span className="text-sm truncate flex-1">Video uploaded</span>
+                  <Button size="sm" variant="ghost" onClick={() => setVideoUrl("")} data-testid="button-remove-video-file">
+                    <X className="w-3 h-3" />
+                  </Button>
+                </div>
+              ) : (
+                <div>
+                  <label className="flex items-center justify-center gap-2 p-4 rounded-md border-2 border-dashed cursor-pointer hover:border-primary/50 transition-colors">
+                    <Upload className="w-5 h-5 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">{videoUploading ? `Uploading... ${videoUploadProgress}%` : "Click to upload video"}</span>
+                    <input
+                      type="file"
+                      accept="video/*"
+                      className="hidden"
+                      onChange={handleVideoFileUpload}
+                      disabled={videoUploading}
+                      data-testid="input-trainer-video-file"
+                    />
+                  </label>
+                  {videoUploading && (
+                    <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
+                      <div className="h-full bg-primary transition-all" style={{ width: `${videoUploadProgress}%` }} />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Thumbnail (optional)</label>
+              {videoThumbnailUrl ? (
+                <div className="flex items-center gap-2 p-2 rounded-md border border-primary/30 bg-primary/5">
+                  <Eye className="w-4 h-4 text-primary shrink-0" />
+                  <span className="text-sm truncate flex-1">Thumbnail uploaded</span>
+                  <Button size="sm" variant="ghost" onClick={() => setVideoThumbnailUrl("")} data-testid="button-remove-thumbnail">
+                    <X className="w-3 h-3" />
+                  </Button>
+                </div>
+              ) : (
+                <label className="flex items-center justify-center gap-2 p-3 rounded-md border-2 border-dashed cursor-pointer hover:border-primary/50 transition-colors">
+                  <Upload className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Click to upload thumbnail</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleThumbnailUpload}
+                    data-testid="input-trainer-video-thumbnail"
+                  />
+                </label>
+              )}
+            </div>
+            <DialogFooter>
+              <Button
+                onClick={() => {
+                  const data = {
+                    title: videoTitle,
+                    description: videoDescription || undefined,
+                    videoUrl,
+                    thumbnailUrl: videoThumbnailUrl || undefined,
+                    category: videoCategory || undefined,
+                    difficulty: videoDifficulty || undefined,
+                  };
+                  if (editVideoId) {
+                    updateVideoMutation.mutate({ id: editVideoId, data });
+                  } else {
+                    createVideoMutation.mutate(data);
+                  }
+                }}
+                disabled={!videoTitle.trim() || !videoUrl || createVideoMutation.isPending || updateVideoMutation.isPending}
+                data-testid="button-submit-trainer-video"
+              >
+                {(createVideoMutation.isPending || updateVideoMutation.isPending) ? "Saving..." : (editVideoId ? "Update" : "Upload")}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!deleteVideoId} onOpenChange={(open) => { if (!open) setDeleteVideoId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Video</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this video? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-video">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteVideoId && deleteVideoMutation.mutate(deleteVideoId)}
+              data-testid="button-confirm-delete-video"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={!!playVideoUrl} onOpenChange={(open) => { if (!open) setPlayVideoUrl(null); }}>
+        <DialogContent className="max-w-2xl" data-testid="dialog-play-trainer-video">
+          <DialogHeader>
+            <DialogTitle>Video Player</DialogTitle>
+            <DialogDescription>Playing instructional video</DialogDescription>
+          </DialogHeader>
+          {playVideoUrl && (
+            <video
+              src={playVideoUrl}
+              controls
+              autoPlay
+              className="w-full rounded-md max-h-[60vh]"
+              data-testid="video-trainer-player"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={createGroupOpen || !!editGroupId} onOpenChange={(open) => { if (!open) { setCreateGroupOpen(false); setEditGroupId(null); resetGroupForm(); } }}>
         <DialogContent data-testid="dialog-admin-group">

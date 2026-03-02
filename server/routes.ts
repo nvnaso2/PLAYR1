@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
-import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, userProfiles } from "@shared/schema";
+import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, userProfiles, trainerVideos, insertTrainerVideoSchema } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
@@ -2688,6 +2688,78 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting trainer drill:", error);
       res.status(500).json({ message: "Failed to delete drill" });
+    }
+  });
+
+  // ===== TRAINER VIDEOS (instructional content) =====
+
+  app.get("/api/trainer/videos", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const videos = await db.select().from(trainerVideos).where(eq(trainerVideos.trainerId, userId));
+      videos.sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
+      res.json(videos);
+    } catch (error) {
+      console.error("Error fetching trainer videos:", error);
+      res.status(500).json({ message: "Failed to fetch trainer videos" });
+    }
+  });
+
+  app.post("/api/trainer/videos", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const data = insertTrainerVideoSchema.parse({ ...req.body, trainerId: userId });
+      const [video] = await db.insert(trainerVideos).values(data).returning();
+      res.status(201).json(video);
+    } catch (error: any) {
+      if (error?.name === "ZodError") {
+        return res.status(400).json({ message: "Invalid video data", errors: error.errors });
+      }
+      console.error("Error creating trainer video:", error);
+      res.status(500).json({ message: "Failed to create trainer video" });
+    }
+  });
+
+  app.put("/api/trainer/videos/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const [existing] = await db.select().from(trainerVideos).where(eq(trainerVideos.id, req.params.id));
+      if (!existing) {
+        return res.status(404).json({ message: "Video not found" });
+      }
+      if (existing.trainerId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      const { title, description, category, difficulty, videoUrl, thumbnailUrl, tags } = req.body;
+      if (!title || !videoUrl) {
+        return res.status(400).json({ message: "Title and video URL are required" });
+      }
+      const [updated] = await db.update(trainerVideos)
+        .set({ title, description: description || null, category: category || null, difficulty: difficulty || null, videoUrl, thumbnailUrl: thumbnailUrl || null, tags: tags || null })
+        .where(eq(trainerVideos.id, req.params.id))
+        .returning();
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating trainer video:", error);
+      res.status(500).json({ message: "Failed to update trainer video" });
+    }
+  });
+
+  app.delete("/api/trainer/videos/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const [existing] = await db.select().from(trainerVideos).where(eq(trainerVideos.id, req.params.id));
+      if (!existing) {
+        return res.status(404).json({ message: "Video not found" });
+      }
+      if (existing.trainerId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      await db.delete(trainerVideos).where(eq(trainerVideos.id, req.params.id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting trainer video:", error);
+      res.status(500).json({ message: "Failed to delete trainer video" });
     }
   });
 
