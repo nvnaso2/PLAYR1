@@ -4861,8 +4861,82 @@ function AdminTab({ initialSection }: { initialSection?: string }) {
     queryKey: ["/api/trainer/groups"],
   });
 
-  const { data: trainerDrills, isLoading: drillsLoading } = useQuery<TrainerDrill[]>({
+  const { data: trainerDrills, isLoading: trainerDrillsLoading } = useQuery<TrainerDrill[]>({
     queryKey: ["/api/trainer/drills"],
+  });
+
+  const { data: allSystemDrills, isLoading: systemDrillsLoading } = useQuery<Array<{
+    id: string;
+    title: string;
+    description: string | null;
+    category: string;
+    difficulty: string;
+    duration: number | null;
+    equipment: string[] | null;
+    tips: string[] | null;
+    trackShots: boolean | null;
+    videoUrl: string | null;
+    userId: string | null;
+    isShared: boolean | null;
+    isFeatured: boolean | null;
+    createdAt: string;
+  }>>({
+    queryKey: ["/api/drills"],
+  });
+
+  const allDrillsCombined = useMemo(() => {
+    const system = allSystemDrills || [];
+    const custom = trainerDrills || [];
+    const systemIds = new Set(system.map(d => d.id));
+    const combined = [
+      ...system,
+      ...custom.filter(d => !systemIds.has(d.id)).map(d => ({
+        ...d,
+        userId: d.userId as string | null,
+        isShared: null as boolean | null,
+        isFeatured: null as boolean | null,
+      })),
+    ];
+    return combined;
+  }, [allSystemDrills, trainerDrills]);
+
+  const drillsLoading = trainerDrillsLoading || systemDrillsLoading;
+
+  const [drillSearchQuery, setDrillSearchQuery] = useState("");
+  const [drillCategoryFilter, setDrillCategoryFilter] = useState("all");
+  const [drillSourceFilter, setDrillSourceFilter] = useState("all");
+  const [quickAssignDrillId, setQuickAssignDrillId] = useState<string | null>(null);
+  const [quickAssignGroupId, setQuickAssignGroupId] = useState("");
+  const [quickAssignDueDate, setQuickAssignDueDate] = useState("");
+  const [quickAssignNotes, setQuickAssignNotes] = useState("");
+
+  const adminUserId = useAuth().user?.id;
+
+  const filteredDrills = useMemo(() => {
+    return allDrillsCombined.filter(drill => {
+      if (drill.userId && drill.userId !== adminUserId && !drill.isShared) return false;
+      if (drillSearchQuery && !drill.title.toLowerCase().includes(drillSearchQuery.toLowerCase())) return false;
+      if (drillCategoryFilter !== "all" && drill.category !== drillCategoryFilter) return false;
+      if (drillSourceFilter === "handlz" && drill.userId !== null) return false;
+      if (drillSourceFilter === "community" && !(drill.userId && drill.isShared && drill.userId !== adminUserId)) return false;
+      if (drillSourceFilter === "mine" && drill.userId !== adminUserId) return false;
+      return true;
+    });
+  }, [allDrillsCombined, drillSearchQuery, drillCategoryFilter, drillSourceFilter, adminUserId]);
+
+  const quickAssignMutation = useMutation({
+    mutationFn: (data: { drillId: string; teamId: string; dueDate?: string; notes?: string }) =>
+      apiRequest("POST", "/api/trainer/assignments", data),
+    onSuccess: () => {
+      setQuickAssignDrillId(null);
+      setQuickAssignGroupId("");
+      setQuickAssignDueDate("");
+      setQuickAssignNotes("");
+      toast({ title: "Drill assigned!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to assign drill", description: error.message, variant: "destructive" });
+    },
   });
 
   const { data: groupMembers } = useQuery<PlayerMember[]>({
@@ -5637,27 +5711,66 @@ function AdminTab({ initialSection }: { initialSection?: string }) {
 
         <TabsContent value="drills" className="space-y-4 mt-4">
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <p className="text-sm text-muted-foreground">Create custom drills you can assign to your players.</p>
+            <p className="text-sm text-muted-foreground">Browse all drills and assign them to your players.</p>
             <Button onClick={() => { resetDrillForm(); setCreateDrillOpen(true); }} data-testid="button-admin-create-drill">
               <Plus className="w-4 h-4" />
               New Drill
             </Button>
           </div>
 
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative flex-1 min-w-[180px]">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={drillSearchQuery}
+                onChange={(e) => setDrillSearchQuery(e.target.value)}
+                placeholder="Search drills..."
+                className="pl-8"
+                data-testid="input-drill-search"
+              />
+            </div>
+            <Select value={drillCategoryFilter} onValueChange={setDrillCategoryFilter}>
+              <SelectTrigger className="w-[140px]" data-testid="select-drill-category-filter">
+                <SelectValue placeholder="Category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                {DRILL_CATEGORIES.map((cat) => (
+                  <SelectItem key={cat} value={cat}>{formatCategory(cat)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={drillSourceFilter} onValueChange={setDrillSourceFilter}>
+              <SelectTrigger className="w-[130px]" data-testid="select-drill-source-filter">
+                <SelectValue placeholder="Source" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Sources</SelectItem>
+                <SelectItem value="handlz">Handlz</SelectItem>
+                <SelectItem value="community">Community</SelectItem>
+                <SelectItem value="mine">My Drills</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {drillsLoading ? (
             <div className="space-y-2">
               {[1, 2, 3].map((i) => <Skeleton key={i} className="h-20 rounded-lg" />)}
             </div>
-          ) : !trainerDrills?.length ? (
+          ) : !filteredDrills.length ? (
             <Card>
               <CardContent className="py-12 text-center text-muted-foreground" data-testid="text-no-admin-drills">
                 <Dumbbell className="w-10 h-10 mx-auto mb-3 opacity-50" />
-                <p>No custom drills yet. Create drills to assign to your players.</p>
+                <p>{drillSearchQuery || drillCategoryFilter !== "all" || drillSourceFilter !== "all" ? "No drills match your filters." : "No drills available."}</p>
               </CardContent>
             </Card>
           ) : (
             <div className="space-y-2">
-              {trainerDrills.map((drill) => (
+              <p className="text-xs text-muted-foreground">{filteredDrills.length} drill{filteredDrills.length !== 1 ? "s" : ""}</p>
+              {filteredDrills.map((drill) => {
+                const isOwn = drill.userId === adminUserId;
+                const source = drill.userId === null ? "Handlz" : (drill.isShared && drill.userId !== adminUserId) ? "Community" : isOwn ? "My Drill" : "Community";
+                return (
                 <Card key={drill.id} data-testid={`card-admin-drill-${drill.id}`}>
                   <CardContent className="py-3">
                     <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -5666,36 +5779,57 @@ function AdminTab({ initialSection }: { initialSection?: string }) {
                           <h3 className="font-medium truncate" data-testid={`text-admin-drill-title-${drill.id}`}>{drill.title}</h3>
                           <Badge variant="secondary" className="no-default-hover-elevate text-xs">{formatCategory(drill.category)}</Badge>
                           <Badge variant="outline" className="no-default-hover-elevate text-xs capitalize">{drill.difficulty}</Badge>
+                          <Badge variant={source === "Handlz" ? "default" : source === "My Drill" ? "secondary" : "outline"} className="no-default-hover-elevate text-xs">
+                            {source}
+                          </Badge>
+                          {drill.videoUrl && (
+                            <Badge variant="outline" className="no-default-hover-elevate text-xs gap-1">
+                              <Video className="w-3 h-3" /> Video
+                            </Badge>
+                          )}
                         </div>
                         {drill.description && (
                           <p className="text-sm text-muted-foreground mt-1 truncate">{drill.description}</p>
-                        )}
-                        {drill.duration && (
-                          <p className="text-xs text-muted-foreground mt-1">{Math.floor(drill.duration / 60)}m {drill.duration % 60}s</p>
                         )}
                       </div>
                       <div className="flex items-center gap-1">
                         <Button
                           size="icon"
                           variant="ghost"
-                          onClick={() => openEditDrill(drill)}
-                          data-testid={`button-admin-edit-drill-${drill.id}`}
+                          onClick={() => { setQuickAssignDrillId(drill.id); setQuickAssignGroupId(""); setQuickAssignDueDate(""); setQuickAssignNotes(""); }}
+                          title="Assign to Group"
+                          data-testid={`button-assign-drill-${drill.id}`}
                         >
-                          <Edit2 className="w-4 h-4" />
+                          <ClipboardList className="w-4 h-4" />
                         </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => setDeleteDrillId(drill.id)}
-                          data-testid={`button-admin-delete-drill-${drill.id}`}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        {isOwn && (
+                          <>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => openEditDrill(drill as TrainerDrill)}
+                              title="Edit"
+                              data-testid={`button-admin-edit-drill-${drill.id}`}
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => setDeleteDrillId(drill.id)}
+                              title="Delete"
+                              data-testid={`button-admin-delete-drill-${drill.id}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+                );
+              })}
             </div>
           )}
         </TabsContent>
@@ -6031,6 +6165,71 @@ function AdminTab({ initialSection }: { initialSection?: string }) {
                 </DialogFooter>
               </>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!quickAssignDrillId} onOpenChange={(open) => { if (!open) { setQuickAssignDrillId(null); setQuickAssignGroupId(""); setQuickAssignDueDate(""); setQuickAssignNotes(""); } }}>
+        <DialogContent data-testid="dialog-quick-assign-drill">
+          <DialogHeader>
+            <DialogTitle>Assign Drill</DialogTitle>
+            <DialogDescription>
+              Assign "{allDrillsCombined.find(d => d.id === quickAssignDrillId)?.title}" to a group or team.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Group / Team</label>
+              <Select value={quickAssignGroupId} onValueChange={setQuickAssignGroupId}>
+                <SelectTrigger data-testid="select-quick-assign-group">
+                  <SelectValue placeholder="Select group or team..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {groups?.map(g => (
+                    <SelectItem key={g.id} value={g.id}>{g.name} (Group)</SelectItem>
+                  ))}
+                  {coachTeams?.map(t => (
+                    <SelectItem key={t.id} value={t.id}>{t.name} (Team)</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Due Date (optional)</label>
+              <Input
+                type="date"
+                value={quickAssignDueDate}
+                onChange={(e) => setQuickAssignDueDate(e.target.value)}
+                data-testid="input-quick-assign-due-date"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Notes (optional)</label>
+              <Input
+                value={quickAssignNotes}
+                onChange={(e) => setQuickAssignNotes(e.target.value)}
+                placeholder="Any instructions for players..."
+                data-testid="input-quick-assign-notes"
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                onClick={() => {
+                  if (quickAssignDrillId && quickAssignGroupId) {
+                    quickAssignMutation.mutate({
+                      drillId: quickAssignDrillId,
+                      teamId: quickAssignGroupId,
+                      dueDate: quickAssignDueDate || undefined,
+                      notes: quickAssignNotes.trim() || undefined,
+                    });
+                  }
+                }}
+                disabled={!quickAssignGroupId || quickAssignMutation.isPending}
+                data-testid="button-confirm-quick-assign"
+              >
+                {quickAssignMutation.isPending ? "Assigning..." : "Assign Drill"}
+              </Button>
+            </DialogFooter>
           </div>
         </DialogContent>
       </Dialog>
