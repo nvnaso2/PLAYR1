@@ -2658,17 +2658,18 @@ export async function registerRoutes(
       if (!drill || drill.userId !== userId) {
         return res.status(403).json({ message: "Not authorized" });
       }
-      const { title, description, category, difficulty, duration, equipment, tips, trackShots } = req.body;
-      const updated = await storage.updateDrill(req.params.id, {
-        title,
-        description: description || null,
-        category,
-        difficulty: difficulty || "beginner",
-        duration: duration ? parseInt(duration) : null,
-        equipment: equipment || [],
-        tips: tips || [],
-        trackShots: trackShots || false,
-      });
+      const { title, description, category, difficulty, duration, equipment, tips, trackShots, videoUrl } = req.body;
+      const updateData: Record<string, any> = {};
+      if (title !== undefined) updateData.title = title;
+      if (description !== undefined) updateData.description = description || null;
+      if (category !== undefined) updateData.category = category;
+      if (difficulty !== undefined) updateData.difficulty = difficulty || "beginner";
+      if (duration !== undefined) updateData.duration = duration ? parseInt(duration) : null;
+      if (equipment !== undefined) updateData.equipment = equipment || [];
+      if (tips !== undefined) updateData.tips = tips || [];
+      if (trackShots !== undefined) updateData.trackShots = trackShots || false;
+      if (videoUrl !== undefined) updateData.videoUrl = videoUrl || null;
+      const updated = await storage.updateDrill(req.params.id, updateData);
       res.json(updated);
     } catch (error) {
       console.error("Error updating trainer drill:", error);

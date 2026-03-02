@@ -95,6 +95,7 @@ import {
   Play,
   X,
   Upload,
+  Link2,
 } from "lucide-react";
 import { insertTrainerTeamSchema, insertDrillAssignmentSchema, DRILL_CATEGORIES, DIFFICULTY_LEVELS } from "@shared/schema";
 import {
@@ -197,6 +198,7 @@ interface TrainerDrill {
   equipment: string[] | null;
   tips: string[] | null;
   trackShots: boolean | null;
+  videoUrl: string | null;
   userId: string;
   createdAt: string;
 }
@@ -4852,6 +4854,8 @@ function AdminTab({ initialSection }: { initialSection?: string }) {
   const [videoUploading, setVideoUploading] = useState(false);
   const [videoUploadProgress, setVideoUploadProgress] = useState(0);
   const [playVideoUrl, setPlayVideoUrl] = useState<string | null>(null);
+  const [assignVideoToDrillId, setAssignVideoToDrillId] = useState<string | null>(null);
+  const [assignDrillTargetId, setAssignDrillTargetId] = useState<string>("");
 
   const { data: groups, isLoading: groupsLoading } = useQuery<TrainerGroup[]>({
     queryKey: ["/api/trainer/groups"],
@@ -4933,6 +4937,20 @@ function AdminTab({ initialSection }: { initialSection?: string }) {
     },
     onError: (error: Error) => {
       toast({ title: "Failed to delete video", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const assignVideoToDrillMutation = useMutation({
+    mutationFn: ({ drillId, videoUrl }: { drillId: string; videoUrl: string }) =>
+      apiRequest("PUT", `/api/trainer/drills/${drillId}`, { videoUrl }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer/drills"] });
+      setAssignVideoToDrillId(null);
+      setAssignDrillTargetId("");
+      toast({ title: "Video assigned to drill" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to assign video", description: error.message, variant: "destructive" });
     },
   });
 
@@ -5721,15 +5739,24 @@ function AdminTab({ initialSection }: { initialSection?: string }) {
                         {video.description && (
                           <p className="text-sm text-muted-foreground mt-1 truncate">{video.description}</p>
                         )}
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {new Date(video.createdAt).toLocaleDateString()}
-                        </p>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(video.createdAt).toLocaleDateString()}
+                          </p>
+                          {trainerDrills?.filter(d => d.videoUrl === video.videoUrl).map(d => (
+                            <Badge key={d.id} variant="secondary" className="no-default-hover-elevate text-xs gap-1" data-testid={`badge-video-linked-drill-${d.id}`}>
+                              <Link2 className="w-3 h-3" />
+                              {d.title}
+                            </Badge>
+                          ))}
+                        </div>
                       </div>
                       <div className="flex items-center gap-1">
                         <Button
                           size="icon"
                           variant="ghost"
                           onClick={() => setPlayVideoUrl(video.videoUrl)}
+                          title="Play"
                           data-testid={`button-play-trainer-video-${video.id}`}
                         >
                           <Play className="w-4 h-4" />
@@ -5737,7 +5764,17 @@ function AdminTab({ initialSection }: { initialSection?: string }) {
                         <Button
                           size="icon"
                           variant="ghost"
+                          onClick={() => { setAssignVideoToDrillId(video.id); setAssignDrillTargetId(""); }}
+                          title="Assign to Drill"
+                          data-testid={`button-assign-video-${video.id}`}
+                        >
+                          <Link2 className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
                           onClick={() => openEditVideo(video)}
+                          title="Edit"
                           data-testid={`button-edit-trainer-video-${video.id}`}
                         >
                           <Edit2 className="w-4 h-4" />
@@ -5746,6 +5783,7 @@ function AdminTab({ initialSection }: { initialSection?: string }) {
                           size="icon"
                           variant="ghost"
                           onClick={() => setDeleteVideoId(video.id)}
+                          title="Delete"
                           data-testid={`button-delete-trainer-video-${video.id}`}
                         >
                           <Trash2 className="w-4 h-4" />
@@ -5932,6 +5970,68 @@ function AdminTab({ initialSection }: { initialSection?: string }) {
               data-testid="video-trainer-player"
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!assignVideoToDrillId} onOpenChange={(open) => { if (!open) { setAssignVideoToDrillId(null); setAssignDrillTargetId(""); } }}>
+        <DialogContent data-testid="dialog-assign-video-to-drill">
+          <DialogHeader>
+            <DialogTitle>Assign Video to Drill</DialogTitle>
+            <DialogDescription>
+              Link this video to one of your custom drills so players can watch it when practicing.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {drillsLoading ? (
+              <div className="space-y-2 py-4">
+                {[1, 2].map(i => <Skeleton key={i} className="h-8 rounded" />)}
+              </div>
+            ) : !trainerDrills?.length ? (
+              <p className="text-sm text-muted-foreground text-center py-4" data-testid="text-no-drills-to-assign">
+                No custom drills yet. Create a drill first in the Drills tab.
+              </p>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Select Drill</label>
+                  <Select value={assignDrillTargetId} onValueChange={setAssignDrillTargetId}>
+                    <SelectTrigger data-testid="select-assign-drill-target">
+                      <SelectValue placeholder="Choose a drill..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {trainerDrills.map((drill) => (
+                        <SelectItem key={drill.id} value={drill.id}>
+                          <span className="flex items-center gap-2">
+                            {drill.title}
+                            {drill.videoUrl && <span className="text-xs text-muted-foreground">(has video)</span>}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {assignDrillTargetId && trainerDrills.find(d => d.id === assignDrillTargetId)?.videoUrl && (
+                  <p className="text-sm text-amber-500 dark:text-amber-400" data-testid="text-drill-has-video-warning">
+                    This drill already has a video assigned. Assigning this video will replace the existing one.
+                  </p>
+                )}
+                <DialogFooter>
+                  <Button
+                    onClick={() => {
+                      const video = trainerContentVideos?.find(v => v.id === assignVideoToDrillId);
+                      if (video && assignDrillTargetId) {
+                        assignVideoToDrillMutation.mutate({ drillId: assignDrillTargetId, videoUrl: video.videoUrl });
+                      }
+                    }}
+                    disabled={!assignDrillTargetId || assignVideoToDrillMutation.isPending}
+                    data-testid="button-confirm-assign-video"
+                  >
+                    {assignVideoToDrillMutation.isPending ? "Assigning..." : "Assign Video"}
+                  </Button>
+                </DialogFooter>
+              </>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 
