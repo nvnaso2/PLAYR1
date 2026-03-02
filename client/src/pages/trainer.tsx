@@ -6683,7 +6683,7 @@ export default function CoachTrainerPage() {
             </TabsTrigger>
             <TabsTrigger value="videos" className="text-xs sm:text-sm py-2" data-testid="tab-trainer-videos">
               <Video className="w-4 h-4 mr-1 shrink-0" />
-              <span className="truncate">Videos</span>
+              <span className="truncate">Player Videos</span>
             </TabsTrigger>
             <TabsTrigger value="invite" className="text-xs sm:text-sm py-2" data-testid="tab-trainer-invite">
               <Mail className="w-4 h-4 mr-1 shrink-0" />
