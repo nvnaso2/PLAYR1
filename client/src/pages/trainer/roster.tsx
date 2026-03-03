@@ -484,7 +484,6 @@ export default function TrainerRoster() {
   const [invitePlayerName, setInvitePlayerName] = useState("");
   const [inviteTargetId, setInviteTargetId] = useState("");
 
-  const [viewMembersGroupId, setViewMembersGroupId] = useState<string | null>(null);
 
   const [detailPlayer, setDetailPlayer] = useState<TrainerPlayerData | null>(null);
 
@@ -539,15 +538,6 @@ export default function TrainerRoster() {
     enabled: !!selectedGroup,
   });
 
-  const { data: viewGroupMembers } = useQuery<PlayerMember[]>({
-    queryKey: ["/api/trainer/groups", viewMembersGroupId, "members"],
-    queryFn: async () => {
-      const res = await fetch(`/api/trainer/groups/${viewMembersGroupId}/members`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to fetch members");
-      return res.json();
-    },
-    enabled: !!viewMembersGroupId,
-  });
 
   const { data: invitations, isLoading: invitationsLoading } = useQuery<Invitation[]>({
     queryKey: ["/api/invitations", inviteOpen ? (selectedTeam?.id || selectedGroup?.id) : ""],
@@ -1393,7 +1383,9 @@ export default function TrainerRoster() {
                   <p className="text-sm">No groups yet.</p>
                 </div>
               ) : (
-                groups.map((group) => (
+                groups.map((group) => {
+                  const groupMemberCount = allPlayers?.filter(p => p.groups?.some((g: any) => g.groupId === group.id)).length || 0;
+                  return (
                   <Card
                     key={group.id}
                     className={`cursor-pointer transition-colors ${selectedGroup?.id === group.id ? "ring-2 ring-primary" : ""}`}
@@ -1424,19 +1416,11 @@ export default function TrainerRoster() {
                             </Button>
                             <Badge variant="secondary" className="no-default-hover-elevate text-[10px] ml-auto">
                               <Users className="w-3 h-3 mr-0.5" />
-                              {group.memberCount || 0}
+                              {groupMemberCount}
                             </Badge>
                           </div>
                         </div>
                         <div className="flex flex-col gap-1 shrink-0">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={(e) => { e.stopPropagation(); setViewMembersGroupId(group.id); }}
-                            data-testid={`button-view-group-members-${group.id}`}
-                          >
-                            <Eye className="w-3 h-3" />
-                          </Button>
                           <Button
                             size="icon"
                             variant="ghost"
@@ -1457,7 +1441,8 @@ export default function TrainerRoster() {
                       </div>
                     </CardContent>
                   </Card>
-                ))
+                  );
+                })
               )}
             </TabsContent>
           </Tabs>
@@ -2200,41 +2185,6 @@ export default function TrainerRoster() {
                   </div>
                 ))}
               </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={!!viewMembersGroupId} onOpenChange={(open) => !open && setViewMembersGroupId(null)}>
-        <DialogContent data-testid="dialog-view-group-members">
-          <DialogHeader>
-            <DialogTitle>Group Members</DialogTitle>
-            <DialogDescription>Members of {groups?.find(g => g.id === viewMembersGroupId)?.name || "group"}.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2 max-h-60 overflow-y-auto">
-            {!viewGroupMembers?.length ? (
-              <p className="text-sm text-muted-foreground text-center py-4">No members in this group.</p>
-            ) : (
-              viewGroupMembers.map((member) => (
-                <div key={member.userId} className="flex items-center gap-3 p-2 rounded-md bg-muted/50" data-testid={`row-view-group-member-${member.userId}`}>
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={member.profileImageUrl} />
-                    <AvatarFallback className="text-xs">{(member.firstName?.[0] || '') + (member.lastName?.[0] || '')}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{member.firstName} {member.lastName}</p>
-                    <p className="text-xs text-muted-foreground truncate">{member.email}</p>
-                  </div>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => viewMembersGroupId && removeGroupMemberMutation.mutate({ groupId: viewMembersGroupId, userId: member.userId })}
-                    data-testid={`button-remove-viewed-member-${member.userId}`}
-                  >
-                    <UserMinus className="w-3 h-3" />
-                  </Button>
-                </div>
-              ))
             )}
           </div>
         </DialogContent>

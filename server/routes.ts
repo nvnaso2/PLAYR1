@@ -3,10 +3,10 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
-import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, userProfiles, trainerVideos, insertTrainerVideoSchema } from "@shared/schema";
+import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, userProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 
 export async function registerRoutes(
@@ -2620,18 +2620,24 @@ export async function registerRoutes(
       if (!group || group.coachId !== userId) {
         return res.status(403).json({ message: "Not authorized" });
       }
-      const members = await storage.getTeamMembers(req.params.id);
-      res.json(members.map(m => ({
-        id: m.id,
-        userId: m.userId,
-        firstName: m.user.firstName,
-        lastName: m.user.lastName,
-        email: m.user.email,
-        profileImageUrl: m.user.profileImageUrl,
-        position: m.position,
-        jerseyNumber: m.jerseyNumber,
-        joinedAt: m.joinedAt,
-      })));
+      const allPlayers = await storage.getTrainerPlayers(userId);
+      const members = allPlayers
+        .filter(p => p.groups?.some((g: any) => g.groupId === req.params.id))
+        .map(p => {
+          const groupAssignment = p.groups?.find((g: any) => g.groupId === req.params.id);
+          return {
+            id: p.id,
+            userId: `tp_${p.id}`,
+            firstName: p.firstName,
+            lastName: p.lastName,
+            email: p.email,
+            profileImageUrl: null,
+            position: groupAssignment?.position || p.position,
+            jerseyNumber: groupAssignment?.jerseyNumber || p.jerseyNumber,
+            joinedAt: groupAssignment?.assignedAt,
+          };
+        });
+      res.json(members);
     } catch (error) {
       console.error("Error fetching trainer group members:", error);
       res.status(500).json({ message: "Failed to fetch group members" });
@@ -2646,7 +2652,12 @@ export async function registerRoutes(
       if (!group || group.coachId !== ownerId) {
         return res.status(403).json({ message: "Not authorized" });
       }
-      await storage.removeTeamMember(req.params.groupId, req.params.userId);
+      const playerId = req.params.userId.replace(/^tp_/, "");
+      const assignments = await storage.getTrainerPlayerAssignments(playerId);
+      const assignment = assignments.find(a => a.groupId === req.params.groupId);
+      if (assignment) {
+        await storage.removeTrainerPlayerFromGroup(assignment.id);
+      }
       res.json({ success: true });
     } catch (error) {
       console.error("Error removing trainer group member:", error);
@@ -2663,8 +2674,14 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Not authorized" });
       }
       const { position, jerseyNumber } = req.body;
-      const updated = await storage.updateTeamMember(req.params.groupId, req.params.userId, { position, jerseyNumber });
-      res.json(updated);
+      const playerId = req.params.userId.replace(/^tp_/, "");
+      await db.update(trainerPlayerAssignments)
+        .set({ position, jerseyNumber })
+        .where(and(
+          eq(trainerPlayerAssignments.trainerPlayerId, playerId),
+          eq(trainerPlayerAssignments.groupId, req.params.groupId)
+        ));
+      res.json({ success: true });
     } catch (error) {
       console.error("Error updating trainer group member:", error);
       res.status(500).json({ message: "Failed to update member" });
