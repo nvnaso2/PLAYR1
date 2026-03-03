@@ -3199,13 +3199,13 @@ export async function registerRoutes(
         mode,
         scopeType,
         scopeId: scopeId || null,
-        createdBy: userId,
+        ownerId: userId,
       });
-      await storage.addChatThreadMember({ threadId: thread.id, userId, role: "admin" });
+      await storage.addChatThreadMember({ threadId: thread.id, userId });
       if (memberIds && Array.isArray(memberIds)) {
         for (const memberId of memberIds) {
           if (memberId !== userId) {
-            await storage.addChatThreadMember({ threadId: thread.id, userId: memberId, role: "member" });
+            await storage.addChatThreadMember({ threadId: thread.id, userId: memberId });
           }
         }
       }
