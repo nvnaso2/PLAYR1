@@ -61,6 +61,7 @@ const playerNavItems = [
   { title: "Training Log", url: "/log", icon: ClipboardList },
   { title: "My Filmroom", url: "/videos", icon: Video },
   { title: "Find Teams & Leagues", url: "/finder", icon: Search },
+  { title: "Find a Trainer", url: "/find-trainer", icon: UserPlus },
 ];
 
 const trainerNavItems = [
@@ -71,6 +72,7 @@ const trainerNavItems = [
   { title: "Videos", url: "/trainer/videos", icon: Video },
   { title: "Chat", url: "/trainer/chat", icon: MessageCircle },
   { title: "Player Progress", url: "/trainer/progress", icon: Target },
+  { title: "My Profile", url: "/trainer/profile", icon: UserCircle },
 ];
 
 const categoryItems = [

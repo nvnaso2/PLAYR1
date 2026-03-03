@@ -40,7 +40,8 @@ import {
   chatThreads, type ChatThread, type InsertChatThread,
   chatThreadMembers, type ChatThreadMember, type InsertChatThreadMember,
   chatThreadMessages, type ChatThreadMessage, type InsertChatThreadMessage,
-  tutorialVideos, type TutorialVideo, type InsertTutorialVideo
+  tutorialVideos, type TutorialVideo, type InsertTutorialVideo,
+  trainerProfiles, type TrainerProfile, type InsertTrainerProfile
 } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
@@ -345,6 +346,12 @@ export interface IStorage {
   createLeague(league: InsertLeague): Promise<League>;
   updateLeague(id: string, league: Partial<InsertLeague>): Promise<League | undefined>;
   deleteLeague(id: string): Promise<boolean>;
+
+  // Trainer Profiles
+  getTrainerProfile(userId: string): Promise<TrainerProfile | undefined>;
+  upsertTrainerProfile(profile: InsertTrainerProfile): Promise<TrainerProfile>;
+  getPublicTrainerProfiles(filters?: { state?: string; city?: string; specialty?: string; query?: string }): Promise<(TrainerProfile & { firstName: string | null; lastName: string | null })[]>;
+  getTrainerProfileById(id: string): Promise<(TrainerProfile & { firstName: string | null; lastName: string | null }) | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2612,6 +2619,99 @@ export class DatabaseStorage implements IStorage {
   async createChatThreadMessage(message: InsertChatThreadMessage): Promise<ChatThreadMessage> {
     const [created] = await db.insert(chatThreadMessages).values(message).returning();
     return created;
+  }
+
+  async getTrainerProfile(userId: string): Promise<TrainerProfile | undefined> {
+    const [profile] = await db.select().from(trainerProfiles).where(eq(trainerProfiles.userId, userId));
+    return profile;
+  }
+
+  async upsertTrainerProfile(profile: InsertTrainerProfile): Promise<TrainerProfile> {
+    const existing = await this.getTrainerProfile(profile.userId);
+    if (existing) {
+      const [updated] = await db.update(trainerProfiles)
+        .set({ ...profile, updatedAt: new Date() })
+        .where(eq(trainerProfiles.userId, profile.userId))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(trainerProfiles).values(profile).returning();
+    return created;
+  }
+
+  async getPublicTrainerProfiles(filters?: { state?: string; city?: string; specialty?: string; query?: string }): Promise<(TrainerProfile & { firstName: string | null; lastName: string | null })[]> {
+    const conditions: any[] = [eq(trainerProfiles.isPublic, true)];
+    if (filters?.state) conditions.push(eq(trainerProfiles.state, filters.state));
+    if (filters?.city) conditions.push(sql`LOWER(${trainerProfiles.city}) LIKE LOWER(${'%' + filters.city + '%'})`);
+    if (filters?.specialty) conditions.push(sql`${filters.specialty} = ANY(${trainerProfiles.specialties})`);
+    if (filters?.query) {
+      const q = '%' + filters.query + '%';
+      conditions.push(sql`(LOWER(${trainerProfiles.headline}) LIKE LOWER(${q}) OR LOWER(${trainerProfiles.bio}) LIKE LOWER(${q}) OR LOWER(${trainerProfiles.city}) LIKE LOWER(${q}))`);
+    }
+    const results = await db.select({
+      id: trainerProfiles.id,
+      userId: trainerProfiles.userId,
+      headline: trainerProfiles.headline,
+      bio: trainerProfiles.bio,
+      specialties: trainerProfiles.specialties,
+      city: trainerProfiles.city,
+      state: trainerProfiles.state,
+      hourlyRate: trainerProfiles.hourlyRate,
+      sessionTypes: trainerProfiles.sessionTypes,
+      experienceYears: trainerProfiles.experienceYears,
+      certifications: trainerProfiles.certifications,
+      availability: trainerProfiles.availability,
+      profilePhotoUrl: trainerProfiles.profilePhotoUrl,
+      contactEmail: trainerProfiles.contactEmail,
+      contactPhone: trainerProfiles.contactPhone,
+      socialInstagram: trainerProfiles.socialInstagram,
+      socialTwitter: trainerProfiles.socialTwitter,
+      website: trainerProfiles.website,
+      isPublic: trainerProfiles.isPublic,
+      stripeAccountId: trainerProfiles.stripeAccountId,
+      createdAt: trainerProfiles.createdAt,
+      updatedAt: trainerProfiles.updatedAt,
+      firstName: users.firstName,
+      lastName: users.lastName,
+    })
+    .from(trainerProfiles)
+    .innerJoin(users, eq(trainerProfiles.userId, users.id))
+    .where(and(...conditions))
+    .orderBy(trainerProfiles.createdAt);
+    return results;
+  }
+
+  async getTrainerProfileById(id: string): Promise<(TrainerProfile & { firstName: string | null; lastName: string | null }) | undefined> {
+    const [result] = await db.select({
+      id: trainerProfiles.id,
+      userId: trainerProfiles.userId,
+      headline: trainerProfiles.headline,
+      bio: trainerProfiles.bio,
+      specialties: trainerProfiles.specialties,
+      city: trainerProfiles.city,
+      state: trainerProfiles.state,
+      hourlyRate: trainerProfiles.hourlyRate,
+      sessionTypes: trainerProfiles.sessionTypes,
+      experienceYears: trainerProfiles.experienceYears,
+      certifications: trainerProfiles.certifications,
+      availability: trainerProfiles.availability,
+      profilePhotoUrl: trainerProfiles.profilePhotoUrl,
+      contactEmail: trainerProfiles.contactEmail,
+      contactPhone: trainerProfiles.contactPhone,
+      socialInstagram: trainerProfiles.socialInstagram,
+      socialTwitter: trainerProfiles.socialTwitter,
+      website: trainerProfiles.website,
+      isPublic: trainerProfiles.isPublic,
+      stripeAccountId: trainerProfiles.stripeAccountId,
+      createdAt: trainerProfiles.createdAt,
+      updatedAt: trainerProfiles.updatedAt,
+      firstName: users.firstName,
+      lastName: users.lastName,
+    })
+    .from(trainerProfiles)
+    .innerJoin(users, eq(trainerProfiles.userId, users.id))
+    .where(eq(trainerProfiles.id, id));
+    return result;
   }
 }
 

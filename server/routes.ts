@@ -4188,6 +4188,116 @@ export async function registerRoutes(
     }
   });
 
+  // Trainer Profile (own profile)
+  app.get("/api/trainer-profile", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const profile = await storage.getTrainerProfile(userId);
+      res.json(profile || null);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/trainer-profile", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { headline, bio, specialties, city, state, hourlyRate, sessionTypes,
+              experienceYears, certifications, availability, contactEmail,
+              contactPhone, socialInstagram, socialTwitter, website, isPublic } = req.body;
+      const data: any = {
+        userId,
+        headline: headline || null,
+        bio: bio || null,
+        specialties: Array.isArray(specialties) ? specialties : null,
+        city: city || null,
+        state: state || null,
+        hourlyRate: hourlyRate != null ? Number(hourlyRate) : null,
+        sessionTypes: Array.isArray(sessionTypes) ? sessionTypes : null,
+        experienceYears: experienceYears != null ? Number(experienceYears) : null,
+        certifications: certifications || null,
+        availability: availability || null,
+        contactEmail: contactEmail || null,
+        contactPhone: contactPhone || null,
+        socialInstagram: socialInstagram || null,
+        socialTwitter: socialTwitter || null,
+        website: website || null,
+        isPublic: !!isPublic,
+      };
+      if (isNaN(data.hourlyRate as number)) data.hourlyRate = null;
+      if (isNaN(data.experienceYears as number)) data.experienceYears = null;
+      const profile = await storage.upsertTrainerProfile(data);
+      res.json(profile);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Public Trainer Directory (for players to find trainers)
+  app.get("/api/trainers/directory", async (req, res) => {
+    try {
+      const filters: any = {};
+      if (req.query.state) filters.state = req.query.state as string;
+      if (req.query.city) filters.city = req.query.city as string;
+      if (req.query.specialty) filters.specialty = req.query.specialty as string;
+      if (req.query.query) filters.query = req.query.query as string;
+      const trainers = await storage.getPublicTrainerProfiles(filters);
+      const sanitized = trainers.map(t => ({
+        id: t.id,
+        firstName: t.firstName,
+        lastName: t.lastName,
+        headline: t.headline,
+        bio: t.bio,
+        specialties: t.specialties,
+        city: t.city,
+        state: t.state,
+        hourlyRate: t.hourlyRate,
+        sessionTypes: t.sessionTypes,
+        experienceYears: t.experienceYears,
+        certifications: t.certifications,
+        availability: t.availability,
+        profilePhotoUrl: t.profilePhotoUrl,
+        socialInstagram: t.socialInstagram,
+        socialTwitter: t.socialTwitter,
+        website: t.website,
+        contactEmail: t.contactEmail,
+      }));
+      res.json(sanitized);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/trainers/directory/:id", async (req, res) => {
+    try {
+      const trainer = await storage.getTrainerProfileById(req.params.id);
+      if (!trainer) return res.status(404).json({ message: "Trainer not found" });
+      const sanitized = {
+        id: trainer.id,
+        firstName: trainer.firstName,
+        lastName: trainer.lastName,
+        headline: trainer.headline,
+        bio: trainer.bio,
+        specialties: trainer.specialties,
+        city: trainer.city,
+        state: trainer.state,
+        hourlyRate: trainer.hourlyRate,
+        sessionTypes: trainer.sessionTypes,
+        experienceYears: trainer.experienceYears,
+        certifications: trainer.certifications,
+        availability: trainer.availability,
+        profilePhotoUrl: trainer.profilePhotoUrl,
+        socialInstagram: trainer.socialInstagram,
+        socialTwitter: trainer.socialTwitter,
+        website: trainer.website,
+        contactEmail: trainer.contactEmail,
+      };
+      res.json(sanitized);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   return httpServer;
 }
 

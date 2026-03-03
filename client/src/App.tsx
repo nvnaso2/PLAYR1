@@ -31,8 +31,10 @@ import TrainerChat from "@/pages/trainer/chat";
 import TrainerVideos from "@/pages/trainer/videos";
 import TrainerProgress from "@/pages/trainer/progress";
 import Finder from "@/pages/finder";
+import FindTrainer from "@/pages/find-trainer";
 import TeamProfile from "@/pages/team-profile";
 import LeagueProfile from "@/pages/league-profile";
+import TrainerProfile from "@/pages/trainer/profile";
 import NotFound from "@/pages/not-found";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRole } from "@/hooks/use-role";
@@ -133,6 +135,8 @@ function Router({ previewLanding }: { previewLanding: boolean }) {
                 <Route path="/trainer/chat" component={TrainerChat} />
                 <Route path="/trainer/videos" component={TrainerVideos} />
                 <Route path="/trainer/progress" component={TrainerProgress} />
+                <Route path="/trainer/profile" component={TrainerProfile} />
+                <Route path="/find-trainer" component={FindTrainer} />
                 <Route path="/trainer/players">{() => <Redirect to="/trainer/roster" />}</Route>
                 <Route path="/trainer/assignments">{() => <Redirect to="/trainer/drills" />}</Route>
                 <Route path="/trainer/invite">{() => <Redirect to="/trainer/roster" />}</Route>

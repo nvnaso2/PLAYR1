@@ -1028,3 +1028,60 @@ export type InsertTeamClub = z.infer<typeof insertTeamClubSchema>;
 export type TeamClub = typeof teamClubs.$inferSelect;
 export type InsertLeague = z.infer<typeof insertLeagueSchema>;
 export type League = typeof leagues.$inferSelect;
+
+export const TRAINER_SESSION_TYPES = [
+  "1-on-1",
+  "Small Group (2-4)",
+  "Group (5+)",
+  "Virtual/Remote",
+  "Camp/Clinic",
+] as const;
+
+export const TRAINER_SPECIALTIES = [
+  "Ball Handling",
+  "Shooting",
+  "Defense",
+  "Strength & Conditioning",
+  "Basketball IQ",
+  "Finishing",
+  "Passing",
+  "Post Play",
+  "Guard Skills",
+  "Big Man Skills",
+  "Speed & Agility",
+  "Mental Performance",
+] as const;
+
+export const trainerProfiles = pgTable("trainer_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique(),
+  headline: varchar("headline"),
+  bio: text("bio"),
+  specialties: text("specialties").array(),
+  city: varchar("city"),
+  state: varchar("state"),
+  hourlyRate: integer("hourly_rate"),
+  sessionTypes: text("session_types").array(),
+  experienceYears: integer("experience_years"),
+  certifications: text("certifications"),
+  availability: text("availability"),
+  profilePhotoUrl: varchar("profile_photo_url"),
+  contactEmail: varchar("contact_email"),
+  contactPhone: varchar("contact_phone"),
+  socialInstagram: varchar("social_instagram"),
+  socialTwitter: varchar("social_twitter"),
+  website: varchar("website"),
+  isPublic: boolean("is_public").default(false),
+  stripeAccountId: varchar("stripe_account_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertTrainerProfileSchema = createInsertSchema(trainerProfiles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertTrainerProfile = z.infer<typeof insertTrainerProfileSchema>;
+export type TrainerProfile = typeof trainerProfiles.$inferSelect;
