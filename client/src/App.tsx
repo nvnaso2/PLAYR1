@@ -23,12 +23,22 @@ import Career from "@/pages/career";
 import PlayerProfile from "@/pages/player-profile";
 import PlayerPublic from "@/pages/player-public";
 import Admin from "@/pages/admin";
-import CoachTrainer from "@/pages/trainer";
+import CoachTrainer from "@/pages/trainer-page";
+import TrainerDashboard from "@/pages/trainer/index";
+import TrainerRoster from "@/pages/trainer/roster";
+import TrainerPlayers from "@/pages/trainer/players";
+import TrainerAssignments from "@/pages/trainer/assignments";
+import TrainerLogs from "@/pages/trainer/logs";
+import TrainerChat from "@/pages/trainer/chat";
+import TrainerVideos from "@/pages/trainer/videos";
+import TrainerInvite from "@/pages/trainer/invite";
 import Finder from "@/pages/finder";
 import TeamProfile from "@/pages/team-profile";
 import LeagueProfile from "@/pages/league-profile";
 import NotFound from "@/pages/not-found";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useRole } from "@/hooks/use-role";
+import { Redirect } from "wouter";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const style = {
@@ -65,6 +75,30 @@ function LoadingScreen() {
   );
 }
 
+function HomeRedirect() {
+  const { activeView, isLoading } = useRole();
+  if (isLoading) return <LoadingScreen />;
+  if (activeView === "trainer") return <Redirect to="/trainer" />;
+  return <Dashboard />;
+}
+
+function CoachRedirect() {
+  const search = window.location.search;
+  const params = new URLSearchParams(search);
+  const tab = params.get('tab');
+  const adminTab = params.get('adminTab');
+
+  if (tab === "players") return <Redirect to="/trainer/players" />;
+  if (tab === "roster") return <Redirect to="/trainer/roster" />;
+  if (tab === "assign-drills") return <Redirect to="/trainer/assignments" />;
+  if (tab === "training-logs") return <Redirect to="/trainer/logs" />;
+  if (tab === "chat") return <Redirect to="/trainer/chat" />;
+  if (tab === "videos") return <Redirect to="/trainer/videos" />;
+  if (tab === "invite") return <Redirect to="/trainer/invite" />;
+  if (tab === "admin" && adminTab) return <Redirect to={`/trainer?adminTab=${adminTab}`} />;
+  return <Redirect to="/trainer" />;
+}
+
 function Router({ previewLanding }: { previewLanding: boolean }) {
   const { user, isLoading, isAuthenticated } = useAuth();
 
@@ -86,7 +120,7 @@ function Router({ previewLanding }: { previewLanding: boolean }) {
           return (
             <AuthenticatedLayout>
               <Switch>
-                <Route path="/" component={Dashboard} />
+                <Route path="/" component={HomeRedirect} />
                 <Route path="/drills" component={Drills} />
                 <Route path="/drill/:id" component={DrillPage} />
                 <Route path="/log" component={TrainingLog} />
@@ -95,7 +129,16 @@ function Router({ previewLanding }: { previewLanding: boolean }) {
                 <Route path="/profile" component={Profile} />
                 <Route path="/player-profile" component={PlayerProfile} />
                 <Route path="/admin" component={Admin} />
-                <Route path="/coach" component={CoachTrainer} />
+                <Route path="/coach" component={CoachRedirect} />
+                <Route path="/trainer" component={TrainerDashboard} />
+                <Route path="/trainer/roster" component={TrainerRoster} />
+                <Route path="/trainer/players" component={TrainerPlayers} />
+                <Route path="/trainer/assignments" component={TrainerAssignments} />
+                <Route path="/trainer/logs" component={TrainerLogs} />
+                <Route path="/trainer/chat" component={TrainerChat} />
+                <Route path="/trainer/videos" component={TrainerVideos} />
+                <Route path="/trainer/invite" component={TrainerInvite} />
+                <Route path="/dashboard" component={Dashboard} />
                 <Route component={NotFound} />
               </Switch>
             </AuthenticatedLayout>

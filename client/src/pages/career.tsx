@@ -832,11 +832,11 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   const handleTrainerBeginChoice = async (choice: "create-drill" | "invite-players" | "upload-content") => {
     await completeOnboarding();
     if (choice === "create-drill") {
-      window.location.href = "/coach?tab=admin&adminTab=drills";
+      window.location.href = "/trainer?adminTab=drills";
     } else if (choice === "invite-players") {
-      window.location.href = "/coach?tab=players";
+      window.location.href = "/trainer/players";
     } else {
-      window.location.href = "/coach?tab=admin&adminTab=videos";
+      window.location.href = "/trainer?adminTab=videos";
     }
   };
 

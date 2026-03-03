@@ -6838,13 +6838,32 @@ function MyAssignmentsTab() {
   );
 }
 
-export default function CoachTrainerPage() {
+export { AdminTab, RosterTab, PlayersTab, AssignDrillsTab, TrainingLogsTab, ChatTab, VideosTab, InvitePlayersTab, JoinGroupTab, MyAssignmentsTab };
+
+export default function CoachTrainerPage({ forcedTab }: { forcedTab?: string } = {}) {
   const { user } = useAuth();
   const trainerSearch = useSearch();
   const trainerParams = new URLSearchParams(trainerSearch);
-  const initialTab = trainerParams.get('tab') || "roster";
+  const initialTab = forcedTab || trainerParams.get('tab') || "admin";
   const initialAdminSub = trainerParams.get('adminTab') || undefined;
   const [activeTab, setActiveTab] = useState(initialTab);
+
+  if (forcedTab) {
+    return (
+      <div className="p-3 sm:p-6 max-w-4xl mx-auto space-y-4 sm:space-y-6">
+        {forcedTab === "admin" && <AdminTab initialSection={initialAdminSub} />}
+        {forcedTab === "roster" && <RosterTab />}
+        {forcedTab === "players" && <PlayersTab />}
+        {forcedTab === "assign-drills" && <AssignDrillsTab />}
+        {forcedTab === "training-logs" && <TrainingLogsTab />}
+        {forcedTab === "chat" && <ChatTab />}
+        {forcedTab === "videos" && <VideosTab />}
+        {forcedTab === "invite" && <InvitePlayersTab />}
+        {forcedTab === "join-group" && <JoinGroupTab />}
+        {forcedTab === "my-assignments" && <MyAssignmentsTab />}
+      </div>
+    );
+  }
 
   return (
     <div className="p-3 sm:p-6 max-w-4xl mx-auto space-y-4 sm:space-y-6">

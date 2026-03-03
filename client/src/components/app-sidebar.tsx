@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useAdmin } from "@/hooks/use-admin";
+import { useRole } from "@/hooks/use-role";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,19 +43,35 @@ import {
   Flame,
   Settings,
   Trophy,
-  Search
+  Search,
+  Users,
+  FileText,
+  MessageCircle,
+  Mail,
+  UserPlus,
+  ArrowLeftRight,
 } from "lucide-react";
 import logoLandscape from "@assets/PNG_image_1770494053382.png";
 
-const mainNavItems = [
-  { title: "Dashboard", url: "/", icon: BarChart3 },
+const playerNavItems = [
+  { title: "Dashboard", url: "/dashboard", icon: BarChart3 },
   { title: "My Career", url: "/career", icon: Trophy },
   { title: "Player Profile", url: "/player-profile", icon: UserCircle },
   { title: "Drill Library", url: "/drills", icon: Play },
   { title: "Training Log", url: "/log", icon: ClipboardList },
   { title: "My Filmroom", url: "/videos", icon: Video },
-  { title: "Coach / Trainer", url: "/coach", icon: Shield },
   { title: "Find Teams & Leagues", url: "/finder", icon: Search },
+];
+
+const trainerNavItems = [
+  { title: "Dashboard", url: "/trainer", icon: Settings },
+  { title: "Roster", url: "/trainer/roster", icon: Shield },
+  { title: "My Players", url: "/trainer/players", icon: Users },
+  { title: "Assignments", url: "/trainer/assignments", icon: ClipboardList },
+  { title: "Training Logs", url: "/trainer/logs", icon: FileText },
+  { title: "Chat", url: "/trainer/chat", icon: MessageCircle },
+  { title: "Player Videos", url: "/trainer/videos", icon: Video },
+  { title: "Invite Players", url: "/trainer/invite", icon: Mail },
 ];
 
 const categoryItems = [
@@ -68,9 +85,10 @@ const categoryItems = [
 ];
 
 export function AppSidebar() {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const { user, logout } = useAuth();
   const { isAdmin } = useAdmin();
+  const { activeView, setActiveView, hasStaffRole, canToggle } = useRole();
   const { isMobile, setOpenMobile } = useSidebar();
 
   const closeSidebar = () => {
@@ -98,10 +116,20 @@ export function AppSidebar() {
     return user.email || "User";
   };
 
+  const isTrainerView = activeView === "trainer";
+  const navItems = isTrainerView ? trainerNavItems : playerNavItems;
+
+  const isActiveLink = (url: string) => {
+    if (url === "/dashboard" && location === "/") return true;
+    if (url === "/trainer" && location === "/trainer") return true;
+    if (url !== "/trainer" && url !== "/dashboard" && url !== "/" && location.startsWith(url)) return true;
+    return location === url;
+  };
+
   return (
     <Sidebar>
       <SidebarHeader className="px-4 pt-4 pb-2">
-        <Link href="/" onClick={closeSidebar}>
+        <Link href={isTrainerView ? "/trainer" : "/dashboard"} onClick={closeSidebar}>
           <div className="flex items-center cursor-pointer overflow-hidden h-12" data-testid="link-sidebar-logo">
             <img 
               src={logoLandscape} 
@@ -110,18 +138,42 @@ export function AppSidebar() {
             />
           </div>
         </Link>
+        {(hasStaffRole || canToggle) && (
+          <div className="flex items-center gap-1 mt-2">
+            <Button
+              size="sm"
+              variant={!isTrainerView ? "default" : "ghost"}
+              className="flex-1 text-xs h-8"
+              onClick={() => { setActiveView("player"); setLocation("/dashboard"); closeSidebar(); }}
+              data-testid="button-view-player"
+            >
+              <UserCircle className="w-3 h-3 mr-1" />
+              Player
+            </Button>
+            <Button
+              size="sm"
+              variant={isTrainerView ? "default" : "ghost"}
+              className="flex-1 text-xs h-8"
+              onClick={() => { setActiveView("trainer"); setLocation("/trainer"); closeSidebar(); }}
+              data-testid="button-view-trainer"
+            >
+              <Shield className="w-3 h-3 mr-1" />
+              Trainer
+            </Button>
+          </div>
+        )}
       </SidebarHeader>
       
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Menu</SidebarGroupLabel>
+          <SidebarGroupLabel>{isTrainerView ? "Trainer" : "Menu"}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainNavItems.map((item) => (
+              {navItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton 
                     asChild 
-                    isActive={location === item.url}
+                    isActive={isActiveLink(item.url)}
                     data-testid={`link-nav-${item.title.toLowerCase().replace(/\s/g, '-')}`}
                   >
                     <Link href={item.url} onClick={closeSidebar}>
@@ -160,29 +212,32 @@ export function AppSidebar() {
           </>
         )}
 
-        <SidebarSeparator />
-
-        <SidebarGroup>
-          <SidebarGroupLabel>Categories</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {categoryItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
-                    asChild
-                    isActive={location.includes(item.url.split('?')[1]?.split('=')[1] || '')}
-                    data-testid={`link-category-${item.title.toLowerCase().replace(/\s/g, '-')}`}
-                  >
-                    <Link href={item.url} onClick={closeSidebar}>
-                      <item.icon className="w-4 h-4" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {!isTrainerView && (
+          <>
+            <SidebarSeparator />
+            <SidebarGroup>
+              <SidebarGroupLabel>Categories</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {categoryItems.map((item) => (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton 
+                        asChild
+                        isActive={location.includes(item.url.split('?')[1]?.split('=')[1] || '')}
+                        data-testid={`link-category-${item.title.toLowerCase().replace(/\s/g, '-')}`}
+                      >
+                        <Link href={item.url} onClick={closeSidebar}>
+                          <item.icon className="w-4 h-4" />
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
+        )}
       </SidebarContent>
 
       <SidebarFooter className="p-2">
