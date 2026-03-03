@@ -465,6 +465,7 @@ export default function TrainerRoster() {
   const [groupPlayerClass, setGroupPlayerClass] = useState<string[]>([]);
 
   const [addPlayersOpen, setAddPlayersOpen] = useState(false);
+  const [addPlayersToGroupOpen, setAddPlayersToGroupOpen] = useState(false);
   const [rosterAddPlayerIds, setRosterAddPlayerIds] = useState<string[]>([]);
   const [rosterPlayerSearch, setRosterPlayerSearch] = useState("");
 
@@ -481,6 +482,7 @@ export default function TrainerRoster() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [invitePlayerName, setInvitePlayerName] = useState("");
+  const [inviteTargetId, setInviteTargetId] = useState("");
 
   const [viewMembersGroupId, setViewMembersGroupId] = useState<string | null>(null);
 
@@ -847,6 +849,24 @@ export default function TrainerRoster() {
     },
   });
 
+  const addPlayersToGroupMutation = useMutation({
+    mutationFn: ({ groupId, playerIds }: { groupId: string; playerIds: string[] }) =>
+      apiRequest("POST", "/api/trainer-players/bulk-assign", { playerIds, groupId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer-players"] });
+      if (selectedGroup) {
+        queryClient.invalidateQueries({ queryKey: ["/api/trainer/groups", selectedGroup.id, "members"] });
+      }
+      setAddPlayersToGroupOpen(false);
+      setRosterAddPlayerIds([]);
+      setRosterPlayerSearch("");
+      toast({ title: "Players added to group!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to add players", description: error.message, variant: "destructive" });
+    },
+  });
+
   const resetTeamForm = () => {
     setTeamName("");
     setTeamDescription("");
@@ -961,7 +981,7 @@ export default function TrainerRoster() {
   };
 
   const handleInvite = () => {
-    const entityId = selectedTeam?.id || selectedGroup?.id;
+    const entityId = selectedTeam?.id || selectedGroup?.id || inviteTargetId;
     if (!entityId || !inviteEmail.trim()) return;
     inviteMutation.mutate({ teamId: entityId, email: inviteEmail.trim(), playerName: invitePlayerName.trim() || undefined });
   };
@@ -978,6 +998,19 @@ export default function TrainerRoster() {
     }
     return available;
   }, [allPlayers, selectedTeam, rosterPlayerSearch]);
+
+  const availablePlayersForGroup = useMemo(() => {
+    if (!allPlayers || !selectedGroup) return [];
+    const alreadyInGroup = new Set(
+      allPlayers.filter(p => (p.groups || []).some(g => g.groupId === selectedGroup.id)).map(p => p.id)
+    );
+    let available = allPlayers.filter(p => !alreadyInGroup.has(p.id));
+    if (rosterPlayerSearch) {
+      const q = rosterPlayerSearch.toLowerCase();
+      available = available.filter(p => `${p.firstName} ${p.lastName || ""}`.toLowerCase().includes(q));
+    }
+    return available;
+  }, [allPlayers, selectedGroup, rosterPlayerSearch]);
 
   const filteredPlayers = useMemo(() => {
     if (!allPlayers) return [];
@@ -1228,10 +1261,16 @@ export default function TrainerRoster() {
     <div className="p-4 space-y-4 overflow-y-auto h-full">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-xl font-bold" data-testid="text-roster-page-heading">Roster</h1>
-        <Button onClick={() => { addForm.reset(); setNewPlayerTeamIds([]); setAddPlayerOpen(true); }} data-testid="button-add-player">
-          <Plus className="w-4 h-4" />
-          Add Player
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => { setInviteEmail(""); setInvitePlayerName(""); setInviteOpen(true); }} data-testid="button-top-invite-player">
+            <Mail className="w-4 h-4" />
+            Invite Player
+          </Button>
+          <Button onClick={() => { addForm.reset(); setNewPlayerTeamIds([]); setAddPlayerOpen(true); }} data-testid="button-add-player">
+            <Plus className="w-4 h-4" />
+            Add Player
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -1569,15 +1608,25 @@ export default function TrainerRoster() {
                   {selectedGroup.name}
                   {selectedGroup.ageGroup && ` (${selectedGroup.ageGroup})`}
                 </CardTitle>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => { setInviteEmail(""); setInvitePlayerName(""); setInviteOpen(true); }}
-                  data-testid="button-group-invite-email"
-                >
-                  <Mail className="w-4 h-4" />
-                  Invite
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => { setInviteEmail(""); setInvitePlayerName(""); setInviteOpen(true); }}
+                    data-testid="button-group-invite-email"
+                  >
+                    <Mail className="w-4 h-4" />
+                    Invite
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => { setRosterAddPlayerIds([]); setRosterPlayerSearch(""); setAddPlayersToGroupOpen(true); }}
+                    data-testid="button-group-add-players"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    Add Players
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 {!groupMembers?.length ? (
@@ -1946,6 +1995,61 @@ export default function TrainerRoster() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={addPlayersToGroupOpen} onOpenChange={setAddPlayersToGroupOpen}>
+        <DialogContent data-testid="dialog-group-add-players">
+          <DialogHeader>
+            <DialogTitle>Add Players to {selectedGroup?.name}</DialogTitle>
+            <DialogDescription>Select players to add to this group.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {allPlayers && allPlayers.length > 5 && (
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+                <Input
+                  value={rosterPlayerSearch}
+                  onChange={(e) => setRosterPlayerSearch(e.target.value)}
+                  placeholder="Search players..."
+                  className="pl-8"
+                  data-testid="input-group-player-search"
+                />
+              </div>
+            )}
+            <div className="space-y-1 max-h-60 overflow-y-auto">
+              {availablePlayersForGroup.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  {allPlayers?.length ? "All players are already in this group." : "No players created yet."}
+                </p>
+              ) : (
+                availablePlayersForGroup.map((player) => (
+                  <div
+                    key={player.id}
+                    className={`flex items-center justify-between gap-2 p-2 rounded-md border cursor-pointer ${rosterAddPlayerIds.includes(player.id) ? "border-primary bg-primary/10" : "hover-elevate"}`}
+                    onClick={() => setRosterAddPlayerIds(prev => prev.includes(player.id) ? prev.filter(id => id !== player.id) : [...prev, player.id])}
+                    data-testid={`button-group-pick-player-${player.id}`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-sm font-medium truncate">{player.firstName} {player.lastName || ""}</span>
+                      {player.position && <Badge variant="outline" className="no-default-hover-elevate text-xs">{player.position}</Badge>}
+                      {player.jerseyNumber && <span className="text-xs text-muted-foreground">#{player.jerseyNumber}</span>}
+                    </div>
+                    {rosterAddPlayerIds.includes(player.id) && <CheckCircle className="w-4 h-4 text-primary shrink-0" />}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={() => selectedGroup && addPlayersToGroupMutation.mutate({ groupId: selectedGroup.id, playerIds: rosterAddPlayerIds })}
+              disabled={rosterAddPlayerIds.length === 0 || addPlayersToGroupMutation.isPending}
+              data-testid="button-group-confirm-add-players"
+            >
+              {addPlayersToGroupMutation.isPending ? "Adding..." : `Add ${rosterAddPlayerIds.length} Player${rosterAddPlayerIds.length !== 1 ? "s" : ""}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={addPlayerOpen} onOpenChange={setAddPlayerOpen}>
         <DialogContent className="max-h-[85vh] flex flex-col" data-testid="dialog-add-player">
           <DialogHeader>
@@ -2006,13 +2110,33 @@ export default function TrainerRoster() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+      <Dialog open={inviteOpen} onOpenChange={(open) => { setInviteOpen(open); if (!open) setInviteTargetId(""); }}>
         <DialogContent data-testid="dialog-invite">
           <DialogHeader>
             <DialogTitle>Invite Players</DialogTitle>
-            <DialogDescription>Send an invitation to join {selectedEntityName}.</DialogDescription>
+            <DialogDescription>
+              {selectedEntityName ? `Send an invitation to join ${selectedEntityName}.` : "Send an invitation to join a team or group."}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {!selectedTeam && !selectedGroup && (
+              <div>
+                <label className="text-sm font-medium">Team / Group</label>
+                <Select value={inviteTargetId} onValueChange={setInviteTargetId}>
+                  <SelectTrigger className="mt-1" data-testid="select-invite-target">
+                    <SelectValue placeholder="Select team or group" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teams?.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>{t.name} (Team)</SelectItem>
+                    ))}
+                    {groups?.map((g) => (
+                      <SelectItem key={g.id} value={g.id}>{g.name} (Group)</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex-1">
                 <label className="text-sm font-medium">Player Email</label>
@@ -2038,7 +2162,7 @@ export default function TrainerRoster() {
             </div>
             <Button
               onClick={handleInvite}
-              disabled={!inviteEmail.trim() || inviteMutation.isPending}
+              disabled={!inviteEmail.trim() || (!selectedTeam && !selectedGroup && !inviteTargetId) || inviteMutation.isPending}
               className="w-full sm:w-auto"
               data-testid="button-send-invite"
             >
