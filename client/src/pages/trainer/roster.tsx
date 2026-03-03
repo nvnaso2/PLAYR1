@@ -1248,577 +1248,447 @@ export default function TrainerRoster() {
   );
 
   return (
-    <div className="p-4 space-y-4 overflow-y-auto h-full">
+    <div className="p-4 space-y-4 overflow-y-auto h-full max-w-3xl mx-auto">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-xl font-bold" data-testid="text-roster-page-heading">Roster</h1>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => { setInviteEmail(""); setInvitePlayerName(""); setInviteOpen(true); }} data-testid="button-top-invite-player">
+          <Button variant="outline" size="sm" onClick={() => { setInviteEmail(""); setInvitePlayerName(""); setInviteOpen(true); }} data-testid="button-top-invite-player">
             <Mail className="w-4 h-4" />
-            Invite Player
+            Invite
           </Button>
-          <Button onClick={() => { addForm.reset(); setNewPlayerTeamIds([]); setAddPlayerOpen(true); }} data-testid="button-add-player">
+          <Button size="sm" onClick={() => { addForm.reset(); setNewPlayerTeamIds([]); setAddPlayerOpen(true); }} data-testid="button-add-player">
             <Plus className="w-4 h-4" />
             Add Player
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-1 space-y-4">
-          <Tabs value={activePanel} onValueChange={(v) => { setActivePanel(v as "teams" | "groups"); setSelectedTeam(null); setSelectedGroup(null); }}>
-            <TabsList className="w-full" data-testid="tabs-roster-type">
-              <TabsTrigger value="teams" className="flex-1" data-testid="tab-teams">
-                <Shield className="w-4 h-4 mr-1" />
-                Teams
-              </TabsTrigger>
-              <TabsTrigger value="groups" className="flex-1" data-testid="tab-groups">
-                <Users className="w-4 h-4 mr-1" />
-                Groups
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="teams" className="space-y-3 mt-3">
-              <Button
-                className="w-full"
-                variant="outline"
-                onClick={() => { resetTeamForm(); setEditTeamId(null); setCreateTeamOpen(true); }}
-                data-testid="button-create-team"
-              >
-                <Plus className="w-4 h-4" />
-                New Team
-              </Button>
-
-              {teamsLoading ? (
-                <div className="space-y-2">
-                  {[1, 2].map((i) => <Skeleton key={i} className="h-20 rounded-lg" />)}
-                </div>
-              ) : !teams?.length ? (
-                <div className="py-8 text-center text-muted-foreground">
-                  <Shield className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">No teams yet.</p>
-                </div>
-              ) : (
-                teams.map((team) => (
-                  <Card
-                    key={team.id}
-                    className={`cursor-pointer transition-colors ${selectedTeam?.id === team.id ? "ring-2 ring-primary" : ""}`}
-                    onClick={() => { setSelectedTeam(selectedTeam?.id === team.id ? null : team); setSelectedGroup(null); }}
-                    data-testid={`card-team-${team.id}`}
-                  >
-                    <CardContent className="py-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1 flex-wrap">
-                            <p className="text-sm font-medium truncate" data-testid={`text-team-name-${team.id}`}>{team.name}</p>
-                            {selectedTeam?.id === team.id && <ChevronRight className="w-3 h-3 text-primary shrink-0" />}
-                          </div>
-                          <div className="flex items-center gap-1 mt-1 flex-wrap">
-                            {team.seasonYear && (
-                              <Badge variant="secondary" className="no-default-hover-elevate text-[10px]">
-                                {team.seasonYear}-{(team.seasonYear + 1).toString().slice(-2)}
-                              </Badge>
-                            )}
-                            {team.ageGroup && <Badge variant="outline" className="no-default-hover-elevate text-[10px]">{team.ageGroup}</Badge>}
-                            {team.level && team.level !== "none" && <Badge variant="secondary" className="no-default-hover-elevate text-[10px]">{team.level}</Badge>}
-                          </div>
-                          <div className="flex items-center gap-1 mt-1 flex-wrap">
-                            <Badge variant="outline" className="no-default-hover-elevate font-mono text-[10px]">{team.teamCode}</Badge>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              onClick={(e) => { e.stopPropagation(); copyCode(team.teamCode); }}
-                              data-testid={`button-copy-team-code-${team.id}`}
-                            >
-                              <Copy className="w-3 h-3" />
-                            </Button>
-                            <Badge variant="secondary" className="no-default-hover-elevate text-[10px] ml-auto">
-                              <Users className="w-3 h-3 mr-0.5" />
-                              {team.memberCount}
-                            </Badge>
-                          </div>
-                        </div>
-                        <div className="flex flex-col gap-1 shrink-0">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={(e) => { e.stopPropagation(); openEditTeam(team); setCreateTeamOpen(true); }}
-                            data-testid={`button-edit-team-${team.id}`}
-                          >
-                            <Edit2 className="w-3 h-3" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={(e) => { e.stopPropagation(); setDeleteTeamId(team.id); }}
-                            data-testid={`button-delete-team-${team.id}`}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
-            </TabsContent>
-
-            <TabsContent value="groups" className="space-y-3 mt-3">
-              <Button
-                className="w-full"
-                variant="outline"
-                onClick={() => { resetGroupForm(); setEditGroupId(null); setCreateGroupOpen(true); }}
-                data-testid="button-create-group"
-              >
-                <Plus className="w-4 h-4" />
-                New Group
-              </Button>
-
-              {groupsLoading ? (
-                <div className="space-y-2">
-                  {[1, 2].map((i) => <Skeleton key={i} className="h-20 rounded-lg" />)}
-                </div>
-              ) : !groups?.length ? (
-                <div className="py-8 text-center text-muted-foreground">
-                  <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">No groups yet.</p>
-                </div>
-              ) : (
-                groups.map((group) => {
-                  const groupMemberCount = allPlayers?.filter(p => p.groups?.some((g: any) => g.groupId === group.id)).length || 0;
-                  return (
-                  <Card
-                    key={group.id}
-                    className={`cursor-pointer transition-colors ${selectedGroup?.id === group.id ? "ring-2 ring-primary" : ""}`}
-                    onClick={() => { setSelectedGroup(selectedGroup?.id === group.id ? null : group); setSelectedTeam(null); }}
-                    data-testid={`card-group-${group.id}`}
-                  >
-                    <CardContent className="py-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1 flex-wrap">
-                            <p className="text-sm font-medium truncate" data-testid={`text-group-name-${group.id}`}>{group.name}</p>
-                            {selectedGroup?.id === group.id && <ChevronRight className="w-3 h-3 text-primary shrink-0" />}
-                          </div>
-                          <div className="flex items-center gap-1 mt-1 flex-wrap">
-                            {group.ageGroup && <Badge variant="secondary" className="no-default-hover-elevate text-[10px]">Age {group.ageGroup}</Badge>}
-                            {group.position && <Badge variant="secondary" className="no-default-hover-elevate text-[10px]">{group.position}</Badge>}
-                            {group.level && <Badge variant="secondary" className="no-default-hover-elevate text-[10px]">{group.level}</Badge>}
-                          </div>
-                          <div className="flex items-center gap-1 mt-1 flex-wrap">
-                            <Badge variant="outline" className="no-default-hover-elevate font-mono text-[10px]">{group.teamCode}</Badge>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              onClick={(e) => { e.stopPropagation(); copyCode(group.teamCode); }}
-                              data-testid={`button-copy-group-code-${group.id}`}
-                            >
-                              <Copy className="w-3 h-3" />
-                            </Button>
-                            <Badge variant="secondary" className="no-default-hover-elevate text-[10px] ml-auto">
-                              <Users className="w-3 h-3 mr-0.5" />
-                              {groupMemberCount}
-                            </Badge>
-                          </div>
-                        </div>
-                        <div className="flex flex-col gap-1 shrink-0">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={(e) => { e.stopPropagation(); openEditGroup(group); setCreateGroupOpen(true); }}
-                            data-testid={`button-edit-group-${group.id}`}
-                          >
-                            <Edit2 className="w-3 h-3" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={(e) => { e.stopPropagation(); setDeleteGroupId(group.id); }}
-                            data-testid={`button-delete-group-${group.id}`}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  );
-                })
-              )}
-            </TabsContent>
-          </Tabs>
+      <Tabs value={activePanel} onValueChange={(v) => { setActivePanel(v as "teams" | "groups"); setSelectedTeam(null); setSelectedGroup(null); }}>
+        <div className="flex items-center gap-2">
+          <TabsList data-testid="tabs-roster-type">
+            <TabsTrigger value="teams" data-testid="tab-teams">
+              <Shield className="w-4 h-4 mr-1" />
+              Teams
+            </TabsTrigger>
+            <TabsTrigger value="groups" data-testid="tab-groups">
+              <Users className="w-4 h-4 mr-1" />
+              Groups
+            </TabsTrigger>
+          </TabsList>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              if (activePanel === "teams") { resetTeamForm(); setEditTeamId(null); setCreateTeamOpen(true); }
+              else { resetGroupForm(); setEditGroupId(null); setCreateGroupOpen(true); }
+            }}
+            data-testid="button-create-team-or-group"
+          >
+            <Plus className="w-4 h-4" />
+            New {activePanel === "teams" ? "Team" : "Group"}
+          </Button>
         </div>
 
-        <div className="lg:col-span-2 space-y-4">
-          {selectedTeam ? (
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between gap-2">
-                <CardTitle className="text-base" data-testid="text-roster-members-heading">
-                  {selectedTeam.name}
-                  {selectedTeam.seasonYear && ` (${selectedTeam.seasonYear}-${(selectedTeam.seasonYear + 1).toString().slice(-2)})`}
-                </CardTitle>
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => { setInviteEmail(""); setInvitePlayerName(""); setInviteOpen(true); }}
-                    data-testid="button-invite-email"
+        <TabsContent value="teams" className="space-y-2 mt-3">
+          {teamsLoading ? (
+            <div className="space-y-2">
+              {[1, 2].map((i) => <Skeleton key={i} className="h-14 rounded-lg" />)}
+            </div>
+          ) : !teams?.length ? (
+            <div className="py-8 text-center text-muted-foreground">
+              <Shield className="w-8 h-8 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">No teams yet. Create one to get started.</p>
+            </div>
+          ) : (
+            teams.map((team) => {
+              const isExpanded = selectedTeam?.id === team.id;
+              return (
+                <div key={team.id} className="rounded-lg border bg-card" data-testid={`card-team-${team.id}`}>
+                  <button
+                    className="w-full flex items-center gap-3 p-3 text-left"
+                    onClick={() => { setSelectedTeam(isExpanded ? null : team); setSelectedGroup(null); }}
+                    data-testid={`button-toggle-team-${team.id}`}
                   >
-                    <Mail className="w-4 h-4" />
-                    Invite
-                  </Button>
-                  <Button size="sm" onClick={() => { setRosterAddPlayerIds([]); setRosterPlayerSearch(""); setAddPlayersOpen(true); }} data-testid="button-roster-add-players">
-                    <UserPlus className="w-4 h-4" />
-                    Add Players
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {teamMembersLoading ? (
-                  <div className="space-y-2">
-                    {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12 rounded" />)}
-                  </div>
-                ) : !teamMembers?.length ? (
-                  <p className="text-sm text-muted-foreground" data-testid="text-no-roster-members">
-                    No players on the roster yet. Add players or share the team code.
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    <div className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-2 items-center px-2 text-xs font-medium text-muted-foreground">
-                      <span className="w-8"></span>
-                      <span>Player</span>
-                      <span className="w-10 text-center">#</span>
-                      <span className="w-12 text-center">Pos</span>
-                      <span className="w-16"></span>
+                    <ChevronRight className={`w-4 h-4 shrink-0 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium truncate" data-testid={`text-team-name-${team.id}`}>{team.name}</span>
+                        {team.seasonYear && (
+                          <Badge variant="secondary" className="no-default-hover-elevate text-[10px]">
+                            {team.seasonYear}-{(team.seasonYear + 1).toString().slice(-2)}
+                          </Badge>
+                        )}
+                        {team.ageGroup && <Badge variant="outline" className="no-default-hover-elevate text-[10px]">{team.ageGroup}</Badge>}
+                      </div>
                     </div>
-                    {teamMembers.map((member) => (
-                      <div
-                        key={member.userId}
-                        className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-2 items-center p-2 rounded-md bg-muted/50"
-                        data-testid={`row-roster-member-${member.userId}`}
-                      >
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage src={member.profileImageUrl} />
-                          <AvatarFallback className="text-xs">
-                            {(member.firstName?.[0] || '') + (member.lastName?.[0] || '')}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div
-                          className="min-w-0 cursor-pointer"
-                          onClick={() => {
-                            const playerId = member.userId.startsWith("tp_") ? member.userId.slice(3) : member.userId;
-                            const found = allPlayers?.find(p => p.id === playerId || p.linkedUserId === member.userId);
-                            if (found) {
-                              setDetailPlayer(found);
-                            } else {
-                              const synthPlayer: TrainerPlayerData = {
-                                id: member.userId,
-                                trainerId: "",
-                                firstName: member.firstName,
-                                lastName: member.lastName,
-                                email: member.email,
-                                phone: null,
-                                position: member.position || null,
-                                jerseyNumber: member.jerseyNumber || null,
-                                ageGroup: null,
-                                teamType: null,
-                                gradYear: null,
-                                notes: null,
-                                linkedUserId: member.userId,
-                                createdAt: member.joinedAt,
-                                updatedAt: member.joinedAt,
-                                groups: [],
-                                teams: [],
-                              };
-                              setDetailPlayer(synthPlayer);
-                            }
-                          }}
-                          data-testid={`button-roster-view-player-${member.userId}`}
-                        >
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <p className="text-sm font-medium truncate hover:underline" data-testid={`text-roster-name-${member.userId}`}>
-                              {member.firstName} {member.lastName}
-                            </p>
-                            {member.isCoachPlayer && (
-                              <Badge variant="secondary" className="no-default-hover-elevate text-[10px]">Added by coach</Badge>
-                            )}
-                          </div>
-                          <p className="text-xs text-muted-foreground truncate">{member.email}</p>
-                        </div>
-                        <span className="w-10 text-center text-sm font-mono" data-testid={`text-jersey-${member.userId}`}>
-                          {member.jerseyNumber || "-"}
-                        </span>
-                        <span className="w-12 text-center">
-                          {member.position ? (
-                            <Badge variant="outline" className="no-default-hover-elevate text-xs">{member.position}</Badge>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">-</span>
-                          )}
-                        </span>
-                        <div className="w-16 flex items-center gap-1 justify-end">
-                          {!member.isCoachPlayer && (
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              onClick={() => openEditMember(member)}
-                              data-testid={`button-edit-member-${member.userId}`}
-                            >
-                              <Edit2 className="w-3 h-3" />
-                            </Button>
-                          )}
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => {
-                              if (member.isCoachPlayer && member.assignmentId) {
-                                removeAssignmentMutation.mutate(member.assignmentId);
-                              } else {
-                                setRemoveMember({ teamId: selectedTeam.id, userId: member.userId, name: `${member.firstName} ${member.lastName}` });
-                              }
-                            }}
-                            data-testid={`button-remove-member-${member.userId}`}
-                          >
-                            <UserMinus className="w-3 h-3" />
+                    <Badge variant="secondary" className="no-default-hover-elevate text-xs shrink-0">
+                      <Users className="w-3 h-3 mr-1" />
+                      {team.memberCount}
+                    </Badge>
+                  </button>
+
+                  {isExpanded && (
+                    <div className="border-t px-3 pb-3 space-y-3" data-testid="panel-team-detail">
+                      <div className="flex items-center gap-2 pt-3 flex-wrap">
+                        <Badge variant="outline" className="no-default-hover-elevate font-mono text-xs">{team.teamCode}</Badge>
+                        <Button size="sm" variant="ghost" onClick={() => copyCode(team.teamCode)} data-testid={`button-copy-team-code-${team.id}`}>
+                          <Copy className="w-3 h-3" />
+                        </Button>
+                        <div className="ml-auto flex items-center gap-1">
+                          <Button size="sm" variant="outline" onClick={() => { setInviteEmail(""); setInvitePlayerName(""); setInviteOpen(true); }} data-testid="button-invite-email">
+                            <Mail className="w-3 h-3" />
+                            Invite
+                          </Button>
+                          <Button size="sm" onClick={() => { setRosterAddPlayerIds([]); setRosterPlayerSearch(""); setAddPlayersOpen(true); }} data-testid="button-roster-add-players">
+                            <UserPlus className="w-3 h-3" />
+                            Add
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => { openEditTeam(team); setCreateTeamOpen(true); }} data-testid={`button-edit-team-${team.id}`}>
+                            <Edit2 className="w-3 h-3" />
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => setDeleteTeamId(team.id)} data-testid={`button-delete-team-${team.id}`}>
+                            <Trash2 className="w-3 h-3" />
                           </Button>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ) : selectedGroup ? (
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between gap-2">
-                <CardTitle className="text-base" data-testid="text-group-members-heading">
-                  {selectedGroup.name}
-                  {selectedGroup.ageGroup && ` (${selectedGroup.ageGroup})`}
-                </CardTitle>
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => { setInviteEmail(""); setInvitePlayerName(""); setInviteOpen(true); }}
-                    data-testid="button-group-invite-email"
-                  >
-                    <Mail className="w-4 h-4" />
-                    Invite
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={() => { setRosterAddPlayerIds([]); setRosterPlayerSearch(""); setAddPlayersToGroupOpen(true); }}
-                    data-testid="button-group-add-players"
-                  >
-                    <UserPlus className="w-4 h-4" />
-                    Add Players
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {!groupMembers?.length ? (
-                  <p className="text-sm text-muted-foreground" data-testid="text-no-group-members">
-                    No members in this group yet. Share the group code to invite players.
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {groupMembers.map((member) => (
-                      <div
-                        key={member.userId}
-                        className="flex items-center gap-3 p-2 rounded-md bg-muted/50"
-                        data-testid={`row-group-member-${member.userId}`}
-                      >
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage src={member.profileImageUrl} />
-                          <AvatarFallback className="text-xs">
-                            {(member.firstName?.[0] || '') + (member.lastName?.[0] || '')}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{member.firstName} {member.lastName}</p>
-                          <p className="text-xs text-muted-foreground truncate">{member.email}</p>
+
+                      {teamMembersLoading ? (
+                        <div className="space-y-2">
+                          {[1, 2].map((i) => <Skeleton key={i} className="h-12 rounded" />)}
                         </div>
-                        {member.position && <Badge variant="outline" className="no-default-hover-elevate text-xs">{member.position}</Badge>}
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => removeGroupMemberMutation.mutate({ groupId: selectedGroup.id, userId: member.userId })}
-                          data-testid={`button-remove-group-member-${member.userId}`}
-                        >
-                          <UserMinus className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardContent className="py-16 text-center text-muted-foreground">
-                <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                <p className="text-sm">Select a team or group to view members</p>
-              </CardContent>
-            </Card>
-          )}
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between gap-2">
-              <CardTitle className="text-base" data-testid="text-all-players-heading">All Players</CardTitle>
-              <span className="text-sm text-muted-foreground">{allPlayers?.length || 0} total</span>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-2 flex-wrap">
-                <div className="relative flex-1 min-w-[160px]">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search players..."
-                    className="pl-9"
-                    data-testid="input-search-players"
-                  />
-                </div>
-                <Select value={positionFilter} onValueChange={setPositionFilter}>
-                  <SelectTrigger className="w-[130px]" data-testid="select-filter-position">
-                    <SelectValue placeholder="All Positions" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Positions</SelectItem>
-                    {PLAYER_POSITIONS.map((pos) => (
-                      <SelectItem key={pos} value={pos}>{pos}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={ageFilter} onValueChange={setAgeFilter}>
-                  <SelectTrigger className="w-[110px]" data-testid="select-filter-age">
-                    <SelectValue placeholder="All Ages" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Ages</SelectItem>
-                    {PLAYER_AGES.map((age) => (
-                      <SelectItem key={age} value={age}>{age}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {filteredPlayers.length > 0 && (
-                <div className="flex items-center gap-3 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      checked={allSelected}
-                      onCheckedChange={toggleSelectAll}
-                      data-testid="checkbox-select-all-players"
-                    />
-                    <span className="text-sm text-muted-foreground">Select All</span>
-                  </div>
-                  {selectedPlayerIds.size > 0 && (
-                    <>
-                      <Button size="sm" variant="outline" onClick={() => setBulkAssignTeamOpen(true)} data-testid="button-bulk-assign-team">
-                        <Shield className="w-4 h-4" />
-                        Assign {selectedPlayerIds.size} to Team
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => setBulkAssignGroupOpen(true)} data-testid="button-bulk-assign-group">
-                        <Users className="w-4 h-4" />
-                        Assign {selectedPlayerIds.size} to Group
-                      </Button>
-                    </>
+                      ) : !teamMembers?.length ? (
+                        <p className="text-sm text-muted-foreground py-2" data-testid="text-no-roster-members">
+                          No players yet. Add players or share the team code.
+                        </p>
+                      ) : (
+                        <div className="space-y-1">
+                          {teamMembers.map((member) => (
+                            <div
+                              key={member.userId}
+                              className="flex items-center gap-2 p-2 rounded-md bg-muted/50"
+                              data-testid={`row-roster-member-${member.userId}`}
+                            >
+                              <Avatar className="h-7 w-7 shrink-0">
+                                <AvatarImage src={member.profileImageUrl} />
+                                <AvatarFallback className="text-[10px]">
+                                  {(member.firstName?.[0] || '') + (member.lastName?.[0] || '')}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div
+                                className="flex-1 min-w-0 cursor-pointer"
+                                onClick={() => {
+                                  const playerId = member.userId.startsWith("tp_") ? member.userId.slice(3) : member.userId;
+                                  const found = allPlayers?.find(p => p.id === playerId || p.linkedUserId === member.userId);
+                                  if (found) {
+                                    setDetailPlayer(found);
+                                  } else {
+                                    const synthPlayer: TrainerPlayerData = {
+                                      id: member.userId, trainerId: "", firstName: member.firstName, lastName: member.lastName,
+                                      email: member.email, phone: null, position: member.position || null,
+                                      jerseyNumber: member.jerseyNumber || null, ageGroup: null, teamType: null, gradYear: null,
+                                      notes: null, linkedUserId: member.userId, createdAt: member.joinedAt, updatedAt: member.joinedAt,
+                                      groups: [], teams: [],
+                                    };
+                                    setDetailPlayer(synthPlayer);
+                                  }
+                                }}
+                                data-testid={`button-roster-view-player-${member.userId}`}
+                              >
+                                <span className="text-sm font-medium hover:underline truncate block" data-testid={`text-roster-name-${member.userId}`}>
+                                  {member.firstName} {member.lastName}
+                                </span>
+                              </div>
+                              {member.jerseyNumber && <span className="text-xs font-mono text-muted-foreground" data-testid={`text-jersey-${member.userId}`}>#{member.jerseyNumber}</span>}
+                              {member.position && <Badge variant="outline" className="no-default-hover-elevate text-[10px]">{member.position}</Badge>}
+                              <div className="flex items-center gap-0.5 shrink-0">
+                                {!member.isCoachPlayer && (
+                                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEditMember(member)} data-testid={`button-edit-member-${member.userId}`}>
+                                    <Edit2 className="w-3 h-3" />
+                                  </Button>
+                                )}
+                                <Button
+                                  size="icon" variant="ghost" className="h-7 w-7"
+                                  onClick={() => {
+                                    if (member.isCoachPlayer && member.assignmentId) {
+                                      removeAssignmentMutation.mutate(member.assignmentId);
+                                    } else {
+                                      setRemoveMember({ teamId: selectedTeam.id, userId: member.userId, name: `${member.firstName} ${member.lastName}` });
+                                    }
+                                  }}
+                                  data-testid={`button-remove-member-${member.userId}`}
+                                >
+                                  <UserMinus className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
-              )}
+              );
+            })
+          )}
+        </TabsContent>
 
-              {playersLoading ? (
-                <div className="space-y-2">
-                  {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 rounded-lg" />)}
-                </div>
-              ) : !allPlayers?.length ? (
-                <div className="py-8 text-center text-muted-foreground" data-testid="text-no-players">
-                  <UserCheck className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">No players yet. Add your first player to get started.</p>
-                </div>
-              ) : !filteredPlayers.length ? (
-                <div className="py-6 text-center text-muted-foreground" data-testid="text-no-matching-players">
-                  <Search className="w-6 h-6 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">No players match your search.</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {filteredPlayers.map((player) => (
-                    <div
-                      key={player.id}
-                      className="flex items-start gap-2 p-2 rounded-md bg-muted/50"
-                      data-testid={`card-player-${player.id}`}
-                    >
-                      <div className="pt-0.5">
-                        <Checkbox
-                          checked={selectedPlayerIds.has(player.id)}
-                          onCheckedChange={() => togglePlayer(player.id)}
-                          data-testid={`checkbox-player-${player.id}`}
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setDetailPlayer(player)} data-testid={`button-view-player-${player.id}`}>
-                        <div className="flex items-center gap-1 flex-wrap">
-                          <p className="text-sm font-medium hover:underline" data-testid={`text-player-name-${player.id}`}>
-                            {player.firstName} {player.lastName || ""}
-                          </p>
-                          {player.position && <Badge variant="outline" className="no-default-hover-elevate text-[10px]">{player.position}</Badge>}
-                          {player.jerseyNumber && <span className="text-[10px] font-mono text-muted-foreground">#{player.jerseyNumber}</span>}
-                          {player.ageGroup && <Badge variant="secondary" className="no-default-hover-elevate text-[10px]">Age {player.ageGroup}</Badge>}
-                          {player.gradYear && <Badge variant="secondary" className="no-default-hover-elevate text-[10px]">Class of {player.gradYear}</Badge>}
-                        </div>
-                        {player.email && <p className="text-xs text-muted-foreground mt-0.5">{player.email}</p>}
-                        {(player.teams || []).length > 0 && (
-                          <div className="flex items-center gap-1 mt-1 flex-wrap">
-                            <span className="text-[10px] text-muted-foreground">Teams:</span>
-                            {(player.teams || []).map((t) => (
-                              <Badge
-                                key={t.id}
-                                variant="default"
-                                className="no-default-hover-elevate text-[10px] cursor-pointer"
-                                data-testid={`badge-player-team-${t.id}`}
-                                onClick={(e) => { e.stopPropagation(); removeTeamAssignmentMutation.mutate(t.id); }}
-                                title={`Click to remove from ${t.teamName}`}
-                              >
-                                {t.teamName}
-                                <Trash2 className="w-2 h-2 ml-0.5" />
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                        {player.groups.length > 0 && (
-                          <div className="flex items-center gap-1 mt-1 flex-wrap">
-                            <span className="text-[10px] text-muted-foreground">Groups:</span>
-                            {player.groups.map((g) => (
-                              <Badge
-                                key={g.id}
-                                variant="default"
-                                className="no-default-hover-elevate text-[10px] cursor-pointer bg-secondary text-secondary-foreground"
-                                data-testid={`badge-player-group-${g.id}`}
-                                onClick={(e) => { e.stopPropagation(); removeGroupAssignmentMutation.mutate(g.id); }}
-                                title={`Click to remove from ${g.groupName}`}
-                              >
-                                {g.groupName}
-                                <Trash2 className="w-2 h-2 ml-0.5" />
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <Button size="icon" variant="ghost" onClick={() => openEditPlayer(player)} data-testid={`button-edit-player-${player.id}`}>
-                          <Edit2 className="w-3 h-3" />
-                        </Button>
-                        <Button size="icon" variant="ghost" onClick={() => setDeletePlayerId(player.id)} data-testid={`button-delete-player-${player.id}`}>
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
+        <TabsContent value="groups" className="space-y-2 mt-3">
+          {groupsLoading ? (
+            <div className="space-y-2">
+              {[1, 2].map((i) => <Skeleton key={i} className="h-14 rounded-lg" />)}
+            </div>
+          ) : !groups?.length ? (
+            <div className="py-8 text-center text-muted-foreground">
+              <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">No groups yet. Create one to get started.</p>
+            </div>
+          ) : (
+            groups.map((group) => {
+              const isExpanded = selectedGroup?.id === group.id;
+              const groupMemberCount = allPlayers?.filter(p => p.groups?.some((g: any) => g.groupId === group.id)).length || 0;
+              return (
+                <div key={group.id} className="rounded-lg border bg-card" data-testid={`card-group-${group.id}`}>
+                  <button
+                    className="w-full flex items-center gap-3 p-3 text-left"
+                    onClick={() => { setSelectedGroup(isExpanded ? null : group); setSelectedTeam(null); }}
+                    data-testid={`button-toggle-group-${group.id}`}
+                  >
+                    <ChevronRight className={`w-4 h-4 shrink-0 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium truncate" data-testid={`text-group-name-${group.id}`}>{group.name}</span>
+                        {group.ageGroup && <Badge variant="secondary" className="no-default-hover-elevate text-[10px]">{group.ageGroup}</Badge>}
+                        {group.position && <Badge variant="outline" className="no-default-hover-elevate text-[10px]">{group.position}</Badge>}
                       </div>
                     </div>
-                  ))}
+                    <Badge variant="secondary" className="no-default-hover-elevate text-xs shrink-0">
+                      <Users className="w-3 h-3 mr-1" />
+                      {groupMemberCount}
+                    </Badge>
+                  </button>
+
+                  {isExpanded && (
+                    <div className="border-t px-3 pb-3 space-y-3" data-testid="panel-group-detail">
+                      <div className="flex items-center gap-2 pt-3 flex-wrap">
+                        <Badge variant="outline" className="no-default-hover-elevate font-mono text-xs">{group.teamCode}</Badge>
+                        <Button size="sm" variant="ghost" onClick={() => copyCode(group.teamCode)} data-testid={`button-copy-group-code-${group.id}`}>
+                          <Copy className="w-3 h-3" />
+                        </Button>
+                        <div className="ml-auto flex items-center gap-1">
+                          <Button size="sm" variant="outline" onClick={() => { setInviteEmail(""); setInvitePlayerName(""); setInviteOpen(true); }} data-testid="button-group-invite-email">
+                            <Mail className="w-3 h-3" />
+                            Invite
+                          </Button>
+                          <Button size="sm" onClick={() => { setRosterAddPlayerIds([]); setRosterPlayerSearch(""); setAddPlayersToGroupOpen(true); }} data-testid="button-group-add-players">
+                            <UserPlus className="w-3 h-3" />
+                            Add
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => { openEditGroup(group); setCreateGroupOpen(true); }} data-testid={`button-edit-group-${group.id}`}>
+                            <Edit2 className="w-3 h-3" />
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => setDeleteGroupId(group.id)} data-testid={`button-delete-group-${group.id}`}>
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      {!groupMembers?.length ? (
+                        <p className="text-sm text-muted-foreground py-2" data-testid="text-no-group-members">
+                          No members yet. Add players or share the group code.
+                        </p>
+                      ) : (
+                        <div className="space-y-1">
+                          {groupMembers.map((member) => (
+                            <div
+                              key={member.userId}
+                              className="flex items-center gap-2 p-2 rounded-md bg-muted/50"
+                              data-testid={`row-group-member-${member.userId}`}
+                            >
+                              <Avatar className="h-7 w-7 shrink-0">
+                                <AvatarImage src={member.profileImageUrl} />
+                                <AvatarFallback className="text-[10px]">
+                                  {(member.firstName?.[0] || '') + (member.lastName?.[0] || '')}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="text-sm font-medium truncate flex-1 min-w-0">{member.firstName} {member.lastName}</span>
+                              {member.position && <Badge variant="outline" className="no-default-hover-elevate text-[10px]">{member.position}</Badge>}
+                              <Button
+                                size="icon" variant="ghost" className="h-7 w-7 shrink-0"
+                                onClick={() => removeGroupMemberMutation.mutate({ groupId: selectedGroup.id, userId: member.userId })}
+                                data-testid={`button-remove-group-member-${member.userId}`}
+                              >
+                                <UserMinus className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
+              );
+            })
+          )}
+        </TabsContent>
+      </Tabs>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-2">
+          <CardTitle className="text-base" data-testid="text-all-players-heading">All Players</CardTitle>
+          <span className="text-sm text-muted-foreground">{allPlayers?.length || 0} total</span>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative flex-1 min-w-[160px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search players..."
+                className="pl-9"
+                data-testid="input-search-players"
+              />
+            </div>
+            <Select value={positionFilter} onValueChange={setPositionFilter}>
+              <SelectTrigger className="w-[130px]" data-testid="select-filter-position">
+                <SelectValue placeholder="All Positions" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Positions</SelectItem>
+                {PLAYER_POSITIONS.map((pos) => (
+                  <SelectItem key={pos} value={pos}>{pos}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={ageFilter} onValueChange={setAgeFilter}>
+              <SelectTrigger className="w-[110px]" data-testid="select-filter-age">
+                <SelectValue placeholder="All Ages" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Ages</SelectItem>
+                {PLAYER_AGES.map((age) => (
+                  <SelectItem key={age} value={age}>{age}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {filteredPlayers.length > 0 && (
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  checked={allSelected}
+                  onCheckedChange={toggleSelectAll}
+                  data-testid="checkbox-select-all-players"
+                />
+                <span className="text-sm text-muted-foreground">Select All</span>
+              </div>
+              {selectedPlayerIds.size > 0 && (
+                <>
+                  <Button size="sm" variant="outline" onClick={() => setBulkAssignTeamOpen(true)} data-testid="button-bulk-assign-team">
+                    <Shield className="w-4 h-4" />
+                    Assign {selectedPlayerIds.size} to Team
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setBulkAssignGroupOpen(true)} data-testid="button-bulk-assign-group">
+                    <Users className="w-4 h-4" />
+                    Assign {selectedPlayerIds.size} to Group
+                  </Button>
+                </>
               )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+            </div>
+          )}
+
+          {playersLoading ? (
+            <div className="space-y-2">
+              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 rounded-lg" />)}
+            </div>
+          ) : !allPlayers?.length ? (
+            <div className="py-8 text-center text-muted-foreground" data-testid="text-no-players">
+              <UserCheck className="w-8 h-8 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">No players yet. Add your first player to get started.</p>
+            </div>
+          ) : !filteredPlayers.length ? (
+            <div className="py-6 text-center text-muted-foreground" data-testid="text-no-matching-players">
+              <Search className="w-6 h-6 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">No players match your search.</p>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {filteredPlayers.map((player) => (
+                <div
+                  key={player.id}
+                  className="flex items-start gap-2 p-2 rounded-md bg-muted/50"
+                  data-testid={`card-player-${player.id}`}
+                >
+                  <div className="pt-0.5">
+                    <Checkbox
+                      checked={selectedPlayerIds.has(player.id)}
+                      onCheckedChange={() => togglePlayer(player.id)}
+                      data-testid={`checkbox-player-${player.id}`}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setDetailPlayer(player)} data-testid={`button-view-player-${player.id}`}>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <p className="text-sm font-medium hover:underline" data-testid={`text-player-name-${player.id}`}>
+                        {player.firstName} {player.lastName || ""}
+                      </p>
+                      {player.position && <Badge variant="outline" className="no-default-hover-elevate text-[10px]">{player.position}</Badge>}
+                      {player.jerseyNumber && <span className="text-[10px] font-mono text-muted-foreground">#{player.jerseyNumber}</span>}
+                      {player.ageGroup && <Badge variant="secondary" className="no-default-hover-elevate text-[10px]">{player.ageGroup}</Badge>}
+                      {player.gradYear && <Badge variant="secondary" className="no-default-hover-elevate text-[10px]">Class of {player.gradYear}</Badge>}
+                    </div>
+                    {player.email && <p className="text-xs text-muted-foreground mt-0.5">{player.email}</p>}
+                    {(player.teams || []).length > 0 && (
+                      <div className="flex items-center gap-1 mt-1 flex-wrap">
+                        <span className="text-[10px] text-muted-foreground">Teams:</span>
+                        {(player.teams || []).map((t) => (
+                          <Badge
+                            key={t.id}
+                            variant="default"
+                            className="no-default-hover-elevate text-[10px] cursor-pointer"
+                            data-testid={`badge-player-team-${t.id}`}
+                            onClick={(e) => { e.stopPropagation(); removeTeamAssignmentMutation.mutate(t.id); }}
+                            title={`Click to remove from ${t.teamName}`}
+                          >
+                            {t.teamName}
+                            <Trash2 className="w-2 h-2 ml-0.5" />
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                    {player.groups.length > 0 && (
+                      <div className="flex items-center gap-1 mt-1 flex-wrap">
+                        <span className="text-[10px] text-muted-foreground">Groups:</span>
+                        {player.groups.map((g) => (
+                          <Badge
+                            key={g.id}
+                            variant="default"
+                            className="no-default-hover-elevate text-[10px] cursor-pointer bg-secondary text-secondary-foreground"
+                            data-testid={`badge-player-group-${g.id}`}
+                            onClick={(e) => { e.stopPropagation(); removeGroupAssignmentMutation.mutate(g.id); }}
+                            title={`Click to remove from ${g.groupName}`}
+                          >
+                            {g.groupName}
+                            <Trash2 className="w-2 h-2 ml-0.5" />
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-0.5 shrink-0">
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEditPlayer(player)} data-testid={`button-edit-player-${player.id}`}>
+                      <Edit2 className="w-3 h-3" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setDeletePlayerId(player.id)} data-testid={`button-delete-player-${player.id}`}>
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Dialog open={createTeamOpen} onOpenChange={(open) => { if (!open) { setCreateTeamOpen(false); setEditTeamId(null); } }}>
         <DialogContent data-testid="dialog-create-team">
