@@ -23,15 +23,13 @@ import Career from "@/pages/career";
 import PlayerProfile from "@/pages/player-profile";
 import PlayerPublic from "@/pages/player-public";
 import Admin from "@/pages/admin";
-import CoachTrainer from "@/pages/trainer-page";
 import TrainerDashboard from "@/pages/trainer/index";
 import TrainerRoster from "@/pages/trainer/roster";
-import TrainerPlayers from "@/pages/trainer/players";
-import TrainerAssignments from "@/pages/trainer/assignments";
+import TrainerDrills from "@/pages/trainer/drills";
 import TrainerLogs from "@/pages/trainer/logs";
 import TrainerChat from "@/pages/trainer/chat";
 import TrainerVideos from "@/pages/trainer/videos";
-import TrainerInvite from "@/pages/trainer/invite";
+import TrainerProgress from "@/pages/trainer/progress";
 import Finder from "@/pages/finder";
 import TeamProfile from "@/pages/team-profile";
 import LeagueProfile from "@/pages/league-profile";
@@ -86,16 +84,14 @@ function CoachRedirect() {
   const search = window.location.search;
   const params = new URLSearchParams(search);
   const tab = params.get('tab');
-  const adminTab = params.get('adminTab');
 
-  if (tab === "players") return <Redirect to="/trainer/players" />;
+  if (tab === "players") return <Redirect to="/trainer/roster" />;
   if (tab === "roster") return <Redirect to="/trainer/roster" />;
-  if (tab === "assign-drills") return <Redirect to="/trainer/assignments" />;
+  if (tab === "assign-drills") return <Redirect to="/trainer/drills" />;
   if (tab === "training-logs") return <Redirect to="/trainer/logs" />;
   if (tab === "chat") return <Redirect to="/trainer/chat" />;
   if (tab === "videos") return <Redirect to="/trainer/videos" />;
-  if (tab === "invite") return <Redirect to="/trainer/invite" />;
-  if (tab === "admin" && adminTab) return <Redirect to={`/trainer?adminTab=${adminTab}`} />;
+  if (tab === "invite") return <Redirect to="/trainer/roster" />;
   return <Redirect to="/trainer" />;
 }
 
@@ -132,12 +128,14 @@ function Router({ previewLanding }: { previewLanding: boolean }) {
                 <Route path="/coach" component={CoachRedirect} />
                 <Route path="/trainer" component={TrainerDashboard} />
                 <Route path="/trainer/roster" component={TrainerRoster} />
-                <Route path="/trainer/players" component={TrainerPlayers} />
-                <Route path="/trainer/assignments" component={TrainerAssignments} />
+                <Route path="/trainer/drills" component={TrainerDrills} />
                 <Route path="/trainer/logs" component={TrainerLogs} />
                 <Route path="/trainer/chat" component={TrainerChat} />
                 <Route path="/trainer/videos" component={TrainerVideos} />
-                <Route path="/trainer/invite" component={TrainerInvite} />
+                <Route path="/trainer/progress" component={TrainerProgress} />
+                <Route path="/trainer/players">{() => <Redirect to="/trainer/roster" />}</Route>
+                <Route path="/trainer/assignments">{() => <Redirect to="/trainer/drills" />}</Route>
+                <Route path="/trainer/invite">{() => <Redirect to="/trainer/roster" />}</Route>
                 <Route path="/dashboard" component={Dashboard} />
                 <Route component={NotFound} />
               </Switch>

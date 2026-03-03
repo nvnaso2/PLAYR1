@@ -864,6 +864,193 @@ export async function registerRoutes(
     }
   });
 
+  // Assign all drills in a workout to a team/group
+  app.post("/api/workouts/:id/assign", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { teamId, dueDate, notes } = req.body;
+      if (!teamId) {
+        return res.status(400).json({ message: "teamId is required" });
+      }
+      const group = await storage.getTeamById(teamId);
+      if (!group || group.coachId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      const workoutData = await storage.getWorkoutWithDrills(req.params.id);
+      if (!workoutData) {
+        return res.status(404).json({ message: "Workout not found" });
+      }
+      const assignments = [];
+      for (const wd of workoutData.drills) {
+        const assignment = await storage.createDrillAssignment({
+          drillId: wd.drillId,
+          assignedBy: userId,
+          teamId,
+          assignedTo: null,
+          dueDate: dueDate ? new Date(dueDate) : null,
+          notes: notes || `Part of workout: ${workoutData.workout.name}`,
+          status: "assigned",
+        });
+        assignments.push(assignment);
+      }
+      res.status(201).json({ workoutId: req.params.id, assignmentCount: assignments.length, assignments });
+    } catch (error) {
+      console.error("Error assigning workout:", error);
+      res.status(500).json({ message: "Failed to assign workout" });
+    }
+  });
+
+  // Trainer overview stats
+  app.get("/api/trainer/overview", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const players = await storage.getTrainerPlayers(userId);
+      const groups = await storage.getCoachTeams(userId, "trainer");
+      const coachTeams = await storage.getCoachTeams(userId, "coach");
+      const allTeams = [...groups, ...coachTeams];
+
+      let totalAssignments = 0;
+      let activeAssignments = 0;
+      let recentLogs: any[] = [];
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+      for (const team of allTeams) {
+        const assignments = await storage.getTeamAssignments(team.id);
+        totalAssignments += assignments.length;
+        activeAssignments += assignments.filter(a => a.status === "assigned").length;
+
+        const members = await storage.getTeamMembers(team.id);
+        for (const member of members) {
+          const logs = await storage.getTrainingLogs(member.userId);
+          const recent = logs.filter(l => l.completedAt && new Date(l.completedAt) >= sevenDaysAgo);
+          recentLogs.push(...recent.map(l => ({
+            ...l,
+            playerName: member.user ? `${member.user.firstName || ''} ${member.user.lastName || ''}`.trim() || 'Unknown' : 'Unknown',
+            teamName: team.name,
+          })));
+        }
+      }
+
+      recentLogs.sort((a, b) => new Date(b.completedAt || 0).getTime() - new Date(a.completedAt || 0).getTime());
+
+      const unreadCount = await storage.getUnreadCount(userId);
+
+      res.json({
+        totalPlayers: players.length,
+        totalTeams: allTeams.length,
+        totalAssignments,
+        activeAssignments,
+        recentLogsCount: recentLogs.length,
+        unreadMessages: unreadCount,
+        recentActivity: recentLogs.slice(0, 10),
+      });
+    } catch (error) {
+      console.error("Error fetching trainer overview:", error);
+      res.status(500).json({ message: "Failed to fetch overview" });
+    }
+  });
+
+  // Player progress analytics for trainer
+  app.get("/api/trainer/players/:playerId/progress", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const player = await storage.getTrainerPlayerById(req.params.playerId);
+      if (!player || player.trainerId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      if (!player.linkedUserId) {
+        return res.json({
+          totalSessions: 0,
+          totalMinutes: 0,
+          averageScore: 0,
+          personalRecordsCount: 0,
+          weeklyActivity: [],
+          categoryBreakdown: [],
+          recentLogs: [],
+          assignmentCompletion: { total: 0, completed: 0, rate: 0 },
+        });
+      }
+
+      const logs = await storage.getTrainingLogs(player.linkedUserId);
+      const totalSessions = logs.length;
+      const totalMinutes = logs.reduce((sum, l) => sum + (l.duration || 0), 0);
+      const scoredLogs = logs.filter(l => l.score !== null && l.score !== undefined);
+      const averageScore = scoredLogs.length > 0
+        ? Math.round((scoredLogs.reduce((sum, l) => sum + (l.score || 0), 0) / scoredLogs.length) * 10) / 10
+        : 0;
+
+      const allDrills = await storage.getAllDrills();
+      const drillMap = new Map(allDrills.map(d => [d.id, d]));
+
+      const eightWeeksAgo = new Date();
+      eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 56);
+      const weeklyActivity: { week: string; sessions: number; minutes: number }[] = [];
+      for (let i = 7; i >= 0; i--) {
+        const weekStart = new Date();
+        weekStart.setDate(weekStart.getDate() - (i + 1) * 7);
+        const weekEnd = new Date();
+        weekEnd.setDate(weekEnd.getDate() - i * 7);
+        const weekLogs = logs.filter(l => {
+          const d = new Date(l.completedAt || l.createdAt || 0);
+          return d >= weekStart && d < weekEnd;
+        });
+        weeklyActivity.push({
+          week: weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          sessions: weekLogs.length,
+          minutes: weekLogs.reduce((s, l) => s + (l.duration || 0), 0),
+        });
+      }
+
+      const categoryMap: Record<string, number> = {};
+      for (const log of logs) {
+        const drill = drillMap.get(log.drillId);
+        if (drill) {
+          categoryMap[drill.category] = (categoryMap[drill.category] || 0) + 1;
+        }
+      }
+      const categoryBreakdown = Object.entries(categoryMap).map(([category, count]) => ({ category, count }));
+
+      const recentLogs = logs
+        .sort((a, b) => new Date(b.completedAt || 0).getTime() - new Date(a.completedAt || 0).getTime())
+        .slice(0, 10)
+        .map(l => ({
+          ...l,
+          drillTitle: drillMap.get(l.drillId)?.title || 'Unknown Drill',
+          drillCategory: drillMap.get(l.drillId)?.category || 'unknown',
+        }));
+
+      const groups = await storage.getCoachTeams(userId, "trainer");
+      const coachTeams = await storage.getCoachTeams(userId, "coach");
+      let totalAssigned = 0;
+      let completedAssigned = 0;
+      for (const team of [...groups, ...coachTeams]) {
+        const assignments = await storage.getTeamAssignments(team.id);
+        const playerAssignments = assignments.filter(a => a.assignedTo === player.linkedUserId || (!a.assignedTo && a.teamId));
+        totalAssigned += playerAssignments.length;
+        completedAssigned += playerAssignments.filter(a => a.status === "completed").length;
+      }
+
+      res.json({
+        totalSessions,
+        totalMinutes,
+        averageScore,
+        personalRecordsCount: 0,
+        weeklyActivity,
+        categoryBreakdown,
+        recentLogs,
+        assignmentCompletion: {
+          total: totalAssigned,
+          completed: completedAssigned,
+          rate: totalAssigned > 0 ? Math.round((completedAssigned / totalAssigned) * 100) : 0,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching player progress:", error);
+      res.status(500).json({ message: "Failed to fetch player progress" });
+    }
+  });
+
   // ===== TRAINING LOGS =====
 
   // Get user's training logs with metrics

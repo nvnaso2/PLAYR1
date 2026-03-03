@@ -64,14 +64,13 @@ const playerNavItems = [
 ];
 
 const trainerNavItems = [
-  { title: "Dashboard", url: "/trainer", icon: Settings },
-  { title: "Roster", url: "/trainer/roster", icon: Shield },
-  { title: "My Players", url: "/trainer/players", icon: Users },
-  { title: "Assignments", url: "/trainer/assignments", icon: ClipboardList },
+  { title: "Home", url: "/trainer", icon: BarChart3 },
+  { title: "Roster", url: "/trainer/roster", icon: Users },
+  { title: "Drills & Workouts", url: "/trainer/drills", icon: Dumbbell },
   { title: "Training Logs", url: "/trainer/logs", icon: FileText },
+  { title: "Videos", url: "/trainer/videos", icon: Video },
   { title: "Chat", url: "/trainer/chat", icon: MessageCircle },
-  { title: "Player Videos", url: "/trainer/videos", icon: Video },
-  { title: "Invite Players", url: "/trainer/invite", icon: Mail },
+  { title: "Player Progress", url: "/trainer/progress", icon: Target },
 ];
 
 const categoryItems = [
