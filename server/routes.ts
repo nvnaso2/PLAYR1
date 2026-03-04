@@ -4204,7 +4204,7 @@ export async function registerRoutes(
       const userId = req.user.claims.sub;
       const { headline, bio, specialties, city, state, hourlyRate, sessionTypes,
               experienceYears, certifications, availability, contactEmail,
-              contactPhone, socialInstagram, socialTwitter, website, isPublic } = req.body;
+              contactPhone, socialInstagram, socialTwitter, website, isPublic, profilePhotoUrl } = req.body;
       const data: any = {
         userId,
         headline: headline || null,
@@ -4223,6 +4223,7 @@ export async function registerRoutes(
         socialTwitter: socialTwitter || null,
         website: website || null,
         isPublic: !!isPublic,
+        profilePhotoUrl: profilePhotoUrl || null,
       };
       if (isNaN(data.hourlyRate as number)) data.hourlyRate = null;
       if (isNaN(data.experienceYears as number)) data.experienceYears = null;
