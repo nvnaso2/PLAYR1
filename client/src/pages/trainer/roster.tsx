@@ -439,7 +439,7 @@ function PlayerDetailPanel({ player, open, onClose }: { player: TrainerPlayerDat
 export default function TrainerRoster() {
   const { toast } = useToast();
 
-  const [activePanel, setActivePanel] = useState<"teams" | "groups">("teams");
+  const [activePanel, setActivePanel] = useState<"teams" | "groups" | "players">("teams");
   const [selectedTeam, setSelectedTeam] = useState<CoachTeam | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<TrainerGroup | null>(null);
 
@@ -1263,8 +1263,8 @@ export default function TrainerRoster() {
         </div>
       </div>
 
-      <Tabs value={activePanel} onValueChange={(v) => { setActivePanel(v as "teams" | "groups"); setSelectedTeam(null); setSelectedGroup(null); }}>
-        <div className="flex items-center gap-2">
+      <Tabs value={activePanel} onValueChange={(v) => { setActivePanel(v as "teams" | "groups" | "players"); setSelectedTeam(null); setSelectedGroup(null); }}>
+        <div className="flex items-center gap-2 flex-wrap">
           <TabsList data-testid="tabs-roster-type">
             <TabsTrigger value="teams" data-testid="tab-teams">
               <Shield className="w-4 h-4 mr-1" />
@@ -1274,19 +1274,43 @@ export default function TrainerRoster() {
               <Users className="w-4 h-4 mr-1" />
               Groups
             </TabsTrigger>
+            <TabsTrigger value="players" data-testid="tab-players">
+              <UserCheck className="w-4 h-4 mr-1" />
+              All Players
+            </TabsTrigger>
           </TabsList>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              if (activePanel === "teams") { resetTeamForm(); setEditTeamId(null); setCreateTeamOpen(true); }
-              else { resetGroupForm(); setEditGroupId(null); setCreateGroupOpen(true); }
-            }}
-            data-testid="button-create-team-or-group"
-          >
-            <Plus className="w-4 h-4" />
-            New {activePanel === "teams" ? "Team" : "Group"}
-          </Button>
+          {activePanel === "teams" && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => { resetTeamForm(); setEditTeamId(null); setCreateTeamOpen(true); }}
+              data-testid="button-create-team"
+            >
+              <Plus className="w-4 h-4" />
+              New Team
+            </Button>
+          )}
+          {activePanel === "groups" && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => { resetGroupForm(); setEditGroupId(null); setCreateGroupOpen(true); }}
+              data-testid="button-create-group"
+            >
+              <Plus className="w-4 h-4" />
+              New Group
+            </Button>
+          )}
+          {activePanel === "players" && (
+            <Button
+              size="sm"
+              onClick={() => { addForm.reset(); setNewPlayerTeamIds([]); setAddPlayerOpen(true); }}
+              data-testid="button-add-player-tab"
+            >
+              <Plus className="w-4 h-4" />
+              Add Player
+            </Button>
+          )}
         </div>
 
         <TabsContent value="teams" className="space-y-2 mt-3">
@@ -1530,14 +1554,10 @@ export default function TrainerRoster() {
             })
           )}
         </TabsContent>
-      </Tabs>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-2">
-          <CardTitle className="text-base" data-testid="text-all-players-heading">All Players</CardTitle>
-          <span className="text-sm text-muted-foreground">{allPlayers?.length || 0} total</span>
-        </CardHeader>
-        <CardContent className="space-y-3">
+        <TabsContent value="players" className="space-y-3 mt-3">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <span className="text-sm text-muted-foreground">{allPlayers?.length || 0} total players</span>
+          </div>
           <div className="flex items-center gap-2 flex-wrap">
             <div className="relative flex-1 min-w-[160px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -1687,8 +1707,8 @@ export default function TrainerRoster() {
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={createTeamOpen} onOpenChange={(open) => { if (!open) { setCreateTeamOpen(false); setEditTeamId(null); } }}>
         <DialogContent data-testid="dialog-create-team">

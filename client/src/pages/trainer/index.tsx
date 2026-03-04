@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,23 +14,22 @@ import {
   Plus,
   Dumbbell,
   Clock,
-  CheckCircle,
-  Circle,
   Calendar,
   ArrowRight,
+  Activity,
 } from "lucide-react";
 
-interface TrainerPlayerData {
-  id: string;
-  trainerId: string;
-  firstName: string;
-  lastName: string | null;
-  email: string | null;
-  groups: Array<{ id: string; groupId: string; groupName: string }>;
-  teams: Array<{ id: string; teamId: string; teamName: string }>;
+interface OverviewData {
+  totalPlayers: number;
+  totalTeams: number;
+  totalAssignments: number;
+  activeAssignments: number;
+  recentLogsCount: number;
+  unreadMessages: number;
+  recentActivity: RecentActivityItem[];
 }
 
-interface TrainingLogEntry {
+interface RecentActivityItem {
   id: string;
   drillId: string;
   drillTitle?: string;
@@ -40,46 +38,7 @@ interface TrainingLogEntry {
   notes?: string;
   completedAt: string;
   playerName: string;
-  playerId: string;
-  groupId?: string;
-  groupName?: string;
-}
-
-interface Assignment {
-  id: string;
-  drillId: string;
-  drillTitle: string;
-  teamId: string;
-  assignedBy: string;
-  dueDate?: string;
-  notes?: string;
-  status: string;
-  createdAt: string;
-}
-
-interface Conversation {
-  partnerId: string;
-  partnerName: string;
-  partnerImage?: string;
-  lastMessage: string;
-  lastMessageAt: string;
-  unreadCount: number;
-}
-
-interface TrainerGroup {
-  id: string;
-  name: string;
-  description: string;
-  teamCode: string;
-  memberCount?: number;
-}
-
-interface CoachTeam {
-  id: string;
-  name: string;
-  description: string;
-  teamCode: string;
-  memberCount: number;
+  teamName?: string;
 }
 
 function StatCard({
@@ -112,114 +71,22 @@ function StatCard({
   );
 }
 
+function ActivitySkeleton() {
+  return (
+    <div className="space-y-2">
+      {[1, 2, 3].map((i) => (
+        <Skeleton key={i} className="h-14 w-full" />
+      ))}
+    </div>
+  );
+}
+
 export default function TrainerDashboard() {
-  const { data: players, isLoading: playersLoading } = useQuery<TrainerPlayerData[]>({
-    queryKey: ["/api/trainer-players"],
+  const { data: overview, isLoading } = useQuery<OverviewData>({
+    queryKey: ["/api/trainer/overview"],
   });
 
-  const { data: trainingLogs, isLoading: logsLoading } = useQuery<TrainingLogEntry[]>({
-    queryKey: ["/api/trainer/all-training-logs"],
-  });
-
-  const { data: conversations, isLoading: convosLoading } = useQuery<Conversation[]>({
-    queryKey: ["/api/messages/conversations"],
-  });
-
-  const { data: groups } = useQuery<TrainerGroup[]>({
-    queryKey: ["/api/trainer/groups"],
-  });
-
-  const { data: coachTeams } = useQuery<CoachTeam[]>({
-    queryKey: ["/api/coach/teams"],
-  });
-
-  const allEntityIds = useMemo(() => {
-    const ids = new Set<string>();
-    groups?.forEach((g) => ids.add(g.id));
-    coachTeams?.forEach((t) => ids.add(t.id));
-    return Array.from(ids);
-  }, [groups, coachTeams]);
-
-  const { data: assignmentsByGroup, isLoading: assignmentsLoading } = useQuery<
-    Record<string, Assignment[]>
-  >({
-    queryKey: ["/api/trainer/all-assignments", allEntityIds.join(",")],
-    queryFn: async () => {
-      const results: Record<string, Assignment[]> = {};
-      if (!allEntityIds.length) return {};
-      await Promise.all(
-        allEntityIds.map(async (entityId) => {
-          const res = await fetch(`/api/trainer/groups/${entityId}/assignments`, {
-            credentials: "include",
-          });
-          if (!res.ok) return;
-          results[entityId] = await res.json();
-        })
-      );
-      return results;
-    },
-    enabled: allEntityIds.length > 0,
-  });
-
-  const totalPlayers = players?.length || 0;
-
-  const activeAssignments = useMemo(() => {
-    if (!assignmentsByGroup) return 0;
-    let count = 0;
-    Object.values(assignmentsByGroup).forEach((assigns) => {
-      count += assigns.filter((a) => a.status !== "completed").length;
-    });
-    return count;
-  }, [assignmentsByGroup]);
-
-  const recentLogs7Days = useMemo(() => {
-    if (!trainingLogs) return 0;
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    return trainingLogs.filter(
-      (log) => new Date(log.completedAt) >= sevenDaysAgo
-    ).length;
-  }, [trainingLogs]);
-
-  const unreadMessages = useMemo(() => {
-    if (!conversations) return 0;
-    return conversations.reduce((sum, c) => sum + c.unreadCount, 0);
-  }, [conversations]);
-
-  const recentTrainingLogs = useMemo(() => {
-    if (!trainingLogs) return [];
-    return trainingLogs.slice(0, 5);
-  }, [trainingLogs]);
-
-  const recentAssignments = useMemo(() => {
-    if (!assignmentsByGroup) return [];
-    const all: { assignment: Assignment; groupName: string }[] = [];
-    Object.entries(assignmentsByGroup).forEach(([entityId, assigns]) => {
-      const group = groups?.find((g) => g.id === entityId);
-      const team = coachTeams?.find((t) => t.id === entityId);
-      const name = group?.name || team?.name || "Unknown";
-      assigns.forEach((a) => all.push({ assignment: a, groupName: name }));
-    });
-    all.sort(
-      (a, b) =>
-        new Date(b.assignment.createdAt).getTime() -
-        new Date(a.assignment.createdAt).getTime()
-    );
-    return all.slice(0, 5);
-  }, [assignmentsByGroup, groups, coachTeams]);
-
-  const statusIcon = (status: string) => {
-    switch (status) {
-      case "completed":
-        return <CheckCircle className="w-4 h-4 text-green-500" />;
-      case "in-progress":
-        return <Clock className="w-4 h-4 text-yellow-500" />;
-      default:
-        return <Circle className="w-4 h-4 text-muted-foreground" />;
-    }
-  };
-
-  const isLoading = playersLoading || logsLoading || convosLoading || assignmentsLoading;
+  const recentActivity = overview?.recentActivity ?? [];
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto">
@@ -237,30 +104,30 @@ export default function TrainerDashboard() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard
           title="Total Players"
-          value={totalPlayers}
+          value={overview?.totalPlayers ?? 0}
           icon={Users}
-          loading={playersLoading}
+          loading={isLoading}
           testId="card-stat-players"
         />
         <StatCard
           title="Active Assignments"
-          value={activeAssignments}
+          value={overview?.activeAssignments ?? 0}
           icon={ClipboardList}
-          loading={assignmentsLoading}
+          loading={isLoading}
           testId="card-stat-assignments"
         />
         <StatCard
           title="Logs (7 days)"
-          value={recentLogs7Days}
+          value={overview?.recentLogsCount ?? 0}
           icon={FileText}
-          loading={logsLoading}
+          loading={isLoading}
           testId="card-stat-logs"
         />
         <StatCard
           title="Unread Messages"
-          value={unreadMessages}
+          value={overview?.unreadMessages ?? 0}
           icon={MessageCircle}
-          loading={convosLoading}
+          loading={isLoading}
           testId="card-stat-messages"
         />
       </div>
@@ -286,126 +153,69 @@ export default function TrainerDashboard() {
         </Button>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-4">
-        <Card data-testid="card-recent-logs">
-          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-            <CardTitle className="text-base font-semibold">Recent Training Logs</CardTitle>
-            <Button variant="ghost" size="sm" asChild data-testid="link-view-all-logs">
-              <Link href="/trainer/logs">
-                View All
-                <ArrowRight className="w-3 h-3 ml-1" />
-              </Link>
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {logsLoading ? (
-              <div className="space-y-2">
-                {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-14 w-full" />
-                ))}
-              </div>
-            ) : recentTrainingLogs.length === 0 ? (
-              <div className="py-6 text-center text-muted-foreground">
-                <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">No training logs yet</p>
-              </div>
-            ) : (
-              recentTrainingLogs.map((log) => (
-                <div
-                  key={log.id}
-                  className="flex items-start gap-3 p-3 rounded-md bg-muted/50"
-                  data-testid={`item-log-${log.id}`}
-                >
-                  <Avatar className="h-8 w-8 shrink-0">
-                    <AvatarFallback className="text-xs">
-                      {log.playerName
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")
-                        .slice(0, 2)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate" data-testid={`text-log-player-${log.id}`}>
-                      {log.playerName}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {log.drillTitle || "Drill"} &middot; {log.duration} min
-                      {log.score != null && ` &middot; Score: ${log.score}`}
-                    </p>
-                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      {log.groupName && (
-                        <Badge variant="secondary" className="no-default-hover-elevate text-[10px]">
-                          {log.groupName}
-                        </Badge>
-                      )}
-                      <span className="text-[10px] text-muted-foreground">
-                        <Calendar className="w-3 h-3 inline mr-0.5" />
-                        {new Date(log.completedAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-
-        <Card data-testid="card-recent-assignments">
-          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-            <CardTitle className="text-base font-semibold">Recent Assignments</CardTitle>
-            <Button variant="ghost" size="sm" asChild data-testid="link-view-all-assignments">
-              <Link href="/trainer/drills">
-                View All
-                <ArrowRight className="w-3 h-3 ml-1" />
-              </Link>
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {assignmentsLoading ? (
-              <div className="space-y-2">
-                {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-14 w-full" />
-                ))}
-              </div>
-            ) : recentAssignments.length === 0 ? (
-              <div className="py-6 text-center text-muted-foreground">
-                <ClipboardList className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">No assignments yet</p>
-              </div>
-            ) : (
-              recentAssignments.map(({ assignment, groupName }) => (
-                <div
-                  key={assignment.id}
-                  className="flex items-start gap-3 p-3 rounded-md bg-muted/50"
-                  data-testid={`item-assignment-${assignment.id}`}
-                >
-                  {statusIcon(assignment.status)}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate" data-testid={`text-assignment-title-${assignment.id}`}>
-                      {assignment.drillTitle}
-                    </p>
-                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+      <Card data-testid="card-recent-activity">
+        <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+          <CardTitle className="text-base font-semibold">Recent Activity</CardTitle>
+          <Button variant="ghost" size="sm" asChild data-testid="link-view-all-logs">
+            <Link href="/trainer/logs">
+              View All
+              <ArrowRight className="w-3 h-3 ml-1" />
+            </Link>
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {isLoading ? (
+            <ActivitySkeleton />
+          ) : recentActivity.length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground">
+              <Activity className="w-8 h-8 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">No recent activity yet</p>
+              <p className="text-xs mt-1">Training logs from your players will appear here</p>
+            </div>
+          ) : (
+            recentActivity.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-start gap-3 p-3 rounded-md bg-muted/50"
+                data-testid={`item-activity-${item.id}`}
+              >
+                <Avatar className="h-8 w-8 shrink-0">
+                  <AvatarFallback className="text-xs">
+                    {item.playerName
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")
+                      .slice(0, 2)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate" data-testid={`text-activity-player-${item.id}`}>
+                    {item.playerName}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {item.drillTitle || "Drill"}
+                    {item.duration > 0 && <span> &middot; {item.duration} min</span>}
+                    {item.score != null && <span> &middot; Score: {item.score}</span>}
+                  </p>
+                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                    {item.teamName && (
                       <Badge variant="secondary" className="no-default-hover-elevate text-[10px]">
-                        {groupName}
+                        {item.teamName}
                       </Badge>
-                      <span className="text-xs text-muted-foreground capitalize">
-                        {assignment.status}
+                    )}
+                    {item.completedAt && (
+                      <span className="text-[10px] text-muted-foreground">
+                        <Clock className="w-3 h-3 inline mr-0.5" />
+                        {new Date(item.completedAt).toLocaleDateString()}
                       </span>
-                    </div>
-                    {assignment.dueDate && (
-                      <p className="text-[10px] text-muted-foreground mt-0.5">
-                        <Calendar className="w-3 h-3 inline mr-0.5" />
-                        Due: {new Date(assignment.dueDate).toLocaleDateString()}
-                      </p>
                     )}
                   </div>
                 </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-      </div>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

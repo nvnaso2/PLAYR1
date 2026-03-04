@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +12,9 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Save, Eye, EyeOff, DollarSign, MapPin, Clock, Award, Globe, Instagram, Twitter, Mail, Phone, X } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Save, Eye, EyeOff, DollarSign, MapPin, Clock, Award, Globe, Instagram, Twitter, Mail, Phone, X, Star } from "lucide-react";
 import { US_STATES, TRAINER_SPECIALTIES, TRAINER_SESSION_TYPES } from "@shared/schema";
 
 type TrainerProfileData = {
@@ -38,6 +41,8 @@ type TrainerProfileData = {
 
 export default function TrainerProfilePage() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const [showPreview, setShowPreview] = useState(false);
   const [headline, setHeadline] = useState("");
   const [bio, setBio] = useState("");
   const [specialties, setSpecialties] = useState<string[]>([]);
@@ -163,6 +168,10 @@ export default function TrainerProfilePage() {
               data-testid="switch-profile-public"
             />
           </div>
+          <Button variant="outline" onClick={() => setShowPreview(true)} data-testid="button-preview-profile">
+            <Eye className="w-4 h-4" />
+            Preview
+          </Button>
           <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} data-testid="button-save-profile">
             <Save className="w-4 h-4" />
             {saveMutation.isPending ? "Saving..." : "Save Profile"}
@@ -436,6 +445,139 @@ export default function TrainerProfilePage() {
           {saveMutation.isPending ? "Saving..." : "Save Profile"}
         </Button>
       </div>
+
+      <Sheet open={showPreview} onOpenChange={setShowPreview}>
+        <SheetContent className="overflow-y-auto sm:max-w-lg" data-testid="sheet-profile-preview">
+          <div className="space-y-6 pb-6">
+            <SheetHeader>
+              <div className="flex items-start gap-4">
+                <Avatar className="h-16 w-16 shrink-0">
+                  <AvatarFallback className="text-xl bg-primary/10 text-primary">
+                    {(user?.firstName?.[0] || "") + (user?.lastName?.[0] || "") || "T"}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0">
+                  <SheetTitle className="text-left" data-testid="text-preview-name">
+                    {[user?.firstName, user?.lastName].filter(Boolean).join(" ") || "Trainer"}
+                  </SheetTitle>
+                  {headline && (
+                    <p className="text-sm text-muted-foreground mt-0.5">{headline}</p>
+                  )}
+                  {city && state && (
+                    <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                      <MapPin className="w-3 h-3" />
+                      {city}, {state}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </SheetHeader>
+
+            <div className="flex items-center gap-4 flex-wrap text-sm">
+              {hourlyRate && (
+                <span className="flex items-center gap-1 font-medium">
+                  <DollarSign className="w-4 h-4 text-primary" />
+                  ${hourlyRate}/hr
+                </span>
+              )}
+              {experienceYears && (
+                <span className="flex items-center gap-1">
+                  <Star className="w-4 h-4 text-yellow-500" />
+                  {experienceYears} years experience
+                </span>
+              )}
+            </div>
+
+            {specialties.length > 0 && (
+              <div>
+                <h4 className="text-sm font-semibold mb-2">Specialties</h4>
+                <div className="flex flex-wrap gap-1.5">
+                  {specialties.map(s => (
+                    <Badge key={s} variant="secondary" className="no-default-hover-elevate">{s}</Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {sessionTypes.length > 0 && (
+              <div>
+                <h4 className="text-sm font-semibold mb-2">Session Types</h4>
+                <div className="flex flex-wrap gap-1.5">
+                  {sessionTypes.map(s => (
+                    <Badge key={s} variant="outline" className="no-default-hover-elevate">{s}</Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {bio && (
+              <div>
+                <h4 className="text-sm font-semibold mb-2">About</h4>
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{bio}</p>
+              </div>
+            )}
+
+            {availability && (
+              <div>
+                <h4 className="text-sm font-semibold mb-2">Availability</h4>
+                <p className="text-sm text-muted-foreground flex items-center gap-1">
+                  <Clock className="w-4 h-4" />
+                  {availability}
+                </p>
+              </div>
+            )}
+
+            {certifications && (
+              <div>
+                <h4 className="text-sm font-semibold mb-2">Certifications</h4>
+                <p className="text-sm text-muted-foreground flex items-center gap-1">
+                  <Award className="w-4 h-4" />
+                  {certifications}
+                </p>
+              </div>
+            )}
+
+            {(contactEmail || contactPhone || socialInstagram || socialTwitter || website) && (
+              <div>
+                <h4 className="text-sm font-semibold mb-2">Contact</h4>
+                <div className="space-y-2 text-sm">
+                  {contactEmail && (
+                    <a href={`mailto:${contactEmail}`} className="flex items-center gap-2 text-primary hover:underline">
+                      <Mail className="w-4 h-4" /> {contactEmail}
+                    </a>
+                  )}
+                  {contactPhone && (
+                    <a href={`tel:${contactPhone}`} className="flex items-center gap-2 text-primary hover:underline">
+                      <Phone className="w-4 h-4" /> {contactPhone}
+                    </a>
+                  )}
+                  {socialInstagram && (
+                    <p className="flex items-center gap-2 text-muted-foreground">
+                      <Instagram className="w-4 h-4" /> {socialInstagram}
+                    </p>
+                  )}
+                  {socialTwitter && (
+                    <p className="flex items-center gap-2 text-muted-foreground">
+                      <Twitter className="w-4 h-4" /> {socialTwitter}
+                    </p>
+                  )}
+                  {website && (
+                    <a href={website.startsWith("http") ? website : `https://${website}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-primary hover:underline">
+                      <Globe className="w-4 h-4" /> {website}
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {!isPublic && (
+              <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-600 dark:text-yellow-400">
+                This profile is currently hidden. Toggle "Public" to appear in the Find a Trainer directory.
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

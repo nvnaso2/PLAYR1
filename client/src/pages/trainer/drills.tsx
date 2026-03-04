@@ -32,6 +32,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -54,6 +61,7 @@ import {
   Clock,
   Edit2,
   BookOpen,
+  Info,
 } from "lucide-react";
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS } from "@shared/schema";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -205,6 +213,7 @@ function AllDrillsSection() {
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
+  const [detailDrill, setDetailDrill] = useState<DrillItem | null>(null);
   const [quickAssignDrillId, setQuickAssignDrillId] = useState<string | null>(null);
   const [quickAssignGroupId, setQuickAssignGroupId] = useState("");
   const [quickAssignDueDate, setQuickAssignDueDate] = useState("");
@@ -328,7 +337,8 @@ function AllDrillsSection() {
           {filteredDrills.map((drill) => (
             <div
               key={drill.id}
-              className="flex items-center justify-between gap-2 p-3 rounded-md border bg-card"
+              className="flex items-center justify-between gap-2 p-3 rounded-md border bg-card cursor-pointer hover-elevate"
+              onClick={() => setDetailDrill(drill)}
               data-testid={`row-all-drill-${drill.id}`}
             >
               <div className="min-w-0 flex-1">
@@ -349,7 +359,7 @@ function AllDrillsSection() {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => setQuickAssignDrillId(drill.id)}
+                onClick={(e) => { e.stopPropagation(); setQuickAssignDrillId(drill.id); }}
                 data-testid={`button-quick-assign-${drill.id}`}
               >
                 <ClipboardList className="w-3 h-3 mr-1" /> Assign
@@ -358,6 +368,52 @@ function AllDrillsSection() {
           ))}
         </div>
       )}
+
+      <Sheet open={!!detailDrill} onOpenChange={(o) => !o && setDetailDrill(null)}>
+        <SheetContent data-testid="sheet-drill-detail">
+          <SheetHeader>
+            <SheetTitle data-testid="text-drill-detail-title">{detailDrill?.title}</SheetTitle>
+            <SheetDescription>Drill details</SheetDescription>
+          </SheetHeader>
+          {detailDrill && (
+            <div className="space-y-4 mt-4">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge variant="outline" className="no-default-hover-elevate">
+                  {detailDrill.category.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
+                </Badge>
+                <Badge variant="secondary" className="no-default-hover-elevate">
+                  {detailDrill.difficulty.charAt(0).toUpperCase() + detailDrill.difficulty.slice(1)}
+                </Badge>
+                {getSourceBadge(detailDrill)}
+              </div>
+              {detailDrill.description && (
+                <div>
+                  <p className="text-sm font-medium mb-1">Description</p>
+                  <p className="text-sm text-muted-foreground" data-testid="text-drill-detail-description">{detailDrill.description}</p>
+                </div>
+              )}
+              {detailDrill.duration && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Clock className="w-4 h-4 text-muted-foreground" />
+                  <span data-testid="text-drill-detail-duration">{detailDrill.duration} seconds</span>
+                </div>
+              )}
+              <div className="pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setQuickAssignDrillId(detailDrill.id);
+                    setDetailDrill(null);
+                  }}
+                  data-testid="button-detail-assign"
+                >
+                  <ClipboardList className="w-4 h-4 mr-2" /> Assign This Drill
+                </Button>
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
 
       <Dialog open={!!quickAssignDrillId} onOpenChange={(o) => !o && setQuickAssignDrillId(null)}>
         <DialogContent data-testid="dialog-quick-assign">

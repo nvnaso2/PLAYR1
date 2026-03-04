@@ -329,7 +329,29 @@ function MyVideosSection() {
           {trainerContentVideos.map((video) => (
             <Card key={video.id} data-testid={`card-trainer-video-${video.id}`}>
               <CardContent className="py-3">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  {video.thumbnailUrl && (
+                    <div
+                      className="w-16 h-12 rounded-md overflow-hidden bg-muted shrink-0 cursor-pointer"
+                      onClick={() => setPlayVideoUrl(video.videoUrl)}
+                      data-testid={`thumbnail-trainer-video-${video.id}`}
+                    >
+                      <img
+                        src={video.thumbnailUrl}
+                        alt={video.title}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
+                  {!video.thumbnailUrl && (
+                    <div
+                      className="w-16 h-12 rounded-md overflow-hidden bg-muted shrink-0 flex items-center justify-center cursor-pointer"
+                      onClick={() => setPlayVideoUrl(video.videoUrl)}
+                      data-testid={`thumbnail-trainer-video-${video.id}`}
+                    >
+                      <Video className="w-6 h-6 text-muted-foreground" />
+                    </div>
+                  )}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3
@@ -751,6 +773,8 @@ function PlayerVideosSection() {
   const [positionFilter, setPositionFilter] = useState<string>("all");
   const [ageFilter, setAgeFilter] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("all");
+  const [playVideoUrl, setPlayVideoUrl] = useState<string | null>(null);
+  const [playVideoTitle, setPlayVideoTitle] = useState<string>("");
 
   const { data: groups } = useQuery<TrainerGroup[]>({
     queryKey: ["/api/trainer/groups"],
@@ -946,14 +970,15 @@ function PlayerVideosSection() {
                   <Button
                     size="sm"
                     variant="ghost"
-                    asChild
                     className="shrink-0"
+                    onClick={() => {
+                      setPlayVideoUrl(video.videoUrl);
+                      setPlayVideoTitle(video.title);
+                    }}
                     data-testid={`button-watch-video-${video.id}`}
                   >
-                    <a href={video.videoUrl} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="w-3 h-3" />
-                      Watch
-                    </a>
+                    <Play className="w-3 h-3" />
+                    Watch
                   </Button>
                 </div>
               </CardContent>
@@ -961,6 +986,32 @@ function PlayerVideosSection() {
           ))}
         </div>
       )}
+
+      <Dialog
+        open={!!playVideoUrl}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPlayVideoUrl(null);
+            setPlayVideoTitle("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl" data-testid="dialog-play-player-video">
+          <DialogHeader>
+            <DialogTitle>{playVideoTitle || "Video Player"}</DialogTitle>
+            <DialogDescription>Player submitted video</DialogDescription>
+          </DialogHeader>
+          {playVideoUrl && (
+            <video
+              src={playVideoUrl}
+              controls
+              autoPlay
+              className="w-full rounded-md max-h-[60vh]"
+              data-testid="video-player-submission"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
