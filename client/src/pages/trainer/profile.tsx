@@ -237,49 +237,51 @@ export default function TrainerProfilePage() {
     <div className="h-full overflow-y-auto">
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 space-y-8">
 
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-center gap-5">
-            <Avatar className="h-20 w-20 sm:h-24 sm:w-24 border-2 border-border shadow-sm shrink-0" data-testid="img-profile-photo">
-              <AvatarImage src={photoSrc} className="object-cover" />
-              <AvatarFallback className="text-2xl sm:text-3xl bg-muted text-muted-foreground font-semibold">
-                {initials || <User className="w-8 h-8" />}
-              </AvatarFallback>
-            </Avatar>
-            <div className="min-w-0">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight" data-testid="text-profile-name">{trainerName}</h1>
-              {p?.headline && (
-                <p className="text-sm text-muted-foreground mt-0.5 leading-snug" data-testid="text-profile-headline">
-                  {p.headline}
-                </p>
-              )}
-              <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-                {p?.city && p.state && (
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground" data-testid="text-profile-location">
-                    <MapPin className="w-3.5 h-3.5" /> {p.city}, {p.state}
-                  </span>
+        <div className="rounded-xl border border-border bg-card p-5 sm:p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-5">
+              <Avatar className="h-20 w-20 sm:h-24 sm:w-24 ring-2 ring-primary/30 ring-offset-2 ring-offset-background shadow-md shrink-0" data-testid="img-profile-photo">
+                <AvatarImage src={photoSrc} className="object-cover" />
+                <AvatarFallback className="text-2xl sm:text-3xl bg-primary/10 text-primary font-bold">
+                  {initials || <User className="w-8 h-8" />}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0">
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground" data-testid="text-profile-name">{trainerName}</h1>
+                {p?.headline && (
+                  <p className="text-sm text-muted-foreground mt-1 leading-snug max-w-md" data-testid="text-profile-headline">
+                    {p.headline}
+                  </p>
                 )}
-                {p?.isPublic ? (
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 border-green-500/40 text-green-500 no-default-hover-elevate" data-testid="badge-profile-public">
-                    <Eye className="w-2.5 h-2.5 mr-0.5" /> Public
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 no-default-hover-elevate" data-testid="badge-profile-hidden">
-                    <EyeOff className="w-2.5 h-2.5 mr-0.5" /> Hidden
-                  </Badge>
-                )}
+                <div className="flex items-center gap-3 mt-2 flex-wrap">
+                  {p?.city && p.state && (
+                    <span className="flex items-center gap-1 text-xs text-foreground/70" data-testid="text-profile-location">
+                      <MapPin className="w-3.5 h-3.5 text-primary" /> {p.city}, {p.state}
+                    </span>
+                  )}
+                  {p?.isPublic ? (
+                    <Badge className="text-[10px] px-2 py-0.5 h-5 bg-green-500/15 text-green-400 border border-green-500/30 no-default-hover-elevate" data-testid="badge-profile-public">
+                      <Eye className="w-2.5 h-2.5 mr-1" /> Public
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-[10px] px-2 py-0.5 h-5 border-border text-muted-foreground no-default-hover-elevate" data-testid="badge-profile-hidden">
+                      <EyeOff className="w-2.5 h-2.5 mr-1" /> Hidden
+                    </Badge>
+                  )}
+                </div>
               </div>
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => { if (p) populateForm(p); setShowEditor(true); }}
+              className="shrink-0 border-border"
+              data-testid="button-edit-profile"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Edit</span>
+            </Button>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => { if (p) populateForm(p); setShowEditor(true); }}
-            className="shrink-0"
-            data-testid="button-edit-profile"
-          >
-            <Pencil className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Edit</span>
-          </Button>
         </div>
 
         {!hasProfile && (
@@ -300,103 +302,103 @@ export default function TrainerProfilePage() {
         {hasProfile && (
           <>
             {(p?.hourlyRate || p?.experienceYears || p?.certifications) && (
-              <div className="flex items-center gap-5 flex-wrap" data-testid="group-profile-highlights">
+              <div className="rounded-xl border border-border bg-card p-4 sm:p-5 flex items-center gap-6 flex-wrap" data-testid="group-profile-highlights">
                 {p.hourlyRate && (
                   <div className="text-center" data-testid="text-profile-rate">
-                    <p className="text-lg sm:text-xl font-bold text-primary">${p.hourlyRate}</p>
-                    <p className="text-[11px] text-muted-foreground uppercase tracking-wider">per hour</p>
+                    <p className="text-2xl font-bold text-primary">${p.hourlyRate}</p>
+                    <p className="text-[11px] text-foreground/50 uppercase tracking-wider font-medium mt-0.5">per hour</p>
                   </div>
                 )}
                 {p.hourlyRate && p.experienceYears && (
-                  <Separator orientation="vertical" className="h-10" />
+                  <Separator orientation="vertical" className="h-12 bg-border" />
                 )}
                 {p.experienceYears && (
                   <div className="text-center" data-testid="text-profile-experience">
-                    <p className="text-lg sm:text-xl font-bold">{p.experienceYears}</p>
-                    <p className="text-[11px] text-muted-foreground uppercase tracking-wider">years exp</p>
+                    <p className="text-2xl font-bold text-foreground">{p.experienceYears}</p>
+                    <p className="text-[11px] text-foreground/50 uppercase tracking-wider font-medium mt-0.5">years exp</p>
                   </div>
                 )}
                 {(p.hourlyRate || p.experienceYears) && p.certifications && (
-                  <Separator orientation="vertical" className="h-10" />
+                  <Separator orientation="vertical" className="h-12 bg-border" />
                 )}
                 {p.certifications && (
-                  <div className="flex items-center gap-1.5" data-testid="text-profile-certifications">
-                    <Award className="w-4 h-4 text-primary shrink-0" />
-                    <p className="text-sm">{p.certifications}</p>
+                  <div className="flex items-center gap-2" data-testid="text-profile-certifications">
+                    <Award className="w-5 h-5 text-primary shrink-0" />
+                    <p className="text-sm font-medium text-foreground">{p.certifications}</p>
                   </div>
                 )}
               </div>
             )}
 
             {p?.bio && (
-              <div>
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">About</h3>
-                <p className="text-sm leading-relaxed whitespace-pre-wrap" data-testid="text-profile-bio">{p.bio}</p>
+              <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
+                <h3 className="text-xs font-bold text-foreground/60 uppercase tracking-wider mb-3">About</h3>
+                <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap" data-testid="text-profile-bio">{p.bio}</p>
               </div>
             )}
 
             {(p?.specialties && p.specialties.length > 0) && (
-              <div>
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Specialties</h3>
-                <div className="flex flex-wrap gap-1.5" data-testid="group-profile-specialties">
+              <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
+                <h3 className="text-xs font-bold text-foreground/60 uppercase tracking-wider mb-3">Specialties</h3>
+                <div className="flex flex-wrap gap-2" data-testid="group-profile-specialties">
                   {p.specialties.map(s => (
-                    <Badge key={s} variant="secondary" className="no-default-hover-elevate text-xs font-normal">{s}</Badge>
+                    <Badge key={s} className="no-default-hover-elevate text-xs font-medium bg-primary/15 text-primary border border-primary/20 hover:bg-primary/15">{s}</Badge>
                   ))}
                 </div>
               </div>
             )}
 
             {(p?.sessionTypes && p.sessionTypes.length > 0) && (
-              <div>
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Session Types</h3>
-                <div className="flex flex-wrap gap-1.5" data-testid="group-profile-session-types">
+              <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
+                <h3 className="text-xs font-bold text-foreground/60 uppercase tracking-wider mb-3">Session Types</h3>
+                <div className="flex flex-wrap gap-2" data-testid="group-profile-session-types">
                   {p.sessionTypes.map(s => (
-                    <Badge key={s} variant="outline" className="no-default-hover-elevate text-xs font-normal">{s}</Badge>
+                    <Badge key={s} variant="outline" className="no-default-hover-elevate text-xs font-medium border-border text-foreground/80">{s}</Badge>
                   ))}
                 </div>
               </div>
             )}
 
             {(availDays.length > 0 || (p?.availability && !p.availability.startsWith("["))) && (
-              <div>
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Availability</h3>
+              <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
+                <h3 className="text-xs font-bold text-foreground/60 uppercase tracking-wider mb-3">Availability</h3>
                 {availDays.length > 0 ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5" data-testid="text-profile-availability">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2" data-testid="text-profile-availability">
                     {availDays.map(d => (
-                      <div key={d.day} className="flex items-baseline gap-2 text-sm rounded-md bg-muted/50 px-3 py-2">
-                        <span className="font-medium text-xs w-8 shrink-0">{d.day.slice(0, 3)}</span>
-                        <span className="text-xs text-muted-foreground">{d.start} – {d.end}</span>
+                      <div key={d.day} className="flex items-baseline gap-2 rounded-lg border border-border bg-muted/80 px-3 py-2.5">
+                        <span className="font-semibold text-xs text-foreground w-8 shrink-0">{d.day.slice(0, 3)}</span>
+                        <span className="text-xs text-foreground/60">{d.start} – {d.end}</span>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm" data-testid="text-profile-availability">{p?.availability}</p>
+                  <p className="text-sm text-foreground/80" data-testid="text-profile-availability">{p?.availability}</p>
                 )}
               </div>
             )}
 
             {hasContact && (
-              <div>
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Contact</h3>
+              <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
+                <h3 className="text-xs font-bold text-foreground/60 uppercase tracking-wider mb-3">Contact</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {p?.contactEmail && (
-                    <a href={`mailto:${p.contactEmail}`} className="flex items-center gap-2 text-sm hover:text-primary transition-colors rounded-md bg-muted/50 px-3 py-2.5" data-testid="link-profile-email">
-                      <Mail className="w-4 h-4 text-muted-foreground shrink-0" /> {p.contactEmail}
+                    <a href={`mailto:${p.contactEmail}`} className="flex items-center gap-2.5 text-sm text-foreground hover:text-primary transition-colors rounded-lg border border-border bg-muted/60 px-3.5 py-3" data-testid="link-profile-email">
+                      <Mail className="w-4 h-4 text-primary/70 shrink-0" /> {p.contactEmail}
                     </a>
                   )}
                   {p?.contactPhone && (
-                    <a href={`tel:${p.contactPhone}`} className="flex items-center gap-2 text-sm hover:text-primary transition-colors rounded-md bg-muted/50 px-3 py-2.5" data-testid="link-profile-phone">
-                      <Phone className="w-4 h-4 text-muted-foreground shrink-0" /> {p.contactPhone}
+                    <a href={`tel:${p.contactPhone}`} className="flex items-center gap-2.5 text-sm text-foreground hover:text-primary transition-colors rounded-lg border border-border bg-muted/60 px-3.5 py-3" data-testid="link-profile-phone">
+                      <Phone className="w-4 h-4 text-primary/70 shrink-0" /> {p.contactPhone}
                     </a>
                   )}
                   {p?.socialInstagram && (
-                    <div className="flex items-center gap-2 text-sm rounded-md bg-muted/50 px-3 py-2.5" data-testid="text-profile-instagram">
-                      <Instagram className="w-4 h-4 text-muted-foreground shrink-0" /> {p.socialInstagram}
+                    <div className="flex items-center gap-2.5 text-sm text-foreground rounded-lg border border-border bg-muted/60 px-3.5 py-3" data-testid="text-profile-instagram">
+                      <Instagram className="w-4 h-4 text-primary/70 shrink-0" /> {p.socialInstagram}
                     </div>
                   )}
                   {p?.socialTwitter && (
-                    <div className="flex items-center gap-2 text-sm rounded-md bg-muted/50 px-3 py-2.5" data-testid="text-profile-twitter">
-                      <Twitter className="w-4 h-4 text-muted-foreground shrink-0" /> {p.socialTwitter}
+                    <div className="flex items-center gap-2.5 text-sm text-foreground rounded-lg border border-border bg-muted/60 px-3.5 py-3" data-testid="text-profile-twitter">
+                      <Twitter className="w-4 h-4 text-primary/70 shrink-0" /> {p.socialTwitter}
                     </div>
                   )}
                   {p?.website && (
@@ -404,10 +406,10 @@ export default function TrainerProfilePage() {
                       href={p.website.startsWith("http") ? p.website : `https://${p.website}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-sm hover:text-primary transition-colors rounded-md bg-muted/50 px-3 py-2.5"
+                      className="flex items-center gap-2.5 text-sm text-foreground hover:text-primary transition-colors rounded-lg border border-border bg-muted/60 px-3.5 py-3"
                       data-testid="link-profile-website"
                     >
-                      <ExternalLink className="w-4 h-4 text-muted-foreground shrink-0" /> {p.website}
+                      <ExternalLink className="w-4 h-4 text-primary/70 shrink-0" /> {p.website}
                     </a>
                   )}
                 </div>
