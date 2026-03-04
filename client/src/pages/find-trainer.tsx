@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,10 +11,19 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, MapPin, DollarSign, Clock, Award, Star, Mail, Phone, Globe, Instagram, Twitter, X, ChevronRight, CalendarDays } from "lucide-react";
+import { Search, MapPin, DollarSign, Clock, Award, Star, Mail, Phone, Globe, Instagram, Twitter, X, ChevronRight, CalendarDays, CheckCircle } from "lucide-react";
 import { US_STATES, TRAINER_SPECIALTIES } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+
+type TrainerLocation = {
+  id: string;
+  name: string;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  availability: string | null;
+};
 
 type DirectoryTrainer = {
   id: string;
@@ -35,7 +44,61 @@ type DirectoryTrainer = {
   socialInstagram: string | null;
   socialTwitter: string | null;
   website: string | null;
+  locations?: TrainerLocation[];
 };
+
+type TimeSlot = { start: string; end: string };
+type DayAvailability = { day: string; enabled: boolean; sessions: TimeSlot[] };
+
+const DAYS_OF_WEEK = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const;
+
+function parseAvailability(raw: string | null): DayAvailability[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((d: any) => d.enabled !== false)
+      .map((d: any) => ({
+        day: d.day,
+        enabled: d.enabled !== false,
+        sessions: Array.isArray(d.sessions) ? d.sessions : d.start && d.end ? [{ start: d.start, end: d.end }] : [],
+      }));
+  } catch {
+    return [];
+  }
+}
+
+function parseTimeToMinutes(t: string): number {
+  const match = t.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+  if (!match) return -1;
+  let h = parseInt(match[1]);
+  const m = parseInt(match[2]);
+  const ampm = match[3]?.toUpperCase();
+  if (ampm === "PM" && h < 12) h += 12;
+  if (ampm === "AM" && h === 12) h = 0;
+  return h * 60 + m;
+}
+
+function minutesToTime24(mins: number): string {
+  const h = Math.floor(mins / 60).toString().padStart(2, "0");
+  const m = (mins % 60).toString().padStart(2, "0");
+  return `${h}:${m}`;
+}
+
+function getAvailableTimeSlotsForDay(dayAvail: DayAvailability | undefined): string[] {
+  if (!dayAvail || !dayAvail.enabled) return [];
+  const slots: string[] = [];
+  for (const session of dayAvail.sessions) {
+    const startMin = parseTimeToMinutes(session.start);
+    const endMin = parseTimeToMinutes(session.end);
+    if (startMin < 0 || endMin < 0 || endMin <= startMin) continue;
+    for (let t = startMin; t < endMin; t += 15) {
+      slots.push(minutesToTime24(t));
+    }
+  }
+  return [...new Set(slots)].sort();
+}
 
 export default function FindTrainerPage() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -248,18 +311,91 @@ function formatTime(time: string) {
 
 const TIME_OPTIONS = generateTimeOptions();
 
-function TrainerDetail({ trainer }: { trainer: DirectoryTrainer }) {
+function TrainerDetail({ trainer: listTrainer }: { trainer: DirectoryTrainer }) {
+  const { data: detailTrainer } = useQuery<DirectoryTrainer>({
+    queryKey: ["/api/trainers/directory", listTrainer.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/trainers/directory/${listTrainer.id}`);
+      if (!res.ok) throw new Error("Failed to load trainer details");
+      return res.json();
+    },
+  });
+  const trainer = detailTrainer || listTrainer;
+
   const name = [trainer.firstName, trainer.lastName].filter(Boolean).join(" ") || "Trainer";
   const initials = (trainer.firstName?.[0] || "") + (trainer.lastName?.[0] || "");
   const { toast } = useToast();
 
   const [bookingOpen, setBookingOpen] = useState(false);
+  const [selectedLocationId, setSelectedLocationId] = useState("");
   const [sessionDate, setSessionDate] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [sessionType, setSessionType] = useState("");
-  const [location, setLocation] = useState("");
   const [playerNotes, setPlayerNotes] = useState("");
+
+  const locations = trainer.locations || [];
+  const hasLocations = locations.length > 0;
+
+  const selectedLocation = useMemo(() => {
+    if (!selectedLocationId) return null;
+    return locations.find(l => l.id === selectedLocationId) || null;
+  }, [selectedLocationId, locations]);
+
+  const activeAvailability = useMemo(() => {
+    if (selectedLocation?.availability) {
+      return parseAvailability(selectedLocation.availability);
+    }
+    return parseAvailability(trainer.availability);
+  }, [selectedLocation, trainer.availability]);
+
+  const availableDays = useMemo(() => {
+    return activeAvailability.map(a => a.day);
+  }, [activeAvailability]);
+
+  const selectedDayOfWeek = useMemo(() => {
+    if (!sessionDate) return null;
+    const d = new Date(sessionDate + "T12:00:00");
+    return DAYS_OF_WEEK[d.getDay()];
+  }, [sessionDate]);
+
+  const dayAvail = useMemo(() => {
+    if (!selectedDayOfWeek) return undefined;
+    return activeAvailability.find(a => a.day === selectedDayOfWeek);
+  }, [selectedDayOfWeek, activeAvailability]);
+
+  const availableTimeSlots = useMemo(() => {
+    return getAvailableTimeSlotsForDay(dayAvail);
+  }, [dayAvail]);
+
+  const endTimeOptions = useMemo(() => {
+    if (!startTime || availableTimeSlots.length === 0) return [];
+    const startIdx = availableTimeSlots.indexOf(startTime);
+    if (startIdx < 0) return availableTimeSlots.filter(t => t > startTime);
+    const endSlots: string[] = [];
+    for (let i = startIdx + 1; i < availableTimeSlots.length; i++) {
+      const prevMin = parseTimeToMinutes(availableTimeSlots[i - 1]);
+      const currMin = parseTimeToMinutes(availableTimeSlots[i]);
+      endSlots.push(availableTimeSlots[i]);
+      if (currMin - prevMin > 15) break;
+    }
+    if (endSlots.length === 0) {
+      const lastSlotMin = parseTimeToMinutes(availableTimeSlots[availableTimeSlots.length - 1]);
+      endSlots.push(minutesToTime24(lastSlotMin + 15));
+    }
+    return endSlots;
+  }, [startTime, availableTimeSlots]);
+
+  const hasAvailabilityData = activeAvailability.length > 0;
+
+  function resetBookingForm() {
+    setSelectedLocationId("");
+    setSessionDate("");
+    setStartTime("");
+    setEndTime("");
+    setSessionType("");
+    setPlayerNotes("");
+  }
 
   const bookMutation = useMutation({
     mutationFn: async () => {
@@ -269,27 +405,23 @@ function TrainerDetail({ trainer }: { trainer: DirectoryTrainer }) {
         startTime,
         endTime,
         sessionType: sessionType || null,
-        locationId: null,
-        playerNotes: [location ? `Preferred location: ${location}` : '', playerNotes].filter(Boolean).join('\n') || null,
+        locationId: selectedLocationId || null,
+        playerNotes: playerNotes || null,
       });
     },
     onSuccess: () => {
       toast({ title: "Session Requested", description: "Your booking request has been sent to the trainer." });
       queryClient.invalidateQueries({ queryKey: ["/api/training-sessions/player/enriched"] });
       setBookingOpen(false);
-      setSessionDate("");
-      setStartTime("");
-      setEndTime("");
-      setSessionType("");
-      setLocation("");
-      setPlayerNotes("");
+      resetBookingForm();
     },
     onError: (error: Error) => {
       toast({ title: "Booking Failed", description: error.message, variant: "destructive" });
     },
   });
 
-  const canSubmit = sessionDate && startTime && endTime && startTime < endTime;
+  const dateIsUnavailable = hasAvailabilityData && sessionDate && !dayAvail;
+  const canSubmit = sessionDate && startTime && endTime && startTime < endTime && !dateIsUnavailable;
 
   return (
     <div className="space-y-6 pb-6">
@@ -388,7 +520,55 @@ function TrainerDetail({ trainer }: { trainer: DirectoryTrainer }) {
         </div>
       )}
 
-      {trainer.availability && (
+      {hasLocations && (
+        <div>
+          <h3 className="text-sm font-semibold mb-2 flex items-center gap-1">
+            <MapPin className="w-3 h-3" />
+            Training Locations
+          </h3>
+          <div className="space-y-2">
+            {locations.map(loc => {
+              const locAvail = parseAvailability(loc.availability);
+              const availDays = locAvail.map(a => a.day);
+              return (
+                <div key={loc.id} className="rounded-lg bg-muted/50 p-3" data-testid={`location-${loc.id}`}>
+                  <p className="text-sm font-medium">{loc.name}</p>
+                  {loc.address && <p className="text-xs text-muted-foreground">{loc.address}</p>}
+                  {loc.city && loc.state && <p className="text-xs text-muted-foreground">{loc.city}, {loc.state}</p>}
+                  {availDays.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      {availDays.map(d => (
+                        <Badge key={d} variant="outline" className="text-[10px] no-default-hover-elevate">{d.slice(0, 3)}</Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {activeAvailability.length > 0 && !hasLocations && (
+        <div>
+          <h3 className="text-sm font-semibold mb-2 flex items-center gap-1">
+            <Clock className="w-3 h-3" />
+            Availability
+          </h3>
+          <div className="space-y-1">
+            {activeAvailability.map(a => (
+              <div key={a.day} className="flex items-center gap-2 text-sm">
+                <span className="font-medium w-12">{a.day.slice(0, 3)}</span>
+                <span className="text-muted-foreground">
+                  {a.sessions.map(s => `${s.start} - ${s.end}`).join(", ")}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!hasLocations && activeAvailability.length === 0 && trainer.availability && (
         <div>
           <h3 className="text-sm font-semibold mb-2 flex items-center gap-1">
             <Clock className="w-3 h-3" />
@@ -453,32 +633,89 @@ function TrainerDetail({ trainer }: { trainer: DirectoryTrainer }) {
         </div>
       </div>
 
-      <Dialog open={bookingOpen} onOpenChange={setBookingOpen}>
-        <DialogContent>
+      <Dialog open={bookingOpen} onOpenChange={(open) => { setBookingOpen(open); if (!open) resetBookingForm(); }}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle data-testid="text-booking-dialog-title">Book Session with {name}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            {hasLocations && (
+              <div className="space-y-2">
+                <Label>Location</Label>
+                <Select value={selectedLocationId} onValueChange={(v) => { setSelectedLocationId(v); setSessionDate(""); setStartTime(""); setEndTime(""); }}>
+                  <SelectTrigger data-testid="select-booking-location">
+                    <SelectValue placeholder="Select a training location" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {locations.map(loc => (
+                      <SelectItem key={loc.id} value={loc.id} data-testid={`option-location-${loc.id}`}>
+                        {loc.name}{loc.city ? ` — ${loc.city}, ${loc.state}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {hasAvailabilityData && availableDays.length > 0 && (
+              <div className="rounded-lg bg-muted/50 p-3">
+                <p className="text-xs font-medium text-muted-foreground mb-1.5">Available days</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {availableDays.map(d => (
+                    <Badge
+                      key={d}
+                      variant={selectedDayOfWeek === d ? "default" : "outline"}
+                      className="text-xs no-default-hover-elevate"
+                    >
+                      {d}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="session-date">Date</Label>
               <Input
                 id="session-date"
                 type="date"
                 value={sessionDate}
-                onChange={e => setSessionDate(e.target.value)}
+                onChange={e => { setSessionDate(e.target.value); setStartTime(""); setEndTime(""); }}
                 min={new Date().toISOString().split("T")[0]}
                 data-testid="input-session-date"
               />
+              {sessionDate && hasAvailabilityData && !dayAvail && (
+                <p className="text-xs text-destructive flex items-center gap-1">
+                  <X className="w-3 h-3" />
+                  {selectedDayOfWeek} is not available{selectedLocation ? ` at ${selectedLocation.name}` : ''}
+                </p>
+              )}
+              {sessionDate && dayAvail && (
+                <p className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                  <CheckCircle className="w-3 h-3" />
+                  {selectedDayOfWeek} is available
+                  {dayAvail.sessions.length > 0 && (
+                    <span className="text-muted-foreground ml-1">
+                      ({dayAvail.sessions.map(s => `${s.start}–${s.end}`).join(", ")})
+                    </span>
+                  )}
+                </p>
+              )}
             </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Start Time</Label>
-                <Select value={startTime} onValueChange={setStartTime}>
+                <Select
+                  value={startTime}
+                  onValueChange={(v) => { setStartTime(v); setEndTime(""); }}
+                  disabled={!!dateIsUnavailable}
+                >
                   <SelectTrigger data-testid="select-start-time">
-                    <SelectValue placeholder="Start" />
+                    <SelectValue placeholder={dateIsUnavailable ? "Not available" : "Start"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {TIME_OPTIONS.map(t => (
+                    {(hasAvailabilityData ? availableTimeSlots : TIME_OPTIONS).map(t => (
                       <SelectItem key={t} value={t}>{formatTime(t)}</SelectItem>
                     ))}
                   </SelectContent>
@@ -486,18 +723,22 @@ function TrainerDetail({ trainer }: { trainer: DirectoryTrainer }) {
               </div>
               <div className="space-y-2">
                 <Label>End Time</Label>
-                <Select value={endTime} onValueChange={setEndTime}>
+                <Select value={endTime} onValueChange={setEndTime} disabled={!!dateIsUnavailable}>
                   <SelectTrigger data-testid="select-end-time">
-                    <SelectValue placeholder="End" />
+                    <SelectValue placeholder={dateIsUnavailable ? "Not available" : "End"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {TIME_OPTIONS.filter(t => !startTime || t > startTime).map(t => (
+                    {(hasAvailabilityData
+                      ? endTimeOptions
+                      : TIME_OPTIONS.filter(t => !startTime || t > startTime)
+                    ).map(t => (
                       <SelectItem key={t} value={t}>{formatTime(t)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
+
             {trainer.sessionTypes && trainer.sessionTypes.length > 0 && (
               <div className="space-y-2">
                 <Label>Session Type</Label>
@@ -513,16 +754,7 @@ function TrainerDetail({ trainer }: { trainer: DirectoryTrainer }) {
                 </Select>
               </div>
             )}
-            <div className="space-y-2">
-              <Label htmlFor="session-location">Location (optional)</Label>
-              <Input
-                id="session-location"
-                value={location}
-                onChange={e => setLocation(e.target.value)}
-                placeholder="e.g. Main gym, Park court..."
-                data-testid="input-session-location"
-              />
-            </div>
+
             <div className="space-y-2">
               <Label htmlFor="session-notes">Notes (optional)</Label>
               <Textarea
@@ -538,7 +770,7 @@ function TrainerDetail({ trainer }: { trainer: DirectoryTrainer }) {
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setBookingOpen(false)}
+              onClick={() => { setBookingOpen(false); resetBookingForm(); }}
               data-testid="button-cancel-booking"
             >
               Cancel

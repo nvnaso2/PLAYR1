@@ -35,6 +35,10 @@ import {
   XCircle,
   AlertCircle,
   CalendarDays,
+  List,
+  ChevronLeft,
+  ChevronRight,
+  ArrowUpDown,
 } from "lucide-react";
 
 interface EnrichedSession {
@@ -66,6 +70,11 @@ const STATUS_OPTIONS = [
   { value: "declined", label: "Declined" },
 ];
 
+type SortField = "date" | "time" | "location" | "day";
+type SortDir = "asc" | "desc";
+
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
 function statusBadgeVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
   switch (status) {
     case "requested": return "default";
@@ -82,12 +91,35 @@ function formatDate(dateStr: string) {
   return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
 }
 
+function formatDateShort(dateStr: string) {
+  const d = new Date(dateStr + "T00:00:00");
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
 function formatTime(timeStr: string) {
   const [h, m] = timeStr.split(":");
   const hour = parseInt(h);
   const ampm = hour >= 12 ? "PM" : "AM";
   const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
   return `${displayHour}:${m} ${ampm}`;
+}
+
+function getDayOfWeek(dateStr: string) {
+  const d = new Date(dateStr + "T00:00:00");
+  return DAY_NAMES[d.getDay()];
+}
+
+function getMonthDays(year: number, month: number) {
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const startPad = firstDay.getDay();
+  const totalDays = lastDay.getDate();
+
+  const days: (number | null)[] = [];
+  for (let i = 0; i < startPad; i++) days.push(null);
+  for (let d = 1; d <= totalDays; d++) days.push(d);
+  while (days.length % 7 !== 0) days.push(null);
+  return days;
 }
 
 export default function TrainerSchedulePage() {
@@ -97,6 +129,15 @@ export default function TrainerSchedulePage() {
   const [declineDialogOpen, setDeclineDialogOpen] = useState(false);
   const [declineSessionId, setDeclineSessionId] = useState<string | null>(null);
   const [declineReason, setDeclineReason] = useState("");
+
+  const [scheduleView, setScheduleView] = useState<"calendar" | "list">("calendar");
+  const [sortField, setSortField] = useState<SortField>("date");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  const now = new Date();
+  const [calYear, setCalYear] = useState(now.getFullYear());
+  const [calMonth, setCalMonth] = useState(now.getMonth());
+  const [selectedCalDate, setSelectedCalDate] = useState<string | null>(null);
 
   const { data: sessions, isLoading } = useQuery<EnrichedSession[]>({
     queryKey: ["/api/training-sessions/trainer/enriched"],
@@ -164,21 +205,50 @@ export default function TrainerSchedulePage() {
     return filteredSessions.filter((s) => s.status !== "requested");
   }, [filteredSessions]);
 
-  const confirmedSessions = useMemo(() => {
+  const scheduleSessions = useMemo(() => {
     if (!sessions) return [];
-    return sessions
-      .filter((s) => s.status === "confirmed")
-      .sort((a, b) => a.sessionDate.localeCompare(b.sessionDate) || a.startTime.localeCompare(b.startTime));
+    return sessions.filter((s) => s.status === "confirmed" || s.status === "completed");
   }, [sessions]);
 
-  const groupedByDate = useMemo(() => {
-    const groups: Record<string, EnrichedSession[]> = {};
-    for (const s of confirmedSessions) {
-      if (!groups[s.sessionDate]) groups[s.sessionDate] = [];
-      groups[s.sessionDate].push(s);
+  const sessionsByDate = useMemo(() => {
+    const map: Record<string, EnrichedSession[]> = {};
+    for (const s of scheduleSessions) {
+      if (!map[s.sessionDate]) map[s.sessionDate] = [];
+      map[s.sessionDate].push(s);
     }
-    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
-  }, [confirmedSessions]);
+    return map;
+  }, [scheduleSessions]);
+
+  const sortedListSessions = useMemo(() => {
+    const sorted = [...scheduleSessions];
+    sorted.sort((a, b) => {
+      let cmp = 0;
+      switch (sortField) {
+        case "date":
+          cmp = a.sessionDate.localeCompare(b.sessionDate);
+          break;
+        case "time":
+          cmp = a.startTime.localeCompare(b.startTime);
+          break;
+        case "location":
+          cmp = (a.locationName || "").localeCompare(b.locationName || "");
+          break;
+        case "day":
+          cmp = new Date(a.sessionDate + "T00:00:00").getDay() - new Date(b.sessionDate + "T00:00:00").getDay();
+          break;
+      }
+      return sortDir === "desc" ? -cmp : cmp;
+    });
+    return sorted;
+  }, [scheduleSessions, sortField, sortDir]);
+
+  const calDays = useMemo(() => getMonthDays(calYear, calMonth), [calYear, calMonth]);
+  const calMonthLabel = new Date(calYear, calMonth).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+
+  const selectedDateSessions = useMemo(() => {
+    if (!selectedCalDate) return [];
+    return sessionsByDate[selectedCalDate] || [];
+  }, [selectedCalDate, sessionsByDate]);
 
   function handleDeclineClick(sessionId: string) {
     setDeclineSessionId(sessionId);
@@ -189,6 +259,27 @@ export default function TrainerSchedulePage() {
   function handleDeclineSubmit() {
     if (!declineSessionId) return;
     declineMutation.mutate({ id: declineSessionId, reason: declineReason || undefined });
+  }
+
+  function prevMonth() {
+    if (calMonth === 0) { setCalMonth(11); setCalYear(y => y - 1); }
+    else setCalMonth(m => m - 1);
+    setSelectedCalDate(null);
+  }
+
+  function nextMonth() {
+    if (calMonth === 11) { setCalMonth(0); setCalYear(y => y + 1); }
+    else setCalMonth(m => m + 1);
+    setSelectedCalDate(null);
+  }
+
+  function toggleSort(field: SortField) {
+    if (sortField === field) {
+      setSortDir(d => d === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDir("asc");
+    }
   }
 
   if (isLoading) {
@@ -206,7 +297,7 @@ export default function TrainerSchedulePage() {
   }
 
   return (
-    <div className="p-4 space-y-4 max-w-3xl mx-auto" data-testid="page-trainer-schedule">
+    <div className="p-4 space-y-4 max-w-4xl mx-auto" data-testid="page-trainer-schedule">
       <div className="flex items-center gap-2 flex-wrap">
         <CalendarDays className="w-5 h-5 text-muted-foreground" />
         <h1 className="text-xl font-semibold" data-testid="text-schedule-title">Schedule</h1>
@@ -232,6 +323,29 @@ export default function TrainerSchedulePage() {
                 ))}
               </SelectContent>
             </Select>
+          )}
+
+          {activeTab === "schedule" && (
+            <div className="flex items-center gap-1 ml-auto">
+              <Button
+                size="sm"
+                variant={scheduleView === "calendar" ? "default" : "outline"}
+                onClick={() => setScheduleView("calendar")}
+                data-testid="button-calendar-view"
+              >
+                <Calendar className="w-4 h-4 mr-1" />
+                Calendar
+              </Button>
+              <Button
+                size="sm"
+                variant={scheduleView === "list" ? "default" : "outline"}
+                onClick={() => setScheduleView("list")}
+                data-testid="button-list-view"
+              >
+                <List className="w-4 h-4 mr-1" />
+                List
+              </Button>
+            </div>
           )}
         </div>
 
@@ -363,74 +477,204 @@ export default function TrainerSchedulePage() {
         </TabsContent>
 
         <TabsContent value="schedule" className="mt-4 space-y-4">
-          {groupedByDate.length === 0 ? (
-            <div className="py-12 text-center text-muted-foreground">
-              <CalendarDays className="w-10 h-10 mx-auto mb-3 opacity-40" />
-              <p className="text-sm">No upcoming confirmed sessions</p>
+          {scheduleView === "calendar" ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Button variant="outline" size="sm" onClick={prevMonth} data-testid="button-prev-month">
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+                <h2 className="text-sm font-semibold" data-testid="text-calendar-month">{calMonthLabel}</h2>
+                <Button variant="outline" size="sm" onClick={nextMonth} data-testid="button-next-month">
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-7 gap-px bg-border rounded-lg overflow-hidden" data-testid="calendar-grid">
+                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
+                  <div key={d} className="bg-muted/50 text-center text-xs font-medium text-muted-foreground py-2">{d}</div>
+                ))}
+                {calDays.map((day, idx) => {
+                  if (day === null) {
+                    return <div key={`empty-${idx}`} className="bg-background min-h-[60px]" />;
+                  }
+                  const dateStr = `${calYear}-${(calMonth + 1).toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
+                  const daySessions = sessionsByDate[dateStr] || [];
+                  const isToday = dateStr === now.toISOString().split("T")[0];
+                  const isSelected = dateStr === selectedCalDate;
+                  const hasConfirmed = daySessions.some(s => s.status === "confirmed");
+
+                  return (
+                    <button
+                      key={dateStr}
+                      onClick={() => setSelectedCalDate(isSelected ? null : dateStr)}
+                      className={`bg-background min-h-[60px] p-1 text-left transition-colors hover:bg-muted/50 relative ${
+                        isSelected ? "ring-2 ring-primary ring-inset" : ""
+                      }`}
+                      data-testid={`cal-day-${dateStr}`}
+                    >
+                      <span className={`text-xs font-medium block ${
+                        isToday ? "text-primary font-bold" : ""
+                      }`}>
+                        {day}
+                      </span>
+                      {daySessions.length > 0 && (
+                        <div className="mt-0.5 space-y-0.5">
+                          {daySessions.slice(0, 2).map(s => (
+                            <div
+                              key={s.id}
+                              className={`text-[9px] leading-tight truncate rounded px-0.5 ${
+                                s.status === "confirmed"
+                                  ? "bg-primary/15 text-primary"
+                                  : "bg-muted text-muted-foreground"
+                              }`}
+                            >
+                              {formatTime(s.startTime)}
+                            </div>
+                          ))}
+                          {daySessions.length > 2 && (
+                            <div className="text-[9px] text-muted-foreground">+{daySessions.length - 2} more</div>
+                          )}
+                        </div>
+                      )}
+                      {hasConfirmed && (
+                        <div className="absolute bottom-1 right-1 w-1.5 h-1.5 rounded-full bg-primary" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {selectedCalDate && (
+                <div className="space-y-3">
+                  <h3 className="text-sm font-medium flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-muted-foreground" />
+                    {formatDate(selectedCalDate)}
+                    <Badge variant="outline" className="no-default-hover-elevate text-xs">
+                      {selectedDateSessions.length} session{selectedDateSessions.length !== 1 ? "s" : ""}
+                    </Badge>
+                  </h3>
+                  {selectedDateSessions.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-4 text-center">No sessions on this date</p>
+                  ) : (
+                    selectedDateSessions
+                      .sort((a, b) => a.startTime.localeCompare(b.startTime))
+                      .map(session => (
+                        <SessionCard
+                          key={session.id}
+                          session={session}
+                          onComplete={() => completeMutation.mutate(session.id)}
+                          onCancel={() => cancelMutation.mutate(session.id)}
+                          completePending={completeMutation.isPending}
+                          cancelPending={cancelMutation.isPending}
+                        />
+                      ))
+                  )}
+                </div>
+              )}
+
+              {!selectedCalDate && scheduleSessions.length === 0 && (
+                <div className="py-8 text-center text-muted-foreground">
+                  <CalendarDays className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                  <p className="text-sm">No scheduled sessions yet</p>
+                </div>
+              )}
             </div>
           ) : (
-            groupedByDate.map(([date, dateSessions]) => (
-              <div key={date} className="space-y-2">
-                <h3 className="text-sm font-medium flex items-center gap-2" data-testid={`text-schedule-date-${date}`}>
-                  <Calendar className="w-4 h-4 text-muted-foreground" />
-                  {formatDate(date)}
-                </h3>
-                {dateSessions.map((session) => (
-                  <Card key={session.id} data-testid={`card-schedule-${session.id}`}>
-                    <CardContent className="py-3">
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <div className="space-y-0.5 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-medium" data-testid={`text-schedule-player-${session.id}`}>
-                              {session.playerName}
-                            </span>
-                            {session.sessionType && (
-                              <Badge variant="outline" className="no-default-hover-elevate text-xs">
-                                {session.sessionType}
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-                            <span className="flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              {formatTime(session.startTime)} - {formatTime(session.endTime)}
-                            </span>
-                            {session.locationName && (
-                              <span className="flex items-center gap-1">
-                                <MapPin className="w-3 h-3" />
-                                {session.locationName}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => completeMutation.mutate(session.id)}
-                            disabled={completeMutation.isPending}
-                            data-testid={`button-complete-${session.id}`}
-                          >
-                            <CheckCircle className="w-3.5 h-3.5 mr-1" />
-                            Complete
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => cancelMutation.mutate(session.id)}
-                            disabled={cancelMutation.isPending}
-                            data-testid={`button-cancel-${session.id}`}
-                          >
-                            <XCircle className="w-3.5 h-3.5 mr-1" />
-                            Cancel
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 flex-wrap border-b pb-2">
+                <span className="text-xs text-muted-foreground mr-1">Sort by:</span>
+                {(["date", "day", "time", "location"] as SortField[]).map(field => (
+                  <Button
+                    key={field}
+                    size="sm"
+                    variant={sortField === field ? "default" : "outline"}
+                    onClick={() => toggleSort(field)}
+                    className="h-7 text-xs gap-1"
+                    data-testid={`button-sort-${field}`}
+                  >
+                    {field.charAt(0).toUpperCase() + field.slice(1)}
+                    {sortField === field && (
+                      <ArrowUpDown className="w-3 h-3" />
+                    )}
+                  </Button>
                 ))}
               </div>
-            ))
+
+              {sortedListSessions.length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground">
+                  <List className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                  <p className="text-sm">No scheduled sessions yet</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {sortedListSessions.map(session => (
+                    <Card key={session.id} data-testid={`card-list-${session.id}`}>
+                      <CardContent className="py-3">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <div className="flex items-center gap-4 flex-wrap min-w-0">
+                            <div className="text-center shrink-0 w-14">
+                              <div className="text-xs text-muted-foreground">{getDayOfWeek(session.sessionDate).slice(0, 3)}</div>
+                              <div className="text-sm font-semibold">{formatDateShort(session.sessionDate)}</div>
+                            </div>
+                            <div className="space-y-0.5 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-sm font-medium">{session.playerName}</span>
+                                {session.sessionType && (
+                                  <Badge variant="outline" className="no-default-hover-elevate text-xs">
+                                    {session.sessionType}
+                                  </Badge>
+                                )}
+                                <Badge variant={statusBadgeVariant(session.status)} className="no-default-hover-elevate text-xs">
+                                  {session.status}
+                                </Badge>
+                              </div>
+                              <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                                <span className="flex items-center gap-1">
+                                  <Clock className="w-3 h-3" />
+                                  {formatTime(session.startTime)} - {formatTime(session.endTime)}
+                                </span>
+                                {session.locationName && (
+                                  <span className="flex items-center gap-1">
+                                    <MapPin className="w-3 h-3" />
+                                    {session.locationName}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          {session.status === "confirmed" && (
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs"
+                                onClick={() => completeMutation.mutate(session.id)}
+                                disabled={completeMutation.isPending}
+                                data-testid={`button-list-complete-${session.id}`}
+                              >
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                Complete
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs"
+                                onClick={() => cancelMutation.mutate(session.id)}
+                                disabled={cancelMutation.isPending}
+                                data-testid={`button-list-cancel-${session.id}`}
+                              >
+                                <XCircle className="w-3 h-3 mr-1" />
+                                Cancel
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </TabsContent>
       </Tabs>
@@ -467,5 +711,79 @@ export default function TrainerSchedulePage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function SessionCard({
+  session,
+  onComplete,
+  onCancel,
+  completePending,
+  cancelPending,
+}: {
+  session: EnrichedSession;
+  onComplete: () => void;
+  onCancel: () => void;
+  completePending: boolean;
+  cancelPending: boolean;
+}) {
+  return (
+    <Card data-testid={`card-schedule-${session.id}`}>
+      <CardContent className="py-3">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="space-y-0.5 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-medium" data-testid={`text-schedule-player-${session.id}`}>
+                {session.playerName}
+              </span>
+              {session.sessionType && (
+                <Badge variant="outline" className="no-default-hover-elevate text-xs">
+                  {session.sessionType}
+                </Badge>
+              )}
+              <Badge variant={statusBadgeVariant(session.status)} className="no-default-hover-elevate text-xs">
+                {session.status}
+              </Badge>
+            </div>
+            <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+              <span className="flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                {formatTime(session.startTime)} - {formatTime(session.endTime)}
+              </span>
+              {session.locationName && (
+                <span className="flex items-center gap-1">
+                  <MapPin className="w-3 h-3" />
+                  {session.locationName}
+                </span>
+              )}
+            </div>
+          </div>
+          {session.status === "confirmed" && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onComplete}
+                disabled={completePending}
+                data-testid={`button-complete-${session.id}`}
+              >
+                <CheckCircle className="w-3.5 h-3.5 mr-1" />
+                Complete
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onCancel}
+                disabled={cancelPending}
+                data-testid={`button-cancel-${session.id}`}
+              >
+                <XCircle className="w-3.5 h-3.5 mr-1" />
+                Cancel
+              </Button>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

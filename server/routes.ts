@@ -4597,6 +4597,17 @@ export async function registerRoutes(
     try {
       const trainer = await storage.getTrainerProfileById(req.params.id);
       if (!trainer) return res.status(404).json({ message: "Trainer not found" });
+
+      const profileLocations = await storage.getTrainerProfileLocations(trainer.id);
+      const locations = profileLocations.map(pl => ({
+        id: pl.location.id,
+        name: pl.location.name,
+        address: pl.location.address,
+        city: pl.location.city,
+        state: pl.location.state,
+        availability: pl.availability,
+      }));
+
       const sanitized = {
         id: trainer.id,
         firstName: trainer.firstName,
@@ -4616,6 +4627,7 @@ export async function registerRoutes(
         socialTwitter: trainer.socialTwitter,
         website: trainer.website,
         contactEmail: trainer.contactEmail,
+        locations,
       };
       res.json(sanitized);
     } catch (error: any) {
