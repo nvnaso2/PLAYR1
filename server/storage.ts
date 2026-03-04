@@ -43,7 +43,8 @@ import {
   tutorialVideos, type TutorialVideo, type InsertTutorialVideo,
   trainerProfiles, type TrainerProfile, type InsertTrainerProfile,
   trainingLocations, type TrainingLocation, type InsertTrainingLocation,
-  trainerProfileLocations, type TrainerProfileLocation, type InsertTrainerProfileLocation
+  trainerProfileLocations, type TrainerProfileLocation, type InsertTrainerProfileLocation,
+  trainingSessions, type TrainingSession, type InsertTrainingSession
 } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
@@ -366,6 +367,12 @@ export interface IStorage {
   createTrainerProfileLocation(data: InsertTrainerProfileLocation): Promise<TrainerProfileLocation>;
   updateTrainerProfileLocation(id: string, data: Partial<InsertTrainerProfileLocation>): Promise<TrainerProfileLocation | undefined>;
   deleteTrainerProfileLocation(id: string): Promise<boolean>;
+
+  createTrainingSession(data: InsertTrainingSession): Promise<TrainingSession>;
+  getTrainingSessionById(id: string): Promise<TrainingSession | undefined>;
+  getTrainingSessionsForTrainer(trainerId: string, filters?: { status?: string; from?: string; to?: string }): Promise<TrainingSession[]>;
+  getTrainingSessionsForPlayer(playerId: string, filters?: { status?: string; from?: string; to?: string }): Promise<TrainingSession[]>;
+  updateTrainingSession(id: string, data: Partial<InsertTrainingSession>): Promise<TrainingSession | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2792,6 +2799,40 @@ export class DatabaseStorage implements IStorage {
   async deleteTrainerProfileLocation(id: string): Promise<boolean> {
     await db.delete(trainerProfileLocations).where(eq(trainerProfileLocations.id, id));
     return true;
+  }
+
+  async createTrainingSession(data: InsertTrainingSession): Promise<TrainingSession> {
+    const [session] = await db.insert(trainingSessions).values(data as any).returning();
+    return session;
+  }
+
+  async getTrainingSessionById(id: string): Promise<TrainingSession | undefined> {
+    const [session] = await db.select().from(trainingSessions).where(eq(trainingSessions.id, id));
+    return session;
+  }
+
+  async getTrainingSessionsForTrainer(trainerId: string, filters?: { status?: string; from?: string; to?: string }): Promise<TrainingSession[]> {
+    const conditions: any[] = [eq(trainingSessions.trainerId, trainerId)];
+    if (filters?.status) conditions.push(eq(trainingSessions.status, filters.status));
+    if (filters?.from) conditions.push(gte(trainingSessions.sessionDate, filters.from));
+    if (filters?.to) conditions.push(sql`${trainingSessions.sessionDate} <= ${filters.to}`);
+    return await db.select().from(trainingSessions).where(and(...conditions)).orderBy(desc(trainingSessions.sessionDate));
+  }
+
+  async getTrainingSessionsForPlayer(playerId: string, filters?: { status?: string; from?: string; to?: string }): Promise<TrainingSession[]> {
+    const conditions: any[] = [eq(trainingSessions.playerId, playerId)];
+    if (filters?.status) conditions.push(eq(trainingSessions.status, filters.status));
+    if (filters?.from) conditions.push(gte(trainingSessions.sessionDate, filters.from));
+    if (filters?.to) conditions.push(sql`${trainingSessions.sessionDate} <= ${filters.to}`);
+    return await db.select().from(trainingSessions).where(and(...conditions)).orderBy(desc(trainingSessions.sessionDate));
+  }
+
+  async updateTrainingSession(id: string, data: Partial<InsertTrainingSession>): Promise<TrainingSession | undefined> {
+    const [updated] = await db.update(trainingSessions)
+      .set({ ...data, updatedAt: new Date() } as any)
+      .where(eq(trainingSessions.id, id))
+      .returning();
+    return updated;
   }
 }
 

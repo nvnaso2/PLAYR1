@@ -1121,3 +1121,32 @@ export const insertTrainerProfileLocationSchema = createInsertSchema(trainerProf
 
 export type InsertTrainerProfileLocation = z.infer<typeof insertTrainerProfileLocationSchema>;
 export type TrainerProfileLocation = typeof trainerProfileLocations.$inferSelect;
+
+export const SESSION_STATUSES = ["requested", "confirmed", "declined", "cancelled", "completed"] as const;
+
+export const trainingSessions = pgTable("training_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  trainerId: varchar("trainer_id").notNull(),
+  playerId: varchar("player_id").notNull(),
+  trainerProfileId: varchar("trainer_profile_id").notNull(),
+  locationId: varchar("location_id"),
+  sessionDate: varchar("session_date").notNull(),
+  startTime: varchar("start_time").notNull(),
+  endTime: varchar("end_time").notNull(),
+  status: varchar("status").notNull().default("requested"),
+  playerNotes: text("player_notes"),
+  trainerNotes: text("trainer_notes"),
+  declineReason: text("decline_reason"),
+  sessionType: varchar("session_type"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertTrainingSessionSchema = createInsertSchema(trainingSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertTrainingSession = z.infer<typeof insertTrainingSessionSchema>;
+export type TrainingSession = typeof trainingSessions.$inferSelect;

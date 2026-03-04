@@ -17,6 +17,7 @@ import {
   ArrowRight,
   Activity,
   Calendar,
+  CalendarDays,
   Target,
 } from "lucide-react";
 
@@ -163,6 +164,12 @@ export default function TrainerDashboard() {
     queryKey: ["/api/trainer/overview"],
   });
 
+  const { data: sessions } = useQuery<any[]>({
+    queryKey: ["/api/training-sessions/trainer/enriched"],
+  });
+
+  const pendingRequests = sessions?.filter((s: any) => s.status === "requested")?.length ?? 0;
+
   const recentLogs = overview?.recentLogs ?? [];
   const recentAssignments = overview?.recentAssignments ?? [];
   const timeline = buildTimeline(recentLogs, recentAssignments);
@@ -180,7 +187,7 @@ export default function TrainerDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <StatCard
           title="Total Players"
           value={overview?.totalPlayers ?? 0}
@@ -209,6 +216,13 @@ export default function TrainerDashboard() {
           loading={isLoading}
           testId="card-stat-messages"
         />
+        <StatCard
+          title="Pending Requests"
+          value={pendingRequests}
+          icon={CalendarDays}
+          loading={!sessions}
+          testId="card-stat-requests"
+        />
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
@@ -228,6 +242,12 @@ export default function TrainerDashboard() {
           <Link href="/trainer/drills">
             <Dumbbell className="w-4 h-4 mr-1" />
             Assign Workout
+          </Link>
+        </Button>
+        <Button variant="outline" asChild data-testid="button-view-schedule">
+          <Link href="/trainer/schedule">
+            <CalendarDays className="w-4 h-4 mr-1" />
+            View Schedule
           </Link>
         </Button>
       </div>

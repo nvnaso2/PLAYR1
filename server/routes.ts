@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
-import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, userProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema } from "@shared/schema";
+import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, userProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
 import { eq, and } from "drizzle-orm";
@@ -4338,6 +4338,221 @@ export async function registerRoutes(
       if (!existing || existing.trainerProfileId !== profile.id) return res.status(404).json({ message: "Not found" });
       await storage.deleteTrainerProfileLocation(req.params.id);
       res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ===== TRAINING SESSIONS / SCHEDULING =====
+
+  app.post("/api/training-sessions", isAuthenticated, async (req: any, res) => {
+    try {
+      const playerId = req.user.claims.sub;
+      const { trainerProfileId, locationId, sessionDate, startTime, endTime, playerNotes, sessionType } = req.body;
+      if (!trainerProfileId || !sessionDate || !startTime || !endTime) {
+        return res.status(400).json({ message: "trainerProfileId, sessionDate, startTime, endTime are required" });
+      }
+      if (startTime >= endTime) {
+        return res.status(400).json({ message: "startTime must be before endTime" });
+      }
+      if (locationId) {
+        const loc = await storage.getTrainingLocationById(locationId);
+        if (!loc) return res.status(400).json({ message: "Invalid location" });
+      }
+      const trainerProfile = await storage.getTrainerProfileById(trainerProfileId);
+      if (!trainerProfile) return res.status(404).json({ message: "Trainer profile not found" });
+      const session = await storage.createTrainingSession({
+        trainerId: trainerProfile.userId,
+        playerId,
+        trainerProfileId,
+        locationId: locationId || null,
+        sessionDate,
+        startTime,
+        endTime,
+        status: "requested",
+        playerNotes: playerNotes || null,
+        trainerNotes: null,
+        declineReason: null,
+        sessionType: sessionType || null,
+      });
+      res.status(201).json(session);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/training-sessions/player", isAuthenticated, async (req: any, res) => {
+    try {
+      const playerId = req.user.claims.sub;
+      const filters: any = {};
+      if (req.query.status) filters.status = req.query.status as string;
+      if (req.query.from) filters.from = req.query.from as string;
+      if (req.query.to) filters.to = req.query.to as string;
+      const sessions = await storage.getTrainingSessionsForPlayer(playerId, filters);
+      res.json(sessions);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/training-sessions/trainer", isAuthenticated, async (req: any, res) => {
+    try {
+      const trainerId = req.user.claims.sub;
+      const filters: any = {};
+      if (req.query.status) filters.status = req.query.status as string;
+      if (req.query.from) filters.from = req.query.from as string;
+      if (req.query.to) filters.to = req.query.to as string;
+      const sessions = await storage.getTrainingSessionsForTrainer(trainerId, filters);
+      res.json(sessions);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/training-sessions/trainer/enriched", isAuthenticated, async (req: any, res) => {
+    try {
+      const trainerId = req.user.claims.sub;
+      const filters: any = {};
+      if (req.query.status) filters.status = req.query.status as string;
+      if (req.query.from) filters.from = req.query.from as string;
+      if (req.query.to) filters.to = req.query.to as string;
+      const sessions = await storage.getTrainingSessionsForTrainer(trainerId, filters);
+      const playerIds = [...new Set(sessions.map(s => s.playerId))];
+      const playerNames: Record<string, string> = {};
+      for (const pid of playerIds) {
+        const [u] = await db.select({ firstName: users.firstName, lastName: users.lastName }).from(users).where(eq(users.id, pid));
+        if (u) playerNames[pid] = `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'Unknown';
+      }
+      const locationIds = [...new Set(sessions.filter(s => s.locationId).map(s => s.locationId!))];
+      const locationNames: Record<string, string> = {};
+      for (const lid of locationIds) {
+        const loc = await storage.getTrainingLocationById(lid);
+        if (loc) locationNames[lid] = loc.name;
+      }
+      const enriched = sessions.map(s => ({
+        ...s,
+        playerName: playerNames[s.playerId] || 'Unknown',
+        locationName: s.locationId ? (locationNames[s.locationId] || null) : null,
+      }));
+      res.json(enriched);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/training-sessions/player/enriched", isAuthenticated, async (req: any, res) => {
+    try {
+      const playerId = req.user.claims.sub;
+      const filters: any = {};
+      if (req.query.status) filters.status = req.query.status as string;
+      if (req.query.from) filters.from = req.query.from as string;
+      if (req.query.to) filters.to = req.query.to as string;
+      const sessions = await storage.getTrainingSessionsForPlayer(playerId, filters);
+      const trainerProfileIds = [...new Set(sessions.map(s => s.trainerProfileId))];
+      const trainerInfo: Record<string, { name: string; profilePhotoUrl: string | null }> = {};
+      for (const tpid of trainerProfileIds) {
+        const tp = await storage.getTrainerProfileById(tpid);
+        if (tp) trainerInfo[tpid] = { name: `${tp.firstName || ''} ${tp.lastName || ''}`.trim() || 'Trainer', profilePhotoUrl: tp.profilePhotoUrl };
+      }
+      const locationIds = [...new Set(sessions.filter(s => s.locationId).map(s => s.locationId!))];
+      const locationNames: Record<string, string> = {};
+      for (const lid of locationIds) {
+        const loc = await storage.getTrainingLocationById(lid);
+        if (loc) locationNames[lid] = loc.name;
+      }
+      const enriched = sessions.map(s => ({
+        ...s,
+        trainerName: trainerInfo[s.trainerProfileId]?.name || 'Trainer',
+        trainerPhotoUrl: trainerInfo[s.trainerProfileId]?.profilePhotoUrl || null,
+        locationName: s.locationId ? (locationNames[s.locationId] || null) : null,
+      }));
+      res.json(enriched);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/training-sessions/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const session = await storage.getTrainingSessionById(req.params.id);
+      if (!session) return res.status(404).json({ message: "Session not found" });
+      if (session.trainerId !== userId && session.playerId !== userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      res.json(session);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/training-sessions/:id/confirm", isAuthenticated, async (req: any, res) => {
+    try {
+      const trainerId = req.user.claims.sub;
+      const session = await storage.getTrainingSessionById(req.params.id);
+      if (!session) return res.status(404).json({ message: "Session not found" });
+      if (session.trainerId !== trainerId) return res.status(403).json({ message: "Forbidden" });
+      if (session.status !== "requested") return res.status(400).json({ message: "Session is not in requested status" });
+      const { trainerNotes } = req.body || {};
+      const updated = await storage.updateTrainingSession(req.params.id, {
+        status: "confirmed",
+        trainerNotes: trainerNotes || session.trainerNotes,
+      });
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/training-sessions/:id/decline", isAuthenticated, async (req: any, res) => {
+    try {
+      const trainerId = req.user.claims.sub;
+      const session = await storage.getTrainingSessionById(req.params.id);
+      if (!session) return res.status(404).json({ message: "Session not found" });
+      if (session.trainerId !== trainerId) return res.status(403).json({ message: "Forbidden" });
+      if (session.status !== "requested") return res.status(400).json({ message: "Session is not in requested status" });
+      const { declineReason } = req.body || {};
+      const updated = await storage.updateTrainingSession(req.params.id, {
+        status: "declined",
+        declineReason: declineReason || null,
+      });
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/training-sessions/:id/cancel", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const session = await storage.getTrainingSessionById(req.params.id);
+      if (!session) return res.status(404).json({ message: "Session not found" });
+      if (session.trainerId !== userId && session.playerId !== userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      if (session.status === "completed" || session.status === "cancelled") {
+        return res.status(400).json({ message: "Cannot cancel this session" });
+      }
+      const updated = await storage.updateTrainingSession(req.params.id, { status: "cancelled" });
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/training-sessions/:id/complete", isAuthenticated, async (req: any, res) => {
+    try {
+      const trainerId = req.user.claims.sub;
+      const session = await storage.getTrainingSessionById(req.params.id);
+      if (!session) return res.status(404).json({ message: "Session not found" });
+      if (session.trainerId !== trainerId) return res.status(403).json({ message: "Forbidden" });
+      if (session.status !== "confirmed") return res.status(400).json({ message: "Session must be confirmed to complete" });
+      const { trainerNotes } = req.body || {};
+      const updated = await storage.updateTrainingSession(req.params.id, {
+        status: "completed",
+        trainerNotes: trainerNotes || session.trainerNotes,
+      });
+      res.json(updated);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

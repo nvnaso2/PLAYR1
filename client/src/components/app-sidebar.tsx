@@ -50,6 +50,7 @@ import {
   Mail,
   UserPlus,
   ArrowLeftRight,
+  CalendarDays,
 } from "lucide-react";
 import logoLandscape from "@assets/PNG_image_1770494053382.png";
 
@@ -62,6 +63,7 @@ const playerNavItems = [
   { title: "My Filmroom", url: "/videos", icon: Video },
   { title: "Find Teams & Leagues", url: "/finder", icon: Search },
   { title: "Find a Trainer", url: "/find-trainer", icon: UserPlus },
+  { title: "My Sessions", url: "/my-sessions", icon: CalendarDays },
 ];
 
 const trainerNavItems = [
@@ -71,6 +73,7 @@ const trainerNavItems = [
   { title: "Training Logs", url: "/trainer/logs", icon: FileText },
   { title: "Videos", url: "/trainer/videos", icon: Video },
   { title: "Chat", url: "/trainer/chat", icon: MessageCircle },
+  { title: "Schedule", url: "/trainer/schedule", icon: CalendarDays },
   { title: "Player Progress", url: "/trainer/progress", icon: Target },
   { title: "My Profile", url: "/trainer/profile", icon: UserCircle },
 ];

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -8,8 +8,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Search, MapPin, DollarSign, Clock, Award, Star, Mail, Phone, Globe, Instagram, Twitter, X, ChevronRight } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Search, MapPin, DollarSign, Clock, Award, Star, Mail, Phone, Globe, Instagram, Twitter, X, ChevronRight, CalendarDays } from "lucide-react";
 import { US_STATES, TRAINER_SPECIALTIES } from "@shared/schema";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 type DirectoryTrainer = {
   id: string;
@@ -221,9 +226,70 @@ function TrainerCard({ trainer, onClick }: { trainer: DirectoryTrainer; onClick:
   );
 }
 
+function generateTimeOptions() {
+  const times: string[] = [];
+  for (let h = 6; h <= 22; h++) {
+    for (let m = 0; m < 60; m += 15) {
+      if (h === 22 && m > 0) break;
+      const hour = h.toString().padStart(2, "0");
+      const min = m.toString().padStart(2, "0");
+      times.push(`${hour}:${min}`);
+    }
+  }
+  return times;
+}
+
+function formatTime(time: string) {
+  const [h, m] = time.split(":").map(Number);
+  const ampm = h >= 12 ? "PM" : "AM";
+  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${hour12}:${m.toString().padStart(2, "0")} ${ampm}`;
+}
+
+const TIME_OPTIONS = generateTimeOptions();
+
 function TrainerDetail({ trainer }: { trainer: DirectoryTrainer }) {
   const name = [trainer.firstName, trainer.lastName].filter(Boolean).join(" ") || "Trainer";
   const initials = (trainer.firstName?.[0] || "") + (trainer.lastName?.[0] || "");
+  const { toast } = useToast();
+
+  const [bookingOpen, setBookingOpen] = useState(false);
+  const [sessionDate, setSessionDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
+  const [sessionType, setSessionType] = useState("");
+  const [location, setLocation] = useState("");
+  const [playerNotes, setPlayerNotes] = useState("");
+
+  const bookMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", "/api/training-sessions", {
+        trainerProfileId: trainer.id,
+        sessionDate,
+        startTime,
+        endTime,
+        sessionType: sessionType || null,
+        locationId: null,
+        playerNotes: [location ? `Preferred location: ${location}` : '', playerNotes].filter(Boolean).join('\n') || null,
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Session Requested", description: "Your booking request has been sent to the trainer." });
+      queryClient.invalidateQueries({ queryKey: ["/api/training-sessions/player/enriched"] });
+      setBookingOpen(false);
+      setSessionDate("");
+      setStartTime("");
+      setEndTime("");
+      setSessionType("");
+      setLocation("");
+      setPlayerNotes("");
+    },
+    onError: (error: Error) => {
+      toast({ title: "Booking Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const canSubmit = sessionDate && startTime && endTime && startTime < endTime;
 
   return (
     <div className="space-y-6 pb-6">
@@ -249,6 +315,15 @@ function TrainerDetail({ trainer }: { trainer: DirectoryTrainer }) {
           </div>
         </div>
       </SheetHeader>
+
+      <Button
+        className="w-full"
+        onClick={() => setBookingOpen(true)}
+        data-testid="button-book-session"
+      >
+        <CalendarDays className="w-4 h-4 mr-2" />
+        Book Session
+      </Button>
 
       <div className="grid grid-cols-3 gap-3 text-center">
         {trainer.hourlyRate && (
@@ -377,6 +452,107 @@ function TrainerDetail({ trainer }: { trainer: DirectoryTrainer }) {
           )}
         </div>
       </div>
+
+      <Dialog open={bookingOpen} onOpenChange={setBookingOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle data-testid="text-booking-dialog-title">Book Session with {name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="session-date">Date</Label>
+              <Input
+                id="session-date"
+                type="date"
+                value={sessionDate}
+                onChange={e => setSessionDate(e.target.value)}
+                min={new Date().toISOString().split("T")[0]}
+                data-testid="input-session-date"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Start Time</Label>
+                <Select value={startTime} onValueChange={setStartTime}>
+                  <SelectTrigger data-testid="select-start-time">
+                    <SelectValue placeholder="Start" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIME_OPTIONS.map(t => (
+                      <SelectItem key={t} value={t}>{formatTime(t)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>End Time</Label>
+                <Select value={endTime} onValueChange={setEndTime}>
+                  <SelectTrigger data-testid="select-end-time">
+                    <SelectValue placeholder="End" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIME_OPTIONS.filter(t => !startTime || t > startTime).map(t => (
+                      <SelectItem key={t} value={t}>{formatTime(t)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {trainer.sessionTypes && trainer.sessionTypes.length > 0 && (
+              <div className="space-y-2">
+                <Label>Session Type</Label>
+                <Select value={sessionType} onValueChange={setSessionType}>
+                  <SelectTrigger data-testid="select-session-type">
+                    <SelectValue placeholder="Select type (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {trainer.sessionTypes.map(t => (
+                      <SelectItem key={t} value={t}>{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="session-location">Location (optional)</Label>
+              <Input
+                id="session-location"
+                value={location}
+                onChange={e => setLocation(e.target.value)}
+                placeholder="e.g. Main gym, Park court..."
+                data-testid="input-session-location"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="session-notes">Notes (optional)</Label>
+              <Textarea
+                id="session-notes"
+                value={playerNotes}
+                onChange={e => setPlayerNotes(e.target.value)}
+                placeholder="Any details for the trainer..."
+                className="resize-none"
+                data-testid="input-session-notes"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setBookingOpen(false)}
+              data-testid="button-cancel-booking"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => bookMutation.mutate()}
+              disabled={!canSubmit || bookMutation.isPending}
+              data-testid="button-submit-booking"
+            >
+              {bookMutation.isPending ? "Sending..." : "Request Session"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
