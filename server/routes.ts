@@ -4202,7 +4202,7 @@ export async function registerRoutes(
   app.put("/api/trainer-profile", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { headline, bio, specialties, city, state, hourlyRate, sessionTypes,
+      const { headline, bio, specialties, city, state, hourlyRate, sessionTypes, equipment,
               experienceYears, certifications, availability, contactEmail,
               contactPhone, socialInstagram, socialTwitter, website, isPublic, profilePhotoUrl } = req.body;
       const data: any = {
@@ -4214,6 +4214,7 @@ export async function registerRoutes(
         state: state || null,
         hourlyRate: hourlyRate != null ? Number(hourlyRate) : null,
         sessionTypes: Array.isArray(sessionTypes) ? sessionTypes : null,
+        equipment: Array.isArray(equipment) ? equipment : null,
         experienceYears: experienceYears != null ? Number(experienceYears) : null,
         certifications: certifications || null,
         availability: availability || null,

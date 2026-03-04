@@ -11,7 +11,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, MapPin, DollarSign, Clock, Award, Star, Mail, Phone, Globe, Instagram, Twitter, X, ChevronRight, CalendarDays, CheckCircle } from "lucide-react";
+import { Search, MapPin, DollarSign, Clock, Award, Star, Mail, Phone, Globe, Instagram, Twitter, X, ChevronRight, CalendarDays, CheckCircle, Briefcase } from "lucide-react";
 import { US_STATES, TRAINER_SPECIALTIES } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -36,6 +36,7 @@ type DirectoryTrainer = {
   state: string | null;
   hourlyRate: number | null;
   sessionTypes: string[] | null;
+  equipment: string[] | null;
   experienceYears: number | null;
   certifications: string | null;
   availability: string | null;
@@ -517,6 +518,20 @@ function TrainerDetail({ trainer: listTrainer }: { trainer: DirectoryTrainer }) 
           <div className="flex flex-wrap gap-1.5">
             {trainer.sessionTypes.map(t => (
               <Badge key={t} variant="secondary" className="text-xs no-default-hover-elevate">{t}</Badge>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {trainer.equipment && trainer.equipment.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold mb-2 flex items-center gap-1">
+            <Briefcase className="w-3 h-3" />
+            Equipment
+          </h3>
+          <div className="flex flex-wrap gap-1.5" data-testid="group-trainer-equipment">
+            {trainer.equipment.map(e => (
+              <Badge key={e} variant="secondary" className="text-xs no-default-hover-elevate">{e}</Badge>
             ))}
           </div>
         </div>

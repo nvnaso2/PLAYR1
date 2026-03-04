@@ -21,7 +21,7 @@ import {
   Twitter, Mail, Phone, X, Star, Pencil, Camera, User, Briefcase,
   Calendar, ExternalLink, CheckCircle, Plus, Trash2, ChevronDown, ChevronUp
 } from "lucide-react";
-import { US_STATES, TRAINER_SPECIALTIES, TRAINER_SESSION_TYPES } from "@shared/schema";
+import { US_STATES, TRAINER_SPECIALTIES, TRAINER_SESSION_TYPES, TRAINER_EQUIPMENT } from "@shared/schema";
 import type { TrainingLocation } from "@shared/schema";
 
 const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
@@ -109,6 +109,7 @@ type TrainerProfileData = {
   state: string | null;
   hourlyRate: number | null;
   sessionTypes: string[] | null;
+  equipment: string[] | null;
   experienceYears: number | null;
   certifications: string | null;
   availability: string | null;
@@ -135,6 +136,7 @@ export default function TrainerProfilePage() {
   const [state, setState] = useState("");
   const [hourlyRate, setHourlyRate] = useState("");
   const [sessionTypes, setSessionTypes] = useState<string[]>([]);
+  const [equipment, setEquipment] = useState<string[]>([]);
   const [experienceYears, setExperienceYears] = useState("");
   const [certifications, setCertifications] = useState("");
   const [availability, setAvailability] = useState<DayAvailability[]>(createDefaultAvailability());
@@ -227,6 +229,7 @@ export default function TrainerProfilePage() {
     setState(data.state || "");
     setHourlyRate(data.hourlyRate ? String(data.hourlyRate) : "");
     setSessionTypes(data.sessionTypes || []);
+    setEquipment(data.equipment || []);
     setExperienceYears(data.experienceYears ? String(data.experienceYears) : "");
     setCertifications(data.certifications || "");
     setAvailability(parseAvailability(data.availability));
@@ -249,6 +252,7 @@ export default function TrainerProfilePage() {
         state: state || null,
         hourlyRate: hourlyRate ? parseInt(hourlyRate) : null,
         sessionTypes: sessionTypes.length > 0 ? sessionTypes : null,
+        equipment: equipment.length > 0 ? equipment : null,
         experienceYears: experienceYears ? parseInt(experienceYears) : null,
         certifications: certifications || null,
         availability: availability.some(d => d.enabled) ? serializeAvailability(availability) : null,
@@ -299,6 +303,7 @@ export default function TrainerProfilePage() {
 
   const toggleSpecialty = (s: string) => setSpecialties(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
   const toggleSessionType = (t: string) => setSessionTypes(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]);
+  const toggleEquipment = (e: string) => setEquipment(prev => prev.includes(e) ? prev.filter(x => x !== e) : [...prev, e]);
 
   const trainerName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || "Trainer";
   const initials = (user?.firstName?.[0] || "") + (user?.lastName?.[0] || "");
@@ -450,6 +455,17 @@ export default function TrainerProfilePage() {
                 <div className="flex flex-wrap gap-2" data-testid="group-profile-session-types">
                   {p.sessionTypes.map(s => (
                     <Badge key={s} variant="outline" className="no-default-hover-elevate text-xs font-medium border-border text-foreground/80">{s}</Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {(p?.equipment && p.equipment.length > 0) && (
+              <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
+                <h3 className="text-xs font-bold text-foreground/60 uppercase tracking-wider mb-3">Equipment</h3>
+                <div className="flex flex-wrap gap-2" data-testid="group-profile-equipment">
+                  {p.equipment.map(e => (
+                    <Badge key={e} variant="outline" className="no-default-hover-elevate text-xs font-medium border-border text-foreground/80">{e}</Badge>
                   ))}
                 </div>
               </div>
@@ -678,6 +694,19 @@ export default function TrainerProfilePage() {
                 {TRAINER_SESSION_TYPES.map(t => (
                   <Badge key={t} variant={sessionTypes.includes(t) ? "default" : "outline"} className="cursor-pointer text-xs" onClick={() => toggleSessionType(t)} data-testid={`badge-session-type-${t.toLowerCase().replace(/[\s()]+/g, '-')}`}>
                     {t}{sessionTypes.includes(t) && <X className="w-3 h-3 ml-1" />}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+
+            <Separator />
+
+            <div className="space-y-3">
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Equipment</h4>
+              <div className="flex flex-wrap gap-2" data-testid="group-equipment">
+                {TRAINER_EQUIPMENT.map(e => (
+                  <Badge key={e} variant={equipment.includes(e) ? "default" : "outline"} className="cursor-pointer text-xs" onClick={() => toggleEquipment(e)} data-testid={`badge-equipment-${e.toLowerCase().replace(/[\s/]+/g, '-')}`}>
+                    {e}{equipment.includes(e) && <X className="w-3 h-3 ml-1" />}
                   </Badge>
                 ))}
               </div>

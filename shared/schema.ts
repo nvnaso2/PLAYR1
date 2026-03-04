@@ -1029,6 +1029,24 @@ export type TeamClub = typeof teamClubs.$inferSelect;
 export type InsertLeague = z.infer<typeof insertLeagueSchema>;
 export type League = typeof leagues.$inferSelect;
 
+export const TRAINER_EQUIPMENT = [
+  "Weighted Basketball",
+  "Shooting Machine",
+  "Resistance Bands",
+  "Agility Ladder",
+  "Cones",
+  "Speed Hurdles",
+  "Dribble Goggles",
+  "Training Pads",
+  "Medicine Ball",
+  "Jump Rope",
+  "Weights / Dumbbells",
+  "Kettlebells",
+  "Foam Roller",
+  "Ball Cart",
+  "Scoreboard / Timer",
+] as const;
+
 export const TRAINER_SESSION_TYPES = [
   "1-on-1",
   "Small Group (2-4)",
@@ -1062,6 +1080,7 @@ export const trainerProfiles = pgTable("trainer_profiles", {
   state: varchar("state"),
   hourlyRate: integer("hourly_rate"),
   sessionTypes: text("session_types").array(),
+  equipment: text("equipment").array(),
   experienceYears: integer("experience_years"),
   certifications: text("certifications"),
   availability: text("availability"),
