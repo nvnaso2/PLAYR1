@@ -36,7 +36,9 @@ import TeamProfile from "@/pages/team-profile";
 import LeagueProfile from "@/pages/league-profile";
 import TrainerProfile from "@/pages/trainer/profile";
 import TrainerSchedule from "@/pages/trainer/schedule";
+import TrainerEvaluations from "@/pages/trainer/evaluations";
 import MySessions from "@/pages/my-sessions";
+import MyEvaluations from "@/pages/my-evaluations";
 import NotFound from "@/pages/not-found";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRole } from "@/hooks/use-role";
@@ -139,8 +141,10 @@ function Router({ previewLanding }: { previewLanding: boolean }) {
                 <Route path="/trainer/progress" component={TrainerProgress} />
                 <Route path="/trainer/profile" component={TrainerProfile} />
                 <Route path="/trainer/schedule" component={TrainerSchedule} />
+                <Route path="/trainer/evaluations" component={TrainerEvaluations} />
                 <Route path="/find-trainer" component={FindTrainer} />
                 <Route path="/my-sessions" component={MySessions} />
+                <Route path="/my-evaluations" component={MyEvaluations} />
                 <Route path="/trainer/players">{() => <Redirect to="/trainer/roster" />}</Route>
                 <Route path="/trainer/assignments">{() => <Redirect to="/trainer/drills" />}</Route>
                 <Route path="/trainer/invite">{() => <Redirect to="/trainer/roster" />}</Route>

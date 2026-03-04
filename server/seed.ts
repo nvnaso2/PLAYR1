@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { drills, benchmarks } from "@shared/schema";
+import { drills, benchmarks, evaluationAttributes } from "@shared/schema";
 
 const sampleDrills = [
   // Ball Handling
@@ -282,6 +282,26 @@ export async function seedDatabase() {
       console.log(`Inserted ${sampleBenchmarks.length} benchmarks`);
     } else {
       console.log("Benchmarks already exist, skipping seed");
+    }
+
+    const existingAttributes = await db.select().from(evaluationAttributes).limit(1);
+    if (existingAttributes.length === 0) {
+      console.log("Inserting default evaluation attributes...");
+      await db.insert(evaluationAttributes).values([
+        { name: "Ball Handling", category: "Offense", scaleType: "1-10", isDefault: true },
+        { name: "Shooting", category: "Offense", scaleType: "1-10", isDefault: true },
+        { name: "Finishing", category: "Offense", scaleType: "1-10", isDefault: true },
+        { name: "Passing", category: "Offense", scaleType: "1-10", isDefault: true },
+        { name: "Court Vision", category: "Offense", scaleType: "1-5", isDefault: true },
+        { name: "Defense", category: "Defense", scaleType: "1-10", isDefault: true },
+        { name: "Rebounding", category: "Defense", scaleType: "1-5", isDefault: true },
+        { name: "Basketball IQ", category: "Intangibles", scaleType: "1-5", isDefault: true },
+        { name: "Athleticism", category: "Intangibles", scaleType: "1-10", isDefault: true },
+        { name: "Effort", category: "Intangibles", scaleType: "word", isDefault: true, wordOptions: JSON.stringify(["Needs Work", "Developing", "Solid", "Strong", "Elite"]) },
+      ]);
+      console.log("Inserted default evaluation attributes");
+    } else {
+      console.log("Evaluation attributes already exist, skipping seed");
     }
 
     console.log("Database seeding complete!");

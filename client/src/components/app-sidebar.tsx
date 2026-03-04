@@ -51,6 +51,7 @@ import {
   UserPlus,
   ArrowLeftRight,
   CalendarDays,
+  ClipboardCheck,
 } from "lucide-react";
 import logoLandscape from "@assets/PNG_image_1770494053382.png";
 
@@ -64,6 +65,7 @@ const playerNavItems = [
   { title: "Find Teams & Leagues", url: "/finder", icon: Search },
   { title: "Find a Trainer", url: "/find-trainer", icon: UserPlus },
   { title: "My Sessions", url: "/my-sessions", icon: CalendarDays },
+  { title: "My Evaluations", url: "/my-evaluations", icon: ClipboardCheck },
 ];
 
 const trainerNavItems = [
@@ -75,6 +77,7 @@ const trainerNavItems = [
   { title: "Chat", url: "/trainer/chat", icon: MessageCircle },
   { title: "Schedule", url: "/trainer/schedule", icon: CalendarDays },
   { title: "Player Progress", url: "/trainer/progress", icon: Target },
+  { title: "Evaluations", url: "/trainer/evaluations", icon: ClipboardCheck },
   { title: "My Profile", url: "/trainer/profile", icon: UserCircle },
 ];
 

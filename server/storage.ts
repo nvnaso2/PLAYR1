@@ -44,7 +44,10 @@ import {
   trainerProfiles, type TrainerProfile, type InsertTrainerProfile,
   trainingLocations, type TrainingLocation, type InsertTrainingLocation,
   trainerProfileLocations, type TrainerProfileLocation, type InsertTrainerProfileLocation,
-  trainingSessions, type TrainingSession, type InsertTrainingSession
+  trainingSessions, type TrainingSession, type InsertTrainingSession,
+  evaluationAttributes, type EvaluationAttribute, type InsertEvaluationAttribute,
+  playerEvaluations, type PlayerEvaluation, type InsertPlayerEvaluation,
+  playerEvaluationRatings, type PlayerEvaluationRating, type InsertPlayerEvaluationRating
 } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
@@ -373,6 +376,20 @@ export interface IStorage {
   getTrainingSessionsForTrainer(trainerId: string, filters?: { status?: string; from?: string; to?: string }): Promise<TrainingSession[]>;
   getTrainingSessionsForPlayer(playerId: string, filters?: { status?: string; from?: string; to?: string }): Promise<TrainingSession[]>;
   updateTrainingSession(id: string, data: Partial<InsertTrainingSession>): Promise<TrainingSession | undefined>;
+
+  getEvaluationAttributes(trainerId?: string): Promise<EvaluationAttribute[]>;
+  getEvaluationAttributeById(id: string): Promise<EvaluationAttribute | undefined>;
+  createEvaluationAttribute(data: InsertEvaluationAttribute): Promise<EvaluationAttribute>;
+  updateEvaluationAttribute(id: string, data: Partial<InsertEvaluationAttribute>): Promise<EvaluationAttribute | undefined>;
+  deleteEvaluationAttribute(id: string): Promise<boolean>;
+
+  createPlayerEvaluation(data: InsertPlayerEvaluation, ratings: InsertPlayerEvaluationRating[]): Promise<PlayerEvaluation>;
+  getPlayerEvaluations(playerId: string, trainerId?: string): Promise<PlayerEvaluation[]>;
+  getPlayerEvaluationById(id: string): Promise<{ evaluation: PlayerEvaluation; ratings: (PlayerEvaluationRating & { attribute: EvaluationAttribute })[] } | undefined>;
+  deletePlayerEvaluation(id: string): Promise<boolean>;
+  getPlayerEvaluationCount(trainerId: string, playerId: string): Promise<number>;
+  toggleEvaluationSharing(id: string, shared: boolean): Promise<PlayerEvaluation | undefined>;
+  getSharedEvaluationsForPlayer(playerId: string): Promise<PlayerEvaluation[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2833,6 +2850,105 @@ export class DatabaseStorage implements IStorage {
       .where(eq(trainingSessions.id, id))
       .returning();
     return updated;
+  }
+
+  async getEvaluationAttributes(trainerId?: string): Promise<EvaluationAttribute[]> {
+    if (trainerId) {
+      return await db.select().from(evaluationAttributes)
+        .where(or(eq(evaluationAttributes.isDefault, true), eq(evaluationAttributes.createdBy, trainerId)))
+        .orderBy(evaluationAttributes.category, evaluationAttributes.name);
+    }
+    return await db.select().from(evaluationAttributes)
+      .where(eq(evaluationAttributes.isDefault, true))
+      .orderBy(evaluationAttributes.category, evaluationAttributes.name);
+  }
+
+  async getEvaluationAttributeById(id: string): Promise<EvaluationAttribute | undefined> {
+    const [attr] = await db.select().from(evaluationAttributes).where(eq(evaluationAttributes.id, id));
+    return attr;
+  }
+
+  async createEvaluationAttribute(data: InsertEvaluationAttribute): Promise<EvaluationAttribute> {
+    const [attr] = await db.insert(evaluationAttributes).values(data).returning();
+    return attr;
+  }
+
+  async updateEvaluationAttribute(id: string, data: Partial<InsertEvaluationAttribute>): Promise<EvaluationAttribute | undefined> {
+    const [updated] = await db.update(evaluationAttributes).set(data).where(eq(evaluationAttributes.id, id)).returning();
+    return updated;
+  }
+
+  async deleteEvaluationAttribute(id: string): Promise<boolean> {
+    const result = await db.delete(evaluationAttributes).where(eq(evaluationAttributes.id, id));
+    return true;
+  }
+
+  async createPlayerEvaluation(data: InsertPlayerEvaluation, ratings: InsertPlayerEvaluationRating[]): Promise<PlayerEvaluation> {
+    const [evaluation] = await db.insert(playerEvaluations).values(data).returning();
+    if (ratings.length > 0) {
+      const ratingsWithEvalId = ratings.map(r => ({ ...r, evaluationId: evaluation.id }));
+      await db.insert(playerEvaluationRatings).values(ratingsWithEvalId);
+    }
+    return evaluation;
+  }
+
+  async getPlayerEvaluations(playerId: string, trainerId?: string): Promise<PlayerEvaluation[]> {
+    if (trainerId) {
+      return await db.select().from(playerEvaluations)
+        .where(and(eq(playerEvaluations.playerId, playerId), eq(playerEvaluations.trainerId, trainerId)))
+        .orderBy(desc(playerEvaluations.createdAt));
+    }
+    return await db.select().from(playerEvaluations)
+      .where(eq(playerEvaluations.playerId, playerId))
+      .orderBy(desc(playerEvaluations.createdAt));
+  }
+
+  async getPlayerEvaluationById(id: string): Promise<{ evaluation: PlayerEvaluation; ratings: (PlayerEvaluationRating & { attribute: EvaluationAttribute })[] } | undefined> {
+    const [evaluation] = await db.select().from(playerEvaluations).where(eq(playerEvaluations.id, id));
+    if (!evaluation) return undefined;
+
+    const ratingsRows = await db
+      .select({
+        id: playerEvaluationRatings.id,
+        evaluationId: playerEvaluationRatings.evaluationId,
+        attributeId: playerEvaluationRatings.attributeId,
+        numericValue: playerEvaluationRatings.numericValue,
+        wordValue: playerEvaluationRatings.wordValue,
+        notes: playerEvaluationRatings.notes,
+        attribute: evaluationAttributes,
+      })
+      .from(playerEvaluationRatings)
+      .innerJoin(evaluationAttributes, eq(playerEvaluationRatings.attributeId, evaluationAttributes.id))
+      .where(eq(playerEvaluationRatings.evaluationId, id));
+
+    return { evaluation, ratings: ratingsRows };
+  }
+
+  async deletePlayerEvaluation(id: string): Promise<boolean> {
+    await db.delete(playerEvaluationRatings).where(eq(playerEvaluationRatings.evaluationId, id));
+    await db.delete(playerEvaluations).where(eq(playerEvaluations.id, id));
+    return true;
+  }
+
+  async getPlayerEvaluationCount(trainerId: string, playerId: string): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)` })
+      .from(playerEvaluations)
+      .where(and(eq(playerEvaluations.trainerId, trainerId), eq(playerEvaluations.playerId, playerId)));
+    return Number(result[0]?.count ?? 0);
+  }
+
+  async toggleEvaluationSharing(id: string, shared: boolean): Promise<PlayerEvaluation | undefined> {
+    const [updated] = await db.update(playerEvaluations)
+      .set({ sharedWithPlayer: shared })
+      .where(eq(playerEvaluations.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getSharedEvaluationsForPlayer(playerId: string): Promise<PlayerEvaluation[]> {
+    return await db.select().from(playerEvaluations)
+      .where(and(eq(playerEvaluations.playerId, playerId), eq(playerEvaluations.sharedWithPlayer, true)))
+      .orderBy(desc(playerEvaluations.createdAt));
   }
 }
 

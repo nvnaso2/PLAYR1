@@ -1150,3 +1150,63 @@ export const insertTrainingSessionSchema = createInsertSchema(trainingSessions).
 
 export type InsertTrainingSession = z.infer<typeof insertTrainingSessionSchema>;
 export type TrainingSession = typeof trainingSessions.$inferSelect;
+
+export const EVALUATION_SCALE_TYPES = ["1-10", "1-5", "word"] as const;
+export type EvaluationScaleType = typeof EVALUATION_SCALE_TYPES[number];
+
+export const EVALUATION_TYPES = ["initial", "progress"] as const;
+export type EvaluationType = typeof EVALUATION_TYPES[number];
+
+export const evaluationAttributes = pgTable("evaluation_attributes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  category: varchar("category"),
+  scaleType: varchar("scale_type").notNull(),
+  wordOptions: text("word_options"),
+  isDefault: boolean("is_default").default(false),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertEvaluationAttributeSchema = createInsertSchema(evaluationAttributes).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertEvaluationAttribute = z.infer<typeof insertEvaluationAttributeSchema>;
+export type EvaluationAttribute = typeof evaluationAttributes.$inferSelect;
+
+export const playerEvaluations = pgTable("player_evaluations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  trainerId: varchar("trainer_id").notNull(),
+  playerId: varchar("player_id").notNull(),
+  evaluationType: varchar("evaluation_type").notNull(),
+  notes: text("notes"),
+  evaluationDate: varchar("evaluation_date").notNull(),
+  sharedWithPlayer: boolean("shared_with_player").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPlayerEvaluationSchema = createInsertSchema(playerEvaluations).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertPlayerEvaluation = z.infer<typeof insertPlayerEvaluationSchema>;
+export type PlayerEvaluation = typeof playerEvaluations.$inferSelect;
+
+export const playerEvaluationRatings = pgTable("player_evaluation_ratings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  evaluationId: varchar("evaluation_id").notNull(),
+  attributeId: varchar("attribute_id").notNull(),
+  numericValue: integer("numeric_value"),
+  wordValue: varchar("word_value"),
+  notes: text("notes"),
+});
+
+export const insertPlayerEvaluationRatingSchema = createInsertSchema(playerEvaluationRatings).omit({
+  id: true,
+});
+
+export type InsertPlayerEvaluationRating = z.infer<typeof insertPlayerEvaluationRatingSchema>;
+export type PlayerEvaluationRating = typeof playerEvaluationRatings.$inferSelect;

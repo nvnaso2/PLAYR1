@@ -4695,6 +4695,198 @@ export async function registerRoutes(
     }
   });
 
+  // ===== PLAYER EVALUATIONS =====
+
+  app.get("/api/evaluation-attributes", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const attributes = await storage.getEvaluationAttributes(userId);
+      res.json(attributes);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/evaluation-attributes", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { name, category, scaleType, wordOptions } = req.body;
+      if (!name || !scaleType) {
+        return res.status(400).json({ message: "name and scaleType are required" });
+      }
+      if (!["1-10", "1-5", "word"].includes(scaleType)) {
+        return res.status(400).json({ message: "scaleType must be '1-10', '1-5', or 'word'" });
+      }
+      if (scaleType === "word" && (!wordOptions || !Array.isArray(JSON.parse(wordOptions || "[]")) || JSON.parse(wordOptions || "[]").length < 2)) {
+        return res.status(400).json({ message: "Word scale requires at least 2 word options" });
+      }
+      const attr = await storage.createEvaluationAttribute({
+        name,
+        category: category || null,
+        scaleType,
+        wordOptions: wordOptions || null,
+        isDefault: false,
+        createdBy: userId,
+      });
+      res.status(201).json(attr);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/evaluation-attributes/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const attr = await storage.getEvaluationAttributeById(req.params.id);
+      if (!attr) return res.status(404).json({ message: "Attribute not found" });
+      if (attr.isDefault) return res.status(403).json({ message: "Cannot edit default attributes" });
+      if (attr.createdBy !== userId) return res.status(403).json({ message: "Not authorized" });
+
+      const { name, category, scaleType, wordOptions } = req.body;
+      const updated = await storage.updateEvaluationAttribute(req.params.id, {
+        ...(name && { name }),
+        ...(category !== undefined && { category }),
+        ...(scaleType && { scaleType }),
+        ...(wordOptions !== undefined && { wordOptions }),
+      });
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/evaluation-attributes/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const attr = await storage.getEvaluationAttributeById(req.params.id);
+      if (!attr) return res.status(404).json({ message: "Attribute not found" });
+      if (attr.isDefault) return res.status(403).json({ message: "Cannot delete default attributes" });
+      if (attr.createdBy !== userId) return res.status(403).json({ message: "Not authorized" });
+      await storage.deleteEvaluationAttribute(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/player-evaluations", isAuthenticated, async (req: any, res) => {
+    try {
+      const trainerId = req.user.claims.sub;
+      const { playerId, notes, evaluationDate, ratings } = req.body;
+      if (!playerId || !evaluationDate || !ratings || !Array.isArray(ratings) || ratings.length === 0) {
+        return res.status(400).json({ message: "playerId, evaluationDate, and ratings array are required" });
+      }
+
+      const existingCount = await storage.getPlayerEvaluationCount(trainerId, playerId);
+      const evaluationType = existingCount === 0 ? "initial" : "progress";
+
+      const ratingsData = ratings.map((r: any) => ({
+        evaluationId: "",
+        attributeId: r.attributeId,
+        numericValue: r.numericValue ?? null,
+        wordValue: r.wordValue ?? null,
+        notes: r.notes ?? null,
+      }));
+
+      const evaluation = await storage.createPlayerEvaluation({
+        trainerId,
+        playerId,
+        evaluationType,
+        notes: notes || null,
+        evaluationDate,
+      }, ratingsData);
+
+      res.status(201).json(evaluation);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/player-evaluations/detail/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const result = await storage.getPlayerEvaluationById(req.params.id);
+      if (!result) return res.status(404).json({ message: "Evaluation not found" });
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/player-evaluations/:playerId", isAuthenticated, async (req: any, res) => {
+    try {
+      const trainerId = req.user.claims.sub;
+      const evaluations = await storage.getPlayerEvaluations(req.params.playerId, trainerId);
+      res.json(evaluations);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/player-evaluations/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const trainerId = req.user.claims.sub;
+      const result = await storage.getPlayerEvaluationById(req.params.id);
+      if (!result) return res.status(404).json({ message: "Evaluation not found" });
+      if (result.evaluation.trainerId !== trainerId) return res.status(403).json({ message: "Not authorized" });
+      await storage.deletePlayerEvaluation(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/player-evaluations/:id/share", isAuthenticated, async (req: any, res) => {
+    try {
+      const trainerId = req.user.claims.sub;
+      const result = await storage.getPlayerEvaluationById(req.params.id);
+      if (!result) return res.status(404).json({ message: "Evaluation not found" });
+      if (result.evaluation.trainerId !== trainerId) return res.status(403).json({ message: "Not authorized" });
+      const shared = req.body.shared !== false;
+      const updated = await storage.toggleEvaluationSharing(req.params.id, shared);
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/my-evaluations", isAuthenticated, async (req: any, res) => {
+    try {
+      const playerId = req.user.claims.sub;
+      const evaluations = await storage.getSharedEvaluationsForPlayer(playerId);
+      const enriched = await Promise.all(evaluations.map(async (ev) => {
+        const [trainer] = await db.select({
+          firstName: users.firstName,
+          lastName: users.lastName,
+        }).from(users).where(eq(users.id, ev.trainerId));
+        return { ...ev, trainerName: trainer ? `${trainer.firstName || ""} ${trainer.lastName || ""}`.trim() : "Unknown" };
+      }));
+      res.json(enriched);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/my-evaluations/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const playerId = req.user.claims.sub;
+      const result = await storage.getPlayerEvaluationById(req.params.id);
+      if (!result) return res.status(404).json({ message: "Evaluation not found" });
+      if (result.evaluation.playerId !== playerId || !result.evaluation.sharedWithPlayer) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      const [trainer] = await db.select({
+        firstName: users.firstName,
+        lastName: users.lastName,
+      }).from(users).where(eq(users.id, result.evaluation.trainerId));
+      res.json({
+        ...result,
+        trainerName: trainer ? `${trainer.firstName || ""} ${trainer.lastName || ""}`.trim() : "Unknown",
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   return httpServer;
 }
 
