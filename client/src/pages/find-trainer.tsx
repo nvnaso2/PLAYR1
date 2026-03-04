@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Calendar } from "@/components/ui/calendar";
 import { Search, MapPin, DollarSign, Clock, Award, Star, Mail, Phone, Globe, Instagram, Twitter, X, ChevronRight, CalendarDays, CheckCircle, Briefcase } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { US_STATES, TRAINER_SPECIALTIES } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -329,7 +331,7 @@ function TrainerDetail({ trainer: listTrainer }: { trainer: DirectoryTrainer }) 
 
   const [bookingOpen, setBookingOpen] = useState(false);
   const [selectedLocationId, setSelectedLocationId] = useState("");
-  const [sessionDate, setSessionDate] = useState("");
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [sessionType, setSessionType] = useState("");
@@ -350,15 +352,24 @@ function TrainerDetail({ trainer: listTrainer }: { trainer: DirectoryTrainer }) 
     return parseAvailability(trainer.availability);
   }, [selectedLocation, trainer.availability]);
 
-  const availableDays = useMemo(() => {
+  const availableDayNames = useMemo(() => {
     return activeAvailability.map(a => a.day);
   }, [activeAvailability]);
 
+  const hasAvailabilityData = activeAvailability.length > 0;
+
+  const sessionDate = useMemo(() => {
+    if (!selectedDate) return "";
+    const y = selectedDate.getFullYear();
+    const m = String(selectedDate.getMonth() + 1).padStart(2, "0");
+    const d = String(selectedDate.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }, [selectedDate]);
+
   const selectedDayOfWeek = useMemo(() => {
-    if (!sessionDate) return null;
-    const d = new Date(sessionDate + "T12:00:00");
-    return DAYS_OF_WEEK[d.getDay()];
-  }, [sessionDate]);
+    if (!selectedDate) return null;
+    return DAYS_OF_WEEK[selectedDate.getDay()];
+  }, [selectedDate]);
 
   const dayAvail = useMemo(() => {
     if (!selectedDayOfWeek) return undefined;
@@ -369,7 +380,12 @@ function TrainerDetail({ trainer: listTrainer }: { trainer: DirectoryTrainer }) 
     return getAvailableTimeSlotsForDay(dayAvail);
   }, [dayAvail]);
 
-  const hasAvailabilityData = activeAvailability.length > 0;
+  const disabledCalendarDays = useCallback((date: Date) => {
+    if (date < new Date(new Date().setHours(0, 0, 0, 0))) return true;
+    if (!hasAvailabilityData) return false;
+    const dayName = DAYS_OF_WEEK[date.getDay()];
+    return !availableDayNames.includes(dayName);
+  }, [hasAvailabilityData, availableDayNames]);
 
   const endTimeOptions = useMemo(() => {
     if (!startTime) return [];
@@ -401,7 +417,7 @@ function TrainerDetail({ trainer: listTrainer }: { trainer: DirectoryTrainer }) 
 
   function resetBookingForm() {
     setSelectedLocationId("");
-    setSessionDate("");
+    setSelectedDate(undefined);
     setStartTime("");
     setEndTime("");
     setSessionType("");
@@ -432,9 +448,9 @@ function TrainerDetail({ trainer: listTrainer }: { trainer: DirectoryTrainer }) 
     },
   });
 
-  const dateIsUnavailable = hasAvailabilityData && sessionDate && !dayAvail;
   const locationRequired = hasLocations && !selectedLocationId;
-  const canSubmit = sessionDate && startTime && endTime && startTime < endTime && !dateIsUnavailable && !locationRequired;
+  const dateHasAvailability = !hasAvailabilityData || !!dayAvail;
+  const canSubmit = selectedDate && sessionDate && startTime && endTime && startTime < endTime && !locationRequired && dateHasAvailability;
 
   return (
     <div className="space-y-6 pb-6">
@@ -669,7 +685,7 @@ function TrainerDetail({ trainer: listTrainer }: { trainer: DirectoryTrainer }) 
             {hasLocations && (
               <div className="space-y-2">
                 <Label>Location</Label>
-                <Select value={selectedLocationId} onValueChange={(v) => { setSelectedLocationId(v); setSessionDate(""); setStartTime(""); setEndTime(""); }}>
+                <Select value={selectedLocationId} onValueChange={(v) => { setSelectedLocationId(v); setSelectedDate(undefined); setStartTime(""); setEndTime(""); }}>
                   <SelectTrigger data-testid="select-booking-location">
                     <SelectValue placeholder="Select a training location" />
                   </SelectTrigger>
@@ -684,88 +700,75 @@ function TrainerDetail({ trainer: listTrainer }: { trainer: DirectoryTrainer }) 
               </div>
             )}
 
-            {hasAvailabilityData && availableDays.length > 0 && (
-              <div className="rounded-lg bg-muted/50 p-3">
-                <p className="text-xs font-medium text-muted-foreground mb-1.5">Available days</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {availableDays.map(d => (
-                    <Badge
-                      key={d}
-                      variant={selectedDayOfWeek === d ? "default" : "outline"}
-                      className="text-xs no-default-hover-elevate"
-                    >
-                      {d}
-                    </Badge>
-                  ))}
+            <div className="space-y-2">
+              <Label>Select a Date</Label>
+              {hasAvailabilityData && availableDayNames.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Available on: {availableDayNames.map(d => d.slice(0, 3)).join(", ")}
+                </p>
+              )}
+              <div className={cn("rounded-lg border border-border flex justify-center", locationRequired && "opacity-50 pointer-events-none")}>
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(date) => { setSelectedDate(date); setStartTime(""); setEndTime(""); }}
+                  disabled={disabledCalendarDays}
+                  fromDate={new Date()}
+                  data-testid="calendar-session-date"
+                />
+              </div>
+              {selectedDate && dayAvail && (
+                <div className="rounded-lg bg-muted/50 p-3 space-y-1">
+                  <p className="text-xs font-medium text-green-600 dark:text-green-400 flex items-center gap-1">
+                    <CheckCircle className="w-3 h-3" />
+                    {selectedDayOfWeek}, {selectedDate.toLocaleDateString("en-US", { month: "long", day: "numeric" })}
+                  </p>
+                  {dayAvail.sessions.length > 0 && (
+                    <p className="text-xs text-muted-foreground" data-testid="text-available-windows">
+                      Available: {dayAvail.sessions.map(s => `${s.start} – ${s.end}`).join(", ")}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {selectedDate && dateHasAvailability && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Start Time</Label>
+                  <Select
+                    value={startTime}
+                    onValueChange={(v) => { setStartTime(v); setEndTime(""); }}
+                    disabled={!!locationRequired}
+                  >
+                    <SelectTrigger data-testid="select-start-time">
+                      <SelectValue placeholder="Start" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(hasAvailabilityData ? availableTimeSlots : TIME_OPTIONS).map(t => (
+                        <SelectItem key={t} value={t}>{formatTime(t)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>End Time</Label>
+                  <Select value={endTime} onValueChange={setEndTime} disabled={!!locationRequired || !startTime}>
+                    <SelectTrigger data-testid="select-end-time">
+                      <SelectValue placeholder="End" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(hasAvailabilityData
+                        ? endTimeOptions
+                        : TIME_OPTIONS.filter(t => !startTime || t > startTime)
+                      ).map(t => (
+                        <SelectItem key={t} value={t}>{formatTime(t)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             )}
-
-            <div className="space-y-2">
-              <Label htmlFor="session-date">Date</Label>
-              <Input
-                id="session-date"
-                type="date"
-                value={sessionDate}
-                onChange={e => { setSessionDate(e.target.value); setStartTime(""); setEndTime(""); }}
-                min={new Date().toISOString().split("T")[0]}
-                disabled={!!locationRequired}
-                data-testid="input-session-date"
-              />
-              {sessionDate && hasAvailabilityData && !dayAvail && (
-                <p className="text-xs text-destructive flex items-center gap-1">
-                  <X className="w-3 h-3" />
-                  {selectedDayOfWeek} is not available{selectedLocation ? ` at ${selectedLocation.name}` : ''}
-                </p>
-              )}
-              {sessionDate && dayAvail && (
-                <p className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
-                  <CheckCircle className="w-3 h-3" />
-                  {selectedDayOfWeek} is available
-                  {dayAvail.sessions.length > 0 && (
-                    <span className="text-muted-foreground ml-1">
-                      ({dayAvail.sessions.map(s => `${s.start}–${s.end}`).join(", ")})
-                    </span>
-                  )}
-                </p>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>Start Time</Label>
-                <Select
-                  value={startTime}
-                  onValueChange={(v) => { setStartTime(v); setEndTime(""); }}
-                  disabled={!!dateIsUnavailable || !!locationRequired || !sessionDate}
-                >
-                  <SelectTrigger data-testid="select-start-time">
-                    <SelectValue placeholder={dateIsUnavailable ? "Not available" : "Start"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(hasAvailabilityData ? availableTimeSlots : TIME_OPTIONS).map(t => (
-                      <SelectItem key={t} value={t}>{formatTime(t)}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>End Time</Label>
-                <Select value={endTime} onValueChange={setEndTime} disabled={!!dateIsUnavailable || !!locationRequired || !startTime}>
-                  <SelectTrigger data-testid="select-end-time">
-                    <SelectValue placeholder={dateIsUnavailable ? "Not available" : "End"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(hasAvailabilityData
-                      ? endTimeOptions
-                      : TIME_OPTIONS.filter(t => !startTime || t > startTime)
-                    ).map(t => (
-                      <SelectItem key={t} value={t}>{formatTime(t)}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
 
             {trainer.sessionTypes && trainer.sessionTypes.length > 0 && (
               <div className="space-y-2">
