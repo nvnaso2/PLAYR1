@@ -4355,12 +4355,72 @@ export async function registerRoutes(
       if (startTime >= endTime) {
         return res.status(400).json({ message: "startTime must be before endTime" });
       }
+
+      function timeToMinutes(t: string): number {
+        const [h, m] = t.split(":").map(Number);
+        return h * 60 + m;
+      }
+      const startMin = timeToMinutes(startTime);
+      const endMin = timeToMinutes(endTime);
+      if (startMin % 15 !== 0 || endMin % 15 !== 0) {
+        return res.status(400).json({ message: "Session times must be in 15-minute increments" });
+      }
+
       if (locationId) {
         const loc = await storage.getTrainingLocationById(locationId);
         if (!loc) return res.status(400).json({ message: "Invalid location" });
       }
       const trainerProfile = await storage.getTrainerProfileById(trainerProfileId);
       if (!trainerProfile) return res.status(404).json({ message: "Trainer profile not found" });
+
+      const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      const requestedDay = DAYS[new Date(sessionDate + "T12:00:00").getDay()];
+
+      let availabilityRaw: string | null = null;
+      if (locationId) {
+        const profileLocs = await storage.getTrainerProfileLocations(trainerProfile.id);
+        const matched = profileLocs.find(pl => pl.locationId === locationId);
+        if (matched?.availability) availabilityRaw = matched.availability;
+        else availabilityRaw = trainerProfile.availability;
+      } else {
+        availabilityRaw = trainerProfile.availability;
+      }
+
+      if (availabilityRaw) {
+        try {
+          const avail = JSON.parse(availabilityRaw);
+          if (Array.isArray(avail) && avail.length > 0) {
+            const dayEntry = avail.find((a: any) => a.day === requestedDay && a.enabled !== false);
+            if (!dayEntry) {
+              return res.status(400).json({ message: `Trainer is not available on ${requestedDay}` });
+            }
+
+            const sessions = Array.isArray(dayEntry.sessions) ? dayEntry.sessions : (dayEntry.start && dayEntry.end ? [{ start: dayEntry.start, end: dayEntry.end }] : []);
+            function parseSlotTime(t: string): number {
+              const match = t.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+              if (!match) return -1;
+              let h = parseInt(match[1]);
+              const m = parseInt(match[2]);
+              const ampm = match[3]?.toUpperCase();
+              if (ampm === "PM" && h < 12) h += 12;
+              if (ampm === "AM" && h === 12) h = 0;
+              return h * 60 + m;
+            }
+
+            if (sessions.length > 0) {
+              const fitsWindow = sessions.some((s: any) => {
+                const wStart = parseSlotTime(s.start);
+                const wEnd = parseSlotTime(s.end);
+                return startMin >= wStart && endMin <= wEnd;
+              });
+              if (!fitsWindow) {
+                return res.status(400).json({ message: "Requested time is outside trainer's available hours" });
+              }
+            }
+          }
+        } catch {}
+      }
+
       const session = await storage.createTrainingSession({
         trainerId: trainerProfile.userId,
         playerId,

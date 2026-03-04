@@ -368,25 +368,35 @@ function TrainerDetail({ trainer: listTrainer }: { trainer: DirectoryTrainer }) 
     return getAvailableTimeSlotsForDay(dayAvail);
   }, [dayAvail]);
 
+  const hasAvailabilityData = activeAvailability.length > 0;
+
   const endTimeOptions = useMemo(() => {
-    if (!startTime || availableTimeSlots.length === 0) return [];
-    const startIdx = availableTimeSlots.indexOf(startTime);
-    if (startIdx < 0) return availableTimeSlots.filter(t => t > startTime);
-    const endSlots: string[] = [];
-    for (let i = startIdx + 1; i < availableTimeSlots.length; i++) {
-      const prevMin = parseTimeToMinutes(availableTimeSlots[i - 1]);
-      const currMin = parseTimeToMinutes(availableTimeSlots[i]);
-      endSlots.push(availableTimeSlots[i]);
-      if (currMin - prevMin > 15) break;
+    if (!startTime) return [];
+    const startMin = parseTimeToMinutes(startTime);
+    if (startMin < 0) return [];
+
+    if (hasAvailabilityData && dayAvail) {
+      const windowEnd = dayAvail.sessions.reduce((max, s) => {
+        const sStart = parseTimeToMinutes(s.start);
+        const sEnd = parseTimeToMinutes(s.end);
+        if (startMin >= sStart && startMin < sEnd) return Math.max(max, sEnd);
+        return max;
+      }, -1);
+
+      if (windowEnd <= startMin) return [];
+      const endSlots: string[] = [];
+      for (let t = startMin + 15; t <= windowEnd; t += 15) {
+        endSlots.push(minutesToTime24(t));
+      }
+      return endSlots;
     }
-    if (endSlots.length === 0) {
-      const lastSlotMin = parseTimeToMinutes(availableTimeSlots[availableTimeSlots.length - 1]);
-      endSlots.push(minutesToTime24(lastSlotMin + 15));
+
+    const endSlots: string[] = [];
+    for (let t = startMin + 15; t <= 22 * 60; t += 15) {
+      endSlots.push(minutesToTime24(t));
     }
     return endSlots;
-  }, [startTime, availableTimeSlots]);
-
-  const hasAvailabilityData = activeAvailability.length > 0;
+  }, [startTime, hasAvailabilityData, dayAvail]);
 
   function resetBookingForm() {
     setSelectedLocationId("");
@@ -412,6 +422,7 @@ function TrainerDetail({ trainer: listTrainer }: { trainer: DirectoryTrainer }) 
     onSuccess: () => {
       toast({ title: "Session Requested", description: "Your booking request has been sent to the trainer." });
       queryClient.invalidateQueries({ queryKey: ["/api/training-sessions/player/enriched"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/training-sessions/trainer/enriched"] });
       setBookingOpen(false);
       resetBookingForm();
     },
@@ -421,7 +432,8 @@ function TrainerDetail({ trainer: listTrainer }: { trainer: DirectoryTrainer }) 
   });
 
   const dateIsUnavailable = hasAvailabilityData && sessionDate && !dayAvail;
-  const canSubmit = sessionDate && startTime && endTime && startTime < endTime && !dateIsUnavailable;
+  const locationRequired = hasLocations && !selectedLocationId;
+  const canSubmit = sessionDate && startTime && endTime && startTime < endTime && !dateIsUnavailable && !locationRequired;
 
   return (
     <div className="space-y-6 pb-6">
@@ -682,6 +694,7 @@ function TrainerDetail({ trainer: listTrainer }: { trainer: DirectoryTrainer }) 
                 value={sessionDate}
                 onChange={e => { setSessionDate(e.target.value); setStartTime(""); setEndTime(""); }}
                 min={new Date().toISOString().split("T")[0]}
+                disabled={!!locationRequired}
                 data-testid="input-session-date"
               />
               {sessionDate && hasAvailabilityData && !dayAvail && (
@@ -709,7 +722,7 @@ function TrainerDetail({ trainer: listTrainer }: { trainer: DirectoryTrainer }) 
                 <Select
                   value={startTime}
                   onValueChange={(v) => { setStartTime(v); setEndTime(""); }}
-                  disabled={!!dateIsUnavailable}
+                  disabled={!!dateIsUnavailable || !!locationRequired || !sessionDate}
                 >
                   <SelectTrigger data-testid="select-start-time">
                     <SelectValue placeholder={dateIsUnavailable ? "Not available" : "Start"} />
@@ -723,7 +736,7 @@ function TrainerDetail({ trainer: listTrainer }: { trainer: DirectoryTrainer }) 
               </div>
               <div className="space-y-2">
                 <Label>End Time</Label>
-                <Select value={endTime} onValueChange={setEndTime} disabled={!!dateIsUnavailable}>
+                <Select value={endTime} onValueChange={setEndTime} disabled={!!dateIsUnavailable || !!locationRequired || !startTime}>
                   <SelectTrigger data-testid="select-end-time">
                     <SelectValue placeholder={dateIsUnavailable ? "Not available" : "End"} />
                   </SelectTrigger>
