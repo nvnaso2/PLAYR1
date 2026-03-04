@@ -41,7 +41,9 @@ import {
   chatThreadMembers, type ChatThreadMember, type InsertChatThreadMember,
   chatThreadMessages, type ChatThreadMessage, type InsertChatThreadMessage,
   tutorialVideos, type TutorialVideo, type InsertTutorialVideo,
-  trainerProfiles, type TrainerProfile, type InsertTrainerProfile
+  trainerProfiles, type TrainerProfile, type InsertTrainerProfile,
+  trainingLocations, type TrainingLocation, type InsertTrainingLocation,
+  trainerProfileLocations, type TrainerProfileLocation, type InsertTrainerProfileLocation
 } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
@@ -352,6 +354,18 @@ export interface IStorage {
   upsertTrainerProfile(profile: InsertTrainerProfile): Promise<TrainerProfile>;
   getPublicTrainerProfiles(filters?: { state?: string; city?: string; specialty?: string; query?: string }): Promise<(TrainerProfile & { firstName: string | null; lastName: string | null })[]>;
   getTrainerProfileById(id: string): Promise<(TrainerProfile & { firstName: string | null; lastName: string | null }) | undefined>;
+
+  getTrainingLocations(): Promise<TrainingLocation[]>;
+  getTrainingLocationById(id: string): Promise<TrainingLocation | undefined>;
+  createTrainingLocation(loc: InsertTrainingLocation): Promise<TrainingLocation>;
+  updateTrainingLocation(id: string, loc: Partial<InsertTrainingLocation>): Promise<TrainingLocation | undefined>;
+  deleteTrainingLocation(id: string): Promise<boolean>;
+
+  getTrainerProfileLocations(trainerProfileId: string): Promise<(TrainerProfileLocation & { location: TrainingLocation })[]>;
+  getTrainerProfileLocationById(id: string): Promise<TrainerProfileLocation | undefined>;
+  createTrainerProfileLocation(data: InsertTrainerProfileLocation): Promise<TrainerProfileLocation>;
+  updateTrainerProfileLocation(id: string, data: Partial<InsertTrainerProfileLocation>): Promise<TrainerProfileLocation | undefined>;
+  deleteTrainerProfileLocation(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2712,6 +2726,72 @@ export class DatabaseStorage implements IStorage {
     .innerJoin(users, eq(trainerProfiles.userId, users.id))
     .where(eq(trainerProfiles.id, id));
     return result;
+  }
+
+  async getTrainingLocations(): Promise<TrainingLocation[]> {
+    return await db.select().from(trainingLocations).orderBy(trainingLocations.name);
+  }
+
+  async getTrainingLocationById(id: string): Promise<TrainingLocation | undefined> {
+    const [loc] = await db.select().from(trainingLocations).where(eq(trainingLocations.id, id));
+    return loc;
+  }
+
+  async createTrainingLocation(loc: InsertTrainingLocation): Promise<TrainingLocation> {
+    const [newLoc] = await db.insert(trainingLocations).values(loc as any).returning();
+    return newLoc;
+  }
+
+  async updateTrainingLocation(id: string, loc: Partial<InsertTrainingLocation>): Promise<TrainingLocation | undefined> {
+    const [updated] = await db.update(trainingLocations)
+      .set({ ...loc, updatedAt: new Date() } as any)
+      .where(eq(trainingLocations.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteTrainingLocation(id: string): Promise<boolean> {
+    await db.delete(trainerProfileLocations).where(eq(trainerProfileLocations.locationId, id));
+    await db.delete(trainingLocations).where(eq(trainingLocations.id, id));
+    return true;
+  }
+
+  async getTrainerProfileLocations(trainerProfileId: string): Promise<(TrainerProfileLocation & { location: TrainingLocation })[]> {
+    const results = await db.select({
+      id: trainerProfileLocations.id,
+      trainerProfileId: trainerProfileLocations.trainerProfileId,
+      locationId: trainerProfileLocations.locationId,
+      availability: trainerProfileLocations.availability,
+      createdAt: trainerProfileLocations.createdAt,
+      location: trainingLocations,
+    })
+    .from(trainerProfileLocations)
+    .innerJoin(trainingLocations, eq(trainerProfileLocations.locationId, trainingLocations.id))
+    .where(eq(trainerProfileLocations.trainerProfileId, trainerProfileId));
+    return results;
+  }
+
+  async getTrainerProfileLocationById(id: string): Promise<TrainerProfileLocation | undefined> {
+    const [link] = await db.select().from(trainerProfileLocations).where(eq(trainerProfileLocations.id, id));
+    return link;
+  }
+
+  async createTrainerProfileLocation(data: InsertTrainerProfileLocation): Promise<TrainerProfileLocation> {
+    const [created] = await db.insert(trainerProfileLocations).values(data as any).returning();
+    return created;
+  }
+
+  async updateTrainerProfileLocation(id: string, data: Partial<InsertTrainerProfileLocation>): Promise<TrainerProfileLocation | undefined> {
+    const [updated] = await db.update(trainerProfileLocations)
+      .set(data as any)
+      .where(eq(trainerProfileLocations.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteTrainerProfileLocation(id: string): Promise<boolean> {
+    await db.delete(trainerProfileLocations).where(eq(trainerProfileLocations.id, id));
+    return true;
   }
 }
 

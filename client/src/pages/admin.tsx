@@ -57,9 +57,9 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText, Play, ChevronDown, GraduationCap } from "lucide-react";
-import type { Drill, DrillCategory, DifficultyLevel, DrillMetric, VideoLibrary, PdfLibrary, MetricTemplate, Workout, WorkoutDrill } from "@shared/schema";
-import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, METRIC_TYPES } from "@shared/schema";
+import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText, Play, ChevronDown, GraduationCap, MapPin } from "lucide-react";
+import type { Drill, DrillCategory, DifficultyLevel, DrillMetric, VideoLibrary, PdfLibrary, MetricTemplate, Workout, WorkoutDrill, TrainingLocation } from "@shared/schema";
+import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, METRIC_TYPES, US_STATES } from "@shared/schema";
 import { Layers, GripVertical } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useUpload } from "@/hooks/use-upload";
@@ -2067,6 +2067,135 @@ function TutorialVideosManager() {
   );
 }
 
+const locationFormSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  address: z.string().optional(),
+  description: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+});
+
+type LocationFormData = z.infer<typeof locationFormSchema>;
+
+function LocationForm({
+  location,
+  onSubmit,
+  onCancel,
+  isPending,
+}: {
+  location?: TrainingLocation;
+  onSubmit: (data: LocationFormData) => void;
+  onCancel: () => void;
+  isPending: boolean;
+}) {
+  const form = useForm<LocationFormData>({
+    resolver: zodResolver(locationFormSchema),
+    defaultValues: {
+      name: location?.name || "",
+      address: location?.address || "",
+      description: location?.description || "",
+      city: location?.city || "",
+      state: location?.state || "",
+    },
+  });
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Name *</FormLabel>
+              <FormControl>
+                <Input placeholder="Location name" {...field} data-testid="input-location-name" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="address"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Address</FormLabel>
+              <FormControl>
+                <Input placeholder="Street address" {...field} data-testid="input-location-address" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="city"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>City</FormLabel>
+                <FormControl>
+                  <Input placeholder="City" {...field} data-testid="input-location-city" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="state"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>State</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value || ""}>
+                  <FormControl>
+                    <SelectTrigger data-testid="select-location-state">
+                      <SelectValue placeholder="Select state" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {US_STATES.map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <FormField
+          control={form.control}
+          name="description"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Description</FormLabel>
+              <FormControl>
+                <Textarea placeholder="Description of the location" {...field} data-testid="input-location-description" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="flex justify-end gap-2 pt-4">
+          <Button type="button" variant="outline" onClick={onCancel} data-testid="button-cancel-location">
+            Cancel
+          </Button>
+          <Button type="submit" disabled={isPending} data-testid="button-save-location">
+            {isPending ? "Saving..." : location ? "Update Location" : "Add Location"}
+          </Button>
+        </div>
+      </form>
+    </Form>
+  );
+}
+
 export default function AdminPage() {
   const { toast } = useToast();
   const { isAdmin, isLoading: adminLoading } = useAdmin();
@@ -2086,6 +2215,8 @@ export default function AdminPage() {
   // Workout state
   const [isCreateWorkoutOpen, setIsCreateWorkoutOpen] = useState(false);
   const [editingWorkout, setEditingWorkout] = useState<Workout | null>(null);
+  const [isCreateLocationOpen, setIsCreateLocationOpen] = useState(false);
+  const [editingLocation, setEditingLocation] = useState<TrainingLocation | null>(null);
   const [workoutName, setWorkoutName] = useState("");
   const [workoutDescription, setWorkoutDescription] = useState("");
   const [workoutCategory, setWorkoutCategory] = useState("");
@@ -2119,6 +2250,52 @@ export default function AdminPage() {
   const { data: handlzWorkouts, isLoading: workoutsLoading } = useQuery<Workout[]>({
     queryKey: ['/api/workouts/handlz'],
     enabled: isAdmin,
+  });
+
+  const { data: trainingLocationsList, isLoading: locationsLoading } = useQuery<TrainingLocation[]>({
+    queryKey: ['/api/training-locations'],
+    enabled: isAdmin,
+  });
+
+  const createLocationMutation = useMutation({
+    mutationFn: async (data: { name: string; address?: string; description?: string; city?: string; state?: string }) => {
+      return await apiRequest("POST", "/api/training-locations", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/training-locations'] });
+      toast({ title: "Location created successfully" });
+      setIsCreateLocationOpen(false);
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to create location", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const updateLocationMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<{ name: string; address: string; description: string; city: string; state: string }> }) => {
+      return await apiRequest("PUT", `/api/training-locations/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/training-locations'] });
+      toast({ title: "Location updated successfully" });
+      setEditingLocation(null);
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to update location", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteLocationMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("DELETE", `/api/training-locations/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/training-locations'] });
+      toast({ title: "Location deleted successfully" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to delete location", description: error.message, variant: "destructive" });
+    },
   });
 
   const deleteVideoMutation = useMutation({
@@ -2382,7 +2559,7 @@ export default function AdminPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1 h-auto p-1">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-1 h-auto p-1">
           <TabsTrigger value="videos" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-videos">
             <Film className="w-4 h-4 shrink-0" />
             <span>Videos</span>
@@ -2402,6 +2579,10 @@ export default function AdminPage() {
           <TabsTrigger value="workouts" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-workouts">
             <Play className="w-4 h-4 shrink-0" />
             <span>Workouts</span>
+          </TabsTrigger>
+          <TabsTrigger value="locations" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-locations">
+            <MapPin className="w-4 h-4 shrink-0" />
+            <span>Locations</span>
           </TabsTrigger>
           <TabsTrigger value="tutorials" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-tutorials">
             <GraduationCap className="w-4 h-4 shrink-0" />
@@ -3271,6 +3452,123 @@ export default function AdminPage() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="locations" className="space-y-6">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <h2 className="text-xl font-semibold" data-testid="text-locations-title">Training Locations</h2>
+              <p className="text-sm text-muted-foreground">Manage training locations that trainers can link to their profiles</p>
+            </div>
+            <Dialog open={isCreateLocationOpen || !!editingLocation} onOpenChange={(open) => {
+              if (!open) {
+                setIsCreateLocationOpen(false);
+                setEditingLocation(null);
+              }
+            }}>
+              <DialogTrigger asChild>
+                <Button onClick={() => setIsCreateLocationOpen(true)} data-testid="button-add-location">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Location
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{editingLocation ? "Edit Location" : "Add Location"}</DialogTitle>
+                </DialogHeader>
+                <LocationForm
+                  key={editingLocation?.id || "new"}
+                  location={editingLocation || undefined}
+                  onSubmit={(data) => {
+                    if (editingLocation) {
+                      updateLocationMutation.mutate({ id: editingLocation.id, data });
+                    } else {
+                      createLocationMutation.mutate(data);
+                    }
+                  }}
+                  onCancel={() => {
+                    setIsCreateLocationOpen(false);
+                    setEditingLocation(null);
+                  }}
+                  isPending={createLocationMutation.isPending || updateLocationMutation.isPending}
+                />
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          {locationsLoading ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-40" />
+              ))}
+            </div>
+          ) : !trainingLocationsList?.length ? (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <MapPin className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground" data-testid="text-no-locations">No training locations yet. Add your first location.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {trainingLocationsList.map((location) => (
+                <Card key={location.id} data-testid={`card-location-${location.id}`}>
+                  <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0 pb-2">
+                    <div className="min-w-0">
+                      <CardTitle className="text-base truncate" data-testid={`text-location-name-${location.id}`}>{location.name}</CardTitle>
+                      {(location.city || location.state) && (
+                        <p className="text-sm text-muted-foreground" data-testid={`text-location-city-state-${location.id}`}>
+                          {[location.city, location.state].filter(Boolean).join(", ")}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => setEditingLocation(location)}
+                        data-testid={`button-edit-location-${location.id}`}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="icon" variant="ghost" data-testid={`button-delete-location-${location.id}`}>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Location</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete "{location.name}"? This will also remove it from any trainer profiles that have it linked.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel data-testid="button-cancel-delete-location">Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => deleteLocationMutation.mutate(location.id)}
+                              data-testid="button-confirm-delete-location"
+                            >
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {location.address && (
+                      <p className="text-sm" data-testid={`text-location-address-${location.id}`}>{location.address}</p>
+                    )}
+                    {location.description && (
+                      <p className="text-sm text-muted-foreground" data-testid={`text-location-description-${location.id}`}>{location.description}</p>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="tutorials" className="space-y-6">

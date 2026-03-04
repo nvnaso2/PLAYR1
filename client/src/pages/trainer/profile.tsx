@@ -19,9 +19,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Save, Eye, EyeOff, DollarSign, MapPin, Clock, Award, Globe, Instagram,
   Twitter, Mail, Phone, X, Star, Pencil, Camera, User, Briefcase,
-  Calendar, ExternalLink, CheckCircle, Plus, Trash2
+  Calendar, ExternalLink, CheckCircle, Plus, Trash2, ChevronDown, ChevronUp
 } from "lucide-react";
 import { US_STATES, TRAINER_SPECIALTIES, TRAINER_SESSION_TYPES } from "@shared/schema";
+import type { TrainingLocation } from "@shared/schema";
 
 const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
 const TIME_OPTIONS = [
@@ -154,6 +155,67 @@ export default function TrainerProfilePage() {
       const data = await res.json();
       if (data && !loaded) { populateForm(data); setLoaded(true); }
       return data;
+    },
+  });
+
+  type LinkedLocation = {
+    id: string;
+    trainerProfileId: string;
+    locationId: string;
+    availability: string | null;
+    location?: TrainingLocation;
+  };
+
+  const { data: allLocations } = useQuery<TrainingLocation[]>({
+    queryKey: ["/api/training-locations"],
+  });
+
+  const { data: linkedLocations, isLoading: linkedLoading } = useQuery<LinkedLocation[]>({
+    queryKey: ["/api/trainer-profile/locations"],
+  });
+
+  const [expandedLocationId, setExpandedLocationId] = useState<string | null>(null);
+
+  const linkLocationMutation = useMutation({
+    mutationFn: async (locationId: string) => {
+      await apiRequest("POST", "/api/trainer-profile/locations", {
+        trainerProfileId: profile?.id,
+        locationId,
+        availability: null,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer-profile/locations"] });
+      toast({ title: "Location added" });
+    },
+    onError: () => {
+      toast({ title: "Failed to add location", variant: "destructive" });
+    },
+  });
+
+  const unlinkLocationMutation = useMutation({
+    mutationFn: async (linkId: string) => {
+      await apiRequest("DELETE", `/api/trainer-profile/locations/${linkId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer-profile/locations"] });
+      toast({ title: "Location removed" });
+    },
+    onError: () => {
+      toast({ title: "Failed to remove location", variant: "destructive" });
+    },
+  });
+
+  const updateLocationAvailMutation = useMutation({
+    mutationFn: async ({ linkId, availability }: { linkId: string; availability: string }) => {
+      await apiRequest("PUT", `/api/trainer-profile/locations/${linkId}`, { availability });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer-profile/locations"] });
+      toast({ title: "Location availability updated" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update availability", variant: "destructive" });
     },
   });
 
@@ -415,6 +477,57 @@ export default function TrainerProfilePage() {
               </div>
             )}
 
+            <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
+              <h3 className="text-xs font-bold text-foreground/60 uppercase tracking-wider mb-3">Training Locations</h3>
+              {linkedLoading ? (
+                <Skeleton className="h-16 w-full rounded-lg" />
+              ) : linkedLocations && linkedLocations.length > 0 ? (
+                <div className="space-y-3" data-testid="group-profile-locations">
+                  {linkedLocations.map(link => {
+                    const loc = link.location;
+                    const locAvail = link.availability ? formatAvailabilityDisplay(link.availability) : [];
+                    return (
+                      <div key={link.id} className="rounded-lg border border-border bg-muted/80 px-3 py-2.5" data-testid={`card-location-${link.id}`}>
+                        <div className="flex items-start gap-2">
+                          <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-foreground">{loc?.name || "Unknown Location"}</p>
+                            {loc?.address && (
+                              <p className="text-xs text-foreground/60 mt-0.5">{loc.address}</p>
+                            )}
+                            {(loc?.city || loc?.state) && (
+                              <p className="text-xs text-foreground/50 mt-0.5">
+                                {[loc.city, loc.state].filter(Boolean).join(", ")}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        {locAvail.length > 0 && (
+                          <div className="mt-2 pl-6">
+                            <p className="text-[10px] font-semibold text-foreground/50 uppercase tracking-wider mb-1">Hours at this location</p>
+                            <div className="grid grid-cols-2 gap-1">
+                              {locAvail.map(d => (
+                                <div key={d.day} className="text-xs">
+                                  <span className="font-medium text-foreground/80">{d.day.slice(0, 3)}: </span>
+                                  {d.sessions.map((s, si) => (
+                                    <span key={si} className="text-foreground/60">
+                                      {si > 0 ? ", " : ""}{s.start} – {s.end}
+                                    </span>
+                                  ))}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground" data-testid="text-no-locations">No training locations added</p>
+              )}
+            </div>
+
             {hasContact && (
               <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
                 <h3 className="text-xs font-bold text-foreground/60 uppercase tracking-wider mb-3">Contact</h3>
@@ -649,6 +762,167 @@ export default function TrainerProfilePage() {
                   ))}
                 </div>
               </div>
+            </div>
+
+            <Separator />
+
+            <div className="space-y-4">
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Training Locations</h4>
+              {allLocations && allLocations.length > 0 ? (
+                <div className="space-y-2" data-testid="group-editor-locations">
+                  {allLocations.map(loc => {
+                    const linked = linkedLocations?.find(l => l.locationId === loc.id);
+                    const isLinked = !!linked;
+                    const isExpanded = expandedLocationId === loc.id;
+                    const locAvail = linked?.availability ? parseAvailability(linked.availability) : createDefaultAvailability();
+
+                    return (
+                      <div
+                        key={loc.id}
+                        className={`rounded-lg border p-3 transition-colors ${isLinked ? "border-primary/30 bg-primary/5" : "border-border"}`}
+                        data-testid={`editor-location-${loc.id}`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            checked={isLinked}
+                            disabled={linkLocationMutation.isPending || unlinkLocationMutation.isPending}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                linkLocationMutation.mutate(loc.id);
+                              } else if (linked) {
+                                unlinkLocationMutation.mutate(linked.id);
+                              }
+                            }}
+                            data-testid={`checkbox-location-${loc.id}`}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-foreground">{loc.name}</p>
+                            {loc.address && (
+                              <p className="text-xs text-muted-foreground">{loc.address}</p>
+                            )}
+                            {(loc.city || loc.state) && (
+                              <p className="text-xs text-muted-foreground/70">
+                                {[loc.city, loc.state].filter(Boolean).join(", ")}
+                              </p>
+                            )}
+                          </div>
+                          {isLinked && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setExpandedLocationId(isExpanded ? null : loc.id)}
+                              data-testid={`button-toggle-location-avail-${loc.id}`}
+                            >
+                              {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                            </Button>
+                          )}
+                        </div>
+
+                        {isLinked && isExpanded && (
+                          <div className="mt-3 pl-7 space-y-2" data-testid={`group-location-avail-${loc.id}`}>
+                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Availability at this location</p>
+                            {locAvail.map((day, i) => (
+                              <div
+                                key={day.day}
+                                className={`rounded-lg border p-2 transition-colors ${day.enabled ? "border-primary/30 bg-primary/5" : "border-border opacity-60"}`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Checkbox
+                                    checked={day.enabled}
+                                    onCheckedChange={(checked) => {
+                                      const updated = locAvail.map((d, idx) => idx === i ? { ...d, enabled: !!checked } : d);
+                                      updateLocationAvailMutation.mutate({
+                                        linkId: linked!.id,
+                                        availability: serializeAvailability(updated),
+                                      });
+                                    }}
+                                    data-testid={`checkbox-loc-day-${loc.id}-${day.day.toLowerCase()}`}
+                                  />
+                                  <span className="text-xs font-medium w-10 shrink-0">{day.day.slice(0, 3)}</span>
+                                  {day.enabled && (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      className="ml-auto h-6 px-1.5 text-xs text-primary"
+                                      onClick={() => {
+                                        const updated = locAvail.map((d, idx) => idx === i ? { ...d, sessions: [...d.sessions, { start: "9:00 AM", end: "5:00 PM" }] } : d);
+                                        updateLocationAvailMutation.mutate({
+                                          linkId: linked!.id,
+                                          availability: serializeAvailability(updated),
+                                        });
+                                      }}
+                                      data-testid={`button-loc-add-session-${loc.id}-${day.day.toLowerCase()}`}
+                                    >
+                                      <Plus className="w-3 h-3 mr-0.5" /> Add
+                                    </Button>
+                                  )}
+                                </div>
+                                {day.enabled && (
+                                  <div className="mt-1.5 space-y-1 pl-7">
+                                    {day.sessions.map((session, si) => (
+                                      <div key={si} className="flex items-center gap-1">
+                                        <Select
+                                          value={session.start}
+                                          onValueChange={(val) => {
+                                            const updated = locAvail.map((d, idx) => idx === i ? { ...d, sessions: d.sessions.map((s, sIdx) => sIdx === si ? { ...s, start: val } : s) } : d);
+                                            updateLocationAvailMutation.mutate({
+                                              linkId: linked!.id,
+                                              availability: serializeAvailability(updated),
+                                            });
+                                          }}
+                                        >
+                                          <SelectTrigger className="h-7 text-xs w-[95px]" data-testid={`select-loc-start-${loc.id}-${day.day.toLowerCase()}-${si}`}><SelectValue /></SelectTrigger>
+                                          <SelectContent>{TIME_OPTIONS.map(t => (<SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>))}</SelectContent>
+                                        </Select>
+                                        <span className="text-xs text-muted-foreground">to</span>
+                                        <Select
+                                          value={session.end}
+                                          onValueChange={(val) => {
+                                            const updated = locAvail.map((d, idx) => idx === i ? { ...d, sessions: d.sessions.map((s, sIdx) => sIdx === si ? { ...s, end: val } : s) } : d);
+                                            updateLocationAvailMutation.mutate({
+                                              linkId: linked!.id,
+                                              availability: serializeAvailability(updated),
+                                            });
+                                          }}
+                                        >
+                                          <SelectTrigger className="h-7 text-xs w-[95px]" data-testid={`select-loc-end-${loc.id}-${day.day.toLowerCase()}-${si}`}><SelectValue /></SelectTrigger>
+                                          <SelectContent>{TIME_OPTIONS.map(t => (<SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>))}</SelectContent>
+                                        </Select>
+                                        {day.sessions.length > 1 && (
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-6 w-6 p-0 text-muted-foreground"
+                                            onClick={() => {
+                                              const updated = locAvail.map((d, idx) => idx === i ? { ...d, sessions: d.sessions.filter((_, sIdx) => sIdx !== si) } : d);
+                                              updateLocationAvailMutation.mutate({
+                                                linkId: linked!.id,
+                                                availability: serializeAvailability(updated),
+                                              });
+                                            }}
+                                            data-testid={`button-loc-remove-session-${loc.id}-${day.day.toLowerCase()}-${si}`}
+                                          >
+                                            <Trash2 className="w-3 h-3" />
+                                          </Button>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground" data-testid="text-no-locations-available">No training locations available. Ask your admin to add locations.</p>
+              )}
             </div>
 
             <Separator />

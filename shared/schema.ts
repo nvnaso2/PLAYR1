@@ -1085,3 +1085,39 @@ export const insertTrainerProfileSchema = createInsertSchema(trainerProfiles).om
 
 export type InsertTrainerProfile = z.infer<typeof insertTrainerProfileSchema>;
 export type TrainerProfile = typeof trainerProfiles.$inferSelect;
+
+export const trainingLocations = pgTable("training_locations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  address: text("address"),
+  description: text("description"),
+  city: varchar("city"),
+  state: varchar("state"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertTrainingLocationSchema = createInsertSchema(trainingLocations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertTrainingLocation = z.infer<typeof insertTrainingLocationSchema>;
+export type TrainingLocation = typeof trainingLocations.$inferSelect;
+
+export const trainerProfileLocations = pgTable("trainer_profile_locations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  trainerProfileId: varchar("trainer_profile_id").notNull(),
+  locationId: varchar("location_id").notNull(),
+  availability: text("availability"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertTrainerProfileLocationSchema = createInsertSchema(trainerProfileLocations).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertTrainerProfileLocation = z.infer<typeof insertTrainerProfileLocationSchema>;
+export type TrainerProfileLocation = typeof trainerProfileLocations.$inferSelect;

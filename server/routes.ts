@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
-import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, userProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments } from "@shared/schema";
+import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, userProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
 import { eq, and } from "drizzle-orm";
@@ -4229,6 +4229,115 @@ export async function registerRoutes(
       if (isNaN(data.experienceYears as number)) data.experienceYears = null;
       const profile = await storage.upsertTrainerProfile(data);
       res.json(profile);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ===== TRAINING LOCATIONS (Admin CRUD + authenticated read) =====
+  app.get("/api/training-locations", isAuthenticated, async (req: any, res) => {
+    try {
+      const locations = await storage.getTrainingLocations();
+      res.json(locations);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/training-locations", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const data = insertTrainingLocationSchema.parse(req.body);
+      const location = await storage.createTrainingLocation(data);
+      res.status(201).json(location);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/training-locations/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const data = insertTrainingLocationSchema.partial().parse(req.body);
+      const location = await storage.updateTrainingLocation(req.params.id, data);
+      if (!location) return res.status(404).json({ message: "Location not found" });
+      res.json(location);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/training-locations/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      await storage.deleteTrainingLocation(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ===== TRAINER PROFILE LOCATIONS =====
+  app.get("/api/trainer-profile/locations", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const profile = await storage.getTrainerProfile(userId);
+      if (!profile) return res.json([]);
+      const locations = await storage.getTrainerProfileLocations(profile.id);
+      res.json(locations);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/trainer-profile/locations", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const profile = await storage.getTrainerProfile(userId);
+      if (!profile) return res.status(400).json({ message: "Create a trainer profile first" });
+      const { locationId, availability } = req.body;
+      if (!locationId) return res.status(400).json({ message: "locationId is required" });
+      const locationExists = await storage.getTrainingLocationById(locationId);
+      if (!locationExists) return res.status(400).json({ message: "Location not found" });
+      const link = await storage.createTrainerProfileLocation({
+        trainerProfileId: profile.id,
+        locationId,
+        availability: availability || null,
+      });
+      res.status(201).json(link);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/trainer-profile/locations/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const profile = await storage.getTrainerProfile(userId);
+      if (!profile) return res.status(403).json({ message: "Forbidden" });
+      const existing = await storage.getTrainerProfileLocationById(req.params.id);
+      if (!existing || existing.trainerProfileId !== profile.id) return res.status(404).json({ message: "Not found" });
+      const { availability } = req.body;
+      const updated = await storage.updateTrainerProfileLocation(req.params.id, { availability });
+      if (!updated) return res.status(404).json({ message: "Not found" });
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/trainer-profile/locations/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const profile = await storage.getTrainerProfile(userId);
+      if (!profile) return res.status(403).json({ message: "Forbidden" });
+      const existing = await storage.getTrainerProfileLocationById(req.params.id);
+      if (!existing || existing.trainerProfileId !== profile.id) return res.status(404).json({ message: "Not found" });
+      await storage.deleteTrainerProfileLocation(req.params.id);
+      res.status(204).send();
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
