@@ -14,31 +14,43 @@ import {
   Plus,
   Dumbbell,
   Clock,
-  Calendar,
   ArrowRight,
   Activity,
+  Calendar,
+  Target,
 } from "lucide-react";
 
-interface OverviewData {
-  totalPlayers: number;
-  totalTeams: number;
-  totalAssignments: number;
-  activeAssignments: number;
-  recentLogsCount: number;
-  unreadMessages: number;
-  recentActivity: RecentActivityItem[];
-}
-
-interface RecentActivityItem {
-  id: string;
-  drillId: string;
+interface RecentLog {
+  id: number;
+  drillId: number;
   drillTitle?: string;
   duration: number;
   score?: number;
   notes?: string;
   completedAt: string;
-  playerName: string;
+  playerName?: string;
   teamName?: string;
+}
+
+interface RecentAssignment {
+  id: number;
+  drillId: number;
+  drillTitle?: string;
+  assignedTo?: string;
+  teamName?: string;
+  groupName?: string;
+  dueDate?: string;
+  createdAt?: string;
+}
+
+interface OverviewData {
+  totalPlayers: number;
+  totalTeams: number;
+  totalGroups: number;
+  activeAssignments: number;
+  recentLogs: RecentLog[];
+  recentAssignments: RecentAssignment[];
+  unreadMessages: number;
 }
 
 function StatCard({
@@ -73,12 +85,77 @@ function StatCard({
 
 function ActivitySkeleton() {
   return (
-    <div className="space-y-2">
-      {[1, 2, 3].map((i) => (
-        <Skeleton key={i} className="h-14 w-full" />
+    <div className="space-y-3">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <div key={i} className="flex items-start gap-3 p-3">
+          <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+          <div className="flex-1 space-y-1.5">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-3 w-48" />
+          </div>
+        </div>
       ))}
     </div>
   );
+}
+
+interface TimelineItem {
+  id: string;
+  type: "log" | "assignment";
+  title: string;
+  subtitle: string;
+  initials: string;
+  date: string;
+  badgeLabel?: string;
+  meta?: string;
+}
+
+function buildTimeline(logs: RecentLog[], assignments: RecentAssignment[]): TimelineItem[] {
+  const items: TimelineItem[] = [];
+
+  for (const log of logs) {
+    const playerName = log.playerName || "Player";
+    items.push({
+      id: `log-${log.id}`,
+      type: "log",
+      title: playerName,
+      subtitle: `Completed "${log.drillTitle || "Drill"}"${log.duration > 0 ? ` \u00b7 ${log.duration} min` : ""}${log.score != null ? ` \u00b7 Score: ${log.score}` : ""}`,
+      initials: playerName
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase(),
+      date: log.completedAt,
+      badgeLabel: log.teamName,
+    });
+  }
+
+  for (const a of assignments) {
+    const target = a.teamName || a.groupName || a.assignedTo || "Team";
+    items.push({
+      id: `assign-${a.id}`,
+      type: "assignment",
+      title: `Assigned to ${target}`,
+      subtitle: a.drillTitle || "Drill",
+      initials: target
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase(),
+      date: a.dueDate || a.createdAt || "",
+      meta: a.dueDate ? `Due ${new Date(a.dueDate).toLocaleDateString()}` : undefined,
+    });
+  }
+
+  items.sort((a, b) => {
+    const da = a.date ? new Date(a.date).getTime() : 0;
+    const db = b.date ? new Date(b.date).getTime() : 0;
+    return db - da;
+  });
+
+  return items;
 }
 
 export default function TrainerDashboard() {
@@ -86,7 +163,9 @@ export default function TrainerDashboard() {
     queryKey: ["/api/trainer/overview"],
   });
 
-  const recentActivity = overview?.recentActivity ?? [];
+  const recentLogs = overview?.recentLogs ?? [];
+  const recentAssignments = overview?.recentAssignments ?? [];
+  const timeline = buildTimeline(recentLogs, recentAssignments);
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto">
@@ -118,7 +197,7 @@ export default function TrainerDashboard() {
         />
         <StatCard
           title="Logs (7 days)"
-          value={overview?.recentLogsCount ?? 0}
+          value={recentLogs.length}
           icon={FileText}
           loading={isLoading}
           testId="card-stat-logs"
@@ -166,47 +245,57 @@ export default function TrainerDashboard() {
         <CardContent className="space-y-2">
           {isLoading ? (
             <ActivitySkeleton />
-          ) : recentActivity.length === 0 ? (
+          ) : timeline.length === 0 ? (
             <div className="py-8 text-center text-muted-foreground">
               <Activity className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">No recent activity yet</p>
-              <p className="text-xs mt-1">Training logs from your players will appear here</p>
+              <p className="text-sm" data-testid="text-empty-activity">No recent activity yet</p>
+              <p className="text-xs mt-1">Training logs and assignments will appear here</p>
             </div>
           ) : (
-            recentActivity.map((item) => (
+            timeline.map((item) => (
               <div
                 key={item.id}
                 className="flex items-start gap-3 p-3 rounded-md bg-muted/50"
                 data-testid={`item-activity-${item.id}`}
               >
                 <Avatar className="h-8 w-8 shrink-0">
-                  <AvatarFallback className="text-xs">
-                    {item.playerName
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")
-                      .slice(0, 2)}
-                  </AvatarFallback>
+                  <AvatarFallback className="text-xs">{item.initials}</AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate" data-testid={`text-activity-player-${item.id}`}>
-                    {item.playerName}
-                  </p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {item.drillTitle || "Drill"}
-                    {item.duration > 0 && <span> &middot; {item.duration} min</span>}
-                    {item.score != null && <span> &middot; Score: {item.score}</span>}
-                  </p>
-                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                    {item.teamName && (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-medium truncate" data-testid={`text-activity-title-${item.id}`}>
+                      {item.title}
+                    </p>
+                    {item.type === "log" && (
                       <Badge variant="secondary" className="no-default-hover-elevate text-[10px]">
-                        {item.teamName}
+                        <FileText className="w-2.5 h-2.5 mr-0.5" />
+                        Log
                       </Badge>
                     )}
-                    {item.completedAt && (
+                    {item.type === "assignment" && (
+                      <Badge variant="outline" className="no-default-hover-elevate text-[10px]">
+                        <Target className="w-2.5 h-2.5 mr-0.5" />
+                        Assignment
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground truncate">{item.subtitle}</p>
+                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                    {item.badgeLabel && (
+                      <Badge variant="secondary" className="no-default-hover-elevate text-[10px]">
+                        {item.badgeLabel}
+                      </Badge>
+                    )}
+                    {item.meta && (
+                      <span className="text-[10px] text-muted-foreground">
+                        <Calendar className="w-3 h-3 inline mr-0.5" />
+                        {item.meta}
+                      </span>
+                    )}
+                    {item.date && (
                       <span className="text-[10px] text-muted-foreground">
                         <Clock className="w-3 h-3 inline mr-0.5" />
-                        {new Date(item.completedAt).toLocaleDateString()}
+                        {new Date(item.date).toLocaleDateString()}
                       </span>
                     )}
                   </div>
