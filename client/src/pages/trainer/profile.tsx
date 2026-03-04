@@ -20,7 +20,59 @@ import {
   Twitter, Mail, Phone, X, Star, Pencil, Camera, Upload, User, Briefcase,
   Calendar, ExternalLink, CheckCircle
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { US_STATES, TRAINER_SPECIALTIES, TRAINER_SESSION_TYPES } from "@shared/schema";
+
+const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
+const TIME_OPTIONS = [
+  "6:00 AM", "7:00 AM", "8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM",
+  "12:00 PM", "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM",
+  "6:00 PM", "7:00 PM", "8:00 PM", "9:00 PM", "10:00 PM"
+];
+
+type DayAvailability = {
+  day: string;
+  enabled: boolean;
+  start: string;
+  end: string;
+};
+
+function createDefaultAvailability(): DayAvailability[] {
+  return DAYS_OF_WEEK.map(day => ({
+    day,
+    enabled: false,
+    start: "9:00 AM",
+    end: "5:00 PM",
+  }));
+}
+
+function parseAvailability(raw: string | null): DayAvailability[] {
+  if (!raw) return createDefaultAvailability();
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].day) {
+      const map = new Map(parsed.map((d: DayAvailability) => [d.day, d]));
+      return DAYS_OF_WEEK.map(day => {
+        const existing = map.get(day);
+        return existing || { day, enabled: false, start: "9:00 AM", end: "5:00 PM" };
+      });
+    }
+  } catch {}
+  return createDefaultAvailability();
+}
+
+function serializeAvailability(avail: DayAvailability[]): string {
+  return JSON.stringify(avail.filter(d => d.enabled));
+}
+
+function formatAvailabilityDisplay(raw: string | null): DayAvailability[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed.filter((d: DayAvailability) => d.enabled);
+  } catch {}
+  return [];
+}
 
 type TrainerProfileData = {
   id?: string;
@@ -60,7 +112,7 @@ export default function TrainerProfilePage() {
   const [sessionTypes, setSessionTypes] = useState<string[]>([]);
   const [experienceYears, setExperienceYears] = useState("");
   const [certifications, setCertifications] = useState("");
-  const [availability, setAvailability] = useState("");
+  const [availability, setAvailability] = useState<DayAvailability[]>(createDefaultAvailability());
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [socialInstagram, setSocialInstagram] = useState("");
@@ -94,7 +146,7 @@ export default function TrainerProfilePage() {
     setSessionTypes(data.sessionTypes || []);
     setExperienceYears(data.experienceYears ? String(data.experienceYears) : "");
     setCertifications(data.certifications || "");
-    setAvailability(data.availability || "");
+    setAvailability(parseAvailability(data.availability));
     setContactEmail(data.contactEmail || "");
     setContactPhone(data.contactPhone || "");
     setSocialInstagram(data.socialInstagram || "");
@@ -116,7 +168,7 @@ export default function TrainerProfilePage() {
         sessionTypes: sessionTypes.length > 0 ? sessionTypes : null,
         experienceYears: experienceYears ? parseInt(experienceYears) : null,
         certifications: certifications || null,
-        availability: availability || null,
+        availability: availability.some(d => d.enabled) ? serializeAvailability(availability) : null,
         contactEmail: contactEmail || null,
         contactPhone: contactPhone || null,
         socialInstagram: socialInstagram || null,
@@ -345,12 +397,27 @@ export default function TrainerProfilePage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {p?.availability && (
-                    <div>
-                      <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Availability</p>
-                      <p className="text-sm" data-testid="text-profile-availability">{p.availability}</p>
-                    </div>
-                  )}
+                  {p?.availability && (() => {
+                    const days = formatAvailabilityDisplay(p.availability);
+                    return days.length > 0 ? (
+                      <div>
+                        <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Availability</p>
+                        <div className="space-y-1.5" data-testid="text-profile-availability">
+                          {days.map(d => (
+                            <div key={d.day} className="flex items-center justify-between text-sm">
+                              <span className="font-medium w-20 shrink-0">{d.day.slice(0, 3)}</span>
+                              <span className="text-muted-foreground">{d.start} – {d.end}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Availability</p>
+                        <p className="text-sm" data-testid="text-profile-availability">{p.availability}</p>
+                      </div>
+                    );
+                  })()}
                   {p?.certifications && (
                     <div>
                       <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Certifications</p>
@@ -629,15 +696,67 @@ export default function TrainerProfilePage() {
                   </Select>
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="availability">Availability</Label>
-                <Input
-                  id="availability"
-                  value={availability}
-                  onChange={e => setAvailability(e.target.value)}
-                  placeholder="e.g. Weekdays 4-8pm, Weekends 9am-1pm"
-                  data-testid="input-availability"
-                />
+              <div className="space-y-3">
+                <Label>Availability</Label>
+                <div className="space-y-2" data-testid="group-availability">
+                  {availability.map((day, i) => (
+                    <div
+                      key={day.day}
+                      className={`flex items-center gap-2 rounded-lg border p-2 transition-colors ${day.enabled ? "border-primary/30 bg-primary/5" : "border-border opacity-60"}`}
+                      data-testid={`availability-day-${day.day.toLowerCase()}`}
+                    >
+                      <Checkbox
+                        checked={day.enabled}
+                        onCheckedChange={(checked) => {
+                          setAvailability(prev => prev.map((d, idx) =>
+                            idx === i ? { ...d, enabled: !!checked } : d
+                          ));
+                        }}
+                        data-testid={`checkbox-${day.day.toLowerCase()}`}
+                      />
+                      <span className="text-sm font-medium w-12 shrink-0">{day.day.slice(0, 3)}</span>
+                      {day.enabled && (
+                        <div className="flex items-center gap-1 flex-1 min-w-0">
+                          <Select
+                            value={day.start}
+                            onValueChange={(val) => {
+                              setAvailability(prev => prev.map((d, idx) =>
+                                idx === i ? { ...d, start: val } : d
+                              ));
+                            }}
+                          >
+                            <SelectTrigger className="h-8 text-xs w-[100px]" data-testid={`select-start-${day.day.toLowerCase()}`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {TIME_OPTIONS.map(t => (
+                                <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <span className="text-xs text-muted-foreground">to</span>
+                          <Select
+                            value={day.end}
+                            onValueChange={(val) => {
+                              setAvailability(prev => prev.map((d, idx) =>
+                                idx === i ? { ...d, end: val } : d
+                              ));
+                            }}
+                          >
+                            <SelectTrigger className="h-8 text-xs w-[100px]" data-testid={`select-end-${day.day.toLowerCase()}`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {TIME_OPTIONS.map(t => (
+                                <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
