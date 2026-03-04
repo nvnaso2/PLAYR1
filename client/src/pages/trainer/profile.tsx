@@ -19,7 +19,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Save, Eye, EyeOff, DollarSign, MapPin, Clock, Award, Globe, Instagram,
   Twitter, Mail, Phone, X, Star, Pencil, Camera, User, Briefcase,
-  Calendar, ExternalLink, CheckCircle
+  Calendar, ExternalLink, CheckCircle, Plus, Trash2
 } from "lucide-react";
 import { US_STATES, TRAINER_SPECIALTIES, TRAINER_SESSION_TYPES } from "@shared/schema";
 
@@ -30,10 +30,11 @@ const TIME_OPTIONS = [
   "6:00 PM", "7:00 PM", "8:00 PM", "9:00 PM", "10:00 PM"
 ];
 
-type DayAvailability = { day: string; enabled: boolean; start: string; end: string };
+type TimeSlot = { start: string; end: string };
+type DayAvailability = { day: string; enabled: boolean; sessions: TimeSlot[] };
 
 function createDefaultAvailability(): DayAvailability[] {
-  return DAYS_OF_WEEK.map(day => ({ day, enabled: false, start: "9:00 AM", end: "5:00 PM" }));
+  return DAYS_OF_WEEK.map(day => ({ day, enabled: false, sessions: [{ start: "9:00 AM", end: "5:00 PM" }] }));
 }
 
 function parseAvailability(raw: string | null): DayAvailability[] {
@@ -41,10 +42,26 @@ function parseAvailability(raw: string | null): DayAvailability[] {
   try {
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].day) {
-      const map = new Map(parsed.map((d: DayAvailability) => [d.day, d]));
+      const map = new Map<string, any>();
+      for (const d of parsed) {
+        if (map.has(d.day)) {
+          const existing = map.get(d.day);
+          if (d.sessions) {
+            existing.sessions.push(...d.sessions);
+          } else if (d.start && d.end) {
+            existing.sessions.push({ start: d.start, end: d.end });
+          }
+        } else {
+          if (d.sessions && Array.isArray(d.sessions)) {
+            map.set(d.day, { day: d.day, enabled: d.enabled !== false, sessions: [...d.sessions] });
+          } else if (d.start && d.end) {
+            map.set(d.day, { day: d.day, enabled: d.enabled !== false, sessions: [{ start: d.start, end: d.end }] });
+          }
+        }
+      }
       return DAYS_OF_WEEK.map(day => {
         const existing = map.get(day);
-        return existing || { day, enabled: false, start: "9:00 AM", end: "5:00 PM" };
+        return existing || { day, enabled: false, sessions: [{ start: "9:00 AM", end: "5:00 PM" }] };
       });
     }
   } catch {}
@@ -52,14 +69,31 @@ function parseAvailability(raw: string | null): DayAvailability[] {
 }
 
 function serializeAvailability(avail: DayAvailability[]): string {
-  return JSON.stringify(avail.filter(d => d.enabled));
+  return JSON.stringify(avail.filter(d => d.enabled).map(d => ({
+    day: d.day,
+    enabled: true,
+    sessions: d.sessions,
+  })));
 }
 
 function formatAvailabilityDisplay(raw: string | null): DayAvailability[] {
   if (!raw) return [];
   try {
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) return parsed.filter((d: DayAvailability) => d.enabled);
+    if (Array.isArray(parsed)) {
+      return parsed
+        .filter((d: any) => d.enabled !== false)
+        .map((d: any) => {
+          if (d.sessions && Array.isArray(d.sessions)) {
+            return { day: d.day, enabled: true, sessions: d.sessions };
+          }
+          if (d.start && d.end) {
+            return { day: d.day, enabled: true, sessions: [{ start: d.start, end: d.end }] };
+          }
+          return null;
+        })
+        .filter(Boolean) as DayAvailability[];
+    }
   } catch {}
   return [];
 }
@@ -363,11 +397,15 @@ export default function TrainerProfilePage() {
               <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
                 <h3 className="text-xs font-bold text-foreground/60 uppercase tracking-wider mb-3">Availability</h3>
                 {availDays.length > 0 ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2" data-testid="text-profile-availability">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2" data-testid="text-profile-availability">
                     {availDays.map(d => (
-                      <div key={d.day} className="flex items-baseline gap-2 rounded-lg border border-border bg-muted/80 px-3 py-2.5">
-                        <span className="font-semibold text-xs text-foreground w-8 shrink-0">{d.day.slice(0, 3)}</span>
-                        <span className="text-xs text-foreground/60">{d.start} – {d.end}</span>
+                      <div key={d.day} className="rounded-lg border border-border bg-muted/80 px-3 py-2.5">
+                        <span className="font-semibold text-xs text-foreground">{d.day.slice(0, 3)}</span>
+                        <div className="mt-1 space-y-0.5">
+                          {d.sessions.map((s, si) => (
+                            <p key={si} className="text-xs text-foreground/60">{s.start} – {s.end}</p>
+                          ))}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -555,26 +593,56 @@ export default function TrainerProfilePage() {
                   {availability.map((day, i) => (
                     <div
                       key={day.day}
-                      className={`flex items-center gap-2 rounded-lg border p-2 transition-colors ${day.enabled ? "border-primary/30 bg-primary/5" : "border-border opacity-60"}`}
+                      className={`rounded-lg border p-2.5 transition-colors ${day.enabled ? "border-primary/30 bg-primary/5" : "border-border opacity-60"}`}
                       data-testid={`availability-day-${day.day.toLowerCase()}`}
                     >
-                      <Checkbox
-                        checked={day.enabled}
-                        onCheckedChange={(checked) => setAvailability(prev => prev.map((d, idx) => idx === i ? { ...d, enabled: !!checked } : d))}
-                        data-testid={`checkbox-${day.day.toLowerCase()}`}
-                      />
-                      <span className="text-sm font-medium w-12 shrink-0">{day.day.slice(0, 3)}</span>
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          checked={day.enabled}
+                          onCheckedChange={(checked) => setAvailability(prev => prev.map((d, idx) => idx === i ? { ...d, enabled: !!checked } : d))}
+                          data-testid={`checkbox-${day.day.toLowerCase()}`}
+                        />
+                        <span className="text-sm font-medium w-12 shrink-0">{day.day.slice(0, 3)}</span>
+                        {day.enabled && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="ml-auto h-6 px-1.5 text-xs text-primary"
+                            onClick={() => setAvailability(prev => prev.map((d, idx) => idx === i ? { ...d, sessions: [...d.sessions, { start: "9:00 AM", end: "5:00 PM" }] } : d))}
+                            data-testid={`button-add-session-${day.day.toLowerCase()}`}
+                          >
+                            <Plus className="w-3 h-3 mr-0.5" /> Add
+                          </Button>
+                        )}
+                      </div>
                       {day.enabled && (
-                        <div className="flex items-center gap-1 flex-1 min-w-0">
-                          <Select value={day.start} onValueChange={(val) => setAvailability(prev => prev.map((d, idx) => idx === i ? { ...d, start: val } : d))}>
-                            <SelectTrigger className="h-8 text-xs w-[100px]" data-testid={`select-start-${day.day.toLowerCase()}`}><SelectValue /></SelectTrigger>
-                            <SelectContent>{TIME_OPTIONS.map(t => (<SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>))}</SelectContent>
-                          </Select>
-                          <span className="text-xs text-muted-foreground">to</span>
-                          <Select value={day.end} onValueChange={(val) => setAvailability(prev => prev.map((d, idx) => idx === i ? { ...d, end: val } : d))}>
-                            <SelectTrigger className="h-8 text-xs w-[100px]" data-testid={`select-end-${day.day.toLowerCase()}`}><SelectValue /></SelectTrigger>
-                            <SelectContent>{TIME_OPTIONS.map(t => (<SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>))}</SelectContent>
-                          </Select>
+                        <div className="mt-2 space-y-1.5 pl-7">
+                          {day.sessions.map((session, si) => (
+                            <div key={si} className="flex items-center gap-1">
+                              <Select value={session.start} onValueChange={(val) => setAvailability(prev => prev.map((d, idx) => idx === i ? { ...d, sessions: d.sessions.map((s, sIdx) => sIdx === si ? { ...s, start: val } : s) } : d))}>
+                                <SelectTrigger className="h-7 text-xs w-[95px]" data-testid={`select-start-${day.day.toLowerCase()}-${si}`}><SelectValue /></SelectTrigger>
+                                <SelectContent>{TIME_OPTIONS.map(t => (<SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>))}</SelectContent>
+                              </Select>
+                              <span className="text-xs text-muted-foreground">to</span>
+                              <Select value={session.end} onValueChange={(val) => setAvailability(prev => prev.map((d, idx) => idx === i ? { ...d, sessions: d.sessions.map((s, sIdx) => sIdx === si ? { ...s, end: val } : s) } : d))}>
+                                <SelectTrigger className="h-7 text-xs w-[95px]" data-testid={`select-end-${day.day.toLowerCase()}-${si}`}><SelectValue /></SelectTrigger>
+                                <SelectContent>{TIME_OPTIONS.map(t => (<SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>))}</SelectContent>
+                              </Select>
+                              {day.sessions.length > 1 && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                                  onClick={() => setAvailability(prev => prev.map((d, idx) => idx === i ? { ...d, sessions: d.sessions.filter((_, sIdx) => sIdx !== si) } : d))}
+                                  data-testid={`button-remove-session-${day.day.toLowerCase()}-${si}`}
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              )}
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>
