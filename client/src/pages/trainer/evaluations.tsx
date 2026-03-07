@@ -596,16 +596,16 @@ export default function TrainerEvaluationsPage() {
                           )}
                           {attr.isDefault && <Badge variant="secondary" className="text-xs">Default</Badge>}
                         </div>
-                        {!attr.isDefault && (
-                          <div className="flex gap-1">
-                            <Button variant="ghost" size="sm" onClick={() => openEditAttr(attr)} data-testid={`button-edit-attr-${attr.id}`}>
-                              <Edit className="w-3.5 h-3.5" />
-                            </Button>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => openEditAttr(attr)} data-testid={`button-edit-attr-${attr.id}`}>
+                            <Edit className="w-3.5 h-3.5" />
+                          </Button>
+                          {!attr.isDefault && (
                             <Button variant="ghost" size="sm" onClick={() => setDeleteAttrId(attr.id)} data-testid={`button-delete-attr-${attr.id}`}>
                               <Trash2 className="w-3.5 h-3.5 text-destructive" />
                             </Button>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </CardContent>
                     </Card>
                   ))}
@@ -725,34 +725,43 @@ export default function TrainerEvaluationsPage() {
       <Dialog open={showAttrDialog} onOpenChange={(open) => { if (!open) resetAttrForm(); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingAttr ? "Edit Attribute" : "Add Custom Attribute"}</DialogTitle>
+            <DialogTitle>{editingAttr?.isDefault ? "Edit Rating Scale" : editingAttr ? "Edit Attribute" : "Add Custom Attribute"}</DialogTitle>
             <DialogDescription>
-              {editingAttr ? "Update this skill attribute" : "Create a new skill attribute for evaluations"}
+              {editingAttr?.isDefault ? "Change the rating scale for this attribute" : editingAttr ? "Update this skill attribute" : "Create a new skill attribute for evaluations"}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>Attribute Name</Label>
-              <Input
-                value={attrName}
-                onChange={e => setAttrName(e.target.value)}
-                placeholder="e.g., Free Throw Form"
-                data-testid="input-attr-name"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Category</Label>
-              <Select value={attrCategory} onValueChange={setAttrCategory}>
-                <SelectTrigger data-testid="select-attr-category">
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {CATEGORIES.map(c => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {editingAttr?.isDefault ? (
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Attribute Name</Label>
+                <Input value={attrName} disabled data-testid="input-attr-name" />
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label>Attribute Name</Label>
+                  <Input
+                    value={attrName}
+                    onChange={e => setAttrName(e.target.value)}
+                    placeholder="e.g., Free Throw Form"
+                    data-testid="input-attr-name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Category</Label>
+                  <Select value={attrCategory} onValueChange={setAttrCategory}>
+                    <SelectTrigger data-testid="select-attr-category">
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CATEGORIES.map(c => (
+                        <SelectItem key={c} value={c}>{c}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
             <div className="space-y-2">
               <Label>Rating Scale</Label>
               <Select value={attrScaleType} onValueChange={setAttrScaleType}>

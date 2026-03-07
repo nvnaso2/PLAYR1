@@ -5038,7 +5038,14 @@ export async function registerRoutes(
       const userId = req.user.claims.sub;
       const attr = await storage.getEvaluationAttributeById(req.params.id);
       if (!attr) return res.status(404).json({ message: "Attribute not found" });
-      if (attr.isDefault) return res.status(403).json({ message: "Cannot edit default attributes" });
+      if (attr.isDefault) {
+        const { scaleType, wordOptions } = req.body;
+        const updated = await storage.updateEvaluationAttribute(req.params.id, {
+          ...(scaleType && { scaleType }),
+          ...(wordOptions !== undefined && { wordOptions }),
+        });
+        return res.json(updated);
+      }
       if (attr.createdBy !== userId) return res.status(403).json({ message: "Not authorized" });
 
       const { name, category, scaleType, wordOptions } = req.body;
