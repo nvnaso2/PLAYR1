@@ -2030,6 +2030,61 @@ export async function registerRoutes(
     }
   });
 
+  // Player trainer favorites (must be before /api/player/:slug wildcard)
+  app.get("/api/player/trainer-favorites", isAuthenticated, async (req: any, res) => {
+    try {
+      const playerId = req.user.claims.sub;
+      const favorites = await storage.getPlayerTrainerFavorites(playerId);
+      res.json(favorites);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/player/trainer-favorites/:trainerId", isAuthenticated, async (req: any, res) => {
+    try {
+      const playerId = req.user.claims.sub;
+      const { trainerId } = req.params;
+      const fav = await storage.addPlayerTrainerFavorite(playerId, trainerId);
+      res.status(201).json(fav);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/player/trainer-favorites/:trainerId", isAuthenticated, async (req: any, res) => {
+    try {
+      const playerId = req.user.claims.sub;
+      const { trainerId } = req.params;
+      await storage.removePlayerTrainerFavorite(playerId, trainerId);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/player/my-trainer/:trainerId", isAuthenticated, async (req: any, res) => {
+    try {
+      const playerId = req.user.claims.sub;
+      const { trainerId } = req.params;
+      const fav = await storage.setMyTrainer(playerId, trainerId);
+      res.json(fav);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/player/my-trainer/:trainerId", isAuthenticated, async (req: any, res) => {
+    try {
+      const playerId = req.user.claims.sub;
+      const { trainerId } = req.params;
+      const fav = await storage.unsetMyTrainer(playerId, trainerId);
+      res.json(fav || { success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Get public player profile by slug (no auth required)
   app.get("/api/player/:slug", async (req, res) => {
     try {
@@ -4851,60 +4906,6 @@ export async function registerRoutes(
   });
 
   // Public Trainer Directory (for players to find trainers)
-  app.get("/api/player/trainer-favorites", isAuthenticated, async (req: any, res) => {
-    try {
-      const playerId = req.user.claims.sub;
-      const favorites = await storage.getPlayerTrainerFavorites(playerId);
-      res.json(favorites);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
-    }
-  });
-
-  app.post("/api/player/trainer-favorites/:trainerId", isAuthenticated, async (req: any, res) => {
-    try {
-      const playerId = req.user.claims.sub;
-      const { trainerId } = req.params;
-      const fav = await storage.addPlayerTrainerFavorite(playerId, trainerId);
-      res.status(201).json(fav);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
-    }
-  });
-
-  app.delete("/api/player/trainer-favorites/:trainerId", isAuthenticated, async (req: any, res) => {
-    try {
-      const playerId = req.user.claims.sub;
-      const { trainerId } = req.params;
-      await storage.removePlayerTrainerFavorite(playerId, trainerId);
-      res.json({ success: true });
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
-    }
-  });
-
-  app.post("/api/player/my-trainer/:trainerId", isAuthenticated, async (req: any, res) => {
-    try {
-      const playerId = req.user.claims.sub;
-      const { trainerId } = req.params;
-      const fav = await storage.setMyTrainer(playerId, trainerId);
-      res.json(fav);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
-    }
-  });
-
-  app.delete("/api/player/my-trainer/:trainerId", isAuthenticated, async (req: any, res) => {
-    try {
-      const playerId = req.user.claims.sub;
-      const { trainerId } = req.params;
-      const fav = await storage.unsetMyTrainer(playerId, trainerId);
-      res.json(fav || { success: true });
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
-    }
-  });
-
   app.get("/api/trainers/directory", async (req, res) => {
     try {
       const filters: any = {};
