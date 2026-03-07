@@ -258,13 +258,13 @@ export default function ProgressPage() {
         </div>
 
         {trainingLoading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1">
             {Array.from({ length: 4 }).map((_, i) => (
               <Skeleton key={i} className="h-[72px] rounded-lg" />
             ))}
           </div>
         ) : filteredStats.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3" data-testid="training-stats-container">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1" data-testid="training-stats-container">
             {filteredStats.map((card) => {
               const val = trainingStats![card.key];
               const displayVal = card.format ? card.format(val) : val.toLocaleString();
