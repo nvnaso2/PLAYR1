@@ -70,11 +70,11 @@ function StatCard({
   href: string;
 }) {
   return (
-    <Link href={href}>
-      <Card className="cursor-pointer transition-colors hover:border-primary/40" data-testid={testId}>
+    <Link href={href} className="block h-full">
+      <Card className="cursor-pointer transition-colors hover:border-primary/40 h-full" data-testid={testId}>
         <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-          <Icon className="h-4 w-4 text-muted-foreground" />
+          <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -191,7 +191,7 @@ export default function TrainerDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 [&>*:last-child:nth-child(odd)]:col-span-2 md:[&>*:last-child:nth-child(odd)]:col-span-1">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 [&>*:last-child:nth-child(odd)]:col-span-2 md:[&>*:last-child:nth-child(odd)]:col-span-1 [&>a]:min-w-0">
         <StatCard
           title="Total Players"
           value={overview?.totalPlayers ?? 0}
