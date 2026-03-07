@@ -2707,8 +2707,12 @@ export async function registerRoutes(
       }
       if (assignedTo) {
         const rosterPlayers = await storage.getTrainerPlayers(userId);
-        const linkedUserIds = new Set(rosterPlayers.filter(p => p.linkedUserId).map(p => p.linkedUserId));
-        if (!linkedUserIds.has(assignedTo)) {
+        const validIds = new Set<string>();
+        for (const p of rosterPlayers) {
+          validIds.add(p.id);
+          if (p.linkedUserId) validIds.add(p.linkedUserId);
+        }
+        if (!validIds.has(assignedTo)) {
           return res.status(403).json({ message: "Player is not in your roster" });
         }
       }

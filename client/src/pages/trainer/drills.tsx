@@ -247,7 +247,7 @@ function AllDrillsSection() {
 
   const allTeamsAndGroups = useMemo(() => [...(groups || []), ...(coachTeams || [])], [groups, coachTeams]);
 
-  const linkedPlayers = useMemo(() => (trainerPlayers || []).filter(p => p.linkedUserId), [trainerPlayers]);
+  const assignablePlayers = useMemo(() => (trainerPlayers || []), [trainerPlayers]);
 
   const allDrillsCombined = useMemo(() => {
     const system = allSystemDrills || [];
@@ -467,13 +467,13 @@ function AllDrillsSection() {
                   <SelectValue placeholder="Select player" />
                 </SelectTrigger>
                 <SelectContent>
-                  {linkedPlayers.map((p) => (
-                    <SelectItem key={p.id} value={p.linkedUserId!}>
+                  {assignablePlayers.map((p) => (
+                    <SelectItem key={p.id} value={p.linkedUserId || p.id}>
                       {`${p.firstName || ''} ${p.lastName || ''}`.trim() || p.email || 'Unknown'}
                     </SelectItem>
                   ))}
-                  {linkedPlayers.length === 0 && (
-                    <div className="px-2 py-1.5 text-sm text-muted-foreground">No linked players</div>
+                  {assignablePlayers.length === 0 && (
+                    <div className="px-2 py-1.5 text-sm text-muted-foreground">No players in roster</div>
                   )}
                 </SelectContent>
               </Select>
