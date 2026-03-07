@@ -78,7 +78,9 @@ import {
   Trophy,
   Medal,
   Trash2,
-  Globe
+  Globe,
+  Upload,
+  Video
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Drill, TrainingLog, DrillMetric, MetricTemplate, Workout, WorkoutDrill, ShotLocation, Challenge, UserChallenge } from "@shared/schema";
@@ -144,6 +146,9 @@ export default function TrainingLogPage() {
   const [isSaveWorkoutOpen, setIsSaveWorkoutOpen] = useState(false);
   const [isAddDrillToWorkoutOpen, setIsAddDrillToWorkoutOpen] = useState(false);
   const [selectedMetricTemplateIds, setSelectedMetricTemplateIds] = useState<string[]>([]);
+  const [drillVideoFile, setDrillVideoFile] = useState<File | null>(null);
+  const [drillVideoUploading, setDrillVideoUploading] = useState(false);
+  const [drillVideoProgress, setDrillVideoProgress] = useState(0);
   const [activeLibraryTab, setActiveLibraryTab] = useState("personal-drills");
   const [activeView, setActiveView] = useState<"library" | "workout" | "history">("library");
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
@@ -389,9 +394,34 @@ export default function TrainingLogPage() {
   // Create drill mutation
   const createDrillMutation = useMutation({
     mutationFn: async (data: CreateDrillFormData) => {
-      const response = await apiRequest("POST", "/api/user/drills", data);
+      let videoUrl: string | null = null;
+      if (drillVideoFile) {
+        setDrillVideoUploading(true);
+        setDrillVideoProgress(10);
+        const metaRes = await fetch("/api/user/uploads/request-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ name: drillVideoFile.name, size: drillVideoFile.size, contentType: drillVideoFile.type || "video/mp4" }),
+        });
+        if (!metaRes.ok) throw new Error("Failed to get upload URL");
+        const { uploadURL, objectPath } = await metaRes.json();
+        setDrillVideoProgress(30);
+        const uploadRes = await fetch(uploadURL, {
+          method: "PUT",
+          body: drillVideoFile,
+          headers: { "Content-Type": drillVideoFile.type || "video/mp4" },
+        });
+        if (!uploadRes.ok) throw new Error("Video upload failed");
+        setDrillVideoProgress(100);
+        setDrillVideoUploading(false);
+        videoUrl = objectPath;
+      }
+      const response = await apiRequest("POST", "/api/user/drills", {
+        ...data,
+        ...(videoUrl ? { videoUrl } : {}),
+      });
       const newDrill = await response.json();
-      // Save metrics for the new drill if any selected
       if (selectedMetricTemplateIds.length > 0) {
         await apiRequest("POST", `/api/drills/${newDrill.id}/metrics`, { 
           metricTemplateIds: selectedMetricTemplateIds 
@@ -406,9 +436,14 @@ export default function TrainingLogPage() {
       setIsCreateDrillOpen(false);
       createDrillForm.reset();
       setSelectedMetricTemplateIds([]);
+      setDrillVideoFile(null);
+      setDrillVideoUploading(false);
+      setDrillVideoProgress(0);
     },
-    onError: () => {
-      toast({ title: "Failed to create drill", variant: "destructive" });
+    onError: (error: Error) => {
+      toast({ title: "Failed to create drill", description: error.message, variant: "destructive" });
+      setDrillVideoUploading(false);
+      setDrillVideoProgress(0);
     },
   });
 
@@ -1504,6 +1539,57 @@ export default function TrainingLogPage() {
                           )}
                         </div>
                       </div>
+
+                      <div className="space-y-2">
+                        <FormLabel>Drill Video (Optional)</FormLabel>
+                        <p className="text-xs text-muted-foreground mb-2">
+                          Upload a video demonstrating this drill
+                        </p>
+                        {drillVideoFile ? (
+                          <div className="flex items-center gap-3 p-3 border rounded-md bg-muted/30">
+                            <Video className="w-5 h-5 text-primary shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{drillVideoFile.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {(drillVideoFile.size / (1024 * 1024)).toFixed(1)} MB
+                              </p>
+                              {drillVideoUploading && (
+                                <Progress value={drillVideoProgress} className="h-1.5 mt-1" />
+                              )}
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="shrink-0 h-7 w-7"
+                              onClick={() => {
+                                setDrillVideoFile(null);
+                                setDrillVideoPath(null);
+                              }}
+                              disabled={drillVideoUploading}
+                              data-testid="button-remove-drill-video"
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <label className="flex items-center justify-center gap-2 p-4 border-2 border-dashed rounded-md cursor-pointer hover:border-primary/40 transition-colors">
+                            <Upload className="w-5 h-5 text-muted-foreground" />
+                            <span className="text-sm text-muted-foreground">Click to upload video</span>
+                            <input
+                              type="file"
+                              accept="video/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) setDrillVideoFile(file);
+                                e.target.value = "";
+                              }}
+                              data-testid="input-drill-video"
+                            />
+                          </label>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -1511,11 +1597,13 @@ export default function TrainingLogPage() {
                     <Button type="button" variant="outline" onClick={() => {
                       setIsCreateDrillOpen(false);
                       setSelectedMetricTemplateIds([]);
+                      setDrillVideoFile(null);
+                      setDrillVideoPath(null);
                     }}>
                       Cancel
                     </Button>
-                    <Button type="submit" disabled={createDrillMutation.isPending} data-testid="button-save-drill">
-                      {createDrillMutation.isPending ? "Creating..." : "Create Drill"}
+                    <Button type="submit" disabled={createDrillMutation.isPending || drillVideoUploading} data-testid="button-save-drill">
+                      {drillVideoUploading ? "Uploading..." : createDrillMutation.isPending ? "Creating..." : "Create Drill"}
                     </Button>
                   </DialogFooter>
                 </form>

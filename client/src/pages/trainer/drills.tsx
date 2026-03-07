@@ -62,10 +62,14 @@ import {
   Edit2,
   BookOpen,
   Info,
+  Upload,
+  Video,
+  X,
 } from "lucide-react";
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS } from "@shared/schema";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
 
 const PLAYER_POSITIONS = ["PG", "SG", "SF", "PF", "C", "Guard", "Wing", "Forward", "Bigs"];
 const PLAYER_AGES = ["8U", "9U", "10U", "11U", "12U", "13U", "14U", "15U", "16U", "17U", "18U"];
@@ -530,6 +534,9 @@ function MyDrillsSection() {
   const [difficulty, setDifficulty] = useState("beginner");
   const [duration, setDuration] = useState("");
   const [trackShots, setTrackShots] = useState(false);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoUploading, setVideoUploading] = useState(false);
+  const [videoProgress, setVideoProgress] = useState(0);
 
   const { data: myDrills, isLoading } = useQuery<TrainerDrill[]>({
     queryKey: ["/api/trainer/drills"],
@@ -542,6 +549,9 @@ function MyDrillsSection() {
     setDifficulty("beginner");
     setDuration("");
     setTrackShots(false);
+    setVideoFile(null);
+    setVideoUploading(false);
+    setVideoProgress(0);
   };
 
   const createMutation = useMutation({
@@ -595,19 +605,51 @@ function MyDrillsSection() {
     setEditDrillId(drill.id);
   };
 
-  const handleSubmit = () => {
-    const data = {
-      title,
-      description: description || undefined,
-      category,
-      difficulty,
-      duration: duration ? parseInt(duration) : undefined,
-      trackShots,
-    };
-    if (editDrillId) {
-      updateMutation.mutate({ id: editDrillId, data });
-    } else {
-      createMutation.mutate(data);
+  const uploadVideo = async (): Promise<string | null> => {
+    if (!videoFile) return null;
+    setVideoUploading(true);
+    setVideoProgress(10);
+    const metaRes = await fetch("/api/user/uploads/request-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ name: videoFile.name, size: videoFile.size, contentType: videoFile.type || "video/mp4" }),
+    });
+    if (!metaRes.ok) throw new Error("Failed to get upload URL");
+    const { uploadURL, objectPath } = await metaRes.json();
+    setVideoProgress(30);
+    const uploadRes = await fetch(uploadURL, {
+      method: "PUT",
+      body: videoFile,
+      headers: { "Content-Type": videoFile.type || "video/mp4" },
+    });
+    if (!uploadRes.ok) throw new Error("Video upload failed");
+    setVideoProgress(100);
+    setVideoUploading(false);
+    return objectPath;
+  };
+
+  const handleSubmit = async () => {
+    try {
+      const videoUrl = await uploadVideo();
+      const data = {
+        title,
+        description: description || undefined,
+        category,
+        difficulty,
+        duration: duration ? parseInt(duration) : undefined,
+        trackShots,
+        ...(videoUrl ? { videoUrl } : {}),
+      };
+      if (editDrillId) {
+        updateMutation.mutate({ id: editDrillId, data });
+      } else {
+        createMutation.mutate(data);
+      }
+    } catch (err: any) {
+      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+      setVideoUploading(false);
+      setVideoProgress(0);
     }
   };
 
@@ -694,14 +736,58 @@ function MyDrillsSection() {
               <Checkbox checked={trackShots} onCheckedChange={(c) => setTrackShots(!!c)} data-testid="checkbox-drill-track-shots" />
               Track shot locations
             </label>
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Drill Video (Optional)</p>
+              {videoFile ? (
+                <div className="flex items-center gap-3 p-3 border rounded-md bg-muted/30">
+                  <Video className="w-5 h-5 text-primary shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{videoFile.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {(videoFile.size / (1024 * 1024)).toFixed(1)} MB
+                    </p>
+                    {videoUploading && (
+                      <Progress value={videoProgress} className="h-1.5 mt-1" />
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0 h-7 w-7"
+                    onClick={() => setVideoFile(null)}
+                    disabled={videoUploading}
+                    data-testid="button-remove-drill-video"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              ) : (
+                <label className="flex items-center justify-center gap-2 p-4 border-2 border-dashed rounded-md cursor-pointer hover:border-primary/40 transition-colors">
+                  <Upload className="w-5 h-5 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Click to upload video</span>
+                  <input
+                    type="file"
+                    accept="video/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) setVideoFile(file);
+                      e.target.value = "";
+                    }}
+                    data-testid="input-drill-video"
+                  />
+                </label>
+              )}
+            </div>
           </div>
           <DialogFooter>
             <Button
-              disabled={!title || !category || createMutation.isPending || updateMutation.isPending}
+              disabled={!title || !category || createMutation.isPending || updateMutation.isPending || videoUploading}
               onClick={handleSubmit}
               data-testid="button-drill-submit"
             >
-              {(createMutation.isPending || updateMutation.isPending) ? "Saving..." : editDrillId ? "Update" : "Create"}
+              {videoUploading ? "Uploading..." : (createMutation.isPending || updateMutation.isPending) ? "Saving..." : editDrillId ? "Update" : "Create"}
             </Button>
           </DialogFooter>
         </DialogContent>
