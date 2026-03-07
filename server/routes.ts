@@ -1103,6 +1103,16 @@ export async function registerRoutes(
       if (prMetrics.length > 0) {
         try { await storage.checkAndCreateDrillPRs(userId, log.drillId, log.id, prMetrics); } catch (e) { console.error("PR check error:", e); }
       }
+
+      try {
+        const assignments = await storage.getUserAssignments(userId);
+        const activeForDrill = assignments.filter(
+          a => a.drillId === log.drillId && a.status !== "completed"
+        );
+        for (const a of activeForDrill) {
+          await storage.updateDrillAssignmentStatus(a.id, "completed");
+        }
+      } catch (e) { console.error("Auto-complete assignment error:", e); }
       
       res.status(201).json(log);
     } catch (error) {
