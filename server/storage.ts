@@ -2022,10 +2022,14 @@ export class DatabaseStorage implements IStorage {
     const userTeamMembers = await db.select().from(teamMembers).where(eq(teamMembers.userId, userId));
     const teamIds = userTeamMembers.map(m => m.teamId);
     
+    const rosterEntries = await db.select({ id: trainerPlayers.id })
+      .from(trainerPlayers).where(eq(trainerPlayers.linkedUserId, userId));
+    const allUserIds = [userId, ...rosterEntries.map(r => r.id)];
+    
     let allAssignments: DrillAssignment[] = [];
     
     const directAssignments = await db.select().from(drillAssignments)
-      .where(eq(drillAssignments.assignedTo, userId))
+      .where(inArray(drillAssignments.assignedTo, allUserIds))
       .orderBy(desc(drillAssignments.createdAt));
     allAssignments.push(...directAssignments);
     

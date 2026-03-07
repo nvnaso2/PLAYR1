@@ -28,13 +28,14 @@ import {
   Search, MapPin, DollarSign, Clock, Award, Star, Mail, Phone, Globe, Instagram, Twitter,
   X, ChevronRight, CalendarDays, CheckCircle, Briefcase, UserPlus, ClipboardCheck, MessageCircle,
   User, Calendar as CalendarIcon, MessageSquare, CheckCircle2, XCircle, Hourglass, ChevronLeft, Send, ArrowLeft, Heart,
+  Target, Play, FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { US_STATES, TRAINER_SPECIALTIES } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import type { TrainingSession, EvaluationAttribute, PlayerEvaluation, PlayerEvaluationRating, PlayerTrainerFavorite } from "@shared/schema";
+import type { TrainingSession, EvaluationAttribute, PlayerEvaluation, PlayerEvaluationRating, PlayerTrainerFavorite, Drill, DrillAssignment } from "@shared/schema";
 
 type TrainerLocation = {
   id: string;
@@ -1783,6 +1784,196 @@ function ChatTab() {
   );
 }
 
+type AssignmentWithDrill = DrillAssignment & { drill: Drill; team?: { id: string; name: string } };
+
+function MyDrillsTab() {
+  const { toast } = useToast();
+
+  const { data: assignments, isLoading } = useQuery<AssignmentWithDrill[]>({
+    queryKey: ["/api/assigned-drills"],
+  });
+
+  const updateStatus = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      await apiRequest("PUT", `/api/assignments/${id}/status`, { status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/assigned-drills"] });
+      toast({ title: "Assignment updated!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to update", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const pending = (assignments || []).filter(a => a.status !== "completed");
+  const completed = (assignments || []).filter(a => a.status === "completed");
+
+  if (isLoading) {
+    return (
+      <div className="space-y-3 mt-4">
+        {[1, 2, 3].map(i => <Skeleton key={i} className="h-24 rounded-lg" />)}
+      </div>
+    );
+  }
+
+  if (!assignments || assignments.length === 0) {
+    return (
+      <Card className="mt-4">
+        <CardContent className="py-12 text-center">
+          <Target className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+          <h3 className="font-semibold mb-1" data-testid="text-no-drills">No Assigned Drills</h3>
+          <p className="text-sm text-muted-foreground">
+            When your trainer assigns drills, they'll appear here
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const renderAssignment = (a: AssignmentWithDrill) => {
+    const isCompleted = a.status === "completed";
+    const dueDate = a.dueDate ? new Date(a.dueDate) : null;
+    const isOverdue = dueDate && !isCompleted && dueDate < new Date();
+
+    return (
+      <Card key={a.id} className={cn(isCompleted && "opacity-60")} data-testid={`card-assignment-${a.id}`}>
+        <CardContent className="p-4">
+          <div className="flex items-start gap-3">
+            <div className={cn(
+              "mt-0.5 rounded-full p-2 shrink-0",
+              isCompleted ? "bg-green-500/10 text-green-500" : "bg-primary/10 text-primary"
+            )}>
+              {isCompleted ? <CheckCircle className="w-4 h-4" /> : <Target className="w-4 h-4" />}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h4 className="font-semibold text-sm truncate" data-testid={`text-drill-title-${a.id}`}>
+                  {a.drill.title}
+                </h4>
+                {isCompleted && (
+                  <Badge variant="secondary" className="no-default-hover-elevate text-[10px]" data-testid={`badge-completed-${a.id}`}>
+                    Completed
+                  </Badge>
+                )}
+                {isOverdue && (
+                  <Badge variant="destructive" className="no-default-hover-elevate text-[10px]" data-testid={`badge-overdue-${a.id}`}>
+                    Overdue
+                  </Badge>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
+                {a.drill.category && (
+                  <span className="capitalize">{a.drill.category.replace(/-/g, " ")}</span>
+                )}
+                {a.drill.difficulty && (
+                  <Badge variant="outline" className="no-default-hover-elevate text-[10px] capitalize">
+                    {a.drill.difficulty}
+                  </Badge>
+                )}
+                {a.drill.duration && (
+                  <span className="flex items-center gap-0.5">
+                    <Clock className="w-3 h-3" />
+                    {Math.ceil(a.drill.duration / 60)} min
+                  </span>
+                )}
+              </div>
+
+              {a.team && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Team: {a.team.name}
+                </p>
+              )}
+
+              {a.notes && (
+                <p className="text-xs text-muted-foreground mt-1.5 italic bg-muted/50 rounded px-2 py-1" data-testid={`text-notes-${a.id}`}>
+                  "{a.notes}"
+                </p>
+              )}
+
+              <div className="flex items-center gap-3 mt-1 text-[10px] text-muted-foreground">
+                {dueDate && (
+                  <span className={cn("flex items-center gap-0.5", isOverdue && "text-destructive")}>
+                    <CalendarDays className="w-3 h-3" />
+                    Due {dueDate.toLocaleDateString()}
+                  </span>
+                )}
+                {a.createdAt && (
+                  <span className="flex items-center gap-0.5">
+                    <Clock className="w-3 h-3" />
+                    Assigned {new Date(a.createdAt).toLocaleDateString()}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 mt-3">
+                {!isCompleted && (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="default"
+                      onClick={() => updateStatus.mutate({ id: a.id, status: "completed" })}
+                      disabled={updateStatus.isPending}
+                      data-testid={`button-complete-${a.id}`}
+                    >
+                      <CheckCircle className="w-3.5 h-3.5 mr-1" />
+                      Mark Complete
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      asChild
+                      data-testid={`button-practice-${a.id}`}
+                    >
+                      <a href={`/drill/${a.drill.id}`}>
+                        <Play className="w-3.5 h-3.5 mr-1" />
+                        Practice
+                      </a>
+                    </Button>
+                  </>
+                )}
+                {isCompleted && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => updateStatus.mutate({ id: a.id, status: "assigned" })}
+                    disabled={updateStatus.isPending}
+                    data-testid={`button-reopen-${a.id}`}
+                  >
+                    Re-open
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  return (
+    <div className="space-y-4 mt-4">
+      {pending.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-muted-foreground" data-testid="text-pending-header">
+            Assigned ({pending.length})
+          </h3>
+          {pending.map(renderAssignment)}
+        </div>
+      )}
+      {completed.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-muted-foreground" data-testid="text-completed-header">
+            Completed ({completed.length})
+          </h3>
+          {completed.map(renderAssignment)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MyTrainerPage() {
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-6 overflow-y-auto h-full">
@@ -1800,6 +1991,10 @@ export default function MyTrainerPage() {
             <UserPlus className="w-4 h-4" />
             <span className="hidden sm:inline">Find a Trainer</span>
           </TabsTrigger>
+          <TabsTrigger value="my-drills" className="flex-1 gap-1.5" data-testid="tab-my-drills">
+            <Target className="w-4 h-4" />
+            <span className="hidden sm:inline">My Drills</span>
+          </TabsTrigger>
           <TabsTrigger value="my-sessions" className="flex-1 gap-1.5" data-testid="tab-my-sessions">
             <CalendarDays className="w-4 h-4" />
             <span className="hidden sm:inline">My Sessions</span>
@@ -1816,6 +2011,9 @@ export default function MyTrainerPage() {
 
         <TabsContent value="find-trainer">
           <FindTrainerTab />
+        </TabsContent>
+        <TabsContent value="my-drills">
+          <MyDrillsTab />
         </TabsContent>
         <TabsContent value="my-sessions">
           <MySessionsTab />
