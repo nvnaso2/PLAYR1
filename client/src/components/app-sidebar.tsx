@@ -63,9 +63,7 @@ const playerNavItems = [
   { title: "Training Log", url: "/log", icon: ClipboardList },
   { title: "My Filmroom", url: "/videos", icon: Video },
   { title: "Find Teams & Leagues", url: "/finder", icon: Search },
-  { title: "Find a Trainer", url: "/find-trainer", icon: UserPlus },
-  { title: "My Sessions", url: "/my-sessions", icon: CalendarDays },
-  { title: "My Evaluations", url: "/my-evaluations", icon: ClipboardCheck },
+  { title: "My Trainer", url: "/my-trainer", icon: UserPlus },
 ];
 
 const trainerNavItems = [

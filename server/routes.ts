@@ -3144,6 +3144,45 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/messages/player-contacts", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const contactsMap = new Map<string, { id: string; name: string; image?: string }>();
+      const sessions = await storage.getTrainingSessionsForPlayer(userId);
+      for (const session of sessions) {
+        if (!contactsMap.has(session.trainerId)) {
+          const trainerUser = await storage.getUser(session.trainerId);
+          if (trainerUser) {
+            const name = `${trainerUser.firstName || ''} ${trainerUser.lastName || ''}`.trim() || 'Trainer';
+            contactsMap.set(session.trainerId, {
+              id: session.trainerId,
+              name,
+              image: trainerUser.profileImageUrl || undefined,
+            });
+          }
+        }
+      }
+      const evaluations = await storage.getSharedEvaluationsForPlayer(userId);
+      for (const ev of evaluations) {
+        if (!contactsMap.has(ev.trainerId)) {
+          const trainerUser = await storage.getUser(ev.trainerId);
+          if (trainerUser) {
+            const name = `${trainerUser.firstName || ''} ${trainerUser.lastName || ''}`.trim() || 'Trainer';
+            contactsMap.set(ev.trainerId, {
+              id: ev.trainerId,
+              name,
+              image: trainerUser.profileImageUrl || undefined,
+            });
+          }
+        }
+      }
+      res.json(Array.from(contactsMap.values()));
+    } catch (error) {
+      console.error("Error fetching player contacts:", error);
+      res.status(500).json({ message: "Failed to fetch player contacts" });
+    }
+  });
+
   // Send a message
   app.post("/api/messages", isAuthenticated, async (req: any, res) => {
     try {
