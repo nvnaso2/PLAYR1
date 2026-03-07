@@ -47,7 +47,8 @@ import {
   trainingSessions, type TrainingSession, type InsertTrainingSession,
   evaluationAttributes, type EvaluationAttribute, type InsertEvaluationAttribute,
   playerEvaluations, type PlayerEvaluation, type InsertPlayerEvaluation,
-  playerEvaluationRatings, type PlayerEvaluationRating, type InsertPlayerEvaluationRating
+  playerEvaluationRatings, type PlayerEvaluationRating, type InsertPlayerEvaluationRating,
+  playerTrainerFavorites, type PlayerTrainerFavorite
 } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
@@ -370,6 +371,13 @@ export interface IStorage {
   createTrainerProfileLocation(data: InsertTrainerProfileLocation): Promise<TrainerProfileLocation>;
   updateTrainerProfileLocation(id: string, data: Partial<InsertTrainerProfileLocation>): Promise<TrainerProfileLocation | undefined>;
   deleteTrainerProfileLocation(id: string): Promise<boolean>;
+
+  getPlayerTrainerFavorites(playerId: string): Promise<PlayerTrainerFavorite[]>;
+  getPlayerTrainerFavorite(playerId: string, trainerId: string): Promise<PlayerTrainerFavorite | undefined>;
+  addPlayerTrainerFavorite(playerId: string, trainerId: string): Promise<PlayerTrainerFavorite>;
+  removePlayerTrainerFavorite(playerId: string, trainerId: string): Promise<boolean>;
+  setMyTrainer(playerId: string, trainerId: string): Promise<PlayerTrainerFavorite>;
+  unsetMyTrainer(playerId: string, trainerId: string): Promise<PlayerTrainerFavorite | undefined>;
 
   createTrainingSession(data: InsertTrainingSession): Promise<TrainingSession>;
   getTrainingSessionById(id: string): Promise<TrainingSession | undefined>;
@@ -2954,6 +2962,55 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(playerEvaluations)
       .where(and(eq(playerEvaluations.playerId, playerId), eq(playerEvaluations.sharedWithPlayer, true)))
       .orderBy(desc(playerEvaluations.createdAt));
+  }
+
+  async getPlayerTrainerFavorites(playerId: string): Promise<PlayerTrainerFavorite[]> {
+    return await db.select().from(playerTrainerFavorites)
+      .where(eq(playerTrainerFavorites.playerId, playerId))
+      .orderBy(desc(playerTrainerFavorites.createdAt));
+  }
+
+  async getPlayerTrainerFavorite(playerId: string, trainerId: string): Promise<PlayerTrainerFavorite | undefined> {
+    const [fav] = await db.select().from(playerTrainerFavorites)
+      .where(and(eq(playerTrainerFavorites.playerId, playerId), eq(playerTrainerFavorites.trainerId, trainerId)));
+    return fav;
+  }
+
+  async addPlayerTrainerFavorite(playerId: string, trainerId: string): Promise<PlayerTrainerFavorite> {
+    const existing = await this.getPlayerTrainerFavorite(playerId, trainerId);
+    if (existing) return existing;
+    const [created] = await db.insert(playerTrainerFavorites).values({ playerId, trainerId, isMyTrainer: false }).returning();
+    return created;
+  }
+
+  async removePlayerTrainerFavorite(playerId: string, trainerId: string): Promise<boolean> {
+    const result = await db.delete(playerTrainerFavorites)
+      .where(and(eq(playerTrainerFavorites.playerId, playerId), eq(playerTrainerFavorites.trainerId, trainerId)));
+    return true;
+  }
+
+  async setMyTrainer(playerId: string, trainerId: string): Promise<PlayerTrainerFavorite> {
+    await db.update(playerTrainerFavorites)
+      .set({ isMyTrainer: false })
+      .where(and(eq(playerTrainerFavorites.playerId, playerId), eq(playerTrainerFavorites.isMyTrainer, true)));
+    let fav = await this.getPlayerTrainerFavorite(playerId, trainerId);
+    if (!fav) {
+      const [created] = await db.insert(playerTrainerFavorites).values({ playerId, trainerId, isMyTrainer: true }).returning();
+      return created;
+    }
+    const [updated] = await db.update(playerTrainerFavorites)
+      .set({ isMyTrainer: true })
+      .where(eq(playerTrainerFavorites.id, fav.id))
+      .returning();
+    return updated;
+  }
+
+  async unsetMyTrainer(playerId: string, trainerId: string): Promise<PlayerTrainerFavorite | undefined> {
+    const [updated] = await db.update(playerTrainerFavorites)
+      .set({ isMyTrainer: false })
+      .where(and(eq(playerTrainerFavorites.playerId, playerId), eq(playerTrainerFavorites.trainerId, trainerId)))
+      .returning();
+    return updated;
   }
 }
 

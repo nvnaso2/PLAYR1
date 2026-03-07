@@ -1141,6 +1141,22 @@ export const insertTrainerProfileLocationSchema = createInsertSchema(trainerProf
 export type InsertTrainerProfileLocation = z.infer<typeof insertTrainerProfileLocationSchema>;
 export type TrainerProfileLocation = typeof trainerProfileLocations.$inferSelect;
 
+export const playerTrainerFavorites = pgTable("player_trainer_favorites", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").notNull(),
+  trainerId: varchar("trainer_id").notNull(),
+  isMyTrainer: boolean("is_my_trainer").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPlayerTrainerFavoriteSchema = createInsertSchema(playerTrainerFavorites).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertPlayerTrainerFavorite = z.infer<typeof insertPlayerTrainerFavoriteSchema>;
+export type PlayerTrainerFavorite = typeof playerTrainerFavorites.$inferSelect;
+
 export const SESSION_STATUSES = ["requested", "confirmed", "declined", "cancelled", "completed"] as const;
 
 export const trainingSessions = pgTable("training_sessions", {

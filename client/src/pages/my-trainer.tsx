@@ -26,14 +26,14 @@ import {
 import {
   Search, MapPin, DollarSign, Clock, Award, Star, Mail, Phone, Globe, Instagram, Twitter,
   X, ChevronRight, CalendarDays, CheckCircle, Briefcase, UserPlus, ClipboardCheck, MessageCircle,
-  User, Calendar as CalendarIcon, MessageSquare, CheckCircle2, XCircle, Hourglass, ChevronLeft, Send, ArrowLeft,
+  User, Calendar as CalendarIcon, MessageSquare, CheckCircle2, XCircle, Hourglass, ChevronLeft, Send, ArrowLeft, Heart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { US_STATES, TRAINER_SPECIALTIES } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import type { TrainingSession, EvaluationAttribute, PlayerEvaluation, PlayerEvaluationRating } from "@shared/schema";
+import type { TrainingSession, EvaluationAttribute, PlayerEvaluation, PlayerEvaluationRating, PlayerTrainerFavorite } from "@shared/schema";
 
 type TrainerLocation = {
   id: string;
@@ -46,6 +46,7 @@ type TrainerLocation = {
 
 type DirectoryTrainer = {
   id: string;
+  userId: string;
   firstName: string | null;
   lastName: string | null;
   headline: string | null;
@@ -232,6 +233,53 @@ function FindTrainerTab() {
   const [stateFilter, setStateFilter] = useState("all");
   const [specialtyFilter, setSpecialtyFilter] = useState("all");
   const [selectedTrainer, setSelectedTrainer] = useState<DirectoryTrainer | null>(null);
+  const { toast } = useToast();
+
+  const { data: favorites } = useQuery<PlayerTrainerFavorite[]>({
+    queryKey: ["/api/player/trainer-favorites"],
+  });
+
+  const favMap = useMemo(() => {
+    const m = new Map<string, PlayerTrainerFavorite>();
+    (favorites || []).forEach(f => m.set(f.trainerId, f));
+    return m;
+  }, [favorites]);
+
+  const toggleFavorite = useMutation({
+    mutationFn: async (trainerId: string) => {
+      const isFav = favMap.has(trainerId);
+      if (isFav) {
+        await apiRequest("DELETE", `/api/player/trainer-favorites/${trainerId}`);
+      } else {
+        await apiRequest("POST", `/api/player/trainer-favorites/${trainerId}`);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/player/trainer-favorites"] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to update favorite", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const toggleMyTrainer = useMutation({
+    mutationFn: async (trainerId: string) => {
+      const fav = favMap.get(trainerId);
+      const isMyTrainer = fav?.isMyTrainer;
+      if (isMyTrainer) {
+        await apiRequest("DELETE", `/api/player/my-trainer/${trainerId}`);
+      } else {
+        await apiRequest("POST", `/api/player/my-trainer/${trainerId}`);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/player/trainer-favorites"] });
+      toast({ title: "Updated!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to update", description: error.message, variant: "destructive" });
+    },
+  });
 
   const queryParams = new URLSearchParams();
   if (searchQuery) queryParams.set("query", searchQuery);
@@ -321,26 +369,48 @@ function FindTrainerTab() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {trainers.map(trainer => (
-            <TrainerCard
-              key={trainer.id}
-              trainer={trainer}
-              onClick={() => setSelectedTrainer(trainer)}
-            />
-          ))}
+          {trainers.map(trainer => {
+            const fav = favMap.get(trainer.userId);
+            return (
+              <TrainerCard
+                key={trainer.id}
+                trainer={trainer}
+                onClick={() => setSelectedTrainer(trainer)}
+                isFavorited={!!fav}
+                isMyTrainer={!!fav?.isMyTrainer}
+                onToggleFavorite={(e) => {
+                  e.stopPropagation();
+                  toggleFavorite.mutate(trainer.userId);
+                }}
+              />
+            );
+          })}
         </div>
       )}
 
       <Sheet open={!!selectedTrainer} onOpenChange={open => !open && setSelectedTrainer(null)}>
         <SheetContent className="overflow-y-auto w-full sm:max-w-lg">
-          {selectedTrainer && <TrainerDetail trainer={selectedTrainer} />}
+          {selectedTrainer && (
+            <TrainerDetail
+              trainer={selectedTrainer}
+              favorite={favMap.get(selectedTrainer.userId)}
+              onToggleFavorite={() => toggleFavorite.mutate(selectedTrainer.userId)}
+              onToggleMyTrainer={() => toggleMyTrainer.mutate(selectedTrainer.userId)}
+            />
+          )}
         </SheetContent>
       </Sheet>
     </div>
   );
 }
 
-function TrainerCard({ trainer, onClick }: { trainer: DirectoryTrainer; onClick: () => void }) {
+function TrainerCard({ trainer, onClick, isFavorited, isMyTrainer, onToggleFavorite }: {
+  trainer: DirectoryTrainer;
+  onClick: () => void;
+  isFavorited: boolean;
+  isMyTrainer: boolean;
+  onToggleFavorite: (e: React.MouseEvent) => void;
+}) {
   const name = [trainer.firstName, trainer.lastName].filter(Boolean).join(" ") || "Trainer";
   const initials = (trainer.firstName?.[0] || "") + (trainer.lastName?.[0] || "");
 
@@ -361,14 +431,27 @@ function TrainerCard({ trainer, onClick }: { trainer: DirectoryTrainer; onClick:
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <h3 className="font-semibold text-sm truncate" data-testid={`text-trainer-name-${trainer.id}`}>{name}</h3>
+                <div className="flex items-center gap-1.5">
+                  <h3 className="font-semibold text-sm truncate" data-testid={`text-trainer-name-${trainer.id}`}>{name}</h3>
+                  {isMyTrainer && (
+                    <Badge variant="default" className="text-[9px] no-default-hover-elevate px-1.5 py-0" data-testid={`badge-my-trainer-${trainer.id}`}>My Trainer</Badge>
+                  )}
+                </div>
                 {trainer.headline && (
                   <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1" data-testid={`text-trainer-headline-${trainer.id}`}>
                     {trainer.headline}
                   </p>
                 )}
               </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="shrink-0 h-7 w-7"
+                onClick={onToggleFavorite}
+                data-testid={`button-favorite-${trainer.id}`}
+              >
+                <Heart className={cn("w-4 h-4", isFavorited ? "fill-red-500 text-red-500" : "text-muted-foreground")} />
+              </Button>
             </div>
 
             <div className="flex items-center gap-3 mt-2 flex-wrap text-xs text-muted-foreground">
@@ -409,7 +492,12 @@ function TrainerCard({ trainer, onClick }: { trainer: DirectoryTrainer; onClick:
   );
 }
 
-function TrainerDetail({ trainer: listTrainer }: { trainer: DirectoryTrainer }) {
+function TrainerDetail({ trainer: listTrainer, favorite, onToggleFavorite, onToggleMyTrainer }: {
+  trainer: DirectoryTrainer;
+  favorite?: PlayerTrainerFavorite;
+  onToggleFavorite: () => void;
+  onToggleMyTrainer: () => void;
+}) {
   const { data: detailTrainer } = useQuery<DirectoryTrainer>({
     queryKey: ["/api/trainers/directory", listTrainer.id],
     queryFn: async () => {
@@ -580,6 +668,27 @@ function TrainerDetail({ trainer: listTrainer }: { trainer: DirectoryTrainer }) 
         <CalendarDays className="w-4 h-4 mr-2" />
         Book Session
       </Button>
+
+      <div className="flex gap-2">
+        <Button
+          variant={favorite ? "default" : "outline"}
+          className="flex-1"
+          onClick={onToggleFavorite}
+          data-testid="button-detail-favorite"
+        >
+          <Heart className={cn("w-4 h-4 mr-2", favorite ? "fill-current" : "")} />
+          {favorite ? "Favorited" : "Favorite"}
+        </Button>
+        <Button
+          variant={favorite?.isMyTrainer ? "default" : "outline"}
+          className="flex-1"
+          onClick={onToggleMyTrainer}
+          data-testid="button-detail-my-trainer"
+        >
+          <UserPlus className="w-4 h-4 mr-2" />
+          {favorite?.isMyTrainer ? "My Trainer ✓" : "Set as My Trainer"}
+        </Button>
+      </div>
 
       <div className="grid grid-cols-3 gap-3 text-center">
         {trainer.hourlyRate && (

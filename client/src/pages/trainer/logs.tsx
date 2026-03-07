@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ClipboardList, Search, Filter, Calendar, Clock, Target } from "lucide-react";
+import { ClipboardList, Search, Filter, Calendar, Clock } from "lucide-react";
 import { DRILL_CATEGORIES } from "@shared/schema";
 
 interface TrainingLog {
@@ -197,11 +197,6 @@ export default function TrainerLogs() {
                         <Clock className="h-3.5 w-3.5" /> Duration
                       </span>
                     </th>
-                    <th className="px-4 py-2 font-medium hidden md:table-cell">
-                      <span className="inline-flex items-center gap-1">
-                        <Target className="h-3.5 w-3.5" /> Score
-                      </span>
-                    </th>
                     <th className="px-4 py-2 font-medium">
                       <span className="inline-flex items-center gap-1">
                         <Calendar className="h-3.5 w-3.5" /> Date
@@ -244,13 +239,6 @@ export default function TrainerLogs() {
                         </td>
                         <td className="px-4 py-2.5 hidden md:table-cell text-muted-foreground">
                           {formatDuration(log.duration)}
-                        </td>
-                        <td className="px-4 py-2.5 hidden md:table-cell">
-                          {log.score != null ? (
-                            <span className="font-medium">{log.score}</span>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
                         </td>
                         <td className="px-4 py-2.5 text-muted-foreground">
                           {formatDate(logDate)}
