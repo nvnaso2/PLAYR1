@@ -6,6 +6,7 @@ import { z } from "zod";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ShareMenu } from "@/components/share-menu";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -242,15 +243,23 @@ export default function PlayerProfilePage() {
                 {profileUrl}
               </span>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setLocation(`/player/${profile.slug}`)}
-              data-testid="button-preview-profile"
-            >
-              <ExternalLink className="h-4 w-4 mr-1" />
-              Preview
-            </Button>
+            <div className="flex gap-2">
+              <ShareMenu
+                url={`/player/${profile.slug}`}
+                title={`${user?.firstName || ""} ${user?.lastName || ""} - PLAYR1 Player Profile`.trim()}
+                description="Check out my basketball profile on PLAYR1!"
+                testId="button-share-player-profile"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setLocation(`/player/${profile.slug}`)}
+                data-testid="button-preview-profile"
+              >
+                <ExternalLink className="h-4 w-4 mr-1" />
+                Preview
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}

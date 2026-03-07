@@ -6,9 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
-import { useToast } from "@/hooks/use-toast";
 import {
-  Copy,
   GraduationCap,
   Ruler,
   Trophy,
@@ -21,6 +19,7 @@ import {
   BarChart3,
   ArrowLeft,
 } from "lucide-react";
+import { ShareMenu } from "@/components/share-menu";
 import { SiX, SiInstagram, SiTiktok, SiYoutube } from "react-icons/si";
 import type { PlayerProfile, TeamAward, PersonalRecord, UserVideo } from "@shared/schema";
 
@@ -78,17 +77,11 @@ const GRADE_LABELS: Record<string, string> = {
 export default function PlayerPublicPage() {
   const [match, params] = useRoute("/player/:slug");
   const slug = params?.slug || "";
-  const { toast } = useToast();
-
   const { data, isLoading, error } = useQuery<PublicProfileData>({
     queryKey: ["/api/player", slug],
     enabled: !!slug,
   });
 
-  const copyProfileUrl = () => {
-    navigator.clipboard.writeText(window.location.href);
-    toast({ title: "Link Copied", description: "Profile URL copied to clipboard." });
-  };
 
   if (isLoading) {
     return (
@@ -154,15 +147,12 @@ export default function PlayerPublicPage() {
               <ArrowLeft className="h-4 w-4 mr-1" />
               Back
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={copyProfileUrl}
-              data-testid="button-share-profile"
-            >
-              <Copy className="h-4 w-4 mr-1" />
-              Share Profile
-            </Button>
+            <ShareMenu
+              url={`/player/${slug}`}
+              title={`${playerName} - PLAYR1 Player Profile`}
+              description={`Check out ${playerName}'s basketball profile on PLAYR1!`}
+              testId="button-share-profile"
+            />
           </div>
 
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">

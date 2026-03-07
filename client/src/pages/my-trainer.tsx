@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ShareMenu } from "@/components/share-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -688,6 +689,13 @@ function TrainerDetail({ trainer: listTrainer, favorite, onToggleFavorite, onTog
           <UserPlus className="w-4 h-4 mr-2" />
           {favorite?.isMyTrainer ? "My Trainer ✓" : "Set as My Trainer"}
         </Button>
+        <ShareMenu
+          url={`/find-trainer?trainer=${trainer.id}`}
+          title={`${name} - PLAYR1 Trainer`}
+          description={`Check out ${name} on PLAYR1! ${trainer.headline || ""}`}
+          size="default"
+          testId="button-share-trainer"
+        />
       </div>
 
       <div className="grid grid-cols-3 gap-3 text-center">

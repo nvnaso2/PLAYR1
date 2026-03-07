@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ShareMenu } from "@/components/share-menu";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -417,16 +418,26 @@ export default function TrainerProfilePage() {
                 </div>
               </div>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => { if (p) populateForm(p); setShowEditor(true); }}
-              className="shrink-0 border-border"
-              data-testid="button-edit-profile"
-            >
-              <Pencil className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Edit</span>
-            </Button>
+            <div className="flex gap-2 shrink-0">
+              {p?.isPublic && (
+                <ShareMenu
+                  url={`/find-trainer?trainer=${p.id}`}
+                  title={`${p.firstName || ""} ${p.lastName || ""} - PLAYR1 Trainer`.trim()}
+                  description={`Check out my trainer profile on PLAYR1! ${p.headline || ""}`}
+                  testId="button-share-trainer-profile"
+                />
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { if (p) populateForm(p); setShowEditor(true); }}
+                className="border-border"
+                data-testid="button-edit-profile"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Edit</span>
+              </Button>
+            </div>
           </div>
         </div>
 
