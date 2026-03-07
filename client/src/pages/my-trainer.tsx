@@ -918,9 +918,18 @@ function MySessionsTab() {
   const { toast } = useToast();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [cancelSessionId, setCancelSessionId] = useState<string | null>(null);
+  const [rescheduleSession, setRescheduleSession] = useState<EnrichedSession | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState("");
+  const [rescheduleStart, setRescheduleStart] = useState("");
+  const [rescheduleEnd, setRescheduleEnd] = useState("");
+  const [rescheduleLocation, setRescheduleLocation] = useState("");
 
   const { data: sessions, isLoading } = useQuery<EnrichedSession[]>({
     queryKey: ["/api/training-sessions/player/enriched"],
+  });
+
+  const { data: locations } = useQuery<TrainerLocation[]>({
+    queryKey: ["/api/training-locations"],
   });
 
   const cancelMutation = useMutation({
@@ -934,6 +943,32 @@ function MySessionsTab() {
       toast({ title: "Failed to cancel", description: error.message, variant: "destructive" });
     },
   });
+
+  const rescheduleMutation = useMutation({
+    mutationFn: (data: { id: string; sessionDate: string; startTime: string; endTime: string; locationId: string }) =>
+      apiRequest("PUT", `/api/training-sessions/${data.id}/reschedule`, {
+        sessionDate: data.sessionDate,
+        startTime: data.startTime,
+        endTime: data.endTime,
+        locationId: data.locationId || null,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/training-sessions/player/enriched"] });
+      toast({ title: "Session rescheduled. Awaiting trainer confirmation." });
+      setRescheduleSession(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to reschedule", description: error.message, variant: "destructive" });
+    },
+  });
+
+  function openReschedule(session: EnrichedSession) {
+    setRescheduleSession(session);
+    setRescheduleDate(session.sessionDate);
+    setRescheduleStart(session.startTime);
+    setRescheduleEnd(session.endTime);
+    setRescheduleLocation(session.locationId || "");
+  }
 
   const filtered = (sessions || []).filter(
     (s) => statusFilter === "all" || s.status === statusFilter
@@ -987,6 +1022,17 @@ function MySessionsTab() {
                 <StatusIcon className="h-3 w-3 mr-1" />
                 {config.label}
               </Badge>
+              {canCancel && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  data-testid={`button-reschedule-${session.id}`}
+                  onClick={() => openReschedule(session)}
+                >
+                  <CalendarDays className="h-4 w-4 mr-1" />
+                  Reschedule
+                </Button>
+              )}
               {canCancel && (
                 <Button
                   size="sm"
@@ -1138,6 +1184,112 @@ function MySessionsTab() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!rescheduleSession} onOpenChange={(open) => !open && setRescheduleSession(null)}>
+        <DialogContent data-testid="dialog-reschedule">
+          <DialogHeader>
+            <DialogTitle>Reschedule Session</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Date</Label>
+              <Input
+                type="date"
+                value={rescheduleDate}
+                onChange={(e) => setRescheduleDate(e.target.value)}
+                data-testid="input-reschedule-date"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Start Time</Label>
+              <Select value={rescheduleStart} onValueChange={setRescheduleStart}>
+                <SelectTrigger data-testid="select-reschedule-start">
+                  <SelectValue placeholder="Select start time" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(() => {
+                    const opts: { value: string; label: string }[] = [];
+                    for (let h = 6; h <= 22; h++) {
+                      for (let m = 0; m <= 45; m += 15) {
+                        if (h === 22 && m > 0) break;
+                        const val = `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+                        const ampm = h >= 12 ? "PM" : "AM";
+                        const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+                        const label = `${h12}:${m.toString().padStart(2, "0")} ${ampm}`;
+                        opts.push({ value: val, label });
+                      }
+                    }
+                    return opts.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                    ));
+                  })()}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>End Time</Label>
+              <Select value={rescheduleEnd} onValueChange={setRescheduleEnd}>
+                <SelectTrigger data-testid="select-reschedule-end">
+                  <SelectValue placeholder="Select end time" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(() => {
+                    const opts: { value: string; label: string }[] = [];
+                    for (let h = 6; h <= 22; h++) {
+                      for (let m = 0; m <= 45; m += 15) {
+                        if (h === 22 && m > 0) break;
+                        const val = `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+                        const ampm = h >= 12 ? "PM" : "AM";
+                        const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+                        const label = `${h12}:${m.toString().padStart(2, "0")} ${ampm}`;
+                        opts.push({ value: val, label });
+                      }
+                    }
+                    return opts.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                    ));
+                  })()}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Location</Label>
+              <Select value={rescheduleLocation} onValueChange={setRescheduleLocation}>
+                <SelectTrigger data-testid="select-reschedule-location">
+                  <SelectValue placeholder="Select location" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(locations || []).map((loc) => (
+                    <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRescheduleSession(null)}>
+              Cancel
+            </Button>
+            <Button
+              data-testid="button-save-reschedule"
+              disabled={!rescheduleDate || !rescheduleStart || !rescheduleEnd || rescheduleMutation.isPending}
+              onClick={() => {
+                if (rescheduleSession) {
+                  rescheduleMutation.mutate({
+                    id: rescheduleSession.id,
+                    sessionDate: rescheduleDate,
+                    startTime: rescheduleStart,
+                    endTime: rescheduleEnd,
+                    locationId: rescheduleLocation,
+                  });
+                }
+              }}
+            >
+              {rescheduleMutation.isPending ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

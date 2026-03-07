@@ -4321,6 +4321,27 @@ export async function registerRoutes(
   });
 
   // ===== TRAINER PROFILE LOCATIONS =====
+  app.post("/api/trainer-profile/locations/create", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const profile = await storage.getTrainerProfile(userId);
+      if (!profile) return res.status(400).json({ message: "Create a trainer profile first" });
+      const data = insertTrainingLocationSchema.parse(req.body);
+      const location = await storage.createTrainingLocation(data);
+      const link = await storage.createTrainerProfileLocation({
+        trainerProfileId: profile.id,
+        locationId: location.id,
+        availability: null,
+      });
+      res.status(201).json({ location, link });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.get("/api/trainer-profile/locations", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -4634,6 +4655,58 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Cannot cancel this session" });
       }
       const updated = await storage.updateTrainingSession(req.params.id, { status: "cancelled" });
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/training-sessions/:id/reschedule", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const session = await storage.getTrainingSessionById(req.params.id);
+      if (!session) return res.status(404).json({ message: "Session not found" });
+      if (session.trainerId !== userId && session.playerId !== userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      if (session.status === "completed" || session.status === "cancelled" || session.status === "declined") {
+        return res.status(400).json({ message: "Cannot reschedule this session" });
+      }
+      const { sessionDate, startTime, endTime, locationId, sessionType } = req.body;
+      if (!sessionDate && !startTime && !endTime && locationId === undefined && !sessionType) {
+        return res.status(400).json({ message: "At least one field to update is required" });
+      }
+      const newDate = sessionDate || session.sessionDate;
+      const newStart = startTime || session.startTime;
+      const newEnd = endTime || session.endTime;
+      if (newStart >= newEnd) {
+        return res.status(400).json({ message: "startTime must be before endTime" });
+      }
+      function timeToMinutes(t: string): number {
+        const [h, m] = t.split(":").map(Number);
+        return h * 60 + m;
+      }
+      const startMin = timeToMinutes(newStart);
+      const endMin = timeToMinutes(newEnd);
+      if (startMin % 15 !== 0 || endMin % 15 !== 0) {
+        return res.status(400).json({ message: "Session times must be in 15-minute increments" });
+      }
+      const newLocationId = locationId !== undefined ? locationId : session.locationId;
+      if (newLocationId) {
+        const loc = await storage.getTrainingLocationById(newLocationId);
+        if (!loc) return res.status(400).json({ message: "Invalid location" });
+      }
+      const isTrainer = session.trainerId === userId;
+      const newStatus = isTrainer ? session.status : "requested";
+      const updateData: any = {
+        sessionDate: newDate,
+        startTime: newStart,
+        endTime: newEnd,
+        locationId: newLocationId || null,
+        status: newStatus,
+      };
+      if (sessionType) updateData.sessionType = sessionType;
+      const updated = await storage.updateTrainingSession(req.params.id, updateData);
       res.json(updated);
     } catch (error: any) {
       res.status(500).json({ message: error.message });

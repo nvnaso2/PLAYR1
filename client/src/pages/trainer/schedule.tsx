@@ -130,6 +130,14 @@ export default function TrainerSchedulePage() {
   const [declineSessionId, setDeclineSessionId] = useState<string | null>(null);
   const [declineReason, setDeclineReason] = useState("");
 
+  const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
+  const [rescheduleSession, setRescheduleSession] = useState<EnrichedSession | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState("");
+  const [rescheduleStart, setRescheduleStart] = useState("");
+  const [rescheduleEnd, setRescheduleEnd] = useState("");
+  const [rescheduleLocation, setRescheduleLocation] = useState("");
+  const [rescheduleType, setRescheduleType] = useState("");
+
   const [scheduleView, setScheduleView] = useState<"calendar" | "list">("calendar");
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -190,6 +198,44 @@ export default function TrainerSchedulePage() {
       toast({ title: "Failed to cancel", description: error.message, variant: "destructive" });
     },
   });
+
+  const { data: rawLinkedLocations } = useQuery<{ id: string; locationId: string; availability: string | null }[]>({
+    queryKey: ["/api/trainer-profile/locations"],
+  });
+  const { data: allLocations } = useQuery<{ id: string; name: string }[]>({
+    queryKey: ["/api/training-locations"],
+  });
+  const locations = rawLinkedLocations && allLocations
+    ? rawLinkedLocations.map(ll => allLocations.find(al => al.id === ll.locationId)).filter(Boolean) as { id: string; name: string }[]
+    : allLocations;
+
+  const rescheduleMutation = useMutation({
+    mutationFn: ({ id, ...body }: { id: string; sessionDate: string; startTime: string; endTime: string; locationId: string; sessionType: string }) =>
+      apiRequest("PUT", `/api/training-sessions/${id}/reschedule`, body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/training-sessions/trainer/enriched"] });
+      setRescheduleDialogOpen(false);
+      setRescheduleSession(null);
+      toast({ title: "Session rescheduled" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to reschedule", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const timeOptions = useMemo(() => {
+    const opts: { value: string; label: string }[] = [];
+    for (let h = 6; h <= 22; h++) {
+      for (let m = 0; m <= 45; m += 15) {
+        const value = `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+        const ampm = h >= 12 ? "PM" : "AM";
+        const displayHour = h === 0 ? 12 : h > 12 ? h - 12 : h;
+        const label = `${displayHour}:${m.toString().padStart(2, "0")} ${ampm}`;
+        opts.push({ value, label });
+      }
+    }
+    return opts;
+  }, []);
 
   const filteredSessions = useMemo(() => {
     if (!sessions) return [];
@@ -259,6 +305,28 @@ export default function TrainerSchedulePage() {
   function handleDeclineSubmit() {
     if (!declineSessionId) return;
     declineMutation.mutate({ id: declineSessionId, reason: declineReason || undefined });
+  }
+
+  function handleRescheduleClick(session: EnrichedSession) {
+    setRescheduleSession(session);
+    setRescheduleDate(session.sessionDate);
+    setRescheduleStart(session.startTime);
+    setRescheduleEnd(session.endTime);
+    setRescheduleLocation(session.locationId || "");
+    setRescheduleType(session.sessionType || "1-on-1");
+    setRescheduleDialogOpen(true);
+  }
+
+  function handleRescheduleSave() {
+    if (!rescheduleSession) return;
+    rescheduleMutation.mutate({
+      id: rescheduleSession.id,
+      sessionDate: rescheduleDate,
+      startTime: rescheduleStart,
+      endTime: rescheduleEnd,
+      locationId: rescheduleLocation,
+      sessionType: rescheduleType,
+    });
   }
 
   function prevMonth() {
@@ -420,6 +488,15 @@ export default function TrainerSchedulePage() {
                           <X className="w-3.5 h-3.5 mr-1" />
                           Decline
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleRescheduleClick(session)}
+                          data-testid={`button-reschedule-${session.id}`}
+                        >
+                          <CalendarDays className="w-3.5 h-3.5 mr-1" />
+                          Reschedule
+                        </Button>
                       </div>
                     </div>
                   </CardContent>
@@ -564,6 +641,7 @@ export default function TrainerSchedulePage() {
                           session={session}
                           onComplete={() => completeMutation.mutate(session.id)}
                           onCancel={() => cancelMutation.mutate(session.id)}
+                          onReschedule={() => handleRescheduleClick(session)}
                           completePending={completeMutation.isPending}
                           cancelPending={cancelMutation.isPending}
                         />
@@ -642,29 +720,43 @@ export default function TrainerSchedulePage() {
                               </div>
                             </div>
                           </div>
-                          {session.status === "confirmed" && (
+                          {(session.status === "confirmed" || session.status === "requested") && (
                             <div className="flex items-center gap-1.5 shrink-0">
+                              {session.status === "confirmed" && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 text-xs"
+                                    onClick={() => completeMutation.mutate(session.id)}
+                                    disabled={completeMutation.isPending}
+                                    data-testid={`button-list-complete-${session.id}`}
+                                  >
+                                    <CheckCircle className="w-3 h-3 mr-1" />
+                                    Complete
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 text-xs"
+                                    onClick={() => cancelMutation.mutate(session.id)}
+                                    disabled={cancelMutation.isPending}
+                                    data-testid={`button-list-cancel-${session.id}`}
+                                  >
+                                    <XCircle className="w-3 h-3 mr-1" />
+                                    Cancel
+                                  </Button>
+                                </>
+                              )}
                               <Button
                                 size="sm"
                                 variant="outline"
                                 className="h-7 text-xs"
-                                onClick={() => completeMutation.mutate(session.id)}
-                                disabled={completeMutation.isPending}
-                                data-testid={`button-list-complete-${session.id}`}
+                                onClick={() => handleRescheduleClick(session)}
+                                data-testid={`button-reschedule-${session.id}`}
                               >
-                                <CheckCircle className="w-3 h-3 mr-1" />
-                                Complete
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 text-xs"
-                                onClick={() => cancelMutation.mutate(session.id)}
-                                disabled={cancelMutation.isPending}
-                                data-testid={`button-list-cancel-${session.id}`}
-                              >
-                                <XCircle className="w-3 h-3 mr-1" />
-                                Cancel
+                                <CalendarDays className="w-3 h-3 mr-1" />
+                                Reschedule
                               </Button>
                             </div>
                           )}
@@ -710,6 +802,95 @@ export default function TrainerSchedulePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={rescheduleDialogOpen} onOpenChange={setRescheduleDialogOpen}>
+        <DialogContent data-testid="dialog-reschedule">
+          <DialogHeader>
+            <DialogTitle>Reschedule Session</DialogTitle>
+            <DialogDescription>Update the session details below.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Date</label>
+              <input
+                type="date"
+                value={rescheduleDate}
+                onChange={(e) => setRescheduleDate(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                data-testid="input-reschedule-date"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Start Time</label>
+              <Select value={rescheduleStart} onValueChange={setRescheduleStart}>
+                <SelectTrigger data-testid="select-reschedule-start">
+                  <SelectValue placeholder="Start time" />
+                </SelectTrigger>
+                <SelectContent>
+                  {timeOptions.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">End Time</label>
+              <Select value={rescheduleEnd} onValueChange={setRescheduleEnd}>
+                <SelectTrigger data-testid="select-reschedule-end">
+                  <SelectValue placeholder="End time" />
+                </SelectTrigger>
+                <SelectContent>
+                  {timeOptions.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Location</label>
+              <Select value={rescheduleLocation} onValueChange={setRescheduleLocation}>
+                <SelectTrigger data-testid="select-reschedule-location">
+                  <SelectValue placeholder="Select location" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(locations || []).map((loc) => (
+                    <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Session Type</label>
+              <Select value={rescheduleType} onValueChange={setRescheduleType}>
+                <SelectTrigger data-testid="select-reschedule-type">
+                  <SelectValue placeholder="Session type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1-on-1">1-on-1</SelectItem>
+                  <SelectItem value="Small Group">Small Group</SelectItem>
+                  <SelectItem value="Team Training">Team Training</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setRescheduleDialogOpen(false)}
+              data-testid="button-cancel-reschedule"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleRescheduleSave}
+              disabled={rescheduleMutation.isPending}
+              data-testid="button-save-reschedule"
+            >
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -718,12 +899,14 @@ function SessionCard({
   session,
   onComplete,
   onCancel,
+  onReschedule,
   completePending,
   cancelPending,
 }: {
   session: EnrichedSession;
   onComplete: () => void;
   onCancel: () => void;
+  onReschedule: () => void;
   completePending: boolean;
   cancelPending: boolean;
 }) {
@@ -758,27 +941,40 @@ function SessionCard({
               )}
             </div>
           </div>
-          {session.status === "confirmed" && (
+          {(session.status === "confirmed" || session.status === "requested") && (
             <div className="flex items-center gap-2 flex-wrap">
+              {session.status === "confirmed" && (
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={onComplete}
+                    disabled={completePending}
+                    data-testid={`button-complete-${session.id}`}
+                  >
+                    <CheckCircle className="w-3.5 h-3.5 mr-1" />
+                    Complete
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={onCancel}
+                    disabled={cancelPending}
+                    data-testid={`button-cancel-${session.id}`}
+                  >
+                    <XCircle className="w-3.5 h-3.5 mr-1" />
+                    Cancel
+                  </Button>
+                </>
+              )}
               <Button
                 size="sm"
                 variant="outline"
-                onClick={onComplete}
-                disabled={completePending}
-                data-testid={`button-complete-${session.id}`}
+                onClick={onReschedule}
+                data-testid={`button-reschedule-${session.id}`}
               >
-                <CheckCircle className="w-3.5 h-3.5 mr-1" />
-                Complete
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={onCancel}
-                disabled={cancelPending}
-                data-testid={`button-cancel-${session.id}`}
-              >
-                <XCircle className="w-3.5 h-3.5 mr-1" />
-                Cancel
+                <CalendarDays className="w-3.5 h-3.5 mr-1" />
+                Reschedule
               </Button>
             </div>
           )}

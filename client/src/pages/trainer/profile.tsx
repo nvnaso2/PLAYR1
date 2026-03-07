@@ -177,6 +177,11 @@ export default function TrainerProfilePage() {
   });
 
   const [expandedLocationId, setExpandedLocationId] = useState<string | null>(null);
+  const [showNewLocationForm, setShowNewLocationForm] = useState(false);
+  const [newLocName, setNewLocName] = useState("");
+  const [newLocAddress, setNewLocAddress] = useState("");
+  const [newLocCity, setNewLocCity] = useState("");
+  const [newLocState, setNewLocState] = useState("");
 
   const linkLocationMutation = useMutation({
     mutationFn: async (locationId: string) => {
@@ -218,6 +223,25 @@ export default function TrainerProfilePage() {
     },
     onError: () => {
       toast({ title: "Failed to update availability", variant: "destructive" });
+    },
+  });
+
+  const createLocationMutation = useMutation({
+    mutationFn: async (data: { name: string; address: string; city: string; state: string }) => {
+      await apiRequest("POST", "/api/trainer-profile/locations/create", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/training-locations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer-profile/locations"] });
+      setShowNewLocationForm(false);
+      setNewLocName("");
+      setNewLocAddress("");
+      setNewLocCity("");
+      setNewLocState("");
+      toast({ title: "Location created and linked" });
+    },
+    onError: () => {
+      toast({ title: "Failed to create location", variant: "destructive" });
     },
   });
 
@@ -950,7 +974,86 @@ export default function TrainerProfilePage() {
                   })}
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground" data-testid="text-no-locations-available">No training locations available. Ask your admin to add locations.</p>
+                <p className="text-xs text-muted-foreground" data-testid="text-no-locations-available">No training locations available yet.</p>
+              )}
+              {!showNewLocationForm ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowNewLocationForm(true)}
+                  className="w-full"
+                  data-testid="button-add-new-location"
+                >
+                  <Plus className="w-4 h-4 mr-1" /> Add New Location
+                </Button>
+              ) : (
+                <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-3" data-testid="form-new-location">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">New Location</p>
+                  <div className="space-y-2">
+                    <Input
+                      placeholder="Location name (e.g. Central Park Courts)"
+                      value={newLocName}
+                      onChange={e => setNewLocName(e.target.value)}
+                      data-testid="input-new-location-name"
+                    />
+                    <Input
+                      placeholder="Address"
+                      value={newLocAddress}
+                      onChange={e => setNewLocAddress(e.target.value)}
+                      data-testid="input-new-location-address"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        placeholder="City"
+                        value={newLocCity}
+                        onChange={e => setNewLocCity(e.target.value)}
+                        data-testid="input-new-location-city"
+                      />
+                      <Select value={newLocState} onValueChange={setNewLocState}>
+                        <SelectTrigger data-testid="select-new-location-state">
+                          <SelectValue placeholder="State" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {US_STATES.map(s => (
+                            <SelectItem key={s} value={s}>{s}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={!newLocName.trim() || createLocationMutation.isPending}
+                      onClick={() => createLocationMutation.mutate({
+                        name: newLocName.trim(),
+                        address: newLocAddress.trim(),
+                        city: newLocCity.trim(),
+                        state: newLocState,
+                      })}
+                      data-testid="button-save-new-location"
+                    >
+                      {createLocationMutation.isPending ? "Creating..." : "Create & Link"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setShowNewLocationForm(false);
+                        setNewLocName("");
+                        setNewLocAddress("");
+                        setNewLocCity("");
+                        setNewLocState("");
+                      }}
+                      data-testid="button-cancel-new-location"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
               )}
             </div>
 
