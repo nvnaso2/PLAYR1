@@ -470,6 +470,14 @@ export default function TrainerEvaluationsPage() {
                                       ))}
                                     </div>
                                   )}
+                                  <Textarea
+                                    value={rating.notes || ""}
+                                    onChange={e => updateRating(attr.id, "notes", e.target.value)}
+                                    placeholder="Notes for this attribute..."
+                                    rows={2}
+                                    className="text-xs"
+                                    data-testid={`textarea-attr-notes-${attr.id}`}
+                                  />
                                 </div>
                               );
                             })}
@@ -668,6 +676,11 @@ export default function TrainerEvaluationsPage() {
                               style={{ width: `${pct}%` }}
                             />
                           </div>
+                          {r.notes && (
+                            <p className="text-xs text-muted-foreground mt-1.5 italic" data-testid={`text-rating-notes-${r.id}`}>
+                              {r.notes}
+                            </p>
+                          )}
                         </div>
                       );
                     })}

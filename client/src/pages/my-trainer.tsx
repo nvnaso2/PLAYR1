@@ -1553,6 +1553,11 @@ function MyEvaluationsTab() {
                               style={{ width: `${pct}%` }}
                             />
                           </div>
+                          {r.notes && (
+                            <p className="text-xs text-muted-foreground mt-1.5 italic" data-testid={`text-rating-notes-${r.id}`}>
+                              {r.notes}
+                            </p>
+                          )}
                         </div>
                       );
                     })}
