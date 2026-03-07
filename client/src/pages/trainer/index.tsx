@@ -60,27 +60,31 @@ function StatCard({
   icon: Icon,
   loading,
   testId,
+  href,
 }: {
   title: string;
   value: string | number;
   icon: typeof Users;
   loading: boolean;
   testId: string;
+  href: string;
 }) {
   return (
-    <Card data-testid={testId}>
-      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-        <Icon className="h-4 w-4 text-muted-foreground" />
-      </CardHeader>
-      <CardContent>
-        {loading ? (
-          <Skeleton className="h-8 w-16" />
-        ) : (
-          <div className="text-2xl font-bold" data-testid={`text-stat-${testId}`}>{value}</div>
-        )}
-      </CardContent>
-    </Card>
+    <Link href={href}>
+      <Card className="cursor-pointer transition-colors hover:border-primary/40" data-testid={testId}>
+        <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+          <Icon className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <Skeleton className="h-8 w-16" />
+          ) : (
+            <div className="text-2xl font-bold" data-testid={`text-stat-${testId}`}>{value}</div>
+          )}
+        </CardContent>
+      </Card>
+    </Link>
   );
 }
 
@@ -194,6 +198,7 @@ export default function TrainerDashboard() {
           icon={Users}
           loading={isLoading}
           testId="card-stat-players"
+          href="/trainer/roster"
         />
         <StatCard
           title="Active Assignments"
@@ -201,6 +206,7 @@ export default function TrainerDashboard() {
           icon={ClipboardList}
           loading={isLoading}
           testId="card-stat-assignments"
+          href="/trainer/drills"
         />
         <StatCard
           title="Logs (7 days)"
@@ -208,6 +214,7 @@ export default function TrainerDashboard() {
           icon={FileText}
           loading={isLoading}
           testId="card-stat-logs"
+          href="/trainer/logs"
         />
         <StatCard
           title="Unread Messages"
@@ -215,6 +222,7 @@ export default function TrainerDashboard() {
           icon={MessageCircle}
           loading={isLoading}
           testId="card-stat-messages"
+          href="/trainer/chat"
         />
         <StatCard
           title="Pending Requests"
@@ -222,6 +230,7 @@ export default function TrainerDashboard() {
           icon={CalendarDays}
           loading={!sessions}
           testId="card-stat-requests"
+          href="/trainer/schedule"
         />
       </div>
 
