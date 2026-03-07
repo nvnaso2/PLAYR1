@@ -216,6 +216,8 @@ function AllDrillsSection() {
   const [detailDrill, setDetailDrill] = useState<DrillItem | null>(null);
   const [quickAssignDrillId, setQuickAssignDrillId] = useState<string | null>(null);
   const [quickAssignGroupId, setQuickAssignGroupId] = useState("");
+  const [quickAssignTarget, setQuickAssignTarget] = useState<"group" | "player">("group");
+  const [quickAssignPlayerId, setQuickAssignPlayerId] = useState("");
   const [quickAssignDueDate, setQuickAssignDueDate] = useState("");
   const [quickAssignNotes, setQuickAssignNotes] = useState("");
 
@@ -235,7 +237,13 @@ function AllDrillsSection() {
     queryKey: ["/api/coach/teams"],
   });
 
+  const { data: trainerPlayers } = useQuery<{ id: string; firstName: string | null; lastName: string | null; linkedUserId: string | null; email: string | null }[]>({
+    queryKey: ["/api/trainer-players"],
+  });
+
   const allTeamsAndGroups = useMemo(() => [...(groups || []), ...(coachTeams || [])], [groups, coachTeams]);
+
+  const linkedPlayers = useMemo(() => (trainerPlayers || []).filter(p => p.linkedUserId), [trainerPlayers]);
 
   const allDrillsCombined = useMemo(() => {
     const system = allSystemDrills || [];
@@ -266,11 +274,13 @@ function AllDrillsSection() {
   }, [allDrillsCombined, searchQuery, categoryFilter, sourceFilter, adminUserId]);
 
   const quickAssignMutation = useMutation({
-    mutationFn: (data: { drillId: string; teamId: string; dueDate?: string; notes?: string }) =>
+    mutationFn: (data: { drillId: string; teamId?: string; assignedTo?: string; dueDate?: string; notes?: string }) =>
       apiRequest("POST", "/api/trainer/assignments", data),
     onSuccess: () => {
       setQuickAssignDrillId(null);
       setQuickAssignGroupId("");
+      setQuickAssignPlayerId("");
+      setQuickAssignTarget("group");
       setQuickAssignDueDate("");
       setQuickAssignNotes("");
       queryClient.invalidateQueries({ queryKey: ["/api/trainer/all-assignments"] });
@@ -415,25 +425,55 @@ function AllDrillsSection() {
         </SheetContent>
       </Sheet>
 
-      <Dialog open={!!quickAssignDrillId} onOpenChange={(o) => !o && setQuickAssignDrillId(null)}>
+      <Dialog open={!!quickAssignDrillId} onOpenChange={(o) => { if (!o) { setQuickAssignDrillId(null); setQuickAssignTarget("group"); setQuickAssignGroupId(""); setQuickAssignPlayerId(""); } }}>
         <DialogContent data-testid="dialog-quick-assign">
           <DialogHeader>
             <DialogTitle>Quick Assign</DialogTitle>
             <DialogDescription>
-              Assign "{filteredDrills.find(d => d.id === quickAssignDrillId)?.title}" to a team or group.
+              Assign "{filteredDrills.find(d => d.id === quickAssignDrillId)?.title}" to a team, group, or player.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
-            <Select value={quickAssignGroupId} onValueChange={setQuickAssignGroupId}>
-              <SelectTrigger data-testid="select-quick-assign-group">
-                <SelectValue placeholder="Select team/group" />
-              </SelectTrigger>
-              <SelectContent>
-                {allTeamsAndGroups.map((g) => (
-                  <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Tabs value={quickAssignTarget} onValueChange={(v) => { setQuickAssignTarget(v as "group" | "player"); setQuickAssignGroupId(""); setQuickAssignPlayerId(""); }}>
+              <TabsList className="w-full">
+                <TabsTrigger value="group" className="flex-1" data-testid="tab-assign-group">
+                  <Users className="w-3.5 h-3.5 mr-1.5" />
+                  Team / Group
+                </TabsTrigger>
+                <TabsTrigger value="player" className="flex-1" data-testid="tab-assign-player">
+                  <User className="w-3.5 h-3.5 mr-1.5" />
+                  Player
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+            {quickAssignTarget === "group" ? (
+              <Select value={quickAssignGroupId} onValueChange={setQuickAssignGroupId}>
+                <SelectTrigger data-testid="select-quick-assign-group">
+                  <SelectValue placeholder="Select team/group" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allTeamsAndGroups.map((g) => (
+                    <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Select value={quickAssignPlayerId} onValueChange={setQuickAssignPlayerId}>
+                <SelectTrigger data-testid="select-quick-assign-player">
+                  <SelectValue placeholder="Select player" />
+                </SelectTrigger>
+                <SelectContent>
+                  {linkedPlayers.map((p) => (
+                    <SelectItem key={p.id} value={p.linkedUserId!}>
+                      {`${p.firstName || ''} ${p.lastName || ''}`.trim() || p.email || 'Unknown'}
+                    </SelectItem>
+                  ))}
+                  {linkedPlayers.length === 0 && (
+                    <div className="px-2 py-1.5 text-sm text-muted-foreground">No linked players</div>
+                  )}
+                </SelectContent>
+              </Select>
+            )}
             <Input
               type="date"
               value={quickAssignDueDate}
@@ -449,12 +489,20 @@ function AllDrillsSection() {
           </div>
           <DialogFooter>
             <Button
-              disabled={!quickAssignGroupId || quickAssignMutation.isPending}
+              disabled={(quickAssignTarget === "group" ? !quickAssignGroupId : !quickAssignPlayerId) || quickAssignMutation.isPending}
               onClick={() => {
-                if (quickAssignDrillId && quickAssignGroupId) {
+                if (!quickAssignDrillId) return;
+                if (quickAssignTarget === "group" && quickAssignGroupId) {
                   quickAssignMutation.mutate({
                     drillId: quickAssignDrillId,
                     teamId: quickAssignGroupId,
+                    dueDate: quickAssignDueDate || undefined,
+                    notes: quickAssignNotes || undefined,
+                  });
+                } else if (quickAssignTarget === "player" && quickAssignPlayerId) {
+                  quickAssignMutation.mutate({
+                    drillId: quickAssignDrillId,
+                    assignedTo: quickAssignPlayerId,
                     dueDate: quickAssignDueDate || undefined,
                     notes: quickAssignNotes || undefined,
                   });

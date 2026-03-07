@@ -2693,10 +2693,23 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const { drillId, teamId, assignedTo, dueDate, notes } = req.body;
+      if (!drillId) {
+        return res.status(400).json({ message: "drillId is required" });
+      }
+      if (!teamId && !assignedTo) {
+        return res.status(400).json({ message: "Either teamId or assignedTo is required" });
+      }
       if (teamId) {
         const group = await storage.getTeamById(teamId);
         if (!group || group.coachId !== userId) {
           return res.status(403).json({ message: "Not authorized" });
+        }
+      }
+      if (assignedTo) {
+        const rosterPlayers = await storage.getTrainerPlayers(userId);
+        const linkedUserIds = new Set(rosterPlayers.filter(p => p.linkedUserId).map(p => p.linkedUserId));
+        if (!linkedUserIds.has(assignedTo)) {
+          return res.status(403).json({ message: "Player is not in your roster" });
         }
       }
       const assignment = await storage.createDrillAssignment({
