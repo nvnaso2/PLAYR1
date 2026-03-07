@@ -451,7 +451,7 @@ function TrainerCard({ trainer, onClick, isFavorited, isMyTrainer, onToggleFavor
                 onClick={onToggleFavorite}
                 data-testid={`button-favorite-${trainer.id}`}
               >
-                <Heart className={cn("w-4 h-4", isFavorited ? "fill-red-500 text-red-500" : "text-muted-foreground")} />
+                <Heart className={cn("w-4 h-4", isFavorited ? "text-red-500" : "text-muted-foreground")} fill={isFavorited ? "currentColor" : "none"} />
               </Button>
             </div>
 
@@ -677,7 +677,7 @@ function TrainerDetail({ trainer: listTrainer, favorite, onToggleFavorite, onTog
           onClick={onToggleFavorite}
           data-testid="button-detail-favorite"
         >
-          <Heart className={cn("w-4 h-4 mr-2", favorite ? "fill-current" : "")} />
+          <Heart className="w-4 h-4 mr-2" fill={favorite ? "currentColor" : "none"} />
           {favorite ? "Favorited" : "Favorite"}
         </Button>
         <Button
@@ -686,7 +686,7 @@ function TrainerDetail({ trainer: listTrainer, favorite, onToggleFavorite, onTog
           onClick={onToggleMyTrainer}
           data-testid="button-detail-my-trainer"
         >
-          <UserPlus className="w-4 h-4 mr-2" />
+          <Star className="w-4 h-4 mr-2" fill={favorite?.isMyTrainer ? "currentColor" : "none"} />
           {favorite?.isMyTrainer ? "My Trainer ✓" : "Set as My Trainer"}
         </Button>
         <ShareMenu

@@ -191,7 +191,7 @@ export default function TrainerDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 [&>*:last-child:nth-child(odd)]:col-span-2 md:[&>*:last-child:nth-child(odd)]:col-span-1">
         <StatCard
           title="Total Players"
           value={overview?.totalPlayers ?? 0}
@@ -206,7 +206,7 @@ export default function TrainerDashboard() {
           icon={ClipboardList}
           loading={isLoading}
           testId="card-stat-assignments"
-          href="/trainer/drills"
+          href="/trainer/drills?tab=assignments"
         />
         <StatCard
           title="Logs (7 days)"

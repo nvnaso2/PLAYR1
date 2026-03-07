@@ -179,7 +179,11 @@ interface TrainerPlayerData {
 }
 
 export default function TrainerDrillsPage() {
-  const [activeTab, setActiveTab] = useState("all");
+  const [activeTab, setActiveTab] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get("tab");
+    return tab && ["all", "mine", "workouts", "assignments"].includes(tab) ? tab : "all";
+  });
 
   return (
     <div className="p-4 md:p-6 space-y-4">
