@@ -2906,13 +2906,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPlayerEvaluations(playerId: string, trainerId?: string): Promise<PlayerEvaluation[]> {
+    const rosterEntry = await db.select({ id: trainerPlayers.id, linkedUserId: trainerPlayers.linkedUserId })
+      .from(trainerPlayers)
+      .where(eq(trainerPlayers.id, playerId));
+    const linkedId = rosterEntry[0]?.linkedUserId;
+    const allIds = linkedId ? [playerId, linkedId] : [playerId];
+    const rosterByLinked = await db.select({ id: trainerPlayers.id })
+      .from(trainerPlayers)
+      .where(eq(trainerPlayers.linkedUserId, playerId));
+    for (const r of rosterByLinked) {
+      if (!allIds.includes(r.id)) allIds.push(r.id);
+    }
+
     if (trainerId) {
       return await db.select().from(playerEvaluations)
-        .where(and(eq(playerEvaluations.playerId, playerId), eq(playerEvaluations.trainerId, trainerId)))
+        .where(and(inArray(playerEvaluations.playerId, allIds), eq(playerEvaluations.trainerId, trainerId)))
         .orderBy(desc(playerEvaluations.createdAt));
     }
     return await db.select().from(playerEvaluations)
-      .where(eq(playerEvaluations.playerId, playerId))
+      .where(inArray(playerEvaluations.playerId, allIds))
       .orderBy(desc(playerEvaluations.createdAt));
   }
 
@@ -2959,8 +2971,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getSharedEvaluationsForPlayer(playerId: string): Promise<PlayerEvaluation[]> {
+    const rosterEntries = await db.select({ id: trainerPlayers.id })
+      .from(trainerPlayers)
+      .where(eq(trainerPlayers.linkedUserId, playerId));
+    const rosterIds = rosterEntries.map(r => r.id);
+    const allIds = [playerId, ...rosterIds];
     return await db.select().from(playerEvaluations)
-      .where(and(eq(playerEvaluations.playerId, playerId), eq(playerEvaluations.sharedWithPlayer, true)))
+      .where(and(inArray(playerEvaluations.playerId, allIds), eq(playerEvaluations.sharedWithPlayer, true)))
       .orderBy(desc(playerEvaluations.createdAt));
   }
 

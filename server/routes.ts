@@ -5056,12 +5056,15 @@ export async function registerRoutes(
   app.post("/api/player-evaluations", isAuthenticated, async (req: any, res) => {
     try {
       const trainerId = req.user.claims.sub;
-      const { playerId, notes, evaluationDate, ratings } = req.body;
+      let { playerId, notes, evaluationDate, ratings } = req.body;
       if (!playerId || !evaluationDate || !ratings || !Array.isArray(ratings) || ratings.length === 0) {
         return res.status(400).json({ message: "playerId, evaluationDate, and ratings array are required" });
       }
 
-      const existingCount = await storage.getPlayerEvaluationCount(trainerId, playerId);
+      const rosterEntry = await storage.getTrainerPlayerById(playerId);
+      const resolvedPlayerId = (rosterEntry?.linkedUserId) || playerId;
+
+      const existingCount = await storage.getPlayerEvaluationCount(trainerId, resolvedPlayerId);
       const evaluationType = existingCount === 0 ? "initial" : "progress";
 
       const ratingsData = ratings.map((r: any) => ({
@@ -5074,7 +5077,7 @@ export async function registerRoutes(
 
       const evaluation = await storage.createPlayerEvaluation({
         trainerId,
-        playerId,
+        playerId: resolvedPlayerId,
         evaluationType,
         notes: notes || null,
         evaluationDate,
@@ -5155,7 +5158,13 @@ export async function registerRoutes(
       const playerId = req.user.claims.sub;
       const result = await storage.getPlayerEvaluationById(req.params.id);
       if (!result) return res.status(404).json({ message: "Evaluation not found" });
-      if (result.evaluation.playerId !== playerId || !result.evaluation.sharedWithPlayer) {
+      const evalPlayerId = result.evaluation.playerId;
+      let isOwner = evalPlayerId === playerId;
+      if (!isOwner) {
+        const rosterEntry = await storage.getTrainerPlayerById(evalPlayerId);
+        isOwner = !!rosterEntry && rosterEntry.linkedUserId === playerId;
+      }
+      if (!isOwner || !result.evaluation.sharedWithPlayer) {
         return res.status(403).json({ message: "Not authorized" });
       }
       const [trainer] = await db.select({
