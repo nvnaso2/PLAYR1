@@ -216,7 +216,7 @@ export default function TrainerSchedulePage() {
       queryClient.invalidateQueries({ queryKey: ["/api/training-sessions/trainer/enriched"] });
       setRescheduleDialogOpen(false);
       setRescheduleSession(null);
-      toast({ title: "Session rescheduled" });
+      toast({ title: "Session rescheduled. Awaiting player confirmation." });
     },
     onError: (error: Error) => {
       toast({ title: "Failed to reschedule", description: error.message, variant: "destructive" });

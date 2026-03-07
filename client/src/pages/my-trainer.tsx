@@ -944,6 +944,17 @@ function MySessionsTab() {
     },
   });
 
+  const confirmMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("PUT", `/api/training-sessions/${id}/confirm`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/training-sessions/player/enriched"] });
+      toast({ title: "Session confirmed!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to confirm", description: error.message, variant: "destructive" });
+    },
+  });
+
   const rescheduleMutation = useMutation({
     mutationFn: (data: { id: string; sessionDate: string; startTime: string; endTime: string; locationId: string }) =>
       apiRequest("PUT", `/api/training-sessions/${data.id}/reschedule`, {
@@ -954,7 +965,7 @@ function MySessionsTab() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/training-sessions/player/enriched"] });
-      toast({ title: "Session rescheduled. Awaiting trainer confirmation." });
+      toast({ title: "Session rescheduled. Awaiting confirmation." });
       setRescheduleSession(null);
     },
     onError: (error: Error) => {
@@ -1022,6 +1033,18 @@ function MySessionsTab() {
                 <StatusIcon className="h-3 w-3 mr-1" />
                 {config.label}
               </Badge>
+              {session.status === "requested" && (
+                <Button
+                  size="sm"
+                  variant="default"
+                  data-testid={`button-confirm-session-${session.id}`}
+                  onClick={() => confirmMutation.mutate(session.id)}
+                  disabled={confirmMutation.isPending}
+                >
+                  <CheckCircle2 className="h-4 w-4 mr-1" />
+                  {confirmMutation.isPending ? "Confirming..." : "Confirm"}
+                </Button>
+              )}
               {canCancel && (
                 <Button
                   size="sm"

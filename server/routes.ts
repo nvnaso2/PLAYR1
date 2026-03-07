@@ -4342,6 +4342,26 @@ export async function registerRoutes(
     }
   });
 
+  app.put("/api/trainer-profile/locations/edit/:locationId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const profile = await storage.getTrainerProfile(userId);
+      if (!profile) return res.status(403).json({ message: "Forbidden" });
+      const profileLocs = await storage.getTrainerProfileLocations(profile.id);
+      const isLinked = profileLocs.some(pl => pl.locationId === req.params.locationId);
+      if (!isLinked) return res.status(403).json({ message: "You can only edit locations linked to your profile" });
+      const data = insertTrainingLocationSchema.partial().parse(req.body);
+      const location = await storage.updateTrainingLocation(req.params.locationId, data);
+      if (!location) return res.status(404).json({ message: "Location not found" });
+      res.json(location);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.get("/api/trainer-profile/locations", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -4609,16 +4629,17 @@ export async function registerRoutes(
 
   app.put("/api/training-sessions/:id/confirm", isAuthenticated, async (req: any, res) => {
     try {
-      const trainerId = req.user.claims.sub;
+      const userId = req.user.claims.sub;
       const session = await storage.getTrainingSessionById(req.params.id);
       if (!session) return res.status(404).json({ message: "Session not found" });
-      if (session.trainerId !== trainerId) return res.status(403).json({ message: "Forbidden" });
+      if (session.trainerId !== userId && session.playerId !== userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
       if (session.status !== "requested") return res.status(400).json({ message: "Session is not in requested status" });
       const { trainerNotes } = req.body || {};
-      const updated = await storage.updateTrainingSession(req.params.id, {
-        status: "confirmed",
-        trainerNotes: trainerNotes || session.trainerNotes,
-      });
+      const updateData: any = { status: "confirmed" };
+      if (trainerNotes) updateData.trainerNotes = trainerNotes;
+      const updated = await storage.updateTrainingSession(req.params.id, updateData);
       res.json(updated);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -4696,8 +4717,7 @@ export async function registerRoutes(
         const loc = await storage.getTrainingLocationById(newLocationId);
         if (!loc) return res.status(400).json({ message: "Invalid location" });
       }
-      const isTrainer = session.trainerId === userId;
-      const newStatus = isTrainer ? session.status : "requested";
+      const newStatus = "requested";
       const updateData: any = {
         sessionDate: newDate,
         startTime: newStart,

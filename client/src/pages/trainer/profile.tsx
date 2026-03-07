@@ -182,6 +182,11 @@ export default function TrainerProfilePage() {
   const [newLocAddress, setNewLocAddress] = useState("");
   const [newLocCity, setNewLocCity] = useState("");
   const [newLocState, setNewLocState] = useState("");
+  const [editingLocationId, setEditingLocationId] = useState<string | null>(null);
+  const [editLocName, setEditLocName] = useState("");
+  const [editLocAddress, setEditLocAddress] = useState("");
+  const [editLocCity, setEditLocCity] = useState("");
+  const [editLocState, setEditLocState] = useState("");
 
   const linkLocationMutation = useMutation({
     mutationFn: async (locationId: string) => {
@@ -223,6 +228,22 @@ export default function TrainerProfilePage() {
     },
     onError: () => {
       toast({ title: "Failed to update availability", variant: "destructive" });
+    },
+  });
+
+  const editLocationMutation = useMutation({
+    mutationFn: async (data: { locationId: string; name: string; address: string; city: string; state: string }) => {
+      const { locationId, ...body } = data;
+      await apiRequest("PUT", `/api/trainer-profile/locations/edit/${locationId}`, body);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/training-locations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer-profile/locations"] });
+      setEditingLocationId(null);
+      toast({ title: "Location updated" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update location", variant: "destructive" });
     },
   });
 
@@ -849,26 +870,106 @@ export default function TrainerProfilePage() {
                             data-testid={`checkbox-location-${loc.id}`}
                           />
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-foreground">{loc.name}</p>
-                            {loc.address && (
-                              <p className="text-xs text-muted-foreground">{loc.address}</p>
-                            )}
-                            {(loc.city || loc.state) && (
-                              <p className="text-xs text-muted-foreground/70">
-                                {[loc.city, loc.state].filter(Boolean).join(", ")}
-                              </p>
+                            {editingLocationId === loc.id ? (
+                              <div className="space-y-2" data-testid={`form-edit-location-${loc.id}`}>
+                                <Input
+                                  placeholder="Location name"
+                                  value={editLocName}
+                                  onChange={e => setEditLocName(e.target.value)}
+                                  data-testid={`input-edit-location-name-${loc.id}`}
+                                />
+                                <Input
+                                  placeholder="Address"
+                                  value={editLocAddress}
+                                  onChange={e => setEditLocAddress(e.target.value)}
+                                  data-testid={`input-edit-location-address-${loc.id}`}
+                                />
+                                <div className="grid grid-cols-2 gap-2">
+                                  <Input
+                                    placeholder="City"
+                                    value={editLocCity}
+                                    onChange={e => setEditLocCity(e.target.value)}
+                                    data-testid={`input-edit-location-city-${loc.id}`}
+                                  />
+                                  <Select value={editLocState} onValueChange={setEditLocState}>
+                                    <SelectTrigger data-testid={`select-edit-location-state-${loc.id}`}>
+                                      <SelectValue placeholder="State" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {US_STATES.map(s => (
+                                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="flex gap-2">
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    disabled={!editLocName.trim() || editLocationMutation.isPending}
+                                    onClick={() => editLocationMutation.mutate({
+                                      locationId: loc.id,
+                                      name: editLocName.trim(),
+                                      address: editLocAddress.trim(),
+                                      city: editLocCity.trim(),
+                                      state: editLocState,
+                                    })}
+                                    data-testid={`button-save-edit-location-${loc.id}`}
+                                  >
+                                    {editLocationMutation.isPending ? "Saving..." : "Save"}
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => setEditingLocationId(null)}
+                                    data-testid={`button-cancel-edit-location-${loc.id}`}
+                                  >
+                                    Cancel
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <p className="text-sm font-medium text-foreground">{loc.name}</p>
+                                {loc.address && (
+                                  <p className="text-xs text-muted-foreground">{loc.address}</p>
+                                )}
+                                {(loc.city || loc.state) && (
+                                  <p className="text-xs text-muted-foreground/70">
+                                    {[loc.city, loc.state].filter(Boolean).join(", ")}
+                                  </p>
+                                )}
+                              </>
                             )}
                           </div>
-                          {isLinked && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setExpandedLocationId(isExpanded ? null : loc.id)}
-                              data-testid={`button-toggle-location-avail-${loc.id}`}
-                            >
-                              {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                            </Button>
+                          {isLinked && editingLocationId !== loc.id && (
+                            <div className="flex items-center gap-1">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  setEditingLocationId(loc.id);
+                                  setEditLocName(loc.name);
+                                  setEditLocAddress(loc.address || "");
+                                  setEditLocCity(loc.city || "");
+                                  setEditLocState(loc.state || "");
+                                }}
+                                data-testid={`button-edit-location-${loc.id}`}
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setExpandedLocationId(isExpanded ? null : loc.id)}
+                                data-testid={`button-toggle-location-avail-${loc.id}`}
+                              >
+                                {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                              </Button>
+                            </div>
                           )}
                         </div>
 
