@@ -1157,6 +1157,7 @@ export const trainingSessions = pgTable("training_sessions", {
   trainerNotes: text("trainer_notes"),
   declineReason: text("decline_reason"),
   sessionType: varchar("session_type"),
+  groupSessionId: varchar("group_session_id"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

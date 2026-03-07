@@ -375,6 +375,7 @@ export interface IStorage {
   getTrainingSessionById(id: string): Promise<TrainingSession | undefined>;
   getTrainingSessionsForTrainer(trainerId: string, filters?: { status?: string; from?: string; to?: string }): Promise<TrainingSession[]>;
   getTrainingSessionsForPlayer(playerId: string, filters?: { status?: string; from?: string; to?: string }): Promise<TrainingSession[]>;
+  getTrainingSessionsByGroupId(groupSessionId: string): Promise<TrainingSession[]>;
   updateTrainingSession(id: string, data: Partial<InsertTrainingSession>): Promise<TrainingSession | undefined>;
 
   getEvaluationAttributes(trainerId?: string): Promise<EvaluationAttribute[]>;
@@ -2842,6 +2843,10 @@ export class DatabaseStorage implements IStorage {
     if (filters?.from) conditions.push(gte(trainingSessions.sessionDate, filters.from));
     if (filters?.to) conditions.push(sql`${trainingSessions.sessionDate} <= ${filters.to}`);
     return await db.select().from(trainingSessions).where(and(...conditions)).orderBy(desc(trainingSessions.sessionDate));
+  }
+
+  async getTrainingSessionsByGroupId(groupSessionId: string): Promise<TrainingSession[]> {
+    return await db.select().from(trainingSessions).where(eq(trainingSessions.groupSessionId, groupSessionId));
   }
 
   async updateTrainingSession(id: string, data: Partial<InsertTrainingSession>): Promise<TrainingSession | undefined> {

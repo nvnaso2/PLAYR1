@@ -4522,6 +4522,70 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/training-sessions/group", isAuthenticated, async (req: any, res) => {
+    try {
+      const trainerId = req.user.claims.sub;
+      const trainerProfile = await storage.getTrainerProfile(trainerId);
+      if (!trainerProfile) return res.status(403).json({ message: "Trainer profile required" });
+
+      const { playerIds, locationId, sessionDate, startTime, endTime, trainerNotes, sessionType } = req.body;
+      if (!playerIds || !Array.isArray(playerIds) || playerIds.length === 0) {
+        return res.status(400).json({ message: "At least one player is required" });
+      }
+      if (!sessionDate || !startTime || !endTime) {
+        return res.status(400).json({ message: "sessionDate, startTime, endTime are required" });
+      }
+      if (startTime >= endTime) {
+        return res.status(400).json({ message: "startTime must be before endTime" });
+      }
+      function timeToMinutes(t: string): number {
+        const [h, m] = t.split(":").map(Number);
+        return h * 60 + m;
+      }
+      const startMin = timeToMinutes(startTime);
+      const endMin = timeToMinutes(endTime);
+      if (startMin % 15 !== 0 || endMin % 15 !== 0) {
+        return res.status(400).json({ message: "Session times must be in 15-minute increments" });
+      }
+      if (locationId) {
+        const loc = await storage.getTrainingLocationById(locationId);
+        if (!loc) return res.status(400).json({ message: "Invalid location" });
+      }
+
+      const rosterPlayers = await storage.getTrainerPlayers(trainerId);
+      const linkedUserIds = new Set(rosterPlayers.filter(p => p.linkedUserId).map(p => p.linkedUserId));
+      const invalidIds = playerIds.filter((pid: string) => !linkedUserIds.has(pid));
+      if (invalidIds.length > 0) {
+        return res.status(403).json({ message: "One or more players are not in your roster" });
+      }
+
+      const groupSessionId = playerIds.length > 1 ? crypto.randomUUID() : null;
+
+      const sessions = [];
+      for (const playerId of playerIds) {
+        const session = await storage.createTrainingSession({
+          trainerId,
+          playerId,
+          trainerProfileId: trainerProfile.id,
+          locationId: locationId || null,
+          sessionDate,
+          startTime,
+          endTime,
+          status: "requested",
+          playerNotes: null,
+          trainerNotes: trainerNotes || null,
+          declineReason: null,
+          sessionType: sessionType || null,
+          groupSessionId,
+        });
+        sessions.push(session);
+      }
+      res.status(201).json(sessions);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.get("/api/training-sessions/player", isAuthenticated, async (req: any, res) => {
     try {
       const playerId = req.user.claims.sub;
@@ -4570,10 +4634,21 @@ export async function registerRoutes(
         const loc = await storage.getTrainingLocationById(lid);
         if (loc) locationNames[lid] = loc.name;
       }
+      const groupSessionIds = [...new Set(sessions.filter(s => s.groupSessionId).map(s => s.groupSessionId!))];
+      const groupInfo: Record<string, { count: number; playerNames: string[] }> = {};
+      for (const gid of groupSessionIds) {
+        const grouped = sessions.filter(s => s.groupSessionId === gid);
+        groupInfo[gid] = {
+          count: grouped.length,
+          playerNames: grouped.map(s => playerNames[s.playerId] || 'Unknown'),
+        };
+      }
       const enriched = sessions.map(s => ({
         ...s,
         playerName: playerNames[s.playerId] || 'Unknown',
         locationName: s.locationId ? (locationNames[s.locationId] || null) : null,
+        groupPlayerCount: s.groupSessionId ? (groupInfo[s.groupSessionId]?.count || 1) : 1,
+        groupPlayerNames: s.groupSessionId ? (groupInfo[s.groupSessionId]?.playerNames || []) : [],
       }));
       res.json(enriched);
     } catch (error: any) {
@@ -4601,11 +4676,18 @@ export async function registerRoutes(
         const loc = await storage.getTrainingLocationById(lid);
         if (loc) locationNames[lid] = loc.name;
       }
+      const groupSessionIds = [...new Set(sessions.filter(s => s.groupSessionId).map(s => s.groupSessionId!))];
+      const groupCounts: Record<string, number> = {};
+      for (const gid of groupSessionIds) {
+        const all = await storage.getTrainingSessionsByGroupId(gid);
+        groupCounts[gid] = all.length;
+      }
       const enriched = sessions.map(s => ({
         ...s,
         trainerName: trainerInfo[s.trainerProfileId]?.name || 'Trainer',
         trainerPhotoUrl: trainerInfo[s.trainerProfileId]?.profilePhotoUrl || null,
         locationName: s.locationId ? (locationNames[s.locationId] || null) : null,
+        groupPlayerCount: s.groupSessionId ? (groupCounts[s.groupSessionId] || 1) : 1,
       }));
       res.json(enriched);
     } catch (error: any) {

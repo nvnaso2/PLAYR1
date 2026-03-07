@@ -23,6 +23,10 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import {
   Calendar,
   Clock,
@@ -30,6 +34,7 @@ import {
   X,
   MapPin,
   User,
+  Users,
   MessageSquare,
   CheckCircle,
   XCircle,
@@ -39,6 +44,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ArrowUpDown,
+  Plus,
 } from "lucide-react";
 
 interface EnrichedSession {
@@ -55,10 +61,21 @@ interface EnrichedSession {
   trainerNotes: string | null;
   declineReason: string | null;
   sessionType: string | null;
+  groupSessionId: string | null;
   createdAt: string;
   updatedAt: string;
   playerName: string;
   locationName: string | null;
+  groupPlayerCount: number;
+  groupPlayerNames: string[];
+}
+
+interface TrainerPlayer {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  linkedUserId: string | null;
+  email: string | null;
 }
 
 const STATUS_OPTIONS = [
@@ -142,6 +159,16 @@ export default function TrainerSchedulePage() {
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [createDate, setCreateDate] = useState<Date | undefined>(undefined);
+  const [createStart, setCreateStart] = useState("");
+  const [createEnd, setCreateEnd] = useState("");
+  const [createLocation, setCreateLocation] = useState("");
+  const [createType, setCreateType] = useState("");
+  const [createNotes, setCreateNotes] = useState("");
+  const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
+  const [playerSearch, setPlayerSearch] = useState("");
+
   const now = new Date();
   const [calYear, setCalYear] = useState(now.getFullYear());
   const [calMonth, setCalMonth] = useState(now.getMonth());
@@ -149,6 +176,10 @@ export default function TrainerSchedulePage() {
 
   const { data: sessions, isLoading } = useQuery<EnrichedSession[]>({
     queryKey: ["/api/training-sessions/trainer/enriched"],
+  });
+
+  const { data: trainerPlayers } = useQuery<TrainerPlayer[]>({
+    queryKey: ["/api/trainer-players"],
   });
 
   const confirmMutation = useMutation({
@@ -208,6 +239,27 @@ export default function TrainerSchedulePage() {
   const locations = rawLinkedLocations && allLocations
     ? rawLinkedLocations.map(ll => allLocations.find(al => al.id === ll.locationId)).filter(Boolean) as { id: string; name: string }[]
     : allLocations;
+
+  const createSessionMutation = useMutation({
+    mutationFn: (data: { playerIds: string[]; sessionDate: string; startTime: string; endTime: string; locationId?: string; sessionType?: string; trainerNotes?: string }) =>
+      apiRequest("POST", "/api/training-sessions/group", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/training-sessions/trainer/enriched"] });
+      setCreateDialogOpen(false);
+      setCreateDate(undefined);
+      setCreateStart("");
+      setCreateEnd("");
+      setCreateLocation("");
+      setCreateType("");
+      setCreateNotes("");
+      setSelectedPlayerIds([]);
+      setPlayerSearch("");
+      toast({ title: "Session created and sent to players" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to create session", description: error.message, variant: "destructive" });
+    },
+  });
 
   const rescheduleMutation = useMutation({
     mutationFn: ({ id, ...body }: { id: string; sessionDate: string; startTime: string; endTime: string; locationId: string; sessionType: string }) =>
@@ -366,9 +418,19 @@ export default function TrainerSchedulePage() {
 
   return (
     <div className="p-4 space-y-4 max-w-4xl mx-auto" data-testid="page-trainer-schedule">
-      <div className="flex items-center gap-2 flex-wrap">
-        <CalendarDays className="w-5 h-5 text-muted-foreground" />
-        <h1 className="text-xl font-semibold" data-testid="text-schedule-title">Schedule</h1>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <CalendarDays className="w-5 h-5 text-muted-foreground" />
+          <h1 className="text-xl font-semibold" data-testid="text-schedule-title">Schedule</h1>
+        </div>
+        <Button
+          size="sm"
+          onClick={() => setCreateDialogOpen(true)}
+          data-testid="button-create-session"
+        >
+          <Plus className="h-4 w-4 mr-1" />
+          Create Session
+        </Button>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -803,6 +865,181 @@ export default function TrainerSchedulePage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={createDialogOpen} onOpenChange={(open) => { setCreateDialogOpen(open); if (!open) { setSelectedPlayerIds([]); setPlayerSearch(""); } }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" data-testid="dialog-create-session">
+          <DialogHeader>
+            <DialogTitle>Create Training Session</DialogTitle>
+            <DialogDescription>Send a session request to one or more players.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Players</Label>
+              <Input
+                placeholder="Search players..."
+                value={playerSearch}
+                onChange={(e) => setPlayerSearch(e.target.value)}
+                data-testid="input-player-search"
+              />
+              <div className="max-h-40 overflow-y-auto border rounded-md p-2 space-y-1" data-testid="group-player-list">
+                {(trainerPlayers || [])
+                  .filter(p => {
+                    if (!p.linkedUserId) return false;
+                    const name = `${p.firstName || ''} ${p.lastName || ''}`.trim().toLowerCase();
+                    return !playerSearch || name.includes(playerSearch.toLowerCase()) || (p.email || '').toLowerCase().includes(playerSearch.toLowerCase());
+                  })
+                  .map(p => {
+                    const isSelected = selectedPlayerIds.includes(p.linkedUserId!);
+                    const name = `${p.firstName || ''} ${p.lastName || ''}`.trim() || p.email || 'Unknown';
+                    return (
+                      <label
+                        key={p.id}
+                        className={`flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-accent/50 ${isSelected ? 'bg-primary/10' : ''}`}
+                        data-testid={`label-player-${p.id}`}
+                      >
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedPlayerIds(prev => [...prev, p.linkedUserId!]);
+                            } else {
+                              setSelectedPlayerIds(prev => prev.filter(id => id !== p.linkedUserId));
+                            }
+                          }}
+                          data-testid={`checkbox-player-${p.id}`}
+                        />
+                        <div className="flex items-center gap-2 min-w-0">
+                          <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <span className="text-sm truncate">{name}</span>
+                        </div>
+                      </label>
+                    );
+                  })}
+                {(trainerPlayers || []).filter(p => p.linkedUserId).length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-2">No linked players in your roster yet.</p>
+                )}
+              </div>
+              {selectedPlayerIds.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  <Users className="h-3 w-3 inline mr-1" />
+                  {selectedPlayerIds.length} player{selectedPlayerIds.length > 1 ? 's' : ''} selected
+                  {selectedPlayerIds.length > 1 && ' (group session)'}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Date</Label>
+              <CalendarComponent
+                mode="single"
+                selected={createDate}
+                onSelect={setCreateDate}
+                disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                className="rounded-md border"
+                data-testid="calendar-create-date"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Start Time</Label>
+                <Select value={createStart} onValueChange={setCreateStart}>
+                  <SelectTrigger data-testid="select-create-start">
+                    <SelectValue placeholder="Start" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {timeOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">End Time</Label>
+                <Select value={createEnd} onValueChange={setCreateEnd}>
+                  <SelectTrigger data-testid="select-create-end">
+                    <SelectValue placeholder="End" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {timeOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Location</Label>
+              <Select value={createLocation} onValueChange={setCreateLocation}>
+                <SelectTrigger data-testid="select-create-location">
+                  <SelectValue placeholder="Select location (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(locations || []).map((loc) => (
+                    <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Session Type</Label>
+              <Select value={createType} onValueChange={setCreateType}>
+                <SelectTrigger data-testid="select-create-type">
+                  <SelectValue placeholder="Session type (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1-on-1">1-on-1</SelectItem>
+                  <SelectItem value="Small Group">Small Group</SelectItem>
+                  <SelectItem value="Team Training">Team Training</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Notes</Label>
+              <Textarea
+                placeholder="Add notes for the players..."
+                value={createNotes}
+                onChange={(e) => setCreateNotes(e.target.value)}
+                className="h-20"
+                data-testid="input-create-notes"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setCreateDialogOpen(false)}
+              data-testid="button-cancel-create"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={selectedPlayerIds.length === 0 || !createDate || !createStart || !createEnd || createSessionMutation.isPending}
+              onClick={() => {
+                if (!createDate || !createStart || !createEnd) return;
+                const y = createDate.getFullYear();
+                const m = String(createDate.getMonth() + 1).padStart(2, '0');
+                const d = String(createDate.getDate()).padStart(2, '0');
+                createSessionMutation.mutate({
+                  playerIds: selectedPlayerIds,
+                  sessionDate: `${y}-${m}-${d}`,
+                  startTime: createStart,
+                  endTime: createEnd,
+                  locationId: createLocation || undefined,
+                  sessionType: createType || undefined,
+                  trainerNotes: createNotes || undefined,
+                });
+              }}
+              data-testid="button-submit-create"
+            >
+              {createSessionMutation.isPending ? "Creating..." : `Send to ${selectedPlayerIds.length} Player${selectedPlayerIds.length > 1 ? 's' : ''}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={rescheduleDialogOpen} onOpenChange={setRescheduleDialogOpen}>
         <DialogContent data-testid="dialog-reschedule">
           <DialogHeader>
@@ -919,6 +1156,12 @@ function SessionCard({
               <span className="text-sm font-medium" data-testid={`text-schedule-player-${session.id}`}>
                 {session.playerName}
               </span>
+              {session.groupPlayerCount > 1 && (
+                <Badge variant="secondary" className="no-default-hover-elevate text-xs" data-testid={`badge-group-${session.id}`}>
+                  <Users className="w-3 h-3 mr-1" />
+                  Group ({session.groupPlayerCount})
+                </Badge>
+              )}
               {session.sessionType && (
                 <Badge variant="outline" className="no-default-hover-elevate text-xs">
                   {session.sessionType}

@@ -74,6 +74,7 @@ type EnrichedSession = TrainingSession & {
   trainerName: string;
   trainerPhotoUrl: string | null;
   locationName: string | null;
+  groupPlayerCount?: number;
 };
 
 interface EnrichedEvaluation extends PlayerEvaluation {
@@ -1080,6 +1081,12 @@ function MySessionsTab() {
             {session.sessionType && (
               <Badge variant="outline" className="no-default-active-elevate">
                 {session.sessionType}
+              </Badge>
+            )}
+            {(session.groupPlayerCount || 1) > 1 && (
+              <Badge variant="secondary" className="text-xs" data-testid={`badge-group-${session.id}`}>
+                <User className="h-3 w-3 mr-1" />
+                Group Session ({session.groupPlayerCount})
               </Badge>
             )}
           </div>
