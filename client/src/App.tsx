@@ -112,7 +112,7 @@ function Router({ previewLanding }: { previewLanding: boolean }) {
   return (
     <Switch>
       <Route path="/player/:slug" component={PlayerPublic} />
-      <Route path="/finder" component={Finder} />
+      <Route path="/finder">{() => <Redirect to="/teams" />}</Route>
       <Route path="/teams/:slug" component={TeamProfile} />
       <Route path="/leagues/:slug" component={LeagueProfile} />
       <Route>
@@ -143,6 +143,7 @@ function Router({ previewLanding }: { previewLanding: boolean }) {
                 <Route path="/trainer/profile" component={TrainerProfile} />
                 <Route path="/trainer/schedule" component={TrainerSchedule} />
                 <Route path="/trainer/evaluations" component={TrainerEvaluations} />
+                <Route path="/teams" component={Finder} />
                 <Route path="/my-trainer" component={MyTrainer} />
                 <Route path="/find-trainer">{() => <Redirect to="/my-trainer" />}</Route>
                 <Route path="/my-sessions">{() => <Redirect to="/my-trainer" />}</Route>

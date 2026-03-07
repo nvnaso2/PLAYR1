@@ -33,7 +33,7 @@ import {
   X,
 } from "lucide-react";
 import { SiInstagram, SiX } from "react-icons/si";
-import type { TeamClub, League } from "@shared/schema";
+import type { TeamClub, League, TrainerTeam, TeamMember } from "@shared/schema";
 import { TEAM_ORGANIZATION_TYPES, LEAGUE_TYPES, AGE_GROUPS, SEASONS, US_STATES, GENDERS, CIRCUITS } from "@shared/schema";
 
 const LOGO_COLORS = [
@@ -73,18 +73,50 @@ function TeamLogo({ name, logoUrl, size = "sm" }: { name: string; logoUrl?: stri
 }
 
 export default function FinderPage() {
-  const [activeTab, setActiveTab] = useState("teams");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [mainTab, setMainTab] = useState("find");
 
   return (
     <div className="pb-24">
-      <div className="relative bg-gradient-to-br from-orange-600 via-orange-500 to-amber-500 dark:from-orange-700 dark:via-orange-600 dark:to-amber-600">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')] opacity-50" />
-        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-16 text-center">
-          <h1 className="text-2xl sm:text-4xl font-bold text-white mb-2 tracking-tight" data-testid="text-page-title">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-6">
+        <Tabs value={mainTab} onValueChange={setMainTab} className="w-full">
+          <TabsList className="w-full max-w-md grid grid-cols-2" data-testid="tabs-teams-main">
+            <TabsTrigger value="find" data-testid="tab-find-teams">
+              <Search className="h-4 w-4 mr-1.5" />
+              <span className="hidden sm:inline">Find Teams & Leagues</span>
+              <span className="sm:hidden">Find</span>
+            </TabsTrigger>
+            <TabsTrigger value="my-teams" data-testid="tab-my-teams">
+              <Shield className="h-4 w-4 mr-1.5" />
+              <span className="hidden sm:inline">My Teams</span>
+              <span className="sm:hidden">My Teams</span>
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="find" className="mt-0">
+            <FindTeamsTab />
+          </TabsContent>
+          <TabsContent value="my-teams" className="mt-4">
+            <MyTeamsTab />
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  );
+}
+
+function FindTeamsTab() {
+  const [activeSubTab, setActiveSubTab] = useState("teams");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  return (
+    <div>
+      <div className="relative bg-gradient-to-br from-orange-600 via-orange-500 to-amber-500 dark:from-orange-700 dark:via-orange-600 dark:to-amber-600 rounded-lg mt-4">
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')] opacity-50 rounded-lg" />
+        <div className="relative px-4 sm:px-6 py-8 sm:py-12 text-center">
+          <h2 className="text-xl sm:text-3xl font-bold text-white mb-2 tracking-tight" data-testid="text-page-title">
             Find Your Team
-          </h1>
-          <p className="text-sm sm:text-base text-white/80 mb-8 max-w-xl mx-auto">
+          </h2>
+          <p className="text-sm sm:text-base text-white/80 mb-6 max-w-xl mx-auto">
             Search AAU programs, travel teams, competitive clubs, and local leagues across the country
           </p>
           <div className="max-w-xl mx-auto relative">
@@ -110,8 +142,8 @@ export default function FinderPage() {
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <div className="pt-4">
+        <Tabs value={activeSubTab} onValueChange={setActiveSubTab}>
           <TabsList className="w-full max-w-xs grid grid-cols-2">
             <TabsTrigger value="teams" data-testid="tab-teams">
               <Shield className="h-4 w-4 mr-1.5" />
@@ -131,6 +163,103 @@ export default function FinderPage() {
           </TabsContent>
         </Tabs>
       </div>
+    </div>
+  );
+}
+
+type MyTeamData = TeamMember & { team: TrainerTeam };
+
+function MyTeamsTab() {
+  const { data: myTeams, isLoading } = useQuery<MyTeamData[]>({
+    queryKey: ["/api/my-teams"],
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        {[1, 2, 3].map(i => (
+          <Skeleton key={i} className="h-24 w-full rounded-lg" />
+        ))}
+      </div>
+    );
+  }
+
+  if (!myTeams || myTeams.length === 0) {
+    return (
+      <div className="text-center py-16" data-testid="empty-my-teams">
+        <Shield className="h-12 w-12 mx-auto text-muted-foreground/40 mb-4" />
+        <h3 className="text-lg font-semibold mb-2">No Teams Yet</h3>
+        <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+          You haven't joined any teams yet. Use the "Find Teams & Leagues" tab to discover teams, or ask your coach/trainer for a team code to join.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3" data-testid="group-my-teams">
+      {myTeams.map(membership => (
+        <Card key={membership.id} data-testid={`card-my-team-${membership.id}`}>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-4">
+              <TeamLogo name={membership.team.name} size="lg" />
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-base truncate" data-testid={`text-team-name-${membership.id}`}>
+                  {membership.team.name}
+                </h3>
+                <div className="flex items-center gap-2 flex-wrap mt-1">
+                  {membership.role && (
+                    <Badge variant="secondary" className="text-xs">
+                      {membership.role}
+                    </Badge>
+                  )}
+                  {membership.position && (
+                    <Badge variant="outline" className="text-xs">
+                      {membership.position}
+                    </Badge>
+                  )}
+                  {membership.jerseyNumber && (
+                    <Badge variant="outline" className="text-xs">
+                      #{membership.jerseyNumber}
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground flex-wrap">
+                  {membership.team.ageGroup && (
+                    <span className="flex items-center gap-1">
+                      <Users className="h-3 w-3" />
+                      {membership.team.ageGroup}
+                    </span>
+                  )}
+                  {membership.team.sport && (
+                    <span className="flex items-center gap-1">
+                      <Trophy className="h-3 w-3" />
+                      {membership.team.sport}
+                    </span>
+                  )}
+                  {membership.team.level && (
+                    <span className="flex items-center gap-1">
+                      <ArrowRight className="h-3 w-3" />
+                      {membership.team.level}
+                    </span>
+                  )}
+                  {membership.joinedAt && (
+                    <span className="flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      Joined {new Date(membership.joinedAt).toLocaleDateString()}
+                    </span>
+                  )}
+                </div>
+                {membership.team.description && (
+                  <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
+                    {membership.team.description}
+                  </p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 # PLAYR1 Basketball Training Platform
 
 ## Overview
-PLAYR1 is a "Netflix for basketball drills" platform featuring Handlz branded drill content. It enables users to access professional training videos, log practice sessions, track progress, upload personal training videos, and benchmark their performance against a community of peers. The platform aims to provide a comprehensive basketball training experience, fostering skill development and community engagement.
+PLAYR1 is a "Netflix for basketball drills" platform aimed at providing a comprehensive basketball training experience. It allows users to access professional training videos, log practice sessions, track progress, upload personal training videos, and benchmark performance within a community. The platform focuses on skill development and community engagement, offering a vast library of drills, progress tracking, user-generated content capabilities, and social features.
 
 ## User Preferences
 - I prefer clear and concise explanations.
@@ -11,60 +11,35 @@ PLAYR1 is a "Netflix for basketball drills" platform featuring Handlz branded dr
 - Ensure the user interface is intuitive and user-friendly.
 
 ## System Architecture
-The platform is built with a modern web stack, utilizing React + TypeScript for the frontend, an Express.js backend, and a PostgreSQL database with Drizzle ORM. Authentication is handled via Replit Auth (OIDC). Styling is managed with Tailwind CSS and shadcn/ui components, adhering to a basketball-inspired theme with an orange primary color and dark mode enabled by default.
+The platform is built with a modern web stack: React + TypeScript for the frontend, an Express.js backend, and a PostgreSQL database with Drizzle ORM. Authentication is handled via Replit Auth. Styling uses Tailwind CSS and shadcn/ui components, featuring an orange primary color and dark mode by default. The design ensures mobile accessibility via Capacitor for native iOS and Android apps.
 
 **Key Features:**
 
-*   **Drill Library & Training Log**: Offers a vast library of 500+ drills across seven categories. Users can select multiple drills for a workout, track duration, scores, and notes, with dynamic and validated metric inputs. Specific features include detailed shot location tracking and a visual half-court shot chart for shooting drills.
-*   **Progress Tracking & Achievements**: Provides charts and analytics to visualize improvement over time, including a shooting heatmap. A "Trophy Room" system tracks achievements, challenges (app-generated or user-created with various metrics and goal types), personal records, and team awards.
-*   **User-Generated Content**: Users can create their own custom drills and upload personal training videos.
-*   **Community & Social Features**: Allows users to compare performance against peers of the same age, maintain public player profiles with customizable visibility, and generate shareable social media cards for game stats.
-*   **Admin Dashboard**: A comprehensive dashboard for administrators to manage drills, video content, PDF resources, metric templates, and user accounts with full CRUD operations.
-*   **Coach / Trainer Mode**: Role-based experience with dedicated routes under `/trainer/*`. Each trainer page is a standalone component in `client/src/pages/trainer/`. Trainers see a separate sidebar with trainer-specific navigation. Users with `staffRole="both"` get a Player/Trainer toggle in the sidebar header to switch views. Player view shows standard player features (Dashboard, Career, Drills, Training Log, Filmroom).
-    - **Trainer Pages** (each is a self-contained file in `client/src/pages/trainer/`):
-      - `/trainer` → `index.tsx` — Home: overview stat cards (Total Players, Active Assignments, Recent Logs, Unread Messages), recent activity feed, quick action buttons
-      - `/trainer/roster` → `roster.tsx` — Unified Roster: tabbed view with Teams, Groups, All Players tabs. Full CRUD for teams/groups, player management, team code sharing for invites
-      - `/trainer/drills` → `drills.tsx` — Drills & Workouts: 4 sub-tabs (All Drills browse/search/filter, My Drills CRUD, Workouts builder with drill selection/reorder/assign, Assignments list)
-      - `/trainer/logs` → `logs.tsx` — Training Logs: merged view of all player logs from teams and groups, searchable/filterable by player/drill/category
-      - `/trainer/videos` → `videos.tsx` — Videos: 2 tabs (My Videos for trainer instructional content CRUD, Player Videos for submitted content)
-      - `/trainer/chat` → `chat.tsx` — Messaging
-      - `/trainer/progress` → `progress.tsx` — Player Progress: player selector, summary cards, weekly activity chart (CSS bars), category breakdown, recent logs table, assignment completion progress bar
-      - `/trainer/evaluations` → `evaluations.tsx` — Player Evaluations: rate player skill attributes with multiple scales (1-10, 1-5, word ratings), manage custom attributes, view evaluation history with progress tracking
-      - `/trainer/profile` → `profile.tsx` — Trainer Profile Builder with preview
-    - Legacy `/coach` URLs and old routes (`/trainer/players`, `/trainer/assignments`, `/trainer/invite`) redirect to appropriate new routes
-    - The `useRole` hook (`client/src/hooks/use-role.ts`) manages role detection and view switching with localStorage persistence
-    - Backend APIs: `GET /api/trainer/overview`, `GET/POST/PUT/DELETE /api/trainer/drills`, `GET/POST/PUT/DELETE /api/workouts/*`, `POST /api/workouts/:id/assign`, `GET /api/trainer/players/:playerId/progress`, `GET /api/trainer/all-training-logs`, `GET /api/trainer/all-videos`, etc.
-*   **Group Chat**: Chat threads support team-based, position-based, and custom group conversations. Schema uses chatThreads, chatThreadMembers, chatThreadMessages tables with mode (coach/trainer) separation.
-*   **Onboarding Wizard**: Multi-step onboarding flow with role-based branching. **Player flow**: Role Selection → Player Profile (photo, name, birth date, grade, teams, positions, jersey, aspiration) → Rank Interests (drag-and-drop) → Branched sub-flows (Skill Development, Game Stats, etc.). **Trainer flow**: Role Selection → Trainer Profile (photo, name, "also coach?" toggle with team name field) → Rank Specialties (drag-and-drop: Ball Handling, Shooting, Defense, S&C, Basketball IQ, Finishing, Passing) → "Where do you want to begin?" (Create a Drill/Workout, Create Trainee Roster/Invite Players, Upload Content). DB fields: `primaryReason` (JSON array), `onboardingTeams` (JSON array), `trainerSpecialties` (JSON array of ranked specialties), `trainerAlsoCoaches` (boolean), `trainerTeamName` (varchar). Tutorial video steps play admin-uploaded videos keyed by `log-training` and `create-drill` from the `tutorial_videos` table.
-*   **Tutorial Videos**: Admin-managed tutorial videos stored in `tutorial_videos` table with unique `key` identifiers. Admin dashboard has a "Tutorials" tab for uploading/replacing/removing tutorial videos. Videos play inline during onboarding when users choose "View Tutorial". API: `GET/PUT/DELETE /api/tutorial-videos/:key`.
-*   **My Trainer (Consolidated Player Page)**: Single page at `/my-trainer` (`client/src/pages/my-trainer.tsx`) with 4 tabs:
-    - **Find a Trainer**: Directory to browse public trainer profiles, filterable by state/specialty/keyword. Detail panel with bio, specialties, rates, availability. Booking dialog with calendar date picker.
-    - **My Sessions**: Player's training sessions (upcoming, pending, completed, cancelled) with cancel action and status filtering.
-    - **My Evaluations**: Shared evaluations from trainers with detail view showing ratings and progress bars.
-    - **Chat**: Direct messaging with trainers. Shows conversations list, trainer contacts (from sessions/evaluations), and message thread. 5s/10s polling.
-    - Old routes `/find-trainer`, `/my-sessions`, `/my-evaluations` redirect to `/my-trainer`. Sidebar shows single "My Trainer" entry.
-    - Player contacts API: `GET /api/messages/player-contacts` returns trainers the player has had sessions with or received evaluations from.
-*   **Trainer Profile Builder**: Trainers build their public profile at `/trainer/profile`. Clean single-column display layout with avatar, name, headline, rate/experience/certifications highlights, about section, specialties/session type badges, structured availability schedule (day-of-week picker with time ranges stored as JSON), training locations with per-location availability, and contact grid. Edit via side Sheet panel with photo upload, public/hidden toggle, and all form fields. Fields include headline, bio, specialties (from TRAINER_SPECIALTIES), session types, location (city/state), hourly rate, experience years, certifications, availability (JSON structured schedule), training locations (linked from admin-managed list OR trainer-created with per-location availability), contact info, and social links. Public/hidden toggle controls visibility in the directory. Trainers can create new locations directly from their profile edit sheet via "Add New Location" form (name, address, city, state) — this creates the location AND auto-links it. Linked locations can be edited inline (pencil icon) to update name, address, city, state. DB tables: `trainer_profiles`, `training_locations` (admin or trainer created), `trainer_profile_locations` (join table with per-location availability JSON). API: `GET /api/trainer-profile`, `PUT /api/trainer-profile`, `GET/POST/PUT/DELETE /api/training-locations` (admin CRUD), `POST /api/trainer-profile/locations/create` (trainer creates + links), `PUT /api/trainer-profile/locations/edit/:locationId` (trainer edits linked location details), `GET/POST/PUT/DELETE /api/trainer-profile/locations` (trainer linking).
-*   **Session Scheduling**: Full booking flow for training sessions. Players request sessions from the "Find a Trainer" directory, trainers manage requests from a dedicated Schedule page. Statuses: requested → confirmed/declined → completed/cancelled. DB table: `training_sessions` (trainerId, playerId, trainerProfileId, locationId, sessionDate, startTime, endTime, status, playerNotes, trainerNotes, declineReason, sessionType). Player page: `/my-trainer` (My Sessions tab). Trainer page: `/trainer/schedule` (Requests tab + Schedule tab with Calendar and List views). Calendar view shows monthly grid with session indicators, clickable dates to see day details. List view shows all sessions sortable by date, day, time, and location. Booking dialog in Find a Trainer uses a react-day-picker Calendar component that disables unavailable days based on trainer schedule — players can only click dates matching the trainer's available days for their selected location. After selecting a date, available time windows are shown and start/end time dropdowns are populated with valid 15-minute increment slots. Trainer Home dashboard shows "Pending Requests" stat card + "View Schedule" quick action. Both trainers and players can **reschedule** sessions (change date, time, location) — rescheduling always resets status to "requested", requiring the other party to confirm. Players see a "Confirm" button on pending sessions. The confirm endpoint (`PUT .../:id/confirm`) allows either trainer or player to confirm. API: `POST /api/training-sessions`, `GET .../player/enriched`, `GET .../trainer/enriched`, `PUT .../:id/confirm`, `PUT .../:id/decline`, `PUT .../:id/cancel`, `PUT .../:id/complete`, `PUT .../:id/reschedule`.
-*   **Player Evaluations**: Trainers rate player skill attributes using configurable scales. Supports three scale types: 1-10 numeric, 1-5 numeric, and word ratings (ordered words that map to 1-5, e.g., "Needs Work" → "Elite"). 10 default attributes seeded across Offense, Defense, and Intangibles categories. Trainers can create custom attributes with any scale type. First evaluation for a player is auto-tagged as "initial", subsequent as "progress". Evaluation detail view shows ratings as progress bars. DB tables: `evaluation_attributes`, `player_evaluations`, `player_evaluation_ratings`. Trainer page: `/trainer/evaluations` (Evaluate tab for creating/viewing evaluations, Attributes tab for managing custom attributes). API: `GET/POST/PUT/DELETE /api/evaluation-attributes`, `POST /api/player-evaluations`, `GET /api/player-evaluations/:playerId`, `GET /api/player-evaluations/detail/:id`, `DELETE /api/player-evaluations/:id`.
-*   **Payments (Stripe)**: Placeholder for Stripe Connect integration. The `trainer_profiles` table has a `stripeAccountId` field reserved for when Stripe is connected. The Stripe connector integration needs to be authorized by the user before payment functionality can be enabled.
-*   **Mobile Support**: The platform is designed to be accessible via native iOS and Android apps using Capacitor, ensuring a touch-friendly and responsive experience with platform-specific configurations.
-
-**Technical Implementations:**
-
-*   **Database Schema**: A well-defined PostgreSQL schema manages users, drills, training logs, user-generated content, progress data, challenges, and team/group-related information.
-*   **API Design**: A RESTful API provides endpoints for all major functionalities, with clear distinctions for user and admin actions.
-*   **File Uploads**: Secure direct-to-storage uploads for videos, images, and PDFs are handled via presigned URLs using Replit's App Storage, supporting various file types and size limits.
+*   **Drill Library & Training Log**: Extensive drill library with dynamic metric inputs, detailed shot location tracking, and visual half-court shot charts.
+*   **Progress Tracking & Achievements**: Visualizes improvement with charts, analytics, shooting heatmaps, and a "Trophy Room" for tracking achievements, challenges, and personal records.
+*   **User-Generated Content**: Users can create custom drills and upload personal training videos.
+*   **Community & Social Features**: Enables performance comparison, customizable public player profiles, and shareable social media cards.
+*   **Admin Dashboard**: Comprehensive management of drills, videos, resources, metric templates, and user accounts.
+*   **Coach / Trainer Mode**: Role-based interface with dedicated routes for trainers to manage rosters, drills, workouts, training logs, videos, chat, player progress, and evaluations.
+*   **Group Chat**: Supports team-based, position-based, and custom group conversations.
+*   **Onboarding Wizard**: Multi-step, role-based onboarding process for players and trainers, including profile creation and interest/specialty selection.
+*   **Tutorial Videos**: Admin-managed video tutorials integrated into the onboarding flow.
+*   **Teams & Leagues**: Consolidated page for finding teams/leagues and managing player's own team memberships.
+*   **My Trainer**: Consolidated player page for finding trainers, managing sessions, viewing evaluations, and direct messaging with trainers.
+*   **Trainer Profile Builder**: Trainers can create detailed public profiles including availability, specialties, rates, and training locations.
+*   **Session Scheduling**: Full booking flow for training sessions between players and trainers, including requesting, confirming, rescheduling, and cancelling sessions.
+*   **Player Evaluations**: Trainers can rate player skill attributes using configurable scales (numeric and word ratings), with support for custom attributes and progress tracking.
+*   **Payments (Stripe)**: Placeholder for future Stripe Connect integration.
 
 ## External Dependencies
-*   **Replit Auth**: For user authentication (OIDC).
-*   **PostgreSQL**: Relational database management system.
-*   **Drizzle ORM**: Object-Relational Mapper for database interactions.
+*   **Replit Auth**: User authentication.
+*   **PostgreSQL**: Database.
+*   **Drizzle ORM**: Database interactions.
 *   **Vite**: Frontend build tool.
-*   **Wouter**: Client-side routing for React.
-*   **TanStack Query**: Data fetching and caching library.
-*   **Tailwind CSS**: Utility-first CSS framework.
-*   **shadcn/ui**: UI component library.
-*   **html2canvas**: For generating PNG downloads of social media share cards.
-*   **Capacitor**: For building native iOS and Android applications.
-*   **Replit App Storage**: For object storage of uploaded media (videos, thumbnails, PDFs).
+*   **Wouter**: Client-side routing.
+*   **TanStack Query**: Data fetching and caching.
+*   **Tailwind CSS**: Styling.
+*   **shadcn/ui**: UI components.
+*   **html2canvas**: Generating social media share card images.
+*   **Capacitor**: Building native mobile applications.
+*   **Replit App Storage**: Object storage for media uploads.
