@@ -605,14 +605,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async upsertUserProfile(profile: InsertUserProfile): Promise<UserProfile> {
+    const definedFields: Record<string, any> = { updatedAt: new Date() };
+    for (const [key, value] of Object.entries(profile)) {
+      if (value !== undefined && key !== 'userId') {
+        definedFields[key] = value;
+      }
+    }
     const [result] = await db.insert(userProfiles)
       .values(profile as any)
       .onConflictDoUpdate({
         target: userProfiles.userId,
-        set: {
-          ...profile,
-          updatedAt: new Date()
-        } as any
+        set: definedFields as any
       })
       .returning();
     return result;

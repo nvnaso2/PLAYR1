@@ -294,6 +294,7 @@ export const userProfiles = pgTable("user_profiles", {
   age: integer("age"),
   city: varchar("city"),
   state: varchar("state"),
+  zipCode: varchar("zip_code"),
   country: varchar("country").default("USA"),
   skillLevel: varchar("skill_level").$type<DifficultyLevel>().default("beginner"),
   profilePhotoUrl: varchar("profile_photo_url"),

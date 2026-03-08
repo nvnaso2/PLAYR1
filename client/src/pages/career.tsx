@@ -114,6 +114,12 @@ const MONTHS = [
   { value: 12, label: "December" }
 ];
 
+const US_STATES = [
+  "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD",
+  "MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC",
+  "SD","TN","TX","UT","VT","VA","WA","WV","WI","WY","DC"
+];
+
 const ASPIRATION_LABELS: Record<string, string> = {
   "recreational": "Just for Fun",
   "feeder-team": "Feeder Team",
@@ -502,6 +508,9 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   const [positions, setPositions] = useState<string[]>([]);
   const [jerseyNumber, setJerseyNumber] = useState<number | undefined>();
   const [aspiration, setAspiration] = useState("");
+  const [city, setCity] = useState("");
+  const [stateName, setStateName] = useState("");
+  const [zipCode, setZipCode] = useState("");
   const [teams, setTeams] = useState<OnboardingTeam[]>([]);
   const [newTeamName, setNewTeamName] = useState("");
   const [newTeamType, setNewTeamType] = useState<"school" | "club" | "rec" | "intramural">("school");
@@ -669,6 +678,14 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
       };
       if (cardPhotoUrl) profileData.cardPhotoUrl = cardPhotoUrl;
 
+      if (city || stateName || zipCode) {
+        await apiRequest("PUT", "/api/profile", {
+          city: city || undefined,
+          state: stateName || undefined,
+          zipCode: zipCode || undefined,
+        });
+      }
+
       const existing = await fetch("/api/career", { credentials: "include" }).then(r => r.ok ? r.json() : null);
       if (existing) {
         await apiRequest("PUT", "/api/career", profileData);
@@ -768,6 +785,18 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
       toast({ title: "Please enter your first name", variant: "destructive" });
       return;
     }
+    if (!city.trim()) {
+      toast({ title: "Please enter your city", variant: "destructive" });
+      return;
+    }
+    if (!stateName.trim()) {
+      toast({ title: "Please select your state", variant: "destructive" });
+      return;
+    }
+    if (!zipCode.trim()) {
+      toast({ title: "Please enter your zip code", variant: "destructive" });
+      return;
+    }
     await saveProfile();
     setStep("reason");
   };
@@ -786,6 +815,18 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
       toast({ title: "Please enter your first name", variant: "destructive" });
       return;
     }
+    if (!city.trim()) {
+      toast({ title: "Please enter your city", variant: "destructive" });
+      return;
+    }
+    if (!stateName.trim()) {
+      toast({ title: "Please select your state", variant: "destructive" });
+      return;
+    }
+    if (!zipCode.trim()) {
+      toast({ title: "Please enter your zip code", variant: "destructive" });
+      return;
+    }
     if (trainerAlsoCoaches && !trainerTeamName.trim()) {
       toast({ title: "Please enter your team name", variant: "destructive" });
       return;
@@ -799,6 +840,14 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
       if (cardPhotoFile) {
         const path = await uploadCardPhoto();
         if (path) cardPhotoUrl = path;
+      }
+
+      if (city || stateName || zipCode) {
+        await apiRequest("PUT", "/api/profile", {
+          city: city || undefined,
+          state: stateName || undefined,
+          zipCode: zipCode || undefined,
+        });
       }
 
       const profileData: Record<string, any> = {
@@ -1070,6 +1119,43 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label className="text-sm font-medium">City *</Label>
+                <Input
+                  value={city}
+                  onChange={e => setCity(e.target.value)}
+                  placeholder="City"
+                  data-testid="input-city"
+                  className="mt-1.5"
+                />
+              </div>
+              <div>
+                <Label className="text-sm font-medium">State *</Label>
+                <Select onValueChange={setStateName} value={stateName}>
+                  <SelectTrigger data-testid="select-state" className="mt-1.5">
+                    <SelectValue placeholder="State" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {US_STATES.map(s => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Zip *</Label>
+                <Input
+                  value={zipCode}
+                  onChange={e => setZipCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 5))}
+                  placeholder="Zip"
+                  inputMode="numeric"
+                  data-testid="input-zip"
+                  className="mt-1.5"
+                />
+              </div>
             </div>
 
             <div>
@@ -1541,6 +1627,41 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
                   onChange={e => setLastName(e.target.value)}
                   placeholder="Last name"
                   data-testid="input-trainer-last-name"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">City *</Label>
+                <Input
+                  value={city}
+                  onChange={e => setCity(e.target.value)}
+                  placeholder="City"
+                  data-testid="input-trainer-city"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">State *</Label>
+                <Select onValueChange={setStateName} value={stateName}>
+                  <SelectTrigger data-testid="select-trainer-state">
+                    <SelectValue placeholder="State" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {US_STATES.map(s => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">Zip *</Label>
+                <Input
+                  value={zipCode}
+                  onChange={e => setZipCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 5))}
+                  placeholder="Zip"
+                  inputMode="numeric"
+                  data-testid="input-trainer-zip"
                 />
               </div>
             </div>
