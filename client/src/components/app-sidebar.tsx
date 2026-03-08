@@ -246,8 +246,8 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <SidebarMenuButton 
-                  className="w-full"
+                <button 
+                  className="flex w-full items-center gap-2 rounded-md p-2 text-sm hover:bg-sidebar-accent hover:text-sidebar-accent-foreground outline-none"
                   data-testid="button-user-menu"
                 >
                   <Avatar className="h-6 w-6">
@@ -258,7 +258,7 @@ export function AppSidebar() {
                   </Avatar>
                   <span className="truncate">{getDisplayName()}</span>
                   <ChevronUp className="ml-auto h-4 w-4" />
-                </SidebarMenuButton>
+                </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent 
                 side="top" 
