@@ -3,11 +3,12 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
-import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, userProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions } from "@shared/schema";
+import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 import { z } from "zod";
+import { zipToCoords, cityStateToCoords, haversineDistance } from "./geo";
 import {
   sendWelcomeEmail,
   sendSessionRequestedEmail,
@@ -1289,7 +1290,15 @@ export async function registerRoutes(
   app.put("/api/profile", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const data = insertUserProfileSchema.parse({ ...req.body, userId });
+      const body = { ...req.body };
+      if (body.zipCode) {
+        const coords = zipToCoords(body.zipCode);
+        if (coords) {
+          body.latitude = coords.latitude;
+          body.longitude = coords.longitude;
+        }
+      }
+      const data = insertUserProfileSchema.parse({ ...body, userId });
       const profile = await storage.upsertUserProfile(data);
       res.json(profile);
     } catch (error) {
@@ -1298,6 +1307,23 @@ export async function registerRoutes(
       }
       console.error("Error updating profile:", error);
       res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
+
+  app.get("/api/user/location", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const profile = await storage.getUserProfile(userId);
+      if (!profile) return res.json({ latitude: null, longitude: null, zipCode: null });
+      res.json({
+        latitude: profile.latitude,
+        longitude: profile.longitude,
+        zipCode: profile.zipCode,
+        city: profile.city,
+        state: profile.state,
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get location" });
     }
   });
 
@@ -4340,16 +4366,26 @@ export async function registerRoutes(
   // Get team clubs with optional filters
   app.get("/api/team-clubs", async (req, res) => {
     try {
-      const { type, state, city, ageGroup, gender, circuit, query } = req.query;
-      const clubs = await storage.getTeamClubs({
+      const { type, state, city, ageGroup, gender, circuit, query, lat, lng, radius } = req.query;
+      let clubs = await storage.getTeamClubs({
         organizationType: type as string | undefined,
-        state: state as string | undefined,
-        city: city as string | undefined,
+        state: (!lat || !lng) ? state as string | undefined : undefined,
+        city: (!lat || !lng) ? city as string | undefined : undefined,
         ageGroup: ageGroup as string | undefined,
         gender: gender as string | undefined,
         circuit: circuit as string | undefined,
         query: query as string | undefined,
       });
+      if (lat && lng && radius) {
+        const userLat = parseFloat(lat as string);
+        const userLng = parseFloat(lng as string);
+        const maxDist = parseFloat(radius as string);
+        if (!isNaN(userLat) && !isNaN(userLng) && !isNaN(maxDist)) {
+          clubs = clubs
+            .filter(c => c.latitude != null && c.longitude != null)
+            .filter(c => haversineDistance(userLat, userLng, c.latitude!, c.longitude!) <= maxDist);
+        }
+      }
       res.json(clubs);
     } catch (error) {
       console.error("Error fetching team clubs:", error);
@@ -4414,15 +4450,25 @@ export async function registerRoutes(
   // Get leagues with optional filters
   app.get("/api/leagues", async (req, res) => {
     try {
-      const { type, state, city, ageGroup, season, query } = req.query;
-      const result = await storage.getLeagues({
+      const { type, state, city, ageGroup, season, query, lat, lng, radius } = req.query;
+      let result = await storage.getLeagues({
         leagueType: type as string | undefined,
-        state: state as string | undefined,
-        city: city as string | undefined,
+        state: (!lat || !lng) ? state as string | undefined : undefined,
+        city: (!lat || !lng) ? city as string | undefined : undefined,
         ageGroup: ageGroup as string | undefined,
         season: season as string | undefined,
         query: query as string | undefined,
       });
+      if (lat && lng && radius) {
+        const userLat = parseFloat(lat as string);
+        const userLng = parseFloat(lng as string);
+        const maxDist = parseFloat(radius as string);
+        if (!isNaN(userLat) && !isNaN(userLng) && !isNaN(maxDist)) {
+          result = result
+            .filter(l => l.latitude != null && l.longitude != null)
+            .filter(l => haversineDistance(userLat, userLng, l.latitude!, l.longitude!) <= maxDist);
+        }
+      }
       res.json(result);
     } catch (error) {
       console.error("Error fetching leagues:", error);
@@ -5173,13 +5219,16 @@ export async function registerRoutes(
   // Public Trainer Directory (for players to find trainers)
   app.get("/api/trainers/directory", async (req, res) => {
     try {
+      const { lat, lng, radius } = req.query;
       const filters: any = {};
-      if (req.query.state) filters.state = req.query.state as string;
-      if (req.query.city) filters.city = req.query.city as string;
+      if (!lat || !lng) {
+        if (req.query.state) filters.state = req.query.state as string;
+        if (req.query.city) filters.city = req.query.city as string;
+      }
       if (req.query.specialty) filters.specialty = req.query.specialty as string;
       if (req.query.query) filters.query = req.query.query as string;
       const trainers = await storage.getPublicTrainerProfiles(filters);
-      const sanitized = trainers.map(t => ({
+      let sanitized = trainers.map(t => ({
         id: t.id,
         userId: t.userId,
         firstName: t.firstName,
@@ -5199,7 +5248,19 @@ export async function registerRoutes(
         socialTwitter: t.socialTwitter,
         website: t.website,
         contactEmail: t.contactEmail,
+        latitude: t.latitude,
+        longitude: t.longitude,
       }));
+      if (lat && lng && radius) {
+        const userLat = parseFloat(lat as string);
+        const userLng = parseFloat(lng as string);
+        const maxDist = parseFloat(radius as string);
+        if (!isNaN(userLat) && !isNaN(userLng) && !isNaN(maxDist)) {
+          sanitized = sanitized
+            .filter(t => t.latitude != null && t.longitude != null)
+            .filter(t => haversineDistance(userLat, userLng, t.latitude!, t.longitude!) <= maxDist);
+        }
+      }
       res.json(sanitized);
     } catch (error: any) {
       res.status(500).json({ message: error.message });

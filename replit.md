@@ -24,7 +24,7 @@ The platform is built with a modern web stack: React + TypeScript for the fronte
 *   **Group Chat**: Supports team-based, position-based, and custom group conversations.
 *   **Onboarding Wizard**: Multi-step, role-based onboarding process for players and trainers, including profile creation and interest/specialty selection.
 *   **Tutorial Videos**: Admin-managed video tutorials integrated into the onboarding flow.
-*   **Teams & Leagues**: Consolidated page for finding teams/leagues and managing player's own team memberships.
+*   **Teams & Leagues**: Consolidated page for finding teams/leagues and managing player's own team memberships. Location-based distance filtering using zip code from onboarding (default 25mi radius, adjustable: 10/25/50/100/250mi/Any). Geo utility: `server/geo.ts` with `zipToCoords`, `haversineDistance` using `zipcodes` package. `user_profiles`, `team_clubs`, `leagues`, `trainer_profiles` have `latitude`/`longitude` columns. API endpoints accept `lat/lng/radius` params for in-memory Haversine filtering; state/city filters used as fallback when no location. `GET /api/user/location` returns user's coordinates.
 *   **My Trainer**: Consolidated player page for finding trainers, viewing assigned drills, managing sessions, viewing evaluations, and direct messaging with trainers. The "My Drills" tab shows drills assigned by trainers with Mark Complete/Practice actions. Players can favorite trainers (heart icon) and designate one as "My Trainer" (badge shown on card). DB table: `player_trainer_favorites` (playerId, trainerId, isMyTrainer). API: `GET/POST/DELETE /api/player/trainer-favorites/:trainerId`, `POST/DELETE /api/player/my-trainer/:trainerId`.
 *   **Trainer Profile Builder**: Trainers can create detailed public profiles including availability, specialties, rates, and training locations.
 *   **Session Scheduling**: Full booking flow for training sessions between players and trainers, including requesting, confirming, rescheduling, and cancelling sessions. Supports multi-player group sessions (trainers can create sessions for multiple players at once via `POST /api/training-sessions/group`; linked by `groupSessionId` in `training_sessions` table).
@@ -48,3 +48,4 @@ The platform is built with a modern web stack: React + TypeScript for the fronte
 *   **Replit App Storage**: Object storage for media uploads.
 *   **googleapis**: Google Calendar API integration.
 *   **@sendgrid/mail**: Email delivery via SendGrid.
+*   **zipcodes**: Zip code to lat/lng geocoding for distance filtering.

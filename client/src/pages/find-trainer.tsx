@@ -12,11 +12,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
-import { Search, MapPin, DollarSign, Clock, Award, Star, Mail, Phone, Globe, Instagram, Twitter, X, ChevronRight, CalendarDays, CheckCircle, Briefcase } from "lucide-react";
+import { Search, MapPin, DollarSign, Clock, Award, Star, Mail, Phone, Globe, Instagram, Twitter, X, ChevronRight, CalendarDays, CheckCircle, Briefcase, Crosshair } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { US_STATES, TRAINER_SPECIALTIES } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
+
+const RADIUS_OPTIONS = [
+  { value: "10", label: "10 miles" },
+  { value: "25", label: "25 miles" },
+  { value: "50", label: "50 miles" },
+  { value: "100", label: "100 miles" },
+  { value: "250", label: "250 miles" },
+  { value: "any", label: "Any distance" },
+];
 
 type TrainerLocation = {
   id: string;
@@ -107,15 +117,30 @@ export default function FindTrainerPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [stateFilter, setStateFilter] = useState("all");
   const [specialtyFilter, setSpecialtyFilter] = useState("all");
+  const [radius, setRadius] = useState("25");
   const [selectedTrainer, setSelectedTrainer] = useState<DirectoryTrainer | null>(null);
+  const { isAuthenticated } = useAuth();
+
+  const { data: userLocation } = useQuery<{ latitude: number | null; longitude: number | null; city: string | null; state: string | null }>({
+    queryKey: ["/api/user/location"],
+    enabled: isAuthenticated,
+  });
+
+  const hasLocation = userLocation?.latitude != null && userLocation?.longitude != null;
 
   const queryParams = new URLSearchParams();
   if (searchQuery) queryParams.set("query", searchQuery);
-  if (stateFilter && stateFilter !== "all") queryParams.set("state", stateFilter);
   if (specialtyFilter && specialtyFilter !== "all") queryParams.set("specialty", specialtyFilter);
+  if (hasLocation && radius !== "any") {
+    queryParams.set("lat", String(userLocation.latitude));
+    queryParams.set("lng", String(userLocation.longitude));
+    queryParams.set("radius", radius);
+  } else {
+    if (stateFilter && stateFilter !== "all") queryParams.set("state", stateFilter);
+  }
 
   const { data: trainers, isLoading, isError, refetch } = useQuery<DirectoryTrainer[]>({
-    queryKey: ["/api/trainers/directory", searchQuery, stateFilter, specialtyFilter],
+    queryKey: ["/api/trainers/directory", searchQuery, stateFilter, specialtyFilter, radius, userLocation?.latitude, userLocation?.longitude],
     queryFn: async () => {
       const res = await fetch(`/api/trainers/directory?${queryParams.toString()}`);
       if (!res.ok) throw new Error("Failed to load trainers");
@@ -142,17 +167,32 @@ export default function FindTrainerPage() {
               data-testid="input-search-trainers"
             />
           </div>
-          <Select value={stateFilter} onValueChange={setStateFilter}>
-            <SelectTrigger className="w-[120px]" data-testid="select-filter-state">
-              <SelectValue placeholder="All States" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All States</SelectItem>
-              {US_STATES.map(s => (
-                <SelectItem key={s} value={s}>{s}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {hasLocation && (
+            <Select value={radius} onValueChange={setRadius}>
+              <SelectTrigger className="w-[140px]" data-testid="select-trainer-radius">
+                <Crosshair className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {RADIUS_OPTIONS.map(r => (
+                  <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          {(!hasLocation || radius === "any") && (
+            <Select value={stateFilter} onValueChange={setStateFilter}>
+              <SelectTrigger className="w-[120px]" data-testid="select-filter-state">
+                <SelectValue placeholder="All States" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All States</SelectItem>
+                {US_STATES.map(s => (
+                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Select value={specialtyFilter} onValueChange={setSpecialtyFilter}>
             <SelectTrigger className="w-[160px]" data-testid="select-filter-specialty">
               <SelectValue placeholder="All Specialties" />
@@ -164,11 +204,11 @@ export default function FindTrainerPage() {
               ))}
             </SelectContent>
           </Select>
-          {(searchQuery || stateFilter !== "all" || specialtyFilter !== "all") && (
+          {(searchQuery || stateFilter !== "all" || specialtyFilter !== "all" || (hasLocation && radius !== "any")) && (
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => { setSearchQuery(""); setStateFilter("all"); setSpecialtyFilter("all"); }}
+              onClick={() => { setSearchQuery(""); setStateFilter("all"); setSpecialtyFilter("all"); setRadius("any"); }}
               data-testid="button-clear-filters"
             >
               <X className="w-4 h-4" />
@@ -176,6 +216,11 @@ export default function FindTrainerPage() {
             </Button>
           )}
         </div>
+        {hasLocation && radius !== "any" && userLocation?.city && (
+          <p className="text-sm text-muted-foreground" data-testid="text-trainer-location-info">
+            Showing trainers within {radius} miles of {userLocation.city}{userLocation.state ? `, ${userLocation.state}` : ""}
+          </p>
+        )}
 
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

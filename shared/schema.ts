@@ -1,5 +1,5 @@
 import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, boolean, decimal } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, boolean, decimal, doublePrecision } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -295,6 +295,8 @@ export const userProfiles = pgTable("user_profiles", {
   city: varchar("city"),
   state: varchar("state"),
   zipCode: varchar("zip_code"),
+  latitude: doublePrecision("latitude"),
+  longitude: doublePrecision("longitude"),
   country: varchar("country").default("USA"),
   skillLevel: varchar("skill_level").$type<DifficultyLevel>().default("beginner"),
   profilePhotoUrl: varchar("profile_photo_url"),
@@ -1001,6 +1003,8 @@ export const teamClubs = pgTable("team_clubs", {
   socialInstagram: varchar("social_instagram"),
   socialTwitter: varchar("social_twitter"),
   logoUrl: varchar("logo_url"),
+  latitude: doublePrecision("latitude"),
+  longitude: doublePrecision("longitude"),
   isVerified: boolean("is_verified").default(false),
   createdByUserId: varchar("created_by_user_id").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
@@ -1027,6 +1031,8 @@ export const leagues = pgTable("leagues", {
   contactEmail: varchar("contact_email"),
   contactPhone: varchar("contact_phone"),
   costInfo: varchar("cost_info"),
+  latitude: doublePrecision("latitude"),
+  longitude: doublePrecision("longitude"),
   isVerified: boolean("is_verified").default(false),
   createdByUserId: varchar("created_by_user_id").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
@@ -1104,6 +1110,8 @@ export const trainerProfiles = pgTable("trainer_profiles", {
   socialInstagram: varchar("social_instagram"),
   socialTwitter: varchar("social_twitter"),
   website: varchar("website"),
+  latitude: doublePrecision("latitude"),
+  longitude: doublePrecision("longitude"),
   isPublic: boolean("is_public").default(false),
   stripeAccountId: varchar("stripe_account_id"),
   createdAt: timestamp("created_at").defaultNow(),

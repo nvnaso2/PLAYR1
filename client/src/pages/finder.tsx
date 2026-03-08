@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAdmin } from "@/hooks/use-admin";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import { Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,10 +32,28 @@ import {
   ArrowRight,
   ChevronRight,
   X,
+  Crosshair,
 } from "lucide-react";
 import { SiInstagram, SiX } from "react-icons/si";
 import type { TeamClub, League, TrainerTeam, TeamMember } from "@shared/schema";
 import { TEAM_ORGANIZATION_TYPES, LEAGUE_TYPES, AGE_GROUPS, SEASONS, US_STATES, GENDERS, CIRCUITS } from "@shared/schema";
+
+const RADIUS_OPTIONS = [
+  { value: "10", label: "10 miles" },
+  { value: "25", label: "25 miles" },
+  { value: "50", label: "50 miles" },
+  { value: "100", label: "100 miles" },
+  { value: "250", label: "250 miles" },
+  { value: "any", label: "Any distance" },
+];
+
+function useUserLocation() {
+  const { isAuthenticated } = useAuth();
+  return useQuery<{ latitude: number | null; longitude: number | null; zipCode: string | null; city: string | null; state: string | null }>({
+    queryKey: ["/api/user/location"],
+    enabled: isAuthenticated,
+  });
+}
 
 const LOGO_COLORS = [
   "bg-red-600", "bg-blue-600", "bg-green-600", "bg-purple-600",
@@ -268,17 +287,26 @@ function TeamFinderTab({ searchQuery }: { searchQuery: string }) {
   const { isAdmin } = useAdmin();
   const { toast } = useToast();
   const [filters, setFilters] = useState({ type: "", state: "", city: "", ageGroup: "", gender: "", circuit: "" });
+  const [radius, setRadius] = useState("25");
   const [showFilters, setShowFilters] = useState(false);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const { data: userLocation } = useUserLocation();
 
   const queryParams = new URLSearchParams();
   if (filters.type) queryParams.set("type", filters.type);
-  if (filters.state) queryParams.set("state", filters.state);
-  if (filters.city) queryParams.set("city", filters.city);
   if (filters.ageGroup) queryParams.set("ageGroup", filters.ageGroup);
   if (filters.gender) queryParams.set("gender", filters.gender);
   if (filters.circuit) queryParams.set("circuit", filters.circuit);
   if (searchQuery) queryParams.set("query", searchQuery);
+  const hasLocation = userLocation?.latitude != null && userLocation?.longitude != null;
+  if (hasLocation && radius !== "any") {
+    queryParams.set("lat", String(userLocation.latitude));
+    queryParams.set("lng", String(userLocation.longitude));
+    queryParams.set("radius", radius);
+  } else {
+    if (filters.state) queryParams.set("state", filters.state);
+    if (filters.city) queryParams.set("city", filters.city);
+  }
   const qs = queryParams.toString();
   const teamClubsUrl = `/api/team-clubs${qs ? `?${qs}` : ""}`;
 
@@ -300,7 +328,15 @@ function TeamFinderTab({ searchQuery }: { searchQuery: string }) {
     },
   });
 
-  const activeFilterCount = [filters.type, filters.state, filters.city, filters.ageGroup, filters.gender, filters.circuit].filter(Boolean).length;
+  const distanceActive = hasLocation && radius !== "any";
+  const activeFilterCount = [
+    filters.type,
+    !distanceActive ? filters.state : "",
+    !distanceActive ? filters.city : "",
+    filters.ageGroup,
+    filters.gender,
+    filters.circuit,
+  ].filter(Boolean).length + (distanceActive ? 1 : 0);
 
   return (
     <div className="space-y-4">
@@ -318,11 +354,24 @@ function TeamFinderTab({ searchQuery }: { searchQuery: string }) {
               <Badge variant="secondary" className="ml-1">{activeFilterCount}</Badge>
             )}
           </Button>
+          {hasLocation && (
+            <Select value={radius} onValueChange={setRadius}>
+              <SelectTrigger className="w-[140px] h-8 text-sm" data-testid="select-team-radius">
+                <Crosshair className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {RADIUS_OPTIONS.map(r => (
+                  <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           {activeFilterCount > 0 && (
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setFilters({ type: "", state: "", city: "", ageGroup: "", gender: "", circuit: "" })}
+              onClick={() => { setFilters({ type: "", state: "", city: "", ageGroup: "", gender: "", circuit: "" }); setRadius("any"); }}
               data-testid="button-clear-team-filters"
             >
               Clear All
@@ -331,6 +380,7 @@ function TeamFinderTab({ searchQuery }: { searchQuery: string }) {
           {clubs && (
             <span className="text-sm text-muted-foreground" data-testid="text-team-count">
               {clubs.length} team{clubs.length !== 1 ? "s" : ""}
+              {hasLocation && radius !== "any" && userLocation?.city ? ` near ${userLocation.city}` : ""}
             </span>
           )}
         </div>
@@ -709,16 +759,25 @@ function LeagueFinderTab({ searchQuery }: { searchQuery: string }) {
   const { isAdmin } = useAdmin();
   const { toast } = useToast();
   const [filters, setFilters] = useState({ type: "", state: "", city: "", ageGroup: "", season: "" });
+  const [radius, setRadius] = useState("25");
   const [showFilters, setShowFilters] = useState(false);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const { data: userLocation } = useUserLocation();
 
   const queryParams = new URLSearchParams();
   if (filters.type) queryParams.set("type", filters.type);
-  if (filters.state) queryParams.set("state", filters.state);
-  if (filters.city) queryParams.set("city", filters.city);
   if (filters.ageGroup) queryParams.set("ageGroup", filters.ageGroup);
   if (filters.season) queryParams.set("season", filters.season);
   if (searchQuery) queryParams.set("query", searchQuery);
+  const hasLocation = userLocation?.latitude != null && userLocation?.longitude != null;
+  if (hasLocation && radius !== "any") {
+    queryParams.set("lat", String(userLocation.latitude));
+    queryParams.set("lng", String(userLocation.longitude));
+    queryParams.set("radius", radius);
+  } else {
+    if (filters.state) queryParams.set("state", filters.state);
+    if (filters.city) queryParams.set("city", filters.city);
+  }
   const qs = queryParams.toString();
   const leaguesUrl = `/api/leagues${qs ? `?${qs}` : ""}`;
 
@@ -740,7 +799,14 @@ function LeagueFinderTab({ searchQuery }: { searchQuery: string }) {
     },
   });
 
-  const activeFilterCount = [filters.type, filters.state, filters.city, filters.ageGroup, filters.season].filter(Boolean).length;
+  const distanceActive = hasLocation && radius !== "any";
+  const activeFilterCount = [
+    filters.type,
+    !distanceActive ? filters.state : "",
+    !distanceActive ? filters.city : "",
+    filters.ageGroup,
+    filters.season,
+  ].filter(Boolean).length + (distanceActive ? 1 : 0);
 
   return (
     <div className="space-y-4">
@@ -758,11 +824,24 @@ function LeagueFinderTab({ searchQuery }: { searchQuery: string }) {
               <Badge variant="secondary" className="ml-1">{activeFilterCount}</Badge>
             )}
           </Button>
+          {hasLocation && (
+            <Select value={radius} onValueChange={setRadius}>
+              <SelectTrigger className="w-[140px] h-8 text-sm" data-testid="select-league-radius">
+                <Crosshair className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {RADIUS_OPTIONS.map(r => (
+                  <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           {activeFilterCount > 0 && (
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setFilters({ type: "", state: "", city: "", ageGroup: "", season: "" })}
+              onClick={() => { setFilters({ type: "", state: "", city: "", ageGroup: "", season: "" }); setRadius("any"); }}
               data-testid="button-clear-league-filters"
             >
               Clear All
@@ -771,6 +850,7 @@ function LeagueFinderTab({ searchQuery }: { searchQuery: string }) {
           {leaguesList && (
             <span className="text-sm text-muted-foreground" data-testid="text-league-count">
               {leaguesList.length} league{leaguesList.length !== 1 ? "s" : ""}
+              {hasLocation && radius !== "any" && userLocation?.city ? ` near ${userLocation.city}` : ""}
             </span>
           )}
         </div>
