@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Search,
   MapPin,
@@ -33,10 +34,13 @@ import {
   ChevronRight,
   X,
   Crosshair,
+  UserCheck,
+  Link2,
 } from "lucide-react";
 import { SiInstagram, SiX } from "react-icons/si";
 import type { TeamClub, League, TrainerTeam, TeamMember } from "@shared/schema";
 import { TEAM_ORGANIZATION_TYPES, LEAGUE_TYPES, AGE_GROUPS, SEASONS, US_STATES, GENDERS, CIRCUITS } from "@shared/schema";
+import { FindPeopleTab } from "@/pages/find-people";
 
 const RADIUS_OPTIONS = [
   { value: "10", label: "10 miles" },
@@ -98,16 +102,26 @@ export default function FinderPage() {
     <div className="pb-24">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-6">
         <Tabs value={mainTab} onValueChange={setMainTab} className="w-full">
-          <TabsList className="w-full max-w-md grid grid-cols-2" data-testid="tabs-teams-main">
+          <TabsList className="w-full max-w-2xl grid grid-cols-4" data-testid="tabs-teams-main">
             <TabsTrigger value="find" data-testid="tab-find-teams">
               <Search className="h-4 w-4 mr-1.5" />
-              <span className="hidden sm:inline">Find Teams & Leagues</span>
-              <span className="sm:hidden">Find</span>
+              <span className="hidden sm:inline">Teams & Leagues</span>
+              <span className="sm:hidden">Teams</span>
             </TabsTrigger>
             <TabsTrigger value="my-teams" data-testid="tab-my-teams">
               <Shield className="h-4 w-4 mr-1.5" />
               <span className="hidden sm:inline">My Teams</span>
               <span className="sm:hidden">My Teams</span>
+            </TabsTrigger>
+            <TabsTrigger value="people" data-testid="tab-find-people">
+              <Users className="h-4 w-4 mr-1.5" />
+              <span className="hidden sm:inline">Find People</span>
+              <span className="sm:hidden">People</span>
+            </TabsTrigger>
+            <TabsTrigger value="connections" data-testid="tab-connections">
+              <Link2 className="h-4 w-4 mr-1.5" />
+              <span className="hidden sm:inline">Connections</span>
+              <span className="sm:hidden">Connections</span>
             </TabsTrigger>
           </TabsList>
 
@@ -116,6 +130,12 @@ export default function FinderPage() {
           </TabsContent>
           <TabsContent value="my-teams" className="mt-4">
             <MyTeamsTab />
+          </TabsContent>
+          <TabsContent value="people" className="mt-4">
+            <FindPeopleTab />
+          </TabsContent>
+          <TabsContent value="connections" className="mt-4">
+            <MyConnectionsTab />
           </TabsContent>
         </Tabs>
       </div>
@@ -1254,5 +1274,203 @@ function AddLeagueForm({ onSubmit, isPending }: { onSubmit: (data: any) => void;
         {isPending ? "Submitting..." : "Submit League Listing"}
       </Button>
     </form>
+  );
+}
+
+interface EnrichedConnection {
+  id: string;
+  playerId: string;
+  trainerId: string;
+  status: string;
+  initiatedBy: string;
+  requesterUserId?: string | null;
+  createdAt?: string | null;
+  otherUser?: {
+    id: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    profileImageUrl?: string | null;
+    displayName?: string | null;
+    profilePhotoUrl?: string | null;
+  } | null;
+}
+
+function MyConnectionsTab() {
+  const { user } = useAuth();
+  const { data: connections, isLoading } = useQuery<EnrichedConnection[]>({
+    queryKey: ["/api/connections"],
+  });
+
+  const accepted = connections?.filter((c) => c.status === "accepted") || [];
+  const pending = connections?.filter((c) => c.status === "pending") || [];
+
+  const getName = (conn: EnrichedConnection) => {
+    if (!conn.otherUser) return "Unknown";
+    return conn.otherUser.displayName ||
+      [conn.otherUser.firstName, conn.otherUser.lastName].filter(Boolean).join(" ") || "Unknown";
+  };
+
+  const getInitials = (conn: EnrichedConnection) => {
+    if (!conn.otherUser) return "?";
+    return (conn.otherUser.firstName?.[0] || "") + (conn.otherUser.lastName?.[0] || "");
+  };
+
+  const getPhoto = (conn: EnrichedConnection) => {
+    return conn.otherUser?.profilePhotoUrl || conn.otherUser?.profileImageUrl || undefined;
+  };
+
+  const isIncoming = (conn: EnrichedConnection) => {
+    if (conn.requesterUserId) return conn.requesterUserId !== user?.id;
+    if (conn.initiatedBy === "player" && conn.trainerId === user?.id) return true;
+    if (conn.initiatedBy === "trainer" && conn.playerId === user?.id) return true;
+    return false;
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-3 max-w-2xl mx-auto" data-testid="loading-connections">
+        <Skeleton className="h-16 w-full" />
+        <Skeleton className="h-16 w-full" />
+        <Skeleton className="h-16 w-full" />
+      </div>
+    );
+  }
+
+  if (!connections || connections.length === 0) {
+    return (
+      <div className="py-12 text-center text-muted-foreground max-w-2xl mx-auto" data-testid="text-no-connections">
+        <Link2 className="w-12 h-12 mx-auto mb-3 opacity-40" />
+        <p className="text-sm font-medium">No connections yet</p>
+        <p className="text-xs mt-1">Use the Find People tab to search and connect with players and trainers.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 max-w-2xl mx-auto" data-testid="section-connections">
+      {pending.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide" data-testid="text-pending-heading">
+            Pending ({pending.length})
+          </h3>
+          {pending.map((conn) => (
+            <ConnectionCard
+              key={conn.id}
+              conn={conn}
+              name={getName(conn)}
+              initials={getInitials(conn)}
+              photo={getPhoto(conn)}
+              incoming={isIncoming(conn)}
+            />
+          ))}
+        </div>
+      )}
+
+      {accepted.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide" data-testid="text-connected-heading">
+            Connected ({accepted.length})
+          </h3>
+          {accepted.map((conn) => (
+            <ConnectionCard
+              key={conn.id}
+              conn={conn}
+              name={getName(conn)}
+              initials={getInitials(conn)}
+              photo={getPhoto(conn)}
+              incoming={false}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ConnectionCard({
+  conn,
+  name,
+  initials,
+  photo,
+  incoming,
+}: {
+  conn: EnrichedConnection;
+  name: string;
+  initials: string;
+  photo?: string;
+  incoming: boolean;
+}) {
+  const { toast } = useToast();
+
+  const acceptMutation = useMutation({
+    mutationFn: (connId: string) =>
+      apiRequest("PUT", `/api/connections/${connId}/accept`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/connections"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/connections/pending"] });
+      toast({ title: "Connection accepted!" });
+    },
+  });
+
+  const declineMutation = useMutation({
+    mutationFn: (connId: string) =>
+      apiRequest("PUT", `/api/connections/${connId}/decline`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/connections"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/connections/pending"] });
+      toast({ title: "Connection declined" });
+    },
+  });
+
+  return (
+    <Card data-testid={`card-connection-${conn.id}`}>
+      <CardContent className="flex items-center gap-3 py-3">
+        <Avatar className="h-10 w-10 shrink-0">
+          <AvatarImage src={photo} />
+          <AvatarFallback className="text-xs">{initials || "?"}</AvatarFallback>
+        </Avatar>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium truncate" data-testid={`text-connection-name-${conn.id}`}>{name}</p>
+          {conn.status === "pending" && (
+            <p className="text-xs text-muted-foreground">
+              {incoming ? "Wants to connect with you" : "Awaiting their response"}
+            </p>
+          )}
+        </div>
+        <div className="shrink-0">
+          {conn.status === "accepted" ? (
+            <Badge variant="secondary" className="no-default-hover-elevate text-xs" data-testid={`badge-connected-${conn.id}`}>
+              <UserCheck className="w-3 h-3 mr-1" />
+              Connected
+            </Badge>
+          ) : conn.status === "pending" && incoming ? (
+            <div className="flex gap-1">
+              <Button
+                size="sm"
+                variant="default"
+                onClick={() => acceptMutation.mutate(conn.id)}
+                disabled={acceptMutation.isPending}
+                data-testid={`button-accept-${conn.id}`}
+              >
+                Accept
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => declineMutation.mutate(conn.id)}
+                disabled={declineMutation.isPending}
+                data-testid={`button-decline-${conn.id}`}
+              >
+                Decline
+              </Button>
+            </div>
+          ) : (
+            <Badge variant="outline" className="no-default-hover-elevate text-xs" data-testid={`badge-pending-${conn.id}`}>
+              Pending
+            </Badge>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

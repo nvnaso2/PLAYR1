@@ -47,7 +47,7 @@ interface Connection {
   otherUserId?: string;
 }
 
-export default function FindPeople() {
+export function FindPeopleTab() {
   const { toast } = useToast();
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
@@ -161,14 +161,7 @@ export default function FindPeople() {
   };
 
   return (
-    <div className="p-4 md:p-6 max-w-2xl mx-auto space-y-6" data-testid="page-find-people">
-      <div>
-        <h1 className="text-2xl font-bold" data-testid="text-page-title">Find People</h1>
-        <p className="text-sm text-muted-foreground mt-1" data-testid="text-page-description">
-          Search for players and trainers to connect with.
-        </p>
-      </div>
-
+    <div className="space-y-4 max-w-2xl mx-auto" data-testid="page-find-people">
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
@@ -330,6 +323,14 @@ export default function FindPeople() {
           </Card>
         </div>
       )}
+    </div>
+  );
+}
+
+export default function FindPeople() {
+  return (
+    <div className="p-4 md:p-6">
+      <FindPeopleTab />
     </div>
   );
 }
