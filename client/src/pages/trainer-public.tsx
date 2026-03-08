@@ -34,7 +34,7 @@ interface TrainerPublicData {
   hourlyRate: number | null;
   sessionTypes: string[] | null;
   experienceYears: number | null;
-  certifications: string[] | null;
+  certifications: string | null;
   availability: string | null;
   profilePhotoUrl: string | null;
   socialInstagram: string | null;
@@ -211,21 +211,25 @@ export default function TrainerPublic() {
           </Card>
         )}
 
-        {trainer.certifications && trainer.certifications.length > 0 && (
-          <Card data-testid="card-certifications">
-            <CardContent className="pt-6">
-              <h2 className="font-semibold mb-3 flex items-center gap-2">
-                <Award className="w-4 h-4 text-primary" />
-                Certifications
-              </h2>
-              <div className="flex flex-wrap gap-2">
-                {trainer.certifications.map((c, i) => (
-                  <Badge key={i} variant="outline" data-testid={`badge-cert-${i}`}>{c}</Badge>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {trainer.certifications && trainer.certifications.trim().length > 0 && (() => {
+          let certs: string[] = [];
+          try { certs = JSON.parse(trainer.certifications); } catch { certs = trainer.certifications.split(",").map(s => s.trim()).filter(Boolean); }
+          return certs.length > 0 ? (
+            <Card data-testid="card-certifications">
+              <CardContent className="pt-6">
+                <h2 className="font-semibold mb-3 flex items-center gap-2">
+                  <Award className="w-4 h-4 text-primary" />
+                  Certifications
+                </h2>
+                <div className="flex flex-wrap gap-2">
+                  {certs.map((c, i) => (
+                    <Badge key={i} variant="outline" data-testid={`badge-cert-${i}`}>{c}</Badge>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ) : null;
+        })()}
 
         {trainer.sessionTypes && trainer.sessionTypes.length > 0 && (
           <Card data-testid="card-session-types">
