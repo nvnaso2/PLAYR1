@@ -1447,6 +1447,7 @@ function MyEvaluationsTab() {
 
   const { data: evaluations, isLoading } = useQuery<EnrichedEvaluation[]>({
     queryKey: ["/api/my-evaluations"],
+    staleTime: 0,
   });
 
   const { data: evalDetail } = useQuery<EvalDetail>({

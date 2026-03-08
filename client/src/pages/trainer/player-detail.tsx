@@ -181,6 +181,7 @@ export default function TrainerPlayerDetail() {
   const { data: evaluations, isLoading: evaluationsLoading } = useQuery<PlayerEvaluation[]>({
     queryKey: ["/api/trainer/players", playerId, "evaluations"],
     enabled: !!playerId,
+    staleTime: 0,
   });
 
   const { data: trainingLogs, isLoading: logsLoading } = useQuery<TrainingLogEntry[]>({
@@ -218,6 +219,8 @@ export default function TrainerPlayerDetail() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/trainer/players", playerId, "evaluations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/my-evaluations"] });
+      queryClient.invalidateQueries({ predicate: (q) => (q.queryKey[0] as string)?.startsWith("/api/player-evaluations") });
       toast({ title: "Updated", description: "Evaluation sharing updated." });
     },
     onError: (error: any) => {

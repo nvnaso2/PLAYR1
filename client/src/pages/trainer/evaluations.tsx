@@ -153,6 +153,8 @@ export default function TrainerEvaluationsPage() {
       apiRequest("POST", "/api/player-evaluations", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/player-evaluations", selectedPlayerId] });
+      queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === "/api/trainer/players" && q.queryKey[2] === "evaluations" });
+      queryClient.invalidateQueries({ queryKey: ["/api/my-evaluations"] });
       toast({ title: "Evaluation saved" });
       setShowEvalForm(false);
       setRatings({});
@@ -167,6 +169,8 @@ export default function TrainerEvaluationsPage() {
     mutationFn: (id: string) => apiRequest("DELETE", `/api/player-evaluations/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/player-evaluations", selectedPlayerId] });
+      queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === "/api/trainer/players" && q.queryKey[2] === "evaluations" });
+      queryClient.invalidateQueries({ queryKey: ["/api/my-evaluations"] });
       toast({ title: "Evaluation deleted" });
       setViewingEvalId(null);
     },
@@ -181,6 +185,8 @@ export default function TrainerEvaluationsPage() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/player-evaluations", selectedPlayerId] });
       queryClient.invalidateQueries({ queryKey: ["/api/player-evaluations/detail", viewingEvalId] });
+      queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === "/api/trainer/players" && q.queryKey[2] === "evaluations" });
+      queryClient.invalidateQueries({ queryKey: ["/api/my-evaluations"] });
       toast({ title: variables.shared ? "Evaluation shared with player" : "Evaluation unshared" });
     },
     onError: (error: Error) => {
