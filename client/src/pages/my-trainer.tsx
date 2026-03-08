@@ -1309,16 +1309,16 @@ function MySessionsTab() {
 
       {!isLoading && (
         <>
-          <SectionHeader title="Upcoming" count={upcoming.length} icon={CheckCircle2} />
+          <SectionHeader title="Pending" count={pending.length} icon={Hourglass} />
           <div className="space-y-3">
-            {upcoming.sort(sortByDate).map((s) => (
+            {pending.sort(sortByDate).map((s) => (
               <SessionCard key={s.id} session={s} prominent />
             ))}
           </div>
 
-          <SectionHeader title="Pending" count={pending.length} icon={Hourglass} />
+          <SectionHeader title="Upcoming" count={upcoming.length} icon={CheckCircle2} />
           <div className="space-y-3">
-            {pending.sort(sortByDate).map((s) => (
+            {upcoming.sort(sortByDate).map((s) => (
               <SessionCard key={s.id} session={s} prominent />
             ))}
           </div>
