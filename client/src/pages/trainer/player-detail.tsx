@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmojiPicker } from "@/components/emoji-picker";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
@@ -678,6 +679,7 @@ export default function TrainerPlayerDetail() {
                 )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
+                <EmojiPicker onEmojiSelect={(emoji) => setChatMessage(prev => prev + emoji)} />
                 <Input
                   ref={chatInputRef}
                   value={chatMessage}

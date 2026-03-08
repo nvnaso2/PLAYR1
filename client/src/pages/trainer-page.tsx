@@ -104,6 +104,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { EmojiPicker } from "@/components/emoji-picker";
 
 interface TrainerGroup {
   id: string;
@@ -3595,6 +3596,7 @@ function ChatTab() {
               )}
             </div>
             <div className="flex gap-2">
+              <EmojiPicker onEmojiSelect={(emoji) => setThreadMessageText(prev => prev + emoji)} />
               <Input
                 value={threadMessageText}
                 onChange={(e) => setThreadMessageText(e.target.value)}
@@ -3661,6 +3663,7 @@ function ChatTab() {
               )}
             </div>
             <div className="flex gap-2">
+              <EmojiPicker onEmojiSelect={(emoji) => setMessageText(prev => prev + emoji)} />
               <Input
                 value={messageText}
                 onChange={(e) => setMessageText(e.target.value)}

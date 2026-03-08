@@ -31,6 +31,7 @@ import {
   Target, Play, FileText, CalendarPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { EmojiPicker } from "@/components/emoji-picker";
 import { US_STATES, TRAINER_SPECIALTIES } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -1712,6 +1713,7 @@ function ChatTab() {
         </div>
 
         <div className="flex items-center gap-2 pt-3 border-t mt-3">
+          <EmojiPicker onEmojiSelect={(emoji) => setMessageInput(prev => prev + emoji)} />
           <Input
             value={messageInput}
             onChange={e => setMessageInput(e.target.value)}
