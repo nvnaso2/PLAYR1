@@ -45,3 +45,6 @@ integrations = ["javascript_log_in_with_replit:2.0.0", "javascript_database:1.0.
 
 [userenv.shared]
 ADMIN_USER_IDS = "44623527"
+VAPID_PUBLIC_KEY = "BPUwtSsEx50XUdU9_qAAsVnf0LZV_g0IXte1CHQgpjC97hGfUAL7eTdSBKQFINByFZnzVIp4i_RZD3rpBfxmuqo"
+VAPID_PRIVATE_KEY = "h_OrIBHy1oAPbNrOt0UUTs3hpGQSyijMPlB5mkZpGp4"
+VAPID_SUBJECT = "mailto:noreply@handlz.co"

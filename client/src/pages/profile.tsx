@@ -37,8 +37,11 @@ import {
   Settings,
   LogOut,
   Save,
-  Camera
+  Camera,
+  Bell,
+  BellOff
 } from "lucide-react";
+import { usePushNotifications } from "@/hooks/use-push-notifications";
 import type { UserProfile } from "@shared/schema";
 
 const profileFormSchema = z.object({
@@ -61,6 +64,48 @@ const US_STATES = [
   "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC",
   "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY"
 ];
+
+function PushNotificationToggle() {
+  const { isSupported, isSubscribed, isLoading, subscribe, unsubscribe } = usePushNotifications();
+  const { toast } = useToast();
+
+  if (!isSupported) return null;
+
+  const handleToggle = async () => {
+    if (isSubscribed) {
+      const ok = await unsubscribe();
+      if (ok) toast({ title: "Notifications disabled" });
+    } else {
+      const ok = await subscribe();
+      if (ok) {
+        toast({ title: "Notifications enabled", description: "You'll receive push notifications for important updates." });
+      } else {
+        toast({ title: "Permission denied", description: "Please allow notifications in your browser settings.", variant: "destructive" });
+      }
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-between p-4 rounded-lg border">
+      <div>
+        <p className="font-medium">Push Notifications</p>
+        <p className="text-sm text-muted-foreground">
+          {isSubscribed ? "You're receiving push notifications" : "Get notified about sessions, messages, and more"}
+        </p>
+      </div>
+      <Button
+        variant={isSubscribed ? "outline" : "default"}
+        className="gap-2"
+        onClick={handleToggle}
+        disabled={isLoading}
+        data-testid="button-push-notifications"
+      >
+        {isSubscribed ? <BellOff className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
+        {isLoading ? "..." : isSubscribed ? "Disable" : "Enable"}
+      </Button>
+    </div>
+  );
+}
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -468,6 +513,7 @@ export default function ProfilePage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <PushNotificationToggle />
           <div className="flex items-center justify-between p-4 rounded-lg border">
             <div>
               <p className="font-medium">Sign Out</p>

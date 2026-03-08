@@ -18,6 +18,7 @@ import {
   sendSessionDeclinedEmail,
   sendInviteEmail,
 } from "./email";
+import { sendPushNotification, getVapidPublicKey } from "./push";
 
 async function getEmailForUser(userId: string): Promise<string | null> {
   const [profile] = await db.select({ email: userProfiles.email }).from(userProfiles).where(eq(userProfiles.userId, userId));
@@ -2996,6 +2997,14 @@ export async function registerRoutes(
         notes: notes || null,
         status: "assigned"
       });
+      if (assignedTo) {
+        const drill = await storage.getDrill(drillId);
+        const trainerName = await getDisplayNameForUser(userId);
+        let pushTarget = assignedTo;
+        const [tp] = await db.select({ linkedUserId: trainerPlayers.linkedUserId }).from(trainerPlayers).where(eq(trainerPlayers.id, assignedTo));
+        if (tp?.linkedUserId) pushTarget = tp.linkedUserId;
+        sendPushNotification(pushTarget, { title: "New Drill Assigned", body: `${trainerName} assigned you: ${drill?.name || "a new drill"}`, url: "/my-trainer" }).catch(() => {});
+      }
       res.status(201).json(assignment);
     } catch (error) {
       console.error("Error assigning drill (trainer):", error);
@@ -3583,6 +3592,8 @@ export async function registerRoutes(
         content,
         teamId: teamId || null,
       });
+      const senderName = await getDisplayNameForUser(userId);
+      sendPushNotification(receiverId, { title: "New Message", body: `${senderName}: ${content.substring(0, 100)}`, url: "/chat" }).catch(() => {});
       res.status(201).json(message);
     } catch (error) {
       console.error("Error sending message:", error);
@@ -3691,6 +3702,15 @@ export async function registerRoutes(
         senderId: userId,
         content,
       });
+
+      const members = await storage.getChatThreadMembers(req.params.id);
+      const senderName = await getDisplayNameForUser(userId);
+      for (const m of members) {
+        if (m.userId !== userId) {
+          sendPushNotification(m.userId, { title: "New Message", body: `${senderName}: ${content.substring(0, 100)}`, url: "/chat" }).catch(() => {});
+        }
+      }
+
       res.status(201).json(message);
     } catch (error) {
       console.error("Error sending thread message:", error);
@@ -5010,6 +5030,8 @@ export async function registerRoutes(
         const emailData = await getSessionEmailData(session);
         sendSessionRequestedEmail(trainerEmail, { ...emailData, requesterRole: "player" }).catch(() => {});
       }
+      const reqName = await getDisplayNameForUser(playerId);
+      sendPushNotification(trainerProfile.userId, { title: "Session Request", body: `${reqName} requested a training session`, url: "/trainer/schedule" }).catch(() => {});
 
       res.status(201).json(session);
     } catch (error: any) {
@@ -5081,6 +5103,8 @@ export async function registerRoutes(
           const emailData = await getSessionEmailData(session);
           sendSessionRequestedEmail(playerEmail, { ...emailData, requesterRole: "trainer" }).catch(() => {});
         }
+        const tName = await getDisplayNameForUser(trainerId);
+        sendPushNotification(playerId, { title: "Session Request", body: `${tName} wants to schedule a training session`, url: "/my-trainer" }).catch(() => {});
       }
       res.status(201).json(sessions);
     } catch (error: any) {
@@ -5239,6 +5263,8 @@ export async function registerRoutes(
         const confirmedBy = await getDisplayNameForUser(userId);
         sendSessionConfirmedEmail(otherEmail, { ...emailData, confirmedBy }).catch(() => {});
       }
+      const confirmerName = await getDisplayNameForUser(userId);
+      sendPushNotification(otherUserId, { title: "Session Confirmed", body: `Your session with ${confirmerName} has been confirmed`, url: userId === session.trainerId ? "/my-trainer" : "/trainer/schedule" }).catch(() => {});
 
       res.json(updated);
     } catch (error: any) {
@@ -5264,6 +5290,8 @@ export async function registerRoutes(
         const emailData = await getSessionEmailData(updated);
         sendSessionDeclinedEmail(playerEmail, { ...emailData, declineReason: declineReason || undefined }).catch(() => {});
       }
+      const declinerName = await getDisplayNameForUser(trainerId);
+      sendPushNotification(session.playerId, { title: "Session Declined", body: `${declinerName} declined your session request`, url: "/my-trainer" }).catch(() => {});
 
       res.json(updated);
     } catch (error: any) {
@@ -5291,6 +5319,8 @@ export async function registerRoutes(
         const cancelledBy = await getDisplayNameForUser(userId);
         sendSessionCancelledEmail(otherEmail, { ...emailData, cancelledBy }).catch(() => {});
       }
+      const cancellerName = await getDisplayNameForUser(userId);
+      sendPushNotification(otherUserId, { title: "Session Cancelled", body: `${cancellerName} cancelled the training session`, url: userId === session.trainerId ? "/my-trainer" : "/trainer/schedule" }).catch(() => {});
 
       res.json(updated);
     } catch (error: any) {
@@ -5375,6 +5405,8 @@ export async function registerRoutes(
           oldEndTime: session.endTime,
         }).catch(() => {});
       }
+      const reschName = await getDisplayNameForUser(userId);
+      sendPushNotification(otherUserId, { title: "Session Rescheduled", body: `${reschName} wants to reschedule your session`, url: userId === session.trainerId ? "/my-trainer" : "/trainer/schedule" }).catch(() => {});
 
       res.json(updated);
     } catch (error: any) {
@@ -5970,6 +6002,8 @@ export async function registerRoutes(
       }
 
       const conn = await storage.createConnection({ playerId, trainerId, initiatedBy, requesterUserId: userId, status: "pending" });
+      const connName = await getDisplayNameForUser(userId);
+      sendPushNotification(targetUserId, { title: "Connection Request", body: `${connName} wants to connect with you`, url: "/connect" }).catch(() => {});
       res.status(201).json(conn);
     } catch (error) {
       console.error("Error creating connection:", error);
@@ -6075,6 +6109,9 @@ export async function registerRoutes(
       if (!isRecipient) return res.status(403).json({ message: "Not authorized to accept this connection" });
 
       const conn = await storage.updateConnectionStatus(req.params.id, "accepted");
+      const acceptorName = await getDisplayNameForUser(userId);
+      const requesterId = existing.requesterUserId || (existing.initiatedBy === "player" ? existing.playerId : existing.trainerId);
+      sendPushNotification(requesterId, { title: "Connection Accepted", body: `${acceptorName} accepted your connection request`, url: "/connect" }).catch(() => {});
       res.json(conn);
     } catch (error) {
       console.error("Error accepting connection:", error);
@@ -6275,6 +6312,40 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching child connections:", error);
       res.status(500).json({ message: "Failed to fetch child connections" });
+    }
+  });
+
+  app.get("/api/push/vapid-key", (req, res) => {
+    const key = getVapidPublicKey();
+    if (!key) return res.status(404).json({ message: "Push not configured" });
+    res.json({ publicKey: key });
+  });
+
+  app.post("/api/push/subscribe", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { endpoint, keys } = req.body;
+      if (!endpoint || !keys?.p256dh || !keys?.auth) {
+        return res.status(400).json({ message: "Invalid subscription" });
+      }
+      const sub = await storage.savePushSubscription(userId, endpoint, keys.p256dh, keys.auth);
+      res.json({ success: true, subscription: sub });
+    } catch (error) {
+      console.error("Error saving push subscription:", error);
+      res.status(500).json({ message: "Failed to save subscription" });
+    }
+  });
+
+  app.delete("/api/push/unsubscribe", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { endpoint } = req.body;
+      if (!endpoint) return res.status(400).json({ message: "Endpoint required" });
+      await storage.deletePushSubscriptionForUser(userId, endpoint);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error removing push subscription:", error);
+      res.status(500).json({ message: "Failed to remove subscription" });
     }
   });
 

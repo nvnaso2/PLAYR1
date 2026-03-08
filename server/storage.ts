@@ -51,7 +51,8 @@ import {
   playerTrainerFavorites, type PlayerTrainerFavorite,
   userFavoriteDrills,
   playerTrainerConnections, type PlayerTrainerConnection, type InsertConnection,
-  parentLinks, type ParentLink
+  parentLinks, type ParentLink,
+  pushSubscriptions, type PushSubscription
 } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
@@ -424,6 +425,11 @@ export interface IStorage {
   createParentLink(parentUserId: string, playerUserId: string): Promise<ParentLink>;
   getParentLinks(parentUserId: string): Promise<ParentLink[]>;
   getParentForPlayer(playerUserId: string): Promise<ParentLink | undefined>;
+
+  savePushSubscription(userId: string, endpoint: string, p256dh: string, auth: string): Promise<PushSubscription>;
+  getPushSubscriptions(userId: string): Promise<PushSubscription[]>;
+  deletePushSubscription(endpoint: string): Promise<void>;
+  deletePushSubscriptionForUser(userId: string, endpoint: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3192,6 +3198,34 @@ export class DatabaseStorage implements IStorage {
     const [link] = await db.select().from(parentLinks)
       .where(eq(parentLinks.playerUserId, playerUserId));
     return link;
+  }
+
+  async savePushSubscription(userId: string, endpoint: string, p256dh: string, auth: string): Promise<PushSubscription> {
+    const existing = await db.select().from(pushSubscriptions)
+      .where(and(eq(pushSubscriptions.userId, userId), eq(pushSubscriptions.endpoint, endpoint)));
+    if (existing.length > 0) {
+      const [updated] = await db.update(pushSubscriptions)
+        .set({ p256dh, auth })
+        .where(eq(pushSubscriptions.id, existing[0].id))
+        .returning();
+      return updated;
+    }
+    const [sub] = await db.insert(pushSubscriptions).values({ userId, endpoint, p256dh, auth }).returning();
+    return sub;
+  }
+
+  async getPushSubscriptions(userId: string): Promise<PushSubscription[]> {
+    return db.select().from(pushSubscriptions).where(eq(pushSubscriptions.userId, userId));
+  }
+
+  async deletePushSubscription(endpoint: string): Promise<void> {
+    await db.delete(pushSubscriptions).where(eq(pushSubscriptions.endpoint, endpoint));
+  }
+
+  async deletePushSubscriptionForUser(userId: string, endpoint: string): Promise<void> {
+    await db.delete(pushSubscriptions).where(
+      and(eq(pushSubscriptions.userId, userId), eq(pushSubscriptions.endpoint, endpoint))
+    );
   }
 }
 
