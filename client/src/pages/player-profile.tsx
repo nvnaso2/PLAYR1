@@ -38,6 +38,7 @@ import {
   Globe,
   BarChart3,
   Trophy,
+  Medal,
   Video,
   ClipboardList,
   Link as LinkIcon,
@@ -69,6 +70,7 @@ const playerProfileFormSchema = z.object({
   showStats: z.boolean().default(true),
   showAchievements: z.boolean().default(true),
   showVideos: z.boolean().default(true),
+  showPersonalRecords: z.boolean().default(true),
   showTrainingLog: z.boolean().default(false),
 });
 
@@ -127,6 +129,7 @@ export function PlayerProfileSection() {
       showStats: true,
       showAchievements: true,
       showVideos: true,
+      showPersonalRecords: true,
       showTrainingLog: false,
     },
   });
@@ -152,6 +155,7 @@ export function PlayerProfileSection() {
         showStats: profile.showStats ?? true,
         showAchievements: profile.showAchievements ?? true,
         showVideos: profile.showVideos ?? true,
+        showPersonalRecords: (profile as any).showPersonalRecords ?? true,
         showTrainingLog: profile.showTrainingLog ?? false,
       });
     }
@@ -649,15 +653,38 @@ export function PlayerProfileSection() {
                     <div className="space-y-0.5">
                       <FormLabel className="flex items-center gap-2">
                         <Trophy className="h-4 w-4" />
-                        Awards & Records
+                        Awards
                       </FormLabel>
-                      <FormDescription>Show team awards and personal records</FormDescription>
+                      <FormDescription>Show team awards and achievements</FormDescription>
                     </div>
                     <FormControl>
                       <Switch
                         checked={field.value}
                         onCheckedChange={field.onChange}
                         data-testid="switch-show-achievements"
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <Separator />
+              <FormField
+                control={form.control}
+                name="showPersonalRecords"
+                render={({ field }) => (
+                  <FormItem className="flex items-center justify-between gap-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="flex items-center gap-2">
+                        <Medal className="h-4 w-4" />
+                        Personal Records
+                      </FormLabel>
+                      <FormDescription>Show your personal best scores and records</FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        data-testid="switch-show-personal-records"
                       />
                     </FormControl>
                   </FormItem>

@@ -607,6 +607,7 @@ export const playerProfiles = pgTable("player_profiles", {
   showStats: boolean("show_stats").default(true),
   showAchievements: boolean("show_achievements").default(true),
   showVideos: boolean("show_videos").default(true),
+  showPersonalRecords: boolean("show_personal_records").default(true),
   showTrainingLog: boolean("show_training_log").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow()

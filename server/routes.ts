@@ -2221,6 +2221,8 @@ export async function registerRoutes(
       }
       if (profile.showAchievements) {
         publicData.awards = await storage.getUserTeamAwards(profile.userId);
+      }
+      if (profile.showPersonalRecords !== false) {
         publicData.personalRecords = await storage.getUserPersonalRecords(profile.userId);
       }
       if (profile.showVideos) {
