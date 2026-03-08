@@ -1596,6 +1596,7 @@ export async function registerRoutes(
         'cardPhotoUrl',
         'trophyRoomOrder',
         'staffRole',
+        'alsoPlayer',
         'primaryReason',
         'onboardingTeams',
         'onboardingCompleted'

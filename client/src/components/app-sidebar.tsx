@@ -139,7 +139,7 @@ export function AppSidebar() {
             />
           </div>
         </Link>
-        {(hasStaffRole || canToggle) && (
+        {canToggle && (
           <div className="flex items-center gap-1 mt-2">
             <Button
               size="sm"

@@ -82,7 +82,8 @@ import {
   Shield,
   Brain,
   Upload,
-  MapPin
+  MapPin,
+  ArrowLeftRight
 } from "lucide-react";
 import type { CareerProfile, UserAchievement, CareerAchievement, Challenge, UserChallenge, PersonalRecord, TeamAward, Season, Game, InsertTeamAward, InsertChallenge } from "@shared/schema";
 import { insertTeamAwardSchema, insertChallengeSchema } from "@shared/schema";
@@ -498,7 +499,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   const { toast } = useToast();
   const { user } = useAuth();
   const [step, setStep] = useState<"role" | "profile" | "reason" | "select-teams" | "log-game" | "no-season" | "season-start" | "dev-priority" | "dev-log-next" | "dev-create-next" | "tutorial-log" | "tutorial-create" | "trainer-profile" | "trainer-specialties" | "trainer-begin">("role");
-  const [selectedRole, setSelectedRole] = useState<"player" | "trainer" | "coach" | null>(null);
+  const [selectedRole, setSelectedRole] = useState<"player" | "trainer" | "coach" | "player_trainer" | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   const [firstName, setFirstName] = useState(user?.firstName || "");
@@ -772,9 +773,9 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
     }
   };
 
-  const handleRoleSelect = (role: "player" | "trainer" | "coach") => {
+  const handleRoleSelect = (role: "player" | "trainer" | "coach" | "player_trainer") => {
     setSelectedRole(role);
-    if (role === "trainer") {
+    if (role === "trainer" || role === "player_trainer") {
       setStep("trainer-profile");
     } else {
       setStep("profile");
@@ -853,6 +854,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
 
       const profileData: Record<string, any> = {
         staffRole: trainerAlsoCoaches ? "both" : "trainer",
+        alsoPlayer: selectedRole === "player_trainer",
         trainerAlsoCoaches,
         trainerTeamName: trainerAlsoCoaches ? trainerTeamName : null,
       };
@@ -976,6 +978,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
             {[
               { value: "player" as const, label: "Player", desc: "Track your development and stats", icon: User },
               { value: "trainer" as const, label: "Trainer", desc: "Manage and develop players", icon: Dumbbell },
+              { value: "player_trainer" as const, label: "Player & Trainer", desc: "Train players and track your own game", icon: ArrowLeftRight },
               { value: "coach" as const, label: "Coach", desc: "Lead your team", icon: GraduationCap },
             ].map(role => {
               const Icon = role.icon;

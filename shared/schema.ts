@@ -109,6 +109,7 @@ export const careerProfiles = pgTable("career_profiles", {
   
   // Staff role for Coach/Trainer mode
   staffRole: varchar("staff_role"), // "coach", "trainer", or "both"
+  alsoPlayer: boolean("also_player").default(false),
   
   // Trainer-specific fields
   trainerSpecialties: text("trainer_specialties"), // JSON array of ranked specialties

@@ -6,6 +6,7 @@ type ActiveView = "player" | "trainer";
 
 interface CareerProfile {
   staffRole?: StaffRole;
+  alsoPlayer?: boolean;
   onboardingCompleted?: boolean;
 }
 
@@ -60,7 +61,7 @@ export function useRole() {
     isPlayer: !hasStaffRole,
     activeView: resolvedView,
     setActiveView,
-    canToggle: staffRole === "both",
+    canToggle: hasStaffRole && profile?.alsoPlayer === true,
     isLoading,
   };
 }
