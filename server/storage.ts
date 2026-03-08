@@ -56,6 +56,9 @@ import { db } from "./db";
 import { eq, desc, and, or, sql, gte, isNotNull, isNull, inArray } from "drizzle-orm";
 
 export interface IStorage {
+  // Users
+  getUser(id: string): Promise<any | undefined>;
+
   // Drills
   getDrills(): Promise<Drill[]>;
   getDrillById(id: string): Promise<Drill | undefined>;
@@ -411,6 +414,11 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  async getUser(id: string): Promise<any | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
   // Drills
   async getDrills(): Promise<Drill[]> {
     return await db.select().from(drills).orderBy(drills.title);

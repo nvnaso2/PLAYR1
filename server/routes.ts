@@ -3,10 +3,10 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
-import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions } from "@shared/schema";
+import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, or, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { zipToCoords, cityStateToCoords, haversineDistance } from "./geo";
 import {
@@ -23,6 +23,28 @@ async function getEmailForUser(userId: string): Promise<string | null> {
   if (profile?.email) return profile.email;
   const [user] = await db.select({ email: users.email }).from(users).where(eq(users.id, userId));
   return user?.email || null;
+}
+
+async function resolveTrainerPlayerId(prefixedId: string): Promise<string> {
+  if (prefixedId.startsWith("tp_")) {
+    const tpId = prefixedId.replace("tp_", "");
+    const tp = await storage.getTrainerPlayerById(tpId);
+    if (tp?.linkedUserId) return tp.linkedUserId;
+    if (tp?.email) {
+      const [matchedUser] = await db.select().from(users).where(eq(users.email, tp.email));
+      if (matchedUser) {
+        await db.update(trainerPlayers).set({ linkedUserId: matchedUser.id }).where(eq(trainerPlayers.id, tp.id));
+        await db.update(messages).set({ receiverId: matchedUser.id }).where(eq(messages.receiverId, prefixedId));
+        await db.update(messages).set({ senderId: matchedUser.id }).where(eq(messages.senderId, prefixedId));
+        return matchedUser.id;
+      }
+    }
+  } else if (prefixedId.startsWith("cp_")) {
+    const cpId = prefixedId.replace("cp_", "");
+    const cp = await storage.getCoachPlayerById(cpId);
+    if (cp?.linkedUserId) return cp.linkedUserId;
+  }
+  return prefixedId;
 }
 
 async function getDisplayNameForUser(userId: string): Promise<string> {
@@ -3390,19 +3412,23 @@ export async function registerRoutes(
           const tpName = `${tp.firstName} ${tp.lastName || ''}`.trim();
           if (position && tp.position !== position) continue;
           if (search && !tpName.toLowerCase().includes((search as string).toLowerCase())) continue;
-          const tpKey = tp.linkedUserId || `tp_${tp.id}`;
+
+          const resolvedId = await resolveTrainerPlayerId(tp.linkedUserId ? tp.linkedUserId : `tp_${tp.id}`);
+          const isAppUser = !resolvedId.startsWith("tp_");
+
+          const tpKey = resolvedId;
           if (!contactsMap.has(tpKey)) {
             const tpAssignments = await storage.getTrainerPlayerAssignments(tp.id);
             const groupName = tpAssignments.length > 0 ? tpAssignments[0].groupName : "Unassigned";
             contactsMap.set(tpKey, {
-              id: tp.linkedUserId || `tp_${tp.id}`,
+              id: resolvedId,
               name: tpName,
               image: undefined,
               teamName: groupName,
               teamId: tpAssignments.length > 0 ? tpAssignments[0].groupId : "",
               position: tp.position || undefined,
               jerseyNumber: tp.jerseyNumber || undefined,
-              isAppUser: !!tp.linkedUserId,
+              isAppUser,
             });
           }
         }
@@ -3419,6 +3445,32 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const contactsMap = new Map<string, { id: string; name: string; image?: string }>();
+
+      const currentUser = await storage.getUser(userId);
+
+      const allTrainerPlayers = await db.select().from(trainerPlayers)
+        .where(
+          currentUser?.email
+            ? or(
+                eq(trainerPlayers.linkedUserId, userId),
+                eq(trainerPlayers.email, currentUser.email)
+              )
+            : eq(trainerPlayers.linkedUserId, userId)
+        );
+      for (const tp of allTrainerPlayers) {
+        if (!contactsMap.has(tp.trainerId)) {
+          const trainerUser = await storage.getUser(tp.trainerId);
+          if (trainerUser) {
+            const name = `${trainerUser.firstName || ''} ${trainerUser.lastName || ''}`.trim() || 'Trainer';
+            contactsMap.set(tp.trainerId, {
+              id: tp.trainerId,
+              name,
+              image: trainerUser.profileImageUrl || undefined,
+            });
+          }
+        }
+      }
+
       const sessions = await storage.getTrainingSessionsForPlayer(userId);
       for (const session of sessions) {
         if (!contactsMap.has(session.trainerId)) {
@@ -3458,10 +3510,13 @@ export async function registerRoutes(
   app.post("/api/messages", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { receiverId, content, teamId } = req.body;
+      let { receiverId, content, teamId } = req.body;
       if (!receiverId || !content) {
         return res.status(400).json({ message: "receiverId and content are required" });
       }
+
+      receiverId = await resolveTrainerPlayerId(receiverId);
+
       const message = await storage.sendMessage({
         senderId: userId,
         receiverId,
@@ -3479,7 +3534,8 @@ export async function registerRoutes(
   app.put("/api/messages/:senderId/read", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      await storage.markMessagesRead(userId, req.params.senderId);
+      const senderId = await resolveTrainerPlayerId(req.params.senderId);
+      await storage.markMessagesRead(userId, senderId);
       res.json({ success: true });
     } catch (error) {
       console.error("Error marking messages read:", error);
@@ -3491,8 +3547,9 @@ export async function registerRoutes(
   app.get("/api/messages/:partnerId", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const msgs = await storage.getMessages(userId, req.params.partnerId);
-      await storage.markMessagesRead(userId, req.params.partnerId);
+      const partnerId = await resolveTrainerPlayerId(req.params.partnerId);
+      const msgs = await storage.getMessages(userId, partnerId);
+      await storage.markMessagesRead(userId, partnerId);
       res.json(msgs);
     } catch (error) {
       console.error("Error fetching messages:", error);
