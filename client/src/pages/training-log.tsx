@@ -154,6 +154,8 @@ export default function TrainingLogPage() {
     timeLimit: undefined as number | undefined
   });
   
+  const [challengesSectionOpen, setChallengesSectionOpen] = useState(false);
+  
   // Timer state: tracks which rounds have active timers
   const [activeTimers, setActiveTimers] = useState<Record<number, number>>({}); // index -> start timestamp
   const [timerTick, setTimerTick] = useState(0); // Force re-render for timer display
@@ -1575,15 +1577,20 @@ export default function TrainingLogPage() {
                 if (!hasChallenges) return null;
 
                 return (
-                  <div className="space-y-3" data-testid="section-challenges">
-                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                      <Trophy className="w-4 h-4 text-yellow-500" />
-                      My Challenges
-                      {inProgressChallenges.length > 0 && (
-                        <Badge className="text-xs bg-orange-500/20 text-orange-400 border-orange-500/30">{inProgressChallenges.length} Active</Badge>
-                      )}
-                    </h3>
-                    <div className="space-y-2">
+                  <Collapsible open={challengesSectionOpen} onOpenChange={setChallengesSectionOpen}>
+                    <CollapsibleTrigger asChild>
+                      <div className="flex items-center gap-2 cursor-pointer select-none" data-testid="section-challenges">
+                        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                          <Trophy className="w-4 h-4 text-yellow-500" />
+                          My Challenges
+                          {inProgressChallenges.length > 0 && (
+                            <Badge className="text-xs bg-orange-500/20 text-orange-400 border-orange-500/30">{inProgressChallenges.length} Active</Badge>
+                          )}
+                        </h3>
+                        <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${challengesSectionOpen ? 'rotate-90' : ''}`} />
+                      </div>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="space-y-2 pt-3">
                       {inProgressChallenges.map(uc => {
                         const progressPercent = Math.min(100, Math.round(((uc.currentValue || 0) / (uc.challenge.targetValue || 1)) * 100));
                         return (
@@ -1684,8 +1691,8 @@ export default function TrainingLogPage() {
                           </CardContent>
                         </Card>
                       ))}
-                    </div>
-                  </div>
+                    </CollapsibleContent>
+                  </Collapsible>
                 );
               })()}
 
