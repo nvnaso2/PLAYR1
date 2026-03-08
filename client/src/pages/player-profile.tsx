@@ -66,11 +66,11 @@ const playerProfileFormSchema = z.object({
   socialInstagram: z.string().max(100).optional().or(z.literal("")),
   socialTiktok: z.string().max(100).optional().or(z.literal("")),
   socialYoutube: z.string().max(200).optional().or(z.literal("")),
-  isPublic: z.boolean().default(true),
-  showStats: z.boolean().default(true),
-  showAchievements: z.boolean().default(true),
-  showVideos: z.boolean().default(true),
-  showPersonalRecords: z.boolean().default(true),
+  isPublic: z.boolean().default(false),
+  showStats: z.boolean().default(false),
+  showAchievements: z.boolean().default(false),
+  showVideos: z.boolean().default(false),
+  showPersonalRecords: z.boolean().default(false),
   showTrainingLog: z.boolean().default(false),
 });
 
@@ -125,11 +125,11 @@ export function PlayerProfileSection() {
       socialInstagram: "",
       socialTiktok: "",
       socialYoutube: "",
-      isPublic: true,
-      showStats: true,
-      showAchievements: true,
-      showVideos: true,
-      showPersonalRecords: true,
+      isPublic: false,
+      showStats: false,
+      showAchievements: false,
+      showVideos: false,
+      showPersonalRecords: false,
       showTrainingLog: false,
     },
   });
@@ -151,11 +151,11 @@ export function PlayerProfileSection() {
         socialInstagram: profile.socialInstagram || "",
         socialTiktok: profile.socialTiktok || "",
         socialYoutube: profile.socialYoutube || "",
-        isPublic: profile.isPublic ?? true,
-        showStats: profile.showStats ?? true,
-        showAchievements: profile.showAchievements ?? true,
-        showVideos: profile.showVideos ?? true,
-        showPersonalRecords: (profile as any).showPersonalRecords ?? true,
+        isPublic: profile.isPublic ?? false,
+        showStats: profile.showStats ?? false,
+        showAchievements: profile.showAchievements ?? false,
+        showVideos: profile.showVideos ?? false,
+        showPersonalRecords: (profile as any).showPersonalRecords ?? false,
         showTrainingLog: profile.showTrainingLog ?? false,
       });
     }
@@ -762,7 +762,7 @@ export function PlayerProfileSection() {
                       </div>
                     </div>
                     <Switch
-                      checked={season.isPublicProfile ?? true}
+                      checked={season.isPublicProfile ?? false}
                       onCheckedChange={(checked) => {
                         toggleSeasonVisibility.mutate({ seasonId: season.id, isPublicProfile: checked });
                       }}

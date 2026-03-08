@@ -4326,15 +4326,18 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
   const xpForNextLevel = (profile.level || 1) * 100 + 50;
   const xpProgress = ((profile.xp || 0) / xpForNextLevel) * 100;
 
-  const overallRating = Math.round(
-    ((profile.skillBallHandling || 5) +
-    (profile.skillShooting || 5) +
-    (profile.skillPassing || 5) +
-    (profile.skillFinishing || 5) +
-    (profile.skillDefense || 5) +
-    (profile.skillBasketballIQ || 5) +
-    (profile.skillAthletics || 5)) / 7
-  );
+  const skillValues = [
+    profile.skillBallHandling,
+    profile.skillShooting,
+    profile.skillPassing,
+    profile.skillFinishing,
+    profile.skillDefense,
+    profile.skillBasketballIQ,
+    profile.skillAthletics,
+  ].filter((v): v is number => v != null && v > 0);
+  const overallRating = skillValues.length > 0
+    ? Math.round(skillValues.reduce((a, b) => a + b, 0) / skillValues.length)
+    : null;
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
@@ -4420,10 +4423,12 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
           <CardContent className="space-y-4">
             <div className="flex justify-center">
               <div className="w-24 h-24 rounded-full bg-primary flex items-center justify-center text-4xl font-bold text-primary-foreground">
-                {overallRating}
+                {overallRating != null ? overallRating : "—"}
               </div>
             </div>
-            <p className="text-center text-sm text-muted-foreground">Overall Rating</p>
+            <p className="text-center text-sm text-muted-foreground">
+              {overallRating != null ? "Overall Rating" : "Not yet rated"}
+            </p>
             
             <div className="space-y-2 pt-4">
               {profile.positions && profile.positions.length > 0 && (
@@ -4490,9 +4495,11 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
               <div key={skill.key} className="space-y-1">
                 <div className="flex justify-between text-sm">
                   <span>{skill.label}</span>
-                  <span className="font-medium">{skill.value || 5}</span>
+                  <span className={`font-medium ${skill.value == null ? "text-muted-foreground italic" : ""}`}>
+                    {skill.value != null ? skill.value : "Not rated"}
+                  </span>
                 </div>
-                <Progress value={(skill.value || 5) * 10} className="h-2" />
+                <Progress value={skill.value != null ? skill.value * 10 : 0} className="h-2" />
               </div>
             ))}
             {profile.focusSkill && (

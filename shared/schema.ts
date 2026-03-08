@@ -237,7 +237,7 @@ export const seasons = pgTable("seasons", {
   seasonType: varchar("season_type").$type<SeasonType>().notNull(),
   year: varchar("year").notNull(), // e.g., "2024-25" or "2024"
   isActive: boolean("is_active").default(true),
-  isPublicProfile: boolean("is_public_profile").default(true),
+  isPublicProfile: boolean("is_public_profile").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow()
 });
@@ -605,11 +605,11 @@ export const playerProfiles = pgTable("player_profiles", {
   socialInstagram: varchar("social_instagram"),
   socialTiktok: varchar("social_tiktok"),
   socialYoutube: varchar("social_youtube"),
-  isPublic: boolean("is_public").default(true),
-  showStats: boolean("show_stats").default(true),
-  showAchievements: boolean("show_achievements").default(true),
-  showVideos: boolean("show_videos").default(true),
-  showPersonalRecords: boolean("show_personal_records").default(true),
+  isPublic: boolean("is_public").default(false),
+  showStats: boolean("show_stats").default(false),
+  showAchievements: boolean("show_achievements").default(false),
+  showVideos: boolean("show_videos").default(false),
+  showPersonalRecords: boolean("show_personal_records").default(false),
   showTrainingLog: boolean("show_training_log").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow()
