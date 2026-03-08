@@ -17,11 +17,11 @@ function getRedirectUri() {
 }
 
 function createOAuth2Client() {
-  return new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    getRedirectUri()
-  );
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const redirectUri = getRedirectUri();
+  console.log(`[Google Calendar] OAuth2 client: id=${clientId?.substring(0, 15)}..., secret=${clientSecret ? clientSecret.substring(0, 6) + '...' : 'MISSING'}, redirect=${redirectUri}`);
+  return new google.auth.OAuth2(clientId, clientSecret, redirectUri);
 }
 
 function signState(userId: string): string {
