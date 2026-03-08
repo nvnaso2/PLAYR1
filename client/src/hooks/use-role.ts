@@ -22,6 +22,7 @@ export function useRole() {
   const isTrainer = staffRole === "trainer" || staffRole === "both";
   const isCoach = staffRole === "coach" || staffRole === "both";
   const hasStaffRole = isTrainer || isCoach;
+  const alsoPlayer = profile?.alsoPlayer === true;
 
   const initialView = (): ActiveView => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -35,36 +36,46 @@ export function useRole() {
   useEffect(() => {
     if (!isLoading && profile && !hasInitialized.current) {
       hasInitialized.current = true;
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (hasStaffRole && !profile.alsoPlayer) {
+
+      if (hasStaffRole && !alsoPlayer) {
         setActiveViewState("trainer");
         localStorage.setItem(STORAGE_KEY, "trainer");
-      } else if (!stored && hasStaffRole) {
-        setActiveViewState("trainer");
-        localStorage.setItem(STORAGE_KEY, "trainer");
-      } else if (stored === "trainer" && !hasStaffRole) {
+      } else if (hasStaffRole && alsoPlayer) {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (!stored) {
+          setActiveViewState("trainer");
+          localStorage.setItem(STORAGE_KEY, "trainer");
+        }
+      } else if (!hasStaffRole) {
         setActiveViewState("player");
         localStorage.setItem(STORAGE_KEY, "player");
       }
     }
-  }, [isLoading, profile, hasStaffRole]);
+  }, [isLoading, profile, hasStaffRole, alsoPlayer]);
 
   const setActiveView = useCallback((view: ActiveView) => {
     setActiveViewState(view);
     localStorage.setItem(STORAGE_KEY, view);
   }, []);
 
-  const resolvedView = hasStaffRole ? activeView : "player" as ActiveView;
+  let resolvedView: ActiveView;
+  if (hasStaffRole && !alsoPlayer) {
+    resolvedView = "trainer";
+  } else if (hasStaffRole) {
+    resolvedView = activeView;
+  } else {
+    resolvedView = "player";
+  }
 
   return {
     staffRole,
     isTrainer,
     isCoach,
     hasStaffRole,
-    isPlayer: !hasStaffRole,
+    isPlayer: !hasStaffRole || alsoPlayer,
     activeView: resolvedView,
     setActiveView,
-    canToggle: hasStaffRole && profile?.alsoPlayer === true,
+    canToggle: hasStaffRole && alsoPlayer,
     isLoading,
   };
 }
