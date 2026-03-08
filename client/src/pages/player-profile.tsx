@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Form,
   FormControl,
@@ -45,8 +46,19 @@ import {
   Ruler,
   GraduationCap,
   Calendar,
+  Camera,
+  MapPin,
 } from "lucide-react";
+import { US_STATES } from "@shared/schema";
 import type { PlayerProfile, Season } from "@shared/schema";
+
+interface UserProfile {
+  profilePhotoUrl: string | null;
+  city: string | null;
+  state: string | null;
+  zipCode: string | null;
+  displayName: string | null;
+}
 
 const playerProfileFormSchema = z.object({
   slug: z.string()
@@ -55,6 +67,9 @@ const playerProfileFormSchema = z.object({
     .regex(/^[a-z0-9-]+$/, "Only lowercase letters, numbers, and hyphens allowed"),
   headline: z.string().max(120, "Headline must be under 120 characters").optional().or(z.literal("")),
   bio: z.string().max(1000, "Bio must be under 1000 characters").optional().or(z.literal("")),
+  city: z.string().max(100).optional().or(z.literal("")),
+  state: z.string().max(2).optional().or(z.literal("")),
+  zipCode: z.string().max(10).optional().or(z.literal("")),
   heightFeet: z.coerce.number().min(3).max(8).optional().or(z.literal(0)),
   heightInches: z.coerce.number().min(0).max(11).optional().or(z.literal(0)),
   weight: z.coerce.number().min(50).max(400).optional().or(z.literal(0)),
@@ -80,9 +95,14 @@ export function PlayerProfileSection() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const [uploading, setUploading] = useState(false);
 
   const { data: profile, isLoading } = useQuery<PlayerProfile | null>({
     queryKey: ["/api/player-profile"],
+  });
+
+  const { data: userProfile } = useQuery<UserProfile | null>({
+    queryKey: ["/api/profile"],
   });
 
   const { data: userSeasons = [] } = useQuery<Season[]>({
@@ -114,6 +134,9 @@ export function PlayerProfileSection() {
       slug: "",
       headline: "",
       bio: "",
+      city: "",
+      state: "",
+      zipCode: "",
       heightFeet: 0,
       heightInches: 0,
       weight: 0,
@@ -140,6 +163,9 @@ export function PlayerProfileSection() {
         slug: profile.slug || "",
         headline: profile.headline || "",
         bio: profile.bio || "",
+        city: userProfile?.city || "",
+        state: userProfile?.state || "",
+        zipCode: (userProfile as any)?.zipCode || "",
         heightFeet: profile.heightFeet || 0,
         heightInches: profile.heightInches || 0,
         weight: profile.weight || 0,
@@ -159,11 +185,12 @@ export function PlayerProfileSection() {
         showTrainingLog: profile.showTrainingLog ?? false,
       });
     }
-  }, [profile, form]);
+  }, [profile, userProfile, form]);
 
   const saveMutation = useMutation({
     mutationFn: async (data: PlayerProfileFormData) => {
-      const payload: any = { ...data };
+      const { city, state, zipCode, ...playerFields } = data;
+      const payload: any = { ...playerFields };
       if (payload.heightFeet === 0) payload.heightFeet = null;
       if (payload.heightInches === 0) payload.heightInches = null;
       if (payload.weight === 0) payload.weight = null;
@@ -177,10 +204,18 @@ export function PlayerProfileSection() {
       if (payload.socialInstagram === "") payload.socialInstagram = null;
       if (payload.socialTiktok === "") payload.socialTiktok = null;
       if (payload.socialYoutube === "") payload.socialYoutube = null;
+      await apiRequest("PUT", "/api/profile", {
+        ...(userProfile || {}),
+        city: city || "",
+        state: state || "",
+        zipCode: zipCode || "",
+      });
       return await apiRequest("PUT", "/api/player-profile", payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/player-profile"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user/location"] });
       if (profile?.slug) {
         queryClient.invalidateQueries({ queryKey: ["/api/player", profile.slug] });
       }
@@ -197,6 +232,56 @@ export function PlayerProfileSection() {
       });
     },
   });
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+    if (!allowedTypes.includes(file.type)) {
+      toast({ title: "Invalid file type", description: "Please upload a JPEG, PNG, GIF, or WebP image.", variant: "destructive" });
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Maximum file size is 10MB.", variant: "destructive" });
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const urlRes = await apiRequest("POST", "/api/user/uploads/photo-url", {
+        name: file.name,
+        size: file.size,
+        contentType: file.type,
+      });
+      const { uploadURL, objectPath } = await urlRes.json();
+
+      const uploadRes = await fetch(uploadURL, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      if (!uploadRes.ok) throw new Error("Upload failed");
+
+      await apiRequest("PUT", "/api/profile", { ...(userProfile || {}), profilePhotoUrl: objectPath });
+      queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
+      toast({ title: "Photo updated" });
+    } catch (err) {
+      toast({ title: "Upload failed", description: "Could not upload photo. Please try again.", variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const profilePhotoSrc = userProfile?.profilePhotoUrl
+    ? (userProfile.profilePhotoUrl.startsWith("/") ? userProfile.profilePhotoUrl : `/objects/${userProfile.profilePhotoUrl}`)
+    : user?.profileImageUrl || undefined;
+
+  const getInitials = () => {
+    if (user?.firstName && user?.lastName) return `${user.firstName[0]}${user.lastName[0]}`;
+    if (user?.firstName) return user.firstName[0];
+    return "?";
+  };
 
   const onSubmit = (data: PlayerProfileFormData) => {
     saveMutation.mutate(data);
@@ -218,15 +303,46 @@ export function PlayerProfileSection() {
 
   return (
     <div className="space-y-6">
-      <Separator />
-      <div>
-        <h3 className="text-lg font-semibold" data-testid="text-player-profile-section">
-          Public Recruiting Profile
-        </h3>
-        <p className="text-sm text-muted-foreground">
-          Share your profile with coaches and scouts
-        </p>
-      </div>
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col items-center gap-4">
+            <div className="relative">
+              <Avatar className="h-24 w-24">
+                <AvatarImage src={profilePhotoSrc} />
+                <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
+                  {getInitials()}
+                </AvatarFallback>
+              </Avatar>
+              <label
+                className="absolute bottom-0 right-0 flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground cursor-pointer hover:opacity-90 transition-opacity"
+                data-testid="button-upload-player-photo"
+              >
+                <Camera className="w-4 h-4" />
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  className="hidden"
+                  onChange={handlePhotoUpload}
+                  disabled={uploading}
+                />
+              </label>
+              {uploading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full">
+                  <div className="text-white text-[10px] font-medium">...</div>
+                </div>
+              )}
+            </div>
+            <div className="text-center">
+              <p className="font-semibold text-lg" data-testid="text-player-name">
+                {user?.firstName && user?.lastName
+                  ? `${user.firstName} ${user.lastName}`
+                  : user?.firstName || "Player"}
+              </p>
+              <p className="text-sm text-muted-foreground">{user?.email}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {profile?.slug && isPublicValue && (
         <Card>
@@ -328,6 +444,68 @@ export function PlayerProfileSection() {
                         {...field}
                       />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <MapPin className="h-5 w-5" />
+                Location
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="city"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>City</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Your city" data-testid="input-city" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="state"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>State</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-state">
+                            <SelectValue placeholder="Select state" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {US_STATES.map(st => (
+                            <SelectItem key={st} value={st}>{st}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormField
+                control={form.control}
+                name="zipCode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Zip Code</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. 30009" data-testid="input-zip-code" {...field} />
+                    </FormControl>
+                    <FormDescription>Used for finding nearby teams, leagues, and trainers</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -798,7 +976,7 @@ export default function PlayerProfilePage() {
           Player Profile
         </h1>
         <p className="text-sm text-muted-foreground">
-          Set up your public recruiting profile to share with coaches and scouts
+          Manage your profile photo, location, and public recruiting profile
         </p>
       </div>
       <PlayerProfileSection />
