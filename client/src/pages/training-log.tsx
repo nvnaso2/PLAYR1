@@ -67,7 +67,8 @@ import {
   Upload,
   Video,
   Star,
-  Heart
+  Heart,
+  Search
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Drill, TrainingLog, DrillMetric, MetricTemplate, Workout, WorkoutDrill, ShotLocation, Challenge, UserChallenge } from "@shared/schema";
@@ -132,6 +133,8 @@ export default function TrainingLogPage() {
   });
   const [isSaveWorkoutOpen, setIsSaveWorkoutOpen] = useState(false);
   const [isAddDrillToWorkoutOpen, setIsAddDrillToWorkoutOpen] = useState(false);
+  const [isStartWorkoutDialogOpen, setIsStartWorkoutDialogOpen] = useState(false);
+  const [drillSearchQuery, setDrillSearchQuery] = useState("");
   const [selectedMetricTemplateIds, setSelectedMetricTemplateIds] = useState<string[]>([]);
   const [drillVideoFile, setDrillVideoFile] = useState<File | null>(null);
   const [drillVideoUploading, setDrillVideoUploading] = useState(false);
@@ -1746,6 +1749,17 @@ export default function TrainingLogPage() {
             <>
               {/* Action Buttons */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <Card className="cursor-pointer hover-elevate" onClick={() => { setDrillSearchQuery(""); setIsStartWorkoutDialogOpen(true); }} data-testid="action-start-workout">
+                  <CardContent className="p-4 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0">
+                      <Play className="w-5 h-5 text-green-500" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-sm">Start Workout</h3>
+                      <p className="text-xs text-muted-foreground">Select drills and go</p>
+                    </div>
+                  </CardContent>
+                </Card>
                 <Card className="cursor-pointer hover-elevate" onClick={() => setIsCreateDrillOpen(true)} data-testid="action-create-drill">
                   <CardContent className="p-4 flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
@@ -1768,243 +1782,97 @@ export default function TrainingLogPage() {
                     </div>
                   </CardContent>
                 </Card>
-                <Card className="cursor-pointer hover-elevate" onClick={() => startWorkoutFromDrills()} data-testid="action-start-workout">
-                  <CardContent className="p-4 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0">
-                      <Play className="w-5 h-5 text-green-500" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-sm">Start Workout</h3>
-                      <p className="text-xs text-muted-foreground">{selectedDrillIds.size > 0 ? `${selectedDrillIds.size} selected` : "Select drills below"}</p>
-                    </div>
-                  </CardContent>
-                </Card>
               </div>
 
-              {/* Favorites Section */}
-              {(() => {
-                const favDrills = allDrills?.filter(d => favoriteDrillIds?.includes(d.id)) || [];
-                const favWorkouts = [...(personalWorkouts || []), ...(handlzWorkouts || [])].filter(w => w.isFavorite);
-                if (favDrills.length === 0 && favWorkouts.length === 0) return null;
-                return (
-                  <Card data-testid="section-favorites">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <Star className="w-4 h-4 text-yellow-500" fill="currentColor" />
-                        Favorites
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      {favDrills.map(drill => (
-                        <div
-                          key={drill.id}
-                          className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover-elevate ${selectedDrillIds.has(drill.id) ? 'border-primary bg-primary/5' : ''}`}
-                          data-testid={`fav-drill-${drill.id}`}
-                        >
-                          <Checkbox
-                            checked={selectedDrillIds.has(drill.id)}
-                            onCheckedChange={() => toggleDrillSelection(drill.id)}
-                            data-testid={`checkbox-fav-drill-${drill.id}`}
-                          />
-                          <div className="flex-1 min-w-0" onClick={() => toggleDrillSelection(drill.id)}>
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium text-sm">{drill.title}</span>
-                              <Badge variant="secondary" className="text-xs">{drill.difficulty}</Badge>
-                              <Badge variant="outline" className="text-xs">{formatCategory(drill.category)}</Badge>
-                            </div>
-                          </div>
-                          <Button variant="ghost" size="icon" className="shrink-0 h-8 w-8" onClick={() => unfavoriteDrillMutation.mutate(drill.id)} data-testid={`unfav-drill-${drill.id}`}>
-                            <Star className="w-4 h-4 text-yellow-500" fill="currentColor" />
-                          </Button>
-                        </div>
-                      ))}
-                      {favWorkouts.map(workout => (
-                        <div
-                          key={workout.id}
-                          className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover-elevate"
-                          data-testid={`fav-workout-${workout.id}`}
-                        >
-                          <div className="w-8 h-8 rounded bg-primary/10 flex items-center justify-center shrink-0">
-                            <Layers className="w-4 h-4 text-primary" />
-                          </div>
-                          <div className="flex-1 min-w-0" onClick={() => startWorkoutFromTemplate(workout.id)}>
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium text-sm">{workout.name}</span>
-                              {workout.estimatedDuration && (
-                                <span className="text-xs text-muted-foreground flex items-center gap-1"><Clock className="w-3 h-3" />{workout.estimatedDuration}m</span>
-                              )}
-                            </div>
-                          </div>
-                          {workout.userId && (
-                            <Button variant="ghost" size="icon" className="shrink-0 h-8 w-8" onClick={() => favoriteWorkoutMutation.mutate(workout.id)} data-testid={`unfav-workout-${workout.id}`}>
-                              <Star className="w-4 h-4 text-yellow-500" fill="currentColor" />
-                            </Button>
-                          )}
-                        </div>
-                      ))}
-                    </CardContent>
-                  </Card>
-                );
-              })()}
-
-              {/* Drills & Workouts List */}
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Dumbbell className="w-4 h-4" />
-                      Drills & Workouts
-                    </CardTitle>
-                    {selectedDrillIds.size > 0 && (
-                      <Button size="sm" className="gap-1.5" onClick={() => startWorkoutFromDrills()} data-testid="button-start-selected">
-                        <Play className="w-3.5 h-3.5" />
-                        Start ({selectedDrillIds.size})
-                      </Button>
-                    )}
+              {/* Start Workout Dialog */}
+              <Dialog open={isStartWorkoutDialogOpen} onOpenChange={(open) => { setIsStartWorkoutDialogOpen(open); if (!open) setDrillSearchQuery(""); }}>
+                <DialogContent className="max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
+                  <DialogHeader>
+                    <DialogTitle>Start Workout</DialogTitle>
+                    <DialogDescription>Select drills to add to your workout</DialogDescription>
+                  </DialogHeader>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search drills..."
+                      value={drillSearchQuery}
+                      onChange={(e) => setDrillSearchQuery(e.target.value)}
+                      className="pl-9"
+                      data-testid="input-start-workout-search"
+                    />
                   </div>
-                  <CardDescription>Select drills to practice, then hit Start</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {drillsLoading ? (
-                    <div className="space-y-4">
-                      {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
-                    </div>
-                  ) : (() => {
-                    const allDrillsByCategory = groupByCategory(allDrills || []);
-                    if (Object.keys(allDrillsByCategory).length === 0) {
-                      return (
-                        <div className="text-center py-12">
-                          <Dumbbell className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
-                          <h3 className="font-semibold mb-2">No Drills Yet</h3>
-                          <p className="text-muted-foreground text-sm mb-4">Create your first drill to get started</p>
-                          <Button onClick={() => setIsCreateDrillOpen(true)} variant="outline" className="gap-2">
-                            <Plus className="w-4 h-4" /> Create Drill
-                          </Button>
-                        </div>
-                      );
-                    }
-
-                    const toggleCategory = (category: string) => {
-                      setExpandedCategories(prev => {
-                        const next = new Set(prev);
-                        if (next.has(category)) next.delete(category);
-                        else next.add(category);
-                        return next;
-                      });
-                    };
-
-                    return (
-                      <div className="space-y-2">
-                        {Object.entries(allDrillsByCategory).map(([category, categoryDrills]) => {
-                          const isCollapsed = !expandedCategories.has(category);
-                          const selectedCount = categoryDrills.filter(d => selectedDrillIds.has(d.id)).length;
-                          return (
-                            <div key={category} className="border rounded-md">
-                              <button
-                                type="button"
-                                onClick={() => toggleCategory(category)}
-                                className="flex items-center justify-between gap-2 w-full p-3 text-left hover-elevate rounded-md"
-                                data-testid={`toggle-category-${category}`}
-                              >
-                                <div className="flex items-center gap-2">
-                                  {isCollapsed ? <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />}
-                                  <span className="font-semibold text-sm uppercase tracking-wide">{formatCategory(category)}</span>
-                                  <Badge variant="outline" className="text-xs">{categoryDrills.length}</Badge>
-                                </div>
-                                {selectedCount > 0 && <Badge variant="default" className="text-xs">{selectedCount} selected</Badge>}
-                              </button>
-                              {!isCollapsed && (
-                                <div className="grid gap-2 px-3 pb-3">
-                                  {categoryDrills.map(drill => {
-                                    const isFav = favoriteDrillIds?.includes(drill.id) || false;
-                                    return (
-                                      <div
-                                        key={drill.id}
-                                        className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover-elevate ${selectedDrillIds.has(drill.id) ? 'border-primary bg-primary/5' : ''}`}
-                                        data-testid={`drill-select-${drill.id}`}
-                                      >
-                                        <Checkbox
-                                          checked={selectedDrillIds.has(drill.id)}
-                                          onCheckedChange={() => toggleDrillSelection(drill.id)}
-                                          className="mt-1"
-                                          data-testid={`checkbox-drill-${drill.id}`}
-                                        />
-                                        <div className="flex-1 min-w-0" onClick={() => toggleDrillSelection(drill.id)}>
-                                          <div className="flex items-start justify-between gap-2 flex-wrap">
-                                            <span className="font-medium">{drill.title}</span>
-                                            <Badge variant="secondary" className="shrink-0">{drill.difficulty}</Badge>
-                                          </div>
-                                          {drill.description && <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">{drill.description}</p>}
-                                        </div>
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          className="shrink-0 h-8 w-8 mt-0.5"
-                                          onClick={(e) => { e.stopPropagation(); isFav ? unfavoriteDrillMutation.mutate(drill.id) : favoriteDrillMutation.mutate(drill.id); }}
-                                          data-testid={`toggle-fav-drill-${drill.id}`}
-                                        >
-                                          <Star className={`w-4 h-4 ${isFav ? 'text-yellow-500' : 'text-muted-foreground'}`} fill={isFav ? "currentColor" : "none"} />
-                                        </Button>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    );
-                  })()}
-
-                  {/* Saved Workouts */}
-                  {((personalWorkouts && personalWorkouts.length > 0) || (handlzWorkouts && handlzWorkouts.length > 0)) && (
-                    <div className="pt-4 border-t">
-                      <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
-                        <Layers className="w-4 h-4" />
-                        Saved Workouts
-                      </h3>
-                      <div className="space-y-2">
-                        {[...(personalWorkouts || []), ...(handlzWorkouts || [])]
-                          .sort((a, b) => (b.isFavorite ? 1 : 0) - (a.isFavorite ? 1 : 0))
-                          .map(workout => (
-                          <Card
-                            key={workout.id}
-                            className="cursor-pointer hover-elevate"
-                            data-testid={`workout-card-${workout.id}`}
-                          >
-                            <CardContent className="p-3 flex items-center gap-3">
-                              <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                                <Layers className="w-4 h-4 text-primary" />
-                              </div>
-                              <div className="flex-1 min-w-0" onClick={() => startWorkoutFromTemplate(workout.id)}>
-                                <h4 className="font-medium text-sm">{workout.name}</h4>
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                  {workout.estimatedDuration && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{workout.estimatedDuration} min</span>}
-                                  {workout.category && <Badge variant="outline" className="text-xs">{formatCategory(workout.category)}</Badge>}
-                                  {!workout.userId && <Badge variant="secondary" className="text-xs">PLAYR1</Badge>}
-                                </div>
-                              </div>
-                              {workout.userId && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="shrink-0 h-8 w-8"
-                                  onClick={(e) => { e.stopPropagation(); favoriteWorkoutMutation.mutate(workout.id); }}
-                                  data-testid={`toggle-fav-workout-${workout.id}`}
-                                >
-                                  <Star className={`w-4 h-4 ${workout.isFavorite ? 'text-yellow-500' : 'text-muted-foreground'}`} fill={workout.isFavorite ? "currentColor" : "none"} />
-                                </Button>
-                              )}
-                              <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" onClick={() => startWorkoutFromTemplate(workout.id)} />
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
+                  {selectedDrillIds.size > 0 && (
+                    <div className="flex items-center justify-between py-2 px-1">
+                      <span className="text-sm text-muted-foreground">{selectedDrillIds.size} drill{selectedDrillIds.size !== 1 ? 's' : ''} selected</span>
+                      <Button
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={() => {
+                          setIsStartWorkoutDialogOpen(false);
+                          setDrillSearchQuery("");
+                          startWorkoutFromDrills();
+                        }}
+                        data-testid="button-start-selected-drills"
+                      >
+                        <Play className="w-3.5 h-3.5" />
+                        Start Workout
+                      </Button>
                     </div>
                   )}
-                </CardContent>
-              </Card>
+                  <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+                    {drillsLoading ? (
+                      <div className="space-y-3">
+                        {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}
+                      </div>
+                    ) : (() => {
+                      const searchLower = drillSearchQuery.toLowerCase().trim();
+                      const filtered = searchLower
+                        ? (allDrills || []).filter(d =>
+                            d.title.toLowerCase().includes(searchLower) ||
+                            d.category.toLowerCase().includes(searchLower) ||
+                            d.difficulty.toLowerCase().includes(searchLower) ||
+                            (d.description && d.description.toLowerCase().includes(searchLower))
+                          )
+                        : (allDrills || []);
+
+                      if (filtered.length === 0) {
+                        return (
+                          <div className="text-center py-8">
+                            <Search className="w-8 h-8 mx-auto text-muted-foreground/30 mb-2" />
+                            <p className="text-sm text-muted-foreground">
+                              {searchLower ? "No drills match your search" : "No drills available"}
+                            </p>
+                          </div>
+                        );
+                      }
+
+                      return filtered.map(drill => {
+                        const isSelected = selectedDrillIds.has(drill.id);
+                        return (
+                          <div
+                            key={drill.id}
+                            className={`flex items-center justify-between p-3 rounded-md border cursor-pointer hover-elevate ${isSelected ? 'border-primary bg-primary/5' : ''}`}
+                            onClick={() => toggleDrillSelection(drill.id)}
+                            data-testid={`start-drill-option-${drill.id}`}
+                          >
+                            <div>
+                              <h4 className="font-medium text-sm uppercase">{drill.title}</h4>
+                              <p className="text-xs text-muted-foreground">
+                                {formatCategory(drill.category)} - {drill.difficulty}
+                              </p>
+                            </div>
+                            {isSelected ? (
+                              <Check className="w-5 h-5 text-primary shrink-0" />
+                            ) : (
+                              <Plus className="w-4 h-4 text-muted-foreground shrink-0" />
+                            )}
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                </DialogContent>
+              </Dialog>
             </>
           ) : (
             /* Create Workout Mode */
@@ -2595,33 +2463,62 @@ export default function TrainingLogPage() {
               </Button>
               
               {/* Add Drill Dialog */}
-              <Dialog open={isAddDrillToWorkoutOpen} onOpenChange={setIsAddDrillToWorkoutOpen}>
+              <Dialog open={isAddDrillToWorkoutOpen} onOpenChange={(open) => { setIsAddDrillToWorkoutOpen(open); if (!open) setDrillSearchQuery(""); }}>
                 <DialogContent className="max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
                   <DialogHeader>
                     <DialogTitle>Add Drill to Workout</DialogTitle>
                     <DialogDescription>Select a drill to add to your active workout</DialogDescription>
                   </DialogHeader>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search drills..."
+                      value={drillSearchQuery}
+                      onChange={(e) => setDrillSearchQuery(e.target.value)}
+                      className="pl-9"
+                      data-testid="input-add-drill-search"
+                    />
+                  </div>
                   <div className="flex-1 overflow-y-auto space-y-2 pr-2">
-                    {allDrills && allDrills.length > 0 ? (
-                      allDrills.map(drill => (
+                    {(() => {
+                      const searchLower = drillSearchQuery.toLowerCase().trim();
+                      const filtered = searchLower
+                        ? (allDrills || []).filter(d =>
+                            d.title.toLowerCase().includes(searchLower) ||
+                            d.category.toLowerCase().includes(searchLower) ||
+                            d.difficulty.toLowerCase().includes(searchLower) ||
+                            (d.description && d.description.toLowerCase().includes(searchLower))
+                          )
+                        : (allDrills || []);
+
+                      if (filtered.length === 0) {
+                        return (
+                          <div className="text-center py-8">
+                            <Search className="w-8 h-8 mx-auto text-muted-foreground/30 mb-2" />
+                            <p className="text-sm text-muted-foreground">
+                              {searchLower ? "No drills match your search" : "No drills available"}
+                            </p>
+                          </div>
+                        );
+                      }
+
+                      return filtered.map(drill => (
                         <div
                           key={drill.id}
                           className="flex items-center justify-between p-3 rounded-md border hover-elevate cursor-pointer"
-                          onClick={() => addDrillToWorkout(drill.id)}
+                          onClick={() => { addDrillToWorkout(drill.id); setDrillSearchQuery(""); }}
                           data-testid={`add-drill-option-${drill.id}`}
                         >
                           <div>
-                            <h4 className="font-medium text-sm">{drill.title}</h4>
+                            <h4 className="font-medium text-sm uppercase">{drill.title}</h4>
                             <p className="text-xs text-muted-foreground">
                               {formatCategory(drill.category)} - {drill.difficulty}
                             </p>
                           </div>
                           <Plus className="w-4 h-4 text-muted-foreground" />
                         </div>
-                      ))
-                    ) : (
-                      <p className="text-sm text-muted-foreground text-center py-4">No drills available</p>
-                    )}
+                      ));
+                    })()}
                   </div>
                 </DialogContent>
               </Dialog>
