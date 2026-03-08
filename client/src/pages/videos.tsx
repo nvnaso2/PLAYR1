@@ -46,7 +46,7 @@ import {
   Globe,
   MoreVertical,
   Trash2,
-  Eye,
+  Pencil,
   FileVideo,
   X
 } from "lucide-react";
@@ -58,7 +58,7 @@ const videoFormSchema = z.object({
   videoUrl: z.string().optional(),
   description: z.string().optional(),
   drillId: z.string().optional(),
-  isPublic: z.boolean().default(false),
+  isPublic: z.boolean().default(true),
 });
 
 type VideoFormData = z.infer<typeof videoFormSchema>;
@@ -143,7 +143,7 @@ export default function VideosPage() {
       videoUrl: "",
       description: "",
       drillId: "__none__",
-      isPublic: false,
+      isPublic: true,
     },
   });
 
@@ -240,6 +240,54 @@ export default function VideosPage() {
       });
     },
   });
+
+  const updateVideoMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<VideoFormData> }) => {
+      return await apiRequest("PATCH", `/api/videos/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/videos'] });
+      toast({ title: "Video Updated" });
+      setEditingVideo(null);
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update video.", variant: "destructive" });
+    },
+  });
+
+  const [editingVideo, setEditingVideo] = useState<UserVideo | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editDrillId, setEditDrillId] = useState("");
+  const [editIsPublic, setEditIsPublic] = useState(false);
+
+  const openEdit = (video: UserVideo) => {
+    setEditingVideo(video);
+    setEditTitle(video.title);
+    setEditDescription(video.description || "");
+    setEditDrillId(video.drillId || "__none__");
+    setEditIsPublic(video.isPublic ?? false);
+  };
+
+  const saveEdit = () => {
+    if (!editingVideo) return;
+    updateVideoMutation.mutate({
+      id: editingVideo.id,
+      data: {
+        title: editTitle,
+        description: editDescription || undefined,
+        drillId: editDrillId === "__none__" ? undefined : editDrillId,
+        isPublic: editIsPublic,
+      },
+    });
+  };
+
+  const toggleVisibility = (video: UserVideo) => {
+    updateVideoMutation.mutate({
+      id: video.id,
+      data: { isPublic: !video.isPublic },
+    });
+  };
 
   const onSubmit = (data: VideoFormData) => {
     if (!uploadedVideoUrl && !data.videoUrl) {
@@ -564,15 +612,36 @@ export default function VideosPage() {
                       </Badge>
                     )}
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => deleteVideoMutation.mutate(video.id)}
-                    className="text-muted-foreground hover:text-destructive"
-                    data-testid={`button-delete-${video.id}`}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => toggleVisibility(video)}
+                      className={video.isPublic ? "text-primary" : "text-muted-foreground"}
+                      title={video.isPublic ? "Make Private" : "Make Public"}
+                      data-testid={`button-toggle-visibility-${video.id}`}
+                    >
+                      {video.isPublic ? <Globe className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => openEdit(video)}
+                      className="text-muted-foreground hover:text-foreground"
+                      data-testid={`button-edit-${video.id}`}
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => deleteVideoMutation.mutate(video.id)}
+                      className="text-muted-foreground hover:text-destructive"
+                      data-testid={`button-delete-${video.id}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
                 {video.description && (
                   <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
@@ -598,6 +667,69 @@ export default function VideosPage() {
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={!!editingVideo} onOpenChange={(open) => { if (!open) setEditingVideo(null); }}>
+        <DialogContent data-testid="dialog-edit-video">
+          <DialogHeader>
+            <DialogTitle>Edit Video</DialogTitle>
+            <DialogDescription>Update your video details and visibility.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Title</label>
+              <Input
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                className="mt-1"
+                data-testid="input-edit-title"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Description</label>
+              <Textarea
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                className="mt-1"
+                rows={3}
+                data-testid="input-edit-description"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Linked Drill</label>
+              <Select value={editDrillId} onValueChange={setEditDrillId}>
+                <SelectTrigger className="mt-1" data-testid="select-edit-drill">
+                  <SelectValue placeholder="No drill linked" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">No drill linked</SelectItem>
+                  {drills?.map((drill) => (
+                    <SelectItem key={drill.id} value={drill.id}>{drill.title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border p-4">
+              <div className="space-y-0.5">
+                <label className="text-sm font-medium">Public on Profile</label>
+                <p className="text-xs text-muted-foreground">Show this video on your public player profile</p>
+              </div>
+              <Switch
+                checked={editIsPublic}
+                onCheckedChange={setEditIsPublic}
+                data-testid="switch-edit-public"
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setEditingVideo(null)} data-testid="button-cancel-edit">
+                Cancel
+              </Button>
+              <Button onClick={saveEdit} disabled={!editTitle.trim() || updateVideoMutation.isPending} data-testid="button-save-edit">
+                {updateVideoMutation.isPending ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

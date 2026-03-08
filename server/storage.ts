@@ -89,6 +89,7 @@ export interface IStorage {
   // User Videos
   getUserVideos(userId: string): Promise<UserVideo[]>;
   createUserVideo(video: InsertUserVideo): Promise<UserVideo>;
+  updateUserVideo(id: string, userId: string, data: Partial<InsertUserVideo>): Promise<UserVideo | undefined>;
   deleteUserVideo(id: string, userId: string): Promise<boolean>;
 
   // Progress
@@ -627,6 +628,14 @@ export class DatabaseStorage implements IStorage {
   async createUserVideo(video: InsertUserVideo): Promise<UserVideo> {
     const [newVideo] = await db.insert(userVideos).values(video).returning();
     return newVideo;
+  }
+
+  async updateUserVideo(id: string, userId: string, data: Partial<InsertUserVideo>): Promise<UserVideo | undefined> {
+    const [updated] = await db.update(userVideos)
+      .set(data as any)
+      .where(and(eq(userVideos.id, id), eq(userVideos.userId, userId)))
+      .returning();
+    return updated;
   }
 
   async deleteUserVideo(id: string, userId: string): Promise<boolean> {
