@@ -58,11 +58,11 @@ import logoLandscape from "@assets/PNG_image_1770494053382.png";
 const playerNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: BarChart3 },
   { title: "My Career", url: "/career", icon: Trophy },
-  { title: "Drill Library", url: "/drills", icon: Play },
   { title: "Training Log", url: "/log", icon: ClipboardList },
+  { title: "My Trainer", url: "/my-trainer", icon: UserPlus },
+  { title: "Drill Library", url: "/drills", icon: Play },
   { title: "My Filmroom", url: "/videos", icon: Video },
   { title: "Teams & Leagues", url: "/teams", icon: Shield },
-  { title: "My Trainer", url: "/my-trainer", icon: UserPlus },
 ];
 
 const trainerNavItems = [
