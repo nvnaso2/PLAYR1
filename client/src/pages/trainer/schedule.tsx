@@ -268,7 +268,7 @@ export default function TrainerSchedulePage() {
     mutationFn: (data: { playerIds: string[]; sessionDate: string; startTime: string; endTime: string; locationId?: string; sessionType?: string; trainerNotes?: string }) =>
       apiRequest("POST", "/api/training-sessions/group", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/training-sessions/trainer/enriched"] });
+      invalidateSessions();
       setCreateDialogOpen(false);
       setCreateDate(undefined);
       setCreateStart("");
@@ -289,7 +289,7 @@ export default function TrainerSchedulePage() {
     mutationFn: ({ id, ...body }: { id: string; sessionDate: string; startTime: string; endTime: string; locationId: string; sessionType: string }) =>
       apiRequest("PUT", `/api/training-sessions/${id}/reschedule`, body),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/training-sessions/trainer/enriched"] });
+      invalidateSessions();
       setRescheduleDialogOpen(false);
       setRescheduleSession(null);
       toast({ title: "Session rescheduled. Awaiting player confirmation." });
