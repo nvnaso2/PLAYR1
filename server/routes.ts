@@ -2937,6 +2937,54 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/trainer/players/:playerId/training-logs", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const player = await storage.getTrainerPlayerById(req.params.playerId);
+      if (!player || player.trainerId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      const targetUserId = player.linkedUserId || req.params.playerId;
+      const logs = await storage.getTrainingLogs(targetUserId);
+      res.json(logs);
+    } catch (error: any) {
+      console.error("Error fetching player training logs:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/trainer/players/:playerId/sessions", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const player = await storage.getTrainerPlayerById(req.params.playerId);
+      if (!player || player.trainerId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      const targetUserId = player.linkedUserId || req.params.playerId;
+      const sessions = await storage.getTrainingSessionsForTrainer(userId, {});
+      const playerSessions = sessions.filter(s => s.playerId === targetUserId);
+      res.json(playerSessions);
+    } catch (error: any) {
+      console.error("Error fetching player sessions:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/trainer/players/:playerId/evaluations", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const player = await storage.getTrainerPlayerById(req.params.playerId);
+      if (!player || player.trainerId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      const evaluations = await storage.getPlayerEvaluations(req.params.playerId, userId);
+      res.json(evaluations);
+    } catch (error: any) {
+      console.error("Error fetching player evaluations:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // ===== TRAINER CUSTOM DRILLS =====
   app.get("/api/trainer/drills", isAuthenticated, async (req: any, res) => {
     try {

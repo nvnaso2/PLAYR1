@@ -67,7 +67,7 @@ const playerNavItems = [
 
 const trainerNavItems = [
   { title: "Home", url: "/trainer", icon: BarChart3 },
-  { title: "Roster", url: "/trainer/roster", icon: Users },
+  { title: "Player Management", url: "/trainer/roster", icon: Users },
   { title: "Drills & Workouts", url: "/trainer/drills", icon: Dumbbell },
   { title: "Training Logs", url: "/trainer/logs", icon: FileText },
   { title: "Videos", url: "/trainer/videos", icon: Video },

@@ -20,7 +20,7 @@ The platform is built with a modern web stack: React + TypeScript for the fronte
 *   **User-Generated Content**: Users can create custom drills and upload personal training videos.
 *   **Community & Social Features**: Enables performance comparison, customizable public player profiles, and shareable social media cards.
 *   **Admin Dashboard**: Comprehensive management of drills, videos, resources, metric templates, and user accounts.
-*   **Coach / Trainer Mode**: Role-based interface with dedicated routes for trainers to manage rosters, drills, workouts, training logs, videos, chat, player progress, and evaluations.
+*   **Coach / Trainer Mode**: Role-based interface with dedicated routes for trainers. Sidebar item "Player Management" (formerly "Roster") at `/trainer/roster` with tabs: Players (default), Teams, Groups. Player cards have quick action buttons (Chat, Assign Drill, Invite, Edit, Delete) and navigate to a dedicated Player Detail Page at `/trainer/roster/:playerId` with 8 tabs: Overview, Evaluations, Drills, Sessions, Logs, Videos, Chat, Progress. API endpoints: `GET /api/trainer/players/:playerId/(assignments|videos|messages|training-logs|sessions|evaluations|progress)`.
 *   **Group Chat**: Supports team-based, position-based, and custom group conversations.
 *   **Onboarding Wizard**: Multi-step, role-based onboarding process for players and trainers, including profile creation and interest/specialty selection.
 *   **Tutorial Videos**: Admin-managed video tutorials integrated into the onboarding flow.

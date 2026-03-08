@@ -36,6 +36,7 @@ import LeagueProfile from "@/pages/league-profile";
 import TrainerProfile from "@/pages/trainer/profile";
 import TrainerSchedule from "@/pages/trainer/schedule";
 import TrainerEvaluations from "@/pages/trainer/evaluations";
+import TrainerPlayerDetail from "@/pages/trainer/player-detail";
 import MySessions from "@/pages/my-sessions";
 import MyEvaluations from "@/pages/my-evaluations";
 import MyTrainer from "@/pages/my-trainer";
@@ -132,6 +133,7 @@ function Router({ previewLanding }: { previewLanding: boolean }) {
                 <Route path="/admin" component={Admin} />
                 <Route path="/coach" component={CoachRedirect} />
                 <Route path="/trainer" component={TrainerDashboard} />
+                <Route path="/trainer/roster/:playerId" component={TrainerPlayerDetail} />
                 <Route path="/trainer/roster" component={TrainerRoster} />
                 <Route path="/trainer/drills" component={TrainerDrills} />
                 <Route path="/trainer/logs" component={TrainerLogs} />

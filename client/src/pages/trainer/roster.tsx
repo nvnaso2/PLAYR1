@@ -82,6 +82,7 @@ import {
   Video,
   MessageCircle,
 } from "lucide-react";
+import { useLocation } from "wouter";
 import { insertTrainerTeamSchema } from "@shared/schema";
 
 interface TrainerGroup {
@@ -438,8 +439,9 @@ function PlayerDetailPanel({ player, open, onClose }: { player: TrainerPlayerDat
 
 export default function TrainerRoster() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
-  const [activePanel, setActivePanel] = useState<"teams" | "groups" | "players">("teams");
+  const [activePanel, setActivePanel] = useState<"teams" | "groups" | "players">("players");
   const [selectedTeam, setSelectedTeam] = useState<CoachTeam | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<TrainerGroup | null>(null);
 
@@ -1250,7 +1252,7 @@ export default function TrainerRoster() {
   return (
     <div className="p-4 space-y-4 overflow-y-auto h-full max-w-3xl mx-auto">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-xl font-bold" data-testid="text-roster-page-heading">Roster</h1>
+        <h1 className="text-xl font-bold" data-testid="text-roster-page-heading">Player Management</h1>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => { setInviteEmail(""); setInvitePlayerName(""); setInviteOpen(true); }} data-testid="button-top-invite-player">
             <Mail className="w-4 h-4" />
@@ -1266,6 +1268,10 @@ export default function TrainerRoster() {
       <Tabs value={activePanel} onValueChange={(v) => { setActivePanel(v as "teams" | "groups" | "players"); setSelectedTeam(null); setSelectedGroup(null); }}>
         <div className="flex items-center gap-2 flex-wrap">
           <TabsList data-testid="tabs-roster-type">
+            <TabsTrigger value="players" data-testid="tab-players">
+              <UserCheck className="w-4 h-4 mr-1" />
+              Players
+            </TabsTrigger>
             <TabsTrigger value="teams" data-testid="tab-teams">
               <Shield className="w-4 h-4 mr-1" />
               Teams
@@ -1273,10 +1279,6 @@ export default function TrainerRoster() {
             <TabsTrigger value="groups" data-testid="tab-groups">
               <Users className="w-4 h-4 mr-1" />
               Groups
-            </TabsTrigger>
-            <TabsTrigger value="players" data-testid="tab-players">
-              <UserCheck className="w-4 h-4 mr-1" />
-              All Players
             </TabsTrigger>
           </TabsList>
           {activePanel === "teams" && (
@@ -1647,7 +1649,7 @@ export default function TrainerRoster() {
                       data-testid={`checkbox-player-${player.id}`}
                     />
                   </div>
-                  <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setDetailPlayer(player)} data-testid={`button-view-player-${player.id}`}>
+                  <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setLocation(`/trainer/roster/${player.id}`)} data-testid={`button-view-player-${player.id}`}>
                     <div className="flex items-center gap-1 flex-wrap">
                       <p className="text-sm font-medium hover:underline" data-testid={`text-player-name-${player.id}`}>
                         {player.firstName} {player.lastName || ""}
@@ -1696,10 +1698,19 @@ export default function TrainerRoster() {
                     )}
                   </div>
                   <div className="flex items-center gap-0.5 shrink-0">
-                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEditPlayer(player)} data-testid={`button-edit-player-${player.id}`}>
+                    <Button size="icon" variant="ghost" className="h-7 w-7" title="Chat" onClick={() => setLocation(`/trainer/roster/${player.id}?tab=chat`)} data-testid={`button-chat-player-${player.id}`}>
+                      <MessageCircle className="w-3 h-3" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7" title="Assign Drill" onClick={() => setLocation(`/trainer/roster/${player.id}?tab=drills`)} data-testid={`button-assign-player-${player.id}`}>
+                      <ClipboardList className="w-3 h-3" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7" title="Invite" onClick={(e) => { e.stopPropagation(); setInviteEmail(player.email || ""); setInvitePlayerName(`${player.firstName} ${player.lastName || ""}`.trim()); setInviteOpen(true); }} data-testid={`button-invite-player-${player.id}`}>
+                      <Mail className="w-3 h-3" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7" title="Edit" onClick={() => openEditPlayer(player)} data-testid={`button-edit-player-${player.id}`}>
                       <Edit2 className="w-3 h-3" />
                     </Button>
-                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setDeletePlayerId(player.id)} data-testid={`button-delete-player-${player.id}`}>
+                    <Button size="icon" variant="ghost" className="h-7 w-7" title="Delete" onClick={() => setDeletePlayerId(player.id)} data-testid={`button-delete-player-${player.id}`}>
                       <Trash2 className="w-3 h-3" />
                     </Button>
                   </div>
