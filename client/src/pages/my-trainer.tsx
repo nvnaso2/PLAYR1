@@ -1154,10 +1154,12 @@ function MySessionsTab() {
               </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <Badge variant={config.variant} data-testid={`badge-status-${session.id}`}>
-                <StatusIcon className="h-3 w-3 mr-1" />
-                {config.label}
-              </Badge>
+              {session.status !== "requested" && (
+                <Badge variant={config.variant} data-testid={`badge-status-${session.id}`}>
+                  <StatusIcon className="h-3 w-3 mr-1" />
+                  {config.label}
+                </Badge>
+              )}
               {session.status === "confirmed" && (
                 <Button
                   size="sm"
@@ -1170,7 +1172,7 @@ function MySessionsTab() {
                   {gcal.isConnected ? "Add to Calendar" : "Connect Calendar"}
                 </Button>
               )}
-              {session.status === "requested" && session.createdBy !== user?.id && (
+              {session.status === "requested" && session.createdBy === session.trainerId && (
                 <Button
                   size="sm"
                   variant="default"
@@ -1182,7 +1184,7 @@ function MySessionsTab() {
                   {confirmMutation.isPending ? "Confirming..." : "Confirm"}
                 </Button>
               )}
-              {session.status === "requested" && session.createdBy === user?.id && (
+              {session.status === "requested" && session.createdBy !== session.trainerId && (
                 <Badge variant="secondary" data-testid={`badge-waiting-${session.id}`}>
                   <Hourglass className="h-3 w-3 mr-1" />
                   Waiting for Confirmation
