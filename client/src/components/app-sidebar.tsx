@@ -75,7 +75,7 @@ const trainerNavItems = [
   { title: "Chat", url: "/trainer/chat", icon: MessageCircle },
   { title: "Schedule", url: "/trainer/schedule", icon: CalendarDays },
   { title: "Evaluations", url: "/trainer/evaluations", icon: ClipboardCheck },
-  { title: "My Profile", url: "/trainer/profile", icon: UserCircle },
+  { title: "Trainer Profile", url: "/trainer/profile", icon: UserCircle },
 ];
 
 const categoryItems = [
@@ -313,7 +313,7 @@ export function AppSidebar() {
                 <DropdownMenuItem asChild>
                   <Link href="/profile" className="cursor-pointer" data-testid="link-profile" onClick={closeSidebar}>
                     <User className="mr-2 h-4 w-4" />
-                    Profile
+                    PLAYR1 Profile
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />

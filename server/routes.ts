@@ -1322,6 +1322,21 @@ export async function registerRoutes(
       }
       const data = insertUserProfileSchema.parse({ ...body, userId });
       const profile = await storage.upsertUserProfile(data);
+
+      const trainerProfile = await storage.getTrainerProfile(userId);
+      if (trainerProfile) {
+        const trainerSync: any = {};
+        if (data.profilePhotoUrl !== undefined) trainerSync.profilePhotoUrl = data.profilePhotoUrl;
+        if (data.city !== undefined) trainerSync.city = data.city;
+        if (data.state !== undefined) trainerSync.state = data.state;
+        if (Object.keys(trainerSync).length > 0) {
+          await db.update(trainerProfiles)
+            .set(trainerSync)
+            .where(eq(trainerProfiles.userId, userId))
+            .execute();
+        }
+      }
+
       res.json(profile);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -4624,6 +4639,30 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const profile = await storage.getTrainerProfile(userId);
+      if (profile && (!profile.profilePhotoUrl || !profile.city || !profile.state)) {
+        const userProfile = await storage.getUserProfile(userId);
+        if (userProfile) {
+          const backfill: any = {};
+          if (!profile.profilePhotoUrl && userProfile.profilePhotoUrl) {
+            (profile as any).profilePhotoUrl = userProfile.profilePhotoUrl;
+            backfill.profilePhotoUrl = userProfile.profilePhotoUrl;
+          }
+          if (!profile.city && userProfile.city) {
+            (profile as any).city = userProfile.city;
+            backfill.city = userProfile.city;
+          }
+          if (!profile.state && userProfile.state) {
+            (profile as any).state = userProfile.state;
+            backfill.state = userProfile.state;
+          }
+          if (Object.keys(backfill).length > 0) {
+            await db.update(trainerProfiles)
+              .set(backfill)
+              .where(eq(trainerProfiles.userId, userId))
+              .execute();
+          }
+        }
+      }
       res.json(profile || null);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -4660,6 +4699,18 @@ export async function registerRoutes(
       if (isNaN(data.hourlyRate as number)) data.hourlyRate = null;
       if (isNaN(data.experienceYears as number)) data.experienceYears = null;
       const profile = await storage.upsertTrainerProfile(data);
+
+      const sharedUpdates: any = { updatedAt: new Date() };
+      if (data.profilePhotoUrl !== undefined) sharedUpdates.profilePhotoUrl = data.profilePhotoUrl;
+      if (data.city !== undefined) sharedUpdates.city = data.city;
+      if (data.state !== undefined) sharedUpdates.state = data.state;
+      if (Object.keys(sharedUpdates).length > 1) {
+        await db.insert(userProfiles)
+          .values({ userId, ...sharedUpdates } as any)
+          .onConflictDoUpdate({ target: userProfiles.userId, set: sharedUpdates })
+          .execute();
+      }
+
       res.json(profile);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
