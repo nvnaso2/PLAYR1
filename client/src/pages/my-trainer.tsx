@@ -121,7 +121,7 @@ type ChatContact = {
 
 type ConnectionStatus = {
   status: "none" | "pending" | "accepted" | "declined";
-  connection: { id: string; initiatedBy: string } | null;
+  connection: { id: string; initiatedBy: string; requesterUserId: string | null; playerId: string; trainerId: string } | null;
 };
 
 const DAYS_OF_WEEK = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const;
@@ -415,6 +415,7 @@ function FindTrainerTab() {
 
 function useConnectionStatus(trainerUserId: string) {
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const { data: connectionStatus } = useQuery<ConnectionStatus>({
     queryKey: ["/api/connections/status", trainerUserId],
@@ -434,16 +435,56 @@ function useConnectionStatus(trainerUserId: string) {
       toast({ title: "Connection request sent!" });
     },
     onError: (error: Error) => {
-      toast({ title: "Failed to connect", description: error.message, variant: "destructive" });
+      if (error.message?.includes("already exists")) {
+        queryClient.invalidateQueries({ queryKey: ["/api/connections/status", trainerUserId] });
+        toast({ title: "Connection already exists" });
+      } else {
+        toast({ title: "Failed to connect", description: error.message, variant: "destructive" });
+      }
     },
   });
 
-  return { connectionStatus, connectMutation };
+  const acceptMutation = useMutation({
+    mutationFn: async (connId: string) => {
+      await apiRequest("PUT", `/api/connections/${connId}/accept`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/connections/status", trainerUserId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/connections"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/connections/pending"] });
+      toast({ title: "Connection accepted!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to accept", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const declineMutation = useMutation({
+    mutationFn: async (connId: string) => {
+      await apiRequest("PUT", `/api/connections/${connId}/decline`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/connections/status", trainerUserId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/connections"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/connections/pending"] });
+      toast({ title: "Connection declined" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to decline", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const isIncomingPending = connectionStatus?.status === "pending" && connectionStatus?.connection?.requesterUserId
+    ? connectionStatus.connection.requesterUserId !== user?.id
+    : connectionStatus?.status === "pending" && connectionStatus?.connection?.initiatedBy === "trainer";
+
+  return { connectionStatus, connectMutation, acceptMutation, declineMutation, isIncomingPending };
 }
 
 function SmallConnectionBadge({ trainerUserId }: { trainerUserId: string }) {
-  const { connectionStatus, connectMutation } = useConnectionStatus(trainerUserId);
+  const { connectionStatus, connectMutation, acceptMutation, declineMutation, isIncomingPending } = useConnectionStatus(trainerUserId);
   const status = connectionStatus?.status || "none";
+  const connId = connectionStatus?.connection?.id;
 
   if (status === "accepted") {
     return (
@@ -451,6 +492,35 @@ function SmallConnectionBadge({ trainerUserId }: { trainerUserId: string }) {
         <UserCheck className="w-3 h-3 mr-0.5" />
         Connected
       </Badge>
+    );
+  }
+
+  if (status === "pending" && isIncomingPending && connId) {
+    return (
+      <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+        <Button
+          variant="default"
+          size="sm"
+          className="text-[10px] h-5 px-1.5"
+          onClick={() => acceptMutation.mutate(connId)}
+          disabled={acceptMutation.isPending}
+          data-testid={`button-accept-${trainerUserId}`}
+        >
+          <CheckCircle className="w-3 h-3 mr-0.5" />
+          Accept
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="text-[10px] h-5 px-1.5"
+          onClick={() => declineMutation.mutate(connId)}
+          disabled={declineMutation.isPending}
+          data-testid={`button-decline-${trainerUserId}`}
+        >
+          <XCircle className="w-3 h-3 mr-0.5" />
+          Decline
+        </Button>
+      </div>
     );
   }
 
@@ -479,8 +549,9 @@ function SmallConnectionBadge({ trainerUserId }: { trainerUserId: string }) {
 }
 
 function TrainerDetailConnectionActions({ trainerUserId, onBookSession }: { trainerUserId: string; onBookSession: () => void }) {
-  const { connectionStatus, connectMutation } = useConnectionStatus(trainerUserId);
+  const { connectionStatus, connectMutation, acceptMutation, declineMutation, isIncomingPending } = useConnectionStatus(trainerUserId);
   const status = connectionStatus?.status || "none";
+  const connId = connectionStatus?.connection?.id;
 
   if (status === "accepted") {
     return (
@@ -488,6 +559,32 @@ function TrainerDetailConnectionActions({ trainerUserId, onBookSession }: { trai
         <CalendarDays className="w-4 h-4 mr-2" />
         Book Session
       </Button>
+    );
+  }
+
+  if (status === "pending" && isIncomingPending && connId) {
+    return (
+      <div className="flex gap-2 w-full">
+        <Button
+          className="flex-1"
+          onClick={() => acceptMutation.mutate(connId)}
+          disabled={acceptMutation.isPending}
+          data-testid="button-accept-connection"
+        >
+          <CheckCircle className="w-4 h-4 mr-2" />
+          {acceptMutation.isPending ? "Accepting..." : "Accept"}
+        </Button>
+        <Button
+          className="flex-1"
+          variant="outline"
+          onClick={() => declineMutation.mutate(connId)}
+          disabled={declineMutation.isPending}
+          data-testid="button-decline-connection"
+        >
+          <XCircle className="w-4 h-4 mr-2" />
+          {declineMutation.isPending ? "Declining..." : "Decline"}
+        </Button>
+      </div>
     );
   }
 

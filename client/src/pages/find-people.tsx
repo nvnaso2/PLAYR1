@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import {
   Search,
@@ -17,6 +18,8 @@ import {
   Mail,
   Send,
   Users,
+  CheckCircle,
+  XCircle,
 } from "lucide-react";
 
 interface UserSearchResult {
@@ -37,6 +40,7 @@ interface Connection {
   trainerId: string;
   status: string;
   initiatedBy: string;
+  requesterUserId?: string | null;
   otherUser?: {
     id: string;
   } | null;
@@ -45,6 +49,7 @@ interface Connection {
 
 export default function FindPeople() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
@@ -95,13 +100,51 @@ export default function FindPeople() {
     },
   });
 
-  const getConnectionStatus = useCallback((userId: string): string | null => {
+  const getConnectionForUser = useCallback((userId: string): Connection | null => {
     if (!connections) return null;
-    const conn = connections.find(
+    return connections.find(
       (c: any) => c.playerId === userId || c.trainerId === userId || c.otherUser?.id === userId
-    );
-    return conn?.status || null;
+    ) || null;
   }, [connections]);
+
+  const getConnectionStatus = useCallback((userId: string): string | null => {
+    return getConnectionForUser(userId)?.status || null;
+  }, [getConnectionForUser]);
+
+  const isIncomingPending = useCallback((userId: string): boolean => {
+    const conn = getConnectionForUser(userId);
+    if (!conn || conn.status !== "pending") return false;
+    if (conn.requesterUserId) return conn.requesterUserId !== user?.id;
+    if (conn.initiatedBy === "player" && conn.trainerId === user?.id) return true;
+    if (conn.initiatedBy === "trainer" && conn.playerId === user?.id) return true;
+    return false;
+  }, [getConnectionForUser, user?.id]);
+
+  const acceptMutation = useMutation({
+    mutationFn: (connId: string) =>
+      apiRequest("PUT", `/api/connections/${connId}/accept`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/connections"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/connections/pending"] });
+      toast({ title: "Connection accepted!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to accept", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const declineMutation = useMutation({
+    mutationFn: (connId: string) =>
+      apiRequest("PUT", `/api/connections/${connId}/decline`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/connections"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/connections/pending"] });
+      toast({ title: "Connection declined" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to decline", description: error.message, variant: "destructive" });
+    },
+  });
 
   const showNoResults = !searching && debouncedQuery.length >= 2 && (!searchResults || searchResults.length === 0);
 
@@ -155,40 +198,65 @@ export default function FindPeople() {
 
       {!searching && searchResults && searchResults.length > 0 && (
         <div className="space-y-2" data-testid="list-search-results">
-          {searchResults.map((user) => {
-            const name = user.displayName ||
-              [user.firstName, user.lastName].filter(Boolean).join(" ") || "Unknown";
-            const initials = (user.firstName?.[0] || "") + (user.lastName?.[0] || "");
-            const status = getConnectionStatus(user.userId);
-            const location = [user.city, user.state].filter(Boolean).join(", ");
+          {searchResults.map((result) => {
+            const name = result.displayName ||
+              [result.firstName, result.lastName].filter(Boolean).join(" ") || "Unknown";
+            const initials = (result.firstName?.[0] || "") + (result.lastName?.[0] || "");
+            const status = getConnectionStatus(result.userId);
+            const location = [result.city, result.state].filter(Boolean).join(", ");
+            const conn = getConnectionForUser(result.userId);
+            const incoming = isIncomingPending(result.userId);
 
             return (
-              <Card key={user.userId} data-testid={`card-user-${user.userId}`}>
+              <Card key={result.userId} data-testid={`card-user-${result.userId}`}>
                 <CardContent className="flex items-center gap-3 py-3">
                   <Avatar className="h-10 w-10 shrink-0">
-                    <AvatarImage src={user.profilePhotoUrl || undefined} />
+                    <AvatarImage src={result.profilePhotoUrl || undefined} />
                     <AvatarFallback className="text-xs">{initials || "?"}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-sm font-medium truncate" data-testid={`text-user-name-${user.userId}`}>{name}</p>
-                      {getRoleBadge(user)}
+                      <p className="text-sm font-medium truncate" data-testid={`text-user-name-${result.userId}`}>{name}</p>
+                      {getRoleBadge(result)}
                     </div>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5 flex-wrap">
-                      {location && <span data-testid={`text-user-location-${user.userId}`}>{location}</span>}
-                      {user.positions?.length ? (
-                        <span data-testid={`text-user-positions-${user.userId}`}>{user.positions.join(", ")}</span>
+                      {location && <span data-testid={`text-user-location-${result.userId}`}>{location}</span>}
+                      {result.positions?.length ? (
+                        <span data-testid={`text-user-positions-${result.userId}`}>{result.positions.join(", ")}</span>
                       ) : null}
                     </div>
                   </div>
                   <div className="shrink-0">
                     {status === "accepted" ? (
-                      <Badge variant="secondary" className="no-default-hover-elevate text-xs" data-testid={`badge-connected-${user.userId}`}>
+                      <Badge variant="secondary" className="no-default-hover-elevate text-xs" data-testid={`badge-connected-${result.userId}`}>
                         <UserCheck className="w-3 h-3 mr-1" />
                         Connected
                       </Badge>
+                    ) : status === "pending" && incoming && conn ? (
+                      <div className="flex gap-1">
+                        <Button
+                          size="sm"
+                          variant="default"
+                          onClick={() => acceptMutation.mutate(conn.id)}
+                          disabled={acceptMutation.isPending}
+                          data-testid={`button-accept-${result.userId}`}
+                        >
+                          <CheckCircle className="w-3 h-3 mr-1" />
+                          Accept
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => declineMutation.mutate(conn.id)}
+                          disabled={declineMutation.isPending}
+                          data-testid={`button-decline-${result.userId}`}
+                        >
+                          <XCircle className="w-3 h-3 mr-1" />
+                          Decline
+                        </Button>
+                      </div>
                     ) : status === "pending" ? (
-                      <Badge variant="outline" className="no-default-hover-elevate text-xs" data-testid={`badge-pending-${user.userId}`}>
+                      <Badge variant="outline" className="no-default-hover-elevate text-xs" data-testid={`badge-pending-${result.userId}`}>
                         <Clock className="w-3 h-3 mr-1" />
                         Pending
                       </Badge>
@@ -196,9 +264,9 @@ export default function FindPeople() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => connectMutation.mutate(user.userId)}
+                        onClick={() => connectMutation.mutate(result.userId)}
                         disabled={connectMutation.isPending}
-                        data-testid={`button-connect-${user.userId}`}
+                        data-testid={`button-connect-${result.userId}`}
                       >
                         <UserPlus className="w-3 h-3 mr-1" />
                         Connect
