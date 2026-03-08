@@ -1,12 +1,13 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/hooks/use-auth";
 
 export function useGoogleCalendar() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const popupRef = useRef<Window | null>(null);
 
   const statusQuery = useQuery<{ connected: boolean }>({
     queryKey: ["/api/google-calendar/status"],
@@ -21,9 +22,15 @@ export function useGoogleCalendar() {
       return data.url as string;
     },
     onSuccess: (url) => {
-      window.open(url, "google-calendar-auth", "width=600,height=700,scrollbars=yes");
+      if (popupRef.current && !popupRef.current.closed) {
+        popupRef.current.location.href = url;
+        popupRef.current.focus();
+      }
     },
     onError: (error: Error) => {
+      if (popupRef.current && !popupRef.current.closed) {
+        popupRef.current.close();
+      }
       toast({ title: "Failed to connect", description: error.message, variant: "destructive" });
     },
   });
@@ -73,10 +80,15 @@ export function useGoogleCalendar() {
     return () => window.removeEventListener("message", handleMessage);
   }, [handleMessage]);
 
+  const connect = useCallback(() => {
+    popupRef.current = window.open("about:blank", "google-calendar-auth", "width=600,height=700,scrollbars=yes");
+    connectMutation.mutate();
+  }, [connectMutation]);
+
   return {
     isConnected: statusQuery.data?.connected ?? false,
     isLoading: statusQuery.isLoading,
-    connect: () => connectMutation.mutate(),
+    connect,
     disconnect: () => disconnectMutation.mutate(),
     addSession: (sessionId: string) => addSessionMutation.mutate(sessionId),
     isConnecting: connectMutation.isPending,

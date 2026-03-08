@@ -190,10 +190,15 @@ export default function TrainerSchedulePage() {
     queryKey: ["/api/trainer-players"],
   });
 
+  const invalidateSessions = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/training-sessions/trainer/enriched"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/training-sessions/player/enriched"] });
+  };
+
   const confirmMutation = useMutation({
     mutationFn: (id: string) => apiRequest("PUT", `/api/training-sessions/${id}/confirm`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/training-sessions/trainer/enriched"] });
+      invalidateSessions();
       toast({ title: "Session confirmed" });
     },
     onError: (error: Error) => {
@@ -205,7 +210,7 @@ export default function TrainerSchedulePage() {
     mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
       apiRequest("PUT", `/api/training-sessions/${id}/decline`, { declineReason: reason }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/training-sessions/trainer/enriched"] });
+      invalidateSessions();
       setDeclineDialogOpen(false);
       setDeclineSessionId(null);
       setDeclineReason("");
@@ -219,7 +224,7 @@ export default function TrainerSchedulePage() {
   const completeMutation = useMutation({
     mutationFn: (id: string) => apiRequest("PUT", `/api/training-sessions/${id}/complete`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/training-sessions/trainer/enriched"] });
+      invalidateSessions();
       toast({ title: "Session marked as completed" });
     },
     onError: (error: Error) => {
@@ -230,7 +235,7 @@ export default function TrainerSchedulePage() {
   const cancelMutation = useMutation({
     mutationFn: (id: string) => apiRequest("PUT", `/api/training-sessions/${id}/cancel`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/training-sessions/trainer/enriched"] });
+      invalidateSessions();
       toast({ title: "Session cancelled" });
     },
     onError: (error: Error) => {
@@ -241,7 +246,7 @@ export default function TrainerSchedulePage() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/training-sessions/${id}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/training-sessions/trainer/enriched"] });
+      invalidateSessions();
       toast({ title: "Session deleted" });
     },
     onError: (error: Error) => {

@@ -1058,6 +1058,7 @@ function MySessionsTab() {
     mutationFn: (id: string) => apiRequest("PUT", `/api/training-sessions/${id}/cancel`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/training-sessions/player/enriched"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/training-sessions/trainer/enriched"] });
       toast({ title: "Session cancelled" });
       setCancelSessionId(null);
     },
@@ -1070,6 +1071,7 @@ function MySessionsTab() {
     mutationFn: (id: string) => apiRequest("PUT", `/api/training-sessions/${id}/confirm`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/training-sessions/player/enriched"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/training-sessions/trainer/enriched"] });
       toast({ title: "Session confirmed!" });
     },
     onError: (error: Error) => {
@@ -1087,6 +1089,7 @@ function MySessionsTab() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/training-sessions/player/enriched"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/training-sessions/trainer/enriched"] });
       toast({ title: "Session rescheduled. Awaiting confirmation." });
       setRescheduleSession(null);
     },
