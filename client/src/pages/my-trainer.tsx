@@ -691,7 +691,7 @@ function TrainerDetail({ trainer: listTrainer, favorite, onToggleFavorite, onTog
           {favorite?.isMyTrainer ? "My Trainer ✓" : "Set as My Trainer"}
         </Button>
         <ShareMenu
-          url={`/find-trainer?trainer=${trainer.id}`}
+          url={`/t/${trainer.id}`}
           title={`${name} - PLAYR1 Trainer`}
           description={`Check out ${name} on PLAYR1! ${trainer.headline || ""}`}
           size="default"

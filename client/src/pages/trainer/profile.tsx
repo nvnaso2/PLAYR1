@@ -421,7 +421,7 @@ export default function TrainerProfilePage() {
             <div className="flex gap-2 shrink-0">
               {p?.isPublic && (
                 <ShareMenu
-                  url={`/find-trainer?trainer=${p.id}`}
+                  url={`/t/${p.id}`}
                   title={`${p.firstName || ""} ${p.lastName || ""} - PLAYR1 Trainer`.trim()}
                   description={`Check out my trainer profile on PLAYR1! ${p.headline || ""}`}
                   testId="button-share-trainer-profile"

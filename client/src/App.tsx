@@ -21,6 +21,7 @@ import Videos from "@/pages/videos";
 import Profile from "@/pages/profile";
 import Career from "@/pages/career";
 import PlayerPublic from "@/pages/player-public";
+import TrainerPublic from "@/pages/trainer-public";
 import Admin from "@/pages/admin";
 import TrainerDashboard from "@/pages/trainer/index";
 import TrainerRoster from "@/pages/trainer/roster";
@@ -30,7 +31,6 @@ import TrainerChat from "@/pages/trainer/chat";
 import TrainerVideos from "@/pages/trainer/videos";
 import TrainerProgress from "@/pages/trainer/progress";
 import Finder from "@/pages/finder";
-import FindTrainer from "@/pages/find-trainer";
 import TeamProfile from "@/pages/team-profile";
 import LeagueProfile from "@/pages/league-profile";
 import TrainerProfile from "@/pages/trainer/profile";
@@ -112,6 +112,7 @@ function Router({ previewLanding }: { previewLanding: boolean }) {
   return (
     <Switch>
       <Route path="/player/:slug" component={PlayerPublic} />
+      <Route path="/t/:id" component={TrainerPublic} />
       <Route path="/finder">{() => <Redirect to="/teams" />}</Route>
       <Route path="/teams/:slug" component={TeamProfile} />
       <Route path="/leagues/:slug" component={LeagueProfile} />
