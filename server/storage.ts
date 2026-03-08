@@ -48,7 +48,8 @@ import {
   evaluationAttributes, type EvaluationAttribute, type InsertEvaluationAttribute,
   playerEvaluations, type PlayerEvaluation, type InsertPlayerEvaluation,
   playerEvaluationRatings, type PlayerEvaluationRating, type InsertPlayerEvaluationRating,
-  playerTrainerFavorites, type PlayerTrainerFavorite
+  playerTrainerFavorites, type PlayerTrainerFavorite,
+  userFavoriteDrills
 } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
@@ -157,6 +158,11 @@ export interface IStorage {
   createWorkout(workout: InsertWorkout, drillIds: string[]): Promise<Workout>;
   updateWorkout(id: string, workout: Partial<InsertWorkout>, drillIds?: string[]): Promise<Workout | undefined>;
   deleteWorkout(id: string): Promise<boolean>;
+
+  // Favorite Drills
+  getUserFavoriteDrills(userId: string): Promise<string[]>;
+  addFavoriteDrill(userId: string, drillId: string): Promise<void>;
+  removeFavoriteDrill(userId: string, drillId: string): Promise<void>;
 
   // Career Profiles
   getCareerProfile(userId: string): Promise<CareerProfile | undefined>;
@@ -1296,6 +1302,27 @@ export class DatabaseStorage implements IStorage {
     await db.delete(workoutDrills).where(eq(workoutDrills.workoutId, id));
     await db.delete(workouts).where(eq(workouts.id, id));
     return true;
+  }
+
+  // Favorite Drills
+  async getUserFavoriteDrills(userId: string): Promise<string[]> {
+    const rows = await db.select({ drillId: userFavoriteDrills.drillId })
+      .from(userFavoriteDrills)
+      .where(eq(userFavoriteDrills.userId, userId));
+    return rows.map(r => r.drillId);
+  }
+
+  async addFavoriteDrill(userId: string, drillId: string): Promise<void> {
+    const existing = await db.select().from(userFavoriteDrills)
+      .where(and(eq(userFavoriteDrills.userId, userId), eq(userFavoriteDrills.drillId, drillId)));
+    if (existing.length === 0) {
+      await db.insert(userFavoriteDrills).values({ userId, drillId });
+    }
+  }
+
+  async removeFavoriteDrill(userId: string, drillId: string): Promise<void> {
+    await db.delete(userFavoriteDrills)
+      .where(and(eq(userFavoriteDrills.userId, userId), eq(userFavoriteDrills.drillId, drillId)));
   }
 
   // Career Profiles

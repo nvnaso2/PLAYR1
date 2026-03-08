@@ -774,14 +774,14 @@ export async function registerRoutes(
   app.post("/api/workouts", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { name, description, category, estimatedDuration, drillIds } = req.body;
+      const { name, description, category, estimatedDuration, drillIds, isFavorite } = req.body;
       
       if (!name || !drillIds || !Array.isArray(drillIds) || drillIds.length < 2) {
         return res.status(400).json({ message: "Workout must have a name and at least 2 drills" });
       }
       
       const workout = await storage.createWorkout(
-        { name, description, category, estimatedDuration, userId },
+        { name, description, category, estimatedDuration, userId, isFavorite: isFavorite || false } as any,
         drillIds
       );
       res.status(201).json(workout);
@@ -897,6 +897,51 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error assigning workout:", error);
       res.status(500).json({ message: "Failed to assign workout" });
+    }
+  });
+
+  // Favorite drills
+  app.get("/api/user/favorite-drills", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const favDrillIds = await storage.getUserFavoriteDrills(userId);
+      res.json(favDrillIds);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get favorite drills" });
+    }
+  });
+
+  app.post("/api/user/favorite-drills/:drillId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      await storage.addFavoriteDrill(userId, req.params.drillId);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to add favorite drill" });
+    }
+  });
+
+  app.delete("/api/user/favorite-drills/:drillId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      await storage.removeFavoriteDrill(userId, req.params.drillId);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to remove favorite drill" });
+    }
+  });
+
+  // Toggle workout favorite
+  app.put("/api/workouts/:id/favorite", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const workout = await storage.getWorkoutById(req.params.id);
+      if (!workout) return res.status(404).json({ message: "Workout not found" });
+      if (workout.userId !== userId) return res.status(403).json({ message: "Not authorized" });
+      const updated = await storage.updateWorkout(req.params.id, { isFavorite: !workout.isFavorite } as any);
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to toggle favorite" });
     }
   });
 

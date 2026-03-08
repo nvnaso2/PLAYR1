@@ -448,6 +448,16 @@ export const trainingLogMetrics = pgTable("training_log_metrics", {
   createdAt: timestamp("created_at").defaultNow()
 });
 
+// User favorite drills
+export const userFavoriteDrills = pgTable("user_favorite_drills", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  drillId: varchar("drill_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type UserFavoriteDrill = typeof userFavoriteDrills.$inferSelect;
+
 // Workouts - saved workout templates (combination of 2+ drills)
 export const workouts = pgTable("workouts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -456,6 +466,7 @@ export const workouts = pgTable("workouts", {
   userId: varchar("user_id"), // null = Handlz workout, set = user-created workout
   category: varchar("category").$type<DrillCategory>(),
   estimatedDuration: integer("estimated_duration"), // in minutes
+  isFavorite: boolean("is_favorite").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow()
 });
