@@ -153,7 +153,6 @@ export default function TrainingLogPage() {
     targetValue: 100,
     timeLimit: undefined as number | undefined
   });
-  const [challengesSectionOpen, setChallengesSectionOpen] = useState(false);
   
   // Timer state: tracks which rounds have active timers
   const [activeTimers, setActiveTimers] = useState<Record<number, number>>({}); // index -> start timestamp
@@ -1450,305 +1449,13 @@ export default function TrainingLogPage() {
         </div>
       </div>
 
-      {/* My Challenges Section */}
-      <Collapsible open={challengesSectionOpen} onOpenChange={setChallengesSectionOpen}>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap space-y-0 pb-2">
-            <CollapsibleTrigger className="flex items-center gap-2 cursor-pointer">
-              <Trophy className="w-5 h-5 text-primary" />
-              <CardTitle className="text-lg">My Challenges</CardTitle>
-              <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${challengesSectionOpen ? '' : '-rotate-90'}`} />
-              {activeChallenges?.some(uc => !uc.isCompleted) && (
-                <Badge className="text-xs bg-orange-500/20 text-orange-400 border-orange-500/30">Active</Badge>
-              )}
-            </CollapsibleTrigger>
-            <Dialog open={showChallengeDialog} onOpenChange={setShowChallengeDialog}>
-              <DialogTrigger asChild>
-                <Button variant="outline" className="gap-2" data-testid="button-create-challenge">
-                  <Plus className="w-4 h-4" />
-                  Create Challenge
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Create a New Challenge</DialogTitle>
-                  <DialogDescription>
-                    Set a goal and track your progress
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label>Challenge Name</Label>
-                    <Input
-                      placeholder="e.g., 100 Three-Pointers"
-                      value={newChallenge.name}
-                      onChange={(e) => setNewChallenge({ ...newChallenge, name: e.target.value })}
-                      data-testid="input-challenge-name"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Description</Label>
-                    <Textarea
-                      placeholder="Describe your challenge..."
-                      value={newChallenge.description}
-                      onChange={(e) => setNewChallenge({ ...newChallenge, description: e.target.value })}
-                      data-testid="input-challenge-description"
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Category</Label>
-                      <Select
-                        value={newChallenge.category}
-                        onValueChange={(v) => setNewChallenge({ ...newChallenge, category: v as typeof newChallenge.category })}
-                      >
-                        <SelectTrigger data-testid="select-challenge-category">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="shooting">Shooting</SelectItem>
-                          <SelectItem value="ball-handling">Ball Handling</SelectItem>
-                          <SelectItem value="passing">Passing</SelectItem>
-                          <SelectItem value="workout">Workout</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Metric</Label>
-                      <Select
-                        value={newChallenge.metric}
-                        onValueChange={(v) => setNewChallenge({ ...newChallenge, metric: v as typeof newChallenge.metric })}
-                      >
-                        <SelectTrigger data-testid="select-challenge-metric">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="makes">Makes</SelectItem>
-                          <SelectItem value="dribbles">Dribbles</SelectItem>
-                          <SelectItem value="passes">Passes</SelectItem>
-                          <SelectItem value="reps">Reps</SelectItem>
-                          <SelectItem value="time">Time</SelectItem>
-                          <SelectItem value="score">Score</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Goal Type</Label>
-                      <Select
-                        value={newChallenge.goalType}
-                        onValueChange={(v) => setNewChallenge({ ...newChallenge, goalType: v as typeof newChallenge.goalType })}
-                      >
-                        <SelectTrigger data-testid="select-challenge-goal-type">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="total">Total</SelectItem>
-                          <SelectItem value="consecutive">Consecutive</SelectItem>
-                          <SelectItem value="timed">Timed</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Target Value</Label>
-                      <Input
-                        type="number"
-                        value={newChallenge.targetValue}
-                        onChange={(e) => setNewChallenge({ ...newChallenge, targetValue: parseInt(e.target.value) || 0 })}
-                        data-testid="input-challenge-target"
-                      />
-                    </div>
-                  </div>
-                  {newChallenge.goalType === "timed" && (
-                    <div className="space-y-2">
-                      <Label>Time Limit (minutes)</Label>
-                      <Input
-                        type="number"
-                        placeholder="e.g., 30"
-                        value={newChallenge.timeLimit ?? ""}
-                        onChange={(e) => setNewChallenge({ ...newChallenge, timeLimit: e.target.value ? parseInt(e.target.value) : undefined })}
-                        data-testid="input-challenge-time-limit"
-                      />
-                    </div>
-                  )}
-                </div>
-                <DialogFooter>
-                  <Button
-                    onClick={() => createChallengeMutation.mutate(newChallenge)}
-                    disabled={!newChallenge.name || createChallengeMutation.isPending}
-                    data-testid="button-submit-challenge"
-                  >
-                    {createChallengeMutation.isPending ? "Creating..." : "Create & Start"}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </CardHeader>
-          <CollapsibleContent>
-            <CardContent className="pt-2">
-              {(() => {
-                const inProgressChallenges = activeChallenges?.filter(uc => !uc.isCompleted) || [];
-                const startedChallengeIds = new Set(activeChallenges?.map(uc => uc.challengeId) || []);
-                const availableChallenges = allChallenges?.filter(c => !startedChallengeIds.has(c.id)) || [];
-
-                if (inProgressChallenges.length === 0 && availableChallenges.length === 0) {
-                  return (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <Trophy className="w-10 h-10 mx-auto mb-3 opacity-40" />
-                      <p className="font-medium">No challenges yet</p>
-                      <p className="text-sm mt-1">Create a challenge to start tracking your goals!</p>
-                    </div>
-                  );
-                }
-
-                return (
-                  <div className="space-y-4">
-                    {inProgressChallenges.length > 0 && (
-                      <div className="space-y-3">
-                        <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                          <Medal className="w-4 h-4" />
-                          Challenges
-                          <Badge className="text-xs bg-orange-500/20 text-orange-400 border-orange-500/30">Active</Badge>
-                        </h4>
-                        {inProgressChallenges.map(uc => {
-                          const progressPercent = Math.min(100, Math.round(((uc.currentValue || 0) / (uc.challenge.targetValue || 1)) * 100));
-                          return (
-                            <div
-                              key={uc.id}
-                              className="p-3 rounded-md border space-y-2"
-                              data-testid={`challenge-item-${uc.id}`}
-                            >
-                              <div className="flex items-center justify-between gap-2 flex-wrap">
-                                <div>
-                                  <div className="flex items-center gap-2">
-                                    <p className="font-medium text-sm">{uc.challenge.name}</p>
-                                    <Badge className="text-xs bg-orange-500/20 text-orange-400 border-orange-500/30">Active</Badge>
-                                  </div>
-                                  {uc.challenge.description && (
-                                    <p className="text-xs text-muted-foreground">{uc.challenge.description}</p>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <Badge variant="outline" className="text-xs">
-                                    {uc.challenge.category}
-                                  </Badge>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    onClick={() => deleteChallengeMutation.mutate(uc.challengeId)}
-                                  >
-                                    <Trash2 className="w-4 h-4 text-muted-foreground" />
-                                  </Button>
-                                </div>
-                              </div>
-                              <div className="space-y-1">
-                                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                  <span>{uc.currentValue || 0} / {uc.challenge.targetValue} {uc.challenge.metric}</span>
-                                  <span>{progressPercent}%</span>
-                                </div>
-                                <Progress value={progressPercent} />
-                              </div>
-                              <div className="flex items-center gap-2 pt-1">
-                                <Input
-                                  type="number"
-                                  min={0}
-                                  placeholder="Update progress"
-                                  className="h-8 text-xs w-32"
-                                  data-testid={`input-challenge-progress-${uc.id}`}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      const val = parseInt((e.target as HTMLInputElement).value);
-                                      if (!isNaN(val) && val >= 0) {
-                                        apiRequest("PUT", `/api/challenges/${uc.id}/progress`, { currentValue: val })
-                                          .then(() => {
-                                            queryClient.invalidateQueries({ queryKey: ['/api/challenges/my-challenges'] });
-                                            (e.target as HTMLInputElement).value = '';
-                                            toast({ title: "Progress updated" });
-                                          });
-                                      }
-                                    }
-                                  }}
-                                />
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-8 text-xs"
-                                  data-testid={`button-update-challenge-${uc.id}`}
-                                  onClick={(e) => {
-                                    const input = (e.currentTarget.previousElementSibling as HTMLInputElement);
-                                    const val = parseInt(input.value);
-                                    if (!isNaN(val) && val >= 0) {
-                                      apiRequest("PUT", `/api/challenges/${uc.id}/progress`, { currentValue: val })
-                                        .then(() => {
-                                          queryClient.invalidateQueries({ queryKey: ['/api/challenges/my-challenges'] });
-                                          input.value = '';
-                                          toast({ title: "Progress updated" });
-                                        });
-                                    }
-                                  }}
-                                >
-                                  Set
-                                </Button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {availableChallenges.length > 0 && (
-                      <div className="space-y-3">
-                        <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                          <Target className="w-4 h-4" />
-                          Available Challenges
-                        </h4>
-                        {availableChallenges.map(challenge => (
-                          <div
-                            key={challenge.id}
-                            className="p-3 rounded-md border flex items-center justify-between gap-2 flex-wrap"
-                            data-testid={`available-challenge-${challenge.id}`}
-                          >
-                            <div>
-                              <p className="font-medium text-sm">{challenge.name}</p>
-                              {challenge.description && (
-                                <p className="text-xs text-muted-foreground">{challenge.description}</p>
-                              )}
-                              <div className="flex items-center gap-2 mt-1">
-                                <Badge variant="outline" className="text-xs">{challenge.category}</Badge>
-                                <span className="text-xs text-muted-foreground">
-                                  {challenge.targetValue} {challenge.metric}
-                                </span>
-                              </div>
-                            </div>
-                            <Button
-                              variant="outline"
-                              onClick={() => startChallengeMutation.mutate(challenge.id)}
-                              disabled={startChallengeMutation.isPending}
-                              data-testid={`button-start-challenge-${challenge.id}`}
-                            >
-                              <Play className="w-4 h-4 mr-1" />
-                              Start
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-            </CardContent>
-          </CollapsibleContent>
-        </Card>
-      </Collapsible>
-
       {/* Main Content Area */}
       {activeView === "library" && !workoutInProgress && (
         <div className="space-y-6">
           {!showCreateWorkoutMode ? (
             <>
               {/* Action Buttons */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <Card className="cursor-pointer hover-elevate" onClick={() => { setDrillSearchQuery(""); setIsStartWorkoutDialogOpen(true); }} data-testid="action-start-workout">
                   <CardContent className="p-4 flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0">
@@ -1779,6 +1486,17 @@ export default function TrainingLogPage() {
                     <div>
                       <h3 className="font-semibold text-sm">Create a Workout</h3>
                       <p className="text-xs text-muted-foreground">Combine 2+ drills</p>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="cursor-pointer hover-elevate" onClick={() => setShowChallengeDialog(true)} data-testid="action-create-challenge">
+                  <CardContent className="p-4 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-yellow-500/10 flex items-center justify-center shrink-0">
+                      <Trophy className="w-5 h-5 text-yellow-500" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-sm">Create a Challenge</h3>
+                      <p className="text-xs text-muted-foreground">Set goals & track</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -1846,6 +1564,231 @@ export default function TrainingLogPage() {
                   </div>
                 );
               })()}
+
+              {/* My Challenges Section */}
+              {(() => {
+                const inProgressChallenges = activeChallenges?.filter(uc => !uc.isCompleted) || [];
+                const startedChallengeIds = new Set(activeChallenges?.map(uc => uc.challengeId) || []);
+                const availableChallenges = allChallenges?.filter(c => !startedChallengeIds.has(c.id)) || [];
+                const hasChallenges = inProgressChallenges.length > 0 || availableChallenges.length > 0;
+
+                if (!hasChallenges) return null;
+
+                return (
+                  <div className="space-y-3" data-testid="section-challenges">
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                      <Trophy className="w-4 h-4 text-yellow-500" />
+                      My Challenges
+                      {inProgressChallenges.length > 0 && (
+                        <Badge className="text-xs bg-orange-500/20 text-orange-400 border-orange-500/30">{inProgressChallenges.length} Active</Badge>
+                      )}
+                    </h3>
+                    <div className="space-y-2">
+                      {inProgressChallenges.map(uc => {
+                        const progressPercent = Math.min(100, Math.round(((uc.currentValue || 0) / (uc.challenge.targetValue || 1)) * 100));
+                        return (
+                          <Card key={uc.id} data-testid={`challenge-item-${uc.id}`}>
+                            <CardContent className="p-3 space-y-2">
+                              <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-medium text-sm">{uc.challenge.name}</p>
+                                    <Badge className="text-xs bg-orange-500/20 text-orange-400 border-orange-500/30">Active</Badge>
+                                  </div>
+                                  {uc.challenge.description && (
+                                    <p className="text-xs text-muted-foreground">{uc.challenge.description}</p>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="outline" className="text-xs">{uc.challenge.category}</Badge>
+                                  <Button size="icon" variant="ghost" onClick={() => deleteChallengeMutation.mutate(uc.challengeId)}>
+                                    <Trash2 className="w-4 h-4 text-muted-foreground" />
+                                  </Button>
+                                </div>
+                              </div>
+                              <div className="space-y-1">
+                                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                  <span>{uc.currentValue || 0} / {uc.challenge.targetValue} {uc.challenge.metric}</span>
+                                  <span>{progressPercent}%</span>
+                                </div>
+                                <Progress value={progressPercent} />
+                              </div>
+                              <div className="flex items-center gap-2 pt-1">
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  placeholder="Update progress"
+                                  className="h-8 text-xs w-32"
+                                  data-testid={`input-challenge-progress-${uc.id}`}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      const val = parseInt((e.target as HTMLInputElement).value);
+                                      if (!isNaN(val) && val >= 0) {
+                                        apiRequest("PUT", `/api/challenges/${uc.id}/progress`, { currentValue: val })
+                                          .then(() => {
+                                            queryClient.invalidateQueries({ queryKey: ['/api/challenges/my-challenges'] });
+                                            (e.target as HTMLInputElement).value = '';
+                                            toast({ title: "Progress updated" });
+                                          });
+                                      }
+                                    }
+                                  }}
+                                />
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 text-xs"
+                                  data-testid={`button-update-challenge-${uc.id}`}
+                                  onClick={(e) => {
+                                    const input = (e.currentTarget.previousElementSibling as HTMLInputElement);
+                                    const val = parseInt(input.value);
+                                    if (!isNaN(val) && val >= 0) {
+                                      apiRequest("PUT", `/api/challenges/${uc.id}/progress`, { currentValue: val })
+                                        .then(() => {
+                                          queryClient.invalidateQueries({ queryKey: ['/api/challenges/my-challenges'] });
+                                          input.value = '';
+                                          toast({ title: "Progress updated" });
+                                        });
+                                    }
+                                  }}
+                                >
+                                  Set
+                                </Button>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                      {availableChallenges.map(challenge => (
+                        <Card key={challenge.id} data-testid={`available-challenge-${challenge.id}`}>
+                          <CardContent className="p-3 flex items-center justify-between gap-2 flex-wrap">
+                            <div>
+                              <p className="font-medium text-sm">{challenge.name}</p>
+                              {challenge.description && (
+                                <p className="text-xs text-muted-foreground">{challenge.description}</p>
+                              )}
+                              <div className="flex items-center gap-2 mt-1">
+                                <Badge variant="outline" className="text-xs">{challenge.category}</Badge>
+                                <span className="text-xs text-muted-foreground">{challenge.targetValue} {challenge.metric}</span>
+                              </div>
+                            </div>
+                            <Button
+                              variant="outline"
+                              onClick={() => startChallengeMutation.mutate(challenge.id)}
+                              disabled={startChallengeMutation.isPending}
+                              data-testid={`button-start-challenge-${challenge.id}`}
+                            >
+                              <Play className="w-4 h-4 mr-1" />
+                              Start
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Create Challenge Dialog */}
+              <Dialog open={showChallengeDialog} onOpenChange={setShowChallengeDialog}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Create a New Challenge</DialogTitle>
+                    <DialogDescription>Set a goal and track your progress</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label>Challenge Name</Label>
+                      <Input
+                        placeholder="e.g., 100 Three-Pointers"
+                        value={newChallenge.name}
+                        onChange={(e) => setNewChallenge({ ...newChallenge, name: e.target.value })}
+                        data-testid="input-challenge-name"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Description</Label>
+                      <Textarea
+                        placeholder="Describe your challenge..."
+                        value={newChallenge.description}
+                        onChange={(e) => setNewChallenge({ ...newChallenge, description: e.target.value })}
+                        data-testid="input-challenge-description"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Category</Label>
+                        <Select value={newChallenge.category} onValueChange={(v) => setNewChallenge({ ...newChallenge, category: v as typeof newChallenge.category })}>
+                          <SelectTrigger data-testid="select-challenge-category"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="shooting">Shooting</SelectItem>
+                            <SelectItem value="ball-handling">Ball Handling</SelectItem>
+                            <SelectItem value="passing">Passing</SelectItem>
+                            <SelectItem value="workout">Workout</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Metric</Label>
+                        <Select value={newChallenge.metric} onValueChange={(v) => setNewChallenge({ ...newChallenge, metric: v as typeof newChallenge.metric })}>
+                          <SelectTrigger data-testid="select-challenge-metric"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="makes">Makes</SelectItem>
+                            <SelectItem value="dribbles">Dribbles</SelectItem>
+                            <SelectItem value="passes">Passes</SelectItem>
+                            <SelectItem value="reps">Reps</SelectItem>
+                            <SelectItem value="time">Time</SelectItem>
+                            <SelectItem value="score">Score</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Goal Type</Label>
+                        <Select value={newChallenge.goalType} onValueChange={(v) => setNewChallenge({ ...newChallenge, goalType: v as typeof newChallenge.goalType })}>
+                          <SelectTrigger data-testid="select-challenge-goal-type"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="total">Total</SelectItem>
+                            <SelectItem value="consecutive">Consecutive</SelectItem>
+                            <SelectItem value="timed">Timed</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Target Value</Label>
+                        <Input
+                          type="number"
+                          value={newChallenge.targetValue}
+                          onChange={(e) => setNewChallenge({ ...newChallenge, targetValue: parseInt(e.target.value) || 0 })}
+                          data-testid="input-challenge-target"
+                        />
+                      </div>
+                    </div>
+                    {newChallenge.goalType === "timed" && (
+                      <div className="space-y-2">
+                        <Label>Time Limit (minutes)</Label>
+                        <Input
+                          type="number"
+                          placeholder="e.g., 30"
+                          value={newChallenge.timeLimit ?? ""}
+                          onChange={(e) => setNewChallenge({ ...newChallenge, timeLimit: e.target.value ? parseInt(e.target.value) : undefined })}
+                          data-testid="input-challenge-time-limit"
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      onClick={() => createChallengeMutation.mutate(newChallenge)}
+                      disabled={!newChallenge.name || createChallengeMutation.isPending}
+                      data-testid="button-submit-challenge"
+                    >
+                      {createChallengeMutation.isPending ? "Creating..." : "Create & Start"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
 
               {/* Start Workout Dialog */}
               <Dialog open={isStartWorkoutDialogOpen} onOpenChange={(open) => { setIsStartWorkoutDialogOpen(open); if (!open) setDrillSearchQuery(""); }}>
