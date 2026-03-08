@@ -16,6 +16,7 @@ import {
   sendSessionCancelledEmail,
   sendSessionRescheduledEmail,
   sendSessionDeclinedEmail,
+  sendInviteEmail,
 } from "./email";
 
 async function getEmailForUser(userId: string): Promise<string | null> {
@@ -3806,6 +3807,36 @@ export async function registerRoutes(
     }
   });
 
+  // ===== INVITE (send invite email to join PLAYR1) =====
+
+  const inviteSchema = z.object({
+    email: z.string().email("Must be a valid email"),
+    message: z.string().optional(),
+  });
+
+  app.post("/api/invite", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const parsed = inviteSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid input" });
+      }
+      const { email, message } = parsed.data;
+      const fromName = await getDisplayNameForUser(userId);
+      const sent = await sendInviteEmail(email, fromName, message);
+      await storage.createInvitation({
+        teamId: null,
+        invitedBy: userId,
+        email,
+        playerName: null,
+      });
+      res.json({ success: true, emailSent: sent });
+    } catch (error) {
+      console.error("Error sending invite:", error);
+      res.status(500).json({ message: "Failed to send invite" });
+    }
+  });
+
   // ===== SHARED VIDEOS (player shares links with coach/trainer) =====
 
   app.get("/api/shared-videos/:teamId", isAuthenticated, async (req: any, res) => {
@@ -5778,7 +5809,64 @@ export async function registerRoutes(
     }
   });
 
-  // ===== PLAYER SEARCH (for trainers to find players) =====
+  // ===== UNIVERSAL USER SEARCH =====
+
+  app.get("/api/users/search", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const q = (req.query.q as string || "").trim();
+      if (q.length < 2) {
+        return res.json([]);
+      }
+      const searchPattern = `%${q}%`;
+      const results = await db
+        .select({
+          userId: users.id,
+          email: users.email,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          profileImageUrl: users.profileImageUrl,
+          displayName: userProfiles.displayName,
+          profilePhotoUrl: userProfiles.profilePhotoUrl,
+          city: userProfiles.city,
+          state: userProfiles.state,
+          positions: careerProfiles.positions,
+          staffRole: careerProfiles.staffRole,
+        })
+        .from(users)
+        .leftJoin(userProfiles, eq(userProfiles.userId, users.id))
+        .leftJoin(careerProfiles, eq(careerProfiles.userId, users.id))
+        .where(
+          or(
+            ilike(users.firstName, searchPattern),
+            ilike(users.lastName, searchPattern),
+            ilike(users.email, searchPattern),
+            ilike(userProfiles.displayName, searchPattern),
+            sql`CONCAT(${users.firstName}, ' ', ${users.lastName}) ILIKE ${searchPattern}`
+          )
+        )
+        .limit(20);
+
+      const filtered = results
+        .filter(r => r.userId !== userId)
+        .map(r => ({
+          userId: r.userId,
+          firstName: r.firstName,
+          lastName: r.lastName,
+          displayName: r.displayName,
+          profilePhotoUrl: r.profilePhotoUrl || r.profileImageUrl,
+          city: r.city,
+          state: r.state,
+          positions: r.positions,
+          staffRole: r.staffRole,
+        }));
+
+      res.json(filtered);
+    } catch (error: any) {
+      console.error("Error searching users:", error);
+      res.status(500).json({ message: "Failed to search users" });
+    }
+  });
 
   app.get("/api/players/search", isAuthenticated, async (req: any, res) => {
     try {
@@ -5848,29 +5936,40 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const { targetUserId, role } = req.body;
-      if (!targetUserId || !role) {
-        return res.status(400).json({ message: "targetUserId and role are required" });
+      if (!targetUserId) {
+        return res.status(400).json({ message: "targetUserId is required" });
       }
       if (targetUserId === userId) {
         return res.status(400).json({ message: "Cannot connect with yourself" });
       }
-      if (role !== "player" && role !== "trainer") {
-        return res.status(400).json({ message: "Role must be 'player' or 'trainer'" });
+
+      let initiatedBy: "player" | "trainer" = "player";
+      if (role === "player" || role === "trainer") {
+        initiatedBy = role;
+      } else {
+        const [career] = await db.select({ staffRole: careerProfiles.staffRole }).from(careerProfiles).where(eq(careerProfiles.userId, userId));
+        if (career?.staffRole === "trainer" || career?.staffRole === "coach" || career?.staffRole === "both") {
+          initiatedBy = "trainer";
+        }
       }
-      const playerId = role === "player" ? userId : targetUserId;
-      const trainerId = role === "player" ? targetUserId : userId;
-      const initiatedBy = role as "player" | "trainer";
+
+      const playerId = userId < targetUserId ? userId : targetUserId;
+      const trainerId = userId < targetUserId ? targetUserId : userId;
 
       const existing = await storage.getConnection(playerId, trainerId);
       if (existing) {
         if (existing.status === "declined") {
-          const updated = await storage.updateConnectionStatus(existing.id, "pending");
+          await db.update(playerTrainerConnections)
+            .set({ status: "pending", requesterUserId: userId, initiatedBy, updatedAt: new Date() })
+            .where(eq(playerTrainerConnections.id, existing.id));
+          const [updated] = await db.select().from(playerTrainerConnections)
+            .where(eq(playerTrainerConnections.id, existing.id));
           return res.json(updated);
         }
         return res.status(400).json({ message: "Connection already exists", connection: existing });
       }
 
-      const conn = await storage.createConnection({ playerId, trainerId, initiatedBy, status: "pending" });
+      const conn = await storage.createConnection({ playerId, trainerId, initiatedBy, requesterUserId: userId, status: "pending" });
       res.status(201).json(conn);
     } catch (error) {
       console.error("Error creating connection:", error);
@@ -5913,6 +6012,9 @@ export async function registerRoutes(
       const pending = await storage.getPendingConnectionsForUser(userId);
 
       const incoming = pending.filter(c => {
+        if (c.requesterUserId) {
+          return c.requesterUserId !== userId && (c.playerId === userId || c.trainerId === userId);
+        }
         if (c.initiatedBy === "player" && c.trainerId === userId) return true;
         if (c.initiatedBy === "trainer" && c.playerId === userId) return true;
         return false;
@@ -5966,8 +6068,10 @@ export async function registerRoutes(
       if (!existing) return res.status(404).json({ message: "Connection not found" });
       if (existing.status !== "pending") return res.status(400).json({ message: "Connection is not pending" });
 
-      const isRecipient = (existing.initiatedBy === "player" && existing.trainerId === userId)
-        || (existing.initiatedBy === "trainer" && existing.playerId === userId);
+      const isRecipient = existing.requesterUserId
+        ? existing.requesterUserId !== userId && (existing.playerId === userId || existing.trainerId === userId)
+        : (existing.initiatedBy === "player" && existing.trainerId === userId)
+          || (existing.initiatedBy === "trainer" && existing.playerId === userId);
       if (!isRecipient) return res.status(403).json({ message: "Not authorized to accept this connection" });
 
       const conn = await storage.updateConnectionStatus(req.params.id, "accepted");
@@ -5986,8 +6090,10 @@ export async function registerRoutes(
       if (!existing) return res.status(404).json({ message: "Connection not found" });
       if (existing.status !== "pending") return res.status(400).json({ message: "Connection is not pending" });
 
-      const isRecipient = (existing.initiatedBy === "player" && existing.trainerId === userId)
-        || (existing.initiatedBy === "trainer" && existing.playerId === userId);
+      const isRecipient = existing.requesterUserId
+        ? existing.requesterUserId !== userId && (existing.playerId === userId || existing.trainerId === userId)
+        : (existing.initiatedBy === "player" && existing.trainerId === userId)
+          || (existing.initiatedBy === "trainer" && existing.playerId === userId);
       if (!isRecipient) return res.status(403).json({ message: "Not authorized to decline this connection" });
 
       const conn = await storage.updateConnectionStatus(req.params.id, "declined");

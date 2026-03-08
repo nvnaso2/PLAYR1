@@ -1294,6 +1294,7 @@ export const playerTrainerConnections = pgTable("player_trainer_connections", {
   trainerId: varchar("trainer_id").notNull(),
   status: varchar("status").$type<"pending" | "accepted" | "declined">().default("pending").notNull(),
   initiatedBy: varchar("initiated_by").$type<"player" | "trainer">().notNull(),
+  requesterUserId: varchar("requester_user_id"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

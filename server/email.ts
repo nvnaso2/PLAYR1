@@ -244,6 +244,43 @@ export async function sendSessionDeclinedEmail(
   );
 }
 
+export async function sendInviteEmail(
+  toEmail: string,
+  fromName: string,
+  message?: string
+): Promise<boolean> {
+  const signUpUrl = process.env.APP_URL
+    ? `${process.env.APP_URL}/auth`
+    : "https://playr1.com/auth";
+  const personalMessage = message
+    ? `<p style="color:#ccc;font-size:16px;line-height:1.6;margin:0 0 16px 0;padding:16px;background-color:#222;border-radius:8px;border-left:4px solid #f97316;">
+        "${message}"
+      </p>`
+    : "";
+  const body = `
+    <p style="color:#ccc;font-size:16px;line-height:1.6;margin:0 0 16px 0;">
+      ${fromName} has invited you to join ${APP_NAME} &mdash; the platform for basketball players and trainers to connect, train, and track progress.
+    </p>
+    ${personalMessage}
+    <p style="color:#ccc;font-size:16px;line-height:1.6;margin:0 0 24px 0;">
+      Whether you're a player looking to sharpen your skills or a trainer ready to grow your roster, ${APP_NAME} has you covered.
+    </p>
+    <div style="text-align:center;margin:24px 0;">
+      <a href="${signUpUrl}" style="display:inline-block;background-color:#f97316;color:#fff;font-size:16px;font-weight:600;text-decoration:none;padding:12px 32px;border-radius:8px;">
+        Join ${APP_NAME}
+      </a>
+    </div>
+    <p style="color:#666;font-size:12px;line-height:1.6;margin:0;">
+      If the button doesn't work, copy and paste this URL into your browser:<br>
+      <span style="color:#f97316;word-break:break-all;">${signUpUrl}</span>
+    </p>`;
+  return sendEmail(
+    toEmail,
+    `${fromName} invited you to join ${APP_NAME}`,
+    baseTemplate(`You're Invited to ${APP_NAME}!`, body)
+  );
+}
+
 export async function sendPasswordResetEmail(
   email: string,
   displayName: string,

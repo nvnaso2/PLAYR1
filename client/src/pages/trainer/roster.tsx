@@ -463,12 +463,15 @@ interface PlayerSearchResult {
   city: string | null;
   state: string | null;
   positions: string[] | null;
+  staffRole: string | null;
 }
 
 function FindPlayersDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteMessage, setInviteMessage] = useState("");
 
   const debounceRef = useState<ReturnType<typeof setTimeout> | null>(null);
 
@@ -479,10 +482,10 @@ function FindPlayersDialog({ open, onOpenChange }: { open: boolean; onOpenChange
   };
 
   const { data: searchResults, isLoading: searching } = useQuery<PlayerSearchResult[]>({
-    queryKey: ["/api/players/search", { q: debouncedQuery }],
+    queryKey: ["/api/users/search", { q: debouncedQuery }],
     enabled: debouncedQuery.length >= 2,
     queryFn: async () => {
-      const res = await fetch(`/api/players/search?q=${encodeURIComponent(debouncedQuery)}`, { credentials: "include" });
+      const res = await fetch(`/api/users/search?q=${encodeURIComponent(debouncedQuery)}`, { credentials: "include" });
       if (!res.ok) throw new Error("Search failed");
       return res.json();
     },
@@ -506,6 +509,19 @@ function FindPlayersDialog({ open, onOpenChange }: { open: boolean; onOpenChange
     },
   });
 
+  const inviteMutation = useMutation({
+    mutationFn: (data: { email: string; message?: string }) =>
+      apiRequest("POST", "/api/invite", data),
+    onSuccess: () => {
+      toast({ title: "Invite sent!" });
+      setInviteEmail("");
+      setInviteMessage("");
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to send invite", description: error.message, variant: "destructive" });
+    },
+  });
+
   const getConnectionStatus = (playerId: string) => {
     if (!connections) return null;
     return connections.find(
@@ -513,13 +529,15 @@ function FindPlayersDialog({ open, onOpenChange }: { open: boolean; onOpenChange
     );
   };
 
+  const noResults = !searching && debouncedQuery.length >= 2 && (!searchResults || searchResults.length === 0);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md" data-testid="dialog-find-players">
         <DialogHeader>
-          <DialogTitle>Find Players</DialogTitle>
+          <DialogTitle>Find People</DialogTitle>
           <DialogDescription>
-            Search for players by name or email to send a connection request.
+            Search for players and trainers by name or email to send a connection request.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -543,10 +561,39 @@ function FindPlayersDialog({ open, onOpenChange }: { open: boolean; onOpenChange
               </div>
             )}
 
-            {!searching && debouncedQuery.length >= 2 && (!searchResults || searchResults.length === 0) && (
-              <p className="text-sm text-muted-foreground text-center py-4" data-testid="text-no-players-found">
-                No players found for "{debouncedQuery}"
-              </p>
+            {noResults && (
+              <div className="text-center py-4 space-y-4">
+                <p className="text-sm text-muted-foreground" data-testid="text-no-results-found">
+                  No results found for "{debouncedQuery}"
+                </p>
+                <div className="border rounded-md p-3 space-y-3 text-left">
+                  <p className="text-sm font-medium">Invite someone to join PLAYR1</p>
+                  <Input
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder="Email address"
+                    data-testid="input-invite-email"
+                  />
+                  <Textarea
+                    value={inviteMessage}
+                    onChange={(e) => setInviteMessage(e.target.value)}
+                    placeholder="Add a personal message (optional)"
+                    className="resize-none text-sm"
+                    rows={2}
+                    data-testid="input-invite-message"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={() => inviteMutation.mutate({ email: inviteEmail, message: inviteMessage || undefined })}
+                    disabled={!inviteEmail || inviteMutation.isPending}
+                    data-testid="button-send-invite"
+                  >
+                    <Mail className="w-3 h-3 mr-1" />
+                    {inviteMutation.isPending ? "Sending..." : "Send Invite"}
+                  </Button>
+                </div>
+              </div>
             )}
 
             {searchResults?.map((player) => {
@@ -556,6 +603,7 @@ function FindPlayersDialog({ open, onOpenChange }: { open: boolean; onOpenChange
               const conn = getConnectionStatus(player.userId);
               const status = conn?.status;
               const location = [player.city, player.state].filter(Boolean).join(", ");
+              const isTrainer = !!player.staffRole;
 
               return (
                 <div
@@ -568,8 +616,13 @@ function FindPlayersDialog({ open, onOpenChange }: { open: boolean; onOpenChange
                     <AvatarFallback className="text-xs">{initials || "?"}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate" data-testid={`text-search-player-name-${player.userId}`}>{name}</p>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-medium truncate" data-testid={`text-search-player-name-${player.userId}`}>{name}</p>
+                      <Badge variant={isTrainer ? "default" : "secondary"} className="no-default-hover-elevate text-[10px]" data-testid={`badge-role-${player.userId}`}>
+                        {isTrainer ? "Trainer" : "Player"}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                       {location && <span>{location}</span>}
                       {player.positions?.length ? (
                         <span>{player.positions.join(", ")}</span>

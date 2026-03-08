@@ -38,6 +38,7 @@ import TrainerEvaluations from "@/pages/trainer/evaluations";
 import TrainerPlayerDetail from "@/pages/trainer/player-detail";
 import MyTrainer from "@/pages/my-trainer";
 import ParentDashboard from "@/pages/parent-dashboard";
+import FindPeople from "@/pages/find-people";
 import NotFound from "@/pages/not-found";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRole } from "@/hooks/use-role";
@@ -153,6 +154,7 @@ function Router() {
                 <Route path="/trainer/schedule" component={TrainerSchedule} />
                 <Route path="/trainer/evaluations" component={TrainerEvaluations} />
                 <Route path="/teams" component={Finder} />
+                <Route path="/connect" component={FindPeople} />
                 <Route path="/my-trainer" component={MyTrainer} />
                 <Route path="/parent" component={ParentDashboard} />
                 <Route path="/find-trainer">{() => <Redirect to="/my-trainer" />}</Route>

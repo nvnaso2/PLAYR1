@@ -3113,10 +3113,18 @@ export class DatabaseStorage implements IStorage {
 
   async getConnection(playerId: string, trainerId: string): Promise<PlayerTrainerConnection | undefined> {
     const [conn] = await db.select().from(playerTrainerConnections)
-      .where(and(
-        eq(playerTrainerConnections.playerId, playerId),
-        eq(playerTrainerConnections.trainerId, trainerId)
-      ));
+      .where(
+        or(
+          and(
+            eq(playerTrainerConnections.playerId, playerId),
+            eq(playerTrainerConnections.trainerId, trainerId)
+          ),
+          and(
+            eq(playerTrainerConnections.playerId, trainerId),
+            eq(playerTrainerConnections.trainerId, playerId)
+          )
+        )
+      );
     return conn;
   }
 
@@ -3155,8 +3163,16 @@ export class DatabaseStorage implements IStorage {
   async areConnected(playerId: string, trainerId: string): Promise<boolean> {
     const [conn] = await db.select().from(playerTrainerConnections)
       .where(and(
-        eq(playerTrainerConnections.playerId, playerId),
-        eq(playerTrainerConnections.trainerId, trainerId),
+        or(
+          and(
+            eq(playerTrainerConnections.playerId, playerId),
+            eq(playerTrainerConnections.trainerId, trainerId)
+          ),
+          and(
+            eq(playerTrainerConnections.playerId, trainerId),
+            eq(playerTrainerConnections.trainerId, playerId)
+          )
+        ),
         eq(playerTrainerConnections.status, "accepted")
       ));
     return !!conn;
