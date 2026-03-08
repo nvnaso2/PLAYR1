@@ -505,7 +505,12 @@ function FindPlayersDialog({ open, onOpenChange }: { open: boolean; onOpenChange
       toast({ title: "Connection request sent" });
     },
     onError: (error: Error) => {
-      toast({ title: "Failed to send request", description: error.message, variant: "destructive" });
+      if (error.message?.includes("already exists")) {
+        queryClient.invalidateQueries({ queryKey: ["/api/connections"] });
+        toast({ title: "Connection already exists" });
+      } else {
+        toast({ title: "Failed to send request", description: error.message, variant: "destructive" });
+      }
     },
   });
 
@@ -522,10 +527,10 @@ function FindPlayersDialog({ open, onOpenChange }: { open: boolean; onOpenChange
     },
   });
 
-  const getConnectionStatus = (playerId: string) => {
+  const getConnectionStatus = (userId: string) => {
     if (!connections) return null;
     return connections.find(
-      (c: any) => c.playerId === playerId || c.trainerId === playerId || c.otherUserId === playerId
+      (c: any) => c.playerId === userId || c.trainerId === userId || c.otherUser?.id === userId
     );
   };
 

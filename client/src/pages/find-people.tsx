@@ -98,7 +98,7 @@ export default function FindPeople() {
   const getConnectionStatus = useCallback((userId: string): string | null => {
     if (!connections) return null;
     const conn = connections.find(
-      (c) => c.playerId === userId || c.trainerId === userId || c.otherUserId === userId
+      (c: any) => c.playerId === userId || c.trainerId === userId || c.otherUser?.id === userId
     );
     return conn?.status || null;
   }, [connections]);
