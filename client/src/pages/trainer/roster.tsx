@@ -441,7 +441,8 @@ export default function TrainerRoster() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
-  const [activePanel, setActivePanel] = useState<"teams" | "groups" | "players">("players");
+  const [teamFilter, setTeamFilter] = useState("all");
+  const [groupFilter, setGroupFilter] = useState("all");
   const [selectedTeam, setSelectedTeam] = useState<CoachTeam | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<TrainerGroup | null>(null);
 
@@ -579,7 +580,7 @@ export default function TrainerRoster() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/coach/teams"] });
       setDeleteTeamId(null);
-      if (selectedTeam?.id === deleteTeamId) setSelectedTeam(null);
+      if (selectedTeam?.id === deleteTeamId) { setSelectedTeam(null); setTeamFilter("all"); }
       toast({ title: "Team deleted" });
     },
     onError: (error: Error) => {
@@ -620,7 +621,7 @@ export default function TrainerRoster() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/trainer/groups"] });
       setDeleteGroupId(null);
-      if (selectedGroup?.id === deleteGroupId) setSelectedGroup(null);
+      if (selectedGroup?.id === deleteGroupId) { setSelectedGroup(null); setGroupFilter("all"); }
       toast({ title: "Group deleted" });
     },
     onError: (error: Error) => {
@@ -1016,9 +1017,11 @@ export default function TrainerRoster() {
       };
       const posMatch = positionFilter === "all" || p.position === positionFilter || (posGroupMap[positionFilter]?.includes(p.position || "")) || (p.position && posGroupMap[p.position]?.includes(positionFilter));
       const ageMatch = ageFilter === "all" || p.ageGroup === ageFilter;
-      return nameMatch && posMatch && ageMatch;
+      const teamMatch = teamFilter === "all" || (p.teams || []).some((t: any) => t.teamId === teamFilter);
+      const groupMatch = groupFilter === "all" || (p.groups || []).some((g: any) => g.groupId === groupFilter);
+      return nameMatch && posMatch && ageMatch && teamMatch && groupMatch;
     });
-  }, [allPlayers, searchQuery, positionFilter, ageFilter]);
+  }, [allPlayers, searchQuery, positionFilter, ageFilter, teamFilter, groupFilter]);
 
   const allSelected = filteredPlayers.length > 0 && filteredPlayers.every((p) => selectedPlayerIds.has(p.id));
 
@@ -1265,335 +1268,77 @@ export default function TrainerRoster() {
         </div>
       </div>
 
-      <Tabs value={activePanel} onValueChange={(v) => { setActivePanel(v as "teams" | "groups" | "players"); setSelectedTeam(null); setSelectedGroup(null); }}>
-        <div className="flex items-center gap-2 flex-wrap">
-          <TabsList data-testid="tabs-roster-type">
-            <TabsTrigger value="players" data-testid="tab-players">
-              <UserCheck className="w-4 h-4 mr-1" />
-              Players
-            </TabsTrigger>
-            <TabsTrigger value="teams" data-testid="tab-teams">
-              <Shield className="w-4 h-4 mr-1" />
-              Teams
-            </TabsTrigger>
-            <TabsTrigger value="groups" data-testid="tab-groups">
-              <Users className="w-4 h-4 mr-1" />
-              Groups
-            </TabsTrigger>
-          </TabsList>
-          {activePanel === "teams" && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => { resetTeamForm(); setEditTeamId(null); setCreateTeamOpen(true); }}
-              data-testid="button-create-team"
-            >
-              <Plus className="w-4 h-4" />
+      <div className="space-y-3">
+
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <span className="text-sm text-muted-foreground">{filteredPlayers.length} of {allPlayers?.length || 0} players</span>
+          <div className="flex items-center gap-1">
+            <Button size="sm" variant="outline" onClick={() => { resetTeamForm(); setEditTeamId(null); setCreateTeamOpen(true); }} data-testid="button-create-team">
+              <Shield className="w-3 h-3 mr-1" />
               New Team
             </Button>
-          )}
-          {activePanel === "groups" && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => { resetGroupForm(); setEditGroupId(null); setCreateGroupOpen(true); }}
-              data-testid="button-create-group"
-            >
-              <Plus className="w-4 h-4" />
+            <Button size="sm" variant="outline" onClick={() => { resetGroupForm(); setEditGroupId(null); setCreateGroupOpen(true); }} data-testid="button-create-group">
+              <Users className="w-3 h-3 mr-1" />
               New Group
             </Button>
-          )}
-          {activePanel === "players" && (
-            <Button
-              size="sm"
-              onClick={() => { addForm.reset(); setNewPlayerTeamIds([]); setAddPlayerOpen(true); }}
-              data-testid="button-add-player-tab"
-            >
-              <Plus className="w-4 h-4" />
-              Add Player
-            </Button>
-          )}
+          </div>
         </div>
-
-        <TabsContent value="teams" className="space-y-2 mt-3">
-          {teamsLoading ? (
-            <div className="space-y-2">
-              {[1, 2].map((i) => <Skeleton key={i} className="h-14 rounded-lg" />)}
-            </div>
-          ) : !teams?.length ? (
-            <div className="py-8 text-center text-muted-foreground">
-              <Shield className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">No teams yet. Create one to get started.</p>
-            </div>
-          ) : (
-            teams.map((team) => {
-              const isExpanded = selectedTeam?.id === team.id;
-              return (
-                <div key={team.id} className="rounded-lg border bg-card" data-testid={`card-team-${team.id}`}>
-                  <button
-                    className="w-full flex items-center gap-3 p-3 text-left"
-                    onClick={() => { setSelectedTeam(isExpanded ? null : team); setSelectedGroup(null); }}
-                    data-testid={`button-toggle-team-${team.id}`}
-                  >
-                    <ChevronRight className={`w-4 h-4 shrink-0 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-medium truncate" data-testid={`text-team-name-${team.id}`}>{team.name}</span>
-                        {team.seasonYear && (
-                          <Badge variant="secondary" className="no-default-hover-elevate text-[10px]">
-                            {team.seasonYear}-{(team.seasonYear + 1).toString().slice(-2)}
-                          </Badge>
-                        )}
-                        {team.ageGroup && <Badge variant="outline" className="no-default-hover-elevate text-[10px]">{team.ageGroup}</Badge>}
-                      </div>
-                    </div>
-                    <Badge variant="secondary" className="no-default-hover-elevate text-xs shrink-0">
-                      <Users className="w-3 h-3 mr-1" />
-                      {team.memberCount}
-                    </Badge>
-                  </button>
-
-                  {isExpanded && (
-                    <div className="border-t px-3 pb-3 space-y-3" data-testid="panel-team-detail">
-                      <div className="flex items-center gap-2 pt-3 flex-wrap">
-                        <Badge variant="outline" className="no-default-hover-elevate font-mono text-xs">{team.teamCode}</Badge>
-                        <Button size="sm" variant="ghost" onClick={() => copyCode(team.teamCode)} data-testid={`button-copy-team-code-${team.id}`}>
-                          <Copy className="w-3 h-3" />
-                        </Button>
-                        <div className="ml-auto flex items-center gap-1">
-                          <Button size="sm" variant="outline" onClick={() => { setInviteEmail(""); setInvitePlayerName(""); setInviteOpen(true); }} data-testid="button-invite-email">
-                            <Mail className="w-3 h-3" />
-                            Invite
-                          </Button>
-                          <Button size="sm" onClick={() => { setRosterAddPlayerIds([]); setRosterPlayerSearch(""); setAddPlayersOpen(true); }} data-testid="button-roster-add-players">
-                            <UserPlus className="w-3 h-3" />
-                            Add
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={() => { openEditTeam(team); setCreateTeamOpen(true); }} data-testid={`button-edit-team-${team.id}`}>
-                            <Edit2 className="w-3 h-3" />
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={() => setDeleteTeamId(team.id)} data-testid={`button-delete-team-${team.id}`}>
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      {teamMembersLoading ? (
-                        <div className="space-y-2">
-                          {[1, 2].map((i) => <Skeleton key={i} className="h-12 rounded" />)}
-                        </div>
-                      ) : !teamMembers?.length ? (
-                        <p className="text-sm text-muted-foreground py-2" data-testid="text-no-roster-members">
-                          No players yet. Add players or share the team code.
-                        </p>
-                      ) : (
-                        <div className="space-y-1">
-                          {teamMembers.map((member) => (
-                            <div
-                              key={member.userId}
-                              className="flex items-center gap-2 p-2 rounded-md bg-muted/50"
-                              data-testid={`row-roster-member-${member.userId}`}
-                            >
-                              <Avatar className="h-7 w-7 shrink-0">
-                                <AvatarImage src={member.profileImageUrl} />
-                                <AvatarFallback className="text-[10px]">
-                                  {(member.firstName?.[0] || '') + (member.lastName?.[0] || '')}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div
-                                className="flex-1 min-w-0 cursor-pointer"
-                                onClick={() => {
-                                  const playerId = member.userId.startsWith("tp_") ? member.userId.slice(3) : member.userId;
-                                  const found = allPlayers?.find(p => p.id === playerId || p.linkedUserId === member.userId);
-                                  if (found) {
-                                    setDetailPlayer(found);
-                                  } else {
-                                    const synthPlayer: TrainerPlayerData = {
-                                      id: member.userId, trainerId: "", firstName: member.firstName, lastName: member.lastName,
-                                      email: member.email, phone: null, position: member.position || null,
-                                      jerseyNumber: member.jerseyNumber || null, ageGroup: null, teamType: null, gradYear: null,
-                                      notes: null, linkedUserId: member.userId, createdAt: member.joinedAt, updatedAt: member.joinedAt,
-                                      groups: [], teams: [],
-                                    };
-                                    setDetailPlayer(synthPlayer);
-                                  }
-                                }}
-                                data-testid={`button-roster-view-player-${member.userId}`}
-                              >
-                                <span className="text-sm font-medium hover:underline truncate block" data-testid={`text-roster-name-${member.userId}`}>
-                                  {member.firstName} {member.lastName}
-                                </span>
-                              </div>
-                              {member.jerseyNumber && <span className="text-xs font-mono text-muted-foreground" data-testid={`text-jersey-${member.userId}`}>#{member.jerseyNumber}</span>}
-                              {member.position && <Badge variant="outline" className="no-default-hover-elevate text-[10px]">{member.position}</Badge>}
-                              <div className="flex items-center gap-0.5 shrink-0">
-                                {!member.isCoachPlayer && (
-                                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEditMember(member)} data-testid={`button-edit-member-${member.userId}`}>
-                                    <Edit2 className="w-3 h-3" />
-                                  </Button>
-                                )}
-                                <Button
-                                  size="icon" variant="ghost" className="h-7 w-7"
-                                  onClick={() => {
-                                    if (member.isCoachPlayer && member.assignmentId) {
-                                      removeAssignmentMutation.mutate(member.assignmentId);
-                                    } else {
-                                      setRemoveMember({ teamId: selectedTeam.id, userId: member.userId, name: `${member.firstName} ${member.lastName}` });
-                                    }
-                                  }}
-                                  data-testid={`button-remove-member-${member.userId}`}
-                                >
-                                  <UserMinus className="w-3 h-3" />
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })
-          )}
-        </TabsContent>
-
-        <TabsContent value="groups" className="space-y-2 mt-3">
-          {groupsLoading ? (
-            <div className="space-y-2">
-              {[1, 2].map((i) => <Skeleton key={i} className="h-14 rounded-lg" />)}
-            </div>
-          ) : !groups?.length ? (
-            <div className="py-8 text-center text-muted-foreground">
-              <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">No groups yet. Create one to get started.</p>
-            </div>
-          ) : (
-            groups.map((group) => {
-              const isExpanded = selectedGroup?.id === group.id;
-              const groupMemberCount = allPlayers?.filter(p => p.groups?.some((g: any) => g.groupId === group.id)).length || 0;
-              return (
-                <div key={group.id} className="rounded-lg border bg-card" data-testid={`card-group-${group.id}`}>
-                  <button
-                    className="w-full flex items-center gap-3 p-3 text-left"
-                    onClick={() => { setSelectedGroup(isExpanded ? null : group); setSelectedTeam(null); }}
-                    data-testid={`button-toggle-group-${group.id}`}
-                  >
-                    <ChevronRight className={`w-4 h-4 shrink-0 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-medium truncate" data-testid={`text-group-name-${group.id}`}>{group.name}</span>
-                        {group.ageGroup && <Badge variant="secondary" className="no-default-hover-elevate text-[10px]">{group.ageGroup}</Badge>}
-                        {group.position && <Badge variant="outline" className="no-default-hover-elevate text-[10px]">{group.position}</Badge>}
-                      </div>
-                    </div>
-                    <Badge variant="secondary" className="no-default-hover-elevate text-xs shrink-0">
-                      <Users className="w-3 h-3 mr-1" />
-                      {groupMemberCount}
-                    </Badge>
-                  </button>
-
-                  {isExpanded && (
-                    <div className="border-t px-3 pb-3 space-y-3" data-testid="panel-group-detail">
-                      <div className="flex items-center gap-2 pt-3 flex-wrap">
-                        <Badge variant="outline" className="no-default-hover-elevate font-mono text-xs">{group.teamCode}</Badge>
-                        <Button size="sm" variant="ghost" onClick={() => copyCode(group.teamCode)} data-testid={`button-copy-group-code-${group.id}`}>
-                          <Copy className="w-3 h-3" />
-                        </Button>
-                        <div className="ml-auto flex items-center gap-1">
-                          <Button size="sm" variant="outline" onClick={() => { setInviteEmail(""); setInvitePlayerName(""); setInviteOpen(true); }} data-testid="button-group-invite-email">
-                            <Mail className="w-3 h-3" />
-                            Invite
-                          </Button>
-                          <Button size="sm" onClick={() => { setRosterAddPlayerIds([]); setRosterPlayerSearch(""); setAddPlayersToGroupOpen(true); }} data-testid="button-group-add-players">
-                            <UserPlus className="w-3 h-3" />
-                            Add
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={() => { openEditGroup(group); setCreateGroupOpen(true); }} data-testid={`button-edit-group-${group.id}`}>
-                            <Edit2 className="w-3 h-3" />
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={() => setDeleteGroupId(group.id)} data-testid={`button-delete-group-${group.id}`}>
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      {!groupMembers?.length ? (
-                        <p className="text-sm text-muted-foreground py-2" data-testid="text-no-group-members">
-                          No members yet. Add players or share the group code.
-                        </p>
-                      ) : (
-                        <div className="space-y-1">
-                          {groupMembers.map((member) => (
-                            <div
-                              key={member.userId}
-                              className="flex items-center gap-2 p-2 rounded-md bg-muted/50"
-                              data-testid={`row-group-member-${member.userId}`}
-                            >
-                              <Avatar className="h-7 w-7 shrink-0">
-                                <AvatarImage src={member.profileImageUrl} />
-                                <AvatarFallback className="text-[10px]">
-                                  {(member.firstName?.[0] || '') + (member.lastName?.[0] || '')}
-                                </AvatarFallback>
-                              </Avatar>
-                              <span className="text-sm font-medium truncate flex-1 min-w-0">{member.firstName} {member.lastName}</span>
-                              {member.position && <Badge variant="outline" className="no-default-hover-elevate text-[10px]">{member.position}</Badge>}
-                              <Button
-                                size="icon" variant="ghost" className="h-7 w-7 shrink-0"
-                                onClick={() => removeGroupMemberMutation.mutate({ groupId: selectedGroup.id, userId: member.userId })}
-                                data-testid={`button-remove-group-member-${member.userId}`}
-                              >
-                                <UserMinus className="w-3 h-3" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })
-          )}
-        </TabsContent>
-        <TabsContent value="players" className="space-y-3 mt-3">
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <span className="text-sm text-muted-foreground">{allPlayers?.length || 0} total players</span>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative flex-1 min-w-[160px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search players..."
+              className="pl-9"
+              data-testid="input-search-players"
+            />
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="relative flex-1 min-w-[160px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search players..."
-                className="pl-9"
-                data-testid="input-search-players"
-              />
-            </div>
-            <Select value={positionFilter} onValueChange={setPositionFilter}>
-              <SelectTrigger className="w-[130px]" data-testid="select-filter-position">
-                <SelectValue placeholder="All Positions" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Positions</SelectItem>
-                {PLAYER_POSITIONS.map((pos) => (
-                  <SelectItem key={pos} value={pos}>{pos}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={ageFilter} onValueChange={setAgeFilter}>
-              <SelectTrigger className="w-[110px]" data-testid="select-filter-age">
-                <SelectValue placeholder="All Ages" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Ages</SelectItem>
-                {PLAYER_AGES.map((age) => (
-                  <SelectItem key={age} value={age}>{age}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <Select value={teamFilter} onValueChange={(v) => { setTeamFilter(v); setSelectedTeam(v === "all" ? null : (teams || []).find(t => t.id === v) || null); }}>
+            <SelectTrigger className="w-[130px]" data-testid="select-filter-team">
+              <SelectValue placeholder="All Teams" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Teams</SelectItem>
+              {(teams || []).map((t) => (
+                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={groupFilter} onValueChange={(v) => { setGroupFilter(v); setSelectedGroup(v === "all" ? null : (groups || []).find(g => g.id === v) || null); }}>
+            <SelectTrigger className="w-[130px]" data-testid="select-filter-group">
+              <SelectValue placeholder="All Groups" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Groups</SelectItem>
+              {(groups || []).map((g) => (
+                <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={positionFilter} onValueChange={setPositionFilter}>
+            <SelectTrigger className="w-[130px]" data-testid="select-filter-position">
+              <SelectValue placeholder="All Positions" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Positions</SelectItem>
+              {PLAYER_POSITIONS.map((pos) => (
+                <SelectItem key={pos} value={pos}>{pos}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={ageFilter} onValueChange={setAgeFilter}>
+            <SelectTrigger className="w-[110px]" data-testid="select-filter-age">
+              <SelectValue placeholder="All Ages" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Ages</SelectItem>
+              {PLAYER_AGES.map((age) => (
+                <SelectItem key={age} value={age}>{age}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
           {filteredPlayers.length > 0 && (
             <div className="flex items-center gap-3 flex-wrap">
@@ -1718,8 +1463,7 @@ export default function TrainerRoster() {
               ))}
             </div>
           )}
-        </TabsContent>
-      </Tabs>
+      </div>
 
       <Dialog open={createTeamOpen} onOpenChange={(open) => { if (!open) { setCreateTeamOpen(false); setEditTeamId(null); } }}>
         <DialogContent data-testid="dialog-create-team">
