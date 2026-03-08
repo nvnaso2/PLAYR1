@@ -161,7 +161,7 @@ interface RosterMember {
 
 interface Invitation {
   id: string;
-  teamId: string;
+  teamId: string | null;
   invitedBy: string;
   email: string;
   playerName?: string;
@@ -543,8 +543,12 @@ export default function TrainerRoster() {
 
 
   const { data: invitations, isLoading: invitationsLoading } = useQuery<Invitation[]>({
-    queryKey: ["/api/invitations", inviteOpen ? (selectedTeam?.id || selectedGroup?.id) : ""],
-    enabled: inviteOpen && !!(selectedTeam?.id || selectedGroup?.id),
+    queryKey: ["/api/invitations", inviteOpen ? (selectedTeam?.id || selectedGroup?.id || "my") : ""],
+    queryFn: () => {
+      const entityId = selectedTeam?.id || selectedGroup?.id;
+      return fetch(entityId ? `/api/invitations/${entityId}` : `/api/invitations/my`, { credentials: "include" }).then(r => r.json());
+    },
+    enabled: inviteOpen,
   });
 
   const createTeamMutation = useMutation({
@@ -789,10 +793,10 @@ export default function TrainerRoster() {
   });
 
   const inviteMutation = useMutation({
-    mutationFn: (data: { teamId: string; email: string; playerName?: string }) =>
+    mutationFn: (data: { teamId?: string; email: string; playerName?: string }) =>
       apiRequest("POST", "/api/invitations", data),
     onSuccess: () => {
-      const entityId = selectedTeam?.id || selectedGroup?.id;
+      const entityId = selectedTeam?.id || selectedGroup?.id || "my";
       queryClient.invalidateQueries({ queryKey: ["/api/invitations", entityId] });
       setInviteEmail("");
       setInvitePlayerName("");
@@ -806,7 +810,7 @@ export default function TrainerRoster() {
   const deleteInviteMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/invitations/${id}`),
     onSuccess: () => {
-      const entityId = selectedTeam?.id || selectedGroup?.id;
+      const entityId = selectedTeam?.id || selectedGroup?.id || "my";
       queryClient.invalidateQueries({ queryKey: ["/api/invitations", entityId] });
       toast({ title: "Invitation removed" });
     },
@@ -974,8 +978,9 @@ export default function TrainerRoster() {
   };
 
   const handleInvite = () => {
-    const entityId = selectedTeam?.id || selectedGroup?.id || inviteTargetId;
-    if (!entityId || !inviteEmail.trim()) return;
+    const rawId = selectedTeam?.id || selectedGroup?.id || inviteTargetId;
+    const entityId = rawId && rawId !== "none" ? rawId : undefined;
+    if (!inviteEmail.trim()) return;
     inviteMutation.mutate({ teamId: entityId, email: inviteEmail.trim(), playerName: invitePlayerName.trim() || undefined });
   };
 
@@ -1745,18 +1750,19 @@ export default function TrainerRoster() {
           <DialogHeader>
             <DialogTitle>Invite Players</DialogTitle>
             <DialogDescription>
-              {selectedEntityName ? `Send an invitation to join ${selectedEntityName}.` : "Send an invitation to join a team or group."}
+              {selectedEntityName ? `Send an invitation to join ${selectedEntityName}.` : "Send an invitation to a player. You can optionally assign them to a team or group."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             {!selectedTeam && !selectedGroup && (
               <div>
-                <label className="text-sm font-medium">Team / Group</label>
+                <label className="text-sm font-medium">Team / Group <span className="text-muted-foreground font-normal">(optional)</span></label>
                 <Select value={inviteTargetId} onValueChange={setInviteTargetId}>
                   <SelectTrigger className="mt-1" data-testid="select-invite-target">
-                    <SelectValue placeholder="Select team or group" />
+                    <SelectValue placeholder="None (invite to roster only)" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="none">None (invite to roster only)</SelectItem>
                     {teams?.map((t) => (
                       <SelectItem key={t.id} value={t.id}>{t.name} (Team)</SelectItem>
                     ))}
@@ -1792,7 +1798,7 @@ export default function TrainerRoster() {
             </div>
             <Button
               onClick={handleInvite}
-              disabled={!inviteEmail.trim() || (!selectedTeam && !selectedGroup && !inviteTargetId) || inviteMutation.isPending}
+              disabled={!inviteEmail.trim() || inviteMutation.isPending}
               className="w-full sm:w-auto"
               data-testid="button-send-invite"
             >

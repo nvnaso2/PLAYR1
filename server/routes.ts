@@ -3535,6 +3535,17 @@ export async function registerRoutes(
   // ===== PLAYER INVITATIONS =====
 
   // Get invitations for a team
+  app.get("/api/invitations/my", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const invitations = await storage.getInvitationsByTrainer(userId);
+      res.json(invitations);
+    } catch (error) {
+      console.error("Error fetching invitations:", error);
+      res.status(500).json({ message: "Failed to fetch invitations" });
+    }
+  });
+
   app.get("/api/invitations/:teamId", isAuthenticated, async (req: any, res) => {
     try {
       const invitations = await storage.getTeamInvitations(req.params.teamId);
@@ -3550,15 +3561,17 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const { teamId, email, playerName } = req.body;
-      if (!teamId || !email) {
-        return res.status(400).json({ message: "teamId and email are required" });
+      if (!email) {
+        return res.status(400).json({ message: "email is required" });
       }
-      const team = await storage.getTeamById(teamId);
-      if (!team || team.coachId !== userId) {
-        return res.status(403).json({ message: "Not authorized" });
+      if (teamId) {
+        const team = await storage.getTeamById(teamId);
+        if (!team || team.coachId !== userId) {
+          return res.status(403).json({ message: "Not authorized" });
+        }
       }
       const invitation = await storage.createInvitation({
-        teamId,
+        teamId: teamId || null,
         invitedBy: userId,
         email,
         playerName: playerName || null,

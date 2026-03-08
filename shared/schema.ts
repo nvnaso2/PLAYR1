@@ -668,7 +668,7 @@ export const messages = pgTable("messages", {
 // Player invitations
 export const playerInvitations = pgTable("player_invitations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  teamId: varchar("team_id").notNull(),
+  teamId: varchar("team_id"),
   invitedBy: varchar("invited_by").notNull(),
   email: varchar("email").notNull(),
   playerName: varchar("player_name"),

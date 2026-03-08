@@ -269,6 +269,7 @@ export interface IStorage {
 
   // Player Invitations
   getTeamInvitations(teamId: string): Promise<PlayerInvitation[]>;
+  getInvitationsByTrainer(trainerId: string): Promise<PlayerInvitation[]>;
   createInvitation(invitation: InsertPlayerInvitation): Promise<PlayerInvitation>;
   getInvitationsByEmail(email: string): Promise<PlayerInvitation[]>;
   updateInvitationStatus(id: string, status: string): Promise<PlayerInvitation | undefined>;
@@ -2273,6 +2274,12 @@ export class DatabaseStorage implements IStorage {
   async getTeamInvitations(teamId: string): Promise<PlayerInvitation[]> {
     return await db.select().from(playerInvitations)
       .where(eq(playerInvitations.teamId, teamId))
+      .orderBy(desc(playerInvitations.createdAt));
+  }
+
+  async getInvitationsByTrainer(trainerId: string): Promise<PlayerInvitation[]> {
+    return await db.select().from(playerInvitations)
+      .where(eq(playerInvitations.invitedBy, trainerId))
       .orderBy(desc(playerInvitations.createdAt));
   }
 
