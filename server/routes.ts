@@ -4868,12 +4868,19 @@ export async function registerRoutes(
 
   app.get("/api/training-sessions/player/enriched", isAuthenticated, async (req: any, res) => {
     try {
-      const playerId = req.user.claims.sub;
+      const userId = req.user.claims.sub;
       const filters: any = {};
       if (req.query.status) filters.status = req.query.status as string;
       if (req.query.from) filters.from = req.query.from as string;
       if (req.query.to) filters.to = req.query.to as string;
-      const sessions = await storage.getTrainingSessionsForPlayer(playerId, filters);
+      const playerSessions = await storage.getTrainingSessionsForPlayer(userId, filters);
+      const trainerSessions = await storage.getTrainingSessionsForTrainer(userId, filters);
+      const sessionMap = new Map<string, typeof playerSessions[0]>();
+      for (const s of playerSessions) sessionMap.set(s.id, s);
+      for (const s of trainerSessions) sessionMap.set(s.id, s);
+      const sessions = [...sessionMap.values()].sort((a, b) =>
+        b.sessionDate.localeCompare(a.sessionDate) || b.startTime.localeCompare(a.startTime)
+      );
       const trainerProfileIds = [...new Set(sessions.map(s => s.trainerProfileId))];
       const trainerInfo: Record<string, { name: string; profilePhotoUrl: string | null }> = {};
       for (const tpid of trainerProfileIds) {
