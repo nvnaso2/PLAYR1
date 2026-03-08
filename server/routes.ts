@@ -5373,9 +5373,9 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const url = gcal.getAuthUrl(userId);
-      res.json({ url });
+      res.redirect(url);
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).send("Failed to connect to Google Calendar: " + error.message);
     }
   });
 

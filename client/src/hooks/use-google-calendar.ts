@@ -1,7 +1,7 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/hooks/use-auth";
 
 export function useGoogleCalendar() {
@@ -15,25 +15,7 @@ export function useGoogleCalendar() {
     enabled: !!user,
   });
 
-  const connectMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("GET", "/api/google-calendar/connect");
-      const data = await res.json();
-      return data.url as string;
-    },
-    onSuccess: (url) => {
-      if (popupRef.current && !popupRef.current.closed) {
-        popupRef.current.location.href = url;
-        popupRef.current.focus();
-      }
-    },
-    onError: (error: Error) => {
-      if (popupRef.current && !popupRef.current.closed) {
-        popupRef.current.close();
-      }
-      toast({ title: "Failed to connect", description: error.message, variant: "destructive" });
-    },
-  });
+  const [isConnecting, setIsConnecting] = useState(false);
 
   const disconnectMutation = useMutation({
     mutationFn: async () => {
@@ -81,9 +63,15 @@ export function useGoogleCalendar() {
   }, [handleMessage]);
 
   const connect = useCallback(() => {
-    popupRef.current = window.open("about:blank", "google-calendar-auth", "width=600,height=700,scrollbars=yes");
-    connectMutation.mutate();
-  }, [connectMutation]);
+    setIsConnecting(true);
+    popupRef.current = window.open("/api/google-calendar/connect", "google-calendar-auth", "width=600,height=700,scrollbars=yes");
+    const checkClosed = setInterval(() => {
+      if (popupRef.current?.closed) {
+        clearInterval(checkClosed);
+        setIsConnecting(false);
+      }
+    }, 500);
+  }, []);
 
   return {
     isConnected: statusQuery.data?.connected ?? false,
@@ -91,7 +79,7 @@ export function useGoogleCalendar() {
     connect,
     disconnect: () => disconnectMutation.mutate(),
     addSession: (sessionId: string) => addSessionMutation.mutate(sessionId),
-    isConnecting: connectMutation.isPending,
+    isConnecting,
     isDisconnecting: disconnectMutation.isPending,
     isAddingSession: addSessionMutation.isPending,
   };
