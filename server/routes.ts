@@ -6,7 +6,7 @@ import { registerObjectStorageRoutes } from "./replit_integrations/object_storag
 import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
-import { eq, and, or, isNull } from "drizzle-orm";
+import { eq, and, or, isNull, ilike, sql } from "drizzle-orm";
 import { z } from "zod";
 import { zipToCoords, cityStateToCoords, haversineDistance } from "./geo";
 import {
@@ -5711,6 +5711,70 @@ export async function registerRoutes(
       res.json(result);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ===== PLAYER SEARCH (for trainers to find players) =====
+
+  app.get("/api/players/search", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const q = (req.query.q as string || "").trim();
+      if (q.length < 2) {
+        return res.json([]);
+      }
+      const searchPattern = `%${q}%`;
+      const results = await db
+        .select({
+          userId: users.id,
+          email: users.email,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          profileImageUrl: users.profileImageUrl,
+          displayName: userProfiles.displayName,
+          profilePhotoUrl: userProfiles.profilePhotoUrl,
+          city: userProfiles.city,
+          state: userProfiles.state,
+          positions: careerProfiles.positions,
+          staffRole: careerProfiles.staffRole,
+        })
+        .from(users)
+        .leftJoin(userProfiles, eq(userProfiles.userId, users.id))
+        .leftJoin(careerProfiles, eq(careerProfiles.userId, users.id))
+        .where(
+          and(
+            or(
+              ilike(users.firstName, searchPattern),
+              ilike(users.lastName, searchPattern),
+              ilike(users.email, searchPattern),
+              ilike(userProfiles.displayName, searchPattern),
+              sql`CONCAT(${users.firstName}, ' ', ${users.lastName}) ILIKE ${searchPattern}`
+            ),
+            or(
+              isNull(careerProfiles.staffRole),
+              sql`${careerProfiles.alsoPlayer} = true`
+            )
+          )
+        )
+        .limit(20);
+
+      const filtered = results
+        .filter(r => r.userId !== userId)
+        .map(r => ({
+          userId: r.userId,
+          firstName: r.firstName,
+          lastName: r.lastName,
+          displayName: r.displayName,
+          profilePhotoUrl: r.profilePhotoUrl || r.profileImageUrl,
+          city: r.city,
+          state: r.state,
+          positions: r.positions,
+        }));
+
+      res.json(filtered);
+    } catch (error: any) {
+      console.error("Error searching players:", error);
+      res.status(500).json({ message: "Failed to search players" });
     }
   });
 

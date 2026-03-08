@@ -36,7 +36,10 @@ export function useRole() {
     if (!isLoading && profile && !hasInitialized.current) {
       hasInitialized.current = true;
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (!stored && hasStaffRole) {
+      if (hasStaffRole && !profile.alsoPlayer) {
+        setActiveViewState("trainer");
+        localStorage.setItem(STORAGE_KEY, "trainer");
+      } else if (!stored && hasStaffRole) {
         setActiveViewState("trainer");
         localStorage.setItem(STORAGE_KEY, "trainer");
       } else if (stored === "trainer" && !hasStaffRole) {

@@ -454,6 +454,168 @@ interface ConnectionRequest {
   } | null;
 }
 
+interface PlayerSearchResult {
+  userId: string;
+  firstName: string | null;
+  lastName: string | null;
+  displayName: string | null;
+  profilePhotoUrl: string | null;
+  city: string | null;
+  state: string | null;
+  positions: string[] | null;
+}
+
+function FindPlayersDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const { toast } = useToast();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+
+  const debounceRef = useState<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    if (debounceRef[0]) clearTimeout(debounceRef[0]);
+    debounceRef[0] = setTimeout(() => setDebouncedQuery(value), 300);
+  };
+
+  const { data: searchResults, isLoading: searching } = useQuery<PlayerSearchResult[]>({
+    queryKey: ["/api/players/search", { q: debouncedQuery }],
+    enabled: debouncedQuery.length >= 2,
+    queryFn: async () => {
+      const res = await fetch(`/api/players/search?q=${encodeURIComponent(debouncedQuery)}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Search failed");
+      return res.json();
+    },
+  });
+
+  const { data: connections } = useQuery<any[]>({
+    queryKey: ["/api/connections"],
+    enabled: open,
+  });
+
+  const connectMutation = useMutation({
+    mutationFn: (targetUserId: string) =>
+      apiRequest("POST", "/api/connections/request", { targetUserId, role: "trainer" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/connections"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/connections/pending"] });
+      toast({ title: "Connection request sent" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to send request", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const getConnectionStatus = (playerId: string) => {
+    if (!connections) return null;
+    return connections.find(
+      (c: any) => c.playerId === playerId || c.trainerId === playerId || c.otherUserId === playerId
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md" data-testid="dialog-find-players">
+        <DialogHeader>
+          <DialogTitle>Find Players</DialogTitle>
+          <DialogDescription>
+            Search for players by name or email to send a connection request.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              placeholder="Search by name or email..."
+              className="pl-9"
+              autoFocus
+              data-testid="input-find-players-search"
+            />
+          </div>
+
+          <div className="max-h-[300px] overflow-y-auto space-y-2">
+            {searching && (
+              <div className="space-y-2">
+                <Skeleton className="h-14 w-full" />
+                <Skeleton className="h-14 w-full" />
+              </div>
+            )}
+
+            {!searching && debouncedQuery.length >= 2 && (!searchResults || searchResults.length === 0) && (
+              <p className="text-sm text-muted-foreground text-center py-4" data-testid="text-no-players-found">
+                No players found for "{debouncedQuery}"
+              </p>
+            )}
+
+            {searchResults?.map((player) => {
+              const name = player.displayName ||
+                [player.firstName, player.lastName].filter(Boolean).join(" ") || "Unknown";
+              const initials = (player.firstName?.[0] || "") + (player.lastName?.[0] || "");
+              const conn = getConnectionStatus(player.userId);
+              const status = conn?.status;
+              const location = [player.city, player.state].filter(Boolean).join(", ");
+
+              return (
+                <div
+                  key={player.userId}
+                  className="flex items-center gap-3 p-3 rounded-md border"
+                  data-testid={`card-search-player-${player.userId}`}
+                >
+                  <Avatar className="h-9 w-9 shrink-0">
+                    <AvatarImage src={player.profilePhotoUrl || undefined} />
+                    <AvatarFallback className="text-xs">{initials || "?"}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate" data-testid={`text-search-player-name-${player.userId}`}>{name}</p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      {location && <span>{location}</span>}
+                      {player.positions?.length ? (
+                        <span>{player.positions.join(", ")}</span>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="shrink-0">
+                    {status === "accepted" ? (
+                      <Badge variant="secondary" className="no-default-hover-elevate text-xs" data-testid={`badge-connected-${player.userId}`}>
+                        <UserCheck className="w-3 h-3 mr-1" />
+                        Connected
+                      </Badge>
+                    ) : status === "pending" ? (
+                      <Badge variant="outline" className="no-default-hover-elevate text-xs" data-testid={`badge-pending-${player.userId}`}>
+                        <Clock className="w-3 h-3 mr-1" />
+                        Pending
+                      </Badge>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => connectMutation.mutate(player.userId)}
+                        disabled={connectMutation.isPending}
+                        data-testid={`button-connect-player-${player.userId}`}
+                      >
+                        <UserPlus className="w-3 h-3 mr-1" />
+                        Connect
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+
+            {debouncedQuery.length < 2 && !searching && (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                Type at least 2 characters to search
+              </p>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ConnectionRequestsSection() {
   const { toast } = useToast();
 
@@ -618,6 +780,7 @@ export default function TrainerRoster() {
 
 
   const [detailPlayer, setDetailPlayer] = useState<TrainerPlayerData | null>(null);
+  const [findPlayersOpen, setFindPlayersOpen] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [positionFilter, setPositionFilter] = useState("all");
@@ -1393,6 +1556,10 @@ export default function TrainerRoster() {
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-xl font-bold" data-testid="text-roster-page-heading">Player Management</h1>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setFindPlayersOpen(true)} data-testid="button-find-players">
+            <Search className="w-4 h-4" />
+            Find Players
+          </Button>
           <Button variant="outline" size="sm" onClick={() => { setInviteEmail(""); setInvitePlayerName(""); setInviteOpen(true); }} data-testid="button-top-invite-player">
             <Mail className="w-4 h-4" />
             Invite
@@ -2093,6 +2260,8 @@ export default function TrainerRoster() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <FindPlayersDialog open={findPlayersOpen} onOpenChange={setFindPlayersOpen} />
 
       <PlayerDetailPanel
         player={detailPlayer}
