@@ -1,6 +1,6 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
-import { isAuthenticated } from "../auth/replitAuth";
+import { isAuthenticated } from "../../auth";
 import { storage } from "../../storage";
 
 // Allowed content types for uploads
