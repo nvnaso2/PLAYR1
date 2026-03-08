@@ -30,6 +30,7 @@ The platform is built with a modern web stack: React + TypeScript for the fronte
 *   **Session Scheduling**: Full booking flow for training sessions between players and trainers, including requesting, confirming, rescheduling, and cancelling sessions. Supports multi-player group sessions (trainers can create sessions for multiple players at once via `POST /api/training-sessions/group`; linked by `groupSessionId` in `training_sessions` table).
 *   **Google Calendar Integration**: OAuth-based Google Calendar sync for confirmed training sessions. Users connect their Google account via popup OAuth flow, then can add confirmed sessions to Google Calendar with one click. DB table: `google_calendar_tokens` (userId, accessToken, refreshToken, expiresAt). Backend module: `server/google-calendar.ts`. Hook: `client/src/hooks/use-google-calendar.ts`. API: `GET /api/google-calendar/status`, `GET /api/google-calendar/connect`, `GET /api/auth/google/callback`, `POST /api/google-calendar/disconnect`, `POST /api/google-calendar/add-session/:sessionId`.
 *   **Player Evaluations**: Trainers can rate player skill attributes using configurable scales (numeric and word ratings), with support for custom attributes and progress tracking.
+*   **Email Notifications (SendGrid)**: Automated email notifications sent from `noreply@handlz.co` for session lifecycle events (requested, confirmed, cancelled, rescheduled, declined) and welcome emails on onboarding completion. Backend module: `server/email.ts`. Email field added to `user_profiles` table. Users set their email on the Profile page.
 *   **Payments (Stripe)**: Placeholder for future Stripe Connect integration.
 
 ## External Dependencies
@@ -45,3 +46,4 @@ The platform is built with a modern web stack: React + TypeScript for the fronte
 *   **Capacitor**: Building native mobile applications.
 *   **Replit App Storage**: Object storage for media uploads.
 *   **googleapis**: Google Calendar API integration.
+*   **@sendgrid/mail**: Email delivery via SendGrid.

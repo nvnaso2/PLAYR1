@@ -8,6 +8,48 @@ import { users } from "@shared/models/auth";
 import { db } from "./db";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
+import {
+  sendWelcomeEmail,
+  sendSessionRequestedEmail,
+  sendSessionConfirmedEmail,
+  sendSessionCancelledEmail,
+  sendSessionRescheduledEmail,
+  sendSessionDeclinedEmail,
+} from "./email";
+
+async function getEmailForUser(userId: string): Promise<string | null> {
+  const [profile] = await db.select({ email: userProfiles.email }).from(userProfiles).where(eq(userProfiles.userId, userId));
+  if (profile?.email) return profile.email;
+  const [user] = await db.select({ email: users.email }).from(users).where(eq(users.id, userId));
+  return user?.email || null;
+}
+
+async function getDisplayNameForUser(userId: string): Promise<string> {
+  const [profile] = await db.select({ displayName: userProfiles.displayName }).from(userProfiles).where(eq(userProfiles.userId, userId));
+  if (profile?.displayName) return profile.displayName;
+  const [user] = await db.select({ firstName: users.firstName, lastName: users.lastName }).from(users).where(eq(users.id, userId));
+  if (user?.firstName) return `${user.firstName}${user.lastName ? " " + user.lastName : ""}`;
+  return "Player";
+}
+
+async function getSessionEmailData(session: any) {
+  const trainerName = await getDisplayNameForUser(session.trainerId);
+  const playerName = await getDisplayNameForUser(session.playerId);
+  let locationName: string | undefined;
+  if (session.locationId) {
+    const loc = await storage.getTrainingLocationById(session.locationId);
+    if (loc) locationName = loc.name;
+  }
+  return {
+    trainerName,
+    playerName,
+    sessionDate: session.sessionDate,
+    startTime: session.startTime,
+    endTime: session.endTime,
+    locationName,
+    sessionType: session.sessionType || undefined,
+  };
+}
 
 export async function registerRoutes(
   httpServer: Server,
@@ -1579,6 +1621,13 @@ export async function registerRoutes(
       if (!profile) {
         return res.status(404).json({ message: "Career profile not found" });
       }
+
+      const email = await getEmailForUser(userId);
+      if (email) {
+        const displayName = await getDisplayNameForUser(userId);
+        sendWelcomeEmail(email, displayName).catch(() => {});
+      }
+
       res.json(profile);
     } catch (error) {
       console.error("Error completing onboarding:", error);
@@ -4725,6 +4774,13 @@ export async function registerRoutes(
         sessionType: sessionType || null,
         createdBy: playerId,
       });
+
+      const trainerEmail = await getEmailForUser(trainerProfile.userId);
+      if (trainerEmail) {
+        const emailData = await getSessionEmailData(session);
+        sendSessionRequestedEmail(trainerEmail, { ...emailData, requesterRole: "player" }).catch(() => {});
+      }
+
       res.status(201).json(session);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -4789,6 +4845,12 @@ export async function registerRoutes(
           createdBy: trainerId,
         });
         sessions.push(session);
+
+        const playerEmail = await getEmailForUser(playerId);
+        if (playerEmail) {
+          const emailData = await getSessionEmailData(session);
+          sendSessionRequestedEmail(playerEmail, { ...emailData, requesterRole: "trainer" }).catch(() => {});
+        }
       }
       res.status(201).json(sessions);
     } catch (error: any) {
@@ -4939,6 +5001,15 @@ export async function registerRoutes(
       const updateData: any = { status: "confirmed" };
       if (trainerNotes) updateData.trainerNotes = trainerNotes;
       const updated = await storage.updateTrainingSession(req.params.id, updateData);
+
+      const otherUserId = userId === session.trainerId ? session.playerId : session.trainerId;
+      const otherEmail = await getEmailForUser(otherUserId);
+      if (otherEmail) {
+        const emailData = await getSessionEmailData(updated);
+        const confirmedBy = await getDisplayNameForUser(userId);
+        sendSessionConfirmedEmail(otherEmail, { ...emailData, confirmedBy }).catch(() => {});
+      }
+
       res.json(updated);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -4957,6 +5028,13 @@ export async function registerRoutes(
         status: "declined",
         declineReason: declineReason || null,
       });
+
+      const playerEmail = await getEmailForUser(session.playerId);
+      if (playerEmail) {
+        const emailData = await getSessionEmailData(updated);
+        sendSessionDeclinedEmail(playerEmail, { ...emailData, declineReason: declineReason || undefined }).catch(() => {});
+      }
+
       res.json(updated);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -4975,6 +5053,15 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Cannot cancel this session" });
       }
       const updated = await storage.updateTrainingSession(req.params.id, { status: "cancelled" });
+
+      const otherUserId = userId === session.trainerId ? session.playerId : session.trainerId;
+      const otherEmail = await getEmailForUser(otherUserId);
+      if (otherEmail) {
+        const emailData = await getSessionEmailData(updated);
+        const cancelledBy = await getDisplayNameForUser(userId);
+        sendSessionCancelledEmail(otherEmail, { ...emailData, cancelledBy }).catch(() => {});
+      }
+
       res.json(updated);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -5044,6 +5131,21 @@ export async function registerRoutes(
       };
       if (sessionType) updateData.sessionType = sessionType;
       const updated = await storage.updateTrainingSession(req.params.id, updateData);
+
+      const otherUserId = userId === session.trainerId ? session.playerId : session.trainerId;
+      const otherEmail = await getEmailForUser(otherUserId);
+      if (otherEmail) {
+        const emailData = await getSessionEmailData(updated);
+        const rescheduledBy = await getDisplayNameForUser(userId);
+        sendSessionRescheduledEmail(otherEmail, {
+          ...emailData,
+          rescheduledBy,
+          oldDate: session.sessionDate,
+          oldStartTime: session.startTime,
+          oldEndTime: session.endTime,
+        }).catch(() => {});
+      }
+
       res.json(updated);
     } catch (error: any) {
       res.status(500).json({ message: error.message });

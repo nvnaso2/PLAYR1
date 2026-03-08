@@ -43,6 +43,7 @@ import type { UserProfile } from "@shared/schema";
 
 const profileFormSchema = z.object({
   displayName: z.string().min(1, "Display name is required").max(50),
+  email: z.string().email("Please enter a valid email").optional().or(z.literal("")),
   age: z.number().min(5, "Age must be at least 5").max(100).optional(),
   city: z.string().optional(),
   state: z.string().optional(),
@@ -72,6 +73,7 @@ export default function ProfilePage() {
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
       displayName: "",
+      email: "",
       age: undefined,
       city: "",
       state: "",
@@ -84,6 +86,7 @@ export default function ProfilePage() {
     if (profile) {
       form.reset({
         displayName: profile.displayName || user?.firstName || "",
+        email: (profile as any).email || "",
         age: profile.age || undefined,
         city: profile.city || "",
         state: profile.state || "",
@@ -93,6 +96,7 @@ export default function ProfilePage() {
     } else if (user) {
       form.reset({
         displayName: user.firstName || "",
+        email: "",
         age: undefined,
         city: "",
         state: "",
@@ -276,6 +280,26 @@ export default function ProfilePage() {
                         data-testid="input-display-name"
                       />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="email"
+                        placeholder="your@email.com"
+                        {...field}
+                        data-testid="input-email"
+                      />
+                    </FormControl>
+                    <FormDescription>Used for session notifications and updates</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

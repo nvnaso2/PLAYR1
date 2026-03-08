@@ -290,6 +290,7 @@ export const userProfiles = pgTable("user_profiles", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().unique(),
   displayName: varchar("display_name"),
+  email: varchar("email"),
   age: integer("age"),
   city: varchar("city"),
   state: varchar("state"),
