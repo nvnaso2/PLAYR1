@@ -97,7 +97,7 @@ function CoachRedirect() {
   if (tab === "assign-drills") return <Redirect to="/trainer/drills" />;
   if (tab === "training-logs") return <Redirect to="/trainer/logs" />;
   if (tab === "chat") return <Redirect to="/trainer/chat" />;
-  if (tab === "videos") return <Redirect to="/trainer/videos" />;
+  if (tab === "videos") return <Redirect to="/trainer/drills?tab=videos" />;
   if (tab === "invite") return <Redirect to="/trainer/roster" />;
   return <Redirect to="/trainer" />;
 }
@@ -138,7 +138,7 @@ function Router({ previewLanding }: { previewLanding: boolean }) {
                 <Route path="/trainer/drills" component={TrainerDrills} />
                 <Route path="/trainer/logs" component={TrainerLogs} />
                 <Route path="/trainer/chat" component={TrainerChat} />
-                <Route path="/trainer/videos" component={TrainerVideos} />
+                <Route path="/trainer/videos">{() => <Redirect to="/trainer/drills?tab=videos" />}</Route>
                 <Route path="/trainer/progress" component={TrainerProgress} />
                 <Route path="/trainer/profile" component={TrainerProfile} />
                 <Route path="/trainer/schedule" component={TrainerSchedule} />

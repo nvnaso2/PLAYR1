@@ -69,7 +69,6 @@ const trainerNavItems = [
   { title: "Home", url: "/trainer", icon: BarChart3 },
   { title: "Player Management", url: "/trainer/roster", icon: Users },
   { title: "Drills & Workouts", url: "/trainer/drills", icon: Dumbbell },
-  { title: "Videos", url: "/trainer/videos", icon: Video },
   { title: "Chat", url: "/trainer/chat", icon: MessageCircle },
   { title: "Schedule", url: "/trainer/schedule", icon: CalendarDays },
   { title: "Evaluations", url: "/trainer/evaluations", icon: ClipboardCheck },

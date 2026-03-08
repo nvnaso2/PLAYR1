@@ -70,6 +70,7 @@ import { DRILL_CATEGORIES, DIFFICULTY_LEVELS } from "@shared/schema";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
+import { MyVideosSection, PlayerVideosSection } from "@/pages/trainer/videos";
 
 const PLAYER_POSITIONS = ["PG", "SG", "SF", "PF", "C", "Guard", "Wing", "Forward", "Bigs"];
 const PLAYER_AGES = ["8U", "9U", "10U", "11U", "12U", "13U", "14U", "15U", "16U", "17U", "18U"];
@@ -182,7 +183,7 @@ export default function TrainerDrillsPage() {
   const [activeTab, setActiveTab] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get("tab");
-    return tab && ["all", "mine", "workouts", "assignments"].includes(tab) ? tab : "all";
+    return tab && ["all", "mine", "workouts", "assignments", "videos"].includes(tab) ? tab : "all";
   });
 
   return (
@@ -196,6 +197,10 @@ export default function TrainerDrillsPage() {
           <TabsTrigger value="mine" data-testid="tab-my-drills">My Drills</TabsTrigger>
           <TabsTrigger value="workouts" data-testid="tab-workouts">Workouts</TabsTrigger>
           <TabsTrigger value="assignments" data-testid="tab-assignments">Assignments</TabsTrigger>
+          <TabsTrigger value="videos" data-testid="tab-videos">
+            <Video className="w-4 h-4 mr-1" />
+            Videos
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="all">
@@ -209,6 +214,16 @@ export default function TrainerDrillsPage() {
         </TabsContent>
         <TabsContent value="assignments">
           <AssignmentsSection />
+        </TabsContent>
+        <TabsContent value="videos" className="space-y-6 mt-4">
+          <div>
+            <h2 className="text-lg font-semibold mb-3" data-testid="text-my-videos-heading">My Videos</h2>
+            <MyVideosSection />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold mb-3" data-testid="text-player-videos-heading">Player Videos</h2>
+            <PlayerVideosSection />
+          </div>
         </TabsContent>
       </Tabs>
     </div>

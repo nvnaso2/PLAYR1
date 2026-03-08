@@ -111,7 +111,7 @@ const formatCategory = (cat: string) =>
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
 
-function MyVideosSection() {
+export function MyVideosSection() {
   const { toast } = useToast();
   const [createVideoOpen, setCreateVideoOpen] = useState(false);
   const [editVideoId, setEditVideoId] = useState<string | null>(null);
@@ -767,7 +767,7 @@ function MyVideosSection() {
   );
 }
 
-function PlayerVideosSection() {
+export function PlayerVideosSection() {
   const [groupFilter, setGroupFilter] = useState<string>("all");
   const [playerFilter, setPlayerFilter] = useState<string>("all");
   const [positionFilter, setPositionFilter] = useState<string>("all");
