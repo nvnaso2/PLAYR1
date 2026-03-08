@@ -1258,3 +1258,15 @@ export const insertPlayerEvaluationRatingSchema = createInsertSchema(playerEvalu
 
 export type InsertPlayerEvaluationRating = z.infer<typeof insertPlayerEvaluationRatingSchema>;
 export type PlayerEvaluationRating = typeof playerEvaluationRatings.$inferSelect;
+
+export const googleCalendarTokens = pgTable("google_calendar_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique(),
+  accessToken: text("access_token").notNull(),
+  refreshToken: text("refresh_token").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type GoogleCalendarToken = typeof googleCalendarTokens.$inferSelect;

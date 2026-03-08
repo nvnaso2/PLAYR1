@@ -27,6 +27,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { useGoogleCalendar } from "@/hooks/use-google-calendar";
 import {
   Calendar,
   Clock,
@@ -40,6 +41,7 @@ import {
   XCircle,
   AlertCircle,
   CalendarDays,
+  CalendarPlus,
   List,
   ChevronLeft,
   ChevronRight,
@@ -141,6 +143,7 @@ function getMonthDays(year: number, month: number) {
 
 export default function TrainerSchedulePage() {
   const { toast } = useToast();
+  const gcal = useGoogleCalendar();
   const [activeTab, setActiveTab] = useState("requests");
   const [statusFilter, setStatusFilter] = useState("all");
   const [declineDialogOpen, setDeclineDialogOpen] = useState(false);
@@ -706,6 +709,7 @@ export default function TrainerSchedulePage() {
                           onReschedule={() => handleRescheduleClick(session)}
                           completePending={completeMutation.isPending}
                           cancelPending={cancelMutation.isPending}
+                          gcal={gcal}
                         />
                       ))
                   )}
@@ -786,6 +790,17 @@ export default function TrainerSchedulePage() {
                             <div className="flex items-center gap-1.5 shrink-0">
                               {session.status === "confirmed" && (
                                 <>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 text-xs"
+                                    onClick={() => gcal.isConnected ? gcal.addSession(session.id) : gcal.connect()}
+                                    disabled={gcal.isAddingSession}
+                                    data-testid={`button-list-gcal-${session.id}`}
+                                  >
+                                    <CalendarPlus className="w-3 h-3 mr-1" />
+                                    {gcal.isConnected ? "Calendar" : "Connect"}
+                                  </Button>
                                   <Button
                                     size="sm"
                                     variant="outline"
@@ -1139,6 +1154,7 @@ function SessionCard({
   onReschedule,
   completePending,
   cancelPending,
+  gcal,
 }: {
   session: EnrichedSession;
   onComplete: () => void;
@@ -1146,6 +1162,7 @@ function SessionCard({
   onReschedule: () => void;
   completePending: boolean;
   cancelPending: boolean;
+  gcal: ReturnType<typeof useGoogleCalendar>;
 }) {
   return (
     <Card data-testid={`card-schedule-${session.id}`}>
@@ -1188,6 +1205,16 @@ function SessionCard({
             <div className="flex items-center gap-2 flex-wrap">
               {session.status === "confirmed" && (
                 <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => gcal.isConnected ? gcal.addSession(session.id) : gcal.connect()}
+                    disabled={gcal.isAddingSession}
+                    data-testid={`button-gcal-${session.id}`}
+                  >
+                    <CalendarPlus className="w-3.5 h-3.5 mr-1" />
+                    {gcal.isConnected ? "Add to Calendar" : "Connect Calendar"}
+                  </Button>
                   <Button
                     size="sm"
                     variant="outline"

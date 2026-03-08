@@ -28,13 +28,14 @@ import {
   Search, MapPin, DollarSign, Clock, Award, Star, Mail, Phone, Globe, Instagram, Twitter,
   X, ChevronRight, CalendarDays, CheckCircle, Briefcase, UserPlus, ClipboardCheck, MessageCircle,
   User, Calendar as CalendarIcon, MessageSquare, CheckCircle2, XCircle, Hourglass, ChevronLeft, Send, ArrowLeft, Heart,
-  Target, Play, FileText,
+  Target, Play, FileText, CalendarPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { US_STATES, TRAINER_SPECIALTIES } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { useGoogleCalendar } from "@/hooks/use-google-calendar";
 import type { TrainingSession, EvaluationAttribute, PlayerEvaluation, PlayerEvaluationRating, PlayerTrainerFavorite, Drill, DrillAssignment } from "@shared/schema";
 
 type TrainerLocation = {
@@ -1035,6 +1036,7 @@ function TrainerDetail({ trainer: listTrainer, favorite, onToggleFavorite, onTog
 
 function MySessionsTab() {
   const { toast } = useToast();
+  const gcal = useGoogleCalendar();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [cancelSessionId, setCancelSessionId] = useState<string | null>(null);
   const [rescheduleSession, setRescheduleSession] = useState<EnrichedSession | null>(null);
@@ -1152,6 +1154,18 @@ function MySessionsTab() {
                 <StatusIcon className="h-3 w-3 mr-1" />
                 {config.label}
               </Badge>
+              {session.status === "confirmed" && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  data-testid={`button-gcal-${session.id}`}
+                  onClick={() => gcal.isConnected ? gcal.addSession(session.id) : gcal.connect()}
+                  disabled={gcal.isAddingSession}
+                >
+                  <CalendarPlus className="h-4 w-4 mr-1" />
+                  {gcal.isConnected ? "Add to Calendar" : "Connect Calendar"}
+                </Button>
+              )}
               {session.status === "requested" && (
                 <Button
                   size="sm"

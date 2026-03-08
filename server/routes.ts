@@ -5328,6 +5328,111 @@ export async function registerRoutes(
     }
   });
 
+  // ===== GOOGLE CALENDAR INTEGRATION =====
+
+  const gcal = await import("./google-calendar");
+
+  app.get("/api/google-calendar/status", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const connected = await gcal.isConnected(userId);
+      res.json({ connected });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/google-calendar/connect", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const url = gcal.getAuthUrl(userId);
+      res.json({ url });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/auth/google/callback", async (req: any, res) => {
+    try {
+      const { code, state } = req.query;
+      if (!code || !state) {
+        return res.status(400).send("Missing code or state parameter");
+      }
+      const userId = gcal.verifyState(state as string);
+      if (!userId) {
+        return res.status(403).send("Invalid or tampered state parameter");
+      }
+      await gcal.handleCallback(code as string, userId);
+      res.send(`
+        <html><body>
+          <script>
+            window.opener?.postMessage({ type: "google-calendar-connected" }, "*");
+            window.close();
+          </script>
+          <p>Google Calendar connected! You can close this window.</p>
+        </body></html>
+      `);
+    } catch (error: any) {
+      res.status(500).send(`Error connecting Google Calendar: ${error.message}`);
+    }
+  });
+
+  app.post("/api/google-calendar/disconnect", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      await gcal.disconnect(userId);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/google-calendar/add-session/:sessionId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { sessionId } = req.params;
+
+      const session = await storage.getTrainingSessionById(sessionId);
+      if (!session) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+      if (session.trainerId !== userId && session.playerId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      const [trainerUser] = await db.select({ firstName: users.firstName, lastName: users.lastName })
+        .from(users).where(eq(users.id, session.trainerId));
+      const [playerUser] = await db.select({ firstName: users.firstName, lastName: users.lastName })
+        .from(users).where(eq(users.id, session.playerId));
+
+      let locationName: string | undefined;
+      if (session.locationId) {
+        const loc = await storage.getTrainingLocationById(session.locationId);
+        if (loc) locationName = loc.name;
+      }
+
+      const timezone = req.body?.timezone || "America/New_York";
+      const result = await gcal.createCalendarEvent(userId, {
+        id: session.id,
+        sessionDate: session.sessionDate,
+        startTime: session.startTime,
+        endTime: session.endTime,
+        trainerName: trainerUser ? `${trainerUser.firstName || ""} ${trainerUser.lastName || ""}`.trim() : undefined,
+        playerName: playerUser ? `${playerUser.firstName || ""} ${playerUser.lastName || ""}`.trim() : undefined,
+        locationName,
+        sessionType: session.sessionType || undefined,
+        notes: session.playerNotes || session.trainerNotes || undefined,
+      }, timezone);
+
+      if (!result) {
+        return res.status(400).json({ message: "Google Calendar not connected. Please connect first." });
+      }
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   return httpServer;
 }
 
