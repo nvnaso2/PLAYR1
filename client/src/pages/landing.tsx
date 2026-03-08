@@ -69,7 +69,7 @@ export default function Landing() {
             </div>
             <div className="flex items-center gap-2">
               <ThemeToggle />
-              <a href="/api/login">
+              <a href="/auth">
                 <Button data-testid="button-login">
                   Start Training
                 </Button>
@@ -99,7 +99,7 @@ export default function Landing() {
               </div>
               
               <div className="flex flex-col sm:flex-row gap-4">
-                <a href="/api/login">
+                <a href="/auth">
                   <Button size="lg" className="gap-2 w-full sm:w-auto" data-testid="button-get-started">
                     Get Started Free
                     <ChevronRight className="w-4 h-4" />
@@ -273,7 +273,7 @@ export default function Landing() {
                   Join thousands of players who are already improving their skills 
                   with PLAYR1 training platform.
                 </p>
-                <a href="/api/login">
+                <a href="/auth">
                   <Button size="lg" className="gap-2" data-testid="button-cta-join">
                     Join Free Today
                     <ChevronRight className="w-4 h-4" />

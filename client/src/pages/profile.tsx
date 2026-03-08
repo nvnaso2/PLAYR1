@@ -451,12 +451,10 @@ export default function ProfilePage() {
                 Sign out of your PLAYR1 account
               </p>
             </div>
-            <a href="/api/logout">
-              <Button variant="outline" className="gap-2" data-testid="button-signout">
-                <LogOut className="w-4 h-4" />
-                Sign Out
-              </Button>
-            </a>
+            <Button variant="outline" className="gap-2" data-testid="button-signout" onClick={async () => { await fetch("/api/auth/logout", { method: "POST", credentials: "include" }); window.location.href = "/auth"; }}>
+              <LogOut className="w-4 h-4" />
+              Sign Out
+            </Button>
           </div>
         </CardContent>
       </Card>

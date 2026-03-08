@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -9,10 +8,11 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/hooks/use-auth";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
-import { Button } from "@/components/ui/button";
-import { Eye, EyeOff } from "lucide-react";
 
 import Landing from "@/pages/landing";
+import AuthPage from "@/pages/auth-page";
+import ForgotPassword from "@/pages/forgot-password";
+import ResetPassword from "@/pages/reset-password";
 import Drills from "@/pages/drills";
 import DrillPage from "@/pages/drill";
 import TrainingLog from "@/pages/training-log";
@@ -28,7 +28,6 @@ import TrainerRoster from "@/pages/trainer/roster";
 import TrainerDrills from "@/pages/trainer/drills";
 import TrainerLogs from "@/pages/trainer/logs";
 import TrainerChat from "@/pages/trainer/chat";
-import TrainerVideos from "@/pages/trainer/videos";
 import TrainerProgress from "@/pages/trainer/progress";
 import Finder from "@/pages/finder";
 import TeamProfile from "@/pages/team-profile";
@@ -37,8 +36,6 @@ import TrainerProfile from "@/pages/trainer/profile";
 import TrainerSchedule from "@/pages/trainer/schedule";
 import TrainerEvaluations from "@/pages/trainer/evaluations";
 import TrainerPlayerDetail from "@/pages/trainer/player-detail";
-import MySessions from "@/pages/my-sessions";
-import MyEvaluations from "@/pages/my-evaluations";
 import MyTrainer from "@/pages/my-trainer";
 import NotFound from "@/pages/not-found";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -102,7 +99,7 @@ function CoachRedirect() {
   return <Redirect to="/trainer" />;
 }
 
-function Router({ previewLanding }: { previewLanding: boolean }) {
+function Router() {
   const { user, isLoading, isAuthenticated } = useAuth();
 
   if (isLoading) {
@@ -113,12 +110,15 @@ function Router({ previewLanding }: { previewLanding: boolean }) {
     <Switch>
       <Route path="/player/:slug" component={PlayerPublic} />
       <Route path="/t/:id" component={TrainerPublic} />
-      <Route path="/finder">{() => <Redirect to="/teams" />}</Route>
       <Route path="/teams/:slug" component={TeamProfile} />
       <Route path="/leagues/:slug" component={LeagueProfile} />
+      <Route path="/auth" component={AuthPage} />
+      <Route path="/forgot-password" component={ForgotPassword} />
+      <Route path="/reset-password" component={ResetPassword} />
+      <Route path="/finder">{() => <Redirect to="/teams" />}</Route>
       <Route>
         {() => {
-          if (!isAuthenticated || previewLanding) {
+          if (!isAuthenticated) {
             return <Landing />;
           }
           return (
@@ -164,24 +164,12 @@ function Router({ previewLanding }: { previewLanding: boolean }) {
 }
 
 function App() {
-  const [previewLanding, setPreviewLanding] = useState(false);
-
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="dark" storageKey="playr1-theme">
         <TooltipProvider>
           <Toaster />
-          <Router previewLanding={previewLanding} />
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setPreviewLanding(!previewLanding)}
-            className="fixed bottom-4 right-4 z-50 gap-2 bg-background/80 backdrop-blur"
-            data-testid="button-preview-toggle"
-          >
-            {previewLanding ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-            {previewLanding ? "View App" : "View Landing"}
-          </Button>
+          <Router />
         </TooltipProvider>
       </ThemeProvider>
     </QueryClientProvider>

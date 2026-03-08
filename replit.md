@@ -11,7 +11,7 @@ PLAYR1 is a "Netflix for basketball drills" platform aimed at providing a compre
 - Ensure the user interface is intuitive and user-friendly.
 
 ## System Architecture
-The platform is built with a modern web stack: React + TypeScript for the frontend, an Express.js backend, and a PostgreSQL database with Drizzle ORM. Authentication is handled via Replit Auth. Styling uses Tailwind CSS and shadcn/ui components, featuring an orange primary color and dark mode by default. The design ensures mobile accessibility via Capacitor for native iOS and Android apps.
+The platform is built with a modern web stack: React + TypeScript for the frontend, an Express.js backend, and a PostgreSQL database with Drizzle ORM. Authentication uses custom email/password with bcrypt password hashing and stateless JWT tokens stored as httpOnly cookies. The `isAuthenticated` middleware verifies the JWT and sets `req.user = { claims: { sub: userId } }` for backward compatibility with all existing routes. Auth module: `server/auth.ts`. Frontend auth pages: `/auth` (login/register), `/forgot-password`, `/reset-password`. Styling uses Tailwind CSS and shadcn/ui components, featuring an orange primary color and dark mode by default. The design ensures mobile accessibility via Capacitor for native iOS and Android apps.
 
 **Key Features:**
 
@@ -34,7 +34,8 @@ The platform is built with a modern web stack: React + TypeScript for the fronte
 *   **Payments (Stripe)**: Placeholder for future Stripe Connect integration.
 
 ## External Dependencies
-*   **Replit Auth**: User authentication.
+*   **Custom Auth (bcryptjs + jsonwebtoken)**: Email/password authentication with JWT cookies. Supports register, login, logout, forgot/reset password.
+*   **cookie-parser**: Parses httpOnly JWT cookies for authentication.
 *   **PostgreSQL**: Database.
 *   **Drizzle ORM**: Database interactions.
 *   **Vite**: Frontend build tool.

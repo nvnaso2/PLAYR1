@@ -243,3 +243,30 @@ export async function sendSessionDeclinedEmail(
     baseTemplate("Session Declined", body)
   );
 }
+
+export async function sendPasswordResetEmail(
+  email: string,
+  displayName: string,
+  resetUrl: string
+): Promise<boolean> {
+  const body = `
+    <p style="color:#ccc;font-size:16px;line-height:1.6;margin:0 0 16px 0;">
+      Hey ${displayName},
+    </p>
+    <p style="color:#ccc;font-size:16px;line-height:1.6;margin:0 0 16px 0;">
+      We received a request to reset your password. Click the button below to set a new password:
+    </p>
+    <div style="text-align:center;margin:24px 0;">
+      <a href="${resetUrl}" style="display:inline-block;background-color:#f97316;color:#fff;font-size:16px;font-weight:600;text-decoration:none;padding:12px 32px;border-radius:8px;">
+        Reset Password
+      </a>
+    </div>
+    <p style="color:#999;font-size:14px;line-height:1.6;margin:0 0 16px 0;">
+      This link will expire in 1 hour. If you didn't request a password reset, you can safely ignore this email.
+    </p>
+    <p style="color:#666;font-size:12px;line-height:1.6;margin:0;">
+      If the button doesn't work, copy and paste this URL into your browser:<br>
+      <span style="color:#f97316;word-break:break-all;">${resetUrl}</span>
+    </p>`;
+  return sendEmail(email, `Reset Your ${APP_NAME} Password`, baseTemplate("Reset Your Password", body));
+}
