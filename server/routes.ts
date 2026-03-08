@@ -1700,6 +1700,19 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Career profile not found" });
       }
 
+      if (profile.staffRole === "trainer" || profile.staffRole === "coach" || profile.staffRole === "both") {
+        const existingTrainerProfile = await storage.getTrainerProfile(userId);
+        if (!existingTrainerProfile) {
+          const userProfile = await storage.getUserProfile(userId);
+          await storage.upsertTrainerProfile({
+            userId,
+            profilePhotoUrl: userProfile?.profilePhotoUrl || null,
+            city: userProfile?.city || null,
+            state: userProfile?.state || null,
+          } as any);
+        }
+      }
+
       const email = await getEmailForUser(userId);
       if (email) {
         const displayName = await getDisplayNameForUser(userId);
