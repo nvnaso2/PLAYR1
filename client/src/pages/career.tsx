@@ -97,6 +97,7 @@ import {
   CHALLENGE_GOAL_TYPES
 } from "@shared/schema";
 import { ShareCardDialog } from "@/components/share-card";
+import { PlayerProfileSection } from "@/pages/player-profile";
 
 const MONTHS = [
   { value: 1, label: "January" },
@@ -4385,6 +4386,8 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
           </CardContent>
         </Card>
       </div>
+
+      <PlayerProfileSection />
 
         </TabsContent>
 

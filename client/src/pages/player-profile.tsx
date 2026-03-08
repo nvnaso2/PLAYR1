@@ -10,7 +10,6 @@ import { ShareMenu } from "@/components/share-menu";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -36,7 +35,6 @@ import {
   Save,
   ExternalLink,
   Eye,
-  EyeOff,
   Globe,
   BarChart3,
   Trophy,
@@ -45,10 +43,7 @@ import {
   Link as LinkIcon,
   Ruler,
   GraduationCap,
-  Weight,
   Calendar,
-  ChevronDown,
-  ChevronUp,
 } from "lucide-react";
 import type { PlayerProfile, Season } from "@shared/schema";
 
@@ -79,7 +74,7 @@ const playerProfileFormSchema = z.object({
 
 type PlayerProfileFormData = z.infer<typeof playerProfileFormSchema>;
 
-export default function PlayerProfilePage() {
+export function PlayerProfileSection() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
@@ -209,28 +204,23 @@ export default function PlayerProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
-        <Skeleton className="h-8 w-64" />
-        <Card>
-          <CardContent className="p-6 space-y-4">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-          </CardContent>
-        </Card>
+      <div className="space-y-4">
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
       </div>
     );
   }
 
   return (
-    <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6 pb-24">
+    <div className="space-y-6">
+      <Separator />
       <div>
-        <h1 className="text-xl sm:text-2xl font-bold" data-testid="text-page-title">
-          Player Profile
-        </h1>
+        <h3 className="text-lg font-semibold" data-testid="text-player-profile-section">
+          Public Recruiting Profile
+        </h3>
         <p className="text-sm text-muted-foreground">
-          Set up your public recruiting profile to share with coaches and scouts
+          Share your profile with coaches and scouts
         </p>
       </div>
 
@@ -769,6 +759,22 @@ export default function PlayerProfilePage() {
           </div>
         </form>
       </Form>
+    </div>
+  );
+}
+
+export default function PlayerProfilePage() {
+  return (
+    <div className="p-4 sm:p-6 max-w-3xl mx-auto pb-24">
+      <div className="mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold" data-testid="text-page-title">
+          Player Profile
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          Set up your public recruiting profile to share with coaches and scouts
+        </p>
+      </div>
+      <PlayerProfileSection />
     </div>
   );
 }

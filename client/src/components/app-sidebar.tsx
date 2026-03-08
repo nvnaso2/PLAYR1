@@ -58,7 +58,6 @@ import logoLandscape from "@assets/PNG_image_1770494053382.png";
 const playerNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: BarChart3 },
   { title: "My Career", url: "/career", icon: Trophy },
-  { title: "Player Profile", url: "/player-profile", icon: UserCircle },
   { title: "Drill Library", url: "/drills", icon: Play },
   { title: "Training Log", url: "/log", icon: ClipboardList },
   { title: "My Filmroom", url: "/videos", icon: Video },

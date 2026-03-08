@@ -20,7 +20,6 @@ import Dashboard from "@/pages/progress";
 import Videos from "@/pages/videos";
 import Profile from "@/pages/profile";
 import Career from "@/pages/career";
-import PlayerProfile from "@/pages/player-profile";
 import PlayerPublic from "@/pages/player-public";
 import Admin from "@/pages/admin";
 import TrainerDashboard from "@/pages/trainer/index";
@@ -130,7 +129,6 @@ function Router({ previewLanding }: { previewLanding: boolean }) {
                 <Route path="/videos" component={Videos} />
                 <Route path="/career" component={Career} />
                 <Route path="/profile" component={Profile} />
-                <Route path="/player-profile" component={PlayerProfile} />
                 <Route path="/admin" component={Admin} />
                 <Route path="/coach" component={CoachRedirect} />
                 <Route path="/trainer" component={TrainerDashboard} />
