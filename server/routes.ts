@@ -5400,7 +5400,9 @@ export async function registerRoutes(
         </body></html>
       `);
     } catch (error: any) {
-      res.status(500).send(`Error connecting Google Calendar: ${error.message}`);
+      console.error("Google Calendar callback error:", error);
+      const detail = error.response?.data?.error_description || error.message;
+      res.status(500).send(`Error connecting Google Calendar: ${detail}`);
     }
   });
 
