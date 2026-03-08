@@ -122,6 +122,11 @@ export const careerProfiles = pgTable("career_profiles", {
   // Onboarding teams (JSON array of team objects with in-season flags)
   onboardingTeams: text("onboarding_teams"), // JSON string: [{name, type, inSeason, seasonStartMonth?}]
   
+  // Minor/Parent
+  isMinor: boolean("is_minor").default(false),
+  parentEmail: varchar("parent_email"),
+  parentInviteCode: varchar("parent_invite_code"),
+
   // Onboarding status
   onboardingCompleted: boolean("onboarding_completed").default(false),
   
@@ -1282,3 +1287,37 @@ export const googleCalendarTokens = pgTable("google_calendar_tokens", {
 });
 
 export type GoogleCalendarToken = typeof googleCalendarTokens.$inferSelect;
+
+export const playerTrainerConnections = pgTable("player_trainer_connections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").notNull(),
+  trainerId: varchar("trainer_id").notNull(),
+  status: varchar("status").$type<"pending" | "accepted" | "declined">().default("pending").notNull(),
+  initiatedBy: varchar("initiated_by").$type<"player" | "trainer">().notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertConnectionSchema = createInsertSchema(playerTrainerConnections).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertConnection = z.infer<typeof insertConnectionSchema>;
+export type PlayerTrainerConnection = typeof playerTrainerConnections.$inferSelect;
+
+export const parentLinks = pgTable("parent_links", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  parentUserId: varchar("parent_user_id").notNull(),
+  playerUserId: varchar("player_user_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertParentLinkSchema = createInsertSchema(parentLinks).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertParentLink = z.infer<typeof insertParentLinkSchema>;
+export type ParentLink = typeof parentLinks.$inferSelect;

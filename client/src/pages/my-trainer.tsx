@@ -28,7 +28,7 @@ import {
   Search, MapPin, DollarSign, Clock, Award, Star, Mail, Phone, Globe, Instagram, Twitter,
   X, ChevronRight, CalendarDays, CheckCircle, Briefcase, UserPlus, ClipboardCheck, MessageCircle,
   User, Calendar as CalendarIcon, MessageSquare, CheckCircle2, XCircle, Hourglass, ChevronLeft, Send, ArrowLeft, Heart,
-  Target, Play, FileText, CalendarPlus,
+  Target, Play, FileText, CalendarPlus, UserCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EmojiPicker } from "@/components/emoji-picker";
@@ -117,6 +117,11 @@ type ChatContact = {
   id: string;
   name: string;
   image?: string;
+};
+
+type ConnectionStatus = {
+  status: "none" | "pending" | "accepted" | "declined";
+  connection: { id: string; initiatedBy: string } | null;
 };
 
 const DAYS_OF_WEEK = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const;
@@ -408,6 +413,106 @@ function FindTrainerTab() {
   );
 }
 
+function useConnectionStatus(trainerUserId: string) {
+  const { toast } = useToast();
+
+  const { data: connectionStatus } = useQuery<ConnectionStatus>({
+    queryKey: ["/api/connections/status", trainerUserId],
+    enabled: !!trainerUserId,
+  });
+
+  const connectMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", "/api/connections/request", {
+        targetUserId: trainerUserId,
+        role: "player",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/connections/status", trainerUserId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/connections"] });
+      toast({ title: "Connection request sent!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to connect", description: error.message, variant: "destructive" });
+    },
+  });
+
+  return { connectionStatus, connectMutation };
+}
+
+function SmallConnectionBadge({ trainerUserId }: { trainerUserId: string }) {
+  const { connectionStatus, connectMutation } = useConnectionStatus(trainerUserId);
+  const status = connectionStatus?.status || "none";
+
+  if (status === "accepted") {
+    return (
+      <Badge variant="default" className="text-[9px] no-default-hover-elevate px-1.5 py-0" data-testid={`badge-connected-${trainerUserId}`}>
+        <UserCheck className="w-3 h-3 mr-0.5" />
+        Connected
+      </Badge>
+    );
+  }
+
+  if (status === "pending") {
+    return (
+      <Badge variant="secondary" className="text-[9px] no-default-hover-elevate px-1.5 py-0" data-testid={`badge-pending-${trainerUserId}`}>
+        <Hourglass className="w-3 h-3 mr-0.5" />
+        Pending
+      </Badge>
+    );
+  }
+
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      className="text-[10px] h-5 px-1.5"
+      onClick={(e) => { e.stopPropagation(); connectMutation.mutate(); }}
+      disabled={connectMutation.isPending}
+      data-testid={`button-connect-${trainerUserId}`}
+    >
+      <UserPlus className="w-3 h-3 mr-0.5" />
+      Connect
+    </Button>
+  );
+}
+
+function TrainerDetailConnectionActions({ trainerUserId, onBookSession }: { trainerUserId: string; onBookSession: () => void }) {
+  const { connectionStatus, connectMutation } = useConnectionStatus(trainerUserId);
+  const status = connectionStatus?.status || "none";
+
+  if (status === "accepted") {
+    return (
+      <Button className="w-full" onClick={onBookSession} data-testid="button-book-session">
+        <CalendarDays className="w-4 h-4 mr-2" />
+        Book Session
+      </Button>
+    );
+  }
+
+  if (status === "pending") {
+    return (
+      <Button className="w-full" variant="secondary" disabled data-testid="button-pending-connection">
+        <Hourglass className="w-4 h-4 mr-2" />
+        Connection Pending
+      </Button>
+    );
+  }
+
+  return (
+    <Button
+      className="w-full"
+      onClick={() => connectMutation.mutate()}
+      disabled={connectMutation.isPending}
+      data-testid="button-connect-trainer"
+    >
+      <UserPlus className="w-4 h-4 mr-2" />
+      {connectMutation.isPending ? "Sending Request..." : "Connect with Trainer"}
+    </Button>
+  );
+}
+
 function TrainerCard({ trainer, onClick, isFavorited, isMyTrainer, onToggleFavorite }: {
   trainer: DirectoryTrainer;
   onClick: () => void;
@@ -435,11 +540,12 @@ function TrainerCard({ trainer, onClick, isFavorited, isMyTrainer, onToggleFavor
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <h3 className="font-semibold text-sm truncate" data-testid={`text-trainer-name-${trainer.id}`}>{name}</h3>
                   {isMyTrainer && (
                     <Badge variant="default" className="text-[9px] no-default-hover-elevate px-1.5 py-0" data-testid={`badge-my-trainer-${trainer.id}`}>My Trainer</Badge>
                   )}
+                  <SmallConnectionBadge trainerUserId={trainer.userId} />
                 </div>
                 {trainer.headline && (
                   <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1" data-testid={`text-trainer-headline-${trainer.id}`}>
@@ -664,14 +770,7 @@ function TrainerDetail({ trainer: listTrainer, favorite, onToggleFavorite, onTog
         </div>
       </SheetHeader>
 
-      <Button
-        className="w-full"
-        onClick={() => setBookingOpen(true)}
-        data-testid="button-book-session"
-      >
-        <CalendarDays className="w-4 h-4 mr-2" />
-        Book Session
-      </Button>
+      <TrainerDetailConnectionActions trainerUserId={trainer.userId} onBookSession={() => setBookingOpen(true)} />
 
       <div className="flex gap-2">
         <Button
@@ -690,7 +789,7 @@ function TrainerDetail({ trainer: listTrainer, favorite, onToggleFavorite, onTog
           data-testid="button-detail-my-trainer"
         >
           <Star className="w-4 h-4 mr-2" fill={favorite?.isMyTrainer ? "currentColor" : "none"} />
-          {favorite?.isMyTrainer ? "My Trainer ✓" : "Set as My Trainer"}
+          {favorite?.isMyTrainer ? "My Trainer" : "Set as My Trainer"}
         </Button>
         <ShareMenu
           url={`/t/${trainer.id}`}

@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
-import { Search, MapPin, DollarSign, Clock, Award, Star, Mail, Phone, Globe, Instagram, Twitter, X, ChevronRight, CalendarDays, CheckCircle, Briefcase, Crosshair } from "lucide-react";
+import { Search, MapPin, DollarSign, Clock, Award, Star, Mail, Phone, Globe, Instagram, Twitter, X, ChevronRight, CalendarDays, CheckCircle, Briefcase, Crosshair, UserPlus, Hourglass, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { US_STATES, TRAINER_SPECIALTIES } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -39,6 +39,7 @@ type TrainerLocation = {
 
 type DirectoryTrainer = {
   id: string;
+  userId: string;
   firstName: string | null;
   lastName: string | null;
   headline: string | null;
@@ -58,6 +59,11 @@ type DirectoryTrainer = {
   socialTwitter: string | null;
   website: string | null;
   locations?: TrainerLocation[];
+};
+
+type ConnectionStatus = {
+  status: "none" | "pending" | "accepted" | "declined";
+  connection: { id: string; initiatedBy: string } | null;
 };
 
 type TimeSlot = { start: string; end: string };
@@ -268,6 +274,127 @@ export default function FindTrainerPage() {
   );
 }
 
+function useConnectionStatus(trainerUserId: string) {
+  const { isAuthenticated } = useAuth();
+  const { toast } = useToast();
+
+  const { data: connectionStatus } = useQuery<ConnectionStatus>({
+    queryKey: ["/api/connections/status", trainerUserId],
+    enabled: isAuthenticated && !!trainerUserId,
+  });
+
+  const connectMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", "/api/connections/request", {
+        targetUserId: trainerUserId,
+        role: "player",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/connections/status", trainerUserId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/connections"] });
+      toast({ title: "Connection request sent!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to connect", description: error.message, variant: "destructive" });
+    },
+  });
+
+  return { connectionStatus, connectMutation };
+}
+
+function ConnectionButton({ trainerUserId, size = "sm" }: { trainerUserId: string; size?: "sm" | "default" }) {
+  const { connectionStatus, connectMutation } = useConnectionStatus(trainerUserId);
+  const { isAuthenticated } = useAuth();
+  const status = connectionStatus?.status || "none";
+
+  if (!isAuthenticated) return null;
+
+  if (status === "accepted") {
+    return (
+      <Badge variant="default" className="no-default-hover-elevate" data-testid={`badge-connected-${trainerUserId}`}>
+        <CheckCircle className="w-3 h-3 mr-1" />
+        Connected
+      </Badge>
+    );
+  }
+
+  if (status === "pending") {
+    return (
+      <Badge variant="secondary" className="no-default-hover-elevate" data-testid={`badge-pending-${trainerUserId}`}>
+        <Hourglass className="w-3 h-3 mr-1" />
+        Pending
+      </Badge>
+    );
+  }
+
+  return (
+    <Button
+      size={size}
+      variant="outline"
+      onClick={(e) => { e.stopPropagation(); connectMutation.mutate(); }}
+      disabled={connectMutation.isPending}
+      data-testid={`button-connect-${trainerUserId}`}
+    >
+      <UserPlus className="w-4 h-4 mr-1" />
+      {connectMutation.isPending ? "Sending..." : "Connect"}
+    </Button>
+  );
+}
+
+function ConnectOrActionButtons({ trainerUserId, onBookSession }: { trainerUserId: string; onBookSession: () => void }) {
+  const { connectionStatus, connectMutation } = useConnectionStatus(trainerUserId);
+  const { isAuthenticated } = useAuth();
+  const status = connectionStatus?.status || "none";
+
+  if (!isAuthenticated) {
+    return (
+      <Button className="w-full" onClick={onBookSession} data-testid="button-book-session">
+        <CalendarDays className="w-4 h-4 mr-2" />
+        Book Session
+      </Button>
+    );
+  }
+
+  if (status === "accepted") {
+    return (
+      <div className="flex gap-2">
+        <Button className="flex-1" onClick={onBookSession} data-testid="button-book-session">
+          <CalendarDays className="w-4 h-4 mr-2" />
+          Book Session
+        </Button>
+        <Button variant="outline" className="flex-1" asChild data-testid="button-chat-trainer">
+          <a href="/my-trainer">
+            <MessageCircle className="w-4 h-4 mr-2" />
+            Chat
+          </a>
+        </Button>
+      </div>
+    );
+  }
+
+  if (status === "pending") {
+    return (
+      <Button className="w-full" variant="secondary" disabled data-testid="button-pending-connection">
+        <Hourglass className="w-4 h-4 mr-2" />
+        Connection Pending
+      </Button>
+    );
+  }
+
+  return (
+    <Button
+      className="w-full"
+      onClick={() => connectMutation.mutate()}
+      disabled={connectMutation.isPending}
+      data-testid="button-connect-trainer"
+    >
+      <UserPlus className="w-4 h-4 mr-2" />
+      {connectMutation.isPending ? "Sending Request..." : "Connect with Trainer"}
+    </Button>
+  );
+}
+
 function TrainerCard({ trainer, onClick }: { trainer: DirectoryTrainer; onClick: () => void }) {
   const name = [trainer.firstName, trainer.lastName].filter(Boolean).join(" ") || "Trainer";
   const initials = (trainer.firstName?.[0] || "") + (trainer.lastName?.[0] || "");
@@ -296,7 +423,10 @@ function TrainerCard({ trainer, onClick }: { trainer: DirectoryTrainer; onClick:
                   </p>
                 )}
               </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+              <div className="flex items-center gap-1.5 shrink-0">
+                <ConnectionButton trainerUserId={trainer.userId} />
+                <ChevronRight className="w-4 h-4 text-muted-foreground mt-0.5" />
+              </div>
             </div>
 
             <div className="flex items-center gap-3 mt-2 flex-wrap text-xs text-muted-foreground">
@@ -522,14 +652,7 @@ function TrainerDetail({ trainer: listTrainer }: { trainer: DirectoryTrainer }) 
         </div>
       </SheetHeader>
 
-      <Button
-        className="w-full"
-        onClick={() => setBookingOpen(true)}
-        data-testid="button-book-session"
-      >
-        <CalendarDays className="w-4 h-4 mr-2" />
-        Book Session
-      </Button>
+      <ConnectOrActionButtons trainerUserId={trainer.userId} onBookSession={() => setBookingOpen(true)} />
 
       <div className="grid grid-cols-3 gap-3 text-center">
         {trainer.hourlyRate && (

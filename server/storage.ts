@@ -49,7 +49,9 @@ import {
   playerEvaluations, type PlayerEvaluation, type InsertPlayerEvaluation,
   playerEvaluationRatings, type PlayerEvaluationRating, type InsertPlayerEvaluationRating,
   playerTrainerFavorites, type PlayerTrainerFavorite,
-  userFavoriteDrills
+  userFavoriteDrills,
+  playerTrainerConnections, type PlayerTrainerConnection, type InsertConnection,
+  parentLinks, type ParentLink
 } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
@@ -411,6 +413,17 @@ export interface IStorage {
   getPlayerEvaluationCount(trainerId: string, playerId: string): Promise<number>;
   toggleEvaluationSharing(id: string, shared: boolean): Promise<PlayerEvaluation | undefined>;
   getSharedEvaluationsForPlayer(playerId: string): Promise<PlayerEvaluation[]>;
+
+  createConnection(data: InsertConnection): Promise<PlayerTrainerConnection>;
+  getConnection(playerId: string, trainerId: string): Promise<PlayerTrainerConnection | undefined>;
+  getConnectionsForUser(userId: string): Promise<PlayerTrainerConnection[]>;
+  getPendingConnectionsForUser(userId: string): Promise<PlayerTrainerConnection[]>;
+  updateConnectionStatus(id: string, status: "accepted" | "declined"): Promise<PlayerTrainerConnection | undefined>;
+  areConnected(playerId: string, trainerId: string): Promise<boolean>;
+
+  createParentLink(parentUserId: string, playerUserId: string): Promise<ParentLink>;
+  getParentLinks(parentUserId: string): Promise<ParentLink[]>;
+  getParentForPlayer(playerUserId: string): Promise<ParentLink | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3091,6 +3104,78 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(playerTrainerFavorites.playerId, playerId), eq(playerTrainerFavorites.trainerId, trainerId)))
       .returning();
     return updated;
+  }
+
+  async createConnection(data: InsertConnection): Promise<PlayerTrainerConnection> {
+    const [conn] = await db.insert(playerTrainerConnections).values(data).returning();
+    return conn;
+  }
+
+  async getConnection(playerId: string, trainerId: string): Promise<PlayerTrainerConnection | undefined> {
+    const [conn] = await db.select().from(playerTrainerConnections)
+      .where(and(
+        eq(playerTrainerConnections.playerId, playerId),
+        eq(playerTrainerConnections.trainerId, trainerId)
+      ));
+    return conn;
+  }
+
+  async getConnectionsForUser(userId: string): Promise<PlayerTrainerConnection[]> {
+    return await db.select().from(playerTrainerConnections)
+      .where(and(
+        or(
+          eq(playerTrainerConnections.playerId, userId),
+          eq(playerTrainerConnections.trainerId, userId)
+        ),
+        eq(playerTrainerConnections.status, "accepted")
+      ))
+      .orderBy(desc(playerTrainerConnections.updatedAt));
+  }
+
+  async getPendingConnectionsForUser(userId: string): Promise<PlayerTrainerConnection[]> {
+    return await db.select().from(playerTrainerConnections)
+      .where(and(
+        or(
+          eq(playerTrainerConnections.playerId, userId),
+          eq(playerTrainerConnections.trainerId, userId)
+        ),
+        eq(playerTrainerConnections.status, "pending")
+      ))
+      .orderBy(desc(playerTrainerConnections.createdAt));
+  }
+
+  async updateConnectionStatus(id: string, status: "accepted" | "declined"): Promise<PlayerTrainerConnection | undefined> {
+    const [conn] = await db.update(playerTrainerConnections)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(playerTrainerConnections.id, id))
+      .returning();
+    return conn;
+  }
+
+  async areConnected(playerId: string, trainerId: string): Promise<boolean> {
+    const [conn] = await db.select().from(playerTrainerConnections)
+      .where(and(
+        eq(playerTrainerConnections.playerId, playerId),
+        eq(playerTrainerConnections.trainerId, trainerId),
+        eq(playerTrainerConnections.status, "accepted")
+      ));
+    return !!conn;
+  }
+
+  async createParentLink(parentUserId: string, playerUserId: string): Promise<ParentLink> {
+    const [link] = await db.insert(parentLinks).values({ parentUserId, playerUserId }).returning();
+    return link;
+  }
+
+  async getParentLinks(parentUserId: string): Promise<ParentLink[]> {
+    return await db.select().from(parentLinks)
+      .where(eq(parentLinks.parentUserId, parentUserId));
+  }
+
+  async getParentForPlayer(playerUserId: string): Promise<ParentLink | undefined> {
+    const [link] = await db.select().from(parentLinks)
+      .where(eq(parentLinks.playerUserId, playerUserId));
+    return link;
   }
 }
 

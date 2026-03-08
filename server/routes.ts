@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
-import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages } from "@shared/schema";
+import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
 import { eq, and, or, isNull } from "drizzle-orm";
@@ -1621,7 +1621,12 @@ export async function registerRoutes(
         'alsoPlayer',
         'primaryReason',
         'onboardingTeams',
-        'onboardingCompleted'
+        'onboardingCompleted',
+        'isMinor',
+        'parentEmail',
+        'trainerSpecialties',
+        'trainerAlsoCoaches',
+        'trainerTeamName'
       ];
       
       const filteredBody: Record<string, any> = {};
@@ -1666,7 +1671,16 @@ export async function registerRoutes(
   app.post("/api/career/complete-onboarding", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const profile = await storage.updateCareerProfile(userId, { onboardingCompleted: true });
+      const existingProfile = await storage.getCareerProfile(userId);
+
+      const updateData: Record<string, any> = { onboardingCompleted: true };
+
+      if (existingProfile?.isMinor && existingProfile?.parentEmail && !existingProfile?.parentInviteCode) {
+        const crypto = await import("crypto");
+        updateData.parentInviteCode = crypto.randomBytes(6).toString("hex");
+      }
+
+      const profile = await storage.updateCareerProfile(userId, updateData);
       if (!profile) {
         return res.status(404).json({ message: "Career profile not found" });
       }
@@ -3516,6 +3530,23 @@ export async function registerRoutes(
       }
 
       receiverId = await resolveTrainerPlayerId(receiverId);
+
+      const connected = await storage.areConnected(userId, receiverId) || await storage.areConnected(receiverId, userId);
+      if (!connected) {
+        const hasRosterLink = await db.select({ id: trainerPlayers.id }).from(trainerPlayers)
+          .where(and(
+            eq(trainerPlayers.trainerId, userId),
+            eq(trainerPlayers.linkedUserId, receiverId)
+          )).limit(1);
+        const hasReverseRosterLink = await db.select({ id: trainerPlayers.id }).from(trainerPlayers)
+          .where(and(
+            eq(trainerPlayers.trainerId, receiverId),
+            eq(trainerPlayers.linkedUserId, userId)
+          )).limit(1);
+        if (hasRosterLink.length === 0 && hasReverseRosterLink.length === 0) {
+          return res.status(403).json({ message: "You must be connected to message this user" });
+        }
+      }
 
       const message = await storage.sendMessage({
         senderId: userId,
@@ -5680,6 +5711,336 @@ export async function registerRoutes(
       res.json(result);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ===== PLAYER-TRAINER CONNECTIONS =====
+
+  app.post("/api/connections/request", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { targetUserId, role } = req.body;
+      if (!targetUserId || !role) {
+        return res.status(400).json({ message: "targetUserId and role are required" });
+      }
+      if (targetUserId === userId) {
+        return res.status(400).json({ message: "Cannot connect with yourself" });
+      }
+      if (role !== "player" && role !== "trainer") {
+        return res.status(400).json({ message: "Role must be 'player' or 'trainer'" });
+      }
+      const playerId = role === "player" ? userId : targetUserId;
+      const trainerId = role === "player" ? targetUserId : userId;
+      const initiatedBy = role as "player" | "trainer";
+
+      const existing = await storage.getConnection(playerId, trainerId);
+      if (existing) {
+        if (existing.status === "declined") {
+          const updated = await storage.updateConnectionStatus(existing.id, "pending");
+          return res.json(updated);
+        }
+        return res.status(400).json({ message: "Connection already exists", connection: existing });
+      }
+
+      const conn = await storage.createConnection({ playerId, trainerId, initiatedBy, status: "pending" });
+      res.status(201).json(conn);
+    } catch (error) {
+      console.error("Error creating connection:", error);
+      res.status(500).json({ message: "Failed to create connection request" });
+    }
+  });
+
+  app.get("/api/connections", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const connections = await storage.getConnectionsForUser(userId);
+
+      const enriched = await Promise.all(connections.map(async (conn) => {
+        const otherUserId = conn.playerId === userId ? conn.trainerId : conn.playerId;
+        const otherUser = await storage.getUser(otherUserId);
+        const otherProfile = await storage.getUserProfile(otherUserId);
+        return {
+          ...conn,
+          otherUser: otherUser ? {
+            id: otherUser.id,
+            firstName: otherUser.firstName,
+            lastName: otherUser.lastName,
+            profileImageUrl: otherUser.profileImageUrl,
+            displayName: otherProfile?.displayName,
+            profilePhotoUrl: otherProfile?.profilePhotoUrl,
+          } : null,
+        };
+      }));
+
+      res.json(enriched);
+    } catch (error) {
+      console.error("Error fetching connections:", error);
+      res.status(500).json({ message: "Failed to fetch connections" });
+    }
+  });
+
+  app.get("/api/connections/pending", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const pending = await storage.getPendingConnectionsForUser(userId);
+
+      const incoming = pending.filter(c => {
+        if (c.initiatedBy === "player" && c.trainerId === userId) return true;
+        if (c.initiatedBy === "trainer" && c.playerId === userId) return true;
+        return false;
+      });
+
+      const enriched = await Promise.all(incoming.map(async (conn) => {
+        const otherUserId = conn.playerId === userId ? conn.trainerId : conn.playerId;
+        const otherUser = await storage.getUser(otherUserId);
+        const otherProfile = await storage.getUserProfile(otherUserId);
+        return {
+          ...conn,
+          otherUser: otherUser ? {
+            id: otherUser.id,
+            firstName: otherUser.firstName,
+            lastName: otherUser.lastName,
+            profileImageUrl: otherUser.profileImageUrl,
+            displayName: otherProfile?.displayName,
+            profilePhotoUrl: otherProfile?.profilePhotoUrl,
+          } : null,
+        };
+      }));
+
+      res.json(enriched);
+    } catch (error) {
+      console.error("Error fetching pending connections:", error);
+      res.status(500).json({ message: "Failed to fetch pending connections" });
+    }
+  });
+
+  app.get("/api/connections/status/:otherUserId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const otherUserId = req.params.otherUserId;
+
+      const connAsPlayer = await storage.getConnection(userId, otherUserId);
+      const connAsTrainer = await storage.getConnection(otherUserId, userId);
+      const conn = connAsPlayer || connAsTrainer;
+
+      res.json({ status: conn?.status || "none", connection: conn || null });
+    } catch (error) {
+      console.error("Error checking connection status:", error);
+      res.status(500).json({ message: "Failed to check connection status" });
+    }
+  });
+
+  app.put("/api/connections/:id/accept", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const [existing] = await db.select().from(playerTrainerConnections)
+        .where(eq(playerTrainerConnections.id, req.params.id));
+      if (!existing) return res.status(404).json({ message: "Connection not found" });
+      if (existing.status !== "pending") return res.status(400).json({ message: "Connection is not pending" });
+
+      const isRecipient = (existing.initiatedBy === "player" && existing.trainerId === userId)
+        || (existing.initiatedBy === "trainer" && existing.playerId === userId);
+      if (!isRecipient) return res.status(403).json({ message: "Not authorized to accept this connection" });
+
+      const conn = await storage.updateConnectionStatus(req.params.id, "accepted");
+      res.json(conn);
+    } catch (error) {
+      console.error("Error accepting connection:", error);
+      res.status(500).json({ message: "Failed to accept connection" });
+    }
+  });
+
+  app.put("/api/connections/:id/decline", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const [existing] = await db.select().from(playerTrainerConnections)
+        .where(eq(playerTrainerConnections.id, req.params.id));
+      if (!existing) return res.status(404).json({ message: "Connection not found" });
+      if (existing.status !== "pending") return res.status(400).json({ message: "Connection is not pending" });
+
+      const isRecipient = (existing.initiatedBy === "player" && existing.trainerId === userId)
+        || (existing.initiatedBy === "trainer" && existing.playerId === userId);
+      if (!isRecipient) return res.status(403).json({ message: "Not authorized to decline this connection" });
+
+      const conn = await storage.updateConnectionStatus(req.params.id, "declined");
+      res.json(conn);
+    } catch (error) {
+      console.error("Error declining connection:", error);
+      res.status(500).json({ message: "Failed to decline connection" });
+    }
+  });
+
+  // ===== PARENT / GUARDIAN =====
+
+  app.post("/api/parent/link", isAuthenticated, async (req: any, res) => {
+    try {
+      const parentUserId = req.user.claims.sub;
+      const { inviteCode } = req.body;
+      if (!inviteCode) {
+        return res.status(400).json({ message: "Invite code is required" });
+      }
+
+      const [career] = await db.select().from(careerProfiles)
+        .where(eq(careerProfiles.parentInviteCode, inviteCode));
+      if (!career) {
+        return res.status(404).json({ message: "Invalid invite code" });
+      }
+
+      if (!career.isMinor) {
+        return res.status(400).json({ message: "This player is not marked as a minor" });
+      }
+
+      const existing = await storage.getParentForPlayer(career.userId);
+      if (existing) {
+        return res.status(400).json({ message: "This player already has a linked parent" });
+      }
+
+      if (career.userId === parentUserId) {
+        return res.status(400).json({ message: "Cannot link to your own account" });
+      }
+
+      const link = await storage.createParentLink(parentUserId, career.userId);
+      res.status(201).json(link);
+    } catch (error) {
+      console.error("Error linking parent:", error);
+      res.status(500).json({ message: "Failed to link parent account" });
+    }
+  });
+
+  app.get("/api/parent/children", isAuthenticated, async (req: any, res) => {
+    try {
+      const parentUserId = req.user.claims.sub;
+      const links = await storage.getParentLinks(parentUserId);
+
+      const children = await Promise.all(links.map(async (link) => {
+        const childUser = await storage.getUser(link.playerUserId);
+        const childProfile = await storage.getUserProfile(link.playerUserId);
+        const childCareer = await storage.getCareerProfile(link.playerUserId);
+        return {
+          ...link,
+          child: childUser ? {
+            id: childUser.id,
+            firstName: childUser.firstName,
+            lastName: childUser.lastName,
+            profileImageUrl: childUser.profileImageUrl,
+            displayName: childProfile?.displayName,
+            profilePhotoUrl: childProfile?.profilePhotoUrl,
+            skillLevel: childProfile?.skillLevel,
+            city: childProfile?.city,
+            state: childProfile?.state,
+          } : null,
+          career: childCareer ? {
+            positions: childCareer.positions,
+            teamName: childCareer.teamName,
+            schoolName: childCareer.schoolName,
+            level: childCareer.level,
+            xp: childCareer.xp,
+          } : null,
+        };
+      }));
+
+      res.json(children);
+    } catch (error) {
+      console.error("Error fetching children:", error);
+      res.status(500).json({ message: "Failed to fetch linked children" });
+    }
+  });
+
+  app.get("/api/parent/child/:childId/activity", isAuthenticated, async (req: any, res) => {
+    try {
+      const parentUserId = req.user.claims.sub;
+      const childId = req.params.childId;
+
+      const link = await storage.getParentForPlayer(childId);
+      if (!link || link.parentUserId !== parentUserId) {
+        return res.status(403).json({ message: "Not authorized to view this player" });
+      }
+
+      const sessions = await storage.getTrainingSessionsForPlayer(childId);
+      const stats = await storage.getUserStats(childId);
+      const connections = await storage.getConnectionsForUser(childId);
+
+      const enrichedConnections = await Promise.all(connections.map(async (conn) => {
+        const trainerId = conn.trainerId;
+        const trainerUser = await storage.getUser(trainerId);
+        return {
+          ...conn,
+          trainerName: trainerUser ? `${trainerUser.firstName || ''} ${trainerUser.lastName || ''}`.trim() : 'Trainer',
+        };
+      }));
+
+      res.json({
+        sessions: sessions.slice(0, 20),
+        stats,
+        connections: enrichedConnections,
+      });
+    } catch (error) {
+      console.error("Error fetching child activity:", error);
+      res.status(500).json({ message: "Failed to fetch child activity" });
+    }
+  });
+
+  app.get("/api/parent/child/:childId/messages", isAuthenticated, async (req: any, res) => {
+    try {
+      const parentUserId = req.user.claims.sub;
+      const childId = req.params.childId;
+
+      const link = await storage.getParentForPlayer(childId);
+      if (!link || link.parentUserId !== parentUserId) {
+        return res.status(403).json({ message: "Not authorized to view this player's messages" });
+      }
+
+      const conversations = await storage.getConversations(childId);
+
+      const enrichedConversations = await Promise.all(conversations.map(async (conv: any) => {
+        const partnerId = conv.partnerId || conv.senderId || conv.receiverId;
+        const partnerUser = await storage.getUser(partnerId);
+        const msgs = await storage.getMessages(childId, partnerId);
+        return {
+          partnerId,
+          partnerName: partnerUser ? `${partnerUser.firstName || ''} ${partnerUser.lastName || ''}`.trim() : 'Unknown',
+          messages: msgs,
+        };
+      }));
+
+      res.json(enrichedConversations);
+    } catch (error) {
+      console.error("Error fetching child messages:", error);
+      res.status(500).json({ message: "Failed to fetch child messages" });
+    }
+  });
+
+  app.get("/api/parent/child/:childId/connections", isAuthenticated, async (req: any, res) => {
+    try {
+      const parentUserId = req.user.claims.sub;
+      const childId = req.params.childId;
+
+      const link = await storage.getParentForPlayer(childId);
+      if (!link || link.parentUserId !== parentUserId) {
+        return res.status(403).json({ message: "Not authorized to view this player's connections" });
+      }
+
+      const connections = await storage.getConnectionsForUser(childId);
+      const enriched = await Promise.all(connections.map(async (conn) => {
+        const trainerId = conn.trainerId;
+        const trainerUser = await storage.getUser(trainerId);
+        const trainerProfile = await storage.getUserProfile(trainerId);
+        return {
+          ...conn,
+          trainer: trainerUser ? {
+            id: trainerUser.id,
+            firstName: trainerUser.firstName,
+            lastName: trainerUser.lastName,
+            displayName: trainerProfile?.displayName,
+            profilePhotoUrl: trainerProfile?.profilePhotoUrl,
+          } : null,
+        };
+      }));
+
+      res.json(enriched);
+    } catch (error) {
+      console.error("Error fetching child connections:", error);
+      res.status(500).json({ message: "Failed to fetch child connections" });
     }
   });
 

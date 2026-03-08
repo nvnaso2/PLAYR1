@@ -498,7 +498,7 @@ function TutorialVideoStep({
 function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   const { toast } = useToast();
   const { user } = useAuth();
-  const [step, setStep] = useState<"role" | "profile" | "reason" | "select-teams" | "log-game" | "no-season" | "season-start" | "dev-priority" | "dev-log-next" | "dev-create-next" | "tutorial-log" | "tutorial-create" | "trainer-profile" | "trainer-specialties" | "trainer-begin">("role");
+  const [step, setStep] = useState<"role" | "profile" | "parent-email" | "reason" | "select-teams" | "log-game" | "no-season" | "season-start" | "dev-priority" | "dev-log-next" | "dev-create-next" | "tutorial-log" | "tutorial-create" | "trainer-profile" | "trainer-specialties" | "trainer-begin">("role");
   const [selectedRole, setSelectedRole] = useState<"player" | "trainer" | "coach" | "player_trainer" | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -520,6 +520,8 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   const [draggedInterestIdx, setDraggedInterestIdx] = useState<number | null>(null);
   const [overInterestIdx, setOverInterestIdx] = useState<number | null>(null);
   const interestDragging = useRef(false);
+
+  const [parentEmail, setParentEmail] = useState("");
 
   const [cardPhotoFile, setCardPhotoFile] = useState<File | null>(null);
   const [cardPhotoPreview, setCardPhotoPreview] = useState<string | null>(null);
@@ -666,6 +668,10 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
         if (path) cardPhotoUrl = path;
       }
 
+      const currentYear = new Date().getFullYear();
+      const currentMonth = new Date().getMonth() + 1;
+      const playerIsMinor = birthYear ? (currentYear - birthYear < 18 || (currentYear - birthYear === 18 && birthMonth !== undefined && birthMonth > currentMonth)) : false;
+
       const profileData: Record<string, any> = {
         birthMonth,
         birthYear,
@@ -677,6 +683,8 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
         aspiration: aspiration || undefined,
         onboardingTeams: JSON.stringify(teams),
         staffRole: selectedRole === "player" ? null : selectedRole,
+        isMinor: playerIsMinor,
+        parentEmail: playerIsMinor && parentEmail ? parentEmail : undefined,
       };
       if (cardPhotoUrl) profileData.cardPhotoUrl = cardPhotoUrl;
 
@@ -800,7 +808,15 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
       return;
     }
     await saveProfile();
-    setStep("reason");
+
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth() + 1;
+    const playerIsMinor = birthYear ? (currentYear - birthYear < 18 || (currentYear - birthYear === 18 && birthMonth !== undefined && birthMonth > currentMonth)) : false;
+    if (playerIsMinor) {
+      setStep("parent-email");
+    } else {
+      setStep("reason");
+    }
   };
 
   const commitSpecReorder = (from: number, to: number) => {
@@ -1278,6 +1294,65 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
                 Back
               </Button>
               <Button type="button" onClick={handleProfileNext} disabled={isSaving} data-testid="button-next-reason">
+                {isSaving ? "Saving..." : "Next"}
+                {!isSaving && <ChevronRight className="w-4 h-4 ml-1" />}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (step === "parent-email") {
+    const handleParentEmailNext = async () => {
+      if (!parentEmail.trim()) {
+        toast({ title: "Please enter a parent/guardian email", variant: "destructive" });
+        return;
+      }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(parentEmail.trim())) {
+        toast({ title: "Please enter a valid email address", variant: "destructive" });
+        return;
+      }
+      setIsSaving(true);
+      try {
+        await apiRequest("PUT", "/api/career", { parentEmail: parentEmail.trim(), isMinor: true });
+        queryClient.invalidateQueries({ queryKey: ['/api/career'] });
+        setStep("reason");
+      } catch {
+        toast({ title: "Failed to save parent email", variant: "destructive" });
+      } finally {
+        setIsSaving(false);
+      }
+    };
+
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-background to-muted/20">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle className="text-xl font-bold">Parent / Guardian Info</CardTitle>
+            <CardDescription>Since you're under 18, we need a parent or guardian's email so they can stay connected to your training.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label className="text-sm font-medium">Parent/Guardian Email *</Label>
+              <Input
+                type="email"
+                value={parentEmail}
+                onChange={e => setParentEmail(e.target.value)}
+                placeholder="parent@example.com"
+                data-testid="input-parent-email"
+                className="mt-1.5"
+              />
+              <p className="text-xs text-muted-foreground mt-1.5">We'll send them an invite to view your training progress.</p>
+            </div>
+            <div className="flex justify-between pt-4">
+              <Button type="button" variant="outline" onClick={() => setStep("profile")} data-testid="button-back-profile">
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                Back
+              </Button>
+              <Button type="button" onClick={handleParentEmailNext} disabled={isSaving} data-testid="button-next-parent-email">
                 {isSaving ? "Saving..." : "Next"}
                 {!isSaving && <ChevronRight className="w-4 h-4 ml-1" />}
               </Button>

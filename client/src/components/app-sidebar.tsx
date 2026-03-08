@@ -1,8 +1,10 @@
 import { Link, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useAdmin } from "@/hooks/use-admin";
 import { useRole } from "@/hooks/use-role";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Sidebar,
@@ -52,6 +54,7 @@ import {
   ArrowLeftRight,
   CalendarDays,
   ClipboardCheck,
+  Eye,
 } from "lucide-react";
 import logoLandscape from "@assets/PNG_image_1770494053382.png";
 
@@ -120,6 +123,18 @@ export function AppSidebar() {
   const isTrainerView = activeView === "trainer";
   const navItems = isTrainerView ? trainerNavItems : playerNavItems;
 
+  const { data: pendingConnections } = useQuery<any[]>({
+    queryKey: ["/api/connections/pending"],
+    enabled: isTrainerView && !!user,
+  });
+  const pendingCount = pendingConnections?.length || 0;
+
+  const { data: parentChildren } = useQuery<any[]>({
+    queryKey: ["/api/parent/children"],
+    enabled: !!user,
+  });
+  const hasLinkedChildren = (parentChildren?.length || 0) > 0;
+
   const isActiveLink = (url: string) => {
     if (url === "/dashboard" && location === "/") return true;
     if (url === "/trainer" && location === "/trainer") return true;
@@ -179,7 +194,12 @@ export function AppSidebar() {
                   >
                     <Link href={item.url} onClick={closeSidebar}>
                       <item.icon className="w-4 h-4" />
-                      <span>{item.title}</span>
+                      <span className="flex-1">{item.title}</span>
+                      {item.title === "Player Management" && pendingCount > 0 && (
+                        <Badge variant="destructive" className="no-default-hover-elevate text-[10px] ml-auto" data-testid="badge-sidebar-pending-connections">
+                          {pendingCount}
+                        </Badge>
+                      )}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -204,6 +224,31 @@ export function AppSidebar() {
                       <Link href="/admin" onClick={closeSidebar}>
                         <Settings className="w-4 h-4" />
                         <span>Admin Dashboard</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
+        )}
+
+        {hasLinkedChildren && (
+          <>
+            <SidebarSeparator />
+            <SidebarGroup>
+              <SidebarGroupLabel>Parent</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton 
+                      asChild 
+                      isActive={location === "/parent" || location.startsWith("/parent")}
+                      data-testid="link-nav-parent-dashboard"
+                    >
+                      <Link href="/parent" onClick={closeSidebar}>
+                        <Eye className="w-4 h-4" />
+                        <span>Parent Dashboard</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

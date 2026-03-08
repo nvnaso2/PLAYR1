@@ -1394,6 +1394,135 @@ function RosterTab() {
   );
 }
 
+interface ConnectionRequest {
+  id: string;
+  playerId: string;
+  trainerId: string;
+  status: string;
+  initiatedBy: string;
+  createdAt: string;
+  otherUser: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    profileImageUrl: string | null;
+    displayName: string | null;
+    profilePhotoUrl: string | null;
+  } | null;
+}
+
+function ConnectionRequestsSection() {
+  const { toast } = useToast();
+
+  const { data: pendingRequests, isLoading } = useQuery<ConnectionRequest[]>({
+    queryKey: ["/api/connections/pending"],
+  });
+
+  const acceptMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("PUT", `/api/connections/${id}/accept`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/connections/pending"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/connections"] });
+      toast({ title: "Connection accepted" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to accept", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const declineMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("PUT", `/api/connections/${id}/decline`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/connections/pending"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/connections"] });
+      toast({ title: "Connection declined" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to decline", description: error.message, variant: "destructive" });
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+          <CardTitle className="text-sm font-medium">Connection Requests</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            <Skeleton className="h-14 w-full" />
+            <Skeleton className="h-14 w-full" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!pendingRequests?.length) return null;
+
+  return (
+    <Card data-testid="card-connection-requests">
+      <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+        <CardTitle className="text-sm font-medium flex items-center gap-2" data-testid="text-connection-requests-title">
+          <UserPlus className="w-4 h-4" />
+          Connection Requests
+          <Badge variant="secondary" className="no-default-hover-elevate" data-testid="badge-pending-count">
+            {pendingRequests.length}
+          </Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {pendingRequests.map((req) => {
+          const name = req.otherUser?.displayName || 
+            [req.otherUser?.firstName, req.otherUser?.lastName].filter(Boolean).join(" ") || 
+            "Unknown Player";
+          const photo = req.otherUser?.profilePhotoUrl || req.otherUser?.profileImageUrl;
+          const initials = (req.otherUser?.firstName?.[0] || "") + (req.otherUser?.lastName?.[0] || "");
+
+          return (
+            <div
+              key={req.id}
+              className="flex items-center gap-3 p-3 rounded-md border"
+              data-testid={`card-connection-request-${req.id}`}
+            >
+              <Avatar className="h-9 w-9 shrink-0">
+                <AvatarImage src={photo || undefined} />
+                <AvatarFallback className="text-xs">{initials || "?"}</AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate" data-testid={`text-request-name-${req.id}`}>{name}</p>
+                <p className="text-xs text-muted-foreground">
+                  Requested {new Date(req.createdAt).toLocaleDateString()}
+                </p>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <Button
+                  size="sm"
+                  onClick={() => acceptMutation.mutate(req.id)}
+                  disabled={acceptMutation.isPending || declineMutation.isPending}
+                  data-testid={`button-accept-connection-${req.id}`}
+                >
+                  <Check className="w-3 h-3 mr-1" />
+                  Accept
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => declineMutation.mutate(req.id)}
+                  disabled={acceptMutation.isPending || declineMutation.isPending}
+                  data-testid={`button-decline-connection-${req.id}`}
+                >
+                  <X className="w-3 h-3" />
+                </Button>
+              </div>
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
+  );
+}
+
 function PlayersTab() {
   const { toast } = useToast();
   const [addOpen, setAddOpen] = useState(false);
@@ -1870,6 +1999,8 @@ function PlayersTab() {
 
   return (
     <div className="space-y-4">
+      <ConnectionRequestsSection />
+
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h2 className="text-lg font-semibold" data-testid="text-players-heading">Players</h2>
         <Button onClick={() => { addForm.reset(); setNewPlayerTeamIds([]); setAddOpen(true); }} data-testid="button-add-player">
