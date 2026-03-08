@@ -47,6 +47,7 @@ const profileFormSchema = z.object({
   age: z.number().min(5, "Age must be at least 5").max(100).optional(),
   city: z.string().optional(),
   state: z.string().optional(),
+  zipCode: z.string().max(10).optional().or(z.literal("")),
   country: z.string().default("USA"),
   skillLevel: z.enum(["beginner", "intermediate", "advanced", "elite"]),
 });
@@ -77,6 +78,7 @@ export default function ProfilePage() {
       age: undefined,
       city: "",
       state: "",
+      zipCode: "",
       country: "USA",
       skillLevel: "beginner",
     },
@@ -90,6 +92,7 @@ export default function ProfilePage() {
         age: profile.age || undefined,
         city: profile.city || "",
         state: profile.state || "",
+        zipCode: (profile as any).zipCode || "",
         country: profile.country || "USA",
         skillLevel: profile.skillLevel || "beginner",
       });
@@ -100,6 +103,7 @@ export default function ProfilePage() {
         age: undefined,
         city: "",
         state: "",
+        zipCode: "",
         country: "USA",
         skillLevel: "beginner",
       });
@@ -112,6 +116,7 @@ export default function ProfilePage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/profile'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/user/location'] });
       toast({
         title: "Profile Updated",
         description: "Your profile has been saved.",
@@ -399,6 +404,25 @@ export default function ProfilePage() {
                             ))}
                           </SelectContent>
                         </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="zipCode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Zip Code</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="e.g. 30009"
+                            {...field}
+                            data-testid="input-zip-code"
+                          />
+                        </FormControl>
+                        <FormDescription>Used for finding nearby teams, leagues, and trainers</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
