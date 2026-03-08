@@ -393,6 +393,7 @@ export interface IStorage {
   getTrainingSessionsForPlayer(playerId: string, filters?: { status?: string; from?: string; to?: string }): Promise<TrainingSession[]>;
   getTrainingSessionsByGroupId(groupSessionId: string): Promise<TrainingSession[]>;
   updateTrainingSession(id: string, data: Partial<InsertTrainingSession>): Promise<TrainingSession | undefined>;
+  deleteTrainingSession(id: string): Promise<void>;
 
   getEvaluationAttributes(trainerId?: string): Promise<EvaluationAttribute[]>;
   getEvaluationAttributeById(id: string): Promise<EvaluationAttribute | undefined>;
@@ -2910,6 +2911,10 @@ export class DatabaseStorage implements IStorage {
       .where(eq(trainingSessions.id, id))
       .returning();
     return updated;
+  }
+
+  async deleteTrainingSession(id: string): Promise<void> {
+    await db.delete(trainingSessions).where(eq(trainingSessions.id, id));
   }
 
   async getEvaluationAttributes(trainerId?: string): Promise<EvaluationAttribute[]> {

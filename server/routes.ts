@@ -4723,6 +4723,7 @@ export async function registerRoutes(
         trainerNotes: null,
         declineReason: null,
         sessionType: sessionType || null,
+        createdBy: playerId,
       });
       res.status(201).json(session);
     } catch (error: any) {
@@ -4785,6 +4786,7 @@ export async function registerRoutes(
           declineReason: null,
           sessionType: sessionType || null,
           groupSessionId,
+          createdBy: trainerId,
         });
         sessions.push(session);
       }
@@ -4967,6 +4969,24 @@ export async function registerRoutes(
       }
       const updated = await storage.updateTrainingSession(req.params.id, { status: "cancelled" });
       res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/training-sessions/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const session = await storage.getTrainingSessionById(req.params.id);
+      if (!session) return res.status(404).json({ message: "Session not found" });
+      if (session.trainerId !== userId && session.playerId !== userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      if (session.status === "completed") {
+        return res.status(400).json({ message: "Cannot delete a completed session" });
+      }
+      await storage.deleteTrainingSession(req.params.id);
+      res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

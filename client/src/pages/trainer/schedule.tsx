@@ -28,6 +28,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { useGoogleCalendar } from "@/hooks/use-google-calendar";
+import { useAuth } from "@/hooks/use-auth";
 import {
   Calendar,
   Clock,
@@ -47,6 +48,8 @@ import {
   ChevronRight,
   ArrowUpDown,
   Plus,
+  Trash2,
+  Hourglass,
 } from "lucide-react";
 
 interface EnrichedSession {
@@ -64,6 +67,7 @@ interface EnrichedSession {
   declineReason: string | null;
   sessionType: string | null;
   groupSessionId: string | null;
+  createdBy: string | null;
   createdAt: string;
   updatedAt: string;
   playerName: string;
@@ -143,6 +147,7 @@ function getMonthDays(year: number, month: number) {
 
 export default function TrainerSchedulePage() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const gcal = useGoogleCalendar();
   const [activeTab, setActiveTab] = useState("requests");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -230,6 +235,17 @@ export default function TrainerSchedulePage() {
     },
     onError: (error: Error) => {
       toast({ title: "Failed to cancel", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/training-sessions/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/training-sessions/trainer/enriched"] });
+      toast({ title: "Session deleted" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to delete", description: error.message, variant: "destructive" });
     },
   });
 
@@ -534,34 +550,64 @@ export default function TrainerSchedulePage() {
                         </Badge>
                       </div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <Button
-                          size="sm"
-                          onClick={() => confirmMutation.mutate(session.id)}
-                          disabled={confirmMutation.isPending}
-                          data-testid={`button-confirm-${session.id}`}
-                        >
-                          <Check className="w-3.5 h-3.5 mr-1" />
-                          Confirm
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleDeclineClick(session.id)}
-                          disabled={declineMutation.isPending}
-                          data-testid={`button-decline-${session.id}`}
-                        >
-                          <X className="w-3.5 h-3.5 mr-1" />
-                          Decline
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleRescheduleClick(session)}
-                          data-testid={`button-reschedule-${session.id}`}
-                        >
-                          <CalendarDays className="w-3.5 h-3.5 mr-1" />
-                          Reschedule
-                        </Button>
+                        {session.createdBy === user?.id ? (
+                          <>
+                            <Badge variant="secondary" className="no-default-hover-elevate">
+                              <Hourglass className="w-3 h-3 mr-1" />
+                              Pending
+                            </Badge>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleRescheduleClick(session)}
+                              data-testid={`button-reschedule-${session.id}`}
+                            >
+                              <CalendarDays className="w-3.5 h-3.5 mr-1" />
+                              Reschedule
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => deleteMutation.mutate(session.id)}
+                              disabled={deleteMutation.isPending}
+                              data-testid={`button-delete-${session.id}`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5 mr-1" />
+                              Delete
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button
+                              size="sm"
+                              onClick={() => confirmMutation.mutate(session.id)}
+                              disabled={confirmMutation.isPending}
+                              data-testid={`button-confirm-${session.id}`}
+                            >
+                              <Check className="w-3.5 h-3.5 mr-1" />
+                              Confirm
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleDeclineClick(session.id)}
+                              disabled={declineMutation.isPending}
+                              data-testid={`button-decline-${session.id}`}
+                            >
+                              <X className="w-3.5 h-3.5 mr-1" />
+                              Decline
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleRescheduleClick(session)}
+                              data-testid={`button-reschedule-${session.id}`}
+                            >
+                              <CalendarDays className="w-3.5 h-3.5 mr-1" />
+                              Reschedule
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </div>
                   </CardContent>
@@ -600,9 +646,24 @@ export default function TrainerSchedulePage() {
                           <p className="text-xs text-muted-foreground italic mt-1">Reason: {session.declineReason}</p>
                         )}
                       </div>
-                      <Badge variant={statusBadgeVariant(session.status)} className="no-default-hover-elevate shrink-0">
-                        {session.status}
-                      </Badge>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {session.status === "confirmed" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs"
+                            onClick={() => gcal.isConnected ? gcal.addSession(session.id) : gcal.connect()}
+                            disabled={gcal.isAddingSession}
+                            data-testid={`button-recent-gcal-${session.id}`}
+                          >
+                            <CalendarPlus className="w-3 h-3 mr-1" />
+                            {gcal.isConnected ? "Add to Calendar" : "Connect Calendar"}
+                          </Button>
+                        )}
+                        <Badge variant={statusBadgeVariant(session.status)} className="no-default-hover-elevate shrink-0">
+                          {session.status}
+                        </Badge>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

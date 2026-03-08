@@ -1036,6 +1036,7 @@ function TrainerDetail({ trainer: listTrainer, favorite, onToggleFavorite, onTog
 
 function MySessionsTab() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const gcal = useGoogleCalendar();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [cancelSessionId, setCancelSessionId] = useState<string | null>(null);
@@ -1166,7 +1167,7 @@ function MySessionsTab() {
                   {gcal.isConnected ? "Add to Calendar" : "Connect Calendar"}
                 </Button>
               )}
-              {session.status === "requested" && (
+              {session.status === "requested" && session.createdBy !== user?.id && (
                 <Button
                   size="sm"
                   variant="default"
@@ -1177,6 +1178,12 @@ function MySessionsTab() {
                   <CheckCircle2 className="h-4 w-4 mr-1" />
                   {confirmMutation.isPending ? "Confirming..." : "Confirm"}
                 </Button>
+              )}
+              {session.status === "requested" && session.createdBy === user?.id && (
+                <Badge variant="secondary" data-testid={`badge-waiting-${session.id}`}>
+                  <Hourglass className="h-3 w-3 mr-1" />
+                  Waiting for Confirmation
+                </Badge>
               )}
               {canCancel && (
                 <Button
