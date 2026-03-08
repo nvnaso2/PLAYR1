@@ -1784,6 +1784,69 @@ export default function TrainingLogPage() {
                 </Card>
               </div>
 
+              {/* Favorite Workouts Section */}
+              {(() => {
+                const favWorkouts = (personalWorkouts || []).filter(w => w.isFavorite);
+                const favDrills = (allDrills || []).filter(d => favoriteDrillIds?.includes(d.id));
+                const hasFavorites = favWorkouts.length > 0 || favDrills.length > 0;
+                
+                if (!hasFavorites) return null;
+                
+                return (
+                  <div className="space-y-3" data-testid="section-favorite-workouts">
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                      <Heart className="w-4 h-4 text-primary" fill="currentColor" />
+                      Favorite Workouts
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {favWorkouts.map(workout => (
+                        <Card 
+                          key={`fav-workout-${workout.id}`} 
+                          className="cursor-pointer hover-elevate group"
+                          onClick={() => startWorkoutFromTemplate(workout.id)}
+                          data-testid={`fav-workout-${workout.id}`}
+                        >
+                          <CardContent className="p-3 flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                              <Layers className="w-4 h-4 text-primary" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-medium text-sm truncate">{workout.name}</h4>
+                              <p className="text-xs text-muted-foreground">
+                                {workout.category ? formatCategory(workout.category) : "Workout"}
+                                {workout.estimatedDuration ? ` · ${workout.estimatedDuration} min` : ""}
+                              </p>
+                            </div>
+                            <Play className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </CardContent>
+                        </Card>
+                      ))}
+                      {favDrills.map(drill => (
+                        <Card 
+                          key={`fav-drill-${drill.id}`} 
+                          className="cursor-pointer hover-elevate group"
+                          onClick={() => quickStartDrill(drill.id)}
+                          data-testid={`fav-drill-${drill.id}`}
+                        >
+                          <CardContent className="p-3 flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-lg bg-orange-500/10 flex items-center justify-center shrink-0">
+                              <Target className="w-4 h-4 text-orange-500" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-medium text-sm truncate">{drill.title}</h4>
+                              <p className="text-xs text-muted-foreground">
+                                {formatCategory(drill.category)} · {drill.difficulty}
+                              </p>
+                            </div>
+                            <Play className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Start Workout Dialog */}
               <Dialog open={isStartWorkoutDialogOpen} onOpenChange={(open) => { setIsStartWorkoutDialogOpen(open); if (!open) setDrillSearchQuery(""); }}>
                 <DialogContent className="max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
