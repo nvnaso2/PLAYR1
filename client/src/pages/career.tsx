@@ -100,6 +100,7 @@ import {
 } from "@shared/schema";
 import { ShareCardDialog } from "@/components/share-card";
 import { PlayerProfileSection } from "@/pages/player-profile";
+import CsvImportDialog from "@/components/csv-import-dialog";
 
 const MONTHS = [
   { value: 1, label: "January" },
@@ -2710,6 +2711,7 @@ function StatsTab() {
   const [shareGameId, setShareGameId] = useState<string | null>(null);
   const [expandedSeasons, setExpandedSeasons] = useState<Set<string>>(new Set());
   const [initialExpandDone, setInitialExpandDone] = useState(false);
+  const [showCsvImport, setShowCsvImport] = useState(false);
 
   const { data: seasons = [], isLoading: seasonsLoading } = useQuery<Season[]>({
     queryKey: ['/api/seasons']
@@ -2924,7 +2926,12 @@ function StatsTab() {
             <Calendar className="w-5 h-5" />
             Seasons
           </CardTitle>
-          <Dialog open={showSeasonDialog} onOpenChange={setShowSeasonDialog}>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => setShowCsvImport(true)} data-testid="button-import-csv">
+              <Upload className="w-4 h-4 mr-1" />
+              Import CSV
+            </Button>
+            <Dialog open={showSeasonDialog} onOpenChange={setShowSeasonDialog}>
             <DialogTrigger asChild>
               <Button size="sm" data-testid="button-create-season">
                 <Plus className="w-4 h-4 mr-1" />
@@ -3015,6 +3022,7 @@ function StatsTab() {
               </Form>
             </DialogContent>
           </Dialog>
+          </div>
         </CardHeader>
         <CardContent>
           {seasons.length === 0 ? (
@@ -3553,6 +3561,8 @@ function StatsTab() {
           gameId={shareGameId}
         />
       )}
+
+      <CsvImportDialog open={showCsvImport} onOpenChange={setShowCsvImport} />
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated, type AuthenticatedRequest } from "./auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
-import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, drills } from "@shared/schema";
+import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, drills } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
 import { eq, and, or, isNull, ilike, sql, inArray } from "drizzle-orm";
@@ -2439,6 +2439,57 @@ export async function registerRoutes(
       }
       console.error("Error creating game:", error);
       res.status(500).json({ message: "Failed to create game" });
+    }
+  });
+
+  // Bulk import games from CSV
+  app.post("/api/seasons/:seasonId/games/bulk", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const seasonId = req.params.seasonId;
+      const [season] = await db.select().from(seasons).where(eq(seasons.id, seasonId)).limit(1);
+      if (!season || season.userId !== userId) {
+        return res.status(403).json({ message: "Season not found or access denied" });
+      }
+
+      const rawGames: unknown[] = Array.isArray(req.body.games) ? req.body.games : [];
+      if (rawGames.length === 0) return res.status(400).json({ message: "No games provided" });
+      if (rawGames.length > 200) return res.status(400).json({ message: "Maximum 200 games per import" });
+
+      let imported = 0;
+      let skipped = 0;
+
+      for (const raw of rawGames) {
+        try {
+          const gameData = insertGameSchema.parse({
+            ...(raw as object),
+            seasonId,
+            userId,
+            gameDate: (raw as any).gameDate ? new Date((raw as any).gameDate) : new Date(),
+          });
+          const game = await storage.createGame(gameData);
+          try {
+            await storage.checkAndCreateGamePRs(userId, game.id, {
+              points: game.points ?? 0,
+              rebounds: game.rebounds ?? 0,
+              assists: game.assists ?? 0,
+              steals: game.steals ?? 0,
+              blocks: game.blocks ?? 0,
+              fgMade: game.fgMade ?? 0,
+              threePtMade: game.threePtMade ?? 0,
+              ftMade: game.ftMade ?? 0,
+            });
+          } catch {}
+          imported++;
+        } catch {
+          skipped++;
+        }
+      }
+
+      res.status(201).json({ imported, skipped });
+    } catch (error) {
+      console.error("Bulk game import error:", error);
+      res.status(500).json({ message: "Failed to import games" });
     }
   });
 
