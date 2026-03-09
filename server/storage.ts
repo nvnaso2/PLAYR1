@@ -2555,26 +2555,24 @@ export class DatabaseStorage implements IStorage {
 
   async getTrainerPlayersByGroup(groupId: string): Promise<(TrainerPlayer & { assignmentId: string; groupPosition?: string | null; groupJersey?: string | null })[]> {
     const assignments = await db.select().from(trainerPlayerAssignments).where(eq(trainerPlayerAssignments.groupId, groupId));
-    const result = [];
-    for (const a of assignments) {
-      const [player] = await db.select().from(trainerPlayers).where(eq(trainerPlayers.id, a.trainerPlayerId));
-      if (player) {
-        result.push({ ...player, assignmentId: a.id, groupPosition: a.position, groupJersey: a.jerseyNumber });
-      }
-    }
-    return result;
+    if (assignments.length === 0) return [];
+    const playerIds = assignments.map(a => a.trainerPlayerId);
+    const players = await db.select().from(trainerPlayers).where(inArray(trainerPlayers.id, playerIds));
+    const playerMap = new Map(players.map(p => [p.id, p]));
+    return assignments
+      .filter(a => playerMap.has(a.trainerPlayerId))
+      .map(a => ({ ...playerMap.get(a.trainerPlayerId)!, assignmentId: a.id, groupPosition: a.position, groupJersey: a.jerseyNumber }));
   }
 
   async getTrainerPlayersByTeam(teamId: string): Promise<(TrainerPlayer & { assignmentId: string; teamPosition?: string | null; teamJersey?: string | null; assignedAt?: Date | null })[]> {
     const assignments = await db.select().from(playerTeamAssignments).where(eq(playerTeamAssignments.teamId, teamId));
-    const result = [];
-    for (const a of assignments) {
-      const [player] = await db.select().from(trainerPlayers).where(eq(trainerPlayers.id, a.playerId));
-      if (player) {
-        result.push({ ...player, assignmentId: a.id, teamPosition: a.position, teamJersey: a.jerseyNumber, assignedAt: a.assignedAt });
-      }
-    }
-    return result;
+    if (assignments.length === 0) return [];
+    const playerIds = assignments.map(a => a.playerId);
+    const players = await db.select().from(trainerPlayers).where(inArray(trainerPlayers.id, playerIds));
+    const playerMap = new Map(players.map(p => [p.id, p]));
+    return assignments
+      .filter(a => playerMap.has(a.playerId))
+      .map(a => ({ ...playerMap.get(a.playerId)!, assignmentId: a.id, teamPosition: a.position, teamJersey: a.jerseyNumber, assignedAt: a.assignedAt }));
   }
 
   async getPlayerDrillAssignments(playerId: string, trainerId: string): Promise<Array<DrillAssignment & { drill: Drill; teamName?: string }>> {
@@ -2602,19 +2600,17 @@ export class DatabaseStorage implements IStorage {
       return true;
     });
 
-    const result: Array<DrillAssignment & { drill: Drill; teamName?: string }> = [];
-    for (const assignment of allAssignmentsRaw) {
-      const [drill] = await db.select().from(drills).where(eq(drills.id, assignment.drillId));
-      if (drill) {
-        let teamName: string | undefined;
-        if (assignment.teamId) {
-          const [team] = await db.select().from(trainerTeams).where(eq(trainerTeams.id, assignment.teamId));
-          teamName = team?.name;
-        }
-        result.push({ ...assignment, drill, teamName });
-      }
-    }
-    return result;
+    const drillIds = [...new Set(allAssignmentsRaw.map(a => a.drillId))];
+    const teamIdsForDrills = [...new Set(allAssignmentsRaw.filter(a => a.teamId).map(a => a.teamId!))];
+    const [drillsData, teamsData] = await Promise.all([
+      drillIds.length > 0 ? db.select().from(drills).where(inArray(drills.id, drillIds)) : Promise.resolve([]),
+      teamIdsForDrills.length > 0 ? db.select().from(trainerTeams).where(inArray(trainerTeams.id, teamIdsForDrills)) : Promise.resolve([]),
+    ]);
+    const drillMap = new Map(drillsData.map(d => [d.id, d]));
+    const teamMap = new Map(teamsData.map(t => [t.id, t]));
+    return allAssignmentsRaw
+      .filter(a => drillMap.has(a.drillId))
+      .map(a => ({ ...a, drill: drillMap.get(a.drillId)!, teamName: a.teamId ? teamMap.get(a.teamId)?.name : undefined }));
   }
 
   async getPlayerSharedVideos(playerId: string, trainerId: string): Promise<Array<{ id: string; userId: string; playerName: string; title: string; videoUrl: string; description: string | null; assignmentId: string | null; teamName: string; createdAt: Date | null }>> {
@@ -2622,18 +2618,22 @@ export class DatabaseStorage implements IStorage {
     const teamAssignments = await db.select().from(playerTeamAssignments).where(eq(playerTeamAssignments.playerId, playerId));
     const allIds = Array.from(new Set([...groupAssignments.map(a => a.groupId), ...teamAssignments.map(a => a.teamId)]));
 
-    const result: Array<{ id: string; userId: string; playerName: string; title: string; videoUrl: string; description: string | null; assignmentId: string | null; teamName: string; createdAt: Date | null }> = [];
-    for (const tId of allIds) {
-      const [team] = await db.select().from(trainerTeams).where(eq(trainerTeams.id, tId));
-      if (!team || team.coachId !== trainerId) continue;
-      const videos = await db.select().from(sharedVideos).where(eq(sharedVideos.teamId, tId)).orderBy(desc(sharedVideos.createdAt));
-      for (const video of videos) {
-        const [user] = await db.select().from(users).where(eq(users.id, video.userId));
-        const playerName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown' : 'Unknown';
-        result.push({ ...video, playerName, teamName: team.name });
-      }
-    }
-    return result;
+    if (allIds.length === 0) return [];
+    const teamsAll = await db.select().from(trainerTeams).where(inArray(trainerTeams.id, allIds));
+    const validTeams = teamsAll.filter(t => t.coachId === trainerId);
+    if (validTeams.length === 0) return [];
+    const validTeamIds = validTeams.map(t => t.id);
+    const teamNameMap = new Map(validTeams.map(t => [t.id, t.name]));
+    const videos = await db.select().from(sharedVideos).where(inArray(sharedVideos.teamId, validTeamIds)).orderBy(desc(sharedVideos.createdAt));
+    if (videos.length === 0) return [];
+    const userIds = [...new Set(videos.map(v => v.userId))];
+    const usersData = await db.select().from(users).where(inArray(users.id, userIds));
+    const userMap = new Map(usersData.map(u => [u.id, u]));
+    return videos.map(video => {
+      const user = userMap.get(video.userId);
+      const playerName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown' : 'Unknown';
+      return { ...video, playerName, teamName: teamNameMap.get(video.teamId) || 'Unknown' };
+    });
   }
 
   async getPlayerMessages(playerId: string, trainerId: string): Promise<Message[]> {
@@ -2712,18 +2712,28 @@ export class DatabaseStorage implements IStorage {
     const threadIds = memberRows.map(m => m.threadId);
     if (threadIds.length === 0) return [];
     const threads = await db.select().from(chatThreads).where(and(inArray(chatThreads.id, threadIds), eq(chatThreads.mode, mode))).orderBy(desc(chatThreads.createdAt));
-    const result = [];
-    for (const thread of threads) {
-      const members = await db.select().from(chatThreadMembers).where(eq(chatThreadMembers.threadId, thread.id));
-      const msgs = await db.select().from(chatThreadMessages).where(eq(chatThreadMessages.threadId, thread.id)).orderBy(desc(chatThreadMessages.createdAt)).limit(1);
-      result.push({
-        ...thread,
-        memberCount: members.length,
-        lastMessage: msgs[0]?.content,
-        lastMessageAt: msgs[0]?.createdAt ?? undefined,
-      });
+    if (threads.length === 0) return [];
+    const tIds = threads.map(t => t.id);
+    const [allMembers, allMessages] = await Promise.all([
+      db.select().from(chatThreadMembers).where(inArray(chatThreadMembers.threadId, tIds)),
+      db.select().from(chatThreadMessages).where(inArray(chatThreadMessages.threadId, tIds)).orderBy(desc(chatThreadMessages.createdAt)),
+    ]);
+    const memberCountMap = new Map<string, number>();
+    for (const m of allMembers) {
+      memberCountMap.set(m.threadId, (memberCountMap.get(m.threadId) || 0) + 1);
     }
-    return result;
+    const latestMessageMap = new Map<string, { content: string; createdAt: Date }>();
+    for (const msg of allMessages) {
+      if (!latestMessageMap.has(msg.threadId)) {
+        latestMessageMap.set(msg.threadId, { content: msg.content, createdAt: msg.createdAt! });
+      }
+    }
+    return threads.map(thread => ({
+      ...thread,
+      memberCount: memberCountMap.get(thread.id) || 0,
+      lastMessage: latestMessageMap.get(thread.id)?.content,
+      lastMessageAt: latestMessageMap.get(thread.id)?.createdAt,
+    }));
   }
 
   async getChatThreadById(id: string): Promise<ChatThread | undefined> {
@@ -2859,6 +2869,39 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
+  async getTrainerProfilesByIds(ids: string[]): Promise<(TrainerProfile & { firstName: string | null; lastName: string | null })[]> {
+    if (ids.length === 0) return [];
+    return await db.select({
+      id: trainerProfiles.id,
+      userId: trainerProfiles.userId,
+      headline: trainerProfiles.headline,
+      bio: trainerProfiles.bio,
+      specialties: trainerProfiles.specialties,
+      city: trainerProfiles.city,
+      state: trainerProfiles.state,
+      hourlyRate: trainerProfiles.hourlyRate,
+      sessionTypes: trainerProfiles.sessionTypes,
+      experienceYears: trainerProfiles.experienceYears,
+      certifications: trainerProfiles.certifications,
+      availability: trainerProfiles.availability,
+      profilePhotoUrl: trainerProfiles.profilePhotoUrl,
+      contactEmail: trainerProfiles.contactEmail,
+      contactPhone: trainerProfiles.contactPhone,
+      socialInstagram: trainerProfiles.socialInstagram,
+      socialTwitter: trainerProfiles.socialTwitter,
+      website: trainerProfiles.website,
+      isPublic: trainerProfiles.isPublic,
+      stripeAccountId: trainerProfiles.stripeAccountId,
+      createdAt: trainerProfiles.createdAt,
+      updatedAt: trainerProfiles.updatedAt,
+      firstName: users.firstName,
+      lastName: users.lastName,
+    })
+    .from(trainerProfiles)
+    .innerJoin(users, eq(trainerProfiles.userId, users.id))
+    .where(inArray(trainerProfiles.id, ids));
+  }
+
   async getTrainingLocations(): Promise<TrainingLocation[]> {
     return await db.select().from(trainingLocations).orderBy(trainingLocations.name);
   }
@@ -2866,6 +2909,11 @@ export class DatabaseStorage implements IStorage {
   async getTrainingLocationById(id: string): Promise<TrainingLocation | undefined> {
     const [loc] = await db.select().from(trainingLocations).where(eq(trainingLocations.id, id));
     return loc;
+  }
+
+  async getTrainingLocationsByIds(ids: string[]): Promise<TrainingLocation[]> {
+    if (ids.length === 0) return [];
+    return await db.select().from(trainingLocations).where(inArray(trainingLocations.id, ids));
   }
 
   async createTrainingLocation(loc: InsertTrainingLocation): Promise<TrainingLocation> {

@@ -6,7 +6,7 @@ import { registerObjectStorageRoutes } from "./replit_integrations/object_storag
 import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
-import { eq, and, or, isNull, ilike, sql } from "drizzle-orm";
+import { eq, and, or, isNull, ilike, sql, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { zipToCoords, cityStateToCoords, haversineDistance } from "./geo";
 import {
@@ -4000,6 +4000,11 @@ export async function registerRoutes(
 
   app.get("/api/invitations/:teamId", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
+      const team = await storage.getTeamById(req.params.teamId);
+      if (!team || team.coachId !== userId) {
+        return res.status(403).json({ message: "Not authorized to view team invitations" });
+      }
       const invitations = await storage.getTeamInvitations(req.params.teamId);
       res.json(invitations);
     } catch (error) {
@@ -5385,24 +5390,25 @@ export async function registerRoutes(
       const sessions = await storage.getTrainingSessionsForTrainer(trainerId, filters);
       const playerIds = [...new Set(sessions.map(s => s.playerId))];
       const playerNames: Record<string, string> = {};
-      for (const pid of playerIds) {
-        const [u] = await db.select({ firstName: users.firstName, lastName: users.lastName }).from(users).where(eq(users.id, pid));
-        if (u) playerNames[pid] = `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'Unknown';
+      if (playerIds.length > 0) {
+        const usersData = await db.select({ id: users.id, firstName: users.firstName, lastName: users.lastName }).from(users).where(inArray(users.id, playerIds));
+        for (const u of usersData) {
+          playerNames[u.id] = `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'Unknown';
+        }
       }
       const locationIds = [...new Set(sessions.filter(s => s.locationId).map(s => s.locationId!))];
       const locationNames: Record<string, string> = {};
-      for (const lid of locationIds) {
-        const loc = await storage.getTrainingLocationById(lid);
-        if (loc) locationNames[lid] = loc.name;
+      if (locationIds.length > 0) {
+        const locs = await storage.getTrainingLocationsByIds(locationIds);
+        for (const loc of locs) locationNames[loc.id] = loc.name;
       }
-      const groupSessionIds = [...new Set(sessions.filter(s => s.groupSessionId).map(s => s.groupSessionId!))];
       const groupInfo: Record<string, { count: number; playerNames: string[] }> = {};
-      for (const gid of groupSessionIds) {
-        const grouped = sessions.filter(s => s.groupSessionId === gid);
-        groupInfo[gid] = {
-          count: grouped.length,
-          playerNames: grouped.map(s => playerNames[s.playerId] || 'Unknown'),
-        };
+      for (const s of sessions) {
+        if (s.groupSessionId) {
+          if (!groupInfo[s.groupSessionId]) groupInfo[s.groupSessionId] = { count: 0, playerNames: [] };
+          groupInfo[s.groupSessionId].count++;
+          groupInfo[s.groupSessionId].playerNames.push(playerNames[s.playerId] || 'Unknown');
+        }
       }
       const enriched = sessions.map(s => ({
         ...s,
@@ -5434,21 +5440,21 @@ export async function registerRoutes(
       );
       const trainerProfileIds = [...new Set(sessions.map(s => s.trainerProfileId))];
       const trainerInfo: Record<string, { name: string; profilePhotoUrl: string | null }> = {};
-      for (const tpid of trainerProfileIds) {
-        const tp = await storage.getTrainerProfileById(tpid);
-        if (tp) trainerInfo[tpid] = { name: `${tp.firstName || ''} ${tp.lastName || ''}`.trim() || 'Trainer', profilePhotoUrl: tp.profilePhotoUrl };
+      if (trainerProfileIds.length > 0) {
+        const tps = await storage.getTrainerProfilesByIds(trainerProfileIds);
+        for (const tp of tps) trainerInfo[tp.id] = { name: `${tp.firstName || ''} ${tp.lastName || ''}`.trim() || 'Trainer', profilePhotoUrl: tp.profilePhotoUrl };
       }
       const locationIds = [...new Set(sessions.filter(s => s.locationId).map(s => s.locationId!))];
       const locationNames: Record<string, string> = {};
-      for (const lid of locationIds) {
-        const loc = await storage.getTrainingLocationById(lid);
-        if (loc) locationNames[lid] = loc.name;
+      if (locationIds.length > 0) {
+        const locs = await storage.getTrainingLocationsByIds(locationIds);
+        for (const loc of locs) locationNames[loc.id] = loc.name;
       }
-      const groupSessionIds = [...new Set(sessions.filter(s => s.groupSessionId).map(s => s.groupSessionId!))];
       const groupCounts: Record<string, number> = {};
-      for (const gid of groupSessionIds) {
-        const all = await storage.getTrainingSessionsByGroupId(gid);
-        groupCounts[gid] = all.length;
+      for (const s of sessions) {
+        if (s.groupSessionId) {
+          groupCounts[s.groupSessionId] = (groupCounts[s.groupSessionId] || 0) + 1;
+        }
       }
       const enriched = sessions.map(s => ({
         ...s,
