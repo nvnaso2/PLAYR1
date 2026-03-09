@@ -36,7 +36,7 @@ import {
   coachPlayerAssignments, type CoachPlayerAssignment, type InsertCoachPlayerAssignment,
   trainerPlayers, type TrainerPlayer, type InsertTrainerPlayer,
   trainerPlayerAssignments, type TrainerPlayerAssignment, type InsertTrainerPlayerAssignment,
-  playerTeamAssignments,
+  playerTeamAssignments, type PlayerTeamAssignment,
   chatThreads, type ChatThread, type InsertChatThread,
   chatThreadMembers, type ChatThreadMember, type InsertChatThreadMember,
   chatThreadMessages, type ChatThreadMessage, type InsertChatThreadMessage,
@@ -2130,6 +2130,11 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
+  async getDrillAssignmentById(id: string): Promise<DrillAssignment | undefined> {
+    const [assignment] = await db.select().from(drillAssignments).where(eq(drillAssignments.id, id));
+    return assignment;
+  }
+
   async updateDrillAssignmentStatus(id: string, status: string): Promise<DrillAssignment | undefined> {
     const [updated] = await db.update(drillAssignments)
       .set({ status })
@@ -2341,6 +2346,11 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
+  async getInvitationById(id: string): Promise<PlayerInvitation | undefined> {
+    const [invitation] = await db.select().from(playerInvitations).where(eq(playerInvitations.id, id));
+    return invitation;
+  }
+
   async deleteInvitation(id: string): Promise<boolean> {
     await db.delete(playerInvitations).where(eq(playerInvitations.id, id));
     return true;
@@ -2533,6 +2543,11 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
+  async getTrainerPlayerAssignmentById(assignmentId: string): Promise<TrainerPlayerAssignment | undefined> {
+    const [assignment] = await db.select().from(trainerPlayerAssignments).where(eq(trainerPlayerAssignments.id, assignmentId));
+    return assignment;
+  }
+
   async removeTrainerPlayerFromGroup(assignmentId: string): Promise<boolean> {
     await db.delete(trainerPlayerAssignments).where(eq(trainerPlayerAssignments.id, assignmentId));
     return true;
@@ -2671,6 +2686,11 @@ export class DatabaseStorage implements IStorage {
       jerseyNumber: assignment.jerseyNumber ?? null,
     }).returning();
     return created;
+  }
+
+  async getPlayerTeamAssignmentById(assignmentId: string): Promise<PlayerTeamAssignment | undefined> {
+    const [assignment] = await db.select().from(playerTeamAssignments).where(eq(playerTeamAssignments.id, assignmentId));
+    return assignment;
   }
 
   async removePlayerFromTeam(assignmentId: string): Promise<boolean> {

@@ -2902,6 +2902,10 @@ export async function registerRoutes(
   // Delete assignment
   app.delete("/api/coach/assignments/:id", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
+      const assignment = await storage.getDrillAssignmentById(req.params.id);
+      if (!assignment) return res.status(404).json({ message: "Assignment not found" });
+      if (assignment.assignedBy !== userId) return res.status(403).json({ message: "Not authorized" });
       await storage.deleteDrillAssignment(req.params.id);
       res.json({ success: true });
     } catch (error) {
@@ -2913,6 +2917,10 @@ export async function registerRoutes(
   // Update assignment status (player marks as completed)
   app.put("/api/assignments/:id/status", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
+      const assignment = await storage.getDrillAssignmentById(req.params.id);
+      if (!assignment) return res.status(404).json({ message: "Assignment not found" });
+      if (assignment.assignedTo !== userId && assignment.assignedBy !== userId) return res.status(403).json({ message: "Not authorized" });
       const { status } = req.body;
       const updated = await storage.updateDrillAssignmentStatus(req.params.id, status);
       res.json(updated);
@@ -3224,6 +3232,10 @@ export async function registerRoutes(
   // Delete trainer assignment
   app.delete("/api/trainer/assignments/:id", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
+      const assignment = await storage.getDrillAssignmentById(req.params.id);
+      if (!assignment) return res.status(404).json({ message: "Assignment not found" });
+      if (assignment.assignedBy !== userId) return res.status(403).json({ message: "Not authorized" });
       await storage.deleteDrillAssignment(req.params.id);
       res.json({ success: true });
     } catch (error) {
@@ -3856,6 +3868,12 @@ export async function registerRoutes(
 
   app.get("/api/chat-threads/:id/messages", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
+      const members = await storage.getChatThreadMembers(req.params.id);
+      const thread = await storage.getChatThreadById(req.params.id);
+      if (!members.some(m => m.userId === userId) && thread?.ownerId !== userId) {
+        return res.status(403).json({ message: "Not a member of this thread" });
+      }
       const messages = await storage.getChatThreadMessages(req.params.id);
       const enriched = [];
       for (const msg of messages) {
@@ -3876,6 +3894,10 @@ export async function registerRoutes(
   app.post("/api/chat-threads/:id/messages", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const members = await storage.getChatThreadMembers(req.params.id);
+      if (!members.some(m => m.userId === userId)) {
+        return res.status(403).json({ message: "Not a member of this thread" });
+      }
       const { content } = req.body;
       if (!content) {
         return res.status(400).json({ message: "content is required" });
@@ -3886,7 +3908,6 @@ export async function registerRoutes(
         content,
       });
 
-      const members = await storage.getChatThreadMembers(req.params.id);
       const senderName = await getDisplayNameForUser(userId);
       for (const m of members) {
         if (m.userId !== userId) {
@@ -3903,7 +3924,12 @@ export async function registerRoutes(
 
   app.get("/api/chat-threads/:id/members", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const members = await storage.getChatThreadMembers(req.params.id);
+      const thread = await storage.getChatThreadById(req.params.id);
+      if (!members.some(m => m.userId === userId) && thread?.ownerId !== userId) {
+        return res.status(403).json({ message: "Not a member of this thread" });
+      }
       const enriched = [];
       for (const m of members) {
         const [profile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, m.userId));
@@ -3922,13 +3948,18 @@ export async function registerRoutes(
 
   app.post("/api/chat-threads/:id/members", isAuthenticated, async (req: any, res) => {
     try {
-      const { userId, role } = req.body;
-      if (!userId) {
+      const userId = req.user.claims.sub;
+      const thread = await storage.getChatThreadById(req.params.id);
+      if (!thread || thread.ownerId !== userId) {
+        return res.status(403).json({ message: "Only the thread owner can add members" });
+      }
+      const { userId: newUserId, role } = req.body;
+      if (!newUserId) {
         return res.status(400).json({ message: "userId is required" });
       }
       const member = await storage.addChatThreadMember({
         threadId: req.params.id,
-        userId,
+        userId: newUserId,
         role: role || "member",
       });
       res.status(201).json(member);
@@ -3940,6 +3971,11 @@ export async function registerRoutes(
 
   app.delete("/api/chat-threads/:id", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
+      const thread = await storage.getChatThreadById(req.params.id);
+      if (!thread || thread.ownerId !== userId) {
+        return res.status(403).json({ message: "Only the thread owner can delete" });
+      }
       await storage.deleteChatThread(req.params.id);
       res.json({ success: true });
     } catch (error) {
@@ -4002,6 +4038,10 @@ export async function registerRoutes(
   // Delete invitation
   app.delete("/api/invitations/:id", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
+      const invitation = await storage.getInvitationById(req.params.id);
+      if (!invitation) return res.status(404).json({ message: "Invitation not found" });
+      if (invitation.invitedBy !== userId) return res.status(403).json({ message: "Not authorized" });
       await storage.deleteInvitation(req.params.id);
       res.json({ success: true });
     } catch (error) {
@@ -4589,6 +4629,11 @@ export async function registerRoutes(
 
   app.delete("/api/trainer-player-assignments/:id", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
+      const assignment = await storage.getTrainerPlayerAssignmentById(req.params.id);
+      if (!assignment) return res.status(404).json({ message: "Assignment not found" });
+      const group = await storage.getTeamById(assignment.groupId);
+      if (!group || group.coachId !== userId) return res.status(403).json({ message: "Not authorized" });
       await storage.removeTrainerPlayerFromGroup(req.params.id);
       res.json({ success: true });
     } catch (error) {
@@ -4675,6 +4720,13 @@ export async function registerRoutes(
 
   app.delete("/api/player-team-assignments/:id", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
+      const assignment = await storage.getPlayerTeamAssignmentById(req.params.id);
+      if (!assignment) return res.status(404).json({ message: "Assignment not found" });
+      if (assignment.playerId !== userId) {
+        const group = await storage.getTeamById(assignment.teamId);
+        if (!group || group.coachId !== userId) return res.status(403).json({ message: "Not authorized" });
+      }
       await storage.removePlayerFromTeam(req.params.id);
       res.json({ success: true });
     } catch (error) {
@@ -5828,8 +5880,13 @@ export async function registerRoutes(
 
   app.get("/api/player-evaluations/detail/:id", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const result = await storage.getPlayerEvaluationById(req.params.id);
       if (!result) return res.status(404).json({ message: "Evaluation not found" });
+      const eval_ = result.evaluation;
+      if (eval_.trainerId !== userId && eval_.playerId !== userId) {
+        return res.status(403).json({ message: "Not authorized to view this evaluation" });
+      }
       res.json(result);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
