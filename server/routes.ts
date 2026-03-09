@@ -1516,6 +1516,9 @@ export async function registerRoutes(
         await db.update(users)
           .set({ profileImageUrl: data.profilePhotoUrl })
           .where(eq(users.id, userId));
+        await db.update(careerProfiles)
+          .set({ cardPhotoUrl: data.profilePhotoUrl })
+          .where(eq(careerProfiles.userId, userId));
       }
 
       const trainerProfile = await storage.getTrainerProfile(userId);
@@ -1803,6 +1806,17 @@ export async function registerRoutes(
       
       const data = insertCareerProfileSchema.parse({ ...req.body, userId });
       const profile = await storage.createCareerProfile(data);
+
+      if (data.cardPhotoUrl) {
+        await db.insert(userProfiles)
+          .values({ userId, profilePhotoUrl: data.cardPhotoUrl } as any)
+          .onConflictDoUpdate({ target: userProfiles.userId, set: { profilePhotoUrl: data.cardPhotoUrl } })
+          .execute();
+        await db.update(users)
+          .set({ profileImageUrl: data.cardPhotoUrl })
+          .where(eq(users.id, userId));
+      }
+
       res.status(201).json(profile);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -1851,6 +1865,17 @@ export async function registerRoutes(
       if (!profile) {
         return res.status(404).json({ message: "Career profile not found" });
       }
+
+      if (data.cardPhotoUrl !== undefined) {
+        await db.insert(userProfiles)
+          .values({ userId, profilePhotoUrl: data.cardPhotoUrl } as any)
+          .onConflictDoUpdate({ target: userProfiles.userId, set: { profilePhotoUrl: data.cardPhotoUrl } })
+          .execute();
+        await db.update(users)
+          .set({ profileImageUrl: data.cardPhotoUrl })
+          .where(eq(users.id, userId));
+      }
+
       res.json(profile);
     } catch (error) {
       if (error instanceof z.ZodError) {
