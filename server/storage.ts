@@ -1841,63 +1841,60 @@ export class DatabaseStorage implements IStorage {
       losses: number;
     }>;
   }> {
-    const userSeasons = await this.getUserSeasons(userId);
-    
-    let totalGames = 0;
-    let totalPoints = 0;
-    let totalRebounds = 0;
-    let totalAssists = 0;
-    let totalSteals = 0;
-    let totalBlocks = 0;
-    let totalWins = 0;
-    let totalLosses = 0;
-    
-    const seasonBreakdown = [];
-    
-    for (const season of userSeasons) {
-      const seasonGames = await this.getSeasonGames(season.id);
-      const gamesPlayed = seasonGames.length;
-      
-      if (gamesPlayed === 0) continue;
-      
-      const seasonPoints = seasonGames.reduce((sum, g) => sum + (g.points || 0), 0);
-      const seasonRebounds = seasonGames.reduce((sum, g) => sum + (g.rebounds || 0), 0);
-      const seasonAssists = seasonGames.reduce((sum, g) => sum + (g.assists || 0), 0);
-      const seasonSteals = seasonGames.reduce((sum, g) => sum + (g.steals || 0), 0);
-      const seasonBlocks = seasonGames.reduce((sum, g) => sum + (g.blocks || 0), 0);
-      const seasonWins = seasonGames.filter(g => g.result === "W").length;
-      const seasonLosses = seasonGames.filter(g => g.result === "L").length;
-      
-      totalGames += gamesPlayed;
-      totalPoints += seasonPoints;
-      totalRebounds += seasonRebounds;
-      totalAssists += seasonAssists;
-      totalSteals += seasonSteals;
-      totalBlocks += seasonBlocks;
-      totalWins += seasonWins;
-      totalLosses += seasonLosses;
-      
-      seasonBreakdown.push({
-        seasonId: season.id,
-        seasonName: season.name,
-        seasonType: season.seasonType,
-        year: season.year,
-        gamesPlayed,
-        avgPoints: Math.round((seasonPoints / gamesPlayed) * 10) / 10,
-        avgRebounds: Math.round((seasonRebounds / gamesPlayed) * 10) / 10,
-        avgAssists: Math.round((seasonAssists / gamesPlayed) * 10) / 10,
-        avgSteals: Math.round((seasonSteals / gamesPlayed) * 10) / 10,
-        avgBlocks: Math.round((seasonBlocks / gamesPlayed) * 10) / 10,
-        totalPoints: seasonPoints,
-        totalRebounds: seasonRebounds,
-        totalAssists: seasonAssists,
-        totalSteals: seasonSteals,
-        totalBlocks: seasonBlocks,
-        wins: seasonWins,
-        losses: seasonLosses
-      });
-    }
-    
+    const rows = await db
+      .select({
+        seasonId: seasons.id,
+        seasonName: seasons.name,
+        seasonType: seasons.seasonType,
+        year: seasons.year,
+        gamesPlayed: sql<number>`COUNT(${games.id})::int`,
+        totalPoints: sql<number>`COALESCE(SUM(${games.points}), 0)::int`,
+        totalRebounds: sql<number>`COALESCE(SUM(${games.rebounds}), 0)::int`,
+        totalAssists: sql<number>`COALESCE(SUM(${games.assists}), 0)::int`,
+        totalSteals: sql<number>`COALESCE(SUM(${games.steals}), 0)::int`,
+        totalBlocks: sql<number>`COALESCE(SUM(${games.blocks}), 0)::int`,
+        wins: sql<number>`COUNT(*) FILTER (WHERE ${games.result} = 'W')::int`,
+        losses: sql<number>`COUNT(*) FILTER (WHERE ${games.result} = 'L')::int`,
+      })
+      .from(seasons)
+      .innerJoin(games, eq(games.seasonId, seasons.id))
+      .where(eq(seasons.userId, userId))
+      .groupBy(seasons.id, seasons.name, seasons.seasonType, seasons.year, seasons.createdAt)
+      .orderBy(desc(seasons.createdAt));
+
+    let totalGames = 0, totalPoints = 0, totalRebounds = 0, totalAssists = 0;
+    let totalSteals = 0, totalBlocks = 0, totalWins = 0, totalLosses = 0;
+
+    const seasonBreakdown = rows.map(r => {
+      totalGames += r.gamesPlayed;
+      totalPoints += r.totalPoints;
+      totalRebounds += r.totalRebounds;
+      totalAssists += r.totalAssists;
+      totalSteals += r.totalSteals;
+      totalBlocks += r.totalBlocks;
+      totalWins += r.wins;
+      totalLosses += r.losses;
+      return {
+        seasonId: r.seasonId,
+        seasonName: r.seasonName,
+        seasonType: r.seasonType,
+        year: r.year,
+        gamesPlayed: r.gamesPlayed,
+        avgPoints: Math.round((r.totalPoints / r.gamesPlayed) * 10) / 10,
+        avgRebounds: Math.round((r.totalRebounds / r.gamesPlayed) * 10) / 10,
+        avgAssists: Math.round((r.totalAssists / r.gamesPlayed) * 10) / 10,
+        avgSteals: Math.round((r.totalSteals / r.gamesPlayed) * 10) / 10,
+        avgBlocks: Math.round((r.totalBlocks / r.gamesPlayed) * 10) / 10,
+        totalPoints: r.totalPoints,
+        totalRebounds: r.totalRebounds,
+        totalAssists: r.totalAssists,
+        totalSteals: r.totalSteals,
+        totalBlocks: r.totalBlocks,
+        wins: r.wins,
+        losses: r.losses,
+      };
+    });
+
     return {
       totalGames,
       totalPoints,
@@ -1912,7 +1909,7 @@ export class DatabaseStorage implements IStorage {
       avgAssists: totalGames > 0 ? Math.round((totalAssists / totalGames) * 10) / 10 : 0,
       avgSteals: totalGames > 0 ? Math.round((totalSteals / totalGames) * 10) / 10 : 0,
       avgBlocks: totalGames > 0 ? Math.round((totalBlocks / totalGames) * 10) / 10 : 0,
-      seasonBreakdown
+      seasonBreakdown,
     };
   }
   // Drill Ratings

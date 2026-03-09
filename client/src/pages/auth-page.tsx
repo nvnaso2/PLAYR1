@@ -39,6 +39,7 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: "", password: "" },
+    mode: "onSubmit",
   });
 
   const loginMutation = useMutation({
@@ -138,6 +139,7 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
   const form = useForm<RegisterValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: { firstName: "", lastName: "", email: "", password: "", confirmPassword: "" },
+    mode: "onSubmit",
   });
 
   const registerMutation = useMutation({

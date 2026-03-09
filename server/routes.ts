@@ -2588,15 +2588,22 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Profile not found" });
       }
       
-      // Get career profile data
-      const career = await storage.getCareerProfile(profile.userId);
-      const [user] = await db.select({
-        firstName: users.firstName,
-        lastName: users.lastName,
-        profileImageUrl: users.profileImageUrl,
-      }).from(users).where(eq(users.id, profile.userId));
-      
-      // Gather public data based on visibility settings
+      const [career, [user], awards, personalRecords, allVideos, statsData] = await Promise.all([
+        storage.getCareerProfile(profile.userId),
+        db.select({
+          firstName: users.firstName,
+          lastName: users.lastName,
+          profileImageUrl: users.profileImageUrl,
+        }).from(users).where(eq(users.id, profile.userId)),
+        profile.showAchievements ? storage.getUserTeamAwards(profile.userId) : null,
+        profile.showPersonalRecords === true ? storage.getUserPersonalRecords(profile.userId) : null,
+        profile.showVideos ? storage.getUserVideos(profile.userId) : null,
+        profile.showStats ? Promise.all([
+          storage.getPublicUserSeasons(profile.userId),
+          storage.getCareerStats(profile.userId),
+        ]) : null,
+      ]);
+
       const publicData: any = {
         profile,
         user: user ? { firstName: user.firstName, lastName: user.lastName, profileImageUrl: user.profileImageUrl } : null,
@@ -2611,10 +2618,9 @@ export async function registerRoutes(
         } : null,
       };
 
-      if (profile.showStats) {
-        const publicSeasons = await storage.getPublicUserSeasons(profile.userId);
+      if (statsData) {
+        const [publicSeasons, fullStats] = statsData;
         const publicSeasonIds = new Set(publicSeasons.map(s => s.id));
-        const fullStats = await storage.getCareerStats(profile.userId);
         const filteredBreakdown = fullStats.seasonBreakdown.filter(s => publicSeasonIds.has(s.seasonId));
         
         let totalGames = 0, totalPoints = 0, totalRebounds = 0, totalAssists = 0, totalSteals = 0, totalBlocks = 0, wins = 0, losses = 0;
@@ -2641,14 +2647,13 @@ export async function registerRoutes(
           seasonBreakdown: filteredBreakdown,
         };
       }
-      if (profile.showAchievements) {
-        publicData.awards = await storage.getUserTeamAwards(profile.userId);
+      if (awards) {
+        publicData.awards = awards;
       }
-      if (profile.showPersonalRecords === true) {
-        publicData.personalRecords = await storage.getUserPersonalRecords(profile.userId);
+      if (personalRecords) {
+        publicData.personalRecords = personalRecords;
       }
-      if (profile.showVideos) {
-        const allVideos = await storage.getUserVideos(profile.userId);
+      if (allVideos) {
         publicData.videos = allVideos.filter(v => v.isPublic);
       }
 
