@@ -2,6 +2,16 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import type { Express, RequestHandler } from "express";
+
+declare global {
+  namespace Express {
+    interface Request {
+      user?: { claims: { sub: string } };
+    }
+  }
+}
+
+export type AuthenticatedRequest = Express.Request & { user: { claims: { sub: string } } };
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import cookieParser from "cookie-parser";
@@ -47,7 +57,7 @@ const COOKIE_OPTIONS = {
   path: "/",
 };
 
-export const isAuthenticated: RequestHandler = (req: any, res, next) => {
+export const isAuthenticated: RequestHandler = (req, res, next) => {
   const token = req.cookies?.[COOKIE_NAME];
   if (!token) {
     return res.status(401).json({ message: "Unauthorized" });
@@ -178,7 +188,7 @@ export function registerAuthRoutes(app: Express) {
     res.json({ success: true });
   });
 
-  app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {
+  app.get("/api/auth/user", isAuthenticated, async (req, res) => {
     try {
       const userId = req.user.claims.sub;
       const [user] = await db.select().from(users).where(eq(users.id, userId));

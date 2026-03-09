@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import crypto from "crypto";
 
 const SCOPES = ["https://www.googleapis.com/auth/calendar.events"];
-const STATE_SECRET = process.env.GOOGLE_CLIENT_SECRET || "gcal-state-secret";
+const STATE_SECRET = process.env.GOOGLE_CLIENT_SECRET || crypto.randomBytes(32).toString("hex");
 
 function getRedirectUri() {
   const replitUrl = process.env.REPLIT_DEV_DOMAIN

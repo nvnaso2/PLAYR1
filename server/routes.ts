@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, registerAuthRoutes, isAuthenticated } from "./auth";
+import { setupAuth, registerAuthRoutes, isAuthenticated, type AuthenticatedRequest } from "./auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections } from "@shared/schema";
 import { users } from "@shared/models/auth";
@@ -147,7 +147,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/stripe/subscription", isAuthenticated, async (req: any, res) => {
+  app.get("/api/stripe/subscription", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const [user] = await db.select().from(users).where(eq(users.id, userId));
@@ -164,11 +164,13 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/stripe/checkout", isAuthenticated, async (req: any, res) => {
+  app.post("/api/stripe/checkout", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { priceId } = req.body;
-      if (!priceId) return res.status(400).json({ message: "priceId is required" });
+      const checkoutSchema = z.object({ priceId: z.string().min(1) });
+      const parsed = checkoutSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid request data", errors: parsed.error.flatten() });
+      const { priceId } = parsed.data;
 
       const [user] = await db.select().from(users).where(eq(users.id, userId));
       if (!user) return res.status(404).json({ message: "User not found" });
@@ -201,7 +203,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/stripe/customer-portal", isAuthenticated, async (req: any, res) => {
+  app.post("/api/stripe/customer-portal", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const [user] = await db.select().from(users).where(eq(users.id, userId));
@@ -222,11 +224,13 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/stripe/session-payment", isAuthenticated, async (req: any, res) => {
+  app.post("/api/stripe/session-payment", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { sessionId, amount } = req.body;
-      if (!sessionId || !amount) return res.status(400).json({ message: "sessionId and amount are required" });
+      const paymentSchema = z.object({ sessionId: z.string().min(1), amount: z.number().positive() });
+      const parsed = paymentSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid request data", errors: parsed.error.flatten() });
+      const { sessionId, amount } = parsed.data;
 
       const [user] = await db.select().from(users).where(eq(users.id, userId));
       if (!user) return res.status(404).json({ message: "User not found" });
@@ -295,7 +299,7 @@ export async function registerRoutes(
   });
 
   // Get user's drills with personal bests (MUST be before :id route)
-  app.get("/api/drills/my-drills", isAuthenticated, async (req: any, res) => {
+  app.get("/api/drills/my-drills", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const limit = parseInt(req.query.limit as string) || 4;
@@ -319,7 +323,7 @@ export async function registerRoutes(
   });
 
   // Toggle drill sharing with community
-  app.put("/api/drills/:id/share", isAuthenticated, async (req: any, res) => {
+  app.put("/api/drills/:id/share", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const drill = await storage.getDrillById(req.params.id);
@@ -359,7 +363,7 @@ export async function registerRoutes(
   });
 
   // Get single drill rating (public + user's own rating if authenticated)
-  app.get("/api/drills/:id/rating", async (req: any, res) => {
+  app.get("/api/drills/:id/rating", async (req: AuthenticatedRequest, res) => {
     try {
       const stats = await storage.getDrillRatings(req.params.id);
       let userRating: number | null = null;
@@ -374,7 +378,7 @@ export async function registerRoutes(
   });
 
   // Rate a drill
-  app.post("/api/drills/:id/rating", isAuthenticated, async (req: any, res) => {
+  app.post("/api/drills/:id/rating", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const drill = await storage.getDrillById(req.params.id);
@@ -410,7 +414,7 @@ export async function registerRoutes(
   });
 
   // Admin middleware
-  const isAdmin = async (req: any, res: any, next: any) => {
+  const isAdmin = async (req: AuthenticatedRequest, res: any, next: any) => {
     if (!req.user) {
       return res.status(401).json({ message: "Not authenticated" });
     }
@@ -423,7 +427,7 @@ export async function registerRoutes(
   };
 
   // Check if current user is admin
-  app.get("/api/admin/check", isAuthenticated, async (req: any, res) => {
+  app.get("/api/admin/check", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const isAdmin = await storage.isUserAdmin(userId);
@@ -435,7 +439,7 @@ export async function registerRoutes(
   });
 
   // Create drill (admin only)
-  app.post("/api/drills", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.post("/api/drills", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const data = insertDrillSchema.parse(req.body);
       const drill = await storage.createDrill(data);
@@ -456,7 +460,7 @@ export async function registerRoutes(
   });
 
   // Update drill (admin only)
-  app.put("/api/drills/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.put("/api/drills/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const data = insertDrillSchema.partial().parse(req.body);
       
@@ -491,7 +495,7 @@ export async function registerRoutes(
   });
 
   // Delete drill (admin only)
-  app.delete("/api/drills/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.delete("/api/drills/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       await storage.deleteDrill(req.params.id);
       res.status(204).send();
@@ -504,7 +508,7 @@ export async function registerRoutes(
   // ===== USER MANAGEMENT (Admin only) =====
 
   // Get all users (admin only)
-  app.get("/api/admin/users", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.get("/api/admin/users", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const users = await storage.getAllUsers();
       res.json(users);
@@ -515,7 +519,7 @@ export async function registerRoutes(
   });
 
   // Update user admin status (admin only)
-  app.put("/api/admin/users/:id/admin", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.put("/api/admin/users/:id/admin", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const { isAdmin: newAdminStatus } = req.body;
       if (typeof newAdminStatus !== 'boolean') {
@@ -537,7 +541,7 @@ export async function registerRoutes(
     isAdmin: z.boolean().optional().default(false),
   });
 
-  app.post("/api/admin/users", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.post("/api/admin/users", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const parsed = createUserSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -563,7 +567,7 @@ export async function registerRoutes(
   // ===== VIDEO LIBRARY (Admin only) =====
 
   // Get all videos in library (admin only)
-  app.get("/api/video-library", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.get("/api/video-library", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const videos = await storage.getVideoLibrary();
       res.json(videos);
@@ -574,7 +578,7 @@ export async function registerRoutes(
   });
 
   // Get single video from library (admin only)
-  app.get("/api/video-library/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.get("/api/video-library/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const video = await storage.getVideoLibraryById(req.params.id);
       if (!video) {
@@ -588,7 +592,7 @@ export async function registerRoutes(
   });
 
   // Create video in library (admin only)
-  app.post("/api/video-library", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.post("/api/video-library", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const data = insertVideoLibrarySchema.parse(req.body);
       const video = await storage.createVideoLibraryItem(data);
@@ -603,7 +607,7 @@ export async function registerRoutes(
   });
 
   // Update video in library (admin only)
-  app.put("/api/video-library/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.put("/api/video-library/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const data = insertVideoLibrarySchema.partial().parse(req.body);
       const video = await storage.updateVideoLibraryItem(req.params.id, data);
@@ -621,7 +625,7 @@ export async function registerRoutes(
   });
 
   // Delete video from library (admin only)
-  app.delete("/api/video-library/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.delete("/api/video-library/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       await storage.deleteVideoLibraryItem(req.params.id);
       res.status(204).send();
@@ -634,7 +638,7 @@ export async function registerRoutes(
   // ===== PDF LIBRARY (Admin only) =====
 
   // Get all PDFs in library (admin only)
-  app.get("/api/pdf-library", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.get("/api/pdf-library", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const pdfs = await storage.getPdfLibrary();
       res.json(pdfs);
@@ -645,7 +649,7 @@ export async function registerRoutes(
   });
 
   // Get single PDF (admin only)
-  app.get("/api/pdf-library/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.get("/api/pdf-library/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const pdf = await storage.getPdfLibraryById(req.params.id);
       if (!pdf) {
@@ -659,7 +663,7 @@ export async function registerRoutes(
   });
 
   // Create PDF in library (admin only)
-  app.post("/api/pdf-library", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.post("/api/pdf-library", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const data = insertPdfLibrarySchema.parse(req.body);
       const pdf = await storage.createPdfLibraryItem(data);
@@ -683,7 +687,7 @@ export async function registerRoutes(
   });
 
   // Update PDF in library (admin only)
-  app.put("/api/pdf-library/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.put("/api/pdf-library/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const data = insertPdfLibrarySchema.partial().parse(req.body);
       
@@ -721,7 +725,7 @@ export async function registerRoutes(
   });
 
   // Delete PDF from library (admin only)
-  app.delete("/api/pdf-library/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.delete("/api/pdf-library/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       await storage.deletePdfLibraryItem(req.params.id);
       res.status(204).send();
@@ -733,7 +737,7 @@ export async function registerRoutes(
 
   // ===== TUTORIAL VIDEOS =====
 
-  app.get("/api/tutorial-videos", isAuthenticated, async (req: any, res) => {
+  app.get("/api/tutorial-videos", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const videos = await storage.getTutorialVideos();
       res.json(videos);
@@ -743,7 +747,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/tutorial-videos/:key", async (req: any, res) => {
+  app.get("/api/tutorial-videos/:key", async (req: AuthenticatedRequest, res) => {
     try {
       const video = await storage.getTutorialVideoByKey(req.params.key);
       if (!video) {
@@ -756,7 +760,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/tutorial-videos/:key", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.put("/api/tutorial-videos/:key", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const data = { ...req.body, key: req.params.key };
       const video = await storage.upsertTutorialVideo(data);
@@ -767,7 +771,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/tutorial-videos/:key", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.delete("/api/tutorial-videos/:key", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       await storage.deleteTutorialVideo(req.params.key);
       res.status(204).send();
@@ -780,7 +784,7 @@ export async function registerRoutes(
   // ===== METRIC TEMPLATES =====
 
   // Get all metric templates (accessible to all authenticated users for drill configuration)
-  app.get("/api/metric-templates", isAuthenticated, async (req: any, res) => {
+  app.get("/api/metric-templates", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const templates = await storage.getMetricTemplates();
       res.json(templates);
@@ -791,7 +795,7 @@ export async function registerRoutes(
   });
 
   // Get single metric template (admin only)
-  app.get("/api/metric-templates/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.get("/api/metric-templates/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const template = await storage.getMetricTemplateById(req.params.id);
       if (!template) {
@@ -805,7 +809,7 @@ export async function registerRoutes(
   });
 
   // Create metric template (admin only)
-  app.post("/api/metric-templates", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.post("/api/metric-templates", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const data = insertMetricTemplateSchema.parse(req.body);
       const template = await storage.createMetricTemplate(data);
@@ -820,7 +824,7 @@ export async function registerRoutes(
   });
 
   // Update metric template (admin only)
-  app.put("/api/metric-templates/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.put("/api/metric-templates/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const data = insertMetricTemplateSchema.partial().parse(req.body);
       const template = await storage.updateMetricTemplate(req.params.id, data);
@@ -838,7 +842,7 @@ export async function registerRoutes(
   });
 
   // Delete metric template (admin only)
-  app.delete("/api/metric-templates/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.delete("/api/metric-templates/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       await storage.deleteMetricTemplate(req.params.id);
       res.status(204).send();
@@ -850,7 +854,7 @@ export async function registerRoutes(
 
   // Set drill metrics (link metric templates to a drill)
   // Allowed for admins OR the drill owner
-  app.post("/api/drills/:id/metrics", isAuthenticated, async (req: any, res) => {
+  app.post("/api/drills/:id/metrics", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const drill = await storage.getDrillById(req.params.id);
@@ -893,7 +897,7 @@ export async function registerRoutes(
   // ===== USER DRILLS =====
 
   // Get all drills available to user (admin drills + user's own)
-  app.get("/api/user/drills", isAuthenticated, async (req: any, res) => {
+  app.get("/api/user/drills", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const drillList = await storage.getDrillsForUser(userId);
@@ -905,7 +909,7 @@ export async function registerRoutes(
   });
 
   // Get only user's own created drills
-  app.get("/api/user/my-drills", isAuthenticated, async (req: any, res) => {
+  app.get("/api/user/my-drills", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const drillList = await storage.getUserDrills(userId);
@@ -917,7 +921,7 @@ export async function registerRoutes(
   });
 
   // Create user's own drill
-  app.post("/api/user/drills", isAuthenticated, async (req: any, res) => {
+  app.post("/api/user/drills", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const data = insertDrillSchema.parse({
@@ -937,7 +941,7 @@ export async function registerRoutes(
   });
 
   // Update user's own drill
-  app.put("/api/user/drills/:id", isAuthenticated, async (req: any, res) => {
+  app.put("/api/user/drills/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const drill = await storage.getDrillById(req.params.id);
@@ -963,7 +967,7 @@ export async function registerRoutes(
   });
 
   // Delete user's own drill
-  app.delete("/api/user/drills/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/user/drills/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const drill = await storage.getDrillById(req.params.id);
@@ -995,7 +999,7 @@ export async function registerRoutes(
   });
 
   // Get user's personal workouts
-  app.get("/api/workouts/personal", isAuthenticated, async (req: any, res) => {
+  app.get("/api/workouts/personal", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const workouts = await storage.getUserWorkouts(userId);
@@ -1021,7 +1025,7 @@ export async function registerRoutes(
   });
 
   // Create workout (users can create their own workouts)
-  app.post("/api/workouts", isAuthenticated, async (req: any, res) => {
+  app.post("/api/workouts", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const { name, description, category, estimatedDuration, drillIds, isFavorite } = req.body;
@@ -1042,7 +1046,7 @@ export async function registerRoutes(
   });
 
   // Create Handlz workout (admin only)
-  app.post("/api/workouts/handlz", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.post("/api/workouts/handlz", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const { name, description, category, estimatedDuration, drillIds } = req.body;
       
@@ -1062,7 +1066,7 @@ export async function registerRoutes(
   });
 
   // Update workout
-  app.put("/api/workouts/:id", isAuthenticated, async (req: any, res) => {
+  app.put("/api/workouts/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const workout = await storage.getWorkoutById(req.params.id);
@@ -1091,7 +1095,7 @@ export async function registerRoutes(
   });
 
   // Delete workout
-  app.delete("/api/workouts/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/workouts/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const workout = await storage.getWorkoutById(req.params.id);
@@ -1115,7 +1119,7 @@ export async function registerRoutes(
   });
 
   // Assign all drills in a workout to a team/group
-  app.post("/api/workouts/:id/assign", isAuthenticated, async (req: any, res) => {
+  app.post("/api/workouts/:id/assign", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const { teamId, dueDate, notes } = req.body;
@@ -1151,7 +1155,7 @@ export async function registerRoutes(
   });
 
   // Favorite drills
-  app.get("/api/user/favorite-drills", isAuthenticated, async (req: any, res) => {
+  app.get("/api/user/favorite-drills", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const favDrillIds = await storage.getUserFavoriteDrills(userId);
@@ -1161,7 +1165,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/user/favorite-drills/:drillId", isAuthenticated, async (req: any, res) => {
+  app.post("/api/user/favorite-drills/:drillId", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       await storage.addFavoriteDrill(userId, req.params.drillId);
@@ -1171,7 +1175,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/user/favorite-drills/:drillId", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/user/favorite-drills/:drillId", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       await storage.removeFavoriteDrill(userId, req.params.drillId);
@@ -1182,7 +1186,7 @@ export async function registerRoutes(
   });
 
   // Toggle workout favorite
-  app.put("/api/workouts/:id/favorite", isAuthenticated, async (req: any, res) => {
+  app.put("/api/workouts/:id/favorite", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const workout = await storage.getWorkoutById(req.params.id);
@@ -1196,7 +1200,7 @@ export async function registerRoutes(
   });
 
   // Trainer overview stats
-  app.get("/api/trainer/overview", isAuthenticated, async (req: any, res) => {
+  app.get("/api/trainer/overview", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const players = await storage.getTrainerPlayers(userId);
@@ -1247,7 +1251,7 @@ export async function registerRoutes(
   });
 
   // Player progress analytics for trainer
-  app.get("/api/trainer/players/:playerId/progress", isAuthenticated, async (req: any, res) => {
+  app.get("/api/trainer/players/:playerId/progress", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const player = await storage.getTrainerPlayerById(req.params.playerId);
@@ -1349,7 +1353,7 @@ export async function registerRoutes(
   // ===== TRAINING LOGS =====
 
   // Get user's training logs with metrics
-  app.get("/api/training-logs", isAuthenticated, async (req: any, res) => {
+  app.get("/api/training-logs", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const logs = await storage.getTrainingLogs(userId);
@@ -1368,7 +1372,7 @@ export async function registerRoutes(
   });
 
   // Get recent training logs
-  app.get("/api/training-logs/recent", isAuthenticated, async (req: any, res) => {
+  app.get("/api/training-logs/recent", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const logs = await storage.getRecentTrainingLogs(userId, 10);
@@ -1380,7 +1384,7 @@ export async function registerRoutes(
   });
 
   // Create training log
-  app.post("/api/training-logs", isAuthenticated, async (req: any, res) => {
+  app.post("/api/training-logs", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const data = insertTrainingLogSchema.parse({ ...req.body, userId });
@@ -1420,7 +1424,7 @@ export async function registerRoutes(
   });
 
   // Get single training log with metrics
-  app.get("/api/training-logs/:id", isAuthenticated, async (req: any, res) => {
+  app.get("/api/training-logs/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const log = await storage.getTrainingLog(req.params.id);
@@ -1439,7 +1443,7 @@ export async function registerRoutes(
   });
 
   // Update training log
-  app.put("/api/training-logs/:id", isAuthenticated, async (req: any, res) => {
+  app.put("/api/training-logs/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const log = await storage.getTrainingLog(req.params.id);
@@ -1479,7 +1483,7 @@ export async function registerRoutes(
   // ===== USER PROFILE =====
 
   // Get user profile
-  app.get("/api/profile", isAuthenticated, async (req: any, res) => {
+  app.get("/api/profile", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const profile = await storage.getUserProfile(userId);
@@ -1494,7 +1498,7 @@ export async function registerRoutes(
   });
 
   // Update user profile
-  app.put("/api/profile", isAuthenticated, async (req: any, res) => {
+  app.put("/api/profile", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const body = { ...req.body };
@@ -1532,7 +1536,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/user/location", isAuthenticated, async (req: any, res) => {
+  app.get("/api/user/location", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const profile = await storage.getUserProfile(userId);
@@ -1552,7 +1556,7 @@ export async function registerRoutes(
   // ===== USER VIDEOS =====
 
   // Get user's videos
-  app.get("/api/videos", isAuthenticated, async (req: any, res) => {
+  app.get("/api/videos", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const videos = await storage.getUserVideos(userId);
@@ -1564,7 +1568,7 @@ export async function registerRoutes(
   });
 
   // Create video
-  app.post("/api/videos", isAuthenticated, async (req: any, res) => {
+  app.post("/api/videos", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const data = insertUserVideoSchema.parse({ ...req.body, userId });
@@ -1580,7 +1584,7 @@ export async function registerRoutes(
   });
 
   // Delete video
-  app.patch("/api/videos/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/videos/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const { title, description, isPublic, drillId } = req.body;
@@ -1598,7 +1602,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/videos/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/videos/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       await storage.deleteUserVideo(req.params.id, userId);
@@ -1612,7 +1616,7 @@ export async function registerRoutes(
   // ===== PROGRESS =====
 
   // Get user's drill progress
-  app.get("/api/progress", isAuthenticated, async (req: any, res) => {
+  app.get("/api/progress", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const progress = await storage.getDrillProgress(userId);
@@ -1626,7 +1630,7 @@ export async function registerRoutes(
   // ===== STATS =====
 
   // Get overview stats
-  app.get("/api/stats/overview", isAuthenticated, async (req: any, res) => {
+  app.get("/api/stats/overview", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const period = (req.query.period as string) || "weekly";
@@ -1639,7 +1643,7 @@ export async function registerRoutes(
   });
 
   // Get weekly stats
-  app.get("/api/stats/weekly", isAuthenticated, async (req: any, res) => {
+  app.get("/api/stats/weekly", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const period = (req.query.period as string) || "weekly";
@@ -1652,7 +1656,7 @@ export async function registerRoutes(
   });
 
   // Get category stats
-  app.get("/api/stats/by-category", isAuthenticated, async (req: any, res) => {
+  app.get("/api/stats/by-category", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const period = (req.query.period as string) || "weekly";
@@ -1664,7 +1668,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/stats/dashboard-training", isAuthenticated, async (req: any, res) => {
+  app.get("/api/stats/dashboard-training", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const period = (req.query.period as string) || "weekly";
@@ -1692,7 +1696,7 @@ export async function registerRoutes(
   // Note: Drill metrics routes are defined earlier in this file (line ~465-495)
 
   // Update drill metric (admin only)
-  app.put("/api/drill-metrics/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.put("/api/drill-metrics/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const data = insertDrillMetricSchema.partial().parse(req.body);
       const metric = await storage.updateDrillMetric(req.params.id, data);
@@ -1710,7 +1714,7 @@ export async function registerRoutes(
   });
 
   // Delete drill metric (admin only)
-  app.delete("/api/drill-metrics/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.delete("/api/drill-metrics/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       await storage.deleteDrillMetric(req.params.id);
       res.status(204).send();
@@ -1723,7 +1727,7 @@ export async function registerRoutes(
   // ===== TRAINING LOG METRICS =====
 
   // Get metrics for a training log
-  app.get("/api/training-logs/:id/metrics", isAuthenticated, async (req: any, res) => {
+  app.get("/api/training-logs/:id/metrics", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const metrics = await storage.getTrainingLogMetrics(req.params.id);
       res.json(metrics);
@@ -1734,7 +1738,7 @@ export async function registerRoutes(
   });
 
   // Save metrics for a training log
-  app.post("/api/training-logs/:id/metrics", isAuthenticated, async (req: any, res) => {
+  app.post("/api/training-logs/:id/metrics", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const { metrics } = req.body;
@@ -1769,7 +1773,7 @@ export async function registerRoutes(
   // ===== MY CAREER =====
 
   // Get career profile for current user
-  app.get("/api/career", isAuthenticated, async (req: any, res) => {
+  app.get("/api/career", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const profile = await storage.getCareerProfile(userId);
@@ -1781,7 +1785,7 @@ export async function registerRoutes(
   });
 
   // Create career profile (onboarding)
-  app.post("/api/career", isAuthenticated, async (req: any, res) => {
+  app.post("/api/career", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       
@@ -1804,7 +1808,7 @@ export async function registerRoutes(
   });
 
   // Update career profile
-  app.put("/api/career", isAuthenticated, async (req: any, res) => {
+  app.put("/api/career", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       
@@ -1852,7 +1856,7 @@ export async function registerRoutes(
   });
 
   // Update user name (used during onboarding)
-  app.put("/api/user/name", isAuthenticated, async (req: any, res) => {
+  app.put("/api/user/name", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const { firstName, lastName } = req.body;
@@ -1868,7 +1872,7 @@ export async function registerRoutes(
   });
 
   // Complete onboarding
-  app.post("/api/career/complete-onboarding", isAuthenticated, async (req: any, res) => {
+  app.post("/api/career/complete-onboarding", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const existingProfile = await storage.getCareerProfile(userId);
@@ -1914,7 +1918,7 @@ export async function registerRoutes(
   // ===== ACHIEVEMENTS =====
 
   // Get all available achievements
-  app.get("/api/achievements", isAuthenticated, async (req: any, res) => {
+  app.get("/api/achievements", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const achievements = await storage.getAchievements();
       res.json(achievements);
@@ -1925,7 +1929,7 @@ export async function registerRoutes(
   });
 
   // Get user's unlocked achievements
-  app.get("/api/achievements/unlocked", isAuthenticated, async (req: any, res) => {
+  app.get("/api/achievements/unlocked", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const achievements = await storage.getUserAchievements(userId);
@@ -1937,7 +1941,7 @@ export async function registerRoutes(
   });
 
   // Check and unlock new achievements
-  app.post("/api/achievements/check", isAuthenticated, async (req: any, res) => {
+  app.post("/api/achievements/check", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const newAchievements = await storage.checkAndUnlockAchievements(userId);
@@ -1949,7 +1953,7 @@ export async function registerRoutes(
   });
 
   // Add XP to career (used after training sessions)
-  app.post("/api/career/add-xp", isAuthenticated, async (req: any, res) => {
+  app.post("/api/career/add-xp", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const { xp } = req.body;
@@ -1976,7 +1980,7 @@ export async function registerRoutes(
   // ===== CHALLENGES =====
 
   // Get all challenges
-  app.get("/api/challenges", isAuthenticated, async (req: any, res) => {
+  app.get("/api/challenges", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const challenges = await storage.getChallenges();
       res.json(challenges);
@@ -1987,7 +1991,7 @@ export async function registerRoutes(
   });
 
   // Get user's challenges (with progress)
-  app.get("/api/challenges/my-challenges", isAuthenticated, async (req: any, res) => {
+  app.get("/api/challenges/my-challenges", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const userChallenges = await storage.getUserChallenges(userId);
@@ -1999,7 +2003,7 @@ export async function registerRoutes(
   });
 
   // Create a new challenge
-  app.post("/api/challenges", isAuthenticated, async (req: any, res) => {
+  app.post("/api/challenges", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const validatedData = insertChallengeSchema.parse({
@@ -2019,7 +2023,7 @@ export async function registerRoutes(
   });
 
   // Start a challenge
-  app.post("/api/challenges/:id/start", isAuthenticated, async (req: any, res) => {
+  app.post("/api/challenges/:id/start", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const challengeId = req.params.id;
@@ -2032,7 +2036,7 @@ export async function registerRoutes(
   });
 
   // Update challenge progress
-  app.put("/api/challenges/:id/progress", isAuthenticated, async (req: any, res) => {
+  app.put("/api/challenges/:id/progress", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const { currentValue } = req.body;
       const updated = await storage.updateChallengeProgress(req.params.id, currentValue);
@@ -2047,7 +2051,7 @@ export async function registerRoutes(
   });
 
   // Complete a challenge
-  app.post("/api/challenges/:id/complete", isAuthenticated, async (req: any, res) => {
+  app.post("/api/challenges/:id/complete", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const completed = await storage.completeChallenge(req.params.id);
       if (!completed) {
@@ -2061,7 +2065,7 @@ export async function registerRoutes(
   });
 
   // Delete a challenge (only owner can delete)
-  app.delete("/api/challenges/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/challenges/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const challenge = await storage.getChallengeById(req.params.id);
@@ -2082,7 +2086,7 @@ export async function registerRoutes(
   // ===== PERSONAL RECORDS =====
 
   // Get user's personal records
-  app.get("/api/personal-records", isAuthenticated, async (req: any, res) => {
+  app.get("/api/personal-records", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const records = await storage.getUserPersonalRecords(userId);
@@ -2094,7 +2098,7 @@ export async function registerRoutes(
   });
 
   // Backfill PRs from existing games and training logs
-  app.post("/api/personal-records/backfill", isAuthenticated, async (req: any, res) => {
+  app.post("/api/personal-records/backfill", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       let created = 0;
@@ -2156,7 +2160,7 @@ export async function registerRoutes(
   // ===== TEAM AWARDS =====
 
   // Get user's team awards
-  app.get("/api/team-awards", isAuthenticated, async (req: any, res) => {
+  app.get("/api/team-awards", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const awards = await storage.getUserTeamAwards(userId);
@@ -2168,7 +2172,7 @@ export async function registerRoutes(
   });
 
   // Create a team award
-  app.post("/api/team-awards", isAuthenticated, async (req: any, res) => {
+  app.post("/api/team-awards", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const validatedData = insertTeamAwardSchema.parse({
@@ -2187,7 +2191,7 @@ export async function registerRoutes(
   });
 
   // Update a team award
-  app.put("/api/team-awards/:id", isAuthenticated, async (req: any, res) => {
+  app.put("/api/team-awards/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const updated = await storage.updateTeamAward(req.params.id, req.body);
       if (!updated) {
@@ -2201,7 +2205,7 @@ export async function registerRoutes(
   });
 
   // Delete a team award
-  app.delete("/api/team-awards/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/team-awards/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       await storage.deleteTeamAward(req.params.id);
       res.json({ success: true });
@@ -2214,7 +2218,7 @@ export async function registerRoutes(
   // ===== SHOT STATS (for heatmap) =====
 
   // Get user's shot statistics by location
-  app.get("/api/stats/shots", isAuthenticated, async (req: any, res) => {
+  app.get("/api/stats/shots", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const period = (req.query.period as string) || "weekly";
@@ -2229,7 +2233,7 @@ export async function registerRoutes(
   // ===== SEASONS AND GAMES (Baseball Card Stats) =====
 
   // Get user's seasons
-  app.get("/api/seasons", isAuthenticated, async (req: any, res) => {
+  app.get("/api/seasons", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const userSeasons = await storage.getUserSeasons(userId);
@@ -2241,7 +2245,7 @@ export async function registerRoutes(
   });
 
   // Get a specific season with its games
-  app.get("/api/seasons/:id", isAuthenticated, async (req: any, res) => {
+  app.get("/api/seasons/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const season = await storage.getSeasonWithGames(req.params.id);
       if (!season) {
@@ -2255,7 +2259,7 @@ export async function registerRoutes(
   });
 
   // Create a season
-  app.post("/api/seasons", isAuthenticated, async (req: any, res) => {
+  app.post("/api/seasons", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const validatedData = insertSeasonSchema.parse({
@@ -2274,7 +2278,7 @@ export async function registerRoutes(
   });
 
   // Update a season
-  app.put("/api/seasons/:id", isAuthenticated, async (req: any, res) => {
+  app.put("/api/seasons/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const updated = await storage.updateSeason(req.params.id, req.body);
       if (!updated) {
@@ -2288,7 +2292,7 @@ export async function registerRoutes(
   });
 
   // Delete a season
-  app.delete("/api/seasons/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/seasons/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       await storage.deleteSeason(req.params.id);
       res.json({ success: true });
@@ -2299,7 +2303,7 @@ export async function registerRoutes(
   });
 
   // Get games for a season
-  app.get("/api/seasons/:seasonId/games", isAuthenticated, async (req: any, res) => {
+  app.get("/api/seasons/:seasonId/games", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const seasonGames = await storage.getSeasonGames(req.params.seasonId);
       res.json(seasonGames);
@@ -2310,7 +2314,7 @@ export async function registerRoutes(
   });
 
   // Create a game
-  app.post("/api/seasons/:seasonId/games", isAuthenticated, async (req: any, res) => {
+  app.post("/api/seasons/:seasonId/games", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const gameData = {
@@ -2346,7 +2350,7 @@ export async function registerRoutes(
   });
 
   // Update a game
-  app.put("/api/games/:id", isAuthenticated, async (req: any, res) => {
+  app.put("/api/games/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const gameData = {
         ...req.body,
@@ -2379,7 +2383,7 @@ export async function registerRoutes(
   });
 
   // Delete a game
-  app.delete("/api/games/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/games/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       await storage.deleteGame(req.params.id);
       res.json({ success: true });
@@ -2390,7 +2394,7 @@ export async function registerRoutes(
   });
 
   // Get career stats (aggregate across all seasons)
-  app.get("/api/stats/career", isAuthenticated, async (req: any, res) => {
+  app.get("/api/stats/career", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const careerStats = await storage.getCareerStats(userId);
@@ -2404,7 +2408,7 @@ export async function registerRoutes(
   // ===== PLAYER PROFILES (PUBLIC) =====
 
   // Get own player profile
-  app.get("/api/player-profile", isAuthenticated, async (req: any, res) => {
+  app.get("/api/player-profile", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const profile = await storage.getPlayerProfile(userId);
@@ -2416,7 +2420,7 @@ export async function registerRoutes(
   });
 
   // Upsert player profile
-  app.put("/api/player-profile", isAuthenticated, async (req: any, res) => {
+  app.put("/api/player-profile", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const data = { ...req.body, userId };
@@ -2429,7 +2433,7 @@ export async function registerRoutes(
   });
 
   // Player trainer favorites (must be before /api/player/:slug wildcard)
-  app.get("/api/player/trainer-favorites", isAuthenticated, async (req: any, res) => {
+  app.get("/api/player/trainer-favorites", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const playerId = req.user.claims.sub;
       const favorites = await storage.getPlayerTrainerFavorites(playerId);
@@ -2439,7 +2443,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/player/trainer-favorites/:trainerId", isAuthenticated, async (req: any, res) => {
+  app.post("/api/player/trainer-favorites/:trainerId", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const playerId = req.user.claims.sub;
       const { trainerId } = req.params;
@@ -2450,7 +2454,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/player/trainer-favorites/:trainerId", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/player/trainer-favorites/:trainerId", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const playerId = req.user.claims.sub;
       const { trainerId } = req.params;
@@ -2461,7 +2465,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/player/my-trainer/:trainerId", isAuthenticated, async (req: any, res) => {
+  app.post("/api/player/my-trainer/:trainerId", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const playerId = req.user.claims.sub;
       const { trainerId } = req.params;
@@ -2472,7 +2476,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/player/my-trainer/:trainerId", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/player/my-trainer/:trainerId", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const playerId = req.user.claims.sub;
       const { trainerId } = req.params;
@@ -2565,7 +2569,7 @@ export async function registerRoutes(
   // ===== SHARE TEMPLATES =====
   
   // Generate share card data for social media
-  app.get("/api/share/game-stats/:gameId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/share/game-stats/:gameId", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const { gameId } = req.params;
@@ -2625,7 +2629,7 @@ export async function registerRoutes(
   // ===== COACH MODE =====
 
   // Get coach's teams
-  app.get("/api/coach/teams", isAuthenticated, async (req: any, res) => {
+  app.get("/api/coach/teams", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const teams = await storage.getCoachTeams(userId, "coach");
@@ -2637,7 +2641,7 @@ export async function registerRoutes(
   });
 
   // Create coach team
-  app.post("/api/coach/teams", isAuthenticated, async (req: any, res) => {
+  app.post("/api/coach/teams", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const teamCode = generateTeamCode();
@@ -2673,7 +2677,7 @@ export async function registerRoutes(
   });
 
   // Update team
-  app.put("/api/coach/teams/:id", isAuthenticated, async (req: any, res) => {
+  app.put("/api/coach/teams/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const team = await storage.getTeamById(req.params.id);
@@ -2689,7 +2693,7 @@ export async function registerRoutes(
   });
 
   // Delete team
-  app.delete("/api/coach/teams/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/coach/teams/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const team = await storage.getTeamById(req.params.id);
@@ -2705,7 +2709,7 @@ export async function registerRoutes(
   });
 
   // Get team members
-  app.get("/api/coach/teams/:id/members", isAuthenticated, async (req: any, res) => {
+  app.get("/api/coach/teams/:id/members", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const team = await storage.getTeamById(req.params.id);
@@ -2779,7 +2783,7 @@ export async function registerRoutes(
   });
 
   // Remove team member
-  app.delete("/api/coach/teams/:teamId/members/:userId", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/coach/teams/:teamId/members/:userId", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const coachId = req.user.claims.sub;
       const team = await storage.getTeamById(req.params.teamId);
@@ -2795,7 +2799,7 @@ export async function registerRoutes(
   });
 
   // Join team by code
-  app.post("/api/teams/join", isAuthenticated, async (req: any, res) => {
+  app.post("/api/teams/join", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const { teamCode } = req.body;
@@ -2831,7 +2835,7 @@ export async function registerRoutes(
   });
 
   // Get user's teams (as a player)
-  app.get("/api/my-teams", isAuthenticated, async (req: any, res) => {
+  app.get("/api/my-teams", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const teams = await storage.getUserTeams(userId);
@@ -2843,7 +2847,7 @@ export async function registerRoutes(
   });
 
   // Get assigned drills
-  app.get("/api/assigned-drills", isAuthenticated, async (req: any, res) => {
+  app.get("/api/assigned-drills", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const assignments = await storage.getUserAssignments(userId);
@@ -2855,7 +2859,7 @@ export async function registerRoutes(
   });
 
   // Assign drill to team
-  app.post("/api/coach/assignments", isAuthenticated, async (req: any, res) => {
+  app.post("/api/coach/assignments", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const { drillId, teamId, assignedTo, dueDate, notes } = req.body;
@@ -2884,7 +2888,7 @@ export async function registerRoutes(
   });
 
   // Get team assignments
-  app.get("/api/coach/teams/:id/assignments", isAuthenticated, async (req: any, res) => {
+  app.get("/api/coach/teams/:id/assignments", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const team = await storage.getTeamById(req.params.id);
@@ -2900,7 +2904,7 @@ export async function registerRoutes(
   });
 
   // Delete assignment
-  app.delete("/api/coach/assignments/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/coach/assignments/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const assignment = await storage.getDrillAssignmentById(req.params.id);
@@ -2915,7 +2919,7 @@ export async function registerRoutes(
   });
 
   // Update assignment status (player marks as completed)
-  app.put("/api/assignments/:id/status", isAuthenticated, async (req: any, res) => {
+  app.put("/api/assignments/:id/status", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const assignment = await storage.getDrillAssignmentById(req.params.id);
@@ -2931,7 +2935,7 @@ export async function registerRoutes(
   });
 
   // Update team member (position, jersey number)
-  app.put("/api/coach/teams/:teamId/members/:userId", isAuthenticated, async (req: any, res) => {
+  app.put("/api/coach/teams/:teamId/members/:userId", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const ownerId = req.user.claims.sub;
       const team = await storage.getTeamById(req.params.teamId);
@@ -2948,7 +2952,7 @@ export async function registerRoutes(
   });
 
   // Get player training logs for assigned drills (coach/trainer view)
-  app.get("/api/coach/teams/:id/training-logs", isAuthenticated, async (req: any, res) => {
+  app.get("/api/coach/teams/:id/training-logs", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const team = await storage.getTeamById(req.params.id);
@@ -2977,7 +2981,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/coach/all-training-logs", isAuthenticated, async (req: any, res) => {
+  app.get("/api/coach/all-training-logs", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const teams = await storage.getCoachTeams(userId, "coach");
@@ -3019,7 +3023,7 @@ export async function registerRoutes(
   // ===== TRAINER MODE =====
 
   // Get trainer's groups
-  app.get("/api/trainer/groups", isAuthenticated, async (req: any, res) => {
+  app.get("/api/trainer/groups", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const teams = await storage.getCoachTeams(userId, "trainer");
@@ -3031,7 +3035,7 @@ export async function registerRoutes(
   });
 
   // Create trainer group
-  app.post("/api/trainer/groups", isAuthenticated, async (req: any, res) => {
+  app.post("/api/trainer/groups", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const teamCode = generateTeamCode();
@@ -3044,7 +3048,7 @@ export async function registerRoutes(
   });
 
   // Update trainer group
-  app.put("/api/trainer/groups/:id", isAuthenticated, async (req: any, res) => {
+  app.put("/api/trainer/groups/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const group = await storage.getTeamById(req.params.id);
@@ -3060,7 +3064,7 @@ export async function registerRoutes(
   });
 
   // Delete trainer group
-  app.delete("/api/trainer/groups/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/trainer/groups/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const group = await storage.getTeamById(req.params.id);
@@ -3076,7 +3080,7 @@ export async function registerRoutes(
   });
 
   // Get trainer group members
-  app.get("/api/trainer/groups/:id/members", isAuthenticated, async (req: any, res) => {
+  app.get("/api/trainer/groups/:id/members", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const group = await storage.getTeamById(req.params.id);
@@ -3108,7 +3112,7 @@ export async function registerRoutes(
   });
 
   // Remove member from trainer group
-  app.delete("/api/trainer/groups/:groupId/members/:userId", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/trainer/groups/:groupId/members/:userId", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const ownerId = req.user.claims.sub;
       const group = await storage.getTeamById(req.params.groupId);
@@ -3129,7 +3133,7 @@ export async function registerRoutes(
   });
 
   // Update trainer group member
-  app.put("/api/trainer/groups/:groupId/members/:userId", isAuthenticated, async (req: any, res) => {
+  app.put("/api/trainer/groups/:groupId/members/:userId", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const ownerId = req.user.claims.sub;
       const group = await storage.getTeamById(req.params.groupId);
@@ -3152,7 +3156,7 @@ export async function registerRoutes(
   });
 
   // Trainer assign drill
-  app.post("/api/trainer/assignments", isAuthenticated, async (req: any, res) => {
+  app.post("/api/trainer/assignments", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const { drillId, teamId, assignedTo, dueDate, notes } = req.body;
@@ -3204,7 +3208,7 @@ export async function registerRoutes(
   });
 
   // Get trainer group assignments
-  app.get("/api/trainer/groups/:id/assignments", isAuthenticated, async (req: any, res) => {
+  app.get("/api/trainer/groups/:id/assignments", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const group = await storage.getTeamById(req.params.id);
@@ -3230,7 +3234,7 @@ export async function registerRoutes(
   });
 
   // Delete trainer assignment
-  app.delete("/api/trainer/assignments/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/trainer/assignments/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const assignment = await storage.getDrillAssignmentById(req.params.id);
@@ -3245,7 +3249,7 @@ export async function registerRoutes(
   });
 
   // ===== PLAYER DETAIL DATA =====
-  app.get("/api/trainer/players/:playerId/assignments", isAuthenticated, async (req: any, res) => {
+  app.get("/api/trainer/players/:playerId/assignments", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const player = await storage.getTrainerPlayerById(req.params.playerId);
@@ -3272,7 +3276,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/trainer/players/:playerId/videos", isAuthenticated, async (req: any, res) => {
+  app.get("/api/trainer/players/:playerId/videos", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const player = await storage.getTrainerPlayerById(req.params.playerId);
@@ -3287,7 +3291,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/trainer/players/:playerId/messages", isAuthenticated, async (req: any, res) => {
+  app.get("/api/trainer/players/:playerId/messages", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const player = await storage.getTrainerPlayerById(req.params.playerId);
@@ -3302,7 +3306,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/trainer/players/:playerId/training-logs", isAuthenticated, async (req: any, res) => {
+  app.get("/api/trainer/players/:playerId/training-logs", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const player = await storage.getTrainerPlayerById(req.params.playerId);
@@ -3318,7 +3322,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/trainer/players/:playerId/sessions", isAuthenticated, async (req: any, res) => {
+  app.get("/api/trainer/players/:playerId/sessions", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const player = await storage.getTrainerPlayerById(req.params.playerId);
@@ -3335,7 +3339,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/trainer/players/:playerId/evaluations", isAuthenticated, async (req: any, res) => {
+  app.get("/api/trainer/players/:playerId/evaluations", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const player = await storage.getTrainerPlayerById(req.params.playerId);
@@ -3351,7 +3355,7 @@ export async function registerRoutes(
   });
 
   // ===== TRAINER CUSTOM DRILLS =====
-  app.get("/api/trainer/drills", isAuthenticated, async (req: any, res) => {
+  app.get("/api/trainer/drills", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const allDrills = await storage.getDrillsForUser(userId);
@@ -3363,7 +3367,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/trainer/drills", isAuthenticated, async (req: any, res) => {
+  app.post("/api/trainer/drills", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const { title, description, category, difficulty, duration, equipment, tips, trackShots } = req.body;
@@ -3395,7 +3399,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/trainer/drills/:id", isAuthenticated, async (req: any, res) => {
+  app.put("/api/trainer/drills/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const drill = await storage.getDrillById(req.params.id);
@@ -3421,7 +3425,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/trainer/drills/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/trainer/drills/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const drill = await storage.getDrillById(req.params.id);
@@ -3438,7 +3442,7 @@ export async function registerRoutes(
 
   // ===== TRAINER VIDEOS (instructional content) =====
 
-  app.get("/api/trainer/videos", isAuthenticated, async (req: any, res) => {
+  app.get("/api/trainer/videos", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const videos = await db.select().from(trainerVideos).where(eq(trainerVideos.trainerId, userId));
@@ -3450,7 +3454,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/trainer/videos", isAuthenticated, async (req: any, res) => {
+  app.post("/api/trainer/videos", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const data = insertTrainerVideoSchema.parse({ ...req.body, trainerId: userId });
@@ -3465,7 +3469,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/trainer/videos/:id", isAuthenticated, async (req: any, res) => {
+  app.put("/api/trainer/videos/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const [existing] = await db.select().from(trainerVideos).where(eq(trainerVideos.id, req.params.id));
@@ -3490,7 +3494,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/trainer/videos/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/trainer/videos/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const [existing] = await db.select().from(trainerVideos).where(eq(trainerVideos.id, req.params.id));
@@ -3509,7 +3513,7 @@ export async function registerRoutes(
   });
 
   // Get trainer group training logs
-  app.get("/api/trainer/groups/:id/training-logs", isAuthenticated, async (req: any, res) => {
+  app.get("/api/trainer/groups/:id/training-logs", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const group = await storage.getTeamById(req.params.id);
@@ -3538,7 +3542,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/trainer/all-training-logs", isAuthenticated, async (req: any, res) => {
+  app.get("/api/trainer/all-training-logs", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const groups = await storage.getCoachTeams(userId, "trainer");
@@ -3579,7 +3583,7 @@ export async function registerRoutes(
   // ===== MESSAGING =====
 
   // Get unread count (must be before :partnerId route)
-  app.get("/api/messages/unread/count", isAuthenticated, async (req: any, res) => {
+  app.get("/api/messages/unread/count", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const count = await storage.getUnreadCount(userId);
@@ -3591,7 +3595,7 @@ export async function registerRoutes(
   });
 
   // Get conversations list (must be before :partnerId route)
-  app.get("/api/messages/conversations", isAuthenticated, async (req: any, res) => {
+  app.get("/api/messages/conversations", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const conversations = await storage.getConversations(userId);
@@ -3603,7 +3607,7 @@ export async function registerRoutes(
   });
 
   // Get contactable players (must be before :partnerId route)
-  app.get("/api/messages/contacts/:mode", isAuthenticated, async (req: any, res) => {
+  app.get("/api/messages/contacts/:mode", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const mode = req.params.mode;
@@ -3688,7 +3692,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/messages/player-contacts", isAuthenticated, async (req: any, res) => {
+  app.get("/api/messages/player-contacts", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const contactsMap = new Map<string, { id: string; name: string; image?: string }>();
@@ -3754,7 +3758,7 @@ export async function registerRoutes(
   });
 
   // Send a message
-  app.post("/api/messages", isAuthenticated, async (req: any, res) => {
+  app.post("/api/messages", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       let { receiverId, content, teamId } = req.body;
@@ -3797,7 +3801,7 @@ export async function registerRoutes(
   });
 
   // Mark messages as read
-  app.put("/api/messages/:senderId/read", isAuthenticated, async (req: any, res) => {
+  app.put("/api/messages/:senderId/read", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const senderId = await resolveTrainerPlayerId(req.params.senderId);
@@ -3810,7 +3814,7 @@ export async function registerRoutes(
   });
 
   // Get messages with a specific user (must be LAST among /api/messages/* routes)
-  app.get("/api/messages/:partnerId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/messages/:partnerId", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const partnerId = await resolveTrainerPlayerId(req.params.partnerId);
@@ -3825,7 +3829,7 @@ export async function registerRoutes(
 
   // ===== CHAT THREADS =====
 
-  app.get("/api/chat-threads", isAuthenticated, async (req: any, res) => {
+  app.get("/api/chat-threads", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const mode = (req.query.mode as string) || "coach";
@@ -3837,13 +3841,19 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/chat-threads", isAuthenticated, async (req: any, res) => {
+  app.post("/api/chat-threads", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { name, mode, scopeType, scopeId, memberIds } = req.body;
-      if (!name || !mode || !scopeType) {
-        return res.status(400).json({ message: "name, mode, and scopeType are required" });
-      }
+      const threadSchema = z.object({
+        name: z.string().min(1),
+        mode: z.string().min(1),
+        scopeType: z.string().min(1),
+        scopeId: z.string().nullable().optional(),
+        memberIds: z.array(z.string()).optional(),
+      });
+      const parsed = threadSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid request data", errors: parsed.error.flatten() });
+      const { name, mode, scopeType, scopeId, memberIds } = parsed.data;
       const thread = await storage.createChatThread({
         name,
         mode,
@@ -3866,7 +3876,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/chat-threads/:id/messages", isAuthenticated, async (req: any, res) => {
+  app.get("/api/chat-threads/:id/messages", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const members = await storage.getChatThreadMembers(req.params.id);
@@ -3891,17 +3901,17 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/chat-threads/:id/messages", isAuthenticated, async (req: any, res) => {
+  app.post("/api/chat-threads/:id/messages", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const members = await storage.getChatThreadMembers(req.params.id);
       if (!members.some(m => m.userId === userId)) {
         return res.status(403).json({ message: "Not a member of this thread" });
       }
-      const { content } = req.body;
-      if (!content) {
-        return res.status(400).json({ message: "content is required" });
-      }
+      const messageSchema = z.object({ content: z.string().min(1) });
+      const parsed = messageSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid request data", errors: parsed.error.flatten() });
+      const { content } = parsed.data;
       const message = await storage.createChatThreadMessage({
         threadId: req.params.id,
         senderId: userId,
@@ -3922,7 +3932,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/chat-threads/:id/members", isAuthenticated, async (req: any, res) => {
+  app.get("/api/chat-threads/:id/members", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const members = await storage.getChatThreadMembers(req.params.id);
@@ -3946,17 +3956,17 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/chat-threads/:id/members", isAuthenticated, async (req: any, res) => {
+  app.post("/api/chat-threads/:id/members", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const thread = await storage.getChatThreadById(req.params.id);
       if (!thread || thread.ownerId !== userId) {
         return res.status(403).json({ message: "Only the thread owner can add members" });
       }
-      const { userId: newUserId, role } = req.body;
-      if (!newUserId) {
-        return res.status(400).json({ message: "userId is required" });
-      }
+      const memberSchema = z.object({ userId: z.string().min(1), role: z.string().optional() });
+      const parsed = memberSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid request data", errors: parsed.error.flatten() });
+      const { userId: newUserId, role } = parsed.data;
       const member = await storage.addChatThreadMember({
         threadId: req.params.id,
         userId: newUserId,
@@ -3969,7 +3979,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/chat-threads/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/chat-threads/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const thread = await storage.getChatThreadById(req.params.id);
@@ -3987,7 +3997,7 @@ export async function registerRoutes(
   // ===== PLAYER INVITATIONS =====
 
   // Get invitations for a team
-  app.get("/api/invitations/my", isAuthenticated, async (req: any, res) => {
+  app.get("/api/invitations/my", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const invitations = await storage.getInvitationsByTrainer(userId);
@@ -3998,7 +4008,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/invitations/:teamId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/invitations/:teamId", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const team = await storage.getTeamById(req.params.teamId);
@@ -4014,7 +4024,7 @@ export async function registerRoutes(
   });
 
   // Create invitation (invite player by email)
-  app.post("/api/invitations", isAuthenticated, async (req: any, res) => {
+  app.post("/api/invitations", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const { teamId, email, playerName } = req.body;
@@ -4041,7 +4051,7 @@ export async function registerRoutes(
   });
 
   // Delete invitation
-  app.delete("/api/invitations/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/invitations/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const invitation = await storage.getInvitationById(req.params.id);
@@ -4062,7 +4072,7 @@ export async function registerRoutes(
     message: z.string().optional(),
   });
 
-  app.post("/api/invite", isAuthenticated, async (req: any, res) => {
+  app.post("/api/invite", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const parsed = inviteSchema.safeParse(req.body);
@@ -4087,7 +4097,7 @@ export async function registerRoutes(
 
   // ===== SHARED VIDEOS (player shares links with coach/trainer) =====
 
-  app.get("/api/shared-videos/:teamId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/shared-videos/:teamId", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const team = await storage.getTeamById(req.params.teamId);
@@ -4109,7 +4119,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/shared-videos", isAuthenticated, async (req: any, res) => {
+  app.post("/api/shared-videos", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const { teamId, title, videoUrl, description, assignmentId } = req.body;
@@ -4129,7 +4139,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/shared-videos/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/shared-videos/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const deleted = await storage.deleteSharedVideo(req.params.id, userId);
@@ -4143,7 +4153,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/my-shared-videos", isAuthenticated, async (req: any, res) => {
+  app.get("/api/my-shared-videos", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const teams = await storage.getUserTeams(userId);
@@ -4162,7 +4172,7 @@ export async function registerRoutes(
 
   // ===== AGGREGATED SHARED VIDEOS =====
 
-  app.get("/api/coach/all-videos", isAuthenticated, async (req: any, res) => {
+  app.get("/api/coach/all-videos", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const teams = await storage.getCoachTeams(userId, "coach");
@@ -4191,7 +4201,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/trainer/all-videos", isAuthenticated, async (req: any, res) => {
+  app.get("/api/trainer/all-videos", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const groups = await storage.getCoachTeams(userId, "trainer");
@@ -4222,7 +4232,7 @@ export async function registerRoutes(
 
   // ===== COACH PLAYERS (independent player management) =====
 
-  app.get("/api/coach-players", isAuthenticated, async (req: any, res) => {
+  app.get("/api/coach-players", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const players = await storage.getCoachPlayers(userId);
@@ -4238,7 +4248,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/coach-players", isAuthenticated, async (req: any, res) => {
+  app.post("/api/coach-players", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const { firstName, lastName, email, phone, position, jerseyNumber, ageGroup, notes } = req.body;
@@ -4263,7 +4273,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/coach-players/:id", isAuthenticated, async (req: any, res) => {
+  app.put("/api/coach-players/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const player = await storage.getCoachPlayerById(req.params.id);
@@ -4278,7 +4288,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/coach-players/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/coach-players/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const player = await storage.getCoachPlayerById(req.params.id);
@@ -4293,7 +4303,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/coach-players/:id/assign", isAuthenticated, async (req: any, res) => {
+  app.post("/api/coach-players/:id/assign", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const player = await storage.getCoachPlayerById(req.params.id);
@@ -4321,7 +4331,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/coach-player-assignments/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/coach-player-assignments/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       await storage.removeCoachPlayerFromTeam(req.params.id);
       res.json({ success: true });
@@ -4331,7 +4341,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/coach-players/by-team/:teamId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/coach-players/by-team/:teamId", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const team = await storage.getTeamById(req.params.teamId);
@@ -4347,7 +4357,7 @@ export async function registerRoutes(
   });
 
   // Bulk assign players to team
-  app.post("/api/coach-players/bulk-assign", isAuthenticated, async (req: any, res) => {
+  app.post("/api/coach-players/bulk-assign", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const { playerIds, teamId } = req.body;
@@ -4380,7 +4390,7 @@ export async function registerRoutes(
 
   // ===== TRAINER PLAYER MANAGEMENT =====
 
-  app.get("/api/trainer-players", isAuthenticated, async (req: any, res) => {
+  app.get("/api/trainer-players", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
 
@@ -4433,7 +4443,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/trainer-players", isAuthenticated, async (req: any, res) => {
+  app.post("/api/trainer-players", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const { firstName, lastName, email, phone, position, jerseyNumber, ageGroup, teamType, gradYear, notes, teamIds } = req.body;
@@ -4522,7 +4532,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/trainer-players/:id", isAuthenticated, async (req: any, res) => {
+  app.put("/api/trainer-players/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const player = await storage.getTrainerPlayerById(req.params.id);
@@ -4589,7 +4599,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/trainer-players/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/trainer-players/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const player = await storage.getTrainerPlayerById(req.params.id);
@@ -4604,7 +4614,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/trainer-players/:id/assign", isAuthenticated, async (req: any, res) => {
+  app.post("/api/trainer-players/:id/assign", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const player = await storage.getTrainerPlayerById(req.params.id);
@@ -4632,7 +4642,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/trainer-player-assignments/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/trainer-player-assignments/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const assignment = await storage.getTrainerPlayerAssignmentById(req.params.id);
@@ -4647,7 +4657,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/trainer-players/by-group/:groupId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/trainer-players/by-group/:groupId", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const group = await storage.getTeamById(req.params.groupId);
@@ -4662,7 +4672,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/trainer-players/bulk-assign", isAuthenticated, async (req: any, res) => {
+  app.post("/api/trainer-players/bulk-assign", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const { playerIds, groupId } = req.body;
@@ -4695,7 +4705,7 @@ export async function registerRoutes(
 
   // ===== PLAYER-TEAM ASSIGNMENTS (Unified) =====
 
-  app.post("/api/trainer-players/:id/assign-team", isAuthenticated, async (req: any, res) => {
+  app.post("/api/trainer-players/:id/assign-team", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const player = await storage.getTrainerPlayerById(req.params.id);
@@ -4723,7 +4733,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/player-team-assignments/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/player-team-assignments/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const assignment = await storage.getPlayerTeamAssignmentById(req.params.id);
@@ -4740,7 +4750,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/trainer-players/bulk-assign-team", isAuthenticated, async (req: any, res) => {
+  app.post("/api/trainer-players/bulk-assign-team", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const { playerIds, teamId } = req.body;
@@ -4826,7 +4836,7 @@ export async function registerRoutes(
   });
 
   // Create team club (authenticated)
-  app.post("/api/team-clubs", isAuthenticated, async (req: any, res) => {
+  app.post("/api/team-clubs", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const slug = req.body.slug || generateSlug(req.body.name);
@@ -4841,7 +4851,7 @@ export async function registerRoutes(
   });
 
   // Delete team club (owner only)
-  app.delete("/api/team-clubs/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/team-clubs/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const club = await storage.getTeamClubById(req.params.id);
@@ -4909,7 +4919,7 @@ export async function registerRoutes(
   });
 
   // Create league (authenticated)
-  app.post("/api/leagues", isAuthenticated, async (req: any, res) => {
+  app.post("/api/leagues", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const slug = req.body.slug || generateSlug(req.body.name);
@@ -4924,7 +4934,7 @@ export async function registerRoutes(
   });
 
   // Delete league (owner only)
-  app.delete("/api/leagues/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/leagues/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const league = await storage.getLeagueById(req.params.id);
@@ -4939,7 +4949,7 @@ export async function registerRoutes(
   });
 
   // Trainer Profile (own profile)
-  app.get("/api/trainer-profile", isAuthenticated, async (req: any, res) => {
+  app.get("/api/trainer-profile", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const profile = await storage.getTrainerProfile(userId);
@@ -4973,7 +4983,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/trainer-profile", isAuthenticated, async (req: any, res) => {
+  app.put("/api/trainer-profile", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const { headline, bio, specialties, city, state, hourlyRate, sessionTypes, equipment,
@@ -5022,7 +5032,7 @@ export async function registerRoutes(
   });
 
   // ===== TRAINING LOCATIONS (Admin CRUD + authenticated read) =====
-  app.get("/api/training-locations", isAuthenticated, async (req: any, res) => {
+  app.get("/api/training-locations", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const locations = await storage.getTrainingLocations();
       res.json(locations);
@@ -5031,7 +5041,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/training-locations", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.post("/api/training-locations", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const data = insertTrainingLocationSchema.parse(req.body);
       const location = await storage.createTrainingLocation(data);
@@ -5044,7 +5054,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/training-locations/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.put("/api/training-locations/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const data = insertTrainingLocationSchema.partial().parse(req.body);
       const location = await storage.updateTrainingLocation(req.params.id, data);
@@ -5058,7 +5068,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/training-locations/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.delete("/api/training-locations/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       await storage.deleteTrainingLocation(req.params.id);
       res.status(204).send();
@@ -5068,7 +5078,7 @@ export async function registerRoutes(
   });
 
   // ===== TRAINER PROFILE LOCATIONS =====
-  app.post("/api/trainer-profile/locations/create", isAuthenticated, async (req: any, res) => {
+  app.post("/api/trainer-profile/locations/create", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const profile = await storage.getTrainerProfile(userId);
@@ -5089,7 +5099,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/trainer-profile/locations/edit/:locationId", isAuthenticated, async (req: any, res) => {
+  app.put("/api/trainer-profile/locations/edit/:locationId", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const profile = await storage.getTrainerProfile(userId);
@@ -5109,7 +5119,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/trainer-profile/locations", isAuthenticated, async (req: any, res) => {
+  app.get("/api/trainer-profile/locations", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const profile = await storage.getTrainerProfile(userId);
@@ -5121,7 +5131,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/trainer-profile/locations", isAuthenticated, async (req: any, res) => {
+  app.post("/api/trainer-profile/locations", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const profile = await storage.getTrainerProfile(userId);
@@ -5141,7 +5151,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/trainer-profile/locations/:id", isAuthenticated, async (req: any, res) => {
+  app.put("/api/trainer-profile/locations/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const profile = await storage.getTrainerProfile(userId);
@@ -5157,7 +5167,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/trainer-profile/locations/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/trainer-profile/locations/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const profile = await storage.getTrainerProfile(userId);
@@ -5173,13 +5183,21 @@ export async function registerRoutes(
 
   // ===== TRAINING SESSIONS / SCHEDULING =====
 
-  app.post("/api/training-sessions", isAuthenticated, async (req: any, res) => {
+  app.post("/api/training-sessions", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const playerId = req.user.claims.sub;
-      const { trainerProfileId, locationId, sessionDate, startTime, endTime, playerNotes, sessionType } = req.body;
-      if (!trainerProfileId || !sessionDate || !startTime || !endTime) {
-        return res.status(400).json({ message: "trainerProfileId, sessionDate, startTime, endTime are required" });
-      }
+      const sessionSchema = z.object({
+        trainerProfileId: z.string().min(1),
+        locationId: z.string().optional(),
+        sessionDate: z.string().min(1),
+        startTime: z.string().regex(/^\d{2}:\d{2}$/),
+        endTime: z.string().regex(/^\d{2}:\d{2}$/),
+        playerNotes: z.string().optional(),
+        sessionType: z.string().optional(),
+      });
+      const parsed = sessionSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid request data", errors: parsed.error.flatten() });
+      const { trainerProfileId, locationId, sessionDate, startTime, endTime, playerNotes, sessionType } = parsed.data;
       if (startTime >= endTime) {
         return res.status(400).json({ message: "startTime must be before endTime" });
       }
@@ -5279,19 +5297,24 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/training-sessions/group", isAuthenticated, async (req: any, res) => {
+  app.post("/api/training-sessions/group", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const trainerId = req.user.claims.sub;
       const trainerProfile = await storage.getTrainerProfile(trainerId);
       if (!trainerProfile) return res.status(403).json({ message: "Trainer profile required" });
 
-      const { playerIds, locationId, sessionDate, startTime, endTime, trainerNotes, sessionType } = req.body;
-      if (!playerIds || !Array.isArray(playerIds) || playerIds.length === 0) {
-        return res.status(400).json({ message: "At least one player is required" });
-      }
-      if (!sessionDate || !startTime || !endTime) {
-        return res.status(400).json({ message: "sessionDate, startTime, endTime are required" });
-      }
+      const groupSessionSchema = z.object({
+        playerIds: z.array(z.string().min(1)).min(1, "At least one player is required"),
+        locationId: z.string().optional(),
+        sessionDate: z.string().min(1),
+        startTime: z.string().regex(/^\d{2}:\d{2}$/),
+        endTime: z.string().regex(/^\d{2}:\d{2}$/),
+        trainerNotes: z.string().optional(),
+        sessionType: z.string().optional(),
+      });
+      const parsed = groupSessionSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid request data", errors: parsed.error.flatten() });
+      const { playerIds, locationId, sessionDate, startTime, endTime, trainerNotes, sessionType } = parsed.data;
       if (startTime >= endTime) {
         return res.status(400).json({ message: "startTime must be before endTime" });
       }
@@ -5352,7 +5375,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/training-sessions/player", isAuthenticated, async (req: any, res) => {
+  app.get("/api/training-sessions/player", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const playerId = req.user.claims.sub;
       const filters: any = {};
@@ -5366,7 +5389,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/training-sessions/trainer", isAuthenticated, async (req: any, res) => {
+  app.get("/api/training-sessions/trainer", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const trainerId = req.user.claims.sub;
       const filters: any = {};
@@ -5380,7 +5403,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/training-sessions/trainer/enriched", isAuthenticated, async (req: any, res) => {
+  app.get("/api/training-sessions/trainer/enriched", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const trainerId = req.user.claims.sub;
       const filters: any = {};
@@ -5423,7 +5446,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/training-sessions/player/enriched", isAuthenticated, async (req: any, res) => {
+  app.get("/api/training-sessions/player/enriched", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const filters: any = {};
@@ -5469,7 +5492,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/training-sessions/:id", isAuthenticated, async (req: any, res) => {
+  app.get("/api/training-sessions/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const session = await storage.getTrainingSessionById(req.params.id);
@@ -5483,7 +5506,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/training-sessions/:id/confirm", isAuthenticated, async (req: any, res) => {
+  app.put("/api/training-sessions/:id/confirm", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const session = await storage.getTrainingSessionById(req.params.id);
@@ -5513,7 +5536,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/training-sessions/:id/decline", isAuthenticated, async (req: any, res) => {
+  app.put("/api/training-sessions/:id/decline", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const trainerId = req.user.claims.sub;
       const session = await storage.getTrainingSessionById(req.params.id);
@@ -5540,7 +5563,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/training-sessions/:id/cancel", isAuthenticated, async (req: any, res) => {
+  app.put("/api/training-sessions/:id/cancel", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const session = await storage.getTrainingSessionById(req.params.id);
@@ -5569,7 +5592,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/training-sessions/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/training-sessions/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const session = await storage.getTrainingSessionById(req.params.id);
@@ -5587,7 +5610,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/training-sessions/:id/reschedule", isAuthenticated, async (req: any, res) => {
+  app.put("/api/training-sessions/:id/reschedule", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const session = await storage.getTrainingSessionById(req.params.id);
@@ -5598,7 +5621,16 @@ export async function registerRoutes(
       if (session.status === "completed" || session.status === "cancelled" || session.status === "declined") {
         return res.status(400).json({ message: "Cannot reschedule this session" });
       }
-      const { sessionDate, startTime, endTime, locationId, sessionType } = req.body;
+      const rescheduleSchema = z.object({
+        sessionDate: z.string().optional(),
+        startTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+        endTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+        locationId: z.string().optional(),
+        sessionType: z.string().optional(),
+      });
+      const parsed = rescheduleSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid request data", errors: parsed.error.flatten() });
+      const { sessionDate, startTime, endTime, locationId, sessionType } = parsed.data;
       if (!sessionDate && !startTime && !endTime && locationId === undefined && !sessionType) {
         return res.status(400).json({ message: "At least one field to update is required" });
       }
@@ -5655,7 +5687,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/training-sessions/:id/complete", isAuthenticated, async (req: any, res) => {
+  app.put("/api/training-sessions/:id/complete", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const trainerId = req.user.claims.sub;
       const session = await storage.getTrainingSessionById(req.params.id);
@@ -5769,7 +5801,7 @@ export async function registerRoutes(
 
   // ===== PLAYER EVALUATIONS =====
 
-  app.get("/api/evaluation-attributes", isAuthenticated, async (req: any, res) => {
+  app.get("/api/evaluation-attributes", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const attributes = await storage.getEvaluationAttributes(userId);
@@ -5779,7 +5811,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/evaluation-attributes", isAuthenticated, async (req: any, res) => {
+  app.post("/api/evaluation-attributes", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const { name, category, scaleType, wordOptions } = req.body;
@@ -5806,7 +5838,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/evaluation-attributes/:id", isAuthenticated, async (req: any, res) => {
+  app.put("/api/evaluation-attributes/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const attr = await storage.getEvaluationAttributeById(req.params.id);
@@ -5834,7 +5866,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/evaluation-attributes/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/evaluation-attributes/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const attr = await storage.getEvaluationAttributeById(req.params.id);
@@ -5848,13 +5880,23 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/player-evaluations", isAuthenticated, async (req: any, res) => {
+  app.post("/api/player-evaluations", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const trainerId = req.user.claims.sub;
-      let { playerId, notes, evaluationDate, ratings } = req.body;
-      if (!playerId || !evaluationDate || !ratings || !Array.isArray(ratings) || ratings.length === 0) {
-        return res.status(400).json({ message: "playerId, evaluationDate, and ratings array are required" });
-      }
+      const evalSchema = z.object({
+        playerId: z.string().min(1),
+        notes: z.string().optional(),
+        evaluationDate: z.string().min(1),
+        ratings: z.array(z.object({
+          attributeId: z.string().min(1),
+          numericValue: z.number().nullable().optional(),
+          wordValue: z.string().nullable().optional(),
+          notes: z.string().nullable().optional(),
+        })).min(1, "At least one rating is required"),
+      });
+      const parsed = evalSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid request data", errors: parsed.error.flatten() });
+      let { playerId, notes, evaluationDate, ratings } = parsed.data;
 
       const rosterEntry = await storage.getTrainerPlayerById(playerId);
       const resolvedPlayerId = (rosterEntry?.linkedUserId) || playerId;
@@ -5862,7 +5904,7 @@ export async function registerRoutes(
       const existingCount = await storage.getPlayerEvaluationCount(trainerId, resolvedPlayerId);
       const evaluationType = existingCount === 0 ? "initial" : "progress";
 
-      const ratingsData = ratings.map((r: any) => ({
+      const ratingsData = ratings.map((r) => ({
         evaluationId: "",
         attributeId: r.attributeId,
         numericValue: r.numericValue ?? null,
@@ -5884,7 +5926,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/player-evaluations/detail/:id", isAuthenticated, async (req: any, res) => {
+  app.get("/api/player-evaluations/detail/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const result = await storage.getPlayerEvaluationById(req.params.id);
@@ -5899,7 +5941,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/player-evaluations/:playerId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/player-evaluations/:playerId", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const trainerId = req.user.claims.sub;
       const evaluations = await storage.getPlayerEvaluations(req.params.playerId, trainerId);
@@ -5909,7 +5951,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/player-evaluations/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/player-evaluations/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const trainerId = req.user.claims.sub;
       const result = await storage.getPlayerEvaluationById(req.params.id);
@@ -5922,7 +5964,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/player-evaluations/:id/share", isAuthenticated, async (req: any, res) => {
+  app.put("/api/player-evaluations/:id/share", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const trainerId = req.user.claims.sub;
       const result = await storage.getPlayerEvaluationById(req.params.id);
@@ -5936,7 +5978,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/my-evaluations", isAuthenticated, async (req: any, res) => {
+  app.get("/api/my-evaluations", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const playerId = req.user.claims.sub;
       const evaluations = await storage.getSharedEvaluationsForPlayer(playerId);
@@ -5953,7 +5995,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/my-evaluations/:id", isAuthenticated, async (req: any, res) => {
+  app.get("/api/my-evaluations/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const playerId = req.user.claims.sub;
       const result = await storage.getPlayerEvaluationById(req.params.id);
@@ -5984,7 +6026,7 @@ export async function registerRoutes(
 
   const gcal = await import("./google-calendar");
 
-  app.get("/api/google-calendar/status", isAuthenticated, async (req: any, res) => {
+  app.get("/api/google-calendar/status", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const connected = await gcal.isConnected(userId);
@@ -5994,7 +6036,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/google-calendar/connect", isAuthenticated, async (req: any, res) => {
+  app.get("/api/google-calendar/connect", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const url = gcal.getAuthUrl(userId);
@@ -6004,7 +6046,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/auth/google/callback", async (req: any, res) => {
+  app.get("/api/auth/google/callback", async (req: AuthenticatedRequest, res) => {
     try {
       const { code, state } = req.query;
       if (!code || !state) {
@@ -6031,7 +6073,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/google-calendar/disconnect", isAuthenticated, async (req: any, res) => {
+  app.post("/api/google-calendar/disconnect", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       await gcal.disconnect(userId);
@@ -6041,7 +6083,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/google-calendar/add-session/:sessionId", isAuthenticated, async (req: any, res) => {
+  app.post("/api/google-calendar/add-session/:sessionId", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const { sessionId } = req.params;
@@ -6089,7 +6131,7 @@ export async function registerRoutes(
 
   // ===== UNIVERSAL USER SEARCH =====
 
-  app.get("/api/users/search", isAuthenticated, async (req: any, res) => {
+  app.get("/api/users/search", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const q = (req.query.q as string || "").trim();
@@ -6146,7 +6188,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/players/search", isAuthenticated, async (req: any, res) => {
+  app.get("/api/players/search", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const q = (req.query.q as string || "").trim();
@@ -6210,13 +6252,13 @@ export async function registerRoutes(
 
   // ===== PLAYER-TRAINER CONNECTIONS =====
 
-  app.post("/api/connections/request", isAuthenticated, async (req: any, res) => {
+  app.post("/api/connections/request", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { targetUserId, role } = req.body;
-      if (!targetUserId) {
-        return res.status(400).json({ message: "targetUserId is required" });
-      }
+      const connectionSchema = z.object({ targetUserId: z.string().min(1), role: z.enum(["player", "trainer"]).optional() });
+      const parsed = connectionSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid request data", errors: parsed.error.flatten() });
+      const { targetUserId, role } = parsed.data;
       if (targetUserId === userId) {
         return res.status(400).json({ message: "Cannot connect with yourself" });
       }
@@ -6257,7 +6299,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/connections", isAuthenticated, async (req: any, res) => {
+  app.get("/api/connections", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const connections = await storage.getConnectionsForUser(userId);
@@ -6286,7 +6328,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/connections/pending", isAuthenticated, async (req: any, res) => {
+  app.get("/api/connections/pending", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const pending = await storage.getPendingConnectionsForUser(userId);
@@ -6324,7 +6366,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/connections/status/:otherUserId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/connections/status/:otherUserId", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const otherUserId = req.params.otherUserId;
@@ -6340,7 +6382,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/connections/:id/accept", isAuthenticated, async (req: any, res) => {
+  app.put("/api/connections/:id/accept", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const [existing] = await db.select().from(playerTrainerConnections)
@@ -6365,7 +6407,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/connections/:id/decline", isAuthenticated, async (req: any, res) => {
+  app.put("/api/connections/:id/decline", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const [existing] = await db.select().from(playerTrainerConnections)
@@ -6389,7 +6431,7 @@ export async function registerRoutes(
 
   // ===== PARENT / GUARDIAN =====
 
-  app.post("/api/parent/link", isAuthenticated, async (req: any, res) => {
+  app.post("/api/parent/link", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const parentUserId = req.user.claims.sub;
       const { inviteCode } = req.body;
@@ -6424,7 +6466,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/parent/children", isAuthenticated, async (req: any, res) => {
+  app.get("/api/parent/children", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const parentUserId = req.user.claims.sub;
       const links = await storage.getParentLinks(parentUserId);
@@ -6463,7 +6505,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/parent/child/:childId/activity", isAuthenticated, async (req: any, res) => {
+  app.get("/api/parent/child/:childId/activity", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const parentUserId = req.user.claims.sub;
       const childId = req.params.childId;
@@ -6497,7 +6539,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/parent/child/:childId/messages", isAuthenticated, async (req: any, res) => {
+  app.get("/api/parent/child/:childId/messages", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const parentUserId = req.user.claims.sub;
       const childId = req.params.childId;
@@ -6527,7 +6569,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/parent/child/:childId/connections", isAuthenticated, async (req: any, res) => {
+  app.get("/api/parent/child/:childId/connections", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const parentUserId = req.user.claims.sub;
       const childId = req.params.childId;
@@ -6567,7 +6609,7 @@ export async function registerRoutes(
     res.json({ publicKey: key });
   });
 
-  app.post("/api/push/subscribe", isAuthenticated, async (req: any, res) => {
+  app.post("/api/push/subscribe", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const { endpoint, keys } = req.body;
@@ -6582,7 +6624,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/push/unsubscribe", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/push/unsubscribe", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
       const { endpoint } = req.body;

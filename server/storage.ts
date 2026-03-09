@@ -31,7 +31,7 @@ import {
   leagues, type League, type InsertLeague,
   messages, type Message, type InsertMessage,
   playerInvitations, type PlayerInvitation, type InsertPlayerInvitation,
-  sharedVideos,
+  sharedVideos, type SharedVideo,
   coachPlayers, type CoachPlayer, type InsertCoachPlayer,
   coachPlayerAssignments, type CoachPlayerAssignment, type InsertCoachPlayerAssignment,
   trainerPlayers, type TrainerPlayer, type InsertTrainerPlayer,
@@ -54,13 +54,13 @@ import {
   parentLinks, type ParentLink,
   pushSubscriptions, type PushSubscription
 } from "@shared/schema";
-import { users } from "@shared/models/auth";
+import { users, type User } from "@shared/models/auth";
 import { db } from "./db";
 import { eq, desc, and, or, sql, gte, isNotNull, isNull, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // Users
-  getUser(id: string): Promise<any | undefined>;
+  getUser(id: string): Promise<User | undefined>;
 
   // Drills
   getDrills(): Promise<Drill[]>;
@@ -287,7 +287,7 @@ export interface IStorage {
 
   // Shared Videos
   getSharedVideos(teamId: string, assignmentId?: string): Promise<Array<{ id: string; userId: string; playerName: string; title: string; videoUrl: string; description: string | null; assignmentId: string | null; createdAt: Date | null }>>;
-  createSharedVideo(data: { userId: string; teamId: string; title: string; videoUrl: string; description?: string; assignmentId?: string }): Promise<any>;
+  createSharedVideo(data: { userId: string; teamId: string; title: string; videoUrl: string; description?: string; assignmentId?: string }): Promise<SharedVideo>;
   deleteSharedVideo(id: string, userId: string): Promise<boolean>;
 
   // Coach Players
@@ -320,8 +320,8 @@ export interface IStorage {
   getPlayerMessages(playerId: string, trainerId: string): Promise<Message[]>;
 
   // Unified Player Team Assignments
-  getPlayerTeamAssignments(playerId: string): Promise<any[]>;
-  assignPlayerToTeam(assignment: { playerId: string; teamId: string; position?: string | null; jerseyNumber?: string | null }): Promise<any>;
+  getPlayerTeamAssignments(playerId: string): Promise<Array<{ id: string; playerId: string; teamId: string; teamName: string; seasonYear: string | null; ageGroup: string | null; position: string | null; jerseyNumber: string | null; assignedAt: string }>>;
+  assignPlayerToTeam(assignment: { playerId: string; teamId: string; position?: string | null; jerseyNumber?: string | null }): Promise<PlayerTeamAssignment>;
   removePlayerFromTeam(assignmentId: string): Promise<boolean>;
   bulkAssignPlayersToTeam(playerIds: string[], teamId: string): Promise<void>;
 
@@ -433,7 +433,7 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  async getUser(id: string): Promise<any | undefined> {
+  async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
   }
@@ -2387,7 +2387,7 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  async createSharedVideo(data: { userId: string; teamId: string; title: string; videoUrl: string; description?: string; assignmentId?: string }): Promise<any> {
+  async createSharedVideo(data: { userId: string; teamId: string; title: string; videoUrl: string; description?: string; assignmentId?: string }): Promise<SharedVideo> {
     const [video] = await db.insert(sharedVideos).values(data).returning();
     return video;
   }
@@ -2656,7 +2656,7 @@ export class DatabaseStorage implements IStorage {
     return msgs;
   }
 
-  async getPlayerTeamAssignments(playerId: string): Promise<any[]> {
+  async getPlayerTeamAssignments(playerId: string): Promise<Array<{ id: string; playerId: string; teamId: string; teamName: string; seasonYear: string | null; ageGroup: string | null; position: string | null; jerseyNumber: string | null; assignedAt: string }>> {
     const assignments = await db.select().from(playerTeamAssignments).where(eq(playerTeamAssignments.playerId, playerId));
     const result = [];
     for (const a of assignments) {
@@ -2678,7 +2678,7 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  async assignPlayerToTeam(assignment: { playerId: string; teamId: string; position?: string | null; jerseyNumber?: string | null }): Promise<any> {
+  async assignPlayerToTeam(assignment: { playerId: string; teamId: string; position?: string | null; jerseyNumber?: string | null }): Promise<PlayerTeamAssignment> {
     const [created] = await db.insert(playerTeamAssignments).values({
       playerId: assignment.playerId,
       teamId: assignment.teamId,
