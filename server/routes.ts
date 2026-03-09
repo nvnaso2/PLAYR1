@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated, type AuthenticatedRequest } from "./auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
-import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections } from "@shared/schema";
+import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, drills } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
 import { eq, and, or, isNull, ilike, sql, inArray } from "drizzle-orm";
@@ -164,6 +164,44 @@ export async function registerRoutes(
     }
   });
 
+  const stripeCustomerLocks = new Map<string, Promise<string>>();
+
+  async function getOrCreateStripeCustomer(userId: string): Promise<string> {
+    const existing = stripeCustomerLocks.get(userId);
+    if (existing) return existing;
+
+    const promise = (async () => {
+      try {
+        const [user] = await db.select().from(users).where(eq(users.id, userId));
+        if (!user) throw new Error("User not found");
+        if (user.stripeCustomerId) return user.stripeCustomerId;
+
+        const stripe = await getUncachableStripeClient();
+        const customer = await stripe.customers.create({
+          email: user.email || undefined,
+          metadata: { userId },
+          idempotencyKey: `create-customer-${userId}`,
+        } as any);
+
+        const result = await db.update(users)
+          .set({ stripeCustomerId: customer.id })
+          .where(and(eq(users.id, userId), isNull(users.stripeCustomerId)))
+          .returning({ stripeCustomerId: users.stripeCustomerId });
+
+        if (result.length === 0) {
+          const [refreshed] = await db.select().from(users).where(eq(users.id, userId));
+          return refreshed.stripeCustomerId!;
+        }
+        return customer.id;
+      } finally {
+        stripeCustomerLocks.delete(userId);
+      }
+    })();
+
+    stripeCustomerLocks.set(userId, promise);
+    return promise;
+  }
+
   app.post("/api/stripe/checkout", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -172,20 +210,8 @@ export async function registerRoutes(
       if (!parsed.success) return res.status(400).json({ message: "Invalid request data", errors: parsed.error.flatten() });
       const { priceId } = parsed.data;
 
-      const [user] = await db.select().from(users).where(eq(users.id, userId));
-      if (!user) return res.status(404).json({ message: "User not found" });
-
+      const customerId = await getOrCreateStripeCustomer(userId);
       const stripe = await getUncachableStripeClient();
-
-      let customerId = user.stripeCustomerId;
-      if (!customerId) {
-        const customer = await stripe.customers.create({
-          email: user.email || undefined,
-          metadata: { userId },
-        });
-        customerId = customer.id;
-        await db.update(users).set({ stripeCustomerId: customerId }).where(eq(users.id, userId));
-      }
 
       const session = await stripe.checkout.sessions.create({
         customer: customerId,
@@ -232,20 +258,8 @@ export async function registerRoutes(
       if (!parsed.success) return res.status(400).json({ message: "Invalid request data", errors: parsed.error.flatten() });
       const { sessionId, amount } = parsed.data;
 
-      const [user] = await db.select().from(users).where(eq(users.id, userId));
-      if (!user) return res.status(404).json({ message: "User not found" });
-
+      const customerId = await getOrCreateStripeCustomer(userId);
       const stripe = await getUncachableStripeClient();
-
-      let customerId = user.stripeCustomerId;
-      if (!customerId) {
-        const customer = await stripe.customers.create({
-          email: user.email || undefined,
-          metadata: { userId },
-        });
-        customerId = customer.id;
-        await db.update(users).set({ stripeCustomerId: customerId }).where(eq(users.id, userId));
-      }
 
       const checkoutSession = await stripe.checkout.sessions.create({
         customer: customerId,
@@ -308,6 +322,26 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching user drills:", error);
       res.status(500).json({ message: "Failed to fetch drills" });
+    }
+  });
+
+  app.get("/api/drills/counts-by-category", async (req, res) => {
+    try {
+      const counts = await db
+        .select({
+          category: drills.category,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(drills)
+        .groupBy(drills.category);
+      const result: Record<string, number> = {};
+      for (const row of counts) {
+        result[row.category] = row.count;
+      }
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching drill counts by category:", error);
+      res.status(500).json({ message: "Failed to fetch drill counts" });
     }
   });
 
@@ -521,10 +555,12 @@ export async function registerRoutes(
   // Update user admin status (admin only)
   app.put("/api/admin/users/:id/admin", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
-      const { isAdmin: newAdminStatus } = req.body;
-      if (typeof newAdminStatus !== 'boolean') {
-        return res.status(400).json({ message: "isAdmin must be a boolean" });
+      const adminStatusSchema = z.object({ isAdmin: z.boolean() });
+      const parsed = adminStatusSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "isAdmin must be a boolean", errors: parsed.error.flatten() });
       }
+      const { isAdmin: newAdminStatus } = parsed.data;
       await storage.setUserAdmin(req.params.id, newAdminStatus);
       res.json({ success: true });
     } catch (error) {
@@ -747,7 +783,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/tutorial-videos/:key", async (req: AuthenticatedRequest, res) => {
+  app.get("/api/tutorial-videos/:key", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const video = await storage.getTutorialVideoByKey(req.params.key);
       if (!video) {
@@ -762,7 +798,12 @@ export async function registerRoutes(
 
   app.put("/api/tutorial-videos/:key", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
-      const data = { ...req.body, key: req.params.key };
+      const tutorialVideoSchema = z.object({ title: z.string().min(1), url: z.string().url(), description: z.string().optional() });
+      const parsed = tutorialVideoSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid tutorial video data", errors: parsed.error.flatten() });
+      }
+      const data = { ...parsed.data, key: req.params.key };
       const video = await storage.upsertTutorialVideo(data);
       res.json(video);
     } catch (error) {
@@ -871,10 +912,12 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Not authorized to modify this drill" });
       }
       
-      const { metricTemplateIds } = req.body;
-      if (!Array.isArray(metricTemplateIds)) {
-        return res.status(400).json({ message: "metricTemplateIds must be an array" });
+      const drillMetricsSchema = z.object({ metricTemplateIds: z.array(z.string()) });
+      const parsed = drillMetricsSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "metricTemplateIds must be an array of strings", errors: parsed.error.flatten() });
       }
+      const { metricTemplateIds } = parsed.data;
       const metrics = await storage.setDrillMetrics(req.params.id, metricTemplateIds);
       res.json(metrics);
     } catch (error) {
@@ -1011,7 +1054,7 @@ export async function registerRoutes(
   });
 
   // Get single workout with drills
-  app.get("/api/workouts/:id", async (req, res) => {
+  app.get("/api/workouts/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const result = await storage.getWorkoutWithDrills(req.params.id);
       if (!result) {
@@ -1028,11 +1071,19 @@ export async function registerRoutes(
   app.post("/api/workouts", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { name, description, category, estimatedDuration, drillIds, isFavorite } = req.body;
-      
-      if (!name || !drillIds || !Array.isArray(drillIds) || drillIds.length < 2) {
-        return res.status(400).json({ message: "Workout must have a name and at least 2 drills" });
+      const createWorkoutSchema = z.object({
+        name: z.string().min(1),
+        drillIds: z.array(z.string()).min(2),
+        description: z.string().optional(),
+        category: z.string().optional(),
+        estimatedDuration: z.number().optional(),
+        isFavorite: z.boolean().optional(),
+      });
+      const parsed = createWorkoutSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid workout data", errors: parsed.error.flatten() });
       }
+      const { name, description, category, estimatedDuration, drillIds, isFavorite } = parsed.data;
       
       const workout = await storage.createWorkout(
         { name, description, category, estimatedDuration, userId, isFavorite: isFavorite || false } as any,
@@ -1081,7 +1132,18 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Not authorized to update this workout" });
       }
       
-      const { name, description, category, estimatedDuration, drillIds } = req.body;
+      const updateWorkoutSchema = z.object({
+        name: z.string().min(1).optional(),
+        description: z.string().optional(),
+        category: z.string().optional(),
+        estimatedDuration: z.number().optional(),
+        drillIds: z.array(z.string()).optional(),
+      });
+      const parsed = updateWorkoutSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid workout data", errors: parsed.error.flatten() });
+      }
+      const { name, description, category, estimatedDuration, drillIds } = parsed.data;
       const updated = await storage.updateWorkout(
         req.params.id,
         { name, description, category, estimatedDuration },
@@ -1192,7 +1254,7 @@ export async function registerRoutes(
       const workout = await storage.getWorkoutById(req.params.id);
       if (!workout) return res.status(404).json({ message: "Workout not found" });
       if (workout.userId !== userId) return res.status(403).json({ message: "Not authorized" });
-      const updated = await storage.updateWorkout(req.params.id, { isFavorite: !workout.isFavorite } as any);
+      const updated = await storage.toggleWorkoutFavorite(req.params.id);
       res.json(updated);
     } catch (error) {
       res.status(500).json({ message: "Failed to toggle favorite" });
@@ -1692,7 +1754,7 @@ export async function registerRoutes(
   // ===== BENCHMARKS =====
 
   // Get benchmarks
-  app.get("/api/benchmarks", async (req, res) => {
+  app.get("/api/benchmarks", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const benchmarks = await storage.getBenchmarks();
       res.json(benchmarks);

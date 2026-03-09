@@ -164,6 +164,7 @@ export interface IStorage {
   getWorkoutWithDrills(id: string): Promise<{ workout: Workout; drills: Array<WorkoutDrill & { drill: Drill }> } | undefined>;
   createWorkout(workout: InsertWorkout, drillIds: string[]): Promise<Workout>;
   updateWorkout(id: string, workout: Partial<InsertWorkout>, drillIds?: string[]): Promise<Workout | undefined>;
+  toggleWorkoutFavorite(id: string): Promise<Workout | undefined>;
   deleteWorkout(id: string): Promise<boolean>;
 
   // Favorite Drills
@@ -1313,6 +1314,14 @@ export class DatabaseStorage implements IStorage {
     return newWorkout;
   }
 
+  async toggleWorkoutFavorite(id: string): Promise<Workout | undefined> {
+    const [updated] = await db.update(workouts)
+      .set({ isFavorite: sql`NOT ${workouts.isFavorite}`, updatedAt: new Date() })
+      .where(eq(workouts.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
   async updateWorkout(id: string, workout: Partial<InsertWorkout>, drillIds?: string[]): Promise<Workout | undefined> {
     const [updated] = await db.update(workouts)
       .set({ ...workout, updatedAt: new Date() } as any)
@@ -2240,49 +2249,57 @@ export class DatabaseStorage implements IStorage {
   // ===== MESSAGES =====
 
   async getConversations(userId: string): Promise<Array<{ partnerId: string; partnerName: string; partnerImage?: string; lastMessage: string; lastMessageAt: Date; unreadCount: number; teamId?: string; teamName?: string }>> {
-    const sentMessages = await db.select().from(messages).where(eq(messages.senderId, userId));
-    const receivedMessages = await db.select().from(messages).where(eq(messages.receiverId, userId));
-    const allMessages = [...sentMessages, ...receivedMessages];
-    
-    const partnerMap = new Map<string, { messages: Message[] }>();
-    for (const msg of allMessages) {
-      const partnerId = msg.senderId === userId ? msg.receiverId : msg.senderId;
-      if (!partnerMap.has(partnerId)) {
-        partnerMap.set(partnerId, { messages: [] });
-      }
-      partnerMap.get(partnerId)!.messages.push(msg);
-    }
+    const rows = await db.execute(sql`
+      WITH partner_messages AS (
+        SELECT
+          CASE WHEN sender_id = ${userId} THEN receiver_id ELSE sender_id END AS partner_id,
+          id, content, created_at, team_id, receiver_id, is_read
+        FROM messages
+        WHERE sender_id = ${userId} OR receiver_id = ${userId}
+      ),
+      latest_per_partner AS (
+        SELECT DISTINCT ON (partner_id)
+          partner_id,
+          content AS last_message,
+          created_at AS last_message_at,
+          team_id
+        FROM partner_messages
+        ORDER BY partner_id, created_at DESC
+      ),
+      unread_counts AS (
+        SELECT
+          partner_id,
+          COUNT(*) AS unread_count
+        FROM partner_messages
+        WHERE receiver_id = ${userId} AND is_read = false
+        GROUP BY partner_id
+      )
+      SELECT
+        l.partner_id,
+        COALESCE(NULLIF(TRIM(CONCAT(u.first_name, ' ', u.last_name)), ''), u.email, 'Unknown') AS partner_name,
+        u.profile_image_url AS partner_image,
+        l.last_message,
+        l.last_message_at,
+        COALESCE(uc.unread_count, 0)::int AS unread_count,
+        l.team_id,
+        t.name AS team_name
+      FROM latest_per_partner l
+      LEFT JOIN users u ON u.id = l.partner_id
+      LEFT JOIN unread_counts uc ON uc.partner_id = l.partner_id
+      LEFT JOIN trainer_teams t ON t.id = l.team_id
+      ORDER BY l.last_message_at DESC
+    `);
 
-    const conversations: Array<{ partnerId: string; partnerName: string; partnerImage?: string; lastMessage: string; lastMessageAt: Date; unreadCount: number; teamId?: string; teamName?: string }> = [];
-    
-    for (const [partnerId, data] of partnerMap) {
-      const sorted = data.messages.sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
-      const lastMsg = sorted[0];
-      const unreadCount = sorted.filter(m => m.receiverId === userId && !m.isRead).length;
-      
-      const [partner] = await db.select().from(users).where(eq(users.id, partnerId));
-      const partnerName = partner ? `${partner.firstName || ''} ${partner.lastName || ''}`.trim() || partner.email || 'Unknown' : 'Unknown';
-      
-      let teamName: string | undefined;
-      if (lastMsg.teamId) {
-        const team = await this.getTeamById(lastMsg.teamId);
-        teamName = team?.name;
-      }
-      
-      conversations.push({
-        partnerId,
-        partnerName,
-        partnerImage: partner?.profileImageUrl || undefined,
-        lastMessage: lastMsg.content,
-        lastMessageAt: lastMsg.createdAt!,
-        unreadCount,
-        teamId: lastMsg.teamId || undefined,
-        teamName,
-      });
-    }
-    
-    conversations.sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
-    return conversations;
+    return (rows.rows as any[]).map((row: any) => ({
+      partnerId: row.partner_id,
+      partnerName: row.partner_name || 'Unknown',
+      partnerImage: row.partner_image || undefined,
+      lastMessage: row.last_message,
+      lastMessageAt: new Date(row.last_message_at),
+      unreadCount: Number(row.unread_count) || 0,
+      teamId: row.team_id || undefined,
+      teamName: row.team_name || undefined,
+    }));
   }
 
   async getMessages(userId: string, partnerId: string): Promise<Message[]> {

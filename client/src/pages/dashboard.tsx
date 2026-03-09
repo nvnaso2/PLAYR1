@@ -38,7 +38,6 @@ const categories = [
     description: "Develop elite handles with crossovers, hesitations, and combo moves.",
     icon: <HandMetal className="w-6 h-6" />,
     color: "#f97316",
-    drillCount: 45
   },
   { 
     category: "shooting" as const, 
@@ -46,7 +45,6 @@ const categories = [
     description: "Perfect your form, catch-and-shoot, and off-the-dribble shots.",
     icon: <Target className="w-6 h-6" />,
     color: "#22c55e",
-    drillCount: 52
   },
   { 
     category: "passing" as const, 
@@ -54,7 +52,6 @@ const categories = [
     description: "Master chest passes, bounce passes, and no-look assists.",
     icon: <Crosshair className="w-6 h-6" />,
     color: "#3b82f6",
-    drillCount: 28
   },
   { 
     category: "finishing" as const, 
@@ -62,7 +59,6 @@ const categories = [
     description: "Learn layups, floaters, and finishing through contact.",
     icon: <Flame className="w-6 h-6" />,
     color: "#ef4444",
-    drillCount: 36
   },
   { 
     category: "defense" as const, 
@@ -70,7 +66,6 @@ const categories = [
     description: "Improve footwork, positioning, and on-ball defense.",
     icon: <Shield className="w-6 h-6" />,
     color: "#8b5cf6",
-    drillCount: 31
   },
   { 
     category: "film-session" as const, 
@@ -78,7 +73,6 @@ const categories = [
     description: "Understand reads, spacing, and game situations.",
     icon: <Brain className="w-6 h-6" />,
     color: "#ec4899",
-    drillCount: 24
   },
   { 
     category: "workouts" as const, 
@@ -86,7 +80,6 @@ const categories = [
     description: "Full training sessions and conditioning programs.",
     icon: <Dumbbell className="w-6 h-6" />,
     color: "#14b8a6",
-    drillCount: 18
   }
 ];
 
@@ -166,6 +159,10 @@ export default function Dashboard() {
 
   const { data: trainingStats } = useQuery<Record<string, number>>({
     queryKey: ['/api/stats/dashboard-training'],
+  });
+
+  const { data: drillCounts } = useQuery<Record<string, number>>({
+    queryKey: ['/api/drills/counts-by-category'],
   });
 
   const getGreeting = () => {
@@ -342,7 +339,7 @@ export default function Dashboard() {
         
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {categories.map((cat) => (
-            <CategoryCard key={cat.category} {...cat} />
+            <CategoryCard key={cat.category} {...cat} drillCount={drillCounts?.[cat.category] ?? 0} />
           ))}
         </div>
       </section>
