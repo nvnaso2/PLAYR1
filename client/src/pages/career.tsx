@@ -4353,6 +4353,14 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
     city: "",
     state: "",
     zipCode: "",
+    skillBallHandling: profile.skillBallHandling ?? 5,
+    skillShooting: profile.skillShooting ?? 5,
+    skillPassing: profile.skillPassing ?? 5,
+    skillFinishing: profile.skillFinishing ?? 5,
+    skillDefense: profile.skillDefense ?? 5,
+    skillBasketballIQ: profile.skillBasketballIQ ?? 5,
+    skillAthletics: profile.skillAthletics ?? 5,
+    focusSkill: profile.focusSkill || "",
   });
 
   const { data: careerStats } = useQuery<CareerStats>({
@@ -4507,6 +4515,14 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
                   city: userProfile?.city || "",
                   state: userProfile?.state || "",
                   zipCode: userProfile?.zipCode || "",
+                  skillBallHandling: profile.skillBallHandling ?? 5,
+                  skillShooting: profile.skillShooting ?? 5,
+                  skillPassing: profile.skillPassing ?? 5,
+                  skillFinishing: profile.skillFinishing ?? 5,
+                  skillDefense: profile.skillDefense ?? 5,
+                  skillBasketballIQ: profile.skillBasketballIQ ?? 5,
+                  skillAthletics: profile.skillAthletics ?? 5,
+                  focusSkill: profile.focusSkill || "",
                 });
                 setIsEditDialogOpen(true);
               }}
@@ -4583,11 +4599,40 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
         </Card>
 
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between gap-4">
             <CardTitle className="flex items-center gap-2">
               <Star className="w-5 h-5" />
               Skill Ratings
             </CardTitle>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => {
+                setEditFormData({
+                  jerseyNumber: profile.jerseyNumber || 0,
+                  positions: profile.positions || [],
+                  gradeLevel: profile.gradeLevel || "",
+                  schoolName: profile.schoolName || "",
+                  teamName: profile.teamName || "",
+                  aspiration: profile.aspiration || "",
+                  city: userProfile?.city || "",
+                  state: userProfile?.state || "",
+                  zipCode: userProfile?.zipCode || "",
+                  skillBallHandling: profile.skillBallHandling ?? 5,
+                  skillShooting: profile.skillShooting ?? 5,
+                  skillPassing: profile.skillPassing ?? 5,
+                  skillFinishing: profile.skillFinishing ?? 5,
+                  skillDefense: profile.skillDefense ?? 5,
+                  skillBasketballIQ: profile.skillBasketballIQ ?? 5,
+                  skillAthletics: profile.skillAthletics ?? 5,
+                  focusSkill: profile.focusSkill || "",
+                });
+                setIsEditDialogOpen(true);
+              }}
+              data-testid="button-edit-skill-ratings"
+            >
+              <Pencil className="w-4 h-4" />
+            </Button>
           </CardHeader>
           <CardContent className="space-y-3">
             {[
@@ -4740,6 +4785,56 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="pt-2 border-t">
+              <Label className="flex items-center gap-2 mb-3">
+                <Star className="w-4 h-4" />
+                Skill Ratings
+              </Label>
+              <div className="space-y-3">
+                {[
+                  { key: "skillBallHandling" as const, label: "Ball Handling" },
+                  { key: "skillShooting" as const, label: "Shooting" },
+                  { key: "skillPassing" as const, label: "Passing" },
+                  { key: "skillFinishing" as const, label: "Finishing" },
+                  { key: "skillDefense" as const, label: "Defense" },
+                  { key: "skillBasketballIQ" as const, label: "Basketball IQ" },
+                  { key: "skillAthletics" as const, label: "Athletics" },
+                ].map(skill => (
+                  <div key={skill.key} className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span>{skill.label}</span>
+                      <span className="font-medium text-primary">{editFormData[skill.key]}</span>
+                    </div>
+                    <Slider
+                      value={[editFormData[skill.key]]}
+                      onValueChange={([v]) => setEditFormData(prev => ({ ...prev, [skill.key]: v }))}
+                      min={1}
+                      max={10}
+                      step={1}
+                      data-testid={`slider-${skill.key}`}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-4">
+                <Label className="text-sm">Focus Skill</Label>
+                <Select
+                  value={editFormData.focusSkill}
+                  onValueChange={(v) => setEditFormData(prev => ({ ...prev, focusSkill: v }))}
+                >
+                  <SelectTrigger data-testid="select-edit-focus-skill" className="mt-1">
+                    <SelectValue placeholder="Select your focus skill" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(SKILL_LABELS).map(([key, { label }]) => (
+                      <SelectItem key={key} value={key}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="pt-2 border-t">
