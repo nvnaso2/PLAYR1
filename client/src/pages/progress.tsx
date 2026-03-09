@@ -334,13 +334,13 @@ export default function ProgressPage() {
                   <XAxis 
                     dataKey="date" 
                     className="text-xs fill-muted-foreground"
-                    tick={{ fontSize: 11 }}
+                    tick={{ fontSize: 12 }}
                     tickFormatter={(value) => {
                       const date = new Date(value);
                       return date.toLocaleDateString('en-US', { weekday: 'short' });
                     }}
                   />
-                  <YAxis className="text-xs fill-muted-foreground" tick={{ fontSize: 11 }} width={30} />
+                  <YAxis className="text-xs fill-muted-foreground" tick={{ fontSize: 12 }} width={30} />
                   <Tooltip 
                     contentStyle={{ 
                       backgroundColor: 'hsl(var(--card))',

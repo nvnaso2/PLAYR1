@@ -499,7 +499,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   const { toast } = useToast();
   const { user } = useAuth();
   const [step, setStep] = useState<"role" | "profile" | "parent-email" | "reason" | "select-teams" | "log-game" | "no-season" | "season-start" | "dev-priority" | "dev-log-next" | "dev-create-next" | "tutorial-log" | "tutorial-create" | "trainer-profile" | "trainer-specialties" | "trainer-begin">("role");
-  const [selectedRole, setSelectedRole] = useState<"player" | "trainer" | "coach" | "player_trainer" | null>(null);
+  const [selectedRole, setSelectedRole] = useState<"player" | "trainer" | "player_trainer" | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   const [firstName, setFirstName] = useState(user?.firstName || "");
@@ -781,7 +781,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
     }
   };
 
-  const handleRoleSelect = (role: "player" | "trainer" | "coach" | "player_trainer") => {
+  const handleRoleSelect = (role: "player" | "trainer" | "player_trainer") => {
     setSelectedRole(role);
     if (role === "trainer" || role === "player_trainer") {
       setStep("trainer-profile");
@@ -995,7 +995,6 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
               { value: "player" as const, label: "Player", desc: "Track your development and stats", icon: User },
               { value: "trainer" as const, label: "Trainer", desc: "Manage and develop players", icon: Dumbbell },
               { value: "player_trainer" as const, label: "Player & Trainer", desc: "Train players and track your own game", icon: ArrowLeftRight },
-              { value: "coach" as const, label: "Coach", desc: "Lead your team", icon: GraduationCap },
             ].map(role => {
               const Icon = role.icon;
               return (
@@ -1224,8 +1223,8 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
                         />
                         In Season
                       </label>
-                      <Button type="button" size="icon" variant="ghost" onClick={() => removeTeam(idx)} className="h-7 w-7 shrink-0" data-testid={`button-remove-team-${idx}`}>
-                        <X className="w-3.5 h-3.5" />
+                      <Button type="button" size="icon" variant="ghost" onClick={() => removeTeam(idx)} className="h-9 w-9 shrink-0" data-testid={`button-remove-team-${idx}`}>
+                        <X className="w-4 h-4" />
                       </Button>
                     </div>
                   ))}
@@ -1235,7 +1234,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
 
             <div>
               <Label className="text-sm font-medium">Position(s)</Label>
-              <div className="grid grid-cols-5 gap-2 mt-1.5">
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mt-1.5">
                 {BASKETBALL_POSITIONS.map(pos => (
                   <div
                     key={pos}
