@@ -17,6 +17,7 @@ import connectPg from "connect-pg-simple";
 import cookieParser from "cookie-parser";
 import { db } from "./db";
 import { users } from "@shared/models/auth";
+import { userProfiles } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { sendPasswordResetEmail } from "./email";
@@ -190,17 +191,20 @@ export function registerAuthRoutes(app: Express) {
 
   app.get("/api/auth/user", isAuthenticated, async (req, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user!.claims.sub;
       const [user] = await db.select().from(users).where(eq(users.id, userId));
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
+      const [profile] = await db.select({ profilePhotoUrl: userProfiles.profilePhotoUrl })
+        .from(userProfiles).where(eq(userProfiles.userId, userId));
+      const photoUrl = profile?.profilePhotoUrl || user.profileImageUrl;
       res.json({
         id: user.id,
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
-        profileImageUrl: user.profileImageUrl,
+        profileImageUrl: photoUrl,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       });

@@ -1512,6 +1512,12 @@ export async function registerRoutes(
       const data = insertUserProfileSchema.parse({ ...body, userId });
       const profile = await storage.upsertUserProfile(data);
 
+      if (data.profilePhotoUrl !== undefined) {
+        await db.update(users)
+          .set({ profileImageUrl: data.profilePhotoUrl })
+          .where(eq(users.id, userId));
+      }
+
       const trainerProfile = await storage.getTrainerProfile(userId);
       if (trainerProfile) {
         const trainerSync: any = {};
@@ -5023,6 +5029,12 @@ export async function registerRoutes(
           .values({ userId, ...sharedUpdates } as any)
           .onConflictDoUpdate({ target: userProfiles.userId, set: sharedUpdates })
           .execute();
+      }
+
+      if (data.profilePhotoUrl !== undefined) {
+        await db.update(users)
+          .set({ profileImageUrl: data.profilePhotoUrl })
+          .where(eq(users.id, userId));
       }
 
       res.json(profile);
