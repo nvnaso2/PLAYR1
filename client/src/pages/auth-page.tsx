@@ -271,17 +271,19 @@ export default function AuthPage() {
   const [mode, setMode] = useState<"login" | "register">("login");
 
   return (
-    <div className="h-screen flex" data-testid="page-auth">
-      <div className="flex-1 flex items-start justify-center px-6 py-12 bg-background overflow-y-auto">
-        <div className="w-full max-w-md">
-          <div className="flex justify-center mb-8">
-            <img src={logoLandscape} alt="PLAYR1" className="h-14 object-contain mix-blend-screen dark:mix-blend-screen" data-testid="img-auth-logo" />
+    <div className="h-screen overflow-hidden flex" data-testid="page-auth">
+      <div className="flex-1 overflow-y-auto bg-background">
+        <div className="min-h-full flex flex-col items-center justify-center py-10 px-6">
+          <div className="w-full max-w-md">
+            <div className="flex justify-center mb-8">
+              <img src={logoLandscape} alt="PLAYR1" className="h-14 object-contain mix-blend-screen dark:mix-blend-screen" data-testid="img-auth-logo" />
+            </div>
+            {mode === "login" ? (
+              <LoginForm onSwitch={() => setMode("register")} />
+            ) : (
+              <RegisterForm onSwitch={() => setMode("login")} />
+            )}
           </div>
-          {mode === "login" ? (
-            <LoginForm onSwitch={() => setMode("register")} />
-          ) : (
-            <RegisterForm onSwitch={() => setMode("login")} />
-          )}
         </div>
       </div>
       <div className="hidden lg:flex flex-1 relative items-center justify-center bg-black overflow-hidden">
