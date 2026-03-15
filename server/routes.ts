@@ -5394,12 +5394,12 @@ export async function registerRoutes(
       const playerId = req.user.claims.sub;
       const sessionSchema = z.object({
         trainerProfileId: z.string().min(1),
-        locationId: z.string().optional(),
+        locationId: z.string().nullish(),
         sessionDate: z.string().min(1),
         startTime: z.string().regex(/^\d{2}:\d{2}$/),
         endTime: z.string().regex(/^\d{2}:\d{2}$/),
-        playerNotes: z.string().optional(),
-        sessionType: z.string().optional(),
+        playerNotes: z.string().nullish(),
+        sessionType: z.string().nullish(),
       });
       const parsed = sessionSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: "Invalid request data", errors: parsed.error.flatten() });

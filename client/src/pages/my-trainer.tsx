@@ -821,9 +821,9 @@ function TrainerDetail({ trainer: listTrainer, favorite, onToggleFavorite, onTog
         sessionDate,
         startTime,
         endTime,
-        sessionType: sessionType || null,
-        locationId: selectedLocationId || null,
-        playerNotes: playerNotes || null,
+        sessionType: sessionType || undefined,
+        locationId: selectedLocationId || undefined,
+        playerNotes: playerNotes || undefined,
       });
     },
     onSuccess: () => {
