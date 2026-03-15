@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import logoLandscape from "@assets/PNG_image_auth_trimmed.png";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -985,9 +986,17 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
 
   if (step === "role") {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-background to-muted/20">
+      <div className="min-h-screen flex items-center justify-center p-3 bg-gradient-to-b from-background to-muted/20">
+        <div className="w-full max-w-md space-y-3">
+          <div className="flex justify-center">
+            <img
+              src={logoLandscape}
+              alt="PLAYR1"
+              className="h-16 w-[220px] max-w-full object-contain invert hue-rotate-180 dark:invert-0 dark:hue-rotate-0"
+            />
+          </div>
         <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
+          <CardHeader className="text-center pb-2 pt-4">
             <CardTitle className="text-2xl font-bold">Welcome to PLAYR1</CardTitle>
             <CardDescription>How will you be using the app?</CardDescription>
           </CardHeader>
@@ -1019,6 +1028,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
             })}
           </CardContent>
         </Card>
+        </div>
       </div>
     );
   }
