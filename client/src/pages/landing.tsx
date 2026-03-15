@@ -94,9 +94,9 @@ export default function Landing() {
         )}
       </nav>
 
-      <section className="relative pt-24 pb-20 overflow-hidden">
+      <section className="relative pt-16 pb-20 overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
-          <div className="flex justify-center mb-10">
+          <div className="flex justify-center mb-4">
             <img
               src={becomePlayr1}
               alt="Become PLAYR1"
