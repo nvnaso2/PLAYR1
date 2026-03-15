@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import heroImage from "@assets/bballpic5_1.1.1_1769377307157.png";
 import logoLandscape from "@assets/Playr1_App_Logo_1773593823443.png";
+import becomePlayr1 from "@assets/Become_PLAYR1_transparent.png";
 import basketballImage from "@assets/Handlz_(26)_1769377307158.png";
 import productImage from "@assets/BBallpic2_1.14.1_1769377307157.png";
 
@@ -95,12 +96,11 @@ export default function Landing() {
 
       <section className="relative pt-24 pb-20 overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
-          <div className="flex flex-col items-center mb-10">
-            <span className="text-primary text-4xl sm:text-5xl font-bold tracking-tight mb-2">Become</span>
+          <div className="flex justify-center mb-10">
             <img
-              src={logoLandscape}
-              alt="PLAYR1"
-              className="h-24 w-[480px] max-w-full object-cover invert hue-rotate-180 mix-blend-multiply dark:invert-0 dark:hue-rotate-0 dark:mix-blend-screen"
+              src={becomePlayr1}
+              alt="Become PLAYR1"
+              className="h-32 w-[560px] max-w-full object-contain invert hue-rotate-180 dark:invert-0 dark:hue-rotate-0"
             />
           </div>
           <div className="grid lg:grid-cols-2 gap-12 items-center">
