@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Eye, EyeOff } from "lucide-react";
-import logoLandscape from "@assets/PNG_image_1770494053382.png";
+import logoLandscape from "@assets/PNG_image_auth_transparent.png";
 import heroImage from "@assets/bballpic5_1.1.1_1769377307157.png";
 
 const loginSchema = z.object({
@@ -273,10 +273,10 @@ export default function AuthPage() {
   return (
     <div className="min-h-screen flex" data-testid="page-auth">
       <div className="flex-1 bg-background">
-        <div className="flex flex-col items-center px-6 pt-10 pb-10">
+        <div className="flex flex-col items-center px-6 pt-4 pb-10">
           <div className="w-full max-w-md">
-            <div className="flex justify-center mb-8">
-              <img src={logoLandscape} alt="PLAYR1" className="h-56 w-[512px] max-w-full object-contain invert hue-rotate-180 mix-blend-multiply dark:invert-0 dark:hue-rotate-0 dark:mix-blend-screen" data-testid="img-auth-logo" />
+            <div className="flex justify-center mb-2">
+              <img src={logoLandscape} alt="PLAYR1" className="h-56 w-[512px] max-w-full object-contain invert hue-rotate-180 dark:invert-0 dark:hue-rotate-0" data-testid="img-auth-logo" />
             </div>
             {mode === "login" ? (
               <LoginForm onSwitch={() => setMode("register")} />
