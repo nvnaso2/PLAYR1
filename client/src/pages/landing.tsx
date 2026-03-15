@@ -28,12 +28,12 @@ export default function Landing() {
     },
     {
       icon: TrendingUp,
-      title: "Track Your Progress",
-      description: "Log every training session and watch your skills improve over time with detailed analytics and insights."
+      title: "Track Your Training & Stats",
+      description: "PLAYR1 gives you the tools to train consistently, track your workouts, and master your game over time."
     },
     {
       icon: Users,
-      title: "Community Benchmarks",
+      title: "Find Trainer, Teams, and Leagues",
       description: "See how you stack up against players your age nationwide. Compete, compare, and climb the ranks."
     },
     {
@@ -44,10 +44,8 @@ export default function Landing() {
   ];
 
   const stats = [
-    { value: "500+", label: "Training Drills" },
+    { value: "50+", label: "Training Drills" },
     { value: "7", label: "Skill Categories" },
-    { value: "10K+", label: "Active Players" },
-    { value: "24/7", label: "Access" }
   ];
 
   return (
@@ -86,23 +84,19 @@ export default function Landing() {
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="space-y-8">
               <div className="space-y-4">
-                <Badge variant="secondary" className="text-sm">
-                  The Netflix for Basketball Training
-                </Badge>
                 <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight">
-                  Master Your{" "}
-                  <span className="text-primary">Game</span>
+                  Become{" "}
+                  <span className="text-primary">PLAYR1</span>
                 </h1>
                 <p className="text-lg text-muted-foreground max-w-lg">
-                  Professional basketball drills, progress tracking, and community benchmarking. 
-                  Train smarter with PLAYR1 and unlock your full potential.
+                  The all-in-one basketball platform to train, track, and master your game.
                 </p>
               </div>
               
               <div className="flex flex-col sm:flex-row gap-4">
                 <a href="/auth">
                   <Button size="lg" className="gap-2 w-full sm:w-auto" data-testid="button-get-started">
-                    Get Started Free
+                    Start Training Free
                     <ChevronRight className="w-4 h-4" />
                   </Button>
                 </a>
@@ -143,7 +137,7 @@ export default function Landing() {
                     </div>
                     <div>
                       <p className="font-semibold">Watch Pro Drills</p>
-                      <p className="text-sm text-white/70">500+ training videos</p>
+                      <p className="text-sm text-white/70">50+ training videos</p>
                     </div>
                   </div>
                 </div>
@@ -155,7 +149,7 @@ export default function Landing() {
 
       <section className="py-12 border-y border-border bg-muted/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+          <div className="grid grid-cols-2 gap-8 max-w-xs mx-auto md:max-w-sm">
             {stats.map((stat, index) => (
               <div key={index} className="text-center">
                 <div className="text-3xl sm:text-4xl font-bold text-primary" data-testid={`text-stat-value-${index}`}>
@@ -235,9 +229,9 @@ export default function Landing() {
               <div className="space-y-6">
                 {[
                   { step: "1", title: "Choose Your Category", desc: "Select from ball handling, shooting, passing, finishing, defense, IQ, or workouts." },
-                  { step: "2", title: "Follow the Drills", desc: "Watch pro-quality videos and practice at your own pace with any basketball." },
+                  { step: "2", title: "Follow the Drills", desc: "Watch step-by-step training videos and practice anytime, anywhere." },
                   { step: "3", title: "Log Your Sessions", desc: "Track reps, sets, duration, and rate your performance after each session." },
-                  { step: "4", title: "See Your Growth", desc: "View detailed progress charts and benchmark against players your age." }
+                  { step: "4", title: "See Your Growth", desc: "View your progress and analytics to see your game evolve." }
                 ].map((item, index) => (
                   <div key={index} className="flex gap-4">
                     <div className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold flex-shrink-0">
@@ -268,15 +262,14 @@ export default function Landing() {
             <div className="absolute inset-0 flex items-center">
               <div className="px-8 sm:px-12 max-w-xl">
                 <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">
-                  Ready to Transform Your Game?
+                  Become PLAYR1
                 </h2>
                 <p className="text-white/80 mb-6">
-                  Join thousands of players who are already improving their skills 
-                  with PLAYR1 training platform.
+                  Join a community of players who are focused on improving their skills with the PLAYR1 training platform.
                 </p>
                 <a href="/auth">
                   <Button size="lg" className="gap-2" data-testid="button-cta-join">
-                    Join Free Today
+                    Start Training Free
                     <ChevronRight className="w-4 h-4" />
                   </Button>
                 </a>
