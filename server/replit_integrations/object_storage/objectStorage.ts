@@ -1,5 +1,5 @@
 import { Storage, File } from "@google-cloud/storage";
-import { Response } from "express";
+import { Request, Response } from "express";
 import { randomUUID } from "crypto";
 import {
   ObjectAclPolicy,
@@ -94,34 +94,52 @@ export class ObjectStorageService {
     return null;
   }
 
-  // Downloads an object to the response.
-  async downloadObject(file: File, res: Response, cacheTtlSec: number = 3600) {
+  // Downloads an object to the response, with Range request support for video streaming.
+  async downloadObject(file: File, res: Response, cacheTtlSec: number = 3600, req?: Request) {
     try {
-      // Get file metadata
       const [metadata] = await file.getMetadata();
-      // Get the ACL policy for the object.
       const aclPolicy = await getObjectAclPolicy(file);
       const isPublic = aclPolicy?.visibility === "public";
-      // Set appropriate headers
-      res.set({
-        "Content-Type": metadata.contentType || "application/octet-stream",
-        "Content-Length": metadata.size,
-        "Cache-Control": `${
-          isPublic ? "public" : "private"
-        }, max-age=${cacheTtlSec}`,
-      });
+      const contentType = (metadata.contentType as string) || "application/octet-stream";
+      const fileSize = parseInt(metadata.size as string, 10);
 
-      // Stream the file to the response
-      const stream = file.createReadStream();
+      const rangeHeader = req?.headers?.range;
+      if (rangeHeader) {
+        // Parse the Range header (e.g. "bytes=0-1023")
+        const parts = rangeHeader.replace(/bytes=/, "").split("-");
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+        const chunkSize = end - start + 1;
 
-      stream.on("error", (err) => {
-        console.error("Stream error:", err);
-        if (!res.headersSent) {
-          res.status(500).json({ error: "Error streaming file" });
-        }
-      });
+        res.status(206).set({
+          "Content-Range": `bytes ${start}-${end}/${fileSize}`,
+          "Accept-Ranges": "bytes",
+          "Content-Length": chunkSize,
+          "Content-Type": contentType,
+          "Cache-Control": `${isPublic ? "public" : "private"}, max-age=${cacheTtlSec}`,
+        });
 
-      stream.pipe(res);
+        const stream = file.createReadStream({ start, end });
+        stream.on("error", (err) => {
+          console.error("Range stream error:", err);
+          if (!res.headersSent) res.status(500).json({ error: "Error streaming file" });
+        });
+        stream.pipe(res);
+      } else {
+        res.set({
+          "Content-Type": contentType,
+          "Content-Length": fileSize,
+          "Accept-Ranges": "bytes",
+          "Cache-Control": `${isPublic ? "public" : "private"}, max-age=${cacheTtlSec}`,
+        });
+
+        const stream = file.createReadStream();
+        stream.on("error", (err) => {
+          console.error("Stream error:", err);
+          if (!res.headersSent) res.status(500).json({ error: "Error streaming file" });
+        });
+        stream.pipe(res);
+      }
     } catch (error) {
       console.error("Error downloading file:", error);
       if (!res.headersSent) {

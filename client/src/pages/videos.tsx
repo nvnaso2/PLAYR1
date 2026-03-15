@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -38,20 +38,85 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
-  Plus, 
   Video, 
   Upload, 
   Play,
   Lock,
   Globe,
-  MoreVertical,
   Trash2,
   Pencil,
   FileVideo,
-  X
+  X,
+  ExternalLink
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Drill, UserVideo } from "@shared/schema";
+
+// Detect if a URL is served through our object storage proxy
+function isInternalVideoUrl(url?: string | null): boolean {
+  return !!url && url.startsWith("/objects/");
+}
+
+// Convert a YouTube/Vimeo watch URL to an embeddable URL
+function toEmbedUrl(url: string): string | null {
+  try {
+    const u = new URL(url);
+    // YouTube
+    if (u.hostname.includes("youtube.com") && u.searchParams.get("v")) {
+      return `https://www.youtube.com/embed/${u.searchParams.get("v")}?autoplay=1`;
+    }
+    if (u.hostname === "youtu.be") {
+      return `https://www.youtube.com/embed${u.pathname}?autoplay=1`;
+    }
+    // Vimeo
+    if (u.hostname.includes("vimeo.com")) {
+      const id = u.pathname.replace(/\//g, "");
+      return `https://player.vimeo.com/video/${id}?autoplay=1`;
+    }
+  } catch {
+    // not a valid URL
+  }
+  return null;
+}
+
+// Generate a thumbnail JPEG blob from a video File using canvas
+async function generateVideoThumbnail(file: File): Promise<Blob | null> {
+  return new Promise((resolve) => {
+    const video = document.createElement("video");
+    const objectUrl = URL.createObjectURL(file);
+    video.src = objectUrl;
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = "metadata";
+
+    const capture = () => {
+      try {
+        const MAX = 640;
+        const scale = Math.min(MAX / video.videoWidth, MAX / video.videoHeight, 1);
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(video.videoWidth * scale);
+        canvas.height = Math.round(video.videoHeight * scale);
+        canvas.getContext("2d")!.drawImage(video, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => {
+          URL.revokeObjectURL(objectUrl);
+          resolve(blob);
+        }, "image/jpeg", 0.82);
+      } catch {
+        URL.revokeObjectURL(objectUrl);
+        resolve(null);
+      }
+    };
+
+    video.addEventListener("loadedmetadata", () => {
+      video.currentTime = video.duration > 1 ? 1 : 0;
+    });
+    video.addEventListener("seeked", capture);
+    video.addEventListener("error", () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(null);
+    });
+  });
+}
 
 const videoFormSchema = z.object({
   title: z.string().min(1, "Title is required").max(100),
@@ -68,17 +133,45 @@ export default function VideosPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadedVideoUrl, setUploadedVideoUrl] = useState<string | null>(null);
+  const [uploadedThumbnailUrl, setUploadedThumbnailUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [playingVideo, setPlayingVideo] = useState<UserVideo | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Upload file using user-accessible endpoint
+  // Upload a blob to the photo endpoint and return objectPath
+  const uploadThumbnailBlob = async (blob: Blob): Promise<string | null> => {
+    try {
+      const thumbFile = new File([blob], "thumbnail.jpg", { type: "image/jpeg" });
+      const resp = await fetch("/api/user/uploads/photo-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ name: thumbFile.name, size: thumbFile.size, contentType: "image/jpeg" }),
+      });
+      if (!resp.ok) return null;
+      const { uploadURL, objectPath } = await resp.json();
+      const putResp = await fetch(uploadURL, {
+        method: "PUT",
+        body: thumbFile,
+        headers: { "Content-Type": "image/jpeg" },
+      });
+      return putResp.ok ? objectPath : null;
+    } catch {
+      return null;
+    }
+  };
+
+  // Upload file using user-accessible endpoint, generate thumbnail in parallel
   const uploadFile = async (file: File) => {
     setIsUploading(true);
     setUploadProgress(10);
-    
+
     try {
-      // Step 1: Request presigned URL from user endpoint
+      // Generate thumbnail from local file (runs before network upload starts)
+      const thumbnailPromise = generateVideoThumbnail(file);
+
+      // Step 1: Request presigned URL
       const response = await fetch("/api/user/uploads/request-url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -98,7 +191,7 @@ export default function VideosPage() {
       const { uploadURL, objectPath } = await response.json();
       setUploadProgress(30);
 
-      // Step 2: Upload file to presigned URL
+      // Step 2: Upload video file
       const uploadResponse = await fetch(uploadURL, {
         method: "PUT",
         body: file,
@@ -109,19 +202,24 @@ export default function VideosPage() {
         throw new Error("Failed to upload file to storage");
       }
 
-      setUploadProgress(100);
+      setUploadProgress(80);
       setUploadedVideoUrl(objectPath);
+
+      // Step 3: Upload thumbnail (if generation succeeded)
+      const thumbnailBlob = await thumbnailPromise;
+      if (thumbnailBlob) {
+        const thumbPath = await uploadThumbnailBlob(thumbnailBlob);
+        if (thumbPath) setUploadedThumbnailUrl(thumbPath);
+      }
+
+      setUploadProgress(100);
       toast({
         title: "Video Uploaded",
-        description: "Your video file has been uploaded successfully.",
+        description: "Your video has been uploaded successfully.",
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Upload failed";
-      toast({
-        title: "Upload Failed",
-        description: message,
-        variant: "destructive",
-      });
+      toast({ title: "Upload Failed", description: message, variant: "destructive" });
       setSelectedFile(null);
     } finally {
       setIsUploading(false);
@@ -188,6 +286,7 @@ export default function VideosPage() {
   const clearSelectedFile = () => {
     setSelectedFile(null);
     setUploadedVideoUrl(null);
+    setUploadedThumbnailUrl(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -198,6 +297,7 @@ export default function VideosPage() {
       const payload = {
         ...data,
         videoUrl: uploadedVideoUrl || data.videoUrl || "",
+        thumbnailUrl: uploadedThumbnailUrl || null,
         drillId: data.drillId === "__none__" ? null : (data.drillId || null),
       };
       return await apiRequest("POST", "/api/videos", payload);
@@ -569,20 +669,19 @@ export default function VideosPage() {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-accent/20">
-                    <Video className="w-12 h-12 text-primary/50" />
+                  <div className="w-full h-full flex items-center justify-center bg-muted">
+                    <Video className="w-12 h-12 text-muted-foreground/40" />
                   </div>
                 )}
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
-                  <a 
-                    href={video.videoUrl} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="w-14 h-14 rounded-full bg-primary flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                    data-testid={`button-play-${video.id}`}
-                  >
+                {/* Play overlay */}
+                <div
+                  className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex items-center justify-center cursor-pointer"
+                  onClick={() => setPlayingVideo(video)}
+                  data-testid={`button-play-${video.id}`}
+                >
+                  <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
                     <Play className="w-6 h-6 text-primary-foreground fill-current ml-1" />
-                  </a>
+                  </div>
                 </div>
                 <div className="absolute top-2 right-2">
                   <Badge variant={video.isPublic ? "default" : "secondary"} className="text-xs">
@@ -728,6 +827,70 @@ export default function VideosPage() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Video Player Dialog */}
+      <Dialog open={!!playingVideo} onOpenChange={(open) => { if (!open) setPlayingVideo(null); }}>
+        <DialogContent className="max-w-3xl p-0 overflow-hidden" data-testid="dialog-video-player">
+          <DialogHeader className="px-4 pt-4 pb-2">
+            <DialogTitle className="truncate pr-8">{playingVideo?.title}</DialogTitle>
+          </DialogHeader>
+          {playingVideo && (() => {
+            const url = playingVideo.videoUrl;
+            if (isInternalVideoUrl(url)) {
+              // Uploaded file — serve through backend proxy
+              return (
+                <video
+                  key={url}
+                  src={url ?? undefined}
+                  controls
+                  autoPlay
+                  className="w-full bg-black"
+                  style={{ maxHeight: "60vh" }}
+                  data-testid="video-player-element"
+                />
+              );
+            }
+            const embedUrl = url ? toEmbedUrl(url) : null;
+            if (embedUrl) {
+              // YouTube / Vimeo embed
+              return (
+                <iframe
+                  key={embedUrl}
+                  src={embedUrl}
+                  className="w-full"
+                  style={{ height: "50vh" }}
+                  allow="autoplay; fullscreen"
+                  allowFullScreen
+                  title={playingVideo.title}
+                  data-testid="video-embed-frame"
+                />
+              );
+            }
+            // Unknown external URL — link out
+            return (
+              <div className="p-6 text-center space-y-3">
+                <Video className="w-12 h-12 text-muted-foreground mx-auto" />
+                <p className="text-muted-foreground text-sm">
+                  This video can't be embedded. Open it in a new tab to watch.
+                </p>
+                <a
+                  href={url ?? "#"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-primary underline text-sm"
+                  data-testid="link-open-video"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  Open video
+                </a>
+              </div>
+            );
+          })()}
+          {playingVideo?.description && (
+            <p className="px-4 pb-4 text-sm text-muted-foreground">{playingVideo.description}</p>
+          )}
         </DialogContent>
       </Dialog>
     </div>
