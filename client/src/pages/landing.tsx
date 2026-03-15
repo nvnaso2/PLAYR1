@@ -19,8 +19,8 @@ export default function Landing() {
   const features = [
     {
       icon: Play,
-      title: "Professional Drill Library",
-      description: "Access hundreds of drills across 7 categories - ball handling, shooting, passing, finishing, defense, IQ, and workouts."
+      title: "Access Drill Library with 50+ Drills",
+      description: "Access 50+ drills across 7 categories - ball handling, shooting, passing, finishing, defense, IQ, and workouts."
     },
     {
       icon: TrendingUp,
@@ -37,11 +37,6 @@ export default function Landing() {
       title: "Upload Your Videos",
       description: "Record and upload your training sessions. Review your form and share your progress with the community."
     }
-  ];
-
-  const stats = [
-    { value: "50+", label: "Training Drills" },
-    { value: "7", label: "Skill Categories" },
   ];
 
   return (
@@ -128,23 +123,6 @@ export default function Landing() {
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="py-12 border-y border-border bg-muted/30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 gap-8 max-w-xs mx-auto md:max-w-sm">
-            {stats.map((stat, index) => (
-              <div key={index} className="text-center">
-                <div className="text-3xl sm:text-4xl font-bold text-primary" data-testid={`text-stat-value-${index}`}>
-                  {stat.value}
-                </div>
-                <div className="text-sm text-muted-foreground mt-1" data-testid={`text-stat-label-${index}`}>
-                  {stat.label}
-                </div>
-              </div>
-            ))}
           </div>
         </div>
       </section>
