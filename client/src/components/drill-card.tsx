@@ -42,20 +42,24 @@ export function DrillCard({ drill, personalBest, totalSessions }: DrillCardProps
         data-testid={`card-drill-${drill.id}`}
       >
         <div className="relative aspect-video bg-muted">
-          {drill.thumbnailUrl ? (
+          {drill.videoUrl ? (
+            // Video available: show thumbnail as poster (first-frame fallback if poster fails)
+            <video
+              src={drill.videoUrl}
+              poster={drill.thumbnailUrl || undefined}
+              preload={drill.thumbnailUrl ? "none" : "metadata"}
+              muted
+              playsInline
+              className="w-full h-full object-cover pointer-events-none"
+              onLoadedMetadata={!drill.thumbnailUrl
+                ? (e) => { (e.currentTarget as HTMLVideoElement).currentTime = 0.5; }
+                : undefined}
+            />
+          ) : drill.thumbnailUrl ? (
             <img 
               src={drill.thumbnailUrl} 
               alt={drill.title}
               className="w-full h-full object-cover"
-            />
-          ) : drill.videoUrl ? (
-            <video
-              src={drill.videoUrl}
-              preload="metadata"
-              muted
-              playsInline
-              className="w-full h-full object-cover pointer-events-none"
-              onLoadedMetadata={(e) => { (e.currentTarget as HTMLVideoElement).currentTime = 0.5; }}
             />
           ) : drill.pdfUrl ? (
             <img 
