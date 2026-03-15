@@ -986,7 +986,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
 
   if (step === "role") {
     return (
-      <div className="min-h-screen flex items-center justify-center p-3 bg-gradient-to-b from-background to-muted/20">
+      <div className="min-h-screen flex items-start justify-center p-3 pt-6 bg-gradient-to-b from-background to-muted/20">
         <div className="w-full max-w-md space-y-3">
           <div className="flex justify-center">
             <img
