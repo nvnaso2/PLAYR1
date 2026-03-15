@@ -95,7 +95,8 @@ export default function Landing() {
 
       <section className="relative pt-24 pb-20 overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
-          <div className="flex justify-center mb-10">
+          <div className="flex flex-col items-center mb-10">
+            <span className="text-primary text-4xl sm:text-5xl font-bold tracking-tight mb-2">Become</span>
             <img
               src={logoLandscape}
               alt="PLAYR1"
@@ -105,10 +106,6 @@ export default function Landing() {
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="space-y-8">
               <div className="space-y-4">
-                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight">
-                  Become{" "}
-                  <span className="text-primary">PLAYR1</span>
-                </h1>
                 <p className="text-lg text-muted-foreground max-w-lg">
                   The all-in-one basketball platform to train, track, and master your game.
                 </p>
