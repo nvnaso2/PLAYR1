@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import heroImage from "@assets/bballpic5_1.1.1_1769377307157.png";
 import logoLandscape from "@assets/Playr1_App_Logo_1773593823443.png";
-import becomePlayr1 from "@assets/Become_PLAYR1_transparent.png";
+import becomePlayr1 from "@assets/Become_PLAYR1_1773596129480_transparent.png";
 import basketballImage from "@assets/Handlz_(26)_1769377307158.png";
 import productImage from "@assets/BBallpic2_1.14.1_1769377307157.png";
 
