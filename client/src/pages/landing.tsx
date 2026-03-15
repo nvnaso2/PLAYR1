@@ -94,7 +94,7 @@ export default function Landing() {
         )}
       </nav>
 
-      <section className="relative pt-16 pb-20 overflow-hidden">
+      <section className="relative pt-16 pb-10 overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
           <div className="flex justify-center mb-4">
             <img
@@ -144,7 +144,7 @@ export default function Landing() {
                       <Play className="w-5 h-5 fill-white" />
                     </div>
                     <div>
-                      <p className="font-semibold">Watch Pro Drills</p>
+                      <p className="font-semibold">Watch Drills</p>
                       <p className="text-sm text-white/70">50+ training videos</p>
                     </div>
                   </div>
@@ -155,9 +155,9 @@ export default function Landing() {
         </div>
       </section>
 
-      <section id="features" className="py-20">
+      <section id="features" className="py-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
+          <div className="text-center mb-8">
             <Badge variant="secondary" className="mb-4">Features</Badge>
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
               Everything You Need to{" "}
@@ -193,7 +193,7 @@ export default function Landing() {
         </div>
       </section>
 
-      <section id="how-it-works" className="py-20 bg-muted/30">
+      <section id="how-it-works" className="py-10 bg-muted/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="order-2 lg:order-1">
@@ -240,7 +240,7 @@ export default function Landing() {
         </div>
       </section>
 
-      <section className="py-20">
+      <section className="py-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="relative rounded-2xl overflow-hidden">
             <img 
