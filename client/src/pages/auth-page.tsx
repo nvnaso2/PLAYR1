@@ -123,7 +123,7 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
             </Button>
           </form>
         </Form>
-        <div className="mt-6 text-center text-sm text-muted-foreground">
+        <div className="mt-3 text-center text-sm text-muted-foreground">
           Don't have an account?{" "}
           <button onClick={onSwitch} className="text-primary hover:underline font-medium" data-testid="button-switch-register">
             Create one
@@ -273,10 +273,10 @@ export default function AuthPage() {
   return (
     <div className="min-h-screen flex" data-testid="page-auth">
       <div className="flex-1 bg-background">
-        <div className="flex flex-col items-center px-6 pt-2 pb-10">
+        <div className="flex flex-col items-center px-6 pt-2 pb-4">
           <div className="w-full max-w-md">
             <div className="flex justify-center mb-0">
-              <img src={logoLandscape} alt="PLAYR1" className="h-56 w-[512px] max-w-full object-contain invert hue-rotate-180 dark:invert-0 dark:hue-rotate-0" data-testid="img-auth-logo" />
+              <img src={logoLandscape} alt="PLAYR1" className="h-36 w-[360px] max-w-full object-contain invert hue-rotate-180 dark:invert-0 dark:hue-rotate-0" data-testid="img-auth-logo" />
             </div>
             {mode === "login" ? (
               <LoginForm onSwitch={() => setMode("register")} />
