@@ -53,7 +53,7 @@ export default function Landing() {
               <img 
                 src={logoLandscape} 
                 alt="PLAYR1" 
-                className="h-10 w-40 object-cover mix-blend-screen dark:mix-blend-screen"
+                className="h-10 w-40 object-cover invert hue-rotate-180 mix-blend-multiply dark:invert-0 dark:hue-rotate-0 dark:mix-blend-screen"
                 data-testid="img-logo"
               />
             </div>
@@ -100,7 +100,7 @@ export default function Landing() {
             <img
               src={logoLandscape}
               alt="PLAYR1"
-              className="h-24 w-[480px] max-w-full object-cover mix-blend-screen dark:mix-blend-screen"
+              className="h-24 w-[480px] max-w-full object-cover invert hue-rotate-180 mix-blend-multiply dark:invert-0 dark:hue-rotate-0 dark:mix-blend-screen"
             />
           </div>
           <div className="grid lg:grid-cols-2 gap-12 items-center">
@@ -277,7 +277,7 @@ export default function Landing() {
               <img 
                 src={logoLandscape} 
                 alt="PLAYR1" 
-                className="h-8 w-32 object-cover mix-blend-screen dark:mix-blend-screen"
+                className="h-8 w-32 object-cover invert hue-rotate-180 mix-blend-multiply dark:invert-0 dark:hue-rotate-0 dark:mix-blend-screen"
               />
               <span className="text-sm text-muted-foreground">
                 © 2025 PLAYR1. All rights reserved.
