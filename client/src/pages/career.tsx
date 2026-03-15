@@ -3582,6 +3582,7 @@ function StatsTab() {
 }
 
 type TrophySection = "achievements" | "challenges" | "prs" | "awards";
+// Achievements hidden until achievement definitions are seeded
 
 function TrophyRoomTab({ 
   achievements, 
@@ -3597,7 +3598,7 @@ function TrophyRoomTab({
   profile: CareerProfile;
 }) {
   const { toast } = useToast();
-  const defaultOrder: TrophySection[] = ["achievements", "challenges", "prs", "awards"];
+  const defaultOrder: TrophySection[] = ["challenges", "prs", "awards"];
   if (!profile) return null;
   const savedOrder = profile.trophyRoomOrder as TrophySection[] | null;
   const initialOrder = savedOrder && savedOrder.length === defaultOrder.length && savedOrder.every(s => defaultOrder.includes(s))
@@ -3833,29 +3834,7 @@ function TrophyRoomTab({
   const renderSection = (section: TrophySection, index: number) => {
     switch (section) {
       case "achievements":
-        return (
-          <Card key="achievements">
-            {renderSectionHeader("achievements", <Trophy className="w-5 h-5 text-yellow-500" />, "Achievements", `${achievements?.length || 0} unlocked`)}
-            {!collapsedSections.has("achievements") && <CardContent>
-              {!achievements || achievements.length === 0 ? (
-                <div className="text-center py-8">
-                  <Trophy className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
-                  <p className="text-muted-foreground">No achievements yet. Start training to unlock your first badge!</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {achievements.map(ua => (
-                    <div key={ua.id} className="text-center p-4 rounded-md bg-muted/50" data-testid={`achievement-item-${ua.id}`}>
-                      <div className="text-3xl mb-2">{ua.achievement.icon || ""}</div>
-                      <div className="font-medium text-sm">{ua.achievement.name}</div>
-                      {/* XP hidden: <Badge variant="secondary" className="mt-1 text-xs">+{ua.achievement.xpReward} XP</Badge> */}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>}
-          </Card>
-        );
+        return null; // Hidden until achievement definitions are seeded
 
       case "challenges":
         return (
