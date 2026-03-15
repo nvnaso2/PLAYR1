@@ -947,17 +947,20 @@ export class DatabaseStorage implements IStorage {
     let layupsMade = 0;
 
     for (const log of logs) {
-      if (log.shotLocation && log.shotsMade && log.shotsMade > 0) {
-        const classification = LOCATION_CLASSIFICATIONS[log.shotLocation as ShotLocation];
+      if (log.shotsMade && log.shotsMade > 0) {
+        // Count ALL made shots regardless of location
         totalShotsMade += log.shotsMade;
-        if (classification === "3-pointer") threePointersMade += log.shotsMade;
-        else if (classification === "free-throw") freeThrowsMade += log.shotsMade;
-        else if (classification === "2-pointer") {
-          const loc = log.shotLocation as string;
-          if (loc.includes("block")) {
-            layupsMade += log.shotsMade;
-          } else {
-            fieldGoalsMade += log.shotsMade;
+        if (log.shotLocation) {
+          const classification = LOCATION_CLASSIFICATIONS[log.shotLocation as ShotLocation];
+          if (classification === "3-pointer") threePointersMade += log.shotsMade;
+          else if (classification === "free-throw") freeThrowsMade += log.shotsMade;
+          else if (classification === "2-pointer") {
+            const loc = log.shotLocation as string;
+            if (loc.includes("block")) {
+              layupsMade += log.shotsMade;
+            } else {
+              fieldGoalsMade += log.shotsMade;
+            }
           }
         }
       }
@@ -1017,27 +1020,10 @@ export class DatabaseStorage implements IStorage {
       const totalDribbles = (metricTotals["total_dribbles"] || 0) + (metricTotals["dribbles"] || 0);
       const passesMade = (metricTotals["passes"] || 0) + (metricTotals["total_passes"] || 0) + (metricTotals["left_hand_passes"] || 0) + (metricTotals["right_hand_passes"] || 0);
       const formShotsMade = metricTotals["form_shots_made"] || 0;
-      const metricFreeThrowsMade = metricTotals["free_throws_made"] || 0;
       const metricLayups = (metricTotals["total_layups"] || 0) + (metricTotals["left_hand_layups"] || 0) + (metricTotals["right_hand_layups"] || 0);
 
-      let metricShotsMade = 0;
-      let metricFTFromDrill = 0;
-      for (const entry of metricShotsByDrill) {
-        const drillTitle = entry.drillId ? (drillTitleMap.get(entry.drillId) || "") : "";
-        if (drillTitle.includes("free throw") || drillTitle.includes("free-throw") || drillTitle.includes("ft ") || drillTitle === "ft") {
-          metricFTFromDrill += entry.value;
-        }
-        metricShotsMade += entry.value;
-      }
-
-      if (metricShotsMade > 0) {
-        result["totalShotsMade"] = (result["totalShotsMade"] || 0) + metricShotsMade;
-      }
-
-      const totalMetricFT = metricFreeThrowsMade + metricFTFromDrill;
-      if (totalMetricFT > 0) {
-        result["freeThrowsMade"] = (result["freeThrowsMade"] || 0) + totalMetricFT;
-      }
+      // Note: shot totals (totalShotsMade, freeThrowsMade, etc.) are derived from
+      // training_logs.shotsMade + shotLocation above — do NOT add metric shots on top (double-count).
 
       if (metricLayups > 0) {
         result["layupsMade"] = (result["layupsMade"] || 0) + metricLayups;
