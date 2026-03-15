@@ -4409,11 +4409,8 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: typeof editFormData) => {
-      const { city, state, zipCode, ...careerData } = data;
+      const { city: _city, state: _state, zipCode: _zipCode, ...careerData } = data;
       await apiRequest("PUT", "/api/career", careerData);
-      if (city !== (userProfile?.city || "") || state !== (userProfile?.state || "") || zipCode !== (userProfile?.zipCode || "")) {
-        await apiRequest("PUT", "/api/profile", { city, state, zipCode });
-      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/career'] });
@@ -4802,50 +4799,6 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-
-            <div className="pt-2 border-t">
-              <Label className="flex items-center gap-1 mb-3">
-                <MapPin className="w-4 h-4" />
-                Location
-              </Label>
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <Label className="text-xs text-muted-foreground">City</Label>
-                  <Input
-                    value={editFormData.city}
-                    onChange={(e) => setEditFormData(prev => ({ ...prev, city: e.target.value }))}
-                    placeholder="City"
-                    data-testid="input-edit-city"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">State</Label>
-                  <Select
-                    value={editFormData.state}
-                    onValueChange={(v) => setEditFormData(prev => ({ ...prev, state: v }))}
-                  >
-                    <SelectTrigger data-testid="select-edit-state">
-                      <SelectValue placeholder="State" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {US_STATES.map(s => (
-                        <SelectItem key={s} value={s}>{s}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Zip Code</Label>
-                  <Input
-                    value={editFormData.zipCode}
-                    onChange={(e) => setEditFormData(prev => ({ ...prev, zipCode: e.target.value }))}
-                    placeholder="Zip"
-                    maxLength={5}
-                    data-testid="input-edit-zip-code"
-                  />
-                </div>
-              </div>
             </div>
           </div>
           <DialogFooter>
