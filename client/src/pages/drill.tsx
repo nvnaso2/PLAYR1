@@ -1,22 +1,36 @@
+import { useState } from "react";
 import { useParams, Link } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
-import { 
-  Play, 
-  Clock, 
-  Target, 
-  ChevronLeft, 
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Play,
+  Clock,
+  Target,
+  ChevronLeft,
   ClipboardList,
   Lightbulb,
   Dumbbell,
-  Share2
+  Share2,
+  Copy,
+  Check,
+  Send,
+  Search,
+  Link2,
+  Users,
 } from "lucide-react";
 import type { Drill } from "@shared/schema";
 import { BasketballRating } from "@/components/basketball-rating";
+import { apiRequest } from "@/lib/queryClient";
 
 const difficultyColors = {
   beginner: "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20",
@@ -35,8 +49,255 @@ const categoryLabels: Record<string, string> = {
   "workouts": "Workouts",
 };
 
+// ── Share Drill Dialog ────────────────────────────────────────────────────────
+
+type Connection = {
+  id: string;
+  status: string;
+  otherUser: {
+    id: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    displayName?: string | null;
+    profileImageUrl?: string | null;
+    profilePhotoUrl?: string | null;
+  } | null;
+};
+
+function ShareDrillDialog({
+  drill,
+  open,
+  onOpenChange,
+}: {
+  drill: Drill;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}) {
+  const { toast } = useToast();
+  const [search, setSearch] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [note, setNote] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  const drillUrl = `${window.location.origin}/drills/${drill.id}`;
+
+  const { data: connections = [] } = useQuery<Connection[]>({
+    queryKey: ["/api/connections"],
+    enabled: open,
+  });
+
+  const accepted = connections.filter(
+    (c) => c.status === "accepted" && c.otherUser
+  );
+
+  const filtered = search.trim()
+    ? accepted.filter((c) => {
+        const u = c.otherUser!;
+        const full = [u.displayName, u.firstName, u.lastName].filter(Boolean).join(" ").toLowerCase();
+        return full.includes(search.toLowerCase());
+      })
+    : accepted;
+
+  const sendMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedUserId) throw new Error("No user selected");
+      const message = note.trim()
+        ? `${note.trim()}\n\nCheck out this drill on PLAYR1: *${drill.title}*\n${drillUrl}`
+        : `Check out this drill on PLAYR1: *${drill.title}*\n${drillUrl}`;
+      await apiRequest("POST", "/api/messages", { receiverId: selectedUserId, content: message });
+    },
+    onSuccess: () => {
+      toast({ title: "Drill shared!", description: "Your message was sent." });
+      setSelectedUserId(null);
+      setNote("");
+      onOpenChange(false);
+    },
+    onError: () => {
+      toast({ title: "Failed to send", description: "Something went wrong. Try again.", variant: "destructive" });
+    },
+  });
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(drillUrl);
+      setCopied(true);
+      toast({ title: "Link copied!", description: "Drill link copied to clipboard." });
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast({ title: "Copy failed", description: "Please copy the link manually.", variant: "destructive" });
+    }
+  };
+
+  const handleNativeShare = async () => {
+    try {
+      await navigator.share({
+        title: drill.title,
+        text: `Check out this basketball drill: ${drill.title}`,
+        url: drillUrl,
+      });
+    } catch {
+      // User cancelled or browser doesn't support — fall back silently
+    }
+  };
+
+  const canNativeShare = typeof navigator !== "undefined" && !!navigator.share;
+
+  const getInitials = (u: Connection["otherUser"]) => {
+    if (!u) return "?";
+    return [u.firstName?.[0], u.lastName?.[0]].filter(Boolean).join("").toUpperCase() || "?";
+  };
+
+  const getDisplayName = (u: Connection["otherUser"]) => {
+    if (!u) return "Unknown";
+    return u.displayName || [u.firstName, u.lastName].filter(Boolean).join(" ") || "Unknown";
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md" data-testid="dialog-share-drill">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Share2 className="w-5 h-5 text-primary" />
+            Share Drill
+          </DialogTitle>
+        </DialogHeader>
+
+        <Tabs defaultValue="connections">
+          <TabsList className="w-full">
+            <TabsTrigger value="connections" className="flex-1 gap-2" data-testid="tab-share-connections">
+              <Users className="w-4 h-4" />
+              Send to Connection
+            </TabsTrigger>
+            <TabsTrigger value="link" className="flex-1 gap-2" data-testid="tab-share-link">
+              <Link2 className="w-4 h-4" />
+              Share Link
+            </TabsTrigger>
+          </TabsList>
+
+          {/* ── Tab: Send to a connection ── */}
+          <TabsContent value="connections" className="mt-4 space-y-4">
+            {accepted.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground" data-testid="text-no-connections">
+                <Users className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                <p className="text-sm">No connections yet.</p>
+                <p className="text-xs mt-1">Connect with players and trainers to share drills.</p>
+              </div>
+            ) : (
+              <>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search connections…"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-9"
+                    data-testid="input-search-connections"
+                  />
+                </div>
+
+                <div className="max-h-48 overflow-y-auto space-y-1 pr-1" data-testid="list-connections">
+                  {filtered.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">No results</p>
+                  ) : (
+                    filtered.map((conn) => {
+                      const u = conn.otherUser!;
+                      const isSelected = selectedUserId === u.id;
+                      return (
+                        <button
+                          key={conn.id}
+                          onClick={() => setSelectedUserId(isSelected ? null : u.id)}
+                          className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-left transition-colors ${
+                            isSelected
+                              ? "bg-primary/15 ring-1 ring-primary"
+                              : "hover:bg-accent"
+                          }`}
+                          data-testid={`button-select-connection-${u.id}`}
+                        >
+                          <Avatar className="w-9 h-9 flex-shrink-0">
+                            <AvatarImage src={u.profilePhotoUrl || u.profileImageUrl || undefined} />
+                            <AvatarFallback>{getInitials(u)}</AvatarFallback>
+                          </Avatar>
+                          <span className="text-sm font-medium flex-1 truncate">{getDisplayName(u)}</span>
+                          {isSelected && <Check className="w-4 h-4 text-primary flex-shrink-0" />}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+
+                {selectedUserId && (
+                  <Textarea
+                    placeholder="Add a note (optional)…"
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    rows={2}
+                    className="resize-none"
+                    data-testid="textarea-share-note"
+                  />
+                )}
+
+                <Button
+                  className="w-full gap-2"
+                  disabled={!selectedUserId || sendMutation.isPending}
+                  onClick={() => sendMutation.mutate()}
+                  data-testid="button-send-to-connection"
+                >
+                  <Send className="w-4 h-4" />
+                  {sendMutation.isPending ? "Sending…" : "Send Drill"}
+                </Button>
+              </>
+            )}
+          </TabsContent>
+
+          {/* ── Tab: Share link ── */}
+          <TabsContent value="link" className="mt-4 space-y-4">
+            <div>
+              <p className="text-sm text-muted-foreground mb-2">
+                Share this link with anyone — they can view the drill even without a PLAYR1 account.
+              </p>
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-muted border text-sm font-mono break-all" data-testid="text-drill-link">
+                {drillUrl}
+              </div>
+            </div>
+
+            <Button
+              className="w-full gap-2"
+              onClick={handleCopy}
+              variant="outline"
+              data-testid="button-copy-link"
+            >
+              {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+              {copied ? "Copied!" : "Copy Link"}
+            </Button>
+
+            {canNativeShare && (
+              <Button
+                className="w-full gap-2"
+                onClick={handleNativeShare}
+                data-testid="button-native-share"
+              >
+                <Share2 className="w-4 h-4" />
+                Share via…
+              </Button>
+            )}
+
+            <Separator />
+
+            <p className="text-xs text-muted-foreground text-center">
+              You can also paste this link in a text message, email, or social media post.
+            </p>
+          </TabsContent>
+        </Tabs>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Main page ─────────────────────────────────────────────────────────────────
+
 export default function DrillPage() {
   const { id } = useParams<{ id: string }>();
+  const [shareOpen, setShareOpen] = useState(false);
 
   const { data: drill, isLoading, error } = useQuery<Drill>({
     queryKey: ['/api/drills', id],
@@ -104,7 +365,7 @@ export default function DrillPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          {/* Video section - only show if video exists */}
+          {/* Video section */}
           {drill.videoUrl && (
             <div className="relative aspect-video bg-muted rounded-xl overflow-hidden">
               <video
@@ -116,11 +377,11 @@ export default function DrillPage() {
               />
             </div>
           )}
-          
-          {/* PDF/Document section - show if pdfUrl exists */}
+
+          {/* PDF / document section */}
           {drill.pdfUrl && (
             <div className="relative rounded-xl overflow-hidden">
-              <img 
+              <img
                 src={drill.pdfUrl}
                 alt={`${drill.title} - Training Document`}
                 className="w-full h-auto object-contain"
@@ -128,11 +389,11 @@ export default function DrillPage() {
               />
             </div>
           )}
-          
-          {/* Thumbnail fallback - only if no video and no pdf but has thumbnail */}
+
+          {/* Thumbnail fallback */}
           {!drill.videoUrl && !drill.pdfUrl && drill.thumbnailUrl && (
             <div className="relative aspect-video bg-muted rounded-xl overflow-hidden">
-              <img 
+              <img
                 src={drill.thumbnailUrl}
                 alt={drill.title}
                 className="w-full h-full object-cover"
@@ -236,13 +497,20 @@ export default function DrillPage() {
                 Log Training Session
               </Button>
             </Link>
-            <Button variant="outline" className="w-full gap-2" data-testid="button-share">
+            <Button
+              variant="outline"
+              className="w-full gap-2"
+              onClick={() => setShareOpen(true)}
+              data-testid="button-share"
+            >
               <Share2 className="w-4 h-4" />
               Share Drill
             </Button>
           </div>
         </div>
       </div>
+
+      <ShareDrillDialog drill={drill} open={shareOpen} onOpenChange={setShareOpen} />
     </div>
   );
 }
