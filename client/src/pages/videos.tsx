@@ -668,6 +668,16 @@ export default function VideosPage() {
                     alt={video.title}
                     className="w-full h-full object-cover"
                   />
+                ) : isInternalVideoUrl(video.videoUrl) ? (
+                  // Render first frame of object-storage video as visual thumbnail
+                  <video
+                    src={video.videoUrl ?? undefined}
+                    preload="metadata"
+                    muted
+                    playsInline
+                    className="w-full h-full object-cover pointer-events-none"
+                    onLoadedMetadata={(e) => { (e.currentTarget as HTMLVideoElement).currentTime = 0.5; }}
+                  />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-muted">
                     <Video className="w-12 h-12 text-muted-foreground/40" />
