@@ -317,6 +317,7 @@ export interface IStorage {
 
   // Player Detail Data
   getPlayerDrillAssignments(playerId: string, trainerId: string): Promise<Array<DrillAssignment & { drill: Drill; teamName?: string }>>;
+  getTrainerDirectAssignments(trainerId: string): Promise<Array<DrillAssignment & { drill: Drill; playerName: string; playerRosterId: string }>>;
   getPlayerSharedVideos(playerId: string, trainerId: string): Promise<Array<{ id: string; userId: string; playerName: string; title: string; videoUrl: string; description: string | null; assignmentId: string | null; teamName: string; createdAt: Date | null }>>;
   getPlayerMessages(playerId: string, trainerId: string): Promise<Message[]>;
 
@@ -2611,6 +2612,29 @@ export class DatabaseStorage implements IStorage {
     return allAssignmentsRaw
       .filter(a => drillMap.has(a.drillId))
       .map(a => ({ ...a, drill: drillMap.get(a.drillId)!, teamName: a.teamId ? teamMap.get(a.teamId)?.name : undefined }));
+  }
+
+  async getTrainerDirectAssignments(trainerId: string): Promise<Array<DrillAssignment & { drill: Drill; playerName: string; playerRosterId: string }>> {
+    const directAssignments = await db.select().from(drillAssignments)
+      .where(and(eq(drillAssignments.assignedBy, trainerId), isNotNull(drillAssignments.assignedTo), isNull(drillAssignments.teamId)))
+      .orderBy(desc(drillAssignments.createdAt));
+    if (!directAssignments.length) return [];
+    const drillIds = [...new Set(directAssignments.map(a => a.drillId))];
+    const rosterIds = [...new Set(directAssignments.map(a => a.assignedTo!))];
+    const [drillsData, rosterData] = await Promise.all([
+      db.select().from(drills).where(inArray(drills.id, drillIds)),
+      db.select({ id: trainerPlayers.id, firstName: trainerPlayers.firstName, lastName: trainerPlayers.lastName }).from(trainerPlayers).where(inArray(trainerPlayers.id, rosterIds)),
+    ]);
+    const drillMap = new Map(drillsData.map(d => [d.id, d]));
+    const rosterMap = new Map(rosterData.map(p => [p.id, `${p.firstName || ""} ${p.lastName || ""}`.trim() || "Unknown"]));
+    return directAssignments
+      .filter(a => drillMap.has(a.drillId))
+      .map(a => ({
+        ...a,
+        drill: drillMap.get(a.drillId)!,
+        playerName: rosterMap.get(a.assignedTo!) || "Unknown",
+        playerRosterId: a.assignedTo!,
+      }));
   }
 
   async getPlayerSharedVideos(playerId: string, trainerId: string): Promise<Array<{ id: string; userId: string; playerName: string; title: string; videoUrl: string; description: string | null; assignmentId: string | null; teamName: string; createdAt: Date | null }>> {

@@ -307,6 +307,7 @@ function AllDrillsSection() {
       setQuickAssignDueDate("");
       setQuickAssignNotes("");
       queryClient.invalidateQueries({ queryKey: ["/api/trainer/all-assignments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer/direct-assignments"] });
       toast({ title: "Drill assigned!" });
     },
     onError: (error: Error) => {
@@ -1257,7 +1258,7 @@ function AssignmentsSection() {
 
   const groupIds = useMemo(() => groups?.map(g => g.id).sort().join(",") || "", [groups]);
   const teamIds = useMemo(() => coachTeams?.map(t => t.id).sort().join(",") || "", [coachTeams]);
-  const { data: assignmentsByGroup, isLoading: assignmentsLoading } = useQuery<Record<string, Assignment[]>>({
+  const { data: assignmentsByGroup, isLoading: groupAssignmentsLoading } = useQuery<Record<string, Assignment[]>>({
     queryKey: ["/api/trainer/all-assignments", groupIds, teamIds],
     queryFn: async () => {
       const results: Record<string, Assignment[]> = {};
@@ -1275,23 +1276,34 @@ function AssignmentsSection() {
     enabled: !!(groups?.length || coachTeams?.length),
   });
 
+  const { data: directAssignments, isLoading: directAssignmentsLoading } = useQuery<(Assignment & { playerName: string })[]>({
+    queryKey: ["/api/trainer/direct-assignments"],
+  });
+
+  const assignmentsLoading = groupAssignmentsLoading || directAssignmentsLoading;
+
   const flatAssignments = useMemo(() => {
-    if (!assignmentsByGroup) return [];
     const all: { assignment: Assignment; groupName: string }[] = [];
-    Object.entries(assignmentsByGroup).forEach(([entityId, assigns]) => {
-      const group = groups?.find(g => g.id === entityId);
-      const team = coachTeams?.find(t => t.id === entityId);
-      const name = group?.name || team?.name || "Unknown";
-      assigns.forEach(a => all.push({ assignment: a, groupName: name }));
-    });
+    if (assignmentsByGroup) {
+      Object.entries(assignmentsByGroup).forEach(([entityId, assigns]) => {
+        const group = groups?.find(g => g.id === entityId);
+        const team = coachTeams?.find(t => t.id === entityId);
+        const name = group?.name || team?.name || "Unknown";
+        assigns.forEach(a => all.push({ assignment: a, groupName: name }));
+      });
+    }
+    if (directAssignments) {
+      directAssignments.forEach(a => all.push({ assignment: a, groupName: `Player: ${a.playerName}` }));
+    }
     return all;
-  }, [assignmentsByGroup, groups, coachTeams]);
+  }, [assignmentsByGroup, directAssignments, groups, coachTeams]);
 
   const assignMutation = useMutation({
     mutationFn: (data: { drillId: string; teamId?: string; assignedTo?: string; dueDate?: string; notes?: string }) =>
       apiRequest("POST", "/api/trainer/assignments", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/trainer/all-assignments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer/direct-assignments"] });
       toast({ title: "Drill assigned successfully!" });
     },
     onError: (error: Error) => {
@@ -1303,6 +1315,7 @@ function AssignmentsSection() {
     mutationFn: (id: string) => apiRequest("DELETE", `/api/trainer/assignments/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/trainer/all-assignments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer/direct-assignments"] });
       setDeleteAssignmentId(null);
       toast({ title: "Assignment removed" });
     },

@@ -3073,7 +3073,15 @@ export async function registerRoutes(
       const userId = req.user.claims.sub;
       const assignment = await storage.getDrillAssignmentById(req.params.id);
       if (!assignment) return res.status(404).json({ message: "Assignment not found" });
-      if (assignment.assignedTo !== userId && assignment.assignedBy !== userId) return res.status(403).json({ message: "Not authorized" });
+      // assignedTo may be a trainerPlayers roster ID; check if the current user is the linked user
+      let isAuthorized = assignment.assignedTo === userId || assignment.assignedBy === userId;
+      if (!isAuthorized && assignment.assignedTo) {
+        const [rosterEntry] = await db.select({ id: trainerPlayers.id })
+          .from(trainerPlayers)
+          .where(and(eq(trainerPlayers.id, assignment.assignedTo), eq(trainerPlayers.linkedUserId, userId)));
+        if (rosterEntry) isAuthorized = true;
+      }
+      if (!isAuthorized) return res.status(403).json({ message: "Not authorized" });
       const { status } = req.body;
       const updated = await storage.updateDrillAssignmentStatus(req.params.id, status);
       res.json(updated);
@@ -3422,6 +3430,30 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching player assignments:", error);
       res.status(500).json({ message: "Failed to fetch player assignments" });
+    }
+  });
+
+  // Get all direct player assignments for the trainer (assignedTo is set, no team)
+  app.get("/api/trainer/direct-assignments", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const assignments = await storage.getTrainerDirectAssignments(userId);
+      res.json(assignments.map(a => ({
+        id: a.id,
+        drillId: a.drillId,
+        drillTitle: a.drill.title,
+        drillCategory: a.drill.category,
+        assignedTo: a.assignedTo,
+        playerRosterId: a.playerRosterId,
+        playerName: a.playerName,
+        dueDate: a.dueDate,
+        notes: a.notes,
+        status: a.status,
+        createdAt: a.createdAt,
+      })));
+    } catch (error) {
+      console.error("Error fetching trainer direct assignments:", error);
+      res.status(500).json({ message: "Failed to fetch direct assignments" });
     }
   });
 
