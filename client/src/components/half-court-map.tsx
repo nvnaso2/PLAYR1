@@ -58,18 +58,25 @@ const ZONE_DEFS: Record<string, ZoneDef> = {
   "block-right":     { cx: 337, cy: 382, rx: 30, ry: 20, label: "Block Right"     },
 };
 
-// Shooting-percentage colour (red → amber → green)
+// Shooting-percentage colour matching PLAYR1 reference heatmap
+// Dark maroon (cold/poor) → orange → olive → bright green (hot/excellent)
 function zoneColor(pct: number): string {
-  if (pct >= 50) return "#22c55e";
-  if (pct >= 40) return "#f59e0b";
-  return "#ef4444";
+  if (pct <= 30) return "#6B0E0E";
+  if (pct <= 38) return "#9B1F0A";
+  if (pct <= 45) return "#C03410";
+  if (pct <= 52) return "#C86020";
+  if (pct <= 58) return "#9B7820";
+  if (pct <= 65) return "#6B7A20";
+  if (pct <= 72) return "#3D7A2A";
+  if (pct <= 80) return "#2E8E2E";
+  if (pct <= 88) return "#1AA81A";
+  return "#0DC80D";
 }
 
 // Opacity scales with volume (more shots = more visible)
 function zoneOpacity(total: number, maxTotal: number): number {
-  if (maxTotal === 0) return 0.7;
-  const ratio = total / maxTotal;
-  return Math.round((0.5 + 0.45 * ratio) * 100) / 100;
+  if (maxTotal === 0) return 0.78;
+  return 0.72 + 0.18 * Math.sqrt(total / maxTotal);
 }
 
 function CourtSVG({
@@ -86,23 +93,8 @@ function CourtSVG({
 
   return (
     <svg viewBox="0 0 500 470" className="w-full h-full" preserveAspectRatio="xMidYMid meet">
-      <defs>
-        <linearGradient id="courtWood" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%"   stopColor="#d4a574" />
-          <stop offset="25%"  stopColor="#c4956a" />
-          <stop offset="50%"  stopColor="#d4a574" />
-          <stop offset="75%"  stopColor="#c4956a" />
-          <stop offset="100%" stopColor="#d4a574" />
-        </linearGradient>
-        <pattern id="woodGrain" patternUnits="userSpaceOnUse" width="100" height="10">
-          <rect width="100" height="10" fill="url(#courtWood)" />
-          <line x1="0" y1="2" x2="100" y2="2" stroke="#bf8a5a" strokeWidth="0.5" opacity="0.3" />
-          <line x1="0" y1="7" x2="100" y2="7" stroke="#bf8a5a" strokeWidth="0.3" opacity="0.2" />
-        </pattern>
-      </defs>
-
-      {/* ── Court background ─────────────────── */}
-      <rect x="0" y="0" width="500" height="470" fill="url(#woodGrain)" />
+      {/* ── Black court background ─────────────────── */}
+      <rect x="0" y="0" width="500" height="470" fill="#000000" />
 
       {/* ── Shot zones (drawn BEFORE court lines so lines stay on top) ── */}
       {Object.entries(processedData).map(([location, data]) => {
@@ -172,57 +164,56 @@ function CourtSVG({
         );
       })}
 
-      {/* ── Court lines (drawn ON TOP of zones) ──────────────────── */}
+      {/* ── White court lines (drawn ON TOP of zones) ──────────────────── */}
 
       {/* Border */}
-      <rect x="5" y="5" width="490" height="460" fill="none" stroke="#1a1a1a" strokeWidth="4" />
+      <rect x="5" y="5" width="490" height="460" fill="none" stroke="white" strokeWidth="2.5" />
 
       {/* Mid-court / top edge */}
-      <line x1="5" y1="5" x2="495" y2="5" stroke="#1a1a1a" strokeWidth="3" />
+      <line x1="5" y1="5" x2="495" y2="5" stroke="white" strokeWidth="2" />
 
       {/* Baseline */}
-      <line x1="5" y1="435" x2="495" y2="435" stroke="#1a1a1a" strokeWidth="3" />
+      <line x1="5" y1="435" x2="495" y2="435" stroke="white" strokeWidth="2" />
 
       {/* Three-point line */}
       <path
         d="M 30 435 L 30 285 Q 30 100, 250 70 Q 470 100, 470 285 L 470 435"
         fill="none"
-        stroke="#1a1a1a"
-        strokeWidth="2.5"
+        stroke="white"
+        strokeWidth="2"
       />
 
       {/* Paint / Key */}
-      <rect x="170" y="245" width="160" height="190" fill="none" stroke="#1a1a1a" strokeWidth="2.5" />
+      <rect x="170" y="245" width="160" height="190" fill="none" stroke="white" strokeWidth="2" />
 
       {/* Free-throw circle – top half (solid) */}
-      <path d="M 170 245 A 80 80 0 0 1 330 245" fill="none" stroke="#1a1a1a" strokeWidth="2.5" />
+      <path d="M 170 245 A 80 80 0 0 1 330 245" fill="none" stroke="white" strokeWidth="2" />
 
       {/* Free-throw circle – bottom half (dashed) */}
       <path
         d="M 330 245 A 80 80 0 0 1 170 245"
         fill="none"
-        stroke="#1a1a1a"
-        strokeWidth="2"
-        strokeDasharray="8,8"
+        stroke="white"
+        strokeWidth="1.5"
+        strokeDasharray="8,6"
       />
 
       {/* Restricted area arc */}
-      <path d="M 210 435 A 40 40 0 0 1 290 435" fill="none" stroke="#1a1a1a" strokeWidth="2" />
+      <path d="M 210 435 A 40 40 0 0 1 290 435" fill="none" stroke="white" strokeWidth="1.5" />
 
       {/* Backboard */}
-      <rect x="220" y="420" width="60" height="4" fill="#1a1a1a" />
+      <rect x="220" y="420" width="60" height="4" fill="white" />
 
       {/* Rim */}
-      <circle cx="250" cy="405" r="9" fill="none" stroke="#e55039" strokeWidth="3" />
-      <line x1="250" y1="414" x2="250" y2="420" stroke="#1a1a1a" strokeWidth="2" />
+      <circle cx="250" cy="405" r="9" fill="none" stroke="#E55039" strokeWidth="2.5" />
 
       {/* Lane hash marks */}
-      <line x1="170" y1="355" x2="155" y2="355" stroke="#1a1a1a" strokeWidth="2" />
-      <line x1="330" y1="355" x2="345" y2="355" stroke="#1a1a1a" strokeWidth="2" />
-      <line x1="170" y1="380" x2="155" y2="380" stroke="#1a1a1a" strokeWidth="2" />
-      <line x1="330" y1="380" x2="345" y2="380" stroke="#1a1a1a" strokeWidth="2" />
-      <line x1="170" y1="405" x2="155" y2="405" stroke="#1a1a1a" strokeWidth="2" />
-      <line x1="330" y1="405" x2="345" y2="405" stroke="#1a1a1a" strokeWidth="2" />
+      <line x1="170" y1="320" x2="150" y2="320" stroke="white" strokeWidth="1.5" />
+      <line x1="330" y1="320" x2="350" y2="320" stroke="white" strokeWidth="1.5" />
+      <line x1="170" y1="350" x2="150" y2="350" stroke="white" strokeWidth="1.5" />
+      <line x1="330" y1="350" x2="350" y2="350" stroke="white" strokeWidth="1.5" />
+      <line x1="170" y1="380" x2="150" y2="380" stroke="white" strokeWidth="1.5" />
+      <line x1="330" y1="380" x2="350" y2="380" stroke="white" strokeWidth="1.5" />
     </svg>
   );
 }
@@ -256,58 +247,43 @@ export function HalfCourtMap({
 
   if (!hasShots) return null;
 
+  const pct = totals.percentage;
+  const pctColor = pct >= 65 ? "text-green-400" : pct >= 50 ? "text-yellow-400" : pct >= 40 ? "text-orange-400" : "text-red-400";
+
   return (
-    <Card className={className}>
+    <Card className={`bg-black border-zinc-800 ${className}`}>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">{title}</CardTitle>
+          <CardTitle className="text-lg text-white">{title}</CardTitle>
           <div className="flex items-center gap-2 text-sm">
-            <span className="text-muted-foreground">Total:</span>
-            <span className="font-bold">{totals.made}/{totals.attempted}</span>
-            <span
-              className={`font-bold ${
-                totals.percentage >= 50
-                  ? "text-green-500"
-                  : totals.percentage >= 40
-                  ? "text-amber-500"
-                  : "text-red-500"
-              }`}
-            >
-              ({totals.percentage}%)
-            </span>
+            <span className="text-zinc-400">Total:</span>
+            <span className="font-bold text-white">{totals.made}/{totals.attempted}</span>
+            <span className={`font-bold ${pctColor}`}>({totals.percentage}%)</span>
           </div>
         </div>
       </CardHeader>
 
       <CardContent>
-        <div className="relative w-full aspect-[500/470] rounded-lg overflow-hidden shadow-inner">
+        <div className="relative w-full aspect-[500/470] rounded-lg overflow-hidden">
           <CourtSVG processedData={processedData} />
         </div>
 
         {/* Colour-scale legend */}
-        <div className="flex items-center justify-center gap-5 mt-3 text-xs">
-          <div className="flex items-center gap-1.5">
-            <div className="w-3.5 h-3.5 rounded-sm bg-red-500 opacity-80" />
-            <span className="text-muted-foreground">&lt;40%</span>
+        <div className="flex items-center justify-center gap-1 mt-3">
+          <span className="text-xs text-zinc-500 mr-1">Cold</span>
+          <div className="flex h-3 rounded overflow-hidden">
+            <div className="w-5" style={{ background: "#6B0E0E" }} />
+            <div className="w-5" style={{ background: "#9B1F0A" }} />
+            <div className="w-5" style={{ background: "#C03410" }} />
+            <div className="w-5" style={{ background: "#C86020" }} />
+            <div className="w-5" style={{ background: "#9B7820" }} />
+            <div className="w-5" style={{ background: "#6B7A20" }} />
+            <div className="w-5" style={{ background: "#3D7A2A" }} />
+            <div className="w-5" style={{ background: "#2E8E2E" }} />
+            <div className="w-5" style={{ background: "#1AA81A" }} />
+            <div className="w-5" style={{ background: "#0DC80D" }} />
           </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-3.5 h-3.5 rounded-sm bg-amber-500 opacity-80" />
-            <span className="text-muted-foreground">40–49%</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-3.5 h-3.5 rounded-sm bg-green-500 opacity-80" />
-            <span className="text-muted-foreground">50%+</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-6 h-3.5 rounded-sm bg-green-500"
-              style={{ opacity: 0.5 }}
-            />
-            <span className="text-muted-foreground">→</span>
-            <div className="w-6 h-3.5 rounded-sm bg-green-500"
-              style={{ opacity: 0.95 }}
-            />
-            <span className="text-muted-foreground">volume</span>
-          </div>
+          <span className="text-xs text-zinc-500 ml-1">Hot</span>
         </div>
 
         {/* Zone breakdown table */}
@@ -317,24 +293,18 @@ export function HalfCourtMap({
               const zone = ZONE_DEFS[location];
               if (!zone) return null;
               const total = data.made + data.missed;
-              const pct   = total > 0 ? Math.round((data.made / total) * 100) : 0;
+              const zonePct = total > 0 ? Math.round((data.made / total) * 100) : 0;
+              const color   = zoneColor(zonePct);
               return (
                 <div
                   key={location}
-                  className="flex items-center justify-between p-2 rounded bg-muted/50"
+                  className="flex items-center justify-between p-2 rounded"
+                  style={{ backgroundColor: color + "28", border: `1px solid ${color}44` }}
                   data-testid={`shot-location-stat-${location}`}
                 >
-                  <span className="text-muted-foreground truncate">{zone.label}</span>
-                  <span
-                    className={`font-medium ${
-                      pct >= 50
-                        ? "text-green-500"
-                        : pct >= 40
-                        ? "text-amber-500"
-                        : "text-red-500"
-                    }`}
-                  >
-                    {data.made}/{total} ({pct}%)
+                  <span className="text-zinc-300 truncate">{zone.label}</span>
+                  <span className="font-medium ml-1 shrink-0" style={{ color }}>
+                    {data.made}/{total} ({zonePct}%)
                   </span>
                 </div>
               );
