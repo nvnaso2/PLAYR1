@@ -95,6 +95,13 @@ export default function Landing() {
 
       <section className="relative pt-24 pb-20 overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+          <div className="flex justify-center mb-10">
+            <img
+              src={logoLandscape}
+              alt="PLAYR1"
+              className="h-24 w-[480px] max-w-full object-cover mix-blend-screen dark:mix-blend-screen"
+            />
+          </div>
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="space-y-8">
               <div className="space-y-4">
