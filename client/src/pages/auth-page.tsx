@@ -276,7 +276,7 @@ export default function AuthPage() {
         <div className="flex flex-col items-center px-6 pt-2 pb-4">
           <div className="w-full max-w-md">
             <div className="flex justify-center mb-0">
-              <img src={logoLandscape} alt="PLAYR1" className="h-36 w-[360px] max-w-full object-contain invert hue-rotate-180 dark:invert-0 dark:hue-rotate-0" data-testid="img-auth-logo" />
+              <img src={logoLandscape} alt="PLAYR1" className="h-28 w-[280px] max-w-full object-contain invert hue-rotate-180 dark:invert-0 dark:hue-rotate-0" data-testid="img-auth-logo" />
             </div>
             {mode === "login" ? (
               <LoginForm onSwitch={() => setMode("register")} />
