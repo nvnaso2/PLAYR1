@@ -2035,7 +2035,7 @@ export default function TrainingLogPage() {
           setShowFavoriteDialog(false);
           setWorkoutEntries([]);
           setSelectedDrillIds(new Set());
-          setActiveView("history");
+          setActiveView("library");
         }
       }}>
         <DialogContent>
@@ -2064,7 +2064,7 @@ export default function TrainingLogPage() {
               setShowFavoriteDialog(false);
               setWorkoutEntries([]);
               setSelectedDrillIds(new Set());
-              setActiveView("history");
+              setActiveView("library");
             }} data-testid="button-skip-favorite">
               Skip
             </Button>
@@ -2075,7 +2075,7 @@ export default function TrainingLogPage() {
                 setShowFavoriteDialog(false);
                 setWorkoutEntries([]);
                 setSelectedDrillIds(new Set());
-                setActiveView("history");
+                setActiveView("library");
               }} className="gap-2" data-testid="button-save-favorite">
                 <Star className="w-4 h-4" />
                 Save as Favorite Drill
@@ -2099,7 +2099,7 @@ export default function TrainingLogPage() {
           setIsSaveWorkoutOpen(false);
           setWorkoutEntries([]);
           setSelectedDrillIds(new Set());
-          setActiveView("history");
+          setActiveView("library");
         }
       }}>
         <DialogContent>
@@ -2113,7 +2113,7 @@ export default function TrainingLogPage() {
               saveWorkoutMutation.mutate({ ...d, drillIds, asFavorite: true });
               setWorkoutEntries([]);
               setSelectedDrillIds(new Set());
-              setActiveView("history");
+              setActiveView("library");
             })} className="space-y-4">
               <FormField control={saveWorkoutForm.control} name="name" render={({ field }) => (
                 <FormItem>
@@ -2134,7 +2134,7 @@ export default function TrainingLogPage() {
                   setIsSaveWorkoutOpen(false);
                   setWorkoutEntries([]);
                   setSelectedDrillIds(new Set());
-                  setActiveView("history");
+                  setActiveView("library");
                 }}>Skip</Button>
                 <Button type="submit" disabled={saveWorkoutMutation.isPending} data-testid="button-confirm-fav-workout">
                   {saveWorkoutMutation.isPending ? "Saving..." : "Save Favorite Workout"}
