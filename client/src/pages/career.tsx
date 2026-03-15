@@ -290,7 +290,7 @@ const TUTORIAL_SLIDES = {
       content: [
         { heading: "Dashboard", text: "Your home dashboard shows total sessions, hours trained, and your current streak. Check the category breakdown to see where you're spending your time." },
         { heading: "Progress Page", text: "Dive deeper on the Progress page — see your shooting heatmap, skill breakdown charts, and weekly activity." },
-        { heading: "Career & Trophy Room", text: "Every drill you log earns XP toward your Career level. Hit milestones to unlock achievements, and track personal records in your Trophy Room." },
+        { heading: "Career & Trophy Room", text: "Hit milestones to unlock achievements and track personal records in your Trophy Room." },
         { heading: "Challenges", text: "Set goals like \"Make 500 shots\" or \"Train 30 days in a row.\" Your drill logs automatically count toward active challenges." },
       ],
       tip: "Your stats show up on your Player Profile too — great for recruiting and showcasing your work ethic.",
@@ -3844,7 +3844,7 @@ function TrophyRoomTab({
                     <div key={ua.id} className="text-center p-4 rounded-md bg-muted/50" data-testid={`achievement-item-${ua.id}`}>
                       <div className="text-3xl mb-2">{ua.achievement.icon || ""}</div>
                       <div className="font-medium text-sm">{ua.achievement.name}</div>
-                      <Badge variant="secondary" className="mt-1 text-xs">+{ua.achievement.xpReward} XP</Badge>
+                      {/* XP hidden: <Badge variant="secondary" className="mt-1 text-xs">+{ua.achievement.xpReward} XP</Badge> */}
                     </div>
                   ))}
                 </div>
@@ -4482,36 +4482,7 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
         </TabsList>
 
         <TabsContent value="profile" className="space-y-6">
-          <Card>
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <CardTitle className="flex items-center gap-2">
-              <Zap className="w-5 h-5 text-primary" />
-              Experience Progress
-            </CardTitle>
-            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-              <Badge variant="secondary" className="text-sm px-2.5 py-0.5">
-                Level {profile.level || 1}
-              </Badge>
-              <span className="text-muted-foreground text-sm">
-                {profile.totalXp || 0} Total XP
-              </span>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>Level {profile.level || 1}</span>
-              <span>Level {(profile.level || 1) + 1}</span>
-            </div>
-            <Progress value={xpProgress} />
-            <p className="text-sm text-muted-foreground text-center">
-              {profile.xp || 0} / {xpForNextLevel} XP to next level
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+          {/* XP / Experience Progress card hidden — custom point system coming */}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
