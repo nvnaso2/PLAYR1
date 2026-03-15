@@ -4555,9 +4555,9 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
                 </div>
               )}
               {profile.teamName && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Team</span>
-                  <span className="font-medium">{profile.teamName}</span>
+                <div className="flex justify-between items-start gap-4">
+                  <span className="text-muted-foreground shrink-0">Team</span>
+                  <span className="font-medium text-right">{profile.teamName}</span>
                 </div>
               )}
               {profile.gradeLevel && (
