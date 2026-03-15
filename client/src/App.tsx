@@ -82,17 +82,33 @@ function LoadingScreen() {
 }
 
 function HomeRedirect() {
-  const { activeView, isLoading } = useRole();
+  const { activeView, isLoading: roleLoading } = useRole();
   const { data: careerProfile, isLoading: careerLoading, isError } = useQuery<any>({
     queryKey: ['/api/career'],
     retry: false,
   });
-  if (isLoading || careerLoading) return <LoadingScreen />;
-  if (isError || !careerProfile || !careerProfile.onboardingCompleted) {
+  if (roleLoading || careerLoading) return <LoadingScreen />;
+  if (!isError && (!careerProfile || !careerProfile.onboardingCompleted)) {
     return <Redirect to="/career" />;
   }
   if (activeView === "trainer") return <Redirect to="/trainer" />;
   return <Dashboard />;
+}
+
+function AdminRoute() {
+  const { data, isLoading } = useQuery<{ isAdmin: boolean }>({
+    queryKey: ["/api/admin/check"],
+  });
+  if (isLoading) return <LoadingScreen />;
+  if (!data?.isAdmin) return <Redirect to="/" />;
+  return <Admin />;
+}
+
+function TrainerGuard({ children }: { children: React.ReactNode }) {
+  const { hasStaffRole, isLoading } = useRole();
+  if (isLoading) return <LoadingScreen />;
+  if (!hasStaffRole) return <Redirect to="/" />;
+  return <>{children}</>;
 }
 
 function CoachRedirect() {
@@ -144,19 +160,19 @@ function Router() {
                 <Route path="/videos" component={Videos} />
                 <Route path="/career" component={Career} />
                 <Route path="/profile" component={Profile} />
-                <Route path="/admin" component={Admin} />
+                <Route path="/admin">{() => <AdminRoute />}</Route>
                 <Route path="/coach" component={CoachRedirect} />
-                <Route path="/trainer" component={TrainerDashboard} />
-                <Route path="/trainer/roster/:playerId" component={TrainerPlayerDetail} />
-                <Route path="/trainer/roster" component={TrainerRoster} />
-                <Route path="/trainer/drills" component={TrainerDrills} />
-                <Route path="/trainer/logs" component={TrainerLogs} />
-                <Route path="/trainer/chat" component={TrainerChat} />
+                <Route path="/trainer">{() => <TrainerGuard><TrainerDashboard /></TrainerGuard>}</Route>
+                <Route path="/trainer/roster/:playerId">{() => <TrainerGuard><TrainerPlayerDetail /></TrainerGuard>}</Route>
+                <Route path="/trainer/roster">{() => <TrainerGuard><TrainerRoster /></TrainerGuard>}</Route>
+                <Route path="/trainer/drills">{() => <TrainerGuard><TrainerDrills /></TrainerGuard>}</Route>
+                <Route path="/trainer/logs">{() => <TrainerGuard><TrainerLogs /></TrainerGuard>}</Route>
+                <Route path="/trainer/chat">{() => <TrainerGuard><TrainerChat /></TrainerGuard>}</Route>
                 <Route path="/trainer/videos">{() => <Redirect to="/trainer/drills?tab=videos" />}</Route>
-                <Route path="/trainer/progress" component={TrainerProgress} />
-                <Route path="/trainer/profile" component={TrainerProfile} />
-                <Route path="/trainer/schedule" component={TrainerSchedule} />
-                <Route path="/trainer/evaluations" component={TrainerEvaluations} />
+                <Route path="/trainer/progress">{() => <TrainerGuard><TrainerProgress /></TrainerGuard>}</Route>
+                <Route path="/trainer/profile">{() => <TrainerGuard><TrainerProfile /></TrainerGuard>}</Route>
+                <Route path="/trainer/schedule">{() => <TrainerGuard><TrainerSchedule /></TrainerGuard>}</Route>
+                <Route path="/trainer/evaluations">{() => <TrainerGuard><TrainerEvaluations /></TrainerGuard>}</Route>
                 <Route path="/teams" component={Finder} />
                 <Route path="/connect" component={FindPeople} />
                 <Route path="/my-trainer" component={MyTrainer} />

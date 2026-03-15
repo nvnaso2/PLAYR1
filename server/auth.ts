@@ -83,6 +83,17 @@ const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
+export function getAppBaseUrl(): string {
+  if (process.env.REPLIT_DOMAINS) {
+    return `https://${process.env.REPLIT_DOMAINS.split(",")[0].trim()}`;
+  }
+  return "http://localhost:5000";
+}
+
+function hashResetToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
 export function setupAuth(app: Express) {
   app.use(cookieParser());
 
@@ -227,31 +238,19 @@ export function registerAuthRoutes(app: Express) {
       }
 
       const resetToken = crypto.randomBytes(32).toString("hex");
+      const hashedToken = hashResetToken(resetToken);
       const resetExpires = new Date(Date.now() + 60 * 60 * 1000);
 
       await db
         .update(users)
         .set({
-          passwordResetToken: resetToken,
+          passwordResetToken: hashedToken,
           passwordResetExpires: resetExpires,
           updatedAt: new Date(),
         })
         .where(eq(users.id, user.id));
 
-      const replitDomain = Object.keys(process.env)
-        .filter((k) => k.startsWith("REPLIT_DEV_DOMAIN") || k === "REPL_SLUG")
-        .length > 0
-        ? `https://${process.env.REPLIT_DEV_DOMAIN || process.env.REPL_SLUG + ".replit.app"}`
-        : "";
-      
-      let baseUrl = replitDomain;
-      if (!baseUrl) {
-        const protocol = req.protocol;
-        const host = req.get("host");
-        baseUrl = `${protocol}://${host}`;
-      }
-
-      const resetUrl = `${baseUrl}/reset-password?token=${resetToken}`;
+      const resetUrl = `${getAppBaseUrl()}/reset-password?token=${resetToken}`;
       const displayName = user.firstName || "there";
 
       if (user.email) {
@@ -275,7 +274,7 @@ export function registerAuthRoutes(app: Express) {
         return res.status(400).json({ message: "Password must be at least 8 characters" });
       }
 
-      const [user] = await db.select().from(users).where(eq(users.passwordResetToken, token));
+      const [user] = await db.select().from(users).where(eq(users.passwordResetToken, hashResetToken(token)));
       if (!user || !user.passwordResetExpires || user.passwordResetExpires < new Date()) {
         return res.status(400).json({ message: "Invalid or expired reset token" });
       }

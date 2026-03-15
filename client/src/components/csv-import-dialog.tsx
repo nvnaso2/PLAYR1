@@ -239,6 +239,11 @@ export default function CsvImportDialog({ open, onOpenChange }: Props) {
       toast({ title: "Invalid file", description: "Please upload a .csv file", variant: "destructive" });
       return;
     }
+    const MAX_SIZE = 5 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+      toast({ title: "File too large", description: "CSV file must be under 5MB", variant: "destructive" });
+      return;
+    }
     setFileName(file.name);
     const reader = new FileReader();
     reader.onload = (e) => {

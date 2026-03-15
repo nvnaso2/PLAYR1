@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, registerAuthRoutes, isAuthenticated, type AuthenticatedRequest } from "./auth";
+import { setupAuth, registerAuthRoutes, isAuthenticated, getAppBaseUrl, type AuthenticatedRequest } from "./auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, drills } from "@shared/schema";
 import { users } from "@shared/models/auth";
@@ -218,8 +218,8 @@ export async function registerRoutes(
         payment_method_types: ['card'],
         line_items: [{ price: priceId, quantity: 1 }],
         mode: 'subscription',
-        success_url: `${req.protocol}://${req.get('host')}/subscription?success=true`,
-        cancel_url: `${req.protocol}://${req.get('host')}/subscription?cancelled=true`,
+        success_url: `${getAppBaseUrl()}/subscription?success=true`,
+        cancel_url: `${getAppBaseUrl()}/subscription?cancelled=true`,
       });
 
       res.json({ url: session.url });
@@ -240,7 +240,7 @@ export async function registerRoutes(
       const stripe = await getUncachableStripeClient();
       const session = await stripe.billingPortal.sessions.create({
         customer: user.stripeCustomerId,
-        return_url: `${req.protocol}://${req.get('host')}/subscription`,
+        return_url: `${getAppBaseUrl()}/subscription`,
       });
 
       res.json({ url: session.url });
@@ -277,8 +277,8 @@ export async function registerRoutes(
         }],
         mode: 'payment',
         metadata: { sessionId, payerUserId: userId },
-        success_url: `${req.protocol}://${req.get('host')}/my-trainer?payment=success`,
-        cancel_url: `${req.protocol}://${req.get('host')}/my-trainer?payment=cancelled`,
+        success_url: `${getAppBaseUrl()}/my-trainer?payment=success`,
+        cancel_url: `${getAppBaseUrl()}/my-trainer?payment=cancelled`,
       });
 
       res.json({ url: checkoutSession.url });

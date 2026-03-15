@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,7 @@ type RegisterValues = z.infer<typeof registerSchema>;
 
 function LoginForm({ onSwitch }: { onSwitch: () => void }) {
   const { toast } = useToast();
+  const [, navigate] = useLocation();
   const [showPassword, setShowPassword] = useState(false);
 
   const form = useForm<LoginValues>({
@@ -48,7 +50,7 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
       return res.json();
     },
     onSuccess: () => {
-      window.location.href = "/";
+      navigate("/");
     },
     onError: (error: Error) => {
       toast({ title: "Login failed", description: error.message.replace(/^\d+:\s*/, ""), variant: "destructive" });
@@ -134,6 +136,7 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
 
 function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
   const { toast } = useToast();
+  const [, navigate] = useLocation();
   const [showPassword, setShowPassword] = useState(false);
 
   const form = useForm<RegisterValues>({
@@ -149,7 +152,7 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
       return res.json();
     },
     onSuccess: () => {
-      window.location.href = "/";
+      navigate("/");
     },
     onError: (error: Error) => {
       toast({ title: "Registration failed", description: error.message.replace(/^\d+:\s*/, ""), variant: "destructive" });
