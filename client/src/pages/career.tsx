@@ -705,6 +705,8 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
         await apiRequest("POST", "/api/career", profileData);
       }
       queryClient.invalidateQueries({ queryKey: ['/api/career'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/profile'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/user/location'] });
     } catch (error) {
       toast({ title: "Error saving profile", variant: "destructive" });
     } finally {
@@ -885,6 +887,8 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
         await apiRequest("POST", "/api/career", profileData);
       }
       queryClient.invalidateQueries({ queryKey: ['/api/career'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/profile'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/user/location'] });
       setStep("trainer-specialties");
     } catch (error) {
       toast({ title: "Failed to save profile", variant: "destructive" });
@@ -4358,6 +4362,7 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
     return (tab === 'profile' || tab === 'trophy-room' || tab === 'stats') ? tab : 'profile';
   });
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isSkillDialogOpen, setIsSkillDialogOpen] = useState(false);
   const { data: userProfile } = useQuery<any>({
     queryKey: ['/api/profile'],
   });
@@ -4424,6 +4429,36 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
       toast({
         title: "Error",
         description: "Failed to update profile. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateSkillsMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("PUT", "/api/career", {
+        skillBallHandling: editFormData.skillBallHandling,
+        skillShooting: editFormData.skillShooting,
+        skillPassing: editFormData.skillPassing,
+        skillFinishing: editFormData.skillFinishing,
+        skillDefense: editFormData.skillDefense,
+        skillBasketballIQ: editFormData.skillBasketballIQ,
+        skillAthletics: editFormData.skillAthletics,
+        focusSkill: editFormData.focusSkill,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/career'] });
+      setIsSkillDialogOpen(false);
+      toast({
+        title: "Skill Ratings Updated",
+        description: "Your skill ratings have been saved.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update skill ratings. Please try again.",
         variant: "destructive",
       });
     },
@@ -4598,16 +4633,8 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
               size="icon"
               variant="ghost"
               onClick={() => {
-                setEditFormData({
-                  jerseyNumber: profile.jerseyNumber || 0,
-                  positions: profile.positions || [],
-                  gradeLevel: profile.gradeLevel || "",
-                  schoolName: profile.schoolName || "",
-                  teamName: profile.teamName || "",
-                  aspiration: profile.aspiration || "",
-                  city: userProfile?.city || "",
-                  state: userProfile?.state || "",
-                  zipCode: userProfile?.zipCode || "",
+                setEditFormData(prev => ({
+                  ...prev,
                   skillBallHandling: profile.skillBallHandling ?? 5,
                   skillShooting: profile.skillShooting ?? 5,
                   skillPassing: profile.skillPassing ?? 5,
@@ -4616,8 +4643,8 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
                   skillBasketballIQ: profile.skillBasketballIQ ?? 5,
                   skillAthletics: profile.skillAthletics ?? 5,
                   focusSkill: profile.focusSkill || "",
-                });
-                setIsEditDialogOpen(true);
+                }));
+                setIsSkillDialogOpen(true);
               }}
               data-testid="button-edit-skill-ratings"
             >
@@ -4778,56 +4805,6 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
             </div>
 
             <div className="pt-2 border-t">
-              <Label className="flex items-center gap-2 mb-3">
-                <Star className="w-4 h-4" />
-                Skill Ratings
-              </Label>
-              <div className="space-y-3">
-                {[
-                  { key: "skillBallHandling" as const, label: "Ball Handling" },
-                  { key: "skillShooting" as const, label: "Shooting" },
-                  { key: "skillPassing" as const, label: "Passing" },
-                  { key: "skillFinishing" as const, label: "Finishing" },
-                  { key: "skillDefense" as const, label: "Defense" },
-                  { key: "skillBasketballIQ" as const, label: "Basketball IQ" },
-                  { key: "skillAthletics" as const, label: "Athletics" },
-                ].map(skill => (
-                  <div key={skill.key} className="space-y-1">
-                    <div className="flex justify-between text-sm">
-                      <span>{skill.label}</span>
-                      <span className="font-medium text-primary">{editFormData[skill.key]}</span>
-                    </div>
-                    <Slider
-                      value={[editFormData[skill.key]]}
-                      onValueChange={([v]) => setEditFormData(prev => ({ ...prev, [skill.key]: v }))}
-                      min={1}
-                      max={10}
-                      step={1}
-                      data-testid={`slider-${skill.key}`}
-                    />
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-4">
-                <Label className="text-sm">Focus Skill</Label>
-                <Select
-                  value={editFormData.focusSkill}
-                  onValueChange={(v) => setEditFormData(prev => ({ ...prev, focusSkill: v }))}
-                >
-                  <SelectTrigger data-testid="select-edit-focus-skill" className="mt-1">
-                    <SelectValue placeholder="Select your focus skill" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(SKILL_LABELS).map(([key, { label }]) => (
-                      <SelectItem key={key} value={key}>{label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="pt-2 border-t">
               <Label className="flex items-center gap-1 mb-3">
                 <MapPin className="w-4 h-4" />
                 Location
@@ -4883,6 +4860,74 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
             >
               <Save className="w-4 h-4" />
               {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isSkillDialogOpen} onOpenChange={setIsSkillDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Skill Ratings</DialogTitle>
+            <DialogDescription>Rate your basketball skills from 1 to 10</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-3">
+              {[
+                { key: "skillBallHandling" as const, label: "Ball Handling" },
+                { key: "skillShooting" as const, label: "Shooting" },
+                { key: "skillPassing" as const, label: "Passing" },
+                { key: "skillFinishing" as const, label: "Finishing" },
+                { key: "skillDefense" as const, label: "Defense" },
+                { key: "skillBasketballIQ" as const, label: "Basketball IQ" },
+                { key: "skillAthletics" as const, label: "Athletics" },
+              ].map(skill => (
+                <div key={skill.key} className="space-y-1">
+                  <div className="flex justify-between text-sm">
+                    <span>{skill.label}</span>
+                    <span className="font-medium text-primary">{editFormData[skill.key]}</span>
+                  </div>
+                  <Slider
+                    value={[editFormData[skill.key]]}
+                    onValueChange={([v]) => setEditFormData(prev => ({ ...prev, [skill.key]: v }))}
+                    min={1}
+                    max={10}
+                    step={1}
+                    data-testid={`slider-skill-${skill.key}`}
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-2 border-t">
+              <Label className="text-sm">Focus Skill</Label>
+              <Select
+                value={editFormData.focusSkill}
+                onValueChange={(v) => setEditFormData(prev => ({ ...prev, focusSkill: v }))}
+              >
+                <SelectTrigger data-testid="select-skill-focus" className="mt-1">
+                  <SelectValue placeholder="Select your focus skill" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(SKILL_LABELS).map(([key, { label }]) => (
+                    <SelectItem key={key} value={key}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsSkillDialogOpen(false)} data-testid="button-cancel-skill-edit">
+              Cancel
+            </Button>
+            <Button
+              onClick={() => updateSkillsMutation.mutate()}
+              disabled={updateSkillsMutation.isPending}
+              className="gap-2"
+              data-testid="button-save-skill-ratings"
+            >
+              <Save className="w-4 h-4" />
+              {updateSkillsMutation.isPending ? "Saving..." : "Save Ratings"}
             </Button>
           </DialogFooter>
         </DialogContent>
