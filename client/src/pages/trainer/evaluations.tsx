@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -127,6 +127,15 @@ export default function TrainerEvaluationsPage() {
   const [attrScaleType, setAttrScaleType] = useState("1-10");
   const [attrWordOptions, setAttrWordOptions] = useState("");
   const [deleteAttrId, setDeleteAttrId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const playerParam = params.get("player");
+    if (playerParam) {
+      setSelectedPlayerId(playerParam);
+      setShowEvalForm(true);
+    }
+  }, []);
 
   const { data: players, isLoading: playersLoading } = useQuery<TrainerPlayer[]>({
     queryKey: ["/api/trainer-players"],
