@@ -271,8 +271,8 @@ export default function AuthPage() {
   const [mode, setMode] = useState<"login" | "register">("login");
 
   return (
-    <div className="h-screen overflow-hidden flex" data-testid="page-auth">
-      <div className="flex-1 overflow-y-auto bg-background">
+    <div className="min-h-screen flex" data-testid="page-auth">
+      <div className="flex-1 bg-background">
         <div className="flex flex-col items-center px-6 pt-10 pb-10">
           <div className="w-full max-w-md">
             <div className="flex justify-center mb-8">
