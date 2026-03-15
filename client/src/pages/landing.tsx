@@ -11,7 +11,7 @@ import {
   Video
 } from "lucide-react";
 import heroImage from "@assets/bballpic5_1.1.1_1769377307157.png";
-import logoLandscape from "@assets/PNG_image_1770494053382.png";
+import logoLandscape from "@assets/Playr1_App_Logo_1773593823443.png";
 import basketballImage from "@assets/Handlz_(26)_1769377307158.png";
 import productImage from "@assets/BBallpic2_1.14.1_1769377307157.png";
 
@@ -53,7 +53,7 @@ export default function Landing() {
               <img 
                 src={logoLandscape} 
                 alt="PLAYR1" 
-                className="h-12 object-contain mix-blend-screen dark:mix-blend-screen"
+                className="h-10 w-40 object-cover mix-blend-screen dark:mix-blend-screen"
                 data-testid="img-logo"
               />
             </div>
@@ -75,7 +75,6 @@ export default function Landing() {
       </nav>
 
       <section className="relative pt-24 pb-20 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="space-y-8">
@@ -272,7 +271,7 @@ export default function Landing() {
               <img 
                 src={logoLandscape} 
                 alt="PLAYR1" 
-                className="h-10 object-contain mix-blend-screen dark:mix-blend-screen"
+                className="h-8 w-32 object-cover mix-blend-screen dark:mix-blend-screen"
               />
               <span className="text-sm text-muted-foreground">
                 © 2025 PLAYR1. All rights reserved.
