@@ -100,7 +100,7 @@ export default function Landing() {
             <img
               src={becomePlayr1}
               alt="Become PLAYR1"
-              className="h-32 w-[560px] max-w-full object-contain invert hue-rotate-180 dark:invert-0 dark:hue-rotate-0"
+              className="h-48 w-[760px] max-w-full object-contain invert hue-rotate-180 dark:invert-0 dark:hue-rotate-0"
             />
           </div>
           <div className="grid lg:grid-cols-2 gap-12 items-center">
