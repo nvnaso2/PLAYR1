@@ -3342,7 +3342,7 @@ export async function registerRoutes(
         status: "assigned"
       });
       if (assignedTo) {
-        const drill = await storage.getDrill(drillId);
+        const drill = await storage.getDrillById(drillId);
         const trainerName = await getDisplayNameForUser(userId);
         let pushTarget = assignedTo;
         const [tp] = await db.select({ linkedUserId: trainerPlayers.linkedUserId }).from(trainerPlayers).where(eq(trainerPlayers.id, assignedTo));
@@ -3829,6 +3829,40 @@ export async function registerRoutes(
               position: tp.position || undefined,
               jerseyNumber: tp.jerseyNumber || undefined,
               isAppUser,
+            });
+          }
+        }
+
+        // Also include accepted connections that aren't already in the roster
+        const allConnections = await storage.getConnectionsForUser(userId);
+        const acceptedConnections = allConnections.filter(c => c.status === "accepted");
+        for (const conn of acceptedConnections) {
+          const otherUserId = conn.playerId === userId ? conn.trainerId : conn.playerId;
+          if (contactsMap.has(otherUserId)) continue;
+          if (search) {
+            const otherUser = await storage.getUser(otherUserId);
+            const otherProfile = await storage.getUserProfile(otherUserId);
+            const name = otherProfile?.displayName || [otherUser?.firstName, otherUser?.lastName].filter(Boolean).join(" ") || otherUser?.email || "Unknown";
+            if (!name.toLowerCase().includes((search as string).toLowerCase())) continue;
+            contactsMap.set(otherUserId, {
+              id: otherUserId,
+              name,
+              image: otherProfile?.profilePhotoUrl || otherUser?.profileImageUrl || undefined,
+              teamName: "Connection",
+              teamId: "",
+              isAppUser: true,
+            });
+          } else {
+            const otherUser = await storage.getUser(otherUserId);
+            const otherProfile = await storage.getUserProfile(otherUserId);
+            const name = otherProfile?.displayName || [otherUser?.firstName, otherUser?.lastName].filter(Boolean).join(" ") || otherUser?.email || "Unknown";
+            contactsMap.set(otherUserId, {
+              id: otherUserId,
+              name,
+              image: otherProfile?.profilePhotoUrl || otherUser?.profileImageUrl || undefined,
+              teamName: "Connection",
+              teamId: "",
+              isAppUser: true,
             });
           }
         }
@@ -4595,7 +4629,23 @@ export async function registerRoutes(
   app.post("/api/trainer-players", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { firstName, lastName, email, phone, position, jerseyNumber, ageGroup, teamType, gradYear, notes, teamIds } = req.body;
+      let { firstName, lastName, email, phone, position, jerseyNumber, ageGroup, teamType, gradYear, notes, teamIds, linkedUserId } = req.body;
+
+      // If linking a real PLAYR1 user, auto-fill their profile data
+      if (linkedUserId) {
+        // Prevent duplicate — check if this user is already in the trainer's roster
+        const existing = await storage.getTrainerPlayers(userId);
+        if (existing.some(p => p.linkedUserId === linkedUserId)) {
+          return res.status(400).json({ message: "This player is already in your roster" });
+        }
+        const linkedUser = await storage.getUser(linkedUserId);
+        const linkedProfile = await storage.getUserProfile(linkedUserId);
+        if (!linkedUser) return res.status(404).json({ message: "User not found" });
+        firstName = firstName || linkedUser.firstName || linkedProfile?.displayName || "Unknown";
+        lastName = lastName || linkedUser.lastName || null;
+        email = email || linkedUser.email || null;
+      }
+
       if (!firstName) {
         return res.status(400).json({ message: "First name is required" });
       }
@@ -4611,6 +4661,7 @@ export async function registerRoutes(
         teamType: teamType || null,
         gradYear: gradYear && gradYear !== "none" ? parseInt(gradYear, 10) : null,
         notes: notes || null,
+        linkedUserId: linkedUserId || null,
       });
 
       const autoAssignedTeams: string[] = [];

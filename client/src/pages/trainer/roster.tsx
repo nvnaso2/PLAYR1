@@ -496,6 +496,11 @@ function FindPlayersDialog({ open, onOpenChange }: { open: boolean; onOpenChange
     enabled: open,
   });
 
+  const { data: rosterPlayers = [] } = useQuery<any[]>({
+    queryKey: ["/api/trainer-players"],
+    enabled: open,
+  });
+
   const connectMutation = useMutation({
     mutationFn: (targetUserId: string) =>
       apiRequest("POST", "/api/connections/request", { targetUserId, role: "trainer" }),
@@ -510,6 +515,28 @@ function FindPlayersDialog({ open, onOpenChange }: { open: boolean; onOpenChange
         toast({ title: "Connection already exists" });
       } else {
         toast({ title: "Failed to send request", description: error.message, variant: "destructive" });
+      }
+    },
+  });
+
+  const addToRosterMutation = useMutation({
+    mutationFn: (player: PlayerSearchResult) =>
+      apiRequest("POST", "/api/trainer-players", {
+        linkedUserId: player.userId,
+        firstName: player.firstName,
+        lastName: player.lastName,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/trainer-players"] });
+      toast({ title: "Added to roster!", description: "Player has been added to your roster." });
+    },
+    onError: (error: Error) => {
+      const msg = error.message || "";
+      if (msg.includes("already in your roster")) {
+        queryClient.invalidateQueries({ queryKey: ["/api/trainer-players"] });
+        toast({ title: "Already in roster", description: "This player is already on your roster." });
+      } else {
+        toast({ title: "Failed to add player", description: msg, variant: "destructive" });
       }
     },
   });
@@ -532,6 +559,10 @@ function FindPlayersDialog({ open, onOpenChange }: { open: boolean; onOpenChange
     return connections.find(
       (c: any) => c.playerId === userId || c.trainerId === userId || c.otherUser?.id === userId
     );
+  };
+
+  const isInRoster = (userId: string) => {
+    return rosterPlayers.some((p: any) => p.linkedUserId === userId);
   };
 
   const noResults = !searching && debouncedQuery.length >= 2 && (!searchResults || searchResults.length === 0);
@@ -634,12 +665,26 @@ function FindPlayersDialog({ open, onOpenChange }: { open: boolean; onOpenChange
                       ) : null}
                     </div>
                   </div>
-                  <div className="shrink-0">
+                  <div className="shrink-0 flex flex-col items-end gap-1">
                     {status === "accepted" ? (
-                      <Badge variant="secondary" className="no-default-hover-elevate text-xs" data-testid={`badge-connected-${player.userId}`}>
-                        <UserCheck className="w-3 h-3 mr-1" />
-                        Connected
-                      </Badge>
+                      <>
+                        {isInRoster(player.userId) ? (
+                          <Badge variant="secondary" className="no-default-hover-elevate text-xs" data-testid={`badge-in-roster-${player.userId}`}>
+                            <CheckCircle className="w-3 h-3 mr-1" />
+                            In Roster
+                          </Badge>
+                        ) : (
+                          <Button
+                            size="sm"
+                            onClick={() => addToRosterMutation.mutate(player)}
+                            disabled={addToRosterMutation.isPending}
+                            data-testid={`button-add-to-roster-${player.userId}`}
+                          >
+                            <Plus className="w-3 h-3 mr-1" />
+                            Add to Roster
+                          </Button>
+                        )}
+                      </>
                     ) : status === "pending" ? (
                       <Badge variant="outline" className="no-default-hover-elevate text-xs" data-testid={`badge-pending-${player.userId}`}>
                         <Clock className="w-3 h-3 mr-1" />
