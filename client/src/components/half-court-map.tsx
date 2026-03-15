@@ -18,37 +18,42 @@ type HalfCourtMapProps = {
 };
 
 // Court dimensions based on NBA half-court (50ft x 47ft)
-// Using a viewBox that represents actual proportions
+// ViewBox: 0 0 500 470. Baseline at y=435. Mid-court at y=5.
+// 3-point arc bezier: left= Q(30,100) from (30,285)→(250,70), right= Q(470,100) from (250,70)→(470,285)
+// Arc at x=70/430: y≈155. Arc peak at x=250: y=70.
+// All 3-point locations must have y < arc-y at their x (closer to mid-court = outside the arc).
 const COURT_LOCATIONS: Record<string, { x: number; y: number; label: string }> = {
   // Free throw line (center of key, 15ft from basket)
   "free-throw": { x: 250, y: 190, label: "Free Throw" },
   
-  // Corners (baseline, outside 3pt line)
+  // Corners (baseline, outside 3pt line — straight section is at x=30/470)
   "corner-left": { x: 30, y: 410, label: "Corner Left" },
   "corner-right": { x: 470, y: 410, label: "Corner Right" },
   
-  // Top of key (above 3pt arc)
-  "top-of-key": { x: 250, y: 95, label: "Top of Key" },
+  // Top of key — arc peaks at y=70, place clearly outside (above)
+  "top-of-key": { x: 250, y: 55, label: "Top of Key" },
   
-  // Wings (45-degree angle, on 3pt line)
-  "wing-left": { x: 70, y: 220, label: "Wing Left" },
-  "wing-right": { x: 430, y: 220, label: "Wing Right" },
+  // Wings — arc at x=75/425 is y≈149; place outside (above)
+  "wing-left": { x: 72, y: 125, label: "Wing Left" },
+  "wing-right": { x: 428, y: 125, label: "Wing Right" },
   
-  // Hash marks (along the lane, closer to basket)
+  // Hash marks (along the lane, inside the 3pt line — 2-pointers)
   "1st-hash-left": { x: 130, y: 320, label: "1st Hash Left" },
   "1st-hash-right": { x: 370, y: 320, label: "1st Hash Right" },
   "2nd-hash-left": { x: 100, y: 260, label: "2nd Hash Left" },
   "2nd-hash-right": { x: 400, y: 260, label: "2nd Hash Right" },
-  "3rd-hash-left": { x: 85, y: 180, label: "3rd Hash Left" },
-  "3rd-hash-right": { x: 415, y: 180, label: "3rd Hash Right" },
+  "3rd-hash-left": { x: 88, y: 185, label: "3rd Hash Left" },
+  "3rd-hash-right": { x: 412, y: 185, label: "3rd Hash Right" },
   
   // Blocks (near the basket, inside the lane)
   "block-left": { x: 170, y: 380, label: "Block Left" },
   "block-right": { x: 330, y: 380, label: "Block Right" },
   
-  // Mid-range (between lane and 3pt line, elbow area)
+  // Mid-range / elbow (between lane and 3pt line — 2-pointers)
   "mid-range-left": { x: 140, y: 240, label: "Mid-range Left" },
   "mid-range-right": { x: 360, y: 240, label: "Mid-range Right" },
+  "elbow-left": { x: 170, y: 248, label: "Elbow Left" },
+  "elbow-right": { x: 330, y: 248, label: "Elbow Right" },
 };
 
 function CourtSVG({ processedData, showLabels = false }: { processedData: Record<string, { made: number; missed: number }>; showLabels?: boolean }) {
