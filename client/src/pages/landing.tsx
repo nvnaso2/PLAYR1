@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,7 +9,9 @@ import {
   Users, 
   Play, 
   ChevronRight,
-  Video
+  Video,
+  Menu,
+  X
 } from "lucide-react";
 import heroImage from "@assets/bballpic5_1.1.1_1769377307157.png";
 import logoLandscape from "@assets/Playr1_App_Logo_1773593823443.png";
@@ -16,6 +19,8 @@ import basketballImage from "@assets/Handlz_(26)_1769377307158.png";
 import productImage from "@assets/BBallpic2_1.14.1_1769377307157.png";
 
 export default function Landing() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   const features = [
     {
       icon: Play,
@@ -59,14 +64,33 @@ export default function Landing() {
             </div>
             <div className="flex items-center gap-2">
               <ThemeToggle />
-              <a href="/auth">
+              <a href="/auth" className="hidden md:block">
                 <Button data-testid="button-login">
                   Start Training
                 </Button>
               </a>
+              <button
+                className="md:hidden p-2 text-muted-foreground hover:text-foreground"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                data-testid="button-mobile-menu"
+              >
+                {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </button>
             </div>
           </div>
         </div>
+        {mobileMenuOpen && (
+          <div className="md:hidden border-t border-border bg-background/95 backdrop-blur-md">
+            <div className="px-4 py-4 space-y-3">
+              <a href="#features" onClick={() => setMobileMenuOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2" data-testid="link-mobile-features">Features</a>
+              <a href="#how-it-works" onClick={() => setMobileMenuOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2" data-testid="link-mobile-how-it-works">How It Works</a>
+              <a href="https://www.handlz.co" target="_blank" rel="noopener noreferrer" className="block text-sm text-muted-foreground hover:text-foreground py-2" data-testid="link-mobile-shop">Shop</a>
+              <a href="/auth" className="block pt-2">
+                <Button className="w-full" data-testid="button-mobile-login">Start Training</Button>
+              </a>
+            </div>
+          </div>
+        )}
       </nav>
 
       <section className="relative pt-24 pb-20 overflow-hidden">
