@@ -46,12 +46,17 @@ const COURT_ZONES: Record<string, {
     center: { x: 310, y: 378 }
   },
   "free-throw": {
+    // Semicircle ABOVE the FT line — follows top half of the free-throw circle
+    // FT circle: center (250,245) radius 80 → top at y=165
+    // Extra points at ~30° intervals for smooth arc approximation
     points: [
-      { x: 170, y: 320 }, { x: 330, y: 320 },
-      { x: 330, y: 245 }, { x: 170, y: 245 }
+      { x: 170, y: 245 }, { x: 181, y: 205 },
+      { x: 210, y: 175 }, { x: 250, y: 165 },
+      { x: 290, y: 175 }, { x: 319, y: 205 },
+      { x: 330, y: 245 }
     ],
     label: "Free Throw",
-    center: { x: 250, y: 282 }
+    center: { x: 250, y: 208 }
   },
   "mid-range-left": {
     points: [
@@ -299,13 +304,21 @@ function HeatmapCourtSVG({
         {/* Key / paint rectangle */}
         <rect x="170" y="245" width="160" height="190" fill="none" stroke="white" strokeWidth="2" />
 
-        {/* Hash marks on sides of key */}
-        <line x1="170" y1="320" x2="150" y2="320" stroke="white" strokeWidth="1.5" />
-        <line x1="330" y1="320" x2="350" y2="320" stroke="white" strokeWidth="1.5" />
-        <line x1="170" y1="350" x2="150" y2="350" stroke="white" strokeWidth="1.5" />
-        <line x1="330" y1="350" x2="350" y2="350" stroke="white" strokeWidth="1.5" />
-        <line x1="170" y1="380" x2="150" y2="380" stroke="white" strokeWidth="1.5" />
-        <line x1="330" y1="380" x2="350" y2="380" stroke="white" strokeWidth="1.5" />
+        {/* Lane blocks (filled rectangles — court branding) */}
+        <rect x="151" y="311" width="19" height="8" fill="white" />
+        <rect x="330" y="311" width="19" height="8" fill="white" />
+        <rect x="151" y="343" width="19" height="8" fill="white" />
+        <rect x="330" y="343" width="19" height="8" fill="white" />
+        <rect x="151" y="373" width="19" height="8" fill="white" />
+        <rect x="330" y="373" width="19" height="8" fill="white" />
+
+        {/* Hash marks on sides of key (at block edges) */}
+        <line x1="170" y1="320" x2="151" y2="320" stroke="white" strokeWidth="1.5" />
+        <line x1="330" y1="320" x2="349" y2="320" stroke="white" strokeWidth="1.5" />
+        <line x1="170" y1="350" x2="151" y2="350" stroke="white" strokeWidth="1.5" />
+        <line x1="330" y1="350" x2="349" y2="350" stroke="white" strokeWidth="1.5" />
+        <line x1="170" y1="380" x2="151" y2="380" stroke="white" strokeWidth="1.5" />
+        <line x1="330" y1="380" x2="349" y2="380" stroke="white" strokeWidth="1.5" />
 
         {/* Free-throw circle (solid top arc) */}
         <path
@@ -328,8 +341,20 @@ function HeatmapCourtSVG({
         {/* Backboard */}
         <rect x="215" y="418" width="70" height="5" fill="white" />
 
-        {/* Rim — orange to match reference branding */}
+        {/* Rim — orange */}
         <circle cx="250" cy="405" r="10" fill="none" stroke="#E55039" strokeWidth="2.5" />
+
+        {/* PLAYR1 court watermark */}
+        <text
+          x="250" y="340"
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fill="rgba(255,255,255,0.06)"
+          fontSize="36"
+          fontWeight="900"
+          fontFamily="Arial, sans-serif"
+          letterSpacing="6"
+        >PLAYR1</text>
 
         {/* Top mid-court line */}
         <line x1="5" y1="5" x2="495" y2="5" stroke="white" strokeWidth="2" />

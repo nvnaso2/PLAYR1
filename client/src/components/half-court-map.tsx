@@ -42,8 +42,9 @@ const ZONE_DEFS: Record<string, ZoneDef> = {
 
   // ── 2-point zones (inside the arc) ───────────────────────────────
   // FT line at y=245. Key rect x=170–330.
+  // Free throw zone is placed ABOVE the FT line (cy=208, top of the FT circle area)
 
-  "free-throw":      { cx: 250, cy: 242, rx: 52, ry: 18, label: "Free Throw"      },
+  "free-throw":      { cx: 250, cy: 208, rx: 52, ry: 38, label: "Free Throw"      },
   "elbow-left":      { cx: 168, cy: 247, rx: 26, ry: 16, label: "Elbow Left"      },
   "elbow-right":     { cx: 332, cy: 247, rx: 26, ry: 16, label: "Elbow Right"     },
   "mid-range-left":  { cx: 102, cy: 228, rx: 52, ry: 28, label: "Mid-range Left"  },
@@ -207,13 +208,33 @@ function CourtSVG({
       {/* Rim */}
       <circle cx="250" cy="405" r="9" fill="none" stroke="#E55039" strokeWidth="2.5" />
 
+      {/* Lane blocks (filled rectangles — court branding) */}
+      <rect x="151" y="311" width="19" height="8" fill="white" />
+      <rect x="330" y="311" width="19" height="8" fill="white" />
+      <rect x="151" y="343" width="19" height="8" fill="white" />
+      <rect x="330" y="343" width="19" height="8" fill="white" />
+      <rect x="151" y="373" width="19" height="8" fill="white" />
+      <rect x="330" y="373" width="19" height="8" fill="white" />
+
       {/* Lane hash marks */}
-      <line x1="170" y1="320" x2="150" y2="320" stroke="white" strokeWidth="1.5" />
-      <line x1="330" y1="320" x2="350" y2="320" stroke="white" strokeWidth="1.5" />
-      <line x1="170" y1="350" x2="150" y2="350" stroke="white" strokeWidth="1.5" />
-      <line x1="330" y1="350" x2="350" y2="350" stroke="white" strokeWidth="1.5" />
-      <line x1="170" y1="380" x2="150" y2="380" stroke="white" strokeWidth="1.5" />
-      <line x1="330" y1="380" x2="350" y2="380" stroke="white" strokeWidth="1.5" />
+      <line x1="170" y1="320" x2="151" y2="320" stroke="white" strokeWidth="1.5" />
+      <line x1="330" y1="320" x2="349" y2="320" stroke="white" strokeWidth="1.5" />
+      <line x1="170" y1="350" x2="151" y2="350" stroke="white" strokeWidth="1.5" />
+      <line x1="330" y1="350" x2="349" y2="350" stroke="white" strokeWidth="1.5" />
+      <line x1="170" y1="380" x2="151" y2="380" stroke="white" strokeWidth="1.5" />
+      <line x1="330" y1="380" x2="349" y2="380" stroke="white" strokeWidth="1.5" />
+
+      {/* PLAYR1 court watermark */}
+      <text
+        x="250" y="340"
+        textAnchor="middle"
+        dominantBaseline="middle"
+        fill="rgba(255,255,255,0.06)"
+        fontSize="36"
+        fontWeight="900"
+        fontFamily="Arial, sans-serif"
+        letterSpacing="6"
+      >PLAYR1</text>
     </svg>
   );
 }
