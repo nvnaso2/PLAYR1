@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,7 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const [showPassword, setShowPassword] = useState(false);
+  const queryClient = useQueryClient();
 
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
@@ -49,7 +50,8 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
       const res = await apiRequest("POST", "/api/auth/login", data);
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       navigate("/");
     },
     onError: (error: Error) => {
@@ -138,6 +140,7 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const [showPassword, setShowPassword] = useState(false);
+  const queryClient = useQueryClient();
 
   const form = useForm<RegisterValues>({
     resolver: zodResolver(registerSchema),
@@ -151,7 +154,8 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
       const res = await apiRequest("POST", "/api/auth/register", payload);
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       navigate("/");
     },
     onError: (error: Error) => {
