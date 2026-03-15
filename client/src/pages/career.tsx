@@ -83,7 +83,7 @@ import {
   Brain,
   Upload,
   MapPin,
-  ArrowLeftRight
+  ArrowLeftRight,
 } from "lucide-react";
 import type { CareerProfile, UserAchievement, CareerAchievement, Challenge, UserChallenge, PersonalRecord, TeamAward, Season, Game, InsertTeamAward, InsertChallenge } from "@shared/schema";
 import { insertTeamAwardSchema, insertChallengeSchema } from "@shared/schema";
@@ -1002,8 +1002,8 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
                 <div
                   key={role.value}
                   onClick={() => handleRoleSelect(role.value)}
-                  className={`cursor-pointer p-4 rounded-lg border-2 flex items-center gap-4 transition-all hover:border-primary/50 hover:bg-muted/30 ${
-                    selectedRole === role.value ? 'border-primary bg-primary/5' : 'border-border'
+                  className={`cursor-pointer p-4 rounded-lg border-2 flex items-center gap-4 transition-all hover:bg-muted/30 ${
+                    selectedRole === role.value ? 'border-primary bg-primary/5' : 'border-border hover:border-border'
                   }`}
                   data-testid={`role-${role.value}`}
                 >
