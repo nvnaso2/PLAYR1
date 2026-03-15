@@ -4,15 +4,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { 
-  Target, 
   TrendingUp, 
   Users, 
   Play, 
   ChevronRight,
-  BarChart3,
-  Video,
-  Clock,
-  Award
+  Video
 } from "lucide-react";
 import heroImage from "@assets/bballpic5_1.1.1_1769377307157.png";
 import logoLandscape from "@assets/PNG_image_1770494053382.png";
@@ -108,16 +104,6 @@ export default function Landing() {
                 </a>
               </div>
 
-              <div className="flex items-center gap-6 pt-4">
-                <div className="flex items-center gap-2">
-                  <Award className="w-5 h-5 text-primary" />
-                  <span className="text-sm text-muted-foreground">Free forever plan</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-primary" />
-                  <span className="text-sm text-muted-foreground">Start in 30 seconds</span>
-                </div>
-              </div>
             </div>
 
             <div className="relative">
