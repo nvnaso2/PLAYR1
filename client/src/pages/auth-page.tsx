@@ -273,7 +273,7 @@ export default function AuthPage() {
   return (
     <div className="h-screen overflow-hidden flex" data-testid="page-auth">
       <div className="flex-1 overflow-y-auto bg-background">
-        <div className="min-h-full flex flex-col items-center justify-center py-10 px-6">
+        <div className="flex flex-col items-center px-6 pt-10 pb-10">
           <div className="w-full max-w-md">
             <div className="flex justify-center mb-8">
               <img src={logoLandscape} alt="PLAYR1" className="h-14 object-contain mix-blend-screen dark:mix-blend-screen" data-testid="img-auth-logo" />
