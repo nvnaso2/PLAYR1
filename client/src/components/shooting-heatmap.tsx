@@ -106,30 +106,41 @@ const COURT_ZONES: Record<string, {
     label: "Corner R",
     center: { x: 483, y: 360 }
   },
+  // Wing left: above the arc on the left side.
+  // Lower boundary follows the 3-pt arc from (30,285) → sampled arc points → (138,102).
+  // Arc formula: x(t)=30+220t², y(t)=285-370t+155t²
   "wing-left": {
     points: [
-      { x: 5, y: 285 }, { x: 100, y: 180 },
-      { x: 120, y: 100 }, { x: 5, y: 100 }
+      { x: 5, y: 285 }, { x: 30, y: 285 },
+      { x: 50, y: 188 }, { x: 85, y: 139 },
+      { x: 109, y: 119 }, { x: 138, y: 102 },
+      { x: 138, y: 5 }, { x: 5, y: 5 }
     ],
     label: "Wing L",
-    center: { x: 52, y: 190 }
+    center: { x: 55, y: 145 }
   },
+  // Wing right: symmetric mirror of wing-left.
   "wing-right": {
     points: [
-      { x: 495, y: 285 }, { x: 400, y: 180 },
-      { x: 380, y: 100 }, { x: 495, y: 100 }
+      { x: 362, y: 102 }, { x: 391, y: 119 },
+      { x: 415, y: 139 }, { x: 450, y: 188 },
+      { x: 470, y: 285 }, { x: 495, y: 285 },
+      { x: 495, y: 5 }, { x: 362, y: 5 }
     ],
     label: "Wing R",
-    center: { x: 448, y: 190 }
+    center: { x: 445, y: 145 }
   },
+  // Top of key: above-the-break 3-pt zone.
+  // Lower boundary follows the arc from (138,102) across the peak (250,70) to (362,102).
   "top-of-key": {
     points: [
-      { x: 120, y: 100 }, { x: 170, y: 165 },
-      { x: 330, y: 165 }, { x: 380, y: 100 },
-      { x: 250, y: 70 }
+      { x: 138, y: 5 }, { x: 362, y: 5 },
+      { x: 362, y: 102 }, { x: 329, y: 88 },
+      { x: 250, y: 70 },
+      { x: 171, y: 88 }, { x: 138, y: 102 }
     ],
     label: "Top of Key",
-    center: { x: 250, y: 118 }
+    center: { x: 250, y: 55 }
   },
   "deep-left": {
     points: [
@@ -349,7 +360,7 @@ function HeatmapCourtSVG({
           x="250" y="340"
           textAnchor="middle"
           dominantBaseline="middle"
-          fill="rgba(255,255,255,0.06)"
+          fill="rgba(255,255,255,0.15)"
           fontSize="36"
           fontWeight="900"
           fontFamily="Arial, sans-serif"

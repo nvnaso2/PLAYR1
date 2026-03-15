@@ -229,7 +229,7 @@ function CourtSVG({
         x="250" y="340"
         textAnchor="middle"
         dominantBaseline="middle"
-        fill="rgba(255,255,255,0.06)"
+        fill="rgba(255,255,255,0.15)"
         fontSize="36"
         fontWeight="900"
         fontFamily="Arial, sans-serif"
