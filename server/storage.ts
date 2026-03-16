@@ -254,7 +254,7 @@ export interface IStorage {
   getTeamAssignments(teamId: string): Promise<Array<DrillAssignment & { drill: Drill }>>;
   getUserAssignments(userId: string): Promise<Array<DrillAssignment & { drill: Drill; team?: TrainerTeam }>>;
   createDrillAssignment(assignment: InsertDrillAssignment): Promise<DrillAssignment>;
-  updateDrillAssignmentStatus(id: string, status: string): Promise<DrillAssignment | undefined>;
+  updateDrillAssignmentStatus(id: string, status: string, trainingLogId?: string): Promise<DrillAssignment | undefined>;
   getActiveAssignmentsForDrillAndUser(userId: string, drillId: string): Promise<DrillAssignment[]>;
   deleteDrillAssignment(id: string): Promise<boolean>;
 
@@ -2129,9 +2129,9 @@ export class DatabaseStorage implements IStorage {
     return assignment;
   }
 
-  async updateDrillAssignmentStatus(id: string, status: string): Promise<DrillAssignment | undefined> {
+  async updateDrillAssignmentStatus(id: string, status: string, trainingLogId?: string): Promise<DrillAssignment | undefined> {
     const [updated] = await db.update(drillAssignments)
-      .set({ status })
+      .set({ status, ...(trainingLogId ? { trainingLogId } : {}) })
       .where(eq(drillAssignments.id, id))
       .returning();
     return updated;

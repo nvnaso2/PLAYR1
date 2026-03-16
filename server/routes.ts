@@ -1474,7 +1474,7 @@ export async function registerRoutes(
         try {
           const toComplete = await storage.getActiveAssignmentsForDrillAndUser(userId, log.drillId);
           for (const a of toComplete) {
-            await storage.updateDrillAssignmentStatus(a.id, "completed");
+            await storage.updateDrillAssignmentStatus(a.id, "completed", log.id);
           }
           if (toComplete.length > 0) {
             console.log(`[AutoComplete] Marked ${toComplete.length} assignment(s) complete for user ${userId}, drill ${log.drillId}`);
@@ -3432,6 +3432,7 @@ export async function registerRoutes(
         dueDate: a.dueDate,
         notes: a.notes,
         status: a.status,
+        trainingLogId: a.trainingLogId || null,
         createdAt: a.createdAt,
       })));
     } catch (error) {
@@ -3506,6 +3507,25 @@ export async function registerRoutes(
       res.json(logs);
     } catch (error: any) {
       console.error("Error fetching player training logs:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/trainer/players/:playerId/training-logs/:logId", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const player = await storage.getTrainerPlayerById(req.params.playerId);
+      if (!player || player.trainerId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      const log = await storage.getTrainingLog(req.params.logId);
+      if (!log) return res.status(404).json({ message: "Training log not found" });
+      const targetUserId = player.linkedUserId || req.params.playerId;
+      if (log.userId !== targetUserId) return res.status(403).json({ message: "Log does not belong to this player" });
+      const metrics = await storage.getTrainingLogMetrics(req.params.logId);
+      res.json({ ...log, metrics });
+    } catch (error: any) {
+      console.error("Error fetching player training log:", error);
       res.status(500).json({ message: error.message });
     }
   });

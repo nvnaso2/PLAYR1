@@ -2011,11 +2011,23 @@ function ChatTab() {
 
 type AssignmentWithDrill = DrillAssignment & { drill: Drill; team?: { id: string; name: string } };
 
+type LogWithMetrics = {
+  id: string; drillId: string; duration: number | null; notes: string | null;
+  completedAt: string | null; score: number | null;
+  metrics: Array<{ metricId: string; value: string | null }>;
+};
+
 function MyDrillsTab() {
   const { toast } = useToast();
+  const [viewingLogId, setViewingLogId] = useState<string | null>(null);
 
   const { data: assignments, isLoading } = useQuery<AssignmentWithDrill[]>({
     queryKey: ["/api/assigned-drills"],
+  });
+
+  const { data: viewedLog, isLoading: logLoading } = useQuery<LogWithMetrics>({
+    queryKey: ["/api/training-logs", viewingLogId],
+    enabled: !!viewingLogId,
   });
 
   const updateStatus = useMutation({
@@ -2159,15 +2171,28 @@ function MyDrillsTab() {
                   </>
                 )}
                 {isCompleted && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => updateStatus.mutate({ id: a.id, status: "assigned" })}
-                    disabled={updateStatus.isPending}
-                    data-testid={`button-reopen-${a.id}`}
-                  >
-                    Re-open
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {a.trainingLogId && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setViewingLogId(a.trainingLogId!)}
+                        data-testid={`button-view-log-${a.id}`}
+                      >
+                        <FileText className="w-3.5 h-3.5 mr-1" />
+                        View Log
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => updateStatus.mutate({ id: a.id, status: "assigned" })}
+                      disabled={updateStatus.isPending}
+                      data-testid={`button-reopen-${a.id}`}
+                    >
+                      Re-open
+                    </Button>
+                  </div>
                 )}
               </div>
             </div>
@@ -2176,6 +2201,8 @@ function MyDrillsTab() {
       </Card>
     );
   };
+
+  const viewedAssignment = viewingLogId ? (assignments || []).find(a => a.trainingLogId === viewingLogId) : null;
 
   return (
     <div className="space-y-4 mt-4">
@@ -2195,6 +2222,64 @@ function MyDrillsTab() {
           {completed.map(renderAssignment)}
         </div>
       )}
+
+      <Dialog open={!!viewingLogId} onOpenChange={(open) => { if (!open) setViewingLogId(null); }}>
+        <DialogContent data-testid="dialog-view-log">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-primary" />
+              Training Log — {viewedAssignment?.drill?.title || "Drill"}
+            </DialogTitle>
+          </DialogHeader>
+          {logLoading ? (
+            <div className="space-y-2 py-4">{[1,2,3].map(i => <Skeleton key={i} className="h-5 w-full" />)}</div>
+          ) : viewedLog ? (
+            <div className="space-y-3 py-2">
+              {viewedLog.completedAt && (
+                <div className="flex items-center gap-2 text-sm">
+                  <CalendarDays className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">Completed:</span>
+                  <span className="font-medium">{new Date(viewedLog.completedAt).toLocaleDateString()}</span>
+                </div>
+              )}
+              {viewedLog.duration != null && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Clock className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">Duration:</span>
+                  <span className="font-medium">{viewedLog.duration} min</span>
+                </div>
+              )}
+              {viewedLog.score != null && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Award className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">Score:</span>
+                  <span className="font-medium">{viewedLog.score}</span>
+                </div>
+              )}
+              {viewedLog.metrics && viewedLog.metrics.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Metrics</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {viewedLog.metrics.map((m, i) => (
+                      <div key={i} className="bg-muted/50 rounded p-2 text-sm">
+                        <span className="font-medium">{m.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {viewedLog.notes && (
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Notes</p>
+                  <p className="text-sm italic bg-muted/50 rounded px-3 py-2">"{viewedLog.notes}"</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground py-4 text-center">Log details unavailable</p>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

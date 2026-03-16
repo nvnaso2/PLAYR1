@@ -662,6 +662,7 @@ export const drillAssignments = pgTable("drill_assignments", {
   dueDate: timestamp("due_date"),
   notes: text("notes"),
   status: varchar("status").default("assigned"),
+  trainingLogId: varchar("training_log_id"),
   createdAt: timestamp("created_at").defaultNow()
 });
 

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +37,9 @@ import {
   Play,
   Eye,
   EyeOff,
+  FileText,
+  CalendarDays,
+  Award,
 } from "lucide-react";
 
 interface TrainerPlayerData {
@@ -69,6 +73,7 @@ interface PlayerAssignment {
   dueDate: string | null;
   notes: string | null;
   status: string;
+  trainingLogId: string | null;
   createdAt: string;
 }
 
@@ -151,6 +156,7 @@ export default function TrainerPlayerDetail() {
 
   const [activeTab, setActiveTab] = useState("overview");
   const [chatMessage, setChatMessage] = useState("");
+  const [viewingLogId, setViewingLogId] = useState<string | null>(null);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -167,6 +173,15 @@ export default function TrainerPlayerDetail() {
   const { data: assignments, isLoading: assignmentsLoading } = useQuery<PlayerAssignment[]>({
     queryKey: ["/api/trainer/players", playerId, "assignments"],
     enabled: !!playerId,
+  });
+
+  const { data: viewedLog, isLoading: logLoading } = useQuery<{
+    id: string; duration: number | null; notes: string | null;
+    completedAt: string | null; score: number | null;
+    metrics: Array<{ metricId: string; value: string | null }>;
+  }>({
+    queryKey: ["/api/trainer/players", playerId, "training-logs", viewingLogId],
+    enabled: !!viewingLogId && !!playerId,
   });
 
   const { data: videos, isLoading: videosLoading } = useQuery<PlayerVideo[]>({
@@ -526,6 +541,18 @@ export default function TrainerPlayerDetail() {
                     <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
                     <span className="text-sm flex-1 truncate">{a.drillTitle}</span>
                     <Badge variant="outline" className="no-default-hover-elevate text-[10px]">{a.drillCategory}</Badge>
+                    {a.trainingLogId && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 px-2 text-[10px] gap-1"
+                        onClick={() => setViewingLogId(a.trainingLogId!)}
+                        data-testid={`button-view-log-${a.id}`}
+                      >
+                        <FileText className="w-3 h-3" />
+                        Log
+                      </Button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -771,6 +798,64 @@ export default function TrainerPlayerDetail() {
           )}
         </TabsContent>
       </Tabs>
+
+      <Dialog open={!!viewingLogId} onOpenChange={(open) => { if (!open) setViewingLogId(null); }}>
+        <DialogContent data-testid="dialog-view-player-log">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-primary" />
+              Training Log — {(assignments || []).find(a => a.trainingLogId === viewingLogId)?.drillTitle || "Drill"}
+            </DialogTitle>
+          </DialogHeader>
+          {logLoading ? (
+            <div className="space-y-2 py-4">{[1,2,3].map(i => <Skeleton key={i} className="h-5 w-full" />)}</div>
+          ) : viewedLog ? (
+            <div className="space-y-3 py-2">
+              {viewedLog.completedAt && (
+                <div className="flex items-center gap-2 text-sm">
+                  <CalendarDays className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">Completed:</span>
+                  <span className="font-medium">{new Date(viewedLog.completedAt).toLocaleDateString()}</span>
+                </div>
+              )}
+              {viewedLog.duration != null && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Clock className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">Duration:</span>
+                  <span className="font-medium">{viewedLog.duration} min</span>
+                </div>
+              )}
+              {viewedLog.score != null && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Award className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">Score:</span>
+                  <span className="font-medium">{viewedLog.score}</span>
+                </div>
+              )}
+              {viewedLog.metrics && viewedLog.metrics.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Metrics</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {viewedLog.metrics.map((m, i) => (
+                      <div key={i} className="bg-muted/50 rounded p-2 text-sm">
+                        <span className="font-medium">{m.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {viewedLog.notes && (
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Notes</p>
+                  <p className="text-sm italic bg-muted/50 rounded px-3 py-2">"{viewedLog.notes}"</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground py-4 text-center">Log details unavailable</p>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
