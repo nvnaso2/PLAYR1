@@ -1,7 +1,5 @@
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import playr1Logo from "@assets/Playr1_App_Logo_1773593823443.png";
-import handlzLogo from "@assets/Handlz_Box_1769377307157.png";
 
 type ShotData = {
   location: string;
@@ -229,23 +227,13 @@ function HeatmapCourtSVG({
 
   return (
     <svg
-      viewBox="0 -60 500 530"
+      viewBox="0 0 500 470"
       className="w-full h-full"
       preserveAspectRatio="xMidYMid meet"
     >
       {/* ── Black court background ── */}
-      <rect x="0" y="-60" width="500" height="530" fill="#000000" />
+      <rect x="0" y="0" width="500" height="470" fill="#000000" />
 
-      {/* ── Filter def: removes near-black backgrounds, keeps brand colors ── */}
-      <defs>
-        <filter id="logo-clear-bg" color-interpolation-filters="sRGB" x="0%" y="0%" width="100%" height="100%">
-          <feColorMatrix type="matrix"
-            values="1 0 0 0 0
-                    0 1 0 0 0
-                    0 0 1 0 0
-                    3 3 3 0 -1.4" />
-        </filter>
-      </defs>
 
       {/* ── Coloured zone fills (drawn BEFORE court lines) ── */}
       {Object.entries(COURT_ZONES).map(([zoneName, zone]) => {
@@ -372,23 +360,6 @@ function HeatmapCourtSVG({
         <line x1="5" y1="5" x2="495" y2="5" stroke="white" strokeWidth="2" />
       </g>
 
-      {/* PLAYR1 watermark — above the 3-pt arc coloring (in extended space) */}
-      <image
-        href={playr1Logo}
-        x="100" y="-57"
-        width="300" height="60"
-        opacity="0.80"
-        filter="url(#logo-clear-bg)"
-      />
-
-      {/* Handlz logo — inside the dashed semi-circle below the FT line */}
-      <image
-        href={handlzLogo}
-        x="195" y="253"
-        width="110" height="55"
-        opacity="0.70"
-        filter="url(#logo-clear-bg)"
-      />
     </svg>
   );
 }

@@ -1,7 +1,5 @@
 import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import playr1Logo from "@assets/Playr1_App_Logo_1773593823443.png";
-import handlzLogo from "@assets/Handlz_Box_1769377307157.png";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ChartArea } from "lucide-react";
@@ -95,20 +93,10 @@ function CourtSVG({
   }, [processedData]);
 
   return (
-    <svg viewBox="0 -60 500 530" className="w-full h-full" preserveAspectRatio="xMidYMid meet">
+    <svg viewBox="0 0 500 470" className="w-full h-full" preserveAspectRatio="xMidYMid meet">
       {/* ── Black court background ─────────────────── */}
-      <rect x="0" y="-60" width="500" height="530" fill="#000000" />
+      <rect x="0" y="0" width="500" height="470" fill="#000000" />
 
-      {/* ── Filter: removes near-black backgrounds, preserves brand colors ── */}
-      <defs>
-        <filter id="logo-clear-bg" color-interpolation-filters="sRGB" x="0%" y="0%" width="100%" height="100%">
-          <feColorMatrix type="matrix"
-            values="1 0 0 0 0
-                    0 1 0 0 0
-                    0 0 1 0 0
-                    3 3 3 0 -1.4" />
-        </filter>
-      </defs>
 
       {/* ── Shot zones (drawn BEFORE court lines so lines stay on top) ── */}
       {Object.entries(processedData).map(([location, data]) => {
@@ -237,23 +225,6 @@ function CourtSVG({
       <line x1="170" y1="380" x2="151" y2="380" stroke="white" strokeWidth="1.5" />
       <line x1="330" y1="380" x2="349" y2="380" stroke="white" strokeWidth="1.5" />
 
-      {/* PLAYR1 watermark — above the 3-pt arc coloring (in extended space) */}
-      <image
-        href={playr1Logo}
-        x="100" y="-57"
-        width="300" height="60"
-        opacity="0.80"
-        filter="url(#logo-clear-bg)"
-      />
-
-      {/* Handlz logo — inside the dashed semi-circle below the FT line */}
-      <image
-        href={handlzLogo}
-        x="195" y="253"
-        width="110" height="55"
-        opacity="0.70"
-        filter="url(#logo-clear-bg)"
-      />
     </svg>
   );
 }
