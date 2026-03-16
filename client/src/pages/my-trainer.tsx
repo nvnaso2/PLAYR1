@@ -2014,7 +2014,7 @@ type AssignmentWithDrill = DrillAssignment & { drill: Drill; team?: { id: string
 type LogWithMetrics = {
   id: string; drillId: string; duration: number | null; notes: string | null;
   completedAt: string | null; score: number | null;
-  metrics: Array<{ metricId: string; value: string | null }>;
+  metrics: Array<{ metricId: string; value: string | null; metricName: string | null }>;
 };
 
 function MyDrillsTab() {
@@ -2262,7 +2262,8 @@ function MyDrillsTab() {
                   <div className="grid grid-cols-2 gap-2">
                     {viewedLog.metrics.map((m, i) => (
                       <div key={i} className="bg-muted/50 rounded p-2 text-sm">
-                        <span className="font-medium">{m.value}</span>
+                        {m.metricName && <p className="text-xs text-muted-foreground capitalize mb-0.5">{m.metricName.replace(/_/g, " ")}</p>}
+                        <span className="font-medium">{m.value ?? "—"}</span>
                       </div>
                     ))}
                   </div>

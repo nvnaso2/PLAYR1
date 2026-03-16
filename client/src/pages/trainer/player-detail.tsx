@@ -178,7 +178,7 @@ export default function TrainerPlayerDetail() {
   const { data: viewedLog, isLoading: logLoading } = useQuery<{
     id: string; duration: number | null; notes: string | null;
     completedAt: string | null; score: number | null;
-    metrics: Array<{ metricId: string; value: string | null }>;
+    metrics: Array<{ metricId: string; value: string | null; metricName: string | null }>;
   }>({
     queryKey: ["/api/trainer/players", playerId, "training-logs", viewingLogId],
     enabled: !!viewingLogId && !!playerId,
@@ -379,7 +379,7 @@ export default function TrainerPlayerDetail() {
             <Card>
               <CardContent className="p-3 text-center">
                 <p className="text-2xl font-bold" data-testid="text-total-sessions">{progress?.totalSessions || 0}</p>
-                <p className="text-xs text-muted-foreground">Sessions</p>
+                <p className="text-xs text-muted-foreground">Drills</p>
               </CardContent>
             </Card>
             <Card>
@@ -838,7 +838,8 @@ export default function TrainerPlayerDetail() {
                   <div className="grid grid-cols-2 gap-2">
                     {viewedLog.metrics.map((m, i) => (
                       <div key={i} className="bg-muted/50 rounded p-2 text-sm">
-                        <span className="font-medium">{m.value}</span>
+                        {m.metricName && <p className="text-xs text-muted-foreground capitalize mb-0.5">{m.metricName.replace(/_/g, " ")}</p>}
+                        <span className="font-medium">{m.value ?? "—"}</span>
                       </div>
                     ))}
                   </div>

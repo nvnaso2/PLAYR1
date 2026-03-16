@@ -1503,7 +1503,10 @@ export async function registerRoutes(
       if (log.userId !== userId) {
         return res.status(403).json({ message: "Access denied" });
       }
-      const metrics = await storage.getTrainingLogMetrics(req.params.id);
+      const rawMetrics = await storage.getTrainingLogMetrics(req.params.id);
+      const templates = await storage.getMetricTemplates();
+      const templateMap = new Map(templates.map(t => [t.id, t.name]));
+      const metrics = rawMetrics.map(m => ({ ...m, metricName: templateMap.get(m.metricId) || null }));
       res.json({ ...log, metrics });
     } catch (error) {
       console.error("Error fetching training log:", error);
@@ -3522,7 +3525,10 @@ export async function registerRoutes(
       if (!log) return res.status(404).json({ message: "Training log not found" });
       const targetUserId = player.linkedUserId || req.params.playerId;
       if (log.userId !== targetUserId) return res.status(403).json({ message: "Log does not belong to this player" });
-      const metrics = await storage.getTrainingLogMetrics(req.params.logId);
+      const rawMetrics = await storage.getTrainingLogMetrics(req.params.logId);
+      const templates = await storage.getMetricTemplates();
+      const templateMap = new Map(templates.map(t => [t.id, t.name]));
+      const metrics = rawMetrics.map(m => ({ ...m, metricName: templateMap.get(m.metricId) || null }));
       res.json({ ...log, metrics });
     } catch (error: any) {
       console.error("Error fetching player training log:", error);
