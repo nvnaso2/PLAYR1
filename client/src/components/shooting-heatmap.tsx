@@ -236,6 +236,17 @@ function HeatmapCourtSVG({
       {/* ── Black court background ── */}
       <rect x="0" y="-60" width="500" height="530" fill="#000000" />
 
+      {/* ── Filter def: removes near-black backgrounds, keeps brand colors ── */}
+      <defs>
+        <filter id="logo-clear-bg" color-interpolation-filters="sRGB" x="0%" y="0%" width="100%" height="100%">
+          <feColorMatrix type="matrix"
+            values="1 0 0 0 0
+                    0 1 0 0 0
+                    0 0 1 0 0
+                    3 3 3 0 -1.4" />
+        </filter>
+      </defs>
+
       {/* ── Coloured zone fills (drawn BEFORE court lines) ── */}
       {Object.entries(COURT_ZONES).map(([zoneName, zone]) => {
         const data = zoneData[zoneName];
@@ -366,8 +377,8 @@ function HeatmapCourtSVG({
         href={playr1Logo}
         x="100" y="-57"
         width="300" height="60"
-        opacity="0.20"
-        style={{ mixBlendMode: 'screen' }}
+        opacity="0.80"
+        filter="url(#logo-clear-bg)"
       />
 
       {/* Handlz logo — inside the dashed semi-circle below the FT line */}
@@ -375,8 +386,8 @@ function HeatmapCourtSVG({
         href={handlzLogo}
         x="195" y="253"
         width="110" height="55"
-        opacity="0.16"
-        style={{ mixBlendMode: 'screen' }}
+        opacity="0.70"
+        filter="url(#logo-clear-bg)"
       />
     </svg>
   );

@@ -99,6 +99,17 @@ function CourtSVG({
       {/* ── Black court background ─────────────────── */}
       <rect x="0" y="-60" width="500" height="530" fill="#000000" />
 
+      {/* ── Filter: removes near-black backgrounds, preserves brand colors ── */}
+      <defs>
+        <filter id="logo-clear-bg" color-interpolation-filters="sRGB" x="0%" y="0%" width="100%" height="100%">
+          <feColorMatrix type="matrix"
+            values="1 0 0 0 0
+                    0 1 0 0 0
+                    0 0 1 0 0
+                    3 3 3 0 -1.4" />
+        </filter>
+      </defs>
+
       {/* ── Shot zones (drawn BEFORE court lines so lines stay on top) ── */}
       {Object.entries(processedData).map(([location, data]) => {
         const zone = ZONE_DEFS[location];
@@ -231,8 +242,8 @@ function CourtSVG({
         href={playr1Logo}
         x="100" y="-57"
         width="300" height="60"
-        opacity="0.20"
-        style={{ mixBlendMode: 'screen' }}
+        opacity="0.80"
+        filter="url(#logo-clear-bg)"
       />
 
       {/* Handlz logo — inside the dashed semi-circle below the FT line */}
@@ -240,8 +251,8 @@ function CourtSVG({
         href={handlzLogo}
         x="195" y="253"
         width="110" height="55"
-        opacity="0.16"
-        style={{ mixBlendMode: 'screen' }}
+        opacity="0.70"
+        filter="url(#logo-clear-bg)"
       />
     </svg>
   );
