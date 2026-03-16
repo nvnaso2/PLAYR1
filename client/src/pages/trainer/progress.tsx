@@ -233,7 +233,7 @@ export default function TrainerProgress() {
             <Card data-testid="card-stat-sessions">
               <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Total Sessions
+                  Total Drills
                 </CardTitle>
                 <Activity className="w-4 h-4 text-muted-foreground" />
               </CardHeader>

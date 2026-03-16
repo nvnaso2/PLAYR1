@@ -254,7 +254,7 @@ function ChildDetailView({ childId, onBack }: { childId: string; onBack: () => v
                     <p className="text-2xl font-bold" data-testid="text-total-sessions">
                       {activity.stats?.totalSessions || 0}
                     </p>
-                    <p className="text-sm text-muted-foreground">Total Sessions</p>
+                    <p className="text-sm text-muted-foreground">Total Drills</p>
                   </CardContent>
                 </Card>
                 <Card>

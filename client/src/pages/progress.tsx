@@ -217,7 +217,7 @@ export default function ProgressPage() {
         ) : (
           <>
             <StatsCard
-              title="Total Sessions"
+              title="Total Drills"
               value={totalSessions}
               icon={<Target className="w-5 h-5 text-primary" />}
               testId="stats-sessions"

@@ -740,7 +740,7 @@ export default function TrainerPlayerDetail() {
                 <Card>
                   <CardContent className="p-3 text-center">
                     <p className="text-2xl font-bold">{progress.totalSessions}</p>
-                    <p className="text-xs text-muted-foreground">Total Sessions</p>
+                    <p className="text-xs text-muted-foreground">Total Drills</p>
                   </CardContent>
                 </Card>
                 <Card>
