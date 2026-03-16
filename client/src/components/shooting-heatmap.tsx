@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import playr1Logo from "@assets/Playr1_App_Logo_1773593823443.png";
+import handlzLogo from "@assets/Handlz_Box_1769377307157.png";
 
 type ShotData = {
   location: string;
@@ -228,12 +229,12 @@ function HeatmapCourtSVG({
 
   return (
     <svg
-      viewBox="0 0 500 470"
+      viewBox="0 -60 500 530"
       className="w-full h-full"
       preserveAspectRatio="xMidYMid meet"
     >
       {/* ── Black court background ── */}
-      <rect x="0" y="0" width="500" height="470" fill="#000000" />
+      <rect x="0" y="-60" width="500" height="530" fill="#000000" />
 
       {/* ── Coloured zone fills (drawn BEFORE court lines) ── */}
       {Object.entries(COURT_ZONES).map(([zoneName, zone]) => {
@@ -356,18 +357,27 @@ function HeatmapCourtSVG({
         {/* Rim — orange */}
         <circle cx="250" cy="405" r="10" fill="none" stroke="#E55039" strokeWidth="2.5" />
 
-        {/* PLAYR1 court watermark */}
-        <image
-          href={playr1Logo}
-          x="130" y="240"
-          width="240" height="240"
-          opacity="0.18"
-          style={{ mixBlendMode: 'screen' }}
-        />
-
         {/* Top mid-court line */}
         <line x1="5" y1="5" x2="495" y2="5" stroke="white" strokeWidth="2" />
       </g>
+
+      {/* PLAYR1 watermark — above the 3-pt arc coloring (in extended space) */}
+      <image
+        href={playr1Logo}
+        x="100" y="-57"
+        width="300" height="60"
+        opacity="0.20"
+        style={{ mixBlendMode: 'screen' }}
+      />
+
+      {/* Handlz logo — inside the dashed semi-circle below the FT line */}
+      <image
+        href={handlzLogo}
+        x="195" y="253"
+        width="110" height="55"
+        opacity="0.16"
+        style={{ mixBlendMode: 'screen' }}
+      />
     </svg>
   );
 }
