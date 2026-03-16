@@ -255,6 +255,7 @@ export interface IStorage {
   getUserAssignments(userId: string): Promise<Array<DrillAssignment & { drill: Drill; team?: TrainerTeam }>>;
   createDrillAssignment(assignment: InsertDrillAssignment): Promise<DrillAssignment>;
   updateDrillAssignmentStatus(id: string, status: string): Promise<DrillAssignment | undefined>;
+  getActiveAssignmentsForDrillAndUser(userId: string, drillId: string): Promise<DrillAssignment[]>;
   deleteDrillAssignment(id: string): Promise<boolean>;
 
   // Messages
@@ -2134,6 +2135,39 @@ export class DatabaseStorage implements IStorage {
       .where(eq(drillAssignments.id, id))
       .returning();
     return updated;
+  }
+
+  async getActiveAssignmentsForDrillAndUser(userId: string, drillId: string): Promise<DrillAssignment[]> {
+    const rosterEntries = await db.select({ id: trainerPlayers.id })
+      .from(trainerPlayers).where(eq(trainerPlayers.linkedUserId, userId));
+    const allUserIds = [userId, ...rosterEntries.map(r => r.id)];
+
+    const direct = await db.select().from(drillAssignments)
+      .where(and(
+        eq(drillAssignments.drillId, drillId),
+        inArray(drillAssignments.assignedTo, allUserIds),
+        sql`${drillAssignments.status} != 'completed'`
+      ));
+
+    const userTeamMembers = await db.select().from(teamMembers).where(eq(teamMembers.userId, userId));
+    const teamIds = userTeamMembers.map(m => m.teamId);
+    let teamWide: DrillAssignment[] = [];
+    if (teamIds.length > 0) {
+      teamWide = await db.select().from(drillAssignments)
+        .where(and(
+          eq(drillAssignments.drillId, drillId),
+          inArray(drillAssignments.teamId, teamIds),
+          isNull(drillAssignments.assignedTo),
+          sql`${drillAssignments.status} != 'completed'`
+        ));
+    }
+
+    const seen = new Set<string>();
+    const combined: DrillAssignment[] = [];
+    for (const a of [...direct, ...teamWide]) {
+      if (!seen.has(a.id)) { seen.add(a.id); combined.push(a); }
+    }
+    return combined;
   }
 
   async deleteDrillAssignment(id: string): Promise<boolean> {

@@ -559,6 +559,7 @@ export default function TrainingLogPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/training-logs'] });
       queryClient.invalidateQueries({ queryKey: ['/api/stats/overview'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/assigned-drills'] });
     },
   });
 
@@ -1136,6 +1137,7 @@ export default function TrainingLogPage() {
       queryClient.invalidateQueries({ queryKey: ['/api/training-logs'] });
       queryClient.invalidateQueries({ queryKey: ['/api/stats/overview'] });
       queryClient.invalidateQueries({ queryKey: ['/api/challenges/my-challenges'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/assigned-drills'] });
       
       const challengeCount = Object.keys(challengeUpdates).length;
       toast({ 
