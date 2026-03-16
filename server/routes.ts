@@ -1073,7 +1073,7 @@ export async function registerRoutes(
       const userId = req.user.claims.sub;
       const createWorkoutSchema = z.object({
         name: z.string().min(1),
-        drillIds: z.array(z.string()).min(2),
+        drillIds: z.array(z.string()).min(1),
         description: z.string().optional(),
         category: z.string().optional(),
         estimatedDuration: z.number().optional(),
