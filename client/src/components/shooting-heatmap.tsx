@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import playr1Logo from "@assets/Playr1_App_Logo_1773593823443.png";
 
 type ShotData = {
   location: string;
@@ -356,16 +357,13 @@ function HeatmapCourtSVG({
         <circle cx="250" cy="405" r="10" fill="none" stroke="#E55039" strokeWidth="2.5" />
 
         {/* PLAYR1 court watermark */}
-        <text
-          x="250" y="340"
-          textAnchor="middle"
-          dominantBaseline="middle"
-          fill="rgba(255,255,255,0.15)"
-          fontSize="36"
-          fontWeight="900"
-          fontFamily="Arial, sans-serif"
-          letterSpacing="6"
-        >PLAYR1</text>
+        <image
+          href={playr1Logo}
+          x="130" y="240"
+          width="240" height="240"
+          opacity="0.18"
+          style={{ mixBlendMode: 'screen' }}
+        />
 
         {/* Top mid-court line */}
         <line x1="5" y1="5" x2="495" y2="5" stroke="white" strokeWidth="2" />
