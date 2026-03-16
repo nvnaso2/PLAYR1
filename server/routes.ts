@@ -1276,6 +1276,11 @@ export async function registerRoutes(
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
+      // Count direct (non-team) assignments
+      const directAssignments = await storage.getTrainerDirectAssignments(userId);
+      totalAssignments += directAssignments.length;
+      activeAssignments += directAssignments.filter(a => a.status === "assigned").length;
+
       for (const team of allTeams) {
         const assignments = await storage.getTeamAssignments(team.id);
         totalAssignments += assignments.length;
