@@ -253,6 +253,17 @@ export default function TrainerChat() {
     });
   };
 
+  const handleCreateGroup = () => {
+    if (!newGroupName.trim() || newGroupMemberIds.size === 0) return;
+    createThreadMutation.mutate({
+      name: newGroupName.trim(),
+      mode: "trainer",
+      scopeType: newGroupScopeType,
+      scopeId: newGroupScopeId || undefined,
+      memberIds: Array.from(newGroupMemberIds),
+    });
+  };
+
   const sendMutation = useMutation({
     mutationFn: (data: { receiverId: string; content: string }) => apiRequest("POST", "/api/messages", data),
     onSuccess: () => {
