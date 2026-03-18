@@ -72,16 +72,18 @@ function StatCard({
   return (
     <Link href={href} className="block h-full">
       <Card className="cursor-pointer transition-colors hover:border-primary/40 h-full" data-testid={testId}>
-        <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-          <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <Skeleton className="h-8 w-16" />
-          ) : (
-            <div className="text-2xl font-bold" data-testid={`text-stat-${testId}`}>{value}</div>
-          )}
+        <CardContent className="p-4 flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="p-2 rounded-lg bg-primary/10 shrink-0">
+              <Icon className="h-4 w-4 text-primary" />
+            </div>
+            {loading ? (
+              <Skeleton className="h-7 w-10" />
+            ) : (
+              <span className="text-2xl font-bold leading-none" data-testid={`text-stat-${testId}`}>{value}</span>
+            )}
+          </div>
+          <p className="text-xs font-medium text-muted-foreground leading-tight">{title}</p>
         </CardContent>
       </Card>
     </Link>
