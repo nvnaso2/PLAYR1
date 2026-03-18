@@ -57,8 +57,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText, Play, ChevronDown, GraduationCap, MapPin } from "lucide-react";
-import type { Drill, DrillCategory, DifficultyLevel, DrillMetric, VideoLibrary, PdfLibrary, MetricTemplate, Workout, WorkoutDrill, TrainingLocation } from "@shared/schema";
+import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText, Play, ChevronDown, GraduationCap, MapPin, ListFilter, X } from "lucide-react";
+import type { Drill, DrillCategory, DifficultyLevel, DrillMetric, VideoLibrary, PdfLibrary, MetricTemplate, Workout, WorkoutDrill, TrainingLocation, ShotLocationDB, ShotTypeDB } from "@shared/schema";
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, METRIC_TYPES, US_STATES } from "@shared/schema";
 import { Layers, GripVertical } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -2257,6 +2257,60 @@ export default function AdminPage() {
     enabled: isAdmin,
   });
 
+  const { data: shotLocationsList, isLoading: shotLocationsLoading } = useQuery<ShotLocationDB[]>({
+    queryKey: ['/api/shot-locations'],
+    enabled: isAdmin,
+  });
+
+  const { data: shotTypesList, isLoading: shotTypesLoading } = useQuery<ShotTypeDB[]>({
+    queryKey: ['/api/shot-types'],
+    enabled: isAdmin,
+  });
+
+  const [editingShotLocation, setEditingShotLocation] = useState<ShotLocationDB | null>(null);
+  const [shotLocationForm, setShotLocationForm] = useState({ slug: "", label: "", classification: "2-pointer", sortOrder: 0, active: true });
+  const [shotLocationDialogOpen, setShotLocationDialogOpen] = useState(false);
+
+  const [editingShotType, setEditingShotType] = useState<ShotTypeDB | null>(null);
+  const [shotTypeForm, setShotTypeForm] = useState({ name: "", label: "", sortOrder: 0, active: true });
+  const [shotTypeDialogOpen, setShotTypeDialogOpen] = useState(false);
+
+  const createShotLocationMutation = useMutation({
+    mutationFn: (data: object) => apiRequest("POST", "/api/shot-locations", data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/shot-locations"] }); setShotLocationDialogOpen(false); setShotLocationForm({ slug: "", label: "", classification: "2-pointer", sortOrder: 0, active: true }); toast({ title: "Shot location created" }); },
+    onError: () => toast({ title: "Failed to create shot location", variant: "destructive" }),
+  });
+
+  const updateShotLocationMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: object }) => apiRequest("PUT", `/api/shot-locations/${id}`, data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/shot-locations"] }); setShotLocationDialogOpen(false); setEditingShotLocation(null); toast({ title: "Shot location updated" }); },
+    onError: () => toast({ title: "Failed to update shot location", variant: "destructive" }),
+  });
+
+  const deleteShotLocationMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/shot-locations/${id}`),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/shot-locations"] }); toast({ title: "Shot location deleted" }); },
+    onError: () => toast({ title: "Failed to delete shot location", variant: "destructive" }),
+  });
+
+  const createShotTypeMutation = useMutation({
+    mutationFn: (data: object) => apiRequest("POST", "/api/shot-types", data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/shot-types"] }); setShotTypeDialogOpen(false); setShotTypeForm({ name: "", label: "", sortOrder: 0, active: true }); toast({ title: "Shot type created" }); },
+    onError: () => toast({ title: "Failed to create shot type", variant: "destructive" }),
+  });
+
+  const updateShotTypeMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: object }) => apiRequest("PUT", `/api/shot-types/${id}`, data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/shot-types"] }); setShotTypeDialogOpen(false); setEditingShotType(null); toast({ title: "Shot type updated" }); },
+    onError: () => toast({ title: "Failed to update shot type", variant: "destructive" }),
+  });
+
+  const deleteShotTypeMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/shot-types/${id}`),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/shot-types"] }); toast({ title: "Shot type deleted" }); },
+    onError: () => toast({ title: "Failed to delete shot type", variant: "destructive" }),
+  });
+
   const createLocationMutation = useMutation({
     mutationFn: async (data: { name: string; address?: string; description?: string; city?: string; state?: string }) => {
       return await apiRequest("POST", "/api/training-locations", data);
@@ -2559,7 +2613,7 @@ export default function AdminPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-1 h-auto p-1">
+        <TabsList className="grid w-full grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-1 h-auto p-1">
           <TabsTrigger value="videos" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-videos">
             <Film className="w-4 h-4 shrink-0" />
             <span>Videos</span>
@@ -2591,6 +2645,10 @@ export default function AdminPage() {
           <TabsTrigger value="users" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-users">
             <Users className="w-4 h-4 shrink-0" />
             <span>Users</span>
+          </TabsTrigger>
+          <TabsTrigger value="picklists" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-picklists">
+            <ListFilter className="w-4 h-4 shrink-0" />
+            <span>Picklists</span>
           </TabsTrigger>
         </TabsList>
 
@@ -3677,6 +3735,188 @@ export default function AdminPage() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Picklists Tab */}
+        <TabsContent value="picklists" className="space-y-8">
+          {/* Shot Locations */}
+          <div>
+            <div className="flex items-center justify-between gap-4 flex-wrap mb-4">
+              <div>
+                <h2 className="text-xl font-semibold" data-testid="text-shot-locations-title">Shot Locations</h2>
+                <p className="text-sm text-muted-foreground">Court zones selectable when logging a training session</p>
+              </div>
+              <Dialog open={shotLocationDialogOpen || !!editingShotLocation} onOpenChange={(open) => { if (!open) { setShotLocationDialogOpen(false); setEditingShotLocation(null); setShotLocationForm({ slug: "", label: "", classification: "2-pointer", sortOrder: 0, active: true }); } }}>
+                <DialogTrigger asChild>
+                  <Button onClick={() => setShotLocationDialogOpen(true)} data-testid="button-add-shot-location">
+                    <Plus className="w-4 h-4 mr-2" />Add Location
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>{editingShotLocation ? "Edit Shot Location" : "Add Shot Location"}</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium">Slug (internal key)</label>
+                      <Input value={shotLocationForm.slug} onChange={e => setShotLocationForm(f => ({ ...f, slug: e.target.value }))} placeholder="e.g. corner-left" data-testid="input-shot-location-slug" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium">Display Label</label>
+                      <Input value={shotLocationForm.label} onChange={e => setShotLocationForm(f => ({ ...f, label: e.target.value }))} placeholder="e.g. Corner Left" data-testid="input-shot-location-label" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium">Classification</label>
+                      <Select value={shotLocationForm.classification} onValueChange={v => setShotLocationForm(f => ({ ...f, classification: v }))}>
+                        <SelectTrigger data-testid="select-shot-location-classification"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="2-pointer">2-Pointer</SelectItem>
+                          <SelectItem value="3-pointer">3-Pointer</SelectItem>
+                          <SelectItem value="free-throw">Free Throw</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium">Sort Order</label>
+                      <Input type="number" value={shotLocationForm.sortOrder} onChange={e => setShotLocationForm(f => ({ ...f, sortOrder: parseInt(e.target.value) || 0 }))} data-testid="input-shot-location-sort-order" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Switch checked={shotLocationForm.active} onCheckedChange={v => setShotLocationForm(f => ({ ...f, active: v }))} data-testid="switch-shot-location-active" />
+                      <label className="text-sm">Active</label>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => { setShotLocationDialogOpen(false); setEditingShotLocation(null); }}>Cancel</Button>
+                    <Button
+                      onClick={() => editingShotLocation ? updateShotLocationMutation.mutate({ id: editingShotLocation.id, data: shotLocationForm }) : createShotLocationMutation.mutate(shotLocationForm)}
+                      disabled={!shotLocationForm.slug || !shotLocationForm.label || createShotLocationMutation.isPending || updateShotLocationMutation.isPending}
+                      data-testid="button-save-shot-location"
+                    >
+                      {editingShotLocation ? "Save Changes" : "Add Location"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+            {shotLocationsLoading ? (
+              <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-12" />)}</div>
+            ) : (
+              <Card>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Label</TableHead>
+                      <TableHead>Slug</TableHead>
+                      <TableHead>Classification</TableHead>
+                      <TableHead>Order</TableHead>
+                      <TableHead>Active</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(shotLocationsList || []).map(loc => (
+                      <TableRow key={loc.id} data-testid={`row-shot-location-${loc.id}`}>
+                        <TableCell className="font-medium">{loc.label}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground font-mono">{loc.slug}</TableCell>
+                        <TableCell><Badge variant="outline" className="no-default-hover-elevate capitalize">{loc.classification}</Badge></TableCell>
+                        <TableCell>{loc.sortOrder}</TableCell>
+                        <TableCell>{loc.active ? <Check className="w-4 h-4 text-green-500" /> : <X className="w-4 h-4 text-muted-foreground" />}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button size="icon" variant="ghost" onClick={() => { setEditingShotLocation(loc); setShotLocationForm({ slug: loc.slug, label: loc.label, classification: loc.classification, sortOrder: loc.sortOrder, active: loc.active }); }} data-testid={`button-edit-shot-location-${loc.id}`}><Pencil className="w-4 h-4" /></Button>
+                            <Button size="icon" variant="ghost" className="text-destructive" onClick={() => deleteShotLocationMutation.mutate(loc.id)} data-testid={`button-delete-shot-location-${loc.id}`}><Trash2 className="w-4 h-4" /></Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Card>
+            )}
+          </div>
+
+          {/* Shot Types */}
+          <div>
+            <div className="flex items-center justify-between gap-4 flex-wrap mb-4">
+              <div>
+                <h2 className="text-xl font-semibold" data-testid="text-shot-types-title">Shot Types</h2>
+                <p className="text-sm text-muted-foreground">Shot style options selectable when logging a training session</p>
+              </div>
+              <Dialog open={shotTypeDialogOpen || !!editingShotType} onOpenChange={(open) => { if (!open) { setShotTypeDialogOpen(false); setEditingShotType(null); setShotTypeForm({ name: "", label: "", sortOrder: 0, active: true }); } }}>
+                <DialogTrigger asChild>
+                  <Button onClick={() => setShotTypeDialogOpen(true)} data-testid="button-add-shot-type">
+                    <Plus className="w-4 h-4 mr-2" />Add Shot Type
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>{editingShotType ? "Edit Shot Type" : "Add Shot Type"}</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium">Name (internal key)</label>
+                      <Input value={shotTypeForm.name} onChange={e => setShotTypeForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. floater" data-testid="input-shot-type-name" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium">Display Label</label>
+                      <Input value={shotTypeForm.label} onChange={e => setShotTypeForm(f => ({ ...f, label: e.target.value }))} placeholder="e.g. Floater" data-testid="input-shot-type-label" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium">Sort Order</label>
+                      <Input type="number" value={shotTypeForm.sortOrder} onChange={e => setShotTypeForm(f => ({ ...f, sortOrder: parseInt(e.target.value) || 0 }))} data-testid="input-shot-type-sort-order" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Switch checked={shotTypeForm.active} onCheckedChange={v => setShotTypeForm(f => ({ ...f, active: v }))} data-testid="switch-shot-type-active" />
+                      <label className="text-sm">Active</label>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => { setShotTypeDialogOpen(false); setEditingShotType(null); }}>Cancel</Button>
+                    <Button
+                      onClick={() => editingShotType ? updateShotTypeMutation.mutate({ id: editingShotType.id, data: shotTypeForm }) : createShotTypeMutation.mutate(shotTypeForm)}
+                      disabled={!shotTypeForm.name || !shotTypeForm.label || createShotTypeMutation.isPending || updateShotTypeMutation.isPending}
+                      data-testid="button-save-shot-type"
+                    >
+                      {editingShotType ? "Save Changes" : "Add Shot Type"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+            {shotTypesLoading ? (
+              <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-12" />)}</div>
+            ) : (
+              <Card>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Label</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Order</TableHead>
+                      <TableHead>Active</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(shotTypesList || []).map(st => (
+                      <TableRow key={st.id} data-testid={`row-shot-type-${st.id}`}>
+                        <TableCell className="font-medium">{st.label}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground font-mono">{st.name}</TableCell>
+                        <TableCell>{st.sortOrder}</TableCell>
+                        <TableCell>{st.active ? <Check className="w-4 h-4 text-green-500" /> : <X className="w-4 h-4 text-muted-foreground" />}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button size="icon" variant="ghost" onClick={() => { setEditingShotType(st); setShotTypeForm({ name: st.name, label: st.label, sortOrder: st.sortOrder, active: st.active }); }} data-testid={`button-edit-shot-type-${st.id}`}><Pencil className="w-4 h-4" /></Button>
+                            <Button size="icon" variant="ghost" className="text-destructive" onClick={() => deleteShotTypeMutation.mutate(st.id)} data-testid={`button-delete-shot-type-${st.id}`}><Trash2 className="w-4 h-4" /></Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Card>
+            )}
+          </div>
         </TabsContent>
       </Tabs>
 

@@ -84,6 +84,7 @@ import {
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { insertTrainerTeamSchema } from "@shared/schema";
+import { AssignDrillDialog } from "@/components/assign-drill-dialog";
 
 interface TrainerGroup {
   id: string;
@@ -884,6 +885,7 @@ export default function TrainerRoster() {
 
   const [detailPlayer, setDetailPlayer] = useState<TrainerPlayerData | null>(null);
   const [findPlayersOpen, setFindPlayersOpen] = useState(false);
+  const [assignDrillPlayer, setAssignDrillPlayer] = useState<TrainerPlayerData | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [positionFilter, setPositionFilter] = useState("all");
@@ -1852,7 +1854,7 @@ export default function TrainerRoster() {
                     <Button size="icon" variant="ghost" className="h-7 w-7" title="Chat" onClick={() => setLocation(`/trainer/roster/${player.id}?tab=chat`)} data-testid={`button-chat-player-${player.id}`}>
                       <MessageCircle className="w-3 h-3" />
                     </Button>
-                    <Button size="icon" variant="ghost" className="h-7 w-7" title="Assign Drill" onClick={() => setLocation(`/trainer/roster/${player.id}?tab=drills`)} data-testid={`button-assign-player-${player.id}`}>
+                    <Button size="icon" variant="ghost" className="h-7 w-7" title="Assign Drill" onClick={(e) => { e.stopPropagation(); setAssignDrillPlayer(player); }} data-testid={`button-assign-player-${player.id}`}>
                       <ClipboardList className="w-3 h-3" />
                     </Button>
                     <Button size="icon" variant="ghost" className="h-7 w-7" title="Invite" onClick={(e) => { e.stopPropagation(); setInviteEmail(player.email || ""); setInvitePlayerName(`${player.firstName} ${player.lastName || ""}`.trim()); setInviteOpen(true); }} data-testid={`button-invite-player-${player.id}`}>
@@ -2370,6 +2372,13 @@ export default function TrainerRoster() {
         player={detailPlayer}
         open={!!detailPlayer}
         onClose={() => setDetailPlayer(null)}
+      />
+
+      <AssignDrillDialog
+        open={!!assignDrillPlayer}
+        onOpenChange={(open) => { if (!open) setAssignDrillPlayer(null); }}
+        playerName={assignDrillPlayer ? `${assignDrillPlayer.firstName} ${assignDrillPlayer.lastName || ""}`.trim() : ""}
+        assignedTo={assignDrillPlayer?.id ?? ""}
       />
     </div>
   );

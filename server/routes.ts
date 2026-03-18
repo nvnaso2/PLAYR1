@@ -893,6 +893,82 @@ export async function registerRoutes(
     }
   });
 
+  // ===== SHOT LOCATIONS =====
+  app.get("/api/shot-locations", async (req, res) => {
+    try {
+      const locs = await storage.getShotLocations();
+      res.json(locs);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch shot locations" });
+    }
+  });
+
+  app.post("/api/shot-locations", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const loc = await storage.createShotLocation(req.body);
+      res.status(201).json(loc);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create shot location" });
+    }
+  });
+
+  app.put("/api/shot-locations/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const loc = await storage.updateShotLocation(req.params.id, req.body);
+      if (!loc) return res.status(404).json({ message: "Not found" });
+      res.json(loc);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update shot location" });
+    }
+  });
+
+  app.delete("/api/shot-locations/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      await storage.deleteShotLocation(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete shot location" });
+    }
+  });
+
+  // ===== SHOT TYPES =====
+  app.get("/api/shot-types", async (req, res) => {
+    try {
+      const types = await storage.getShotTypes();
+      res.json(types);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch shot types" });
+    }
+  });
+
+  app.post("/api/shot-types", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const st = await storage.createShotType(req.body);
+      res.status(201).json(st);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create shot type" });
+    }
+  });
+
+  app.put("/api/shot-types/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const st = await storage.updateShotType(req.params.id, req.body);
+      if (!st) return res.status(404).json({ message: "Not found" });
+      res.json(st);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update shot type" });
+    }
+  });
+
+  app.delete("/api/shot-types/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      await storage.deleteShotType(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete shot type" });
+    }
+  });
+
   // Set drill metrics (link metric templates to a drill)
   // Allowed for admins OR the drill owner
   app.post("/api/drills/:id/metrics", isAuthenticated, async (req: AuthenticatedRequest, res) => {

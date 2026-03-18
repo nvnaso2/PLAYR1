@@ -52,7 +52,9 @@ import {
   userFavoriteDrills,
   playerTrainerConnections, type PlayerTrainerConnection, type InsertConnection,
   parentLinks, type ParentLink,
-  pushSubscriptions, type PushSubscription
+  pushSubscriptions, type PushSubscription,
+  shotLocations, type ShotLocationDB, type InsertShotLocation,
+  shotTypes, type ShotTypeDB, type InsertShotType
 } from "@shared/schema";
 import { users, type User } from "@shared/models/auth";
 import { db } from "./db";
@@ -143,6 +145,18 @@ export interface IStorage {
   createMetricTemplate(template: InsertMetricTemplate): Promise<MetricTemplate>;
   updateMetricTemplate(id: string, template: Partial<InsertMetricTemplate>): Promise<MetricTemplate | undefined>;
   deleteMetricTemplate(id: string): Promise<boolean>;
+
+  // Shot Locations (DB-managed)
+  getShotLocations(): Promise<ShotLocationDB[]>;
+  createShotLocation(data: InsertShotLocation): Promise<ShotLocationDB>;
+  updateShotLocation(id: string, data: Partial<InsertShotLocation>): Promise<ShotLocationDB | undefined>;
+  deleteShotLocation(id: string): Promise<boolean>;
+
+  // Shot Types (DB-managed)
+  getShotTypes(): Promise<ShotTypeDB[]>;
+  createShotType(data: InsertShotType): Promise<ShotTypeDB>;
+  updateShotType(id: string, data: Partial<InsertShotType>): Promise<ShotTypeDB | undefined>;
+  deleteShotType(id: string): Promise<boolean>;
 
   // Drill Metrics (links drills to metric templates)
   getDrillMetrics(drillId: string): Promise<DrillMetric[]>;
@@ -1156,6 +1170,46 @@ export class DatabaseStorage implements IStorage {
 
   async deleteMetricTemplate(id: string): Promise<boolean> {
     await db.delete(metricTemplates).where(eq(metricTemplates.id, id));
+    return true;
+  }
+
+  // Shot Locations
+  async getShotLocations(): Promise<ShotLocationDB[]> {
+    return await db.select().from(shotLocations).orderBy(shotLocations.sortOrder);
+  }
+
+  async createShotLocation(data: InsertShotLocation): Promise<ShotLocationDB> {
+    const [row] = await db.insert(shotLocations).values(data).returning();
+    return row;
+  }
+
+  async updateShotLocation(id: string, data: Partial<InsertShotLocation>): Promise<ShotLocationDB | undefined> {
+    const [row] = await db.update(shotLocations).set(data).where(eq(shotLocations.id, id)).returning();
+    return row;
+  }
+
+  async deleteShotLocation(id: string): Promise<boolean> {
+    await db.delete(shotLocations).where(eq(shotLocations.id, id));
+    return true;
+  }
+
+  // Shot Types
+  async getShotTypes(): Promise<ShotTypeDB[]> {
+    return await db.select().from(shotTypes).orderBy(shotTypes.sortOrder);
+  }
+
+  async createShotType(data: InsertShotType): Promise<ShotTypeDB> {
+    const [row] = await db.insert(shotTypes).values(data).returning();
+    return row;
+  }
+
+  async updateShotType(id: string, data: Partial<InsertShotType>): Promise<ShotTypeDB | undefined> {
+    const [row] = await db.update(shotTypes).set(data).where(eq(shotTypes.id, id)).returning();
+    return row;
+  }
+
+  async deleteShotType(id: string): Promise<boolean> {
+    await db.delete(shotTypes).where(eq(shotTypes.id, id));
     return true;
   }
 

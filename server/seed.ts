@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { drills, benchmarks, evaluationAttributes } from "@shared/schema";
+import { drills, benchmarks, evaluationAttributes, shotLocations, shotTypes } from "@shared/schema";
 
 const sampleDrills = [
   // Ball Handling
@@ -302,6 +302,49 @@ export async function seedDatabase() {
       console.log("Inserted default evaluation attributes");
     } else {
       console.log("Evaluation attributes already exist, skipping seed");
+    }
+
+    const existingShotLocations = await db.select().from(shotLocations).limit(1);
+    if (existingShotLocations.length === 0) {
+      console.log("Inserting default shot locations...");
+      await db.insert(shotLocations).values([
+        { slug: "free-throw", label: "Free Throw", classification: "free-throw", sortOrder: 0 },
+        { slug: "block-left", label: "Block Left", classification: "2-pointer", sortOrder: 1 },
+        { slug: "block-right", label: "Block Right", classification: "2-pointer", sortOrder: 2 },
+        { slug: "mid-range-left", label: "Mid Range Left", classification: "2-pointer", sortOrder: 3 },
+        { slug: "mid-range-right", label: "Mid Range Right", classification: "2-pointer", sortOrder: 4 },
+        { slug: "1st-hash-left", label: "1st Hash Left", classification: "2-pointer", sortOrder: 5 },
+        { slug: "1st-hash-right", label: "1st Hash Right", classification: "2-pointer", sortOrder: 6 },
+        { slug: "2nd-hash-left", label: "2nd Hash Left", classification: "2-pointer", sortOrder: 7 },
+        { slug: "2nd-hash-right", label: "2nd Hash Right", classification: "2-pointer", sortOrder: 8 },
+        { slug: "corner-left", label: "Corner Left", classification: "3-pointer", sortOrder: 9 },
+        { slug: "corner-right", label: "Corner Right", classification: "3-pointer", sortOrder: 10 },
+        { slug: "wing-left", label: "Wing Left", classification: "3-pointer", sortOrder: 11 },
+        { slug: "wing-right", label: "Wing Right", classification: "3-pointer", sortOrder: 12 },
+        { slug: "top-of-key", label: "Top of Key", classification: "3-pointer", sortOrder: 13 },
+        { slug: "3rd-hash-left", label: "3rd Hash Left", classification: "3-pointer", sortOrder: 14 },
+        { slug: "3rd-hash-right", label: "3rd Hash Right", classification: "3-pointer", sortOrder: 15 },
+      ]);
+      console.log("Inserted default shot locations");
+    } else {
+      console.log("Shot locations already exist, skipping seed");
+    }
+
+    const existingShotTypes = await db.select().from(shotTypes).limit(1);
+    if (existingShotTypes.length === 0) {
+      console.log("Inserting default shot types...");
+      await db.insert(shotTypes).values([
+        { name: "3-pointer", label: "3 Pointer", sortOrder: 0 },
+        { name: "mid-range", label: "Mid Range", sortOrder: 1 },
+        { name: "free-throw", label: "Free Throw", sortOrder: 2 },
+        { name: "floater", label: "Floater", sortOrder: 3 },
+        { name: "post-shot", label: "Post Shot", sortOrder: 4 },
+        { name: "form-shot", label: "Form Shot", sortOrder: 5 },
+        { name: "layup", label: "Layup", sortOrder: 6 },
+      ]);
+      console.log("Inserted default shot types");
+    } else {
+      console.log("Shot types already exist, skipping seed");
     }
 
     console.log("Database seeding complete!");

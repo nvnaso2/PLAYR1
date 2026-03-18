@@ -426,6 +426,30 @@ export function getShotClassification(location: ShotLocation): ShotClassificatio
   return LOCATION_CLASSIFICATIONS[location];
 }
 
+// DB-managed shot locations (replaces hardcoded SHOT_LOCATIONS array)
+export const shotLocations = pgTable("shot_locations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  slug: varchar("slug").notNull().unique(),
+  label: varchar("label").notNull(),
+  classification: varchar("classification").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  active: boolean("active").notNull().default(true),
+});
+
+// DB-managed shot types
+export const shotTypes = pgTable("shot_types", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull().unique(),
+  label: varchar("label").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  active: boolean("active").notNull().default(true),
+});
+
+export const insertShotLocationSchema = createInsertSchema(shotLocations).omit({ id: true });
+export const insertShotTypeSchema = createInsertSchema(shotTypes).omit({ id: true });
+export type ShotLocationDB = typeof shotLocations.$inferSelect;
+export type ShotTypeDB = typeof shotTypes.$inferSelect;
+
 // Metric templates - reusable metric definitions (not tied to specific drills)
 export const metricTemplates = pgTable("metric_templates", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -878,6 +902,8 @@ export type InsertPdfLibrary = z.infer<typeof insertPdfLibrarySchema>;
 export type PdfLibrary = typeof pdfLibrary.$inferSelect;
 export type InsertMetricTemplate = z.infer<typeof insertMetricTemplateSchema>;
 export type MetricTemplate = typeof metricTemplates.$inferSelect;
+export type InsertShotLocation = z.infer<typeof insertShotLocationSchema>;
+export type InsertShotType = z.infer<typeof insertShotTypeSchema>;
 export type InsertTrainingLog = z.infer<typeof insertTrainingLogSchema>;
 export type TrainingLog = typeof trainingLogs.$inferSelect;
 export type InsertUserVideo = z.infer<typeof insertUserVideoSchema>;
