@@ -222,6 +222,9 @@ const LOCATION_TO_ZONE: Record<string, string> = {
   "form-shot-left":         "paint-left",
   "form-shots-right":       "paint-right",
   "form-shots-front":       "floater",
+  // Layups — left hand attacks left side, right hand attacks right side
+  "left-hand-layup":        "paint-left",
+  "right-hand-layup":       "paint-right",
 };
 
 // ── Color scale matching the PLAYR1 reference heatmap ───────────────────────

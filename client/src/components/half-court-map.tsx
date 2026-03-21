@@ -77,6 +77,9 @@ const ZONE_DEFS: Record<string, ZoneDef> = {
   // Form shots (block area)
   "form-shot-left":         { cx: 163, cy: 382, rx: 30, ry: 20, label: "Form Shots L"      },
   "form-shots-right":       { cx: 337, cy: 382, rx: 30, ry: 20, label: "Form Shots R"      },
+  // Layups — left hand on left side of basket, right hand on right side
+  "left-hand-layup":        { cx: 195, cy: 415, rx: 26, ry: 18, label: "Left Layup"        },
+  "right-hand-layup":       { cx: 305, cy: 415, rx: 26, ry: 18, label: "Right Layup"       },
 };
 
 // Shooting-percentage colour matching PLAYR1 reference heatmap
