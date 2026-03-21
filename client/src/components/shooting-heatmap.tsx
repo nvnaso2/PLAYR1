@@ -1,5 +1,7 @@
 import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { ShotLocationDB } from "@shared/schema";
 
 type ShotData = {
   location: string;
@@ -370,6 +372,23 @@ export function ShootingHeatmap({
   title = "Shooting Heatmap",
   className = "",
 }: ShootingHeatmapProps) {
+  const { data: shotLocationOptions } = useQuery<ShotLocationDB[]>({
+    queryKey: ['/api/shot-locations'],
+  });
+
+  // Build a map from SVG zone name → display label(s) using DB slug labels.
+  // Multiple DB slugs can map to the same SVG zone (e.g. block-left + 1st-hash-left → paint-left),
+  // so we join their labels. Falls back to hardcoded COURT_ZONES label if no DB match.
+  const zoneLabelMap = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    (shotLocationOptions || []).forEach(loc => {
+      const zoneName = LOCATION_TO_ZONE[loc.slug] || loc.slug;
+      if (!map[zoneName]) map[zoneName] = [];
+      if (!map[zoneName].includes(loc.label)) map[zoneName].push(loc.label);
+    });
+    return map;
+  }, [shotLocationOptions]);
+
   const zoneData = useMemo(() => {
     const result: Record<string, { made: number; missed: number; percentage: number }> = {};
 
@@ -464,6 +483,7 @@ export function ShootingHeatmap({
               if (!zone) return null;
               const total = data.made + data.missed;
               const color = getHeatColor(data.percentage);
+              const label = zoneLabelMap[zoneName]?.join(' / ') || zone.label;
               return (
                 <div
                   key={zoneName}
@@ -471,7 +491,7 @@ export function ShootingHeatmap({
                   style={{ backgroundColor: color + "28", border: `1px solid ${color}44` }}
                   data-testid={`heatmap-zone-${zoneName}`}
                 >
-                  <span className="text-zinc-300 truncate">{zone.label}</span>
+                  <span className="text-zinc-300 truncate">{label}</span>
                   <span className="font-semibold ml-1 shrink-0" style={{ color }}>
                     {data.made}/{total} ({data.percentage}%)
                   </span>

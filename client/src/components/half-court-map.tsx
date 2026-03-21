@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ChartArea } from "lucide-react";
+import type { ShotLocationDB } from "@shared/schema";
 
 type ShotData = {
   location: string;
@@ -235,6 +237,16 @@ export function HalfCourtMap({
   className = "",
   compact = false,
 }: HalfCourtMapProps) {
+  const { data: shotLocationOptions } = useQuery<ShotLocationDB[]>({
+    queryKey: ['/api/shot-locations'],
+  });
+
+  const dbLabels = useMemo(() => {
+    const map: Record<string, string> = {};
+    (shotLocationOptions || []).forEach(loc => { map[loc.slug] = loc.label; });
+    return map;
+  }, [shotLocationOptions]);
+
   const processedData = useMemo(() => {
     const result: Record<string, { made: number; missed: number }> = {};
     shotData.forEach((shot) => {
@@ -306,6 +318,7 @@ export function HalfCourtMap({
               const total = data.made + data.missed;
               const zonePct = total > 0 ? Math.round((data.made / total) * 100) : 0;
               const color   = zoneColor(zonePct);
+              const label   = dbLabels[location] || zone.label;
               return (
                 <div
                   key={location}
@@ -313,7 +326,7 @@ export function HalfCourtMap({
                   style={{ backgroundColor: color + "28", border: `1px solid ${color}44` }}
                   data-testid={`shot-location-stat-${location}`}
                 >
-                  <span className="text-zinc-300 truncate">{zone.label}</span>
+                  <span className="text-zinc-300 truncate">{label}</span>
                   <span className="font-medium ml-1 shrink-0" style={{ color }}>
                     {data.made}/{total} ({zonePct}%)
                   </span>
