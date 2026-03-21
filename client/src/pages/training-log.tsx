@@ -606,6 +606,8 @@ export default function TrainingLogPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/training-logs'] });
       queryClient.invalidateQueries({ queryKey: ['/api/training-logs', viewEditLogId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stats/overview'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stats/weekly'] });
       toast({ title: "Training log updated" });
       setViewEditLogId(null);
       setIsEditMode(false);
@@ -3125,6 +3127,14 @@ export default function TrainingLogPage() {
                     setEditLogShotLocation(viewEditLog.shotLocation || null);
                     setEditLogShotsAttempted(viewEditLog.shotsAttempted || null);
                     setEditLogShotsMade(viewEditLog.shotsMade || null);
+                    // Pre-populate existing metric values so they aren't cleared on save
+                    const existingMetrics: Record<string, number> = {};
+                    (viewEditLog.metrics || []).forEach(m => {
+                      if (m.value !== null && m.value !== undefined) {
+                        existingMetrics[m.metricId] = Number(m.value);
+                      }
+                    });
+                    setEditLogMetrics(existingMetrics);
                   }
                 }} className="gap-2" data-testid="button-start-edit">
                   <Pencil className="w-4 h-4" />

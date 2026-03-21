@@ -1003,7 +1003,7 @@ export async function registerRoutes(
   });
 
   // Get drill metrics with templates
-  app.get("/api/drills/:id/metrics", async (req, res) => {
+  app.get("/api/drills/:id/metrics", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const metrics = await storage.getDrillMetricsWithTemplates(req.params.id);
       res.json(metrics);
@@ -2227,10 +2227,14 @@ export async function registerRoutes(
   // Update challenge progress
   app.put("/api/challenges/:id/progress", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
+      const userId = req.user.claims.sub;
       const { currentValue } = req.body;
       const updated = await storage.updateChallengeProgress(req.params.id, currentValue);
       if (!updated) {
         return res.status(404).json({ message: "Challenge not found" });
+      }
+      if (updated.userId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
       }
       res.json(updated);
     } catch (error) {
@@ -2242,9 +2246,13 @@ export async function registerRoutes(
   // Complete a challenge
   app.post("/api/challenges/:id/complete", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
+      const userId = req.user.claims.sub;
       const completed = await storage.completeChallenge(req.params.id);
       if (!completed) {
         return res.status(404).json({ message: "Challenge not found" });
+      }
+      if (completed.userId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
       }
       res.json(completed);
     } catch (error) {
@@ -2469,10 +2477,11 @@ export async function registerRoutes(
   // Update a season
   app.put("/api/seasons/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
+      const userId = req.user.claims.sub;
+      const [season] = await db.select().from(seasons).where(eq(seasons.id, req.params.id)).limit(1);
+      if (!season) return res.status(404).json({ message: "Season not found" });
+      if (season.userId !== userId) return res.status(403).json({ message: "Not authorized" });
       const updated = await storage.updateSeason(req.params.id, req.body);
-      if (!updated) {
-        return res.status(404).json({ message: "Season not found" });
-      }
       res.json(updated);
     } catch (error) {
       console.error("Error updating season:", error);
@@ -2483,6 +2492,10 @@ export async function registerRoutes(
   // Delete a season
   app.delete("/api/seasons/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
+      const userId = req.user.claims.sub;
+      const [season] = await db.select().from(seasons).where(eq(seasons.id, req.params.id)).limit(1);
+      if (!season) return res.status(404).json({ message: "Season not found" });
+      if (season.userId !== userId) return res.status(403).json({ message: "Not authorized" });
       await storage.deleteSeason(req.params.id);
       res.json({ success: true });
     } catch (error) {
@@ -2592,6 +2605,10 @@ export async function registerRoutes(
   // Update a game
   app.put("/api/games/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
+      const userId = req.user.claims.sub;
+      const [existing] = await db.select().from(games).where(eq(games.id, req.params.id)).limit(1);
+      if (!existing) return res.status(404).json({ message: "Game not found" });
+      if (existing.userId !== userId) return res.status(403).json({ message: "Not authorized" });
       const gameData = {
         ...req.body,
         gameDate: req.body.gameDate ? new Date(req.body.gameDate + 'T12:00:00Z') : undefined
@@ -2602,7 +2619,6 @@ export async function registerRoutes(
       }
       
       try {
-        const userId = req.user.claims.sub;
         await storage.checkAndCreateGamePRs(userId, req.params.id, {
           points: updated.points ?? 0,
           rebounds: updated.rebounds ?? 0,
@@ -2625,6 +2641,10 @@ export async function registerRoutes(
   // Delete a game
   app.delete("/api/games/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
+      const userId = req.user.claims.sub;
+      const [existing] = await db.select().from(games).where(eq(games.id, req.params.id)).limit(1);
+      if (!existing) return res.status(404).json({ message: "Game not found" });
+      if (existing.userId !== userId) return res.status(403).json({ message: "Not authorized" });
       await storage.deleteGame(req.params.id);
       res.json({ success: true });
     } catch (error) {
