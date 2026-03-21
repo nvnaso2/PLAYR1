@@ -1538,7 +1538,7 @@ export async function registerRoutes(
       if (log.shotsMade && log.shotsMade > 0) prMetrics.push({ metricName: "Shots Made", value: log.shotsMade });
       if (log.duration && log.duration > 0) prMetrics.push({ metricName: "Duration (min)", value: log.duration });
       if (log.reps && log.reps > 0) prMetrics.push({ metricName: "Reps", value: log.reps });
-      if (log.shotsAttempted && log.shotsMade && log.shotsAttempted > 0) {
+      if (log.shotsAttempted && log.shotsMade && log.shotsAttempted > 0 && log.shotsMade <= log.shotsAttempted) {
         const pct = Math.round((log.shotsMade / log.shotsAttempted) * 100);
         if (pct > 0) prMetrics.push({ metricName: "Shooting %", value: pct });
       }
@@ -1613,7 +1613,7 @@ export async function registerRoutes(
       if (s.shotsMade && s.shotsMade > 0) prMetrics.push({ metricName: "Shots Made", value: s.shotsMade });
       if (s.duration && s.duration > 0) prMetrics.push({ metricName: "Duration (min)", value: s.duration });
       if (s.reps && s.reps > 0) prMetrics.push({ metricName: "Reps", value: s.reps });
-      if (s.shotsAttempted && s.shotsMade && s.shotsAttempted > 0) {
+      if (s.shotsAttempted && s.shotsMade && s.shotsAttempted > 0 && s.shotsMade <= s.shotsAttempted) {
         const pct = Math.round((s.shotsMade / s.shotsAttempted) * 100);
         if (pct > 0) prMetrics.push({ metricName: "Shooting %", value: pct });
       }
@@ -2317,7 +2317,7 @@ export async function registerRoutes(
         if (log.shotsMade && log.shotsMade > 0) prMetrics.push({ metricName: "Shots Made", value: log.shotsMade });
         if (log.duration && log.duration > 0) prMetrics.push({ metricName: "Duration (min)", value: log.duration });
         if (log.reps && log.reps > 0) prMetrics.push({ metricName: "Reps", value: log.reps });
-        if (log.shotsAttempted && log.shotsMade && log.shotsAttempted > 0) {
+        if (log.shotsAttempted && log.shotsMade && log.shotsAttempted > 0 && log.shotsMade <= log.shotsAttempted) {
           const pct = Math.round((log.shotsMade / log.shotsAttempted) * 100);
           if (pct > 0) prMetrics.push({ metricName: "Shooting %", value: pct });
         }
