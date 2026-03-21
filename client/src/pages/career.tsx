@@ -3907,22 +3907,7 @@ function TrophyRoomTab({
       case "prs":
         return (
           <Card key="prs">
-            {renderSectionHeader("prs", <Medal className="w-5 h-5 text-amber-500" />, "Personal Records (PRs)",
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={async () => {
-                  try {
-                    await apiRequest("POST", "/api/personal-records/backfill");
-                    queryClient.invalidateQueries({ queryKey: ['/api/personal-records'] });
-                  } catch (e) { /* ignore */ }
-                }}
-                data-testid="button-scan-prs"
-              >
-                <RefreshCw className="w-4 h-4 mr-1" />
-                Scan
-              </Button>
-            )}
+            {renderSectionHeader("prs", <Medal className="w-5 h-5 text-amber-500" />, "Personal Records (PRs)")}
             {!collapsedSections.has("prs") && <CardContent>
               {personalRecords && personalRecords.length > 0 ? (() => {
                 const bestByMetric = new Map<string, { value: number; source: string; metricName: string; achievedAt: Date | string | null }>();
