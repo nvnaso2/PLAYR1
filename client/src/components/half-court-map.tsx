@@ -59,6 +59,24 @@ const ZONE_DEFS: Record<string, ZoneDef> = {
   "1st-hash-right":  { cx: 374, cy: 325, rx: 42, ry: 24, label: "1st Hash Right"  },
   "block-left":      { cx: 163, cy: 382, rx: 30, ry: 20, label: "Block Left"      },
   "block-right":     { cx: 337, cy: 382, rx: 30, ry: 20, label: "Block Right"     },
+
+  // ── DB picklist slugs ──────────────────────────────────────────────
+  // Floater zone: between free throw line (y=245) and top of paint (y=320)
+  "floaters":               { cx: 250, cy: 283, rx: 60, ry: 30, label: "Floaters"           },
+  "form-shots-front":       { cx: 250, cy: 283, rx: 42, ry: 22, label: "Form Shots Front"   },
+  // Post / restricted area
+  "post-shots":             { cx: 250, cy: 390, rx: 40, ry: 22, label: "Post Shots"         },
+  // Short-corner mid-range (inside the lane extended)
+  "left-corner-mid-range":  { cx: 102, cy: 340, rx: 44, ry: 24, label: "Short Corner L"    },
+  "right-corner-mid-range": { cx: 398, cy: 340, rx: 44, ry: 24, label: "Short Corner R"    },
+  // Wing mid-range (elbow extended)
+  "wing-left-mid-range":    { cx: 96,  cy: 210, rx: 38, ry: 22, label: "Wing Left Mid"     },
+  "wing-right-mid-range":   { cx: 404, cy: 210, rx: 38, ry: 22, label: "Wing Right Mid"    },
+  // 3-pt top-of-key variant
+  "top-of-key-3-point":     { cx: 250, cy: 40,  rx: 80, ry: 26, label: "Top of Key 3",     is3pt: true },
+  // Form shots (block area)
+  "form-shot-left":         { cx: 163, cy: 382, rx: 30, ry: 20, label: "Form Shots L"      },
+  "form-shots-right":       { cx: 337, cy: 382, rx: 30, ry: 20, label: "Form Shots R"      },
 };
 
 // Shooting-percentage colour matching PLAYR1 reference heatmap

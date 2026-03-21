@@ -47,6 +47,16 @@ const COURT_ZONES: Record<string, {
     label: "Paint R",
     center: { x: 310, y: 378 }
   },
+  "floater": {
+    // Rectangle spanning the full paint width between the FT line (y=245)
+    // and the top of the paint side columns (y=320) — the floater / short-roll zone
+    points: [
+      { x: 170, y: 320 }, { x: 330, y: 320 },
+      { x: 330, y: 245 }, { x: 170, y: 245 }
+    ],
+    label: "Floater",
+    center: { x: 250, y: 283 }
+  },
   "free-throw": {
     // Semicircle ABOVE the FT line — follows top half of the free-throw circle
     // FT circle: center (250,245) radius 80 → top at y=165
@@ -173,22 +183,34 @@ const COURT_ZONES: Record<string, {
 
 // Map shot location names → zone keys
 const LOCATION_TO_ZONE: Record<string, string> = {
-  "free-throw":      "free-throw",
-  "corner-left":     "corner-left",
-  "corner-right":    "corner-right",
-  "top-of-key":      "top-of-key",
-  "wing-left":       "wing-left",
-  "wing-right":      "wing-right",
-  "1st-hash-left":   "paint-left",
-  "1st-hash-right":  "paint-right",
-  "2nd-hash-left":   "elbow-left",
-  "2nd-hash-right":  "elbow-right",
-  "3rd-hash-left":   "elbow-left",
-  "3rd-hash-right":  "elbow-right",
-  "block-left":      "paint-left",
-  "block-right":     "paint-right",
-  "mid-range-left":  "mid-range-left",
-  "mid-range-right": "mid-range-right",
+  // Standard locations
+  "free-throw":             "free-throw",
+  "corner-left":            "corner-left",
+  "corner-right":           "corner-right",
+  "top-of-key":             "top-of-key",
+  "wing-left":              "wing-left",
+  "wing-right":             "wing-right",
+  "1st-hash-left":          "paint-left",
+  "1st-hash-right":         "paint-right",
+  "2nd-hash-left":          "elbow-left",
+  "2nd-hash-right":         "elbow-right",
+  "3rd-hash-left":          "elbow-left",
+  "3rd-hash-right":         "elbow-right",
+  "block-left":             "paint-left",
+  "block-right":            "paint-right",
+  "mid-range-left":         "mid-range-left",
+  "mid-range-right":        "mid-range-right",
+  // DB slugs added to picklists
+  "floaters":               "floater",
+  "post-shots":             "restricted-area",
+  "left-corner-mid-range":  "mid-range-left",
+  "right-corner-mid-range": "mid-range-right",
+  "wing-left-mid-range":    "elbow-left",
+  "wing-right-mid-range":   "elbow-right",
+  "top-of-key-3-point":     "top-of-key",
+  "form-shot-left":         "paint-left",
+  "form-shots-right":       "paint-right",
+  "form-shots-front":       "floater",
 };
 
 // ── Color scale matching the PLAYR1 reference heatmap ───────────────────────
