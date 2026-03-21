@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ShotLocationDB } from "@shared/schema";
+import playr1Logo from "@assets/Playr1_App_Logo_1774122925857.png";
 
 type ShotData = {
   location: string;
@@ -295,17 +296,19 @@ function HeatmapCourtSVG({
       <rect x="0" y="0" width="500" height="435" fill="#000000" />
 
       {/* ── PLAYR1 logo in the strip below the baseline ── */}
-      <text
-        x="250" y="453"
-        textAnchor="middle"
-        dominantBaseline="middle"
-        fontSize="18"
-        fontWeight="800"
-        letterSpacing="2"
-        fontFamily="system-ui, sans-serif"
-      >
-        <tspan fill="white">PLAYR</tspan><tspan fill="#F97316">1</tspan>
-      </text>
+      <defs>
+        <clipPath id="heatmapLogoClip">
+          <rect x="0" y="435" width="500" height="35" />
+        </clipPath>
+      </defs>
+      {/* Render the square logo large, clipped to the 35px strip — shows the centred text portion */}
+      <image
+        href={playr1Logo}
+        x="90" y="290"
+        width="320" height="320"
+        clipPath="url(#heatmapLogoClip)"
+        preserveAspectRatio="xMidYMid meet"
+      />
 
 
       {/* ── Base zone fills — dim dark tint so all zones are always visible ── */}
