@@ -63,11 +63,14 @@ const COURT_ZONES: Record<string, {
     center: { x: 250, y: 293 }
   },
   "free-throw": {
-    // Full rectangle covering the key area above the FT line (y=165–245, x=170–330).
-    // Using a rectangle instead of a semicircle eliminates black corner gaps.
+    // Dome (semicircle) tracing the FT circle arc from (170,245) up to (250,165) and back.
+    // FT circle: center (250,245) radius 80. Corner gaps covered by extended elbow zones below.
     points: [
-      { x: 170, y: 245 }, { x: 330, y: 245 },
-      { x: 330, y: 165 }, { x: 170, y: 165 }
+      { x: 170, y: 245 },
+      { x: 171, y: 230 }, { x: 178, y: 210 }, { x: 192, y: 190 },
+      { x: 211, y: 175 }, { x: 250, y: 165 },
+      { x: 289, y: 175 }, { x: 308, y: 190 }, { x: 322, y: 210 },
+      { x: 329, y: 230 }, { x: 330, y: 245 }
     ],
     label: "Free Throw",
     center: { x: 250, y: 208 }
@@ -91,12 +94,11 @@ const COURT_ZONES: Record<string, {
     center: { x: 400, y: 365 }
   },
   "elbow-left": {
-    // Left mid-range: left boundary traces the 3PT arc from (30,285) up to (138,102),
-    // filling all 2PT space between the arc and the paint edge (x=170).
-    // Arc sampled at t=0,.1,.2,.3,.4,.5,.6,.7 to minimise gap with smooth bezier.
+    // Left mid-range: inner boundary extends down to FT line (y=245) to fill the key corner,
+    // then up to where the FT circle meets the paint (y=165).
     points: [
       { x: 30, y: 285 }, { x: 170, y: 285 },
-      { x: 170, y: 165 }, { x: 138, y: 102 },
+      { x: 170, y: 245 }, { x: 170, y: 165 }, { x: 138, y: 102 },
       { x: 109, y: 119 }, { x: 85, y: 139 },
       { x: 65, y: 162 }, { x: 50, y: 188 },
       { x: 39, y: 217 }, { x: 32, y: 250 }
@@ -105,15 +107,14 @@ const COURT_ZONES: Record<string, {
     center: { x: 108, y: 215 }
   },
   "elbow-right": {
-    // Right mid-range: right boundary traces the 3PT arc from (470,285) up to (362,102),
-    // filling all 2PT space between the arc and the paint edge (x=330).
-    // Arc sampled at t=0,.1,.2,.3,.4,.5,.6,.7 (mirrored) for tight bezier fit.
+    // Right mid-range: inner boundary extends down to FT line (y=245) to fill the key corner,
+    // then up to where the FT circle meets the paint (y=165).
     points: [
       { x: 330, y: 285 }, { x: 470, y: 285 },
       { x: 468, y: 250 }, { x: 461, y: 217 },
       { x: 450, y: 188 }, { x: 435, y: 162 },
       { x: 415, y: 139 }, { x: 391, y: 119 },
-      { x: 362, y: 102 }, { x: 330, y: 165 }
+      { x: 362, y: 102 }, { x: 330, y: 165 }, { x: 330, y: 245 }
     ],
     label: "Elbow R",
     center: { x: 392, y: 215 }
@@ -301,8 +302,8 @@ function HeatmapCourtSVG({
       {/* Render the square logo large, clipped to the 35px strip — shows the centred text portion */}
       <image
         href={playr1Logo}
-        x="90" y="290"
-        width="320" height="320"
+        x="175" y="378"
+        width="150" height="150"
         clipPath="url(#heatmapLogoClip)"
         preserveAspectRatio="xMidYMid meet"
       />

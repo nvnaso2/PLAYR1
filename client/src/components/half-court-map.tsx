@@ -129,8 +129,8 @@ function CourtSVG({
       </defs>
       <image
         href={playr1Logo}
-        x="90" y="290"
-        width="320" height="320"
+        x="175" y="378"
+        width="150" height="150"
         clipPath="url(#halfCourtLogoClip)"
         preserveAspectRatio="xMidYMid meet"
       />
