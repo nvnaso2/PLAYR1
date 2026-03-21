@@ -280,6 +280,12 @@ export default function TrainingLogPage() {
               metricValues[dm.metricTemplateId] = 0;
             });
             
+            // Auto-detect shot location for well-known drill types
+            let autoShotLocation: string | undefined;
+            if (drill.trackShots && drill.title.toLowerCase().includes('free throw')) {
+              autoShotLocation = 'free-throw';
+            }
+
             // Add drill to workout entries and start workout
             setWorkoutEntries([{
               drillId: drill.id,
@@ -288,6 +294,7 @@ export default function TrainingLogPage() {
               notes: '',
               metrics: metricValues,
               drillMetrics,
+              shotLocation: autoShotLocation,
             }]);
             setWorkoutInProgress(true);
             setActiveView("workout");
@@ -950,6 +957,16 @@ export default function TrainingLogPage() {
       metricValues[dm.metricTemplateId] = 0;
     });
     
+    // Auto-detect shot location for well-known drill types
+    let autoShotLocation: string | undefined;
+    if (drill.trackShots) {
+      const titleLower = drill.title.toLowerCase();
+      if (titleLower.includes('free throw')) {
+        const ftLocation = shotLocationOptions?.find(loc => loc.classification === 'free-throw');
+        autoShotLocation = ftLocation?.slug || 'free-throw';
+      }
+    }
+
     const newEntry: WorkoutDrillEntry = {
       drillId,
       drill,
@@ -957,6 +974,7 @@ export default function TrainingLogPage() {
       notes: "",
       metrics: metricValues,
       drillMetrics,
+      shotLocation: autoShotLocation,
     };
     
     setWorkoutEntries(prev => [...prev, newEntry]);
