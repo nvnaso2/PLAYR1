@@ -287,6 +287,19 @@ function HeatmapCourtSVG({
       <rect x="0" y="0" width="500" height="470" fill="#000000" />
 
 
+      {/* ── Base zone fills — dim dark tint so all zones are always visible ── */}
+      {Object.entries(COURT_ZONES).map(([zoneName, zone]) => (
+        <polygon
+          key={`base-${zoneName}`}
+          points={toSvgPoints(zone.points)}
+          fill="#1a1a2e"
+          opacity={0.85}
+          stroke="white"
+          strokeWidth="0.8"
+          strokeOpacity="0.25"
+        />
+      ))}
+
       {/* ── Coloured zone fills (drawn BEFORE court lines) ── */}
       {Object.entries(COURT_ZONES).map(([zoneName, zone]) => {
         const data = zoneData[zoneName];

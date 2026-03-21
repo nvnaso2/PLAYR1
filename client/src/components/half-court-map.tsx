@@ -121,6 +121,22 @@ function CourtSVG({
       <rect x="0" y="0" width="500" height="470" fill="#000000" />
 
 
+      {/* ── Base zone fills — dim dark tint so all zones are always visible ── */}
+      {Object.entries(ZONE_DEFS).map(([zoneName, zone]) => (
+        <ellipse
+          key={`base-${zoneName}`}
+          cx={zone.cx}
+          cy={zone.cy}
+          rx={zone.rx}
+          ry={zone.ry}
+          fill="#1a1a2e"
+          opacity={0.85}
+          stroke="white"
+          strokeWidth="0.6"
+          strokeOpacity="0.2"
+        />
+      ))}
+
       {/* ── Shot zones (drawn BEFORE court lines so lines stay on top) ── */}
       {Object.entries(processedData).map(([location, data]) => {
         const zone = ZONE_DEFS[location];
