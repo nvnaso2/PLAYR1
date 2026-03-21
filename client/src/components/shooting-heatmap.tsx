@@ -63,14 +63,11 @@ const COURT_ZONES: Record<string, {
     center: { x: 250, y: 293 }
   },
   "free-throw": {
-    // Semicircle ABOVE the FT line — follows top half of the free-throw circle
-    // FT circle: center (250,245) radius 80 → top at y=165
-    // Extra points at ~30° intervals for smooth arc approximation
+    // Full rectangle covering the key area above the FT line (y=165–245, x=170–330).
+    // Using a rectangle instead of a semicircle eliminates black corner gaps.
     points: [
-      { x: 170, y: 245 }, { x: 181, y: 205 },
-      { x: 210, y: 175 }, { x: 250, y: 165 },
-      { x: 290, y: 175 }, { x: 319, y: 205 },
-      { x: 330, y: 245 }
+      { x: 170, y: 245 }, { x: 330, y: 245 },
+      { x: 330, y: 165 }, { x: 170, y: 165 }
     ],
     label: "Free Throw",
     center: { x: 250, y: 208 }
