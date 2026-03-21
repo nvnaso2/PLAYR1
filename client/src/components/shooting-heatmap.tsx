@@ -23,6 +23,7 @@ const COURT_ZONES: Record<string, {
   points: { x: number; y: number }[];
   label: string;
   center: { x: number; y: number };
+  noStroke?: boolean;
 }> = {
   "restricted-area": {
     // Post zone: straight-top rectangle, center lane from baseline up to floater bottom (y=340)
@@ -63,17 +64,16 @@ const COURT_ZONES: Record<string, {
     center: { x: 250, y: 293 }
   },
   "free-throw": {
-    // Dome (semicircle) tracing the FT circle arc from (170,245) up to (250,165) and back.
-    // FT circle: center (250,245) radius 80. Corner gaps covered by extended elbow zones below.
+    // Full rectangle covering the entire key from the FT line up to FT circle top.
+    // The corners outside the dome are left as black court surface (no zone borders needed).
+    // noStroke hides the rectangle edges so only the FT circle line drawn later is visible.
     points: [
-      { x: 170, y: 245 },
-      { x: 171, y: 230 }, { x: 178, y: 210 }, { x: 192, y: 190 },
-      { x: 211, y: 175 }, { x: 250, y: 165 },
-      { x: 289, y: 175 }, { x: 308, y: 190 }, { x: 322, y: 210 },
-      { x: 329, y: 230 }, { x: 330, y: 245 }
+      { x: 170, y: 245 }, { x: 330, y: 245 },
+      { x: 330, y: 165 }, { x: 170, y: 165 }
     ],
     label: "Free Throw",
-    center: { x: 250, y: 208 }
+    center: { x: 250, y: 208 },
+    noStroke: true
   },
   "mid-range-left": {
     // Full rectangle from 3PT straight line (x=30) to paint (x=170), baseline to arc corner (y=285)
@@ -94,30 +94,41 @@ const COURT_ZONES: Record<string, {
     center: { x: 400, y: 365 }
   },
   "elbow-left": {
-    // Left mid-range: inner boundary extends down to FT line (y=245) to fill the key corner,
-    // then up to where the FT circle meets the paint (y=165).
+    // Left mid-range: outer boundary traces the 3PT arc (same as wing-left).
+    // Inner boundary traces the FT circle arc from (170,245) up to (250,165),
+    // mirroring how the outer boundary traces the 3PT arc — both boundaries are curved.
+    // FT circle: center (250,245) radius 80; sampled left side at y=245,230,210,190,175,165.
     points: [
-      { x: 30, y: 285 }, { x: 170, y: 285 },
-      { x: 170, y: 245 }, { x: 170, y: 165 }, { x: 138, y: 102 },
-      { x: 109, y: 119 }, { x: 85, y: 139 },
+      { x: 30, y: 285 }, { x: 170, y: 285 },    // bottom horizontal (paint wall)
+      { x: 170, y: 245 },                         // down paint to FT line
+      { x: 171, y: 230 }, { x: 178, y: 210 },    // ── FT circle arc curving inward ──
+      { x: 192, y: 190 }, { x: 211, y: 175 },
+      { x: 250, y: 165 },                         // FT circle top
+      { x: 170, y: 165 },                         // back across to paint
+      { x: 138, y: 102 },                         // up to 3PT arc corner
+      { x: 109, y: 119 }, { x: 85, y: 139 },     // ── 3PT arc curving outward ──
       { x: 65, y: 162 }, { x: 50, y: 188 },
       { x: 39, y: 217 }, { x: 32, y: 250 }
     ],
     label: "Elbow L",
-    center: { x: 108, y: 215 }
+    center: { x: 95, y: 210 }
   },
   "elbow-right": {
-    // Right mid-range: inner boundary extends down to FT line (y=245) to fill the key corner,
-    // then up to where the FT circle meets the paint (y=165).
+    // Right mid-range: mirror of elbow-left.
+    // Inner boundary traces FT circle right arc from (250,165) down to (330,245).
     points: [
-      { x: 330, y: 285 }, { x: 470, y: 285 },
-      { x: 468, y: 250 }, { x: 461, y: 217 },
+      { x: 330, y: 285 }, { x: 470, y: 285 },    // bottom horizontal
+      { x: 468, y: 250 }, { x: 461, y: 217 },    // ── 3PT arc curving outward ──
       { x: 450, y: 188 }, { x: 435, y: 162 },
       { x: 415, y: 139 }, { x: 391, y: 119 },
-      { x: 362, y: 102 }, { x: 330, y: 165 }, { x: 330, y: 245 }
+      { x: 362, y: 102 }, { x: 330, y: 165 },    // down to paint at FT circle top
+      { x: 250, y: 165 },                         // across to FT circle top center
+      { x: 289, y: 175 }, { x: 308, y: 190 },    // ── FT circle arc curving inward ──
+      { x: 322, y: 210 }, { x: 329, y: 230 },
+      { x: 330, y: 245 }                          // back to paint at FT line
     ],
     label: "Elbow R",
-    center: { x: 392, y: 215 }
+    center: { x: 405, y: 210 }
   },
   "corner-left": {
     points: [
@@ -309,17 +320,6 @@ function HeatmapCourtSVG({
       />
 
 
-      {/* ── Key corner fillers — left and right crescents between paint wall and FT circle arc ── */}
-      {/* These are not shot zones; they just fill the gap left by the dome-shaped free-throw zone */}
-      <polygon
-        points="170,165 250,165 211,175 192,190 178,210 171,230 170,245"
-        fill="#000000" stroke="none"
-      />
-      <polygon
-        points="330,165 330,245 329,230 322,210 308,190 289,175 250,165"
-        fill="#000000" stroke="none"
-      />
-
       {/* ── Base zone fills — dim dark tint so all zones are always visible ── */}
       {Object.entries(COURT_ZONES).map(([zoneName, zone]) => (
         <polygon
@@ -327,9 +327,9 @@ function HeatmapCourtSVG({
           points={toSvgPoints(zone.points)}
           fill="#1a1a2e"
           opacity={0.85}
-          stroke="white"
-          strokeWidth="0.8"
-          strokeOpacity="0.25"
+          stroke={zone.noStroke ? "none" : "white"}
+          strokeWidth={zone.noStroke ? "0" : "0.8"}
+          strokeOpacity={zone.noStroke ? "0" : "0.25"}
         />
       ))}
 
@@ -356,9 +356,9 @@ function HeatmapCourtSVG({
               points={toSvgPoints(zone.points)}
               fill={color}
               opacity={alpha}
-              stroke="white"
-              strokeWidth="1"
-              strokeOpacity="0.5"
+              stroke={zone.noStroke ? "none" : "white"}
+              strokeWidth={zone.noStroke ? "0" : "1"}
+              strokeOpacity={zone.noStroke ? "0" : "0.5"}
             >
               <title>{`${zone.label}: ${data.made}/${total} (${data.percentage}%)`}</title>
             </polygon>
