@@ -1857,6 +1857,7 @@ function ChatTab() {
   function openConversation(partnerId: string, partnerName: string) {
     setSelectedPartnerId(partnerId);
     setSelectedPartnerName(partnerName);
+    queryClient.invalidateQueries({ queryKey: ["/api/messages/conversations"] });
   }
 
   if (selectedPartnerId) {

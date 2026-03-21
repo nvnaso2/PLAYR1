@@ -129,6 +129,12 @@ export default function TrainerChat() {
   const [selectedContactName, setSelectedContactName] = useState("");
   const [messageText, setMessageText] = useState("");
 
+  useEffect(() => {
+    if (selectedContact) {
+      queryClient.invalidateQueries({ queryKey: ["/api/messages/conversations"] });
+    }
+  }, [selectedContact]);
+
   const [selectedThread, setSelectedThread] = useState<ChatThread | null>(null);
   const [threadMessageText, setThreadMessageText] = useState("");
   const [createGroupOpen, setCreateGroupOpen] = useState(false);

@@ -6198,8 +6198,12 @@ export async function registerRoutes(
       if (!["1-10", "1-5", "word"].includes(scaleType)) {
         return res.status(400).json({ message: "scaleType must be '1-10', '1-5', or 'word'" });
       }
-      if (scaleType === "word" && (!wordOptions || !Array.isArray(JSON.parse(wordOptions || "[]")) || JSON.parse(wordOptions || "[]").length < 2)) {
-        return res.status(400).json({ message: "Word scale requires at least 2 word options" });
+      if (scaleType === "word") {
+        let parsedWordOptions: unknown;
+        try { parsedWordOptions = JSON.parse(wordOptions || "[]"); } catch { return res.status(400).json({ message: "wordOptions must be valid JSON" }); }
+        if (!Array.isArray(parsedWordOptions) || parsedWordOptions.length < 2) {
+          return res.status(400).json({ message: "Word scale requires at least 2 word options" });
+        }
       }
       const attr = await storage.createEvaluationAttribute({
         name,

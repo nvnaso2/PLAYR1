@@ -212,6 +212,7 @@ export default function CsvImportDialog({ open, onOpenChange }: Props) {
       queryClient.invalidateQueries({ queryKey: [`/api/seasons/${selectedSeasonId}/games`] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats/career"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats/overview"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/achievements"] });
       toast({
         title: "Import complete",
         description: `Successfully imported ${data.imported} game${data.imported !== 1 ? "s" : ""}${data.skipped ? `. ${data.skipped} row(s) skipped.` : ""}.`,

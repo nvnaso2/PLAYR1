@@ -2845,7 +2845,11 @@ export class DatabaseStorage implements IStorage {
       memberCount: memberCountMap.get(thread.id) || 0,
       lastMessage: latestMessageMap.get(thread.id)?.content,
       lastMessageAt: latestMessageMap.get(thread.id)?.createdAt,
-    }));
+    })).sort((a, b) => {
+      const aTime = a.lastMessageAt?.getTime() ?? a.createdAt?.getTime() ?? 0;
+      const bTime = b.lastMessageAt?.getTime() ?? b.createdAt?.getTime() ?? 0;
+      return bTime - aTime;
+    });
   }
 
   async getChatThreadById(id: string): Promise<ChatThread | undefined> {
