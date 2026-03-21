@@ -61,11 +61,11 @@ const ZONE_DEFS: Record<string, ZoneDef> = {
   "block-right":     { cx: 337, cy: 382, rx: 30, ry: 20, label: "Block Right"     },
 
   // ── DB picklist slugs ──────────────────────────────────────────────
-  // Floater zone: narrow center lane (x=210–290), FT line (y=245) to bottom of FT circle arc (y=325)
-  "floaters":               { cx: 250, cy: 288, rx: 40, ry: 43, label: "Floaters"           },
-  "form-shots-front":       { cx: 250, cy: 283, rx: 42, ry: 22, label: "Form Shots Front"   },
-  // Post / restricted area
-  "post-shots":             { cx: 250, cy: 390, rx: 40, ry: 22, label: "Post Shots"         },
+  // Floater: full paint width x=170-330, FT line (y=245) to y=340
+  "floaters":               { cx: 250, cy: 293, rx: 80, ry: 48, label: "Floaters"           },
+  "form-shots-front":       { cx: 250, cy: 293, rx: 80, ry: 48, label: "Form Shots Front"   },
+  // Post: center lane x=210-290, y=340-435 (straight-top rectangle below floater)
+  "post-shots":             { cx: 250, cy: 388, rx: 40, ry: 48, label: "Post Shots"         },
   // Short-corner mid-range (inside the lane extended)
   "left-corner-mid-range":  { cx: 102, cy: 340, rx: 44, ry: 24, label: "Short Corner L"    },
   "right-corner-mid-range": { cx: 398, cy: 340, rx: 44, ry: 24, label: "Short Corner R"    },

@@ -24,38 +24,41 @@ const COURT_ZONES: Record<string, {
   center: { x: number; y: number };
 }> = {
   "restricted-area": {
+    // Post zone: straight-top rectangle, center lane from baseline up to floater bottom (y=340)
     points: [
       { x: 210, y: 435 }, { x: 290, y: 435 },
-      { x: 290, y: 380 }, { x: 250, y: 360 }, { x: 210, y: 380 }
+      { x: 290, y: 340 }, { x: 210, y: 340 }
     ],
-    label: "Restricted",
-    center: { x: 250, y: 408 }
+    label: "Post",
+    center: { x: 250, y: 390 }
   },
   "paint-left": {
+    // Left paint column, top aligned with post/floater boundary at y=340
     points: [
       { x: 170, y: 435 }, { x: 210, y: 435 },
-      { x: 210, y: 320 }, { x: 170, y: 320 }
+      { x: 210, y: 340 }, { x: 170, y: 340 }
     ],
     label: "Paint L",
-    center: { x: 190, y: 378 }
+    center: { x: 190, y: 390 }
   },
   "paint-right": {
+    // Right paint column, top aligned with post/floater boundary at y=340
     points: [
       { x: 290, y: 435 }, { x: 330, y: 435 },
-      { x: 330, y: 320 }, { x: 290, y: 320 }
+      { x: 330, y: 340 }, { x: 290, y: 340 }
     ],
     label: "Paint R",
-    center: { x: 310, y: 378 }
+    center: { x: 310, y: 390 }
   },
   "floater": {
-    // Narrow center-lane rectangle between the paint columns (x=210–290),
-    // from the FT line (y=245) down to y=330 (flat bottom).
+    // Full paint-width zone: FT line (y=245) to y=340 (flat bottom), x=170-330.
+    // Covers the previously blank space on both sides of the narrow zone.
     points: [
-      { x: 210, y: 245 }, { x: 290, y: 245 },
-      { x: 290, y: 330 }, { x: 210, y: 330 }
+      { x: 170, y: 245 }, { x: 330, y: 245 },
+      { x: 330, y: 340 }, { x: 170, y: 340 }
     ],
     label: "Floater",
-    center: { x: 250, y: 288 }
+    center: { x: 250, y: 293 }
   },
   "free-throw": {
     // Semicircle ABOVE the FT line — follows top half of the free-throw circle
@@ -89,22 +92,28 @@ const COURT_ZONES: Record<string, {
     center: { x: 400, y: 365 }
   },
   "elbow-left": {
-    // Trapezoid: left edge follows the 3PT arc boundary from (30,285) up to ~(63,165)
+    // Left mid-range: left boundary traces the 3PT arc from (30,285) up to (138,102),
+    // filling all 2PT space between the arc and the paint edge (x=170).
     points: [
       { x: 30, y: 285 }, { x: 170, y: 285 },
-      { x: 170, y: 165 }, { x: 63, y: 165 }
+      { x: 170, y: 165 }, { x: 138, y: 102 },
+      { x: 109, y: 119 }, { x: 85, y: 139 },
+      { x: 50, y: 188 }
     ],
     label: "Elbow L",
-    center: { x: 115, y: 225 }
+    center: { x: 108, y: 215 }
   },
   "elbow-right": {
-    // Trapezoid: right edge follows the 3PT arc boundary from (470,285) up to ~(437,165)
+    // Right mid-range: right boundary traces the 3PT arc from (470,285) up to (362,102),
+    // filling all 2PT space between the arc and the paint edge (x=330).
     points: [
       { x: 330, y: 285 }, { x: 470, y: 285 },
-      { x: 437, y: 165 }, { x: 330, y: 165 }
+      { x: 450, y: 188 }, { x: 415, y: 139 },
+      { x: 391, y: 119 }, { x: 362, y: 102 },
+      { x: 330, y: 165 }
     ],
     label: "Elbow R",
-    center: { x: 385, y: 225 }
+    center: { x: 392, y: 215 }
   },
   "corner-left": {
     points: [
@@ -300,6 +309,9 @@ function HeatmapCourtSVG({
               points={toSvgPoints(zone.points)}
               fill={color}
               opacity={alpha}
+              stroke="white"
+              strokeWidth="1"
+              strokeOpacity="0.5"
             >
               <title>{`${zone.label}: ${data.made}/${total} (${data.percentage}%)`}</title>
             </polygon>
