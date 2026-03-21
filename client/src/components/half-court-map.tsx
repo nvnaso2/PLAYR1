@@ -117,8 +117,21 @@ function CourtSVG({
 
   return (
     <svg viewBox="0 0 500 470" className="w-full h-full" preserveAspectRatio="xMidYMid meet">
-      {/* ── Black court background ─────────────────── */}
-      <rect x="0" y="0" width="500" height="470" fill="#000000" />
+      {/* ── Black court background (stops at baseline — logo strip below is transparent) ── */}
+      <rect x="0" y="0" width="500" height="435" fill="#000000" />
+
+      {/* ── PLAYR1 logo in the strip below the baseline ── */}
+      <text
+        x="250" y="453"
+        textAnchor="middle"
+        dominantBaseline="middle"
+        fontSize="18"
+        fontWeight="800"
+        letterSpacing="2"
+        fontFamily="system-ui, sans-serif"
+      >
+        <tspan fill="white">PLAYR</tspan><tspan fill="#F97316">1</tspan>
+      </text>
 
 
       {/* ── Base zone fills — dim dark tint so all zones are always visible ── */}
