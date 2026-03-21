@@ -309,6 +309,17 @@ function HeatmapCourtSVG({
       />
 
 
+      {/* ── Key corner fillers — left and right crescents between paint wall and FT circle arc ── */}
+      {/* These are not shot zones; they just fill the gap left by the dome-shaped free-throw zone */}
+      <polygon
+        points="170,165 250,165 211,175 192,190 178,210 171,230 170,245"
+        fill="#1a1a2e" opacity={0.85} stroke="none"
+      />
+      <polygon
+        points="330,165 330,245 329,230 322,210 308,190 289,175 250,165"
+        fill="#1a1a2e" opacity={0.85} stroke="none"
+      />
+
       {/* ── Base zone fills — dim dark tint so all zones are always visible ── */}
       {Object.entries(COURT_ZONES).map(([zoneName, zone]) => (
         <polygon
