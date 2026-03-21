@@ -21,13 +21,13 @@
   --card-foreground: 20 10% 10%;
   --card-border: 30 10% 90%;
 
-  --sidebar: 25 20% 12%;
-  --sidebar-foreground: 30 10% 95%;
-  --sidebar-border: 25 15% 20%;
+  --sidebar: 0 0% 5%;
+  --sidebar-foreground: 0 0% 92%;
+  --sidebar-border: 0 0% 14%;
   --sidebar-primary: 24 95% 53%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 25 20% 20%;
-  --sidebar-accent-foreground: 30 10% 95%;
+  --sidebar-accent: 0 0% 14%;
+  --sidebar-accent-foreground: 0 0% 92%;
   --sidebar-ring: 24 95% 53%;
 
   --popover: 0 0% 100%;
