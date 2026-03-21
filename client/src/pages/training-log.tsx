@@ -71,8 +71,8 @@ import {
   Search
 } from "lucide-react";
 import { format } from "date-fns";
-import type { Drill, TrainingLog, DrillMetric, MetricTemplate, Workout, WorkoutDrill, ShotLocation, Challenge, UserChallenge } from "@shared/schema";
-import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, SHOT_LOCATIONS, LOCATION_CLASSIFICATIONS, insertDrillSchema, insertWorkoutSchema } from "@shared/schema";
+import type { Drill, TrainingLog, DrillMetric, MetricTemplate, Workout, WorkoutDrill, ShotLocationDB, Challenge, UserChallenge } from "@shared/schema";
+import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, insertDrillSchema, insertWorkoutSchema } from "@shared/schema";
 import { HalfCourtMap, ShotChartButton, type ShotData } from "@/components/half-court-map";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Label } from "@/components/ui/label";
@@ -92,7 +92,7 @@ type WorkoutDrillEntry = {
   notes: string;
   metrics: Record<string, number>;
   drillMetrics: DrillMetricWithTemplate[];
-  shotLocation?: ShotLocation;
+  shotLocation?: string;
   shotsAttempted?: number;
   shotsMade?: number;
   trackToChallengeIds?: string[]; // IDs of challenges to update progress for
@@ -209,7 +209,7 @@ export default function TrainingLogPage() {
   const [editLogDuration, setEditLogDuration] = useState(0);
   const [editLogNotes, setEditLogNotes] = useState("");
   const [editLogMetrics, setEditLogMetrics] = useState<Record<string, number>>({});
-  const [editLogShotLocation, setEditLogShotLocation] = useState<ShotLocation | null>(null);
+  const [editLogShotLocation, setEditLogShotLocation] = useState<string | null>(null);
   const [editLogShotsAttempted, setEditLogShotsAttempted] = useState<number | null>(null);
   const [editLogShotsMade, setEditLogShotsMade] = useState<number | null>(null);
 
@@ -227,6 +227,12 @@ export default function TrainingLogPage() {
   // Fetch community drills (shared by other users)
   const { data: communityDrills, isLoading: communityDrillsLoading } = useQuery<Drill[]>({
     queryKey: ['/api/drills/community'],
+  });
+
+  // Fetch shot locations from Admin Picklists (DB-managed)
+  const { data: shotLocationOptions } = useQuery<ShotLocationDB[]>({
+    queryKey: ['/api/shot-locations'],
+    select: (locs) => locs.filter(l => l.active).sort((a, b) => a.sortOrder - b.sortOrder),
   });
   
   // Combined drills for lookup
@@ -577,7 +583,7 @@ export default function TrainingLogPage() {
       duration: number; 
       notes: string; 
       metrics: Array<{ metricId: string; value: number }>;
-      shotLocation?: ShotLocation | null;
+      shotLocation?: string | null;
       shotsAttempted?: number | null;
       shotsMade?: number | null;
     }) => {
@@ -2333,19 +2339,19 @@ export default function TrainingLogPage() {
                                     <td className="p-1 sm:p-2">
                                       <Select
                                         value={entry.shotLocation || ''}
-                                        onValueChange={(value) => updateEntry(index, 'shotLocation', value as ShotLocation)}
+                                        onValueChange={(value) => updateEntry(index, 'shotLocation', value)}
                                       >
                                         <SelectTrigger className="w-32 sm:w-40 h-8 text-xs" data-testid={`select-location-${index}`}>
                                           <SelectValue placeholder="Select location" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                          {SHOT_LOCATIONS.map(loc => (
-                                            <SelectItem key={loc} value={loc}>
+                                          {(shotLocationOptions || []).map(loc => (
+                                            <SelectItem key={loc.slug} value={loc.slug}>
                                               <span className="flex items-center gap-2">
-                                                {loc.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                                {loc.label}
                                                 <Badge variant="outline" className="text-[10px] px-1 py-0">
-                                                  {LOCATION_CLASSIFICATIONS[loc] === 'free-throw' ? 'FT' : 
-                                                   LOCATION_CLASSIFICATIONS[loc] === '2-pointer' ? '2PT' : '3PT'}
+                                                  {loc.classification === 'free-throw' ? 'FT' :
+                                                   loc.classification === '2-pointer' ? '2PT' : '3PT'}
                                                 </Badge>
                                               </span>
                                             </SelectItem>
@@ -2936,19 +2942,19 @@ export default function TrainingLogPage() {
                           <label className="text-xs text-muted-foreground">Location</label>
                           <Select 
                             value={editLogShotLocation || ""} 
-                            onValueChange={(val) => setEditLogShotLocation(val as ShotLocation)}
+                            onValueChange={(val) => setEditLogShotLocation(val)}
                           >
                             <SelectTrigger data-testid="select-edit-shot-location">
                               <SelectValue placeholder="Select location" />
                             </SelectTrigger>
                             <SelectContent>
-                              {SHOT_LOCATIONS.map(loc => (
-                                <SelectItem key={loc} value={loc}>
+                              {(shotLocationOptions || []).map(loc => (
+                                <SelectItem key={loc.slug} value={loc.slug}>
                                   <div className="flex items-center gap-2">
-                                    {loc.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                    {loc.label}
                                     <Badge variant="outline" className="text-xs px-1.5">
-                                      {LOCATION_CLASSIFICATIONS[loc] === "free-throw" ? "FT" : 
-                                       LOCATION_CLASSIFICATIONS[loc] === "2-pointer" ? "2PT" : "3PT"}
+                                      {loc.classification === "free-throw" ? "FT" :
+                                       loc.classification === "2-pointer" ? "2PT" : "3PT"}
                                     </Badge>
                                   </div>
                                 </SelectItem>
