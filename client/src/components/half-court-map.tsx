@@ -62,7 +62,7 @@ const ZONE_DEFS: Record<string, ZoneDef> = {
 
   // ── DB picklist slugs ──────────────────────────────────────────────
   // Floater zone: narrow center lane (x=210–290), FT line (y=245) to bottom of FT circle arc (y=325)
-  "floaters":               { cx: 250, cy: 285, rx: 40, ry: 40, label: "Floaters"           },
+  "floaters":               { cx: 250, cy: 288, rx: 40, ry: 43, label: "Floaters"           },
   "form-shots-front":       { cx: 250, cy: 283, rx: 42, ry: 22, label: "Form Shots Front"   },
   // Post / restricted area
   "post-shots":             { cx: 250, cy: 390, rx: 40, ry: 22, label: "Post Shots"         },

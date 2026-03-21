@@ -48,17 +48,14 @@ const COURT_ZONES: Record<string, {
     center: { x: 310, y: 378 }
   },
   "floater": {
-    // Narrow center-lane zone between the paint columns (x=210–290),
-    // from the FT line (y=245) down to the bottom of the dashed FT semicircle (y=325).
-    // Bottom follows the FT circle arc: center (250,245) r=80 → at x=210/290 y≈314, bottom y=325.
+    // Narrow center-lane rectangle between the paint columns (x=210–290),
+    // from the FT line (y=245) down to y=330 (flat bottom).
     points: [
       { x: 210, y: 245 }, { x: 290, y: 245 },
-      { x: 290, y: 314 },
-      { x: 270, y: 321 }, { x: 250, y: 325 },
-      { x: 230, y: 321 }, { x: 210, y: 314 }
+      { x: 290, y: 330 }, { x: 210, y: 330 }
     ],
     label: "Floater",
-    center: { x: 250, y: 283 }
+    center: { x: 250, y: 288 }
   },
   "free-throw": {
     // Semicircle ABOVE the FT line — follows top half of the free-throw circle
@@ -74,36 +71,40 @@ const COURT_ZONES: Record<string, {
     center: { x: 250, y: 208 }
   },
   "mid-range-left": {
+    // Full rectangle from 3PT straight line (x=30) to paint (x=170), baseline to arc corner (y=285)
     points: [
       { x: 30, y: 435 }, { x: 170, y: 435 },
-      { x: 170, y: 285 }, { x: 80, y: 285 }
+      { x: 170, y: 285 }, { x: 30, y: 285 }
     ],
     label: "Mid Left",
-    center: { x: 110, y: 365 }
+    center: { x: 100, y: 365 }
   },
   "mid-range-right": {
+    // Full rectangle from paint (x=330) to 3PT straight line (x=470), baseline to arc corner (y=285)
     points: [
       { x: 330, y: 435 }, { x: 470, y: 435 },
-      { x: 420, y: 285 }, { x: 330, y: 285 }
+      { x: 470, y: 285 }, { x: 330, y: 285 }
     ],
     label: "Mid Right",
-    center: { x: 390, y: 365 }
+    center: { x: 400, y: 365 }
   },
   "elbow-left": {
+    // Trapezoid: left edge follows the 3PT arc boundary from (30,285) up to ~(63,165)
     points: [
-      { x: 80, y: 285 }, { x: 170, y: 285 },
-      { x: 170, y: 165 }, { x: 100, y: 180 }
+      { x: 30, y: 285 }, { x: 170, y: 285 },
+      { x: 170, y: 165 }, { x: 63, y: 165 }
     ],
     label: "Elbow L",
-    center: { x: 128, y: 232 }
+    center: { x: 115, y: 225 }
   },
   "elbow-right": {
+    // Trapezoid: right edge follows the 3PT arc boundary from (470,285) up to ~(437,165)
     points: [
-      { x: 330, y: 285 }, { x: 420, y: 285 },
-      { x: 400, y: 180 }, { x: 330, y: 165 }
+      { x: 330, y: 285 }, { x: 470, y: 285 },
+      { x: 437, y: 165 }, { x: 330, y: 165 }
     ],
     label: "Elbow R",
-    center: { x: 370, y: 232 }
+    center: { x: 385, y: 225 }
   },
   "corner-left": {
     points: [
