@@ -94,19 +94,17 @@ const COURT_ZONES: Record<string, {
     center: { x: 400, y: 365 }
   },
   "elbow-left": {
-    // Left mid-range: outer boundary traces the 3PT arc (same as wing-left).
-    // Inner boundary traces the FT circle arc from (170,245) up to (250,165),
-    // mirroring how the outer boundary traces the 3PT arc — both boundaries are curved.
-    // FT circle: center (250,245) radius 80; sampled left side at y=245,230,210,190,175,165.
+    // Left mid-range: outer boundary = 3PT arc; inner boundary = FT circle arc.
+    // Goes from FT circle top (250,165) directly to the 3PT arc corner (138,102) —
+    // no horizontal segment at y=165, so no spurious border line appears.
     points: [
-      { x: 30, y: 285 }, { x: 170, y: 285 },    // bottom horizontal (paint wall)
+      { x: 30, y: 285 }, { x: 170, y: 285 },    // bottom horizontal
       { x: 170, y: 245 },                         // down paint to FT line
-      { x: 171, y: 230 }, { x: 178, y: 210 },    // ── FT circle arc curving inward ──
+      { x: 171, y: 230 }, { x: 178, y: 210 },    // ── FT circle arc ──
       { x: 192, y: 190 }, { x: 211, y: 175 },
-      { x: 250, y: 165 },                         // FT circle top
-      { x: 170, y: 165 },                         // back across to paint
-      { x: 138, y: 102 },                         // up to 3PT arc corner
-      { x: 109, y: 119 }, { x: 85, y: 139 },     // ── 3PT arc curving outward ──
+      { x: 250, y: 165 },                         // FT circle top → jump straight to 3PT corner
+      { x: 138, y: 102 },                         // 3PT arc corner (no y=165 horizontal)
+      { x: 109, y: 119 }, { x: 85, y: 139 },     // ── 3PT arc ──
       { x: 65, y: 162 }, { x: 50, y: 188 },
       { x: 39, y: 217 }, { x: 32, y: 250 }
     ],
@@ -115,15 +113,15 @@ const COURT_ZONES: Record<string, {
   },
   "elbow-right": {
     // Right mid-range: mirror of elbow-left.
-    // Inner boundary traces FT circle right arc from (250,165) down to (330,245).
+    // Goes from 3PT corner (362,102) directly to FT circle top (250,165) — no y=165 horizontal.
     points: [
       { x: 330, y: 285 }, { x: 470, y: 285 },    // bottom horizontal
-      { x: 468, y: 250 }, { x: 461, y: 217 },    // ── 3PT arc curving outward ──
+      { x: 468, y: 250 }, { x: 461, y: 217 },    // ── 3PT arc ──
       { x: 450, y: 188 }, { x: 435, y: 162 },
       { x: 415, y: 139 }, { x: 391, y: 119 },
-      { x: 362, y: 102 }, { x: 330, y: 165 },    // down to paint at FT circle top
-      { x: 250, y: 165 },                         // across to FT circle top center
-      { x: 289, y: 175 }, { x: 308, y: 190 },    // ── FT circle arc curving inward ──
+      { x: 362, y: 102 },                         // 3PT arc corner → jump to FT circle top
+      { x: 250, y: 165 },                         // FT circle top (no y=165 horizontal)
+      { x: 289, y: 175 }, { x: 308, y: 190 },    // ── FT circle arc ──
       { x: 322, y: 210 }, { x: 329, y: 230 },
       { x: 330, y: 245 }                          // back to paint at FT line
     ],
@@ -175,15 +173,16 @@ const COURT_ZONES: Record<string, {
     center: { x: 445, y: 145 }
   },
   // Top of key mid-range: inside the 3-pt arc at top center, above the FT circle.
-  // Bounded above by the arc (138,102)→(250,70)→(362,102) and below by FT circle top (y=165).
+  // Bottom vertex is the FT circle top point (250,165) — matching the diagonal edges
+  // used by elbow-left and elbow-right so all three zones tile with no gaps or spurious lines.
   "top-key-mid": {
     points: [
       { x: 138, y: 102 }, { x: 171, y: 88 },
       { x: 250, y: 70 }, { x: 329, y: 88 }, { x: 362, y: 102 },
-      { x: 330, y: 165 }, { x: 170, y: 165 }
+      { x: 250, y: 165 }
     ],
     label: "Top Key 2PT",
-    center: { x: 250, y: 120 }
+    center: { x: 250, y: 118 }
   },
   // Top of key: above-the-break 3-pt zone.
   // Lower boundary follows the arc from (138,102) across the peak (250,70) to (362,102).
