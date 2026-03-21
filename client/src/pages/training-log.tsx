@@ -2299,7 +2299,13 @@ export default function TrainingLogPage() {
                 
                 return Array.from(drillGroups.entries()).map(([drillId, group]) => {
                   const firstEntry = group.entries[0].entry;
-                  const metricColumns = firstEntry.drillMetrics.filter(dm => dm.template.type !== 'calculated');
+                  const metricColumns = firstEntry.drillMetrics
+                    .filter(dm => dm.template.type !== 'calculated')
+                    .sort((a, b) => {
+                      const isAttemptA = a.template.name.toLowerCase().includes('attempt') || a.template.label.toLowerCase().includes('attempt');
+                      const isAttemptB = b.template.name.toLowerCase().includes('attempt') || b.template.label.toLowerCase().includes('attempt');
+                      return Number(isAttemptA) - Number(isAttemptB);
+                    });
                   const isShootingDrill = group.drill.trackShots;
                   
                   return (
@@ -2668,7 +2674,7 @@ export default function TrainingLogPage() {
                                       <div className="flex items-center gap-1.5 flex-wrap pl-6 text-xs text-muted-foreground">
                                         {sessionPercentage !== null && (
                                           <>
-                                            <span className="text-sm font-medium text-foreground">{sessionTotalAttempts}/{sessionTotalMade} shots</span>
+                                            <span className="text-sm font-medium text-foreground">{sessionTotalMade}/{sessionTotalAttempts} shots</span>
                                             <Badge 
                                               variant="secondary"
                                               className={`text-xs ${sessionPercentage >= 70 ? "bg-green-500/20 text-green-400" : 
@@ -2730,7 +2736,7 @@ export default function TrainingLogPage() {
                                                       {drillPercentage !== null && (
                                                         <>
                                                           <span>·</span>
-                                                          <span className="text-foreground font-medium">{drillTotalAttempts}/{drillTotalMade}</span>
+                                                          <span className="text-foreground font-medium">{drillTotalMade}/{drillTotalAttempts}</span>
                                                           <Badge 
                                                             variant="secondary"
                                                             className={`text-xs ${drillPercentage >= 70 ? "bg-green-500/20 text-green-400" : 
@@ -2838,7 +2844,7 @@ export default function TrainingLogPage() {
                                         </span>
                                         {stats && (
                                           <>
-                                            <span className="text-foreground font-medium">{stats.attempts}/{stats.made} shots</span>
+                                            <span className="text-foreground font-medium">{stats.made}/{stats.attempts} shots</span>
                                             <Badge 
                                               variant="secondary"
                                               className={`text-xs ${stats.percentage >= 70 ? "bg-green-500/20 text-green-400" : 
