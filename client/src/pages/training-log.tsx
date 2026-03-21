@@ -1197,6 +1197,10 @@ export default function TrainingLogPage() {
       
       queryClient.invalidateQueries({ queryKey: ['/api/training-logs'] });
       queryClient.invalidateQueries({ queryKey: ['/api/stats/overview'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stats/weekly'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stats/by-category'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stats/shots'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stats/dashboard-training'] });
       queryClient.invalidateQueries({ queryKey: ['/api/challenges/my-challenges'] });
       queryClient.invalidateQueries({ queryKey: ['/api/assigned-drills'] });
       

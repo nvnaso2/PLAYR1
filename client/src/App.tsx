@@ -184,6 +184,7 @@ function Router() {
                 <Route path="/trainer/assignments">{() => <Redirect to="/trainer/drills" />}</Route>
                 <Route path="/trainer/invite">{() => <Redirect to="/trainer/roster" />}</Route>
                 <Route path="/dashboard" component={Dashboard} />
+                <Route path="/progress" component={Dashboard} />
                 <Route component={NotFound} />
               </Switch>
             </AuthenticatedLayout>

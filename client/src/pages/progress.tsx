@@ -266,7 +266,7 @@ export default function ProgressPage() {
         ) : filteredStats.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1" data-testid="training-stats-container">
             {filteredStats.map((card) => {
-              const val = trainingStats![card.key];
+              const val = trainingStats![card.key] ?? 0;
               const displayVal = card.format ? card.format(val) : val.toLocaleString();
               return (
                 <StatsCard

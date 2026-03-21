@@ -889,7 +889,7 @@ export class DatabaseStorage implements IStorage {
     
     // Initialize days based on period
     const daysToShow = period === "daily" ? 1 : period === "weekly" ? 7 : period === "monthly" ? 30 : 365;
-    for (let i = 0; i < Math.min(daysToShow, 30); i++) { // Cap at 30 days for display
+    for (let i = 0; i < daysToShow; i++) {
       const date = new Date();
       date.setDate(date.getDate() - i);
       const dateStr = date.toISOString().split('T')[0];
