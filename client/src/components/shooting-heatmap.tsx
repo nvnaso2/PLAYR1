@@ -95,11 +95,13 @@ const COURT_ZONES: Record<string, {
   "elbow-left": {
     // Left mid-range: left boundary traces the 3PT arc from (30,285) up to (138,102),
     // filling all 2PT space between the arc and the paint edge (x=170).
+    // Arc sampled at t=0,.1,.2,.3,.4,.5,.6,.7 to minimise gap with smooth bezier.
     points: [
       { x: 30, y: 285 }, { x: 170, y: 285 },
       { x: 170, y: 165 }, { x: 138, y: 102 },
       { x: 109, y: 119 }, { x: 85, y: 139 },
-      { x: 50, y: 188 }
+      { x: 65, y: 162 }, { x: 50, y: 188 },
+      { x: 39, y: 217 }, { x: 32, y: 250 }
     ],
     label: "Elbow L",
     center: { x: 108, y: 215 }
@@ -107,11 +109,13 @@ const COURT_ZONES: Record<string, {
   "elbow-right": {
     // Right mid-range: right boundary traces the 3PT arc from (470,285) up to (362,102),
     // filling all 2PT space between the arc and the paint edge (x=330).
+    // Arc sampled at t=0,.1,.2,.3,.4,.5,.6,.7 (mirrored) for tight bezier fit.
     points: [
       { x: 330, y: 285 }, { x: 470, y: 285 },
-      { x: 450, y: 188 }, { x: 415, y: 139 },
-      { x: 391, y: 119 }, { x: 362, y: 102 },
-      { x: 330, y: 165 }
+      { x: 468, y: 250 }, { x: 461, y: 217 },
+      { x: 450, y: 188 }, { x: 435, y: 162 },
+      { x: 415, y: 139 }, { x: 391, y: 119 },
+      { x: 362, y: 102 }, { x: 330, y: 165 }
     ],
     label: "Elbow R",
     center: { x: 392, y: 215 }
@@ -133,24 +137,28 @@ const COURT_ZONES: Record<string, {
     center: { x: 483, y: 360 }
   },
   // Wing left: above the arc on the left side.
-  // Lower boundary follows the 3-pt arc from (30,285) → sampled arc points → (138,102).
-  // Arc formula: x(t)=30+220t², y(t)=285-370t+155t²
+  // Lower boundary follows the 3-pt arc using the same dense sample points as elbow-left
+  // so the two polygons tile flush with no visible gap along the arc.
   "wing-left": {
     points: [
       { x: 5, y: 285 }, { x: 30, y: 285 },
-      { x: 50, y: 188 }, { x: 85, y: 139 },
-      { x: 109, y: 119 }, { x: 138, y: 102 },
+      { x: 32, y: 250 }, { x: 39, y: 217 },
+      { x: 50, y: 188 }, { x: 65, y: 162 },
+      { x: 85, y: 139 }, { x: 109, y: 119 },
+      { x: 138, y: 102 },
       { x: 138, y: 5 }, { x: 5, y: 5 }
     ],
     label: "Wing L",
     center: { x: 55, y: 145 }
   },
-  // Wing right: symmetric mirror of wing-left.
+  // Wing right: symmetric mirror of wing-left, same dense arc sample points.
   "wing-right": {
     points: [
       { x: 362, y: 102 }, { x: 391, y: 119 },
-      { x: 415, y: 139 }, { x: 450, y: 188 },
-      { x: 470, y: 285 }, { x: 495, y: 285 },
+      { x: 415, y: 139 }, { x: 435, y: 162 },
+      { x: 450, y: 188 }, { x: 461, y: 217 },
+      { x: 468, y: 250 }, { x: 470, y: 285 },
+      { x: 495, y: 285 },
       { x: 495, y: 5 }, { x: 362, y: 5 }
     ],
     label: "Wing R",
