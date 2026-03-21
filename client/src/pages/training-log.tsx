@@ -907,13 +907,41 @@ export default function TrainingLogPage() {
   const updateMetricValue = (entryIndex: number, metricTemplateId: string, value: number) => {
     setWorkoutEntries(prev => {
       const next = [...prev];
-      next[entryIndex] = {
-        ...next[entryIndex],
-        metrics: {
-          ...next[entryIndex].metrics,
-          [metricTemplateId]: value
+      const entry = next[entryIndex];
+      const updatedMetrics = { ...entry.metrics, [metricTemplateId]: value };
+
+      // Enforce made ≤ attempted across metric pairs
+      const thisMetric = entry.drillMetrics.find(dm => dm.metricTemplateId === metricTemplateId);
+      if (thisMetric) {
+        const name = thisMetric.template.name.toLowerCase();
+        const label = thisMetric.template.label.toLowerCase();
+        const isMade = (name.includes('made') || label.includes('made')) && !name.includes('attempt') && !label.includes('attempt');
+        const isAttempted = name.includes('attempt') || label.includes('attempt');
+
+        if (isMade) {
+          // Cap made to the current attempted value
+          const attemptedMetric = entry.drillMetrics.find(dm => {
+            const n = dm.template.name.toLowerCase(); const l = dm.template.label.toLowerCase();
+            return n.includes('attempt') || l.includes('attempt');
+          });
+          if (attemptedMetric) {
+            const attempted = updatedMetrics[attemptedMetric.metricTemplateId] || 0;
+            if (value > attempted && attempted > 0) updatedMetrics[metricTemplateId] = attempted;
+          }
+        } else if (isAttempted) {
+          // If attempted drops below made, cap made down too
+          const madeMetric = entry.drillMetrics.find(dm => {
+            const n = dm.template.name.toLowerCase(); const l = dm.template.label.toLowerCase();
+            return (n.includes('made') || l.includes('made')) && !n.includes('attempt') && !l.includes('attempt');
+          });
+          if (madeMetric) {
+            const made = updatedMetrics[madeMetric.metricTemplateId] || 0;
+            if (made > value && value > 0) updatedMetrics[madeMetric.metricTemplateId] = value;
+          }
         }
-      };
+      }
+
+      next[entryIndex] = { ...entry, metrics: updatedMetrics };
       return next;
     });
   };
@@ -2998,7 +3026,13 @@ export default function TrainingLogPage() {
                           <Input
                             type="number"
                             value={editLogShotsMade || ""}
-                            onChange={(e) => setEditLogShotsMade(parseInt(e.target.value) || null)}
+                            onChange={(e) => {
+                              const made = parseInt(e.target.value) || null;
+                              const capped = made !== null && editLogShotsAttempted !== null && made > editLogShotsAttempted
+                                ? editLogShotsAttempted
+                                : made;
+                              setEditLogShotsMade(capped);
+                            }}
                             placeholder="0"
                             data-testid="input-edit-shots-made"
                           />
@@ -3008,7 +3042,14 @@ export default function TrainingLogPage() {
                           <Input
                             type="number"
                             value={editLogShotsAttempted || ""}
-                            onChange={(e) => setEditLogShotsAttempted(parseInt(e.target.value) || null)}
+                            onChange={(e) => {
+                              const attempted = parseInt(e.target.value) || null;
+                              setEditLogShotsAttempted(attempted);
+                              // If attempted drops below made, pull made down too
+                              if (attempted !== null && editLogShotsMade !== null && editLogShotsMade > attempted) {
+                                setEditLogShotsMade(attempted);
+                              }
+                            }}
                             placeholder="0"
                             data-testid="input-edit-shots-attempted"
                           />

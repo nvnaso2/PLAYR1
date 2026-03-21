@@ -1531,6 +1531,11 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const data = insertTrainingLogSchema.parse({ ...req.body, userId });
+      if (data.shotsMade !== undefined && data.shotsAttempted !== undefined &&
+          data.shotsMade !== null && data.shotsAttempted !== null &&
+          data.shotsMade > data.shotsAttempted) {
+        return res.status(400).json({ message: "Shots made cannot exceed shots attempted" });
+      }
       const log = await storage.createTrainingLog(data);
       
       const prMetrics: { metricName: string; value: number }[] = [];
@@ -1602,6 +1607,11 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Access denied" });
       }
       const { duration, score, notes, reps, sets, metrics, shotLocation, shotsAttempted, shotsMade } = req.body;
+      if (shotsMade !== undefined && shotsAttempted !== undefined &&
+          shotsMade !== null && shotsAttempted !== null &&
+          shotsMade > shotsAttempted) {
+        return res.status(400).json({ message: "Shots made cannot exceed shots attempted" });
+      }
       const updated = await storage.updateTrainingLog(req.params.id, { duration, score, notes, reps, sets, shotLocation, shotsAttempted, shotsMade });
       if (metrics && Array.isArray(metrics)) {
         await storage.saveTrainingLogMetrics(req.params.id, metrics);
