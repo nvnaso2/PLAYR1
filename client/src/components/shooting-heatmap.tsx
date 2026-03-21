@@ -48,11 +48,14 @@ const COURT_ZONES: Record<string, {
     center: { x: 310, y: 378 }
   },
   "floater": {
-    // Rectangle spanning the full paint width between the FT line (y=245)
-    // and the top of the paint side columns (y=320) — the floater / short-roll zone
+    // Narrow center-lane zone between the paint columns (x=210–290),
+    // from the FT line (y=245) down to the bottom of the dashed FT semicircle (y=325).
+    // Bottom follows the FT circle arc: center (250,245) r=80 → at x=210/290 y≈314, bottom y=325.
     points: [
-      { x: 170, y: 320 }, { x: 330, y: 320 },
-      { x: 330, y: 245 }, { x: 170, y: 245 }
+      { x: 210, y: 245 }, { x: 290, y: 245 },
+      { x: 290, y: 314 },
+      { x: 270, y: 321 }, { x: 250, y: 325 },
+      { x: 230, y: 321 }, { x: 210, y: 314 }
     ],
     label: "Floater",
     center: { x: 250, y: 283 }
