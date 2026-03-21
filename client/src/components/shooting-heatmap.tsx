@@ -30,7 +30,8 @@ const COURT_ZONES: Record<string, {
       { x: 290, y: 340 }, { x: 210, y: 340 }
     ],
     label: "Post",
-    center: { x: 250, y: 390 }
+    // Text anchor placed above the basket (y=405) so labels stay legible
+    center: { x: 250, y: 358 }
   },
   "paint-left": {
     // Left paint column, top aligned with post/floater boundary at y=340
