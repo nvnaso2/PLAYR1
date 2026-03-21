@@ -94,17 +94,17 @@ const COURT_ZONES: Record<string, {
     center: { x: 400, y: 365 }
   },
   "elbow-left": {
-    // Left mid-range: outer boundary = 3PT arc; inner boundary = FT circle arc.
-    // Goes from FT circle top (250,165) directly to the 3PT arc corner (138,102) —
-    // no horizontal segment at y=165, so no spurious border line appears.
+    // Left mid-range: inner boundary follows the paint wall (x=170) straight up from the
+    // FT line (y=245) through the FT circle top level (y=165) to where the paint wall meets
+    // the 3PT arc (171,88), then a short hop to the arc corner (138,102). No FT circle arc —
+    // that curve lives entirely inside the free-throw zone rectangle.
     points: [
       { x: 30, y: 285 }, { x: 170, y: 285 },    // bottom horizontal
-      { x: 170, y: 245 },                         // down paint to FT line
-      { x: 171, y: 230 }, { x: 178, y: 210 },    // ── FT circle arc ──
-      { x: 192, y: 190 }, { x: 211, y: 175 },
-      { x: 250, y: 165 },                         // FT circle top → jump straight to 3PT corner
-      { x: 138, y: 102 },                         // 3PT arc corner (no y=165 horizontal)
-      { x: 109, y: 119 }, { x: 85, y: 139 },     // ── 3PT arc ──
+      { x: 170, y: 245 },                         // FT line intersection (the "elbow")
+      { x: 170, y: 165 },                         // straight up paint wall to FT circle top level
+      { x: 171, y: 88 },                          // continue up to where paint wall meets 3PT arc
+      { x: 138, y: 102 },                         // short hop to 3PT arc corner
+      { x: 109, y: 119 }, { x: 85, y: 139 },     // ── outer 3PT arc ──
       { x: 65, y: 162 }, { x: 50, y: 188 },
       { x: 39, y: 217 }, { x: 32, y: 250 }
     ],
@@ -113,17 +113,17 @@ const COURT_ZONES: Record<string, {
   },
   "elbow-right": {
     // Right mid-range: mirror of elbow-left.
-    // Goes from 3PT corner (362,102) directly to FT circle top (250,165) — no y=165 horizontal.
+    // Inner boundary: 3PT arc corner (362,102) → arc meeting point (329,88) → straight
+    // down paint wall (x=330) through (330,165) to FT line (330,245). No FT circle arc.
     points: [
       { x: 330, y: 285 }, { x: 470, y: 285 },    // bottom horizontal
-      { x: 468, y: 250 }, { x: 461, y: 217 },    // ── 3PT arc ──
+      { x: 468, y: 250 }, { x: 461, y: 217 },    // ── outer 3PT arc ──
       { x: 450, y: 188 }, { x: 435, y: 162 },
       { x: 415, y: 139 }, { x: 391, y: 119 },
-      { x: 362, y: 102 },                         // 3PT arc corner → jump to FT circle top
-      { x: 250, y: 165 },                         // FT circle top (no y=165 horizontal)
-      { x: 289, y: 175 }, { x: 308, y: 190 },    // ── FT circle arc ──
-      { x: 322, y: 210 }, { x: 329, y: 230 },
-      { x: 330, y: 245 }                          // back to paint at FT line
+      { x: 362, y: 102 },                         // 3PT arc corner
+      { x: 329, y: 88 },                          // where paint wall meets 3PT arc
+      { x: 330, y: 165 },                         // straight down paint wall to FT circle top level
+      { x: 330, y: 245 }                          // FT line intersection (the "elbow")
     ],
     label: "Elbow R",
     center: { x: 405, y: 210 }
@@ -172,17 +172,20 @@ const COURT_ZONES: Record<string, {
     label: "Wing R",
     center: { x: 445, y: 145 }
   },
-  // Top of key mid-range: inside the 3-pt arc at top center, above the FT circle.
-  // Bottom vertex is the FT circle top point (250,165) — matching the diagonal edges
-  // used by elbow-left and elbow-right so all three zones tile with no gaps or spurious lines.
+  // Top of key mid-range: the zone inside the 3PT arc at top center, above the FT circle.
+  // Left/right boundaries follow the paint walls (x=170/330) from the FT circle top (y=165)
+  // straight up to where they meet the arc at (171,88) and (329,88). This matches the
+  // inner boundaries of elbow-left and elbow-right exactly, so all three zones tile flush.
   "top-key-mid": {
     points: [
-      { x: 138, y: 102 }, { x: 171, y: 88 },
-      { x: 250, y: 70 }, { x: 329, y: 88 }, { x: 362, y: 102 },
-      { x: 250, y: 165 }
+      { x: 170, y: 165 },                         // bottom-left (FT circle top / paint wall)
+      { x: 171, y: 88 },                           // up left paint wall to arc meeting point
+      { x: 250, y: 70 },                           // 3PT arc peak
+      { x: 329, y: 88 },                           // right arc meeting point
+      { x: 330, y: 165 }                           // bottom-right (FT circle top / paint wall)
     ],
     label: "Top Key 2PT",
-    center: { x: 250, y: 118 }
+    center: { x: 250, y: 120 }
   },
   // Top of key: above-the-break 3-pt zone.
   // Lower boundary follows the arc from (138,102) across the peak (250,70) to (362,102).
