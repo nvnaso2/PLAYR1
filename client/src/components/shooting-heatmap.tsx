@@ -142,6 +142,17 @@ const COURT_ZONES: Record<string, {
     label: "Wing R",
     center: { x: 445, y: 145 }
   },
+  // Top of key mid-range: inside the 3-pt arc at top center, above the FT circle.
+  // Bounded above by the arc (138,102)→(250,70)→(362,102) and below by FT circle top (y=165).
+  "top-key-mid": {
+    points: [
+      { x: 138, y: 102 }, { x: 171, y: 88 },
+      { x: 250, y: 70 }, { x: 329, y: 88 }, { x: 362, y: 102 },
+      { x: 330, y: 165 }, { x: 170, y: 165 }
+    ],
+    label: "Top Key 2PT",
+    center: { x: 250, y: 120 }
+  },
   // Top of key: above-the-break 3-pt zone.
   // Lower boundary follows the arc from (138,102) across the peak (250,70) to (362,102).
   "top-of-key": {
@@ -207,7 +218,7 @@ const LOCATION_TO_ZONE: Record<string, string> = {
   "right-corner-mid-range": "mid-range-right",
   "wing-left-mid-range":    "elbow-left",
   "wing-right-mid-range":   "elbow-right",
-  "top-of-key-3-point":     "top-of-key",
+  "top-of-key-3-point":     "top-key-mid",
   "form-shot-left":         "paint-left",
   "form-shots-right":       "paint-right",
   "form-shots-front":       "floater",

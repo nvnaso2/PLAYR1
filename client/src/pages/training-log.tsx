@@ -661,6 +661,13 @@ export default function TrainingLogPage() {
     });
   };
 
+  // Look up the DB label for a shot location slug; fall back to slug-to-text
+  const getLocationLabel = (slug: string): string => {
+    const loc = shotLocationOptions?.find(l => l.slug === slug);
+    if (loc) return loc.label;
+    return slug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
+
   // Get formatted metrics stats for display on history cards
   const getMetricStats = (log: TrainingLogWithMetricsResponse, drillId: string) => {
     // First, check for new per-log shot fields (preferred)
@@ -2763,7 +2770,7 @@ export default function TrainingLogPage() {
                                                         <div className="flex items-center gap-1.5 flex-wrap flex-1 min-w-0 text-xs text-muted-foreground">
                                                           {roundStats?.location && (
                                                             <span className="truncate max-w-[80px] sm:max-w-[100px]">
-                                                              {roundStats.location.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                                              {getLocationLabel(roundStats.location)}
                                                             </span>
                                                           )}
                                                           {roundStats && (

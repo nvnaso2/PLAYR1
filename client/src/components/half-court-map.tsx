@@ -72,8 +72,8 @@ const ZONE_DEFS: Record<string, ZoneDef> = {
   // Wing mid-range (elbow extended)
   "wing-left-mid-range":    { cx: 96,  cy: 210, rx: 38, ry: 22, label: "Wing Left Mid"     },
   "wing-right-mid-range":   { cx: 404, cy: 210, rx: 38, ry: 22, label: "Wing Right Mid"    },
-  // 3-pt top-of-key variant
-  "top-of-key-3-point":     { cx: 250, cy: 40,  rx: 80, ry: 26, label: "Top of Key 3",     is3pt: true },
+  // Top of key 2-pointer: inside the arc at the top center, above the FT circle
+  "top-of-key-3-point":     { cx: 250, cy: 120, rx: 68, ry: 28, label: "Top of Key 2PT" },
   // Form shots (block area)
   "form-shot-left":         { cx: 163, cy: 382, rx: 30, ry: 20, label: "Form Shots L"      },
   "form-shots-right":       { cx: 337, cy: 382, rx: 30, ry: 20, label: "Form Shots R"      },
