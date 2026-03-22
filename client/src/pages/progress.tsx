@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { QueryError } from "@/components/query-error";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -120,7 +121,7 @@ export default function ProgressPage() {
     }
   });
 
-  const { data: overviewStats, isLoading: overviewLoading } = useQuery<{
+  const { data: overviewStats, isLoading: overviewLoading, isError: overviewError, refetch: refetchOverview } = useQuery<{
     totalSessions: number;
     totalMinutes: number;
     avgScore: number;
@@ -182,6 +183,14 @@ export default function ProgressPage() {
   );
 
   const showShootingHeatmap = activeSkill === "all" || activeSkill === "shooting";
+
+  if (overviewError) {
+    return (
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto">
+        <QueryError message="Unable to load your stats. Check your connection and try again." onRetry={refetchOverview} />
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">

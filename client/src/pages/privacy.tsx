@@ -48,14 +48,14 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-xl font-semibold mb-3">5. Your Rights</h2>
             <p className="text-muted-foreground leading-relaxed">
-              You may access, update, or delete your account information at any time through your profile settings. To request complete data deletion, please contact us at support@handlz.co.
+              You may access, update, or delete your account information at any time through your profile settings. To request complete data deletion, please contact us at support@playr1.app.
             </p>
           </section>
 
           <section>
             <h2 className="text-xl font-semibold mb-3">6. Contact</h2>
             <p className="text-muted-foreground leading-relaxed">
-              For questions about this privacy policy, contact us at support@handlz.co.
+              For questions about this privacy policy, contact us at support@playr1.app.
             </p>
           </section>
         </div>

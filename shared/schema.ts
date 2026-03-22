@@ -1366,3 +1366,13 @@ export const insertPushSubscriptionSchema = createInsertSchema(pushSubscriptions
 
 export type InsertPushSubscription = z.infer<typeof insertPushSubscriptionSchema>;
 export type PushSubscription = typeof pushSubscriptions.$inferSelect;
+
+export const nativePushTokens = pgTable("native_push_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  token: text("token").notNull(),
+  platform: varchar("platform").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type NativePushToken = typeof nativePushTokens.$inferSelect;

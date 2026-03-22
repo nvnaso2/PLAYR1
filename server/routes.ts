@@ -7018,6 +7018,32 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/push/native-token", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { token, platform } = req.body;
+      if (!token || !platform) return res.status(400).json({ message: "token and platform are required" });
+      const saved = await storage.saveNativePushToken(userId, token, platform);
+      res.status(201).json(saved);
+    } catch (error) {
+      console.error("Error saving native push token:", error);
+      res.status(500).json({ message: "Failed to save native push token" });
+    }
+  });
+
+  app.delete("/api/push/native-token", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { token } = req.body;
+      if (!token) return res.status(400).json({ message: "token is required" });
+      await storage.deleteNativePushToken(userId, token);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error removing native push token:", error);
+      res.status(500).json({ message: "Failed to remove native push token" });
+    }
+  });
+
   return httpServer;
 }
 

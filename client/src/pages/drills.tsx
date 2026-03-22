@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { QueryError } from "@/components/query-error";
 import { useLocation, useSearch } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -142,7 +143,7 @@ export default function Drills() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const { data: drills, isLoading } = useQuery<Drill[]>({
+  const { data: drills, isLoading, isError: drillsError, refetch: refetchDrills } = useQuery<Drill[]>({
     queryKey: ['/api/drills'],
   });
 
@@ -211,6 +212,14 @@ export default function Drills() {
     }, {} as Record<string, number>);
   }, [adminDrills, communityDrills, myDrills, activeTab]);
 
+  if (drillsError) {
+    return (
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto">
+        <QueryError message="Unable to load the drill library. Check your connection and try again." onRetry={refetchDrills} />
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto">
       <div className="flex items-start justify-between gap-4">
@@ -233,7 +242,7 @@ export default function Drills() {
         <TabsList className="w-full" data-testid="tabs-drill-library">
           <TabsTrigger value="handlz" data-testid="tab-handlz-drills" className="flex-1 gap-1.5 text-xs sm:text-sm">
             <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            Handlz
+            PLAYR1
           </TabsTrigger>
           <TabsTrigger value="community" data-testid="tab-community-drills" className="flex-1 gap-1.5 text-xs sm:text-sm">
             <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4" />

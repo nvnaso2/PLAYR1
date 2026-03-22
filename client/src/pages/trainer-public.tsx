@@ -102,10 +102,15 @@ export default function TrainerPublic() {
     <div className="min-h-screen bg-background">
       <div className="max-w-3xl mx-auto p-4 sm:p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <Button variant="ghost" size="sm" onClick={() => window.history.back()} data-testid="button-back">
-            <ArrowLeft className="w-4 h-4 mr-1" />
-            Back
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => window.history.back()} data-testid="button-back">
+              <ArrowLeft className="w-4 h-4 mr-1" />
+              Back
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => window.location.href = "/auth"} data-testid="button-sign-in">
+              Sign In to PLAYR1
+            </Button>
+          </div>
           <ShareMenu
             url={`/t/${trainer.id}`}
             title={`${fullName} - PLAYR1 Trainer`}

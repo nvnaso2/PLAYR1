@@ -53,6 +53,7 @@ import {
   playerTrainerConnections, type PlayerTrainerConnection, type InsertConnection,
   parentLinks, type ParentLink,
   pushSubscriptions, type PushSubscription,
+  nativePushTokens, type NativePushToken,
   shotLocations, type ShotLocationDB, type InsertShotLocation,
   shotTypes, type ShotTypeDB, type InsertShotType
 } from "@shared/schema";
@@ -447,6 +448,9 @@ export interface IStorage {
   getPushSubscriptions(userId: string): Promise<PushSubscription[]>;
   deletePushSubscription(endpoint: string): Promise<void>;
   deletePushSubscriptionForUser(userId: string, endpoint: string): Promise<void>;
+  saveNativePushToken(userId: string, token: string, platform: string): Promise<NativePushToken>;
+  getNativePushTokensForUser(userId: string): Promise<NativePushToken[]>;
+  deleteNativePushToken(userId: string, token: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3409,6 +3413,24 @@ export class DatabaseStorage implements IStorage {
   async deletePushSubscriptionForUser(userId: string, endpoint: string): Promise<void> {
     await db.delete(pushSubscriptions).where(
       and(eq(pushSubscriptions.userId, userId), eq(pushSubscriptions.endpoint, endpoint))
+    );
+  }
+
+  async saveNativePushToken(userId: string, token: string, platform: string): Promise<NativePushToken> {
+    const existing = await db.select().from(nativePushTokens)
+      .where(and(eq(nativePushTokens.userId, userId), eq(nativePushTokens.token, token)));
+    if (existing.length > 0) return existing[0];
+    const [row] = await db.insert(nativePushTokens).values({ userId, token, platform }).returning();
+    return row;
+  }
+
+  async getNativePushTokensForUser(userId: string): Promise<NativePushToken[]> {
+    return db.select().from(nativePushTokens).where(eq(nativePushTokens.userId, userId));
+  }
+
+  async deleteNativePushToken(userId: string, token: string): Promise<void> {
+    await db.delete(nativePushTokens).where(
+      and(eq(nativePushTokens.userId, userId), eq(nativePushTokens.token, token))
     );
   }
 }

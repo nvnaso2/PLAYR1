@@ -341,36 +341,36 @@ export default function TrainerPlayerDetail() {
       </Card>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="w-full flex overflow-x-auto" data-testid="tabs-player-detail">
-          <TabsTrigger value="overview" className="flex-1 text-xs" data-testid="tab-overview">
+        <TabsList className="w-full flex overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: "touch" }} data-testid="tabs-player-detail">
+          <TabsTrigger value="overview" className="flex-none px-3 text-xs" data-testid="tab-overview">
             <BarChart3 className="w-3 h-3 mr-1" />
             Overview
           </TabsTrigger>
-          <TabsTrigger value="evaluations" className="flex-1 text-xs" data-testid="tab-evaluations">
+          <TabsTrigger value="evaluations" className="flex-none px-3 text-xs" data-testid="tab-evaluations">
             <Star className="w-3 h-3 mr-1" />
             Evaluations
           </TabsTrigger>
-          <TabsTrigger value="drills" className="flex-1 text-xs" data-testid="tab-drills">
+          <TabsTrigger value="drills" className="flex-none px-3 text-xs" data-testid="tab-drills">
             <ClipboardList className="w-3 h-3 mr-1" />
             Drills
           </TabsTrigger>
-          <TabsTrigger value="sessions" className="flex-1 text-xs" data-testid="tab-sessions">
+          <TabsTrigger value="sessions" className="flex-none px-3 text-xs" data-testid="tab-sessions">
             <Calendar className="w-3 h-3 mr-1" />
             Sessions
           </TabsTrigger>
-          <TabsTrigger value="logs" className="flex-1 text-xs" data-testid="tab-logs">
+          <TabsTrigger value="logs" className="flex-none px-3 text-xs" data-testid="tab-logs">
             <Dumbbell className="w-3 h-3 mr-1" />
             Logs
           </TabsTrigger>
-          <TabsTrigger value="videos" className="flex-1 text-xs" data-testid="tab-videos">
+          <TabsTrigger value="videos" className="flex-none px-3 text-xs" data-testid="tab-videos">
             <Video className="w-3 h-3 mr-1" />
             Videos
           </TabsTrigger>
-          <TabsTrigger value="chat" className="flex-1 text-xs" data-testid="tab-chat">
+          <TabsTrigger value="chat" className="flex-none px-3 text-xs" data-testid="tab-chat">
             <MessageCircle className="w-3 h-3 mr-1" />
             Chat
           </TabsTrigger>
-          <TabsTrigger value="progress" className="flex-1 text-xs" data-testid="tab-progress">
+          <TabsTrigger value="progress" className="flex-none px-3 text-xs" data-testid="tab-progress">
             <Target className="w-3 h-3 mr-1" />
             Progress
           </TabsTrigger>

@@ -69,7 +69,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-xl font-semibold mb-3">8. Contact</h2>
             <p className="text-muted-foreground leading-relaxed">
-              For questions about these terms, contact us at support@handlz.co.
+              For questions about these terms, contact us at support@playr1.app.
             </p>
           </section>
         </div>

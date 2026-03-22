@@ -214,7 +214,7 @@ export default function TrainingLogPage() {
   const [editLogShotsMade, setEditLogShotsMade] = useState<number | null>(null);
 
   // Fetch Handlz drills (admin drills with userId = null) - server filters correctly
-  const { data: handlzDrills, isLoading: handlzDrillsLoading } = useQuery<Drill[]>({
+  const { data: handlzDrills, isLoading: handlzDrillsLoading, isError: drillsLoadError, refetch: refetchDrills } = useQuery<Drill[]>({
     queryKey: ['/api/drills'],
     select: (drills) => drills.filter(d => d.userId === null),
   });
@@ -1900,7 +1900,12 @@ export default function TrainingLogPage() {
                     </div>
                   )}
                   <div className="flex-1 overflow-y-auto space-y-2 pr-2">
-                    {drillsLoading ? (
+                    {drillsLoadError ? (
+                      <div className="py-6 text-center">
+                        <p className="text-sm text-muted-foreground mb-3">Unable to load drills.</p>
+                        <button onClick={() => refetchDrills()} className="text-xs text-primary underline">Try again</button>
+                      </div>
+                    ) : drillsLoading ? (
                       <div className="space-y-3">
                         {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}
                       </div>

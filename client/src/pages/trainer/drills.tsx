@@ -316,7 +316,7 @@ function AllDrillsSection() {
   });
 
   const getSourceBadge = (drill: any) => {
-    if (!drill.userId) return <Badge variant="default" className="no-default-hover-elevate text-[10px]">Handlz</Badge>;
+    if (!drill.userId) return <Badge variant="default" className="no-default-hover-elevate text-[10px]">PLAYR1</Badge>;
     if (drill.userId === adminUserId) return <Badge variant="secondary" className="no-default-hover-elevate text-[10px]">My Drill</Badge>;
     if (drill.isShared) return <Badge variant="outline" className="no-default-hover-elevate text-[10px]">Community</Badge>;
     return null;
@@ -352,7 +352,7 @@ function AllDrillsSection() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Sources</SelectItem>
-            <SelectItem value="handlz">Handlz</SelectItem>
+            <SelectItem value="handlz">PLAYR1</SelectItem>
             <SelectItem value="community">Community</SelectItem>
             <SelectItem value="mine">My Drills</SelectItem>
           </SelectContent>

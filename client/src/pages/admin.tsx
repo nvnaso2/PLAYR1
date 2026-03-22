@@ -3291,7 +3291,7 @@ export default function AdminPage() {
         <TabsContent value="workouts" className="space-y-6">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div>
-              <h2 className="text-xl font-semibold">Handlz Workouts</h2>
+              <h2 className="text-xl font-semibold">PLAYR1 Workouts</h2>
               <p className="text-sm text-muted-foreground">Create workout routines by combining drills</p>
             </div>
             <Dialog open={isCreateWorkoutOpen} onOpenChange={(open) => { if (!open) closeWorkoutDialog(); }}>
@@ -3352,7 +3352,7 @@ export default function AdminPage() {
                     <p className="text-sm text-muted-foreground">Choose drills to include in this workout</p>
                     <ScrollArea className="h-64 border rounded-md p-3">
                       {drills?.filter(d => !d.userId).length === 0 ? (
-                        <p className="text-sm text-muted-foreground text-center py-4">No Handlz drills available. Create drills first.</p>
+                        <p className="text-sm text-muted-foreground text-center py-4">No PLAYR1 drills available. Create drills first.</p>
                       ) : (
                         <div className="space-y-2">
                           {drills?.filter(d => !d.userId).map(drill => (
@@ -3428,7 +3428,7 @@ export default function AdminPage() {
                   <Layers className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
                   <h3 className="font-semibold mb-2">No Workouts Yet</h3>
                   <p className="text-muted-foreground text-sm mb-4">
-                    Create your first Handlz workout by combining drills
+                    Create your first PLAYR1 workout by combining drills
                   </p>
                   <Button onClick={() => openWorkoutDialog()} className="gap-2">
                     <Plus className="w-4 h-4" />

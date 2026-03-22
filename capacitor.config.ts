@@ -1,5 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
+const isProd = process.env.NODE_ENV === 'production';
+
 const config: CapacitorConfig = {
   appId: 'com.playr1.training',
   appName: 'PLAYR1 Training',
@@ -7,6 +9,9 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: 'https',
     iosScheme: 'https',
+    // Set this to your deployed backend URL for production native builds.
+    // Example: url: 'https://playr1.replit.app'
+    // Leave unset to use the bundled web assets (for App Store distribution).
   },
   plugins: {
     SplashScreen: {
@@ -22,6 +27,13 @@ const config: CapacitorConfig = {
     StatusBar: {
       style: 'dark',
       backgroundColor: '#0a0a0a',
+    },
+    PushNotifications: {
+      presentationOptions: ['badge', 'sound', 'alert'],
+    },
+    LocalNotifications: {
+      smallIcon: 'ic_stat_icon_config_sample',
+      iconColor: '#F97316',
     },
   },
 };

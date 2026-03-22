@@ -138,15 +138,25 @@ export default function PlayerPublicPage() {
         <div className="absolute inset-0 bg-gradient-to-br from-orange-600/20 via-background to-background" />
         <div className="relative max-w-4xl mx-auto px-4 sm:px-6 pt-8 pb-6">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => window.history.back()}
-              data-testid="button-back"
-            >
-              <ArrowLeft className="h-4 w-4 mr-1" />
-              Back
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => window.history.back()}
+                data-testid="button-back"
+              >
+                <ArrowLeft className="h-4 w-4 mr-1" />
+                Back
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.location.href = "/auth"}
+                data-testid="button-sign-in"
+              >
+                Sign In to PLAYR1
+              </Button>
+            </div>
             <ShareMenu
               url={`/player/${slug}`}
               title={`${playerName} - PLAYR1 Player Profile`}

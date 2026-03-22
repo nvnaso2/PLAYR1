@@ -1,7 +1,7 @@
 import sgMail from "@sendgrid/mail";
 
 const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
-const FROM_EMAIL = "noreply@handlz.co";
+const FROM_EMAIL = "noreply@playr1.app";
 const APP_NAME = "PLAYR1";
 
 if (SENDGRID_API_KEY) {

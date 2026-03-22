@@ -252,7 +252,7 @@ const TUTORIAL_SLIDES = {
       iconColor: "text-primary",
       content: [
         { heading: "Go to the Drill Library", text: "Open the sidebar and tap \"Drills\" to browse the full library." },
-        { heading: "Browse or Search", text: "Use the tabs to switch between Handlz (pro drills), Community drills, or your own. Filter by category (Ball Handling, Shooting, etc.) and difficulty level." },
+        { heading: "Browse or Search", text: "Use the tabs to switch between PLAYR1 (pro drills), Community drills, or your own. Filter by category (Ball Handling, Shooting, etc.) and difficulty level." },
         { heading: "Pick a Drill", text: "Tap any drill to see the details — watch the video, read pro tips, and check the equipment needed." },
       ],
       tip: "Start with a drill in the category you want to improve most.",
