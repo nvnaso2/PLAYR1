@@ -87,6 +87,12 @@ export async function registerRoutes(
   // Setup object storage for file uploads
   registerObjectStorageRoutes(app);
 
+  // Temporary: download capacitor config
+  app.get("/download/capacitor.config.ts", (req, res) => {
+    res.setHeader('Content-Disposition', 'attachment; filename="capacitor.config.ts"');
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.sendFile('capacitor.config.ts', { root: process.cwd() });
+  });
 
   // ===== DRILLS =====
   
