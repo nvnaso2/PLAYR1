@@ -921,15 +921,7 @@ export default function TrainingLogPage() {
         const isAttempted = name.includes('attempt') || label.includes('attempt');
 
         if (isMade) {
-          // Cap made to the current attempted value
-          const attemptedMetric = entry.drillMetrics.find(dm => {
-            const n = dm.template.name.toLowerCase(); const l = dm.template.label.toLowerCase();
-            return n.includes('attempt') || l.includes('attempt');
-          });
-          if (attemptedMetric) {
-            const attempted = updatedMetrics[attemptedMetric.metricTemplateId] || 0;
-            if (value > attempted && attempted > 0) updatedMetrics[metricTemplateId] = attempted;
-          }
+          // Cap is applied on blur, not during typing — skip real-time cap here
         } else if (isAttempted) {
           // If attempted drops below made, cap made down too
           const madeMetric = entry.drillMetrics.find(dm => {
@@ -2438,6 +2430,24 @@ export default function TrainingLogPage() {
                                         pattern="[0-9]*"
                                         value={entry.metrics[dm.metricTemplateId] || ''}
                                         onChange={(e) => updateMetricValue(index, dm.metricTemplateId, parseFloat(e.target.value) || 0)}
+                                        onBlur={() => {
+                                          const n = dm.template.name.toLowerCase();
+                                          const l = dm.template.label.toLowerCase();
+                                          const isMadeField = (n.includes('made') || l.includes('made')) && !n.includes('attempt') && !l.includes('attempt');
+                                          if (isMadeField) {
+                                            const attemptedMetric = entry.drillMetrics.find(dm2 => {
+                                              const n2 = dm2.template.name.toLowerCase(); const l2 = dm2.template.label.toLowerCase();
+                                              return n2.includes('attempt') || l2.includes('attempt');
+                                            });
+                                            if (attemptedMetric) {
+                                              const attempted = entry.metrics[attemptedMetric.metricTemplateId] || 0;
+                                              const made = entry.metrics[dm.metricTemplateId] || 0;
+                                              if (made > attempted && attempted > 0) {
+                                                updateMetricValue(index, dm.metricTemplateId, attempted);
+                                              }
+                                            }
+                                          }
+                                        }}
                                         className="w-14 sm:w-20 h-8 text-sm"
                                         placeholder="0"
                                         data-testid={`input-metric-${index}-${dm.metricTemplateId}`}
@@ -3036,13 +3046,13 @@ export default function TrainingLogPage() {
                           <label className="text-xs text-muted-foreground">Made</label>
                           <Input
                             type="number"
-                            value={editLogShotsMade || ""}
-                            onChange={(e) => {
+                            value={editLogShotsMade ?? ""}
+                            onChange={(e) => setEditLogShotsMade(parseInt(e.target.value) || null)}
+                            onBlur={(e) => {
                               const made = parseInt(e.target.value) || null;
-                              const capped = made !== null && editLogShotsAttempted !== null && made > editLogShotsAttempted
-                                ? editLogShotsAttempted
-                                : made;
-                              setEditLogShotsMade(capped);
+                              if (made !== null && editLogShotsAttempted !== null && made > editLogShotsAttempted) {
+                                setEditLogShotsMade(editLogShotsAttempted);
+                              }
                             }}
                             placeholder="0"
                             data-testid="input-edit-shots-made"
