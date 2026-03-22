@@ -910,32 +910,7 @@ export default function TrainingLogPage() {
     setWorkoutEntries(prev => {
       const next = [...prev];
       const entry = next[entryIndex];
-      const updatedMetrics = { ...entry.metrics, [metricTemplateId]: value };
-
-      // Enforce made ≤ attempted across metric pairs
-      const thisMetric = entry.drillMetrics.find(dm => dm.metricTemplateId === metricTemplateId);
-      if (thisMetric) {
-        const name = thisMetric.template.name.toLowerCase();
-        const label = thisMetric.template.label.toLowerCase();
-        const isMade = (name.includes('made') || label.includes('made')) && !name.includes('attempt') && !label.includes('attempt');
-        const isAttempted = name.includes('attempt') || label.includes('attempt');
-
-        if (isMade) {
-          // Cap is applied on blur, not during typing — skip real-time cap here
-        } else if (isAttempted) {
-          // If attempted drops below made, cap made down too
-          const madeMetric = entry.drillMetrics.find(dm => {
-            const n = dm.template.name.toLowerCase(); const l = dm.template.label.toLowerCase();
-            return (n.includes('made') || l.includes('made')) && !n.includes('attempt') && !l.includes('attempt');
-          });
-          if (madeMetric) {
-            const made = updatedMetrics[madeMetric.metricTemplateId] || 0;
-            if (made > value && value > 0) updatedMetrics[madeMetric.metricTemplateId] = value;
-          }
-        }
-      }
-
-      next[entryIndex] = { ...entry, metrics: updatedMetrics };
+      next[entryIndex] = { ...entry, metrics: { ...entry.metrics, [metricTemplateId]: value } };
       return next;
     });
   };
@@ -2430,24 +2405,6 @@ export default function TrainingLogPage() {
                                         pattern="[0-9]*"
                                         value={entry.metrics[dm.metricTemplateId] || ''}
                                         onChange={(e) => updateMetricValue(index, dm.metricTemplateId, parseFloat(e.target.value) || 0)}
-                                        onBlur={() => {
-                                          const n = dm.template.name.toLowerCase();
-                                          const l = dm.template.label.toLowerCase();
-                                          const isMadeField = (n.includes('made') || l.includes('made')) && !n.includes('attempt') && !l.includes('attempt');
-                                          if (isMadeField) {
-                                            const attemptedMetric = entry.drillMetrics.find(dm2 => {
-                                              const n2 = dm2.template.name.toLowerCase(); const l2 = dm2.template.label.toLowerCase();
-                                              return n2.includes('attempt') || l2.includes('attempt');
-                                            });
-                                            if (attemptedMetric) {
-                                              const attempted = entry.metrics[attemptedMetric.metricTemplateId] || 0;
-                                              const made = entry.metrics[dm.metricTemplateId] || 0;
-                                              if (made > attempted && attempted > 0) {
-                                                updateMetricValue(index, dm.metricTemplateId, attempted);
-                                              }
-                                            }
-                                          }
-                                        }}
                                         className="w-14 sm:w-20 h-8 text-sm"
                                         placeholder="0"
                                         data-testid={`input-metric-${index}-${dm.metricTemplateId}`}
@@ -3048,12 +3005,6 @@ export default function TrainingLogPage() {
                             type="number"
                             value={editLogShotsMade ?? ""}
                             onChange={(e) => setEditLogShotsMade(parseInt(e.target.value) || null)}
-                            onBlur={(e) => {
-                              const made = parseInt(e.target.value) || null;
-                              if (made !== null && editLogShotsAttempted !== null && made > editLogShotsAttempted) {
-                                setEditLogShotsMade(editLogShotsAttempted);
-                              }
-                            }}
                             placeholder="0"
                             data-testid="input-edit-shots-made"
                           />
@@ -3063,14 +3014,7 @@ export default function TrainingLogPage() {
                           <Input
                             type="number"
                             value={editLogShotsAttempted || ""}
-                            onChange={(e) => {
-                              const attempted = parseInt(e.target.value) || null;
-                              setEditLogShotsAttempted(attempted);
-                              // If attempted drops below made, pull made down too
-                              if (attempted !== null && editLogShotsMade !== null && editLogShotsMade > attempted) {
-                                setEditLogShotsMade(attempted);
-                              }
-                            }}
+                            onChange={(e) => setEditLogShotsAttempted(parseInt(e.target.value) || null)}
                             placeholder="0"
                             data-testid="input-edit-shots-attempted"
                           />
