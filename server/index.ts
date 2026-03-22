@@ -5,7 +5,7 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { seedDatabase } from "./seed";
 import { runMigrations } from "stripe-replit-sync";
-import { getStripeSync } from "./stripeClient";
+import { getStripeSync, isStripeConfigured } from "./stripeClient";
 import { WebhookHandlers } from "./webhookHandlers";
 
 const app = express();
@@ -26,12 +26,22 @@ async function initStripe() {
     return;
   }
 
+  const configured = await isStripeConfigured();
+  if (!configured) {
+    console.warn('[Stripe] Stripe credentials not available, skipping Stripe init');
+    return;
+  }
+
   try {
     console.log('[Stripe] Initializing schema...');
     await runMigrations({ databaseUrl, schema: 'stripe' });
     console.log('[Stripe] Schema ready');
 
     const stripeSync = await getStripeSync();
+    if (!stripeSync) {
+      console.warn('[Stripe] Could not get Stripe sync instance, skipping');
+      return;
+    }
 
     console.log('[Stripe] Setting up managed webhook...');
     const webhookBaseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
@@ -54,6 +64,11 @@ app.post(
   '/api/stripe/webhook',
   express.raw({ type: 'application/json' }),
   async (req, res) => {
+    const configured = await isStripeConfigured();
+    if (!configured) {
+      return res.status(503).json({ error: 'Stripe not configured' });
+    }
+
     const signature = req.headers['stripe-signature'];
     if (!signature) return res.status(400).json({ error: 'Missing stripe-signature' });
 
