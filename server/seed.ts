@@ -322,6 +322,7 @@ export async function seedDatabase() {
         { slug: "wing-left", label: "Wing Left", classification: "3-pointer", sortOrder: 11 },
         { slug: "wing-right", label: "Wing Right", classification: "3-pointer", sortOrder: 12 },
         { slug: "top-of-key", label: "Top of Key", classification: "3-pointer", sortOrder: 13 },
+        { slug: "top-of-key-3-point", label: "Top of Key (Mid-Range)", classification: "2-pointer", sortOrder: 16 },
         { slug: "3rd-hash-left", label: "3rd Hash Left", classification: "3-pointer", sortOrder: 14 },
         { slug: "3rd-hash-right", label: "3rd Hash Right", classification: "3-pointer", sortOrder: 15 },
       ]);

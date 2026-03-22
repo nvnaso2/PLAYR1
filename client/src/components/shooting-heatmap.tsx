@@ -252,7 +252,7 @@ const LOCATION_TO_ZONE: Record<string, string> = {
   "right-corner-mid-range": "mid-range-right",
   "wing-left-mid-range":    "elbow-left",
   "wing-right-mid-range":   "elbow-right",
-  "top-of-key-3-point":     "top-of-key",
+  "top-of-key-3-point":     "top-key-mid",
   "form-shot-left":         "paint-left",
   "form-shots-right":       "paint-right",
   "form-shots-front":       "floater",
