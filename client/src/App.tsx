@@ -15,6 +15,7 @@ import ForgotPassword from "@/pages/forgot-password";
 import ResetPassword from "@/pages/reset-password";
 import Privacy from "@/pages/privacy";
 import Terms from "@/pages/terms";
+import Support from "@/pages/support";
 import Drills from "@/pages/drills";
 import DrillPage from "@/pages/drill";
 import TrainingLog from "@/pages/training-log";
@@ -144,6 +145,7 @@ function Router() {
       <Route path="/reset-password" component={ResetPassword} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/terms" component={Terms} />
+      <Route path="/support" component={Support} />
       <Route path="/finder">{() => <Redirect to="/teams" />}</Route>
       <Route>
         {() => {

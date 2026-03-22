@@ -293,6 +293,9 @@ export default function Landing() {
               <Link href="/terms" className="text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="link-footer-terms">
                 Terms
               </Link>
+              <Link href="/support" className="text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="link-footer-support">
+                Support
+              </Link>
             </div>
           </div>
         </div>
