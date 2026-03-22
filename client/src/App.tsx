@@ -1,5 +1,6 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
+import { Capacitor } from "@capacitor/core";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -45,7 +46,6 @@ import FindPeople from "@/pages/find-people";
 import NotFound from "@/pages/not-found";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRole } from "@/hooks/use-role";
-import { Redirect } from "wouter";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const style = {
@@ -150,6 +150,9 @@ function Router() {
       <Route>
         {() => {
           if (!isAuthenticated) {
+            if (Capacitor.isNativePlatform()) {
+              return <Redirect to="/auth" />;
+            }
             return <Landing />;
           }
           return (
