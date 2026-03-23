@@ -59,6 +59,14 @@ const COOKIE_OPTIONS = {
 };
 
 export const isAuthenticated: RequestHandler = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith("Bearer ")) {
+    const payload = verifyToken(authHeader.slice(7));
+    if (payload) {
+      req.user = { claims: { sub: payload.sub } };
+      return next();
+    }
+  }
   const token = req.cookies?.[COOKIE_NAME];
   if (!token) {
     return res.status(401).json({ message: "Unauthorized" });
@@ -151,6 +159,7 @@ export function registerAuthRoutes(app: Express) {
         profileImageUrl: user.profileImageUrl,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
+        token,
       });
     } catch (error: any) {
       if (error instanceof z.ZodError) {
@@ -185,6 +194,7 @@ export function registerAuthRoutes(app: Express) {
         profileImageUrl: user.profileImageUrl,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
+        token,
       });
     } catch (error: any) {
       if (error instanceof z.ZodError) {

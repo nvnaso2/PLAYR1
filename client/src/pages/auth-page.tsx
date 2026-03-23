@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, storeAuthToken } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -50,7 +50,8 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
       const res = await apiRequest("POST", "/api/auth/login", data);
       return res.json();
     },
-    onSuccess: async () => {
+    onSuccess: async (data) => {
+      if (data?.token) storeAuthToken(data.token);
       await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       navigate("/");
     },
@@ -154,7 +155,8 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
       const res = await apiRequest("POST", "/api/auth/register", payload);
       return res.json();
     },
-    onSuccess: async () => {
+    onSuccess: async (data) => {
+      if (data?.token) storeAuthToken(data.token);
       await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       navigate("/");
     },

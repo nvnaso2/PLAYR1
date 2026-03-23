@@ -1,5 +1,36 @@
 import { QueryClient, QueryCache, MutationCache, QueryFunction } from "@tanstack/react-query";
 
+const NATIVE_API_BASE = "https://PLAYR1Basketball.replit.app";
+const TOKEN_KEY = "playr1_auth_token";
+
+function isNativeApp(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.location.protocol === "capacitor:" || window.location.protocol === "ionic:";
+}
+
+function getApiBase(): string {
+  return isNativeApp() ? NATIVE_API_BASE : (import.meta.env.VITE_API_BASE_URL || "");
+}
+
+export function storeAuthToken(token: string) {
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function clearAuthToken() {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
+function getAuthHeaders(): Record<string, string> {
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (token) return { Authorization: `Bearer ${token}` };
+  return {};
+}
+
+function buildUrl(url: string): string {
+  if (url.startsWith("http")) return url;
+  return `${getApiBase()}${url}`;
+}
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
@@ -18,9 +49,12 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  const res = await fetch(url, {
+  const res = await fetch(buildUrl(url), {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
+    headers: {
+      ...(data ? { "Content-Type": "application/json" } : {}),
+      ...getAuthHeaders(),
+    },
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
@@ -35,8 +69,10 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey.join("/") as string, {
+    const url = buildUrl(queryKey.join("/") as string);
+    const res = await fetch(url, {
       credentials: "include",
+      headers: getAuthHeaders(),
     });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
