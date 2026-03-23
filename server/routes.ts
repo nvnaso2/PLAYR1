@@ -94,6 +94,19 @@ export async function registerRoutes(
     res.sendFile('capacitor.config.ts', { root: process.cwd() });
   });
 
+  // Temporary: download iOS app bundle
+  app.get("/download/ios-bundle", (req, res) => {
+    const { spawn } = require('child_process');
+    const path = require('path');
+    const distPublic = path.join(process.cwd(), 'dist', 'public');
+    res.setHeader('Content-Disposition', 'attachment; filename="ios-bundle.tar.gz"');
+    res.setHeader('Content-Type', 'application/gzip');
+    const tar = spawn('tar', ['-czf', '-', '-C', distPublic, '--exclude=*.tar.gz', '--exclude=capacitor.config.ts', '.']);
+    tar.stdout.pipe(res);
+    tar.stderr.on('data', (d: Buffer) => console.error('tar error:', d.toString()));
+    tar.on('error', (err: Error) => { console.error('tar spawn error:', err); res.status(500).end(); });
+  });
+
   // ===== DRILLS =====
   
   // Get all drills
