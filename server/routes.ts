@@ -95,7 +95,7 @@ export async function registerRoutes(
   });
 
   // Temporary: download iOS app bundle
-  app.get("/download/ios-bundle", (req, res) => {
+  app.get("/api/download/ios-bundle", (req, res) => {
     const { spawn } = require('child_process');
     const path = require('path');
     const distPublic = path.join(process.cwd(), 'dist', 'public');
