@@ -323,7 +323,8 @@ export default function TrainerProfilePage() {
   });
 
   const handlePhotoUpload = async (file: File) => {
-    if (!file.type.startsWith("image/")) {
+    const contentType = file.type || "image/jpeg";
+    if (!contentType.startsWith("image/")) {
       toast({ title: "Please select an image file", variant: "destructive" });
       return;
     }
@@ -334,10 +335,10 @@ export default function TrainerProfilePage() {
     setUploading(true);
     try {
       const urlRes = await apiRequest("POST", "/api/user/uploads/photo-url", {
-        name: file.name, size: file.size, contentType: file.type,
+        name: file.name, size: file.size, contentType,
       });
       const { uploadURL, objectPath } = await urlRes.json();
-      await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+      await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": contentType }, body: file });
       setProfilePhotoUrl(objectPath);
       toast({ title: "Photo uploaded" });
     } catch {

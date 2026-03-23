@@ -5007,9 +5007,10 @@ export async function registerRoutes(
         const userLng = parseFloat(lng as string);
         const maxDist = parseFloat(radius as string);
         if (!isNaN(userLat) && !isNaN(userLng) && !isNaN(maxDist)) {
-          clubs = clubs
-            .filter(c => c.latitude != null && c.longitude != null)
-            .filter(c => haversineDistance(userLat, userLng, c.latitude!, c.longitude!) <= maxDist);
+          clubs = clubs.filter(c => {
+            if (c.latitude == null || c.longitude == null) return true;
+            return haversineDistance(userLat, userLng, c.latitude, c.longitude) <= maxDist;
+          });
         }
       }
       res.json(clubs);
@@ -5048,7 +5049,13 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const slug = req.body.slug || generateSlug(req.body.name);
-      const data = insertTeamClubSchema.parse({ ...req.body, slug, createdByUserId: userId });
+      let latitude = req.body.latitude ?? null;
+      let longitude = req.body.longitude ?? null;
+      if ((latitude == null || longitude == null) && req.body.city && req.body.state) {
+        const coords = cityStateToCoords(req.body.city, req.body.state);
+        if (coords) { latitude = coords.latitude; longitude = coords.longitude; }
+      }
+      const data = insertTeamClubSchema.parse({ ...req.body, slug, createdByUserId: userId, latitude, longitude });
       const club = await storage.createTeamClub(data);
       res.status(201).json(club);
     } catch (error: any) {
@@ -5090,9 +5097,10 @@ export async function registerRoutes(
         const userLng = parseFloat(lng as string);
         const maxDist = parseFloat(radius as string);
         if (!isNaN(userLat) && !isNaN(userLng) && !isNaN(maxDist)) {
-          result = result
-            .filter(l => l.latitude != null && l.longitude != null)
-            .filter(l => haversineDistance(userLat, userLng, l.latitude!, l.longitude!) <= maxDist);
+          result = result.filter(l => {
+            if (l.latitude == null || l.longitude == null) return true;
+            return haversineDistance(userLat, userLng, l.latitude, l.longitude) <= maxDist;
+          });
         }
       }
       res.json(result);
@@ -5131,7 +5139,13 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const slug = req.body.slug || generateSlug(req.body.name);
-      const data = insertLeagueSchema.parse({ ...req.body, slug, createdByUserId: userId });
+      let latitude = req.body.latitude ?? null;
+      let longitude = req.body.longitude ?? null;
+      if ((latitude == null || longitude == null) && req.body.city && req.body.state) {
+        const coords = cityStateToCoords(req.body.city, req.body.state);
+        if (coords) { latitude = coords.latitude; longitude = coords.longitude; }
+      }
+      const data = insertLeagueSchema.parse({ ...req.body, slug, createdByUserId: userId, latitude, longitude });
       const league = await storage.createLeague(data);
       res.status(201).json(league);
     } catch (error: any) {

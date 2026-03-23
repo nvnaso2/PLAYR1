@@ -195,8 +195,9 @@ export default function ProfilePage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
-    if (!allowedTypes.includes(file.type)) {
+    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/heic", "image/heif"];
+    const contentType = file.type || "image/jpeg";
+    if (!allowedTypes.includes(contentType)) {
       toast({ title: "Invalid file type", description: "Please upload a JPEG, PNG, GIF, or WebP image.", variant: "destructive" });
       return;
     }
@@ -210,13 +211,13 @@ export default function ProfilePage() {
       const urlRes = await apiRequest("POST", "/api/user/uploads/photo-url", {
         name: file.name,
         size: file.size,
-        contentType: file.type,
+        contentType,
       });
       const { uploadURL, objectPath } = await urlRes.json();
 
       await fetch(uploadURL, {
         method: "PUT",
-        headers: { "Content-Type": file.type },
+        headers: { "Content-Type": contentType },
         body: file,
       });
 
