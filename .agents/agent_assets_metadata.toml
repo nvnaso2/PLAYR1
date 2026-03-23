@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "aETHZwhTxyQHaphDQO7sX"
+uri = "file://public_build.tar.gz"
+type = "unspecified"
+title = "PLAYR1 Web Build (public_build.tar.gz)"
