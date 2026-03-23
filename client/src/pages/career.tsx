@@ -3025,8 +3025,8 @@ function StatsTab() {
           </CardTitle>
           <div className="flex items-center gap-2">
             <Button size="sm" variant="outline" onClick={() => setShowCsvImport(true)} data-testid="button-import-csv">
-              <Upload className="w-4 h-4 mr-1" />
-              Import CSV
+              <Upload className="w-4 h-4 sm:mr-1" />
+              <span className="hidden sm:inline">Import CSV</span>
             </Button>
             <Dialog open={showSeasonDialog} onOpenChange={(open) => {
               setShowSeasonDialog(open);
@@ -3034,8 +3034,8 @@ function StatsTab() {
             }}>
             <DialogTrigger asChild>
               <Button size="sm" onClick={() => openSeasonDialog()} data-testid="button-create-season">
-                <Plus className="w-4 h-4 mr-1" />
-                Add Season
+                <Plus className="w-4 h-4 sm:mr-1" />
+                <span className="hidden sm:inline">Add Season</span>
               </Button>
             </DialogTrigger>
             <DialogContent>

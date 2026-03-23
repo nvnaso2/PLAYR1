@@ -1457,6 +1457,24 @@ export async function registerRoutes(
     }
   });
 
+  app.delete("/api/training-logs/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const log = await storage.getTrainingLog(req.params.id);
+      if (!log) {
+        return res.status(404).json({ message: "Training log not found" });
+      }
+      if (log.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      await storage.deleteTrainingLog(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting training log:", error);
+      res.status(500).json({ message: "Failed to delete training log" });
+    }
+  });
+
   // ===== USER PROFILE =====
 
   // Get user profile

@@ -616,6 +616,21 @@ export default function TrainingLogPage() {
     },
   });
 
+  const deleteLogMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("DELETE", `/api/training-logs/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/training-logs'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stats/overview'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stats/weekly'] });
+      toast({ title: "Training log deleted" });
+    },
+    onError: () => {
+      toast({ title: "Failed to delete log", variant: "destructive" });
+    },
+  });
+
   // Open log for viewing
   const openViewLog = (logId: string) => {
     setViewEditLogId(logId);
@@ -2808,6 +2823,15 @@ export default function TrainingLogPage() {
                                                         >
                                                           <Pencil className="w-3 h-3" />
                                                         </Button>
+                                                        <Button 
+                                                          variant="ghost" 
+                                                          size="icon"
+                                                          className="h-6 w-6 shrink-0"
+                                                          onClick={(e) => { e.stopPropagation(); if (confirm('Delete this round?')) deleteLogMutation.mutate(log.id); }}
+                                                          data-testid={`button-delete-round-${log.id}`}
+                                                        >
+                                                          <Trash2 className="w-3 h-3 text-muted-foreground" />
+                                                        </Button>
                                                       </div>
                                                     );
                                                   })}
@@ -2863,15 +2887,24 @@ export default function TrainingLogPage() {
                                         )}
                                       </div>
                                     </div>
-                                    <Button 
-                                      variant="ghost" 
-                                      size="icon"
-                                      className="shrink-0"
-                                      onClick={(e) => { e.stopPropagation(); openEditLog(log); }}
-                                      data-testid={`button-edit-log-${log.id}`}
-                                    >
-                                      <Pencil className="w-4 h-4 text-muted-foreground" />
-                                    </Button>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon"
+                                        onClick={(e) => { e.stopPropagation(); openEditLog(log); }}
+                                        data-testid={`button-edit-log-${log.id}`}
+                                      >
+                                        <Pencil className="w-4 h-4 text-muted-foreground" />
+                                      </Button>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon"
+                                        onClick={(e) => { e.stopPropagation(); if (confirm('Delete this training log?')) deleteLogMutation.mutate(log.id); }}
+                                        data-testid={`button-delete-log-${log.id}`}
+                                      >
+                                        <Trash2 className="w-4 h-4 text-muted-foreground" />
+                                      </Button>
+                                    </div>
                                   </div>
                                   {log.notes && (
                                     <p className="mt-3 text-sm text-muted-foreground border-t pt-3 line-clamp-2">

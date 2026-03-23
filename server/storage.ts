@@ -90,6 +90,7 @@ export interface IStorage {
   getTrainingLog(id: string): Promise<TrainingLog | undefined>;
   createTrainingLog(log: InsertTrainingLog): Promise<TrainingLog>;
   updateTrainingLog(id: string, updates: Partial<InsertTrainingLog>): Promise<TrainingLog>;
+  deleteTrainingLog(id: string): Promise<boolean>;
 
   // User Profiles
   getUserProfile(userId: string): Promise<UserProfile | undefined>;
@@ -663,6 +664,11 @@ export class DatabaseStorage implements IStorage {
       .where(eq(trainingLogs.id, id))
       .returning();
     return updated;
+  }
+
+  async deleteTrainingLog(id: string): Promise<boolean> {
+    const result = await db.delete(trainingLogs).where(eq(trainingLogs.id, id));
+    return (result.rowCount ?? 0) > 0;
   }
 
   // User Profiles
