@@ -150,7 +150,8 @@ function Router() {
       <Route>
         {() => {
           if (!isAuthenticated) {
-            if (Capacitor.isNativePlatform()) {
+            const isNative = !!(window as any).Capacitor?.isNative || Capacitor.isNativePlatform();
+            if (isNative) {
               return <Redirect to="/auth" />;
             }
             return <Landing />;
