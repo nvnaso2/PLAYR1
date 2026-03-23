@@ -351,6 +351,14 @@ export interface IStorage {
     totalAssists: number;
     totalSteals: number;
     totalBlocks: number;
+    totalFgMade: number;
+    totalFgAttempted: number;
+    totalThreePtMade: number;
+    totalThreePtAttempted: number;
+    totalFtMade: number;
+    totalFtAttempted: number;
+    wins: number;
+    losses: number;
     avgPoints: number;
     avgRebounds: number;
     avgAssists: number;
@@ -367,6 +375,19 @@ export interface IStorage {
       avgAssists: number;
       avgSteals: number;
       avgBlocks: number;
+      totalPoints: number;
+      totalRebounds: number;
+      totalAssists: number;
+      totalSteals: number;
+      totalBlocks: number;
+      totalFgMade: number;
+      totalFgAttempted: number;
+      totalThreePtMade: number;
+      totalThreePtAttempted: number;
+      totalFtMade: number;
+      totalFtAttempted: number;
+      wins: number;
+      losses: number;
     }>;
   }>;
 
@@ -1860,6 +1881,12 @@ export class DatabaseStorage implements IStorage {
     totalAssists: number;
     totalSteals: number;
     totalBlocks: number;
+    totalFgMade: number;
+    totalFgAttempted: number;
+    totalThreePtMade: number;
+    totalThreePtAttempted: number;
+    totalFtMade: number;
+    totalFtAttempted: number;
     wins: number;
     losses: number;
     avgPoints: number;
@@ -1883,6 +1910,12 @@ export class DatabaseStorage implements IStorage {
       totalAssists: number;
       totalSteals: number;
       totalBlocks: number;
+      totalFgMade: number;
+      totalFgAttempted: number;
+      totalThreePtMade: number;
+      totalThreePtAttempted: number;
+      totalFtMade: number;
+      totalFtAttempted: number;
       wins: number;
       losses: number;
     }>;
@@ -1899,6 +1932,12 @@ export class DatabaseStorage implements IStorage {
         totalAssists: sql<number>`COALESCE(SUM(${games.assists}), 0)::int`,
         totalSteals: sql<number>`COALESCE(SUM(${games.steals}), 0)::int`,
         totalBlocks: sql<number>`COALESCE(SUM(${games.blocks}), 0)::int`,
+        totalFgMade: sql<number>`COALESCE(SUM(${games.fgMade}), 0)::int`,
+        totalFgAttempted: sql<number>`COALESCE(SUM(${games.fgAttempted}), 0)::int`,
+        totalThreePtMade: sql<number>`COALESCE(SUM(${games.threePtMade}), 0)::int`,
+        totalThreePtAttempted: sql<number>`COALESCE(SUM(${games.threePtAttempted}), 0)::int`,
+        totalFtMade: sql<number>`COALESCE(SUM(${games.ftMade}), 0)::int`,
+        totalFtAttempted: sql<number>`COALESCE(SUM(${games.ftAttempted}), 0)::int`,
         wins: sql<number>`COUNT(*) FILTER (WHERE ${games.result} = 'W')::int`,
         losses: sql<number>`COUNT(*) FILTER (WHERE ${games.result} = 'L')::int`,
       })
@@ -1910,6 +1949,8 @@ export class DatabaseStorage implements IStorage {
 
     let totalGames = 0, totalPoints = 0, totalRebounds = 0, totalAssists = 0;
     let totalSteals = 0, totalBlocks = 0, totalWins = 0, totalLosses = 0;
+    let totalFgMade = 0, totalFgAttempted = 0, totalThreePtMade = 0, totalThreePtAttempted = 0;
+    let totalFtMade = 0, totalFtAttempted = 0;
 
     const seasonBreakdown = rows.map(r => {
       totalGames += r.gamesPlayed;
@@ -1918,6 +1959,12 @@ export class DatabaseStorage implements IStorage {
       totalAssists += r.totalAssists;
       totalSteals += r.totalSteals;
       totalBlocks += r.totalBlocks;
+      totalFgMade += r.totalFgMade;
+      totalFgAttempted += r.totalFgAttempted;
+      totalThreePtMade += r.totalThreePtMade;
+      totalThreePtAttempted += r.totalThreePtAttempted;
+      totalFtMade += r.totalFtMade;
+      totalFtAttempted += r.totalFtAttempted;
       totalWins += r.wins;
       totalLosses += r.losses;
       return {
@@ -1936,6 +1983,12 @@ export class DatabaseStorage implements IStorage {
         totalAssists: r.totalAssists,
         totalSteals: r.totalSteals,
         totalBlocks: r.totalBlocks,
+        totalFgMade: r.totalFgMade,
+        totalFgAttempted: r.totalFgAttempted,
+        totalThreePtMade: r.totalThreePtMade,
+        totalThreePtAttempted: r.totalThreePtAttempted,
+        totalFtMade: r.totalFtMade,
+        totalFtAttempted: r.totalFtAttempted,
         wins: r.wins,
         losses: r.losses,
       };
@@ -1948,6 +2001,12 @@ export class DatabaseStorage implements IStorage {
       totalAssists,
       totalSteals,
       totalBlocks,
+      totalFgMade,
+      totalFgAttempted,
+      totalThreePtMade,
+      totalThreePtAttempted,
+      totalFtMade,
+      totalFtAttempted,
       wins: totalWins,
       losses: totalLosses,
       avgPoints: totalGames > 0 ? Math.round((totalPoints / totalGames) * 10) / 10 : 0,

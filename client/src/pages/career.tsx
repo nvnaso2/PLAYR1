@@ -2540,6 +2540,12 @@ type CareerStats = {
   totalAssists: number;
   totalSteals: number;
   totalBlocks: number;
+  totalFgMade: number;
+  totalFgAttempted: number;
+  totalThreePtMade: number;
+  totalThreePtAttempted: number;
+  totalFtMade: number;
+  totalFtAttempted: number;
   wins: number;
   losses: number;
   avgPoints: number;
@@ -2563,14 +2569,25 @@ type CareerStats = {
     totalAssists: number;
     totalSteals: number;
     totalBlocks: number;
+    totalFgMade: number;
+    totalFgAttempted: number;
+    totalThreePtMade: number;
+    totalThreePtAttempted: number;
+    totalFtMade: number;
+    totalFtAttempted: number;
     wins: number;
     losses: number;
   }>;
 };
 
-function StatsOverviewCard({ careerStats }: { careerStats?: CareerStats }) {
+function fmtPct(made: number, attempted: number): string {
+  if (attempted === 0) return "-";
+  return ((made / attempted) * 100).toFixed(1) + "%";
+}
+
+function StatsOverviewCard({ careerStats, seasons }: { careerStats?: CareerStats; seasons: Season[] }) {
   const [statsView, setStatsView] = useState<"averages" | "totals">("averages");
-  const [statsPeriod, setStatsPeriod] = useState<"career" | "current">("career");
+  const [selectedSeasonId, setSelectedSeasonId] = useState<string>("career");
 
   if (!careerStats || careerStats.totalGames === 0) {
     return (
@@ -2592,8 +2609,9 @@ function StatsOverviewCard({ careerStats }: { careerStats?: CareerStats }) {
   }
 
   const breakdown = careerStats.seasonBreakdown;
-  const currentSeason = breakdown.length > 0 ? breakdown[breakdown.length - 1] : null;
-  const displaySeasons = statsPeriod === "current" && currentSeason ? [currentSeason] : breakdown;
+  const displaySeasons = selectedSeasonId === "career"
+    ? breakdown
+    : breakdown.filter(s => s.seasonId === selectedSeasonId);
 
   const totalGames = displaySeasons.reduce((s, ss) => s + ss.gamesPlayed, 0);
   const totalPts = displaySeasons.reduce((s, ss) => s + ss.totalPoints, 0);
@@ -2601,8 +2619,14 @@ function StatsOverviewCard({ careerStats }: { careerStats?: CareerStats }) {
   const totalAst = displaySeasons.reduce((s, ss) => s + ss.totalAssists, 0);
   const totalStl = displaySeasons.reduce((s, ss) => s + ss.totalSteals, 0);
   const totalBlk = displaySeasons.reduce((s, ss) => s + ss.totalBlocks, 0);
-  const displayWins = statsPeriod === "current" && currentSeason ? currentSeason.wins : (careerStats.wins ?? 0);
-  const displayLosses = statsPeriod === "current" && currentSeason ? currentSeason.losses : (careerStats.losses ?? 0);
+  const totalFgMade = displaySeasons.reduce((s, ss) => s + (ss.totalFgMade ?? 0), 0);
+  const totalFgAtt = displaySeasons.reduce((s, ss) => s + (ss.totalFgAttempted ?? 0), 0);
+  const total3Made = displaySeasons.reduce((s, ss) => s + (ss.totalThreePtMade ?? 0), 0);
+  const total3Att = displaySeasons.reduce((s, ss) => s + (ss.totalThreePtAttempted ?? 0), 0);
+  const totalFtMade = displaySeasons.reduce((s, ss) => s + (ss.totalFtMade ?? 0), 0);
+  const totalFtAtt = displaySeasons.reduce((s, ss) => s + (ss.totalFtAttempted ?? 0), 0);
+  const displayWins = displaySeasons.reduce((s, ss) => s + ss.wins, 0);
+  const displayLosses = displaySeasons.reduce((s, ss) => s + ss.losses, 0);
 
   const statItems = statsView === "averages" ? [
     { label: "PPG", value: totalGames > 0 ? (totalPts / totalGames).toFixed(1) : "0.0", highlight: true },
@@ -2617,6 +2641,8 @@ function StatsOverviewCard({ careerStats }: { careerStats?: CareerStats }) {
     { label: "STL", value: totalStl.toString() },
     { label: "BLK", value: totalBlk.toString() },
   ];
+
+  const hasShootingData = totalFgAtt > 0 || total3Att > 0 || totalFtAtt > 0;
 
   return (
     <Card>
@@ -2636,15 +2662,17 @@ function StatsOverviewCard({ careerStats }: { careerStats?: CareerStats }) {
               Totals
             </Button>
           </div>
-          <div className="flex gap-1">
-            <Button size="sm" variant={statsPeriod === "career" ? "default" : "outline"} onClick={() => setStatsPeriod("career")} data-testid="btn-stats-career">
-              Career
-            </Button>
-            <Button size="sm" variant={statsPeriod === "current" ? "default" : "outline"} onClick={() => setStatsPeriod("current")} data-testid="btn-stats-current">
-              <span className="hidden sm:inline">Current Season</span>
-              <span className="sm:hidden">Season</span>
-            </Button>
-          </div>
+          <Select value={selectedSeasonId} onValueChange={setSelectedSeasonId}>
+            <SelectTrigger className="w-44 h-8 text-sm" data-testid="select-stats-season">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="career">Career</SelectItem>
+              {seasons.filter(s => breakdown.some(b => b.seasonId === s.id)).map(s => (
+                <SelectItem key={s.id} value={s.id}>{s.name} ({s.year})</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="space-y-4">
@@ -2678,7 +2706,24 @@ function StatsOverviewCard({ careerStats }: { careerStats?: CareerStats }) {
             ))}
           </div>
 
-          {statsPeriod === "career" && breakdown.length > 1 && (
+          {hasShootingData && (
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
+              <div className="text-center p-2 sm:p-3 rounded-md bg-muted/50">
+                <p className="text-lg sm:text-xl font-bold text-orange-500">{fmtPct(totalFgMade, totalFgAtt)}</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">FG% ({totalFgMade}/{totalFgAtt})</p>
+              </div>
+              <div className="text-center p-2 sm:p-3 rounded-md bg-muted/50">
+                <p className="text-lg sm:text-xl font-bold text-orange-500">{fmtPct(total3Made, total3Att)}</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">3P% ({total3Made}/{total3Att})</p>
+              </div>
+              <div className="text-center p-2 sm:p-3 rounded-md bg-muted/50">
+                <p className="text-lg sm:text-xl font-bold text-orange-500">{fmtPct(totalFtMade, totalFtAtt)}</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">FT% ({totalFtMade}/{totalFtAtt})</p>
+              </div>
+            </div>
+          )}
+
+          {selectedSeasonId === "career" && breakdown.length > 1 && (
             <div className="mt-4">
               <p className="text-sm font-medium mb-2 text-muted-foreground">Season Breakdown</p>
               <div className="space-y-2">
@@ -2696,12 +2741,14 @@ function StatsOverviewCard({ careerStats }: { careerStats?: CareerStats }) {
                           <span className="font-semibold text-foreground">{s.avgPoints.toFixed(1)} PPG</span>
                           <span>{s.avgRebounds.toFixed(1)} RPG</span>
                           <span>{s.avgAssists.toFixed(1)} APG</span>
+                          {(s.totalFgAttempted ?? 0) > 0 && <span className="text-orange-400">{fmtPct(s.totalFgMade ?? 0, s.totalFgAttempted ?? 0)} FG</span>}
                         </>
                       ) : (
                         <>
                           <span className="font-semibold text-foreground">{s.totalPoints} PTS</span>
                           <span>{s.totalRebounds} REB</span>
                           <span>{s.totalAssists} AST</span>
+                          {(s.totalFgAttempted ?? 0) > 0 && <span className="text-orange-400">{fmtPct(s.totalFgMade ?? 0, s.totalFgAttempted ?? 0)} FG</span>}
                         </>
                       )}
                     </div>
@@ -2720,6 +2767,7 @@ function StatsTab() {
   const { toast } = useToast();
   const [selectedSeasonId, setSelectedSeasonId] = useState<string | null>(null);
   const [showSeasonDialog, setShowSeasonDialog] = useState(false);
+  const [editingSeason, setEditingSeason] = useState<Season | null>(null);
   const [showGameDialog, setShowGameDialog] = useState(false);
   const [editingGame, setEditingGame] = useState<Game | null>(null);
   const [shareGameId, setShareGameId] = useState<string | null>(null);
@@ -2793,8 +2841,23 @@ function StatsTab() {
       queryClient.invalidateQueries({ queryKey: ['/api/seasons'] });
       queryClient.invalidateQueries({ queryKey: ['/api/stats/career'] });
       setShowSeasonDialog(false);
+      setEditingSeason(null);
       seasonForm.reset();
       toast({ title: "Season created successfully!" });
+    }
+  });
+
+  const updateSeasonMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: SeasonFormData }) => {
+      return apiRequest("PUT", `/api/seasons/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/seasons'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stats/career'] });
+      setShowSeasonDialog(false);
+      setEditingSeason(null);
+      seasonForm.reset();
+      toast({ title: "Season updated!" });
     }
   });
 
@@ -2863,7 +2926,27 @@ function StatsTab() {
   });
 
   const handleCreateSeason = (data: SeasonFormData) => {
-    createSeasonMutation.mutate(data);
+    if (editingSeason) {
+      updateSeasonMutation.mutate({ id: editingSeason.id, data });
+    } else {
+      createSeasonMutation.mutate(data);
+    }
+  };
+
+  const openSeasonDialog = (season?: Season) => {
+    if (season) {
+      setEditingSeason(season);
+      seasonForm.reset({
+        name: season.name,
+        teamName: season.teamName || "",
+        seasonType: season.seasonType,
+        year: season.year
+      });
+    } else {
+      setEditingSeason(null);
+      seasonForm.reset({ name: "", teamName: "", seasonType: "", year: new Date().getFullYear().toString() });
+    }
+    setShowSeasonDialog(true);
   };
 
   const handleCreateGame = (data: GameFormData) => {
@@ -2932,7 +3015,7 @@ function StatsTab() {
 
   return (
     <div className="space-y-6">
-      <StatsOverviewCard careerStats={careerStats} />
+      <StatsOverviewCard careerStats={careerStats} seasons={seasons} />
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-4">
@@ -2945,18 +3028,21 @@ function StatsTab() {
               <Upload className="w-4 h-4 mr-1" />
               Import CSV
             </Button>
-            <Dialog open={showSeasonDialog} onOpenChange={setShowSeasonDialog}>
+            <Dialog open={showSeasonDialog} onOpenChange={(open) => {
+              setShowSeasonDialog(open);
+              if (!open) { setEditingSeason(null); seasonForm.reset(); }
+            }}>
             <DialogTrigger asChild>
-              <Button size="sm" data-testid="button-create-season">
+              <Button size="sm" onClick={() => openSeasonDialog()} data-testid="button-create-season">
                 <Plus className="w-4 h-4 mr-1" />
                 Add Season
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Create New Season</DialogTitle>
+                <DialogTitle>{editingSeason ? "Edit Season" : "Create New Season"}</DialogTitle>
                 <DialogDescription>
-                  Add a new season to track your game statistics
+                  {editingSeason ? "Update your season details" : "Add a new season to track your game statistics"}
                 </DialogDescription>
               </DialogHeader>
               <Form {...seasonForm}>
@@ -3027,10 +3113,12 @@ function StatsTab() {
                   <Button 
                     type="submit" 
                     className="w-full" 
-                    disabled={createSeasonMutation.isPending}
+                    disabled={createSeasonMutation.isPending || updateSeasonMutation.isPending}
                     data-testid="button-submit-season"
                   >
-                    {createSeasonMutation.isPending ? "Creating..." : "Create Season"}
+                    {(createSeasonMutation.isPending || updateSeasonMutation.isPending)
+                      ? (editingSeason ? "Saving..." : "Creating...")
+                      : (editingSeason ? "Save Changes" : "Create Season")}
                   </Button>
                 </form>
               </Form>
@@ -3077,6 +3165,18 @@ function StatsTab() {
                             variant="ghost"
                             onClick={(e) => {
                               e.stopPropagation();
+                              openSeasonDialog(season);
+                            }}
+                            title="Edit season"
+                            data-testid={`button-edit-season-${season.id}`}
+                          >
+                            <Pencil className="w-4 h-4 text-muted-foreground" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
                               if (confirm('Delete this season and all its games?')) {
                                 deleteSeasonMutation.mutate(season.id);
                               }
@@ -3107,28 +3207,46 @@ function StatsTab() {
                     {isExpanded && (
                       <div className="border-t p-4 space-y-4">
                         {seasonStats && (
-                          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 text-center">
-                            <div className="p-2 bg-muted/50 rounded">
-                              <p className="text-lg font-semibold">{seasonStats.avgPoints}</p>
-                              <p className="text-xs text-muted-foreground">PPG</p>
+                          <>
+                            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 text-center">
+                              <div className="p-2 bg-muted/50 rounded">
+                                <p className="text-lg font-semibold">{seasonStats.avgPoints}</p>
+                                <p className="text-xs text-muted-foreground">PPG</p>
+                              </div>
+                              <div className="p-2 bg-muted/50 rounded">
+                                <p className="text-lg font-semibold">{seasonStats.avgRebounds}</p>
+                                <p className="text-xs text-muted-foreground">RPG</p>
+                              </div>
+                              <div className="p-2 bg-muted/50 rounded">
+                                <p className="text-lg font-semibold">{seasonStats.avgAssists}</p>
+                                <p className="text-xs text-muted-foreground">APG</p>
+                              </div>
+                              <div className="p-2 bg-muted/50 rounded">
+                                <p className="text-lg font-semibold">{seasonStats.avgSteals}</p>
+                                <p className="text-xs text-muted-foreground">SPG</p>
+                              </div>
+                              <div className="p-2 bg-muted/50 rounded">
+                                <p className="text-lg font-semibold">{seasonStats.avgBlocks}</p>
+                                <p className="text-xs text-muted-foreground">BPG</p>
+                              </div>
                             </div>
-                            <div className="p-2 bg-muted/50 rounded">
-                              <p className="text-lg font-semibold">{seasonStats.avgRebounds}</p>
-                              <p className="text-xs text-muted-foreground">RPG</p>
-                            </div>
-                            <div className="p-2 bg-muted/50 rounded">
-                              <p className="text-lg font-semibold">{seasonStats.avgAssists}</p>
-                              <p className="text-xs text-muted-foreground">APG</p>
-                            </div>
-                            <div className="p-2 bg-muted/50 rounded">
-                              <p className="text-lg font-semibold">{seasonStats.avgSteals}</p>
-                              <p className="text-xs text-muted-foreground">SPG</p>
-                            </div>
-                            <div className="p-2 bg-muted/50 rounded">
-                              <p className="text-lg font-semibold">{seasonStats.avgBlocks}</p>
-                              <p className="text-xs text-muted-foreground">BPG</p>
-                            </div>
-                          </div>
+                            {((seasonStats.totalFgAttempted ?? 0) > 0 || (seasonStats.totalThreePtAttempted ?? 0) > 0 || (seasonStats.totalFtAttempted ?? 0) > 0) && (
+                              <div className="grid grid-cols-3 gap-2 text-center">
+                                <div className="p-2 bg-muted/50 rounded">
+                                  <p className="text-base font-semibold text-orange-500">{fmtPct(seasonStats.totalFgMade ?? 0, seasonStats.totalFgAttempted ?? 0)}</p>
+                                  <p className="text-xs text-muted-foreground">FG% ({seasonStats.totalFgMade}/{seasonStats.totalFgAttempted})</p>
+                                </div>
+                                <div className="p-2 bg-muted/50 rounded">
+                                  <p className="text-base font-semibold text-orange-500">{fmtPct(seasonStats.totalThreePtMade ?? 0, seasonStats.totalThreePtAttempted ?? 0)}</p>
+                                  <p className="text-xs text-muted-foreground">3P% ({seasonStats.totalThreePtMade}/{seasonStats.totalThreePtAttempted})</p>
+                                </div>
+                                <div className="p-2 bg-muted/50 rounded">
+                                  <p className="text-base font-semibold text-orange-500">{fmtPct(seasonStats.totalFtMade ?? 0, seasonStats.totalFtAttempted ?? 0)}</p>
+                                  <p className="text-xs text-muted-foreground">FT% ({seasonStats.totalFtMade}/{seasonStats.totalFtAttempted})</p>
+                                </div>
+                              </div>
+                            )}
+                          </>
                         )}
 
                         <div className="flex items-center justify-between">
