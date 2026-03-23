@@ -55,7 +55,7 @@ import {
 } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, nativeFetch } from "@/lib/queryClient";
 import {
   Users,
   Plus,
@@ -486,7 +486,7 @@ function FindPlayersDialog({ open, onOpenChange }: { open: boolean; onOpenChange
     queryKey: ["/api/users/search", { q: debouncedQuery }],
     enabled: debouncedQuery.length >= 2,
     queryFn: async () => {
-      const res = await fetch(`/api/users/search?q=${encodeURIComponent(debouncedQuery)}`, { credentials: "include" });
+      const res = await nativeFetch(`/api/users/search?q=${encodeURIComponent(debouncedQuery)}`);
       if (!res.ok) throw new Error("Search failed");
       return res.json();
     },
@@ -931,7 +931,7 @@ export default function TrainerRoster() {
   const { data: groupMembers } = useQuery<PlayerMember[]>({
     queryKey: ["/api/trainer/groups", selectedGroup?.id, "members"],
     queryFn: async () => {
-      const res = await fetch(`/api/trainer/groups/${selectedGroup!.id}/members`, { credentials: "include" });
+      const res = await nativeFetch(`/api/trainer/groups/${selectedGroup!.id}/members`);
       if (!res.ok) throw new Error("Failed to fetch members");
       return res.json();
     },

@@ -35,7 +35,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, nativeFetch } from "@/lib/queryClient";
 import { EmojiPicker } from "@/components/emoji-picker";
 import { Users, Plus, Trash2, MessageCircle, Send, ArrowLeft } from "lucide-react";
 
@@ -167,7 +167,7 @@ export default function TrainerChat() {
   const { data: chatThreads, isLoading: threadsLoading } = useQuery<ChatThread[]>({
     queryKey: ["/api/chat-threads", "trainer"],
     queryFn: async () => {
-      const res = await fetch("/api/chat-threads?mode=trainer", { credentials: "include" });
+      const res = await nativeFetch("/api/chat-threads?mode=trainer");
       if (!res.ok) throw new Error("Failed to fetch threads");
       return res.json();
     },
@@ -176,7 +176,7 @@ export default function TrainerChat() {
   const { data: threadMessages, isLoading: threadMessagesLoading } = useQuery<ThreadMessage[]>({
     queryKey: ["/api/chat-threads", selectedThread?.id, "messages"],
     queryFn: async () => {
-      const res = await fetch(`/api/chat-threads/${selectedThread!.id}/messages`, { credentials: "include" });
+      const res = await nativeFetch(`/api/chat-threads/${selectedThread!.id}/messages`);
       if (!res.ok) throw new Error("Failed to fetch messages");
       return res.json();
     },
@@ -187,7 +187,7 @@ export default function TrainerChat() {
   const { data: groupMembersForScope } = useQuery<PlayerMember[]>({
     queryKey: ["/api/trainer/groups", newGroupScopeId, "members"],
     queryFn: async () => {
-      const res = await fetch(`/api/trainer/groups/${newGroupScopeId}/members`, { credentials: "include" });
+      const res = await nativeFetch(`/api/trainer/groups/${newGroupScopeId}/members`);
       if (!res.ok) throw new Error("Failed to fetch members");
       return res.json();
     },

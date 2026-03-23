@@ -33,7 +33,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, nativeFetch } from "@/lib/queryClient";
 import {
   Video,
   Upload,
@@ -235,10 +235,9 @@ export function MyVideosSection() {
     setVideoUploading(true);
     setVideoUploadProgress(10);
     try {
-      const metaRes = await fetch("/api/user/uploads/request-url", {
+      const metaRes = await nativeFetch("/api/user/uploads/request-url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type || "video/mp4" }),
       });
       if (!metaRes.ok) {
@@ -268,10 +267,9 @@ export function MyVideosSection() {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      const metaRes = await fetch("/api/user/uploads/request-url", {
+      const metaRes = await nativeFetch("/api/user/uploads/request-url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type || "image/jpeg" }),
       });
       if (!metaRes.ok) throw new Error("Failed to get upload URL");

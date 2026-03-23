@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, nativeFetch } from "@/lib/queryClient";
 import {
   Search,
   UserCheck,
@@ -64,7 +64,7 @@ export function FindPeopleTab() {
     queryKey: ["/api/users/search", { q: debouncedQuery }],
     enabled: debouncedQuery.length >= 2,
     queryFn: async () => {
-      const res = await fetch(`/api/users/search?q=${encodeURIComponent(debouncedQuery)}`, { credentials: "include" });
+      const res = await nativeFetch(`/api/users/search?q=${encodeURIComponent(debouncedQuery)}`);
       if (!res.ok) throw new Error("Search failed");
       return res.json();
     },

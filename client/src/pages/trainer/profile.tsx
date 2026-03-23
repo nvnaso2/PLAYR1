@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, nativeFetch } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent } from "@/components/ui/card";
@@ -153,7 +153,7 @@ export default function TrainerProfilePage() {
   const { data: profile, isLoading } = useQuery<TrainerProfileData | null>({
     queryKey: ["/api/trainer-profile"],
     queryFn: async () => {
-      const res = await fetch("/api/trainer-profile", { credentials: "include" });
+      const res = await nativeFetch("/api/trainer-profile");
       if (!res.ok) throw new Error("Failed to load profile");
       const data = await res.json();
       if (data && !loaded) { populateForm(data); setLoaded(true); }

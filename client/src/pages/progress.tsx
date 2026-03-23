@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { nativeFetch } from "@/lib/queryClient";
 import { QueryError } from "@/components/query-error";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -106,7 +107,7 @@ export default function ProgressPage() {
   const { data: weeklyStats } = useQuery<{ date: string; minutes: number; sessions: number }[]>({
     queryKey: ['/api/stats/weekly', timePeriod],
     queryFn: async () => {
-      const res = await fetch(`/api/stats/weekly?period=${timePeriod}`, { credentials: "include" });
+      const res = await nativeFetch(`/api/stats/weekly?period=${timePeriod}`);
       if (!res.ok) throw new Error("Failed to fetch stats");
       return res.json();
     }
@@ -115,7 +116,7 @@ export default function ProgressPage() {
   const { data: categoryStats } = useQuery<{ category: string; minutes: number; sessions: number }[]>({
     queryKey: ['/api/stats/by-category', timePeriod],
     queryFn: async () => {
-      const res = await fetch(`/api/stats/by-category?period=${timePeriod}`, { credentials: "include" });
+      const res = await nativeFetch(`/api/stats/by-category?period=${timePeriod}`);
       if (!res.ok) throw new Error("Failed to fetch stats");
       return res.json();
     }
@@ -129,7 +130,7 @@ export default function ProgressPage() {
   }>({
     queryKey: ['/api/stats/overview', timePeriod],
     queryFn: async () => {
-      const res = await fetch(`/api/stats/overview?period=${timePeriod}`, { credentials: "include" });
+      const res = await nativeFetch(`/api/stats/overview?period=${timePeriod}`);
       if (!res.ok) throw new Error("Failed to fetch stats");
       return res.json();
     }
@@ -138,7 +139,7 @@ export default function ProgressPage() {
   const { data: shotStats } = useQuery<Array<{ location: string; made: number; missed: number }>>({
     queryKey: ['/api/stats/shots', timePeriod],
     queryFn: async () => {
-      const res = await fetch(`/api/stats/shots?period=${timePeriod}`, { credentials: "include" });
+      const res = await nativeFetch(`/api/stats/shots?period=${timePeriod}`);
       if (!res.ok) throw new Error("Failed to fetch stats");
       return res.json();
     }
@@ -147,7 +148,7 @@ export default function ProgressPage() {
   const { data: trainingStats, isLoading: trainingLoading } = useQuery<Record<string, number>>({
     queryKey: ['/api/stats/dashboard-training', timePeriod],
     queryFn: async () => {
-      const res = await fetch(`/api/stats/dashboard-training?period=${timePeriod}`, { credentials: "include" });
+      const res = await nativeFetch(`/api/stats/dashboard-training?period=${timePeriod}`);
       if (!res.ok) throw new Error("Failed to fetch training stats");
       return res.json();
     }

@@ -33,7 +33,7 @@ import {
 import { cn } from "@/lib/utils";
 import { EmojiPicker } from "@/components/emoji-picker";
 import { US_STATES, TRAINER_SPECIALTIES } from "@shared/schema";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient, nativeFetch } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useGoogleCalendar } from "@/hooks/use-google-calendar";
@@ -298,7 +298,7 @@ function FindTrainerTab() {
   const { data: trainers, isLoading, isError, refetch } = useQuery<DirectoryTrainer[]>({
     queryKey: ["/api/trainers/directory", searchQuery, stateFilter, specialtyFilter],
     queryFn: async () => {
-      const res = await fetch(`/api/trainers/directory?${queryParams.toString()}`);
+      const res = await nativeFetch(`/api/trainers/directory?${queryParams.toString()}`);
       if (!res.ok) throw new Error("Failed to load trainers");
       return res.json();
     },
@@ -708,7 +708,7 @@ function TrainerDetail({ trainer: listTrainer, favorite, onToggleFavorite, onTog
   const { data: detailTrainer } = useQuery<DirectoryTrainer>({
     queryKey: ["/api/trainers/directory", listTrainer.id],
     queryFn: async () => {
-      const res = await fetch(`/api/trainers/directory/${listTrainer.id}`);
+      const res = await nativeFetch(`/api/trainers/directory/${listTrainer.id}`);
       if (!res.ok) throw new Error("Failed to load trainer details");
       return res.json();
     },
@@ -1825,7 +1825,7 @@ function ChatTab() {
   const { data: messages } = useQuery<ChatMessage[]>({
     queryKey: ["/api/messages", selectedPartnerId],
     queryFn: async () => {
-      const res = await fetch(`/api/messages/${selectedPartnerId}`);
+      const res = await nativeFetch(`/api/messages/${selectedPartnerId}`);
       if (!res.ok) throw new Error("Failed to load messages");
       return res.json();
     },

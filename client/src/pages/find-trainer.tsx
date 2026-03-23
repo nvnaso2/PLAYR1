@@ -15,7 +15,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Search, MapPin, DollarSign, Clock, Award, Star, Mail, Phone, Globe, Instagram, Twitter, X, ChevronRight, CalendarDays, CheckCircle, Briefcase, Crosshair, UserPlus, Hourglass, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { US_STATES, TRAINER_SPECIALTIES } from "@shared/schema";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient, nativeFetch } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -148,7 +148,7 @@ export default function FindTrainerPage() {
   const { data: trainers, isLoading, isError, refetch } = useQuery<DirectoryTrainer[]>({
     queryKey: ["/api/trainers/directory", searchQuery, stateFilter, specialtyFilter, radius, userLocation?.latitude, userLocation?.longitude],
     queryFn: async () => {
-      const res = await fetch(`/api/trainers/directory?${queryParams.toString()}`);
+      const res = await nativeFetch(`/api/trainers/directory?${queryParams.toString()}`);
       if (!res.ok) throw new Error("Failed to load trainers");
       return res.json();
     },
@@ -493,7 +493,7 @@ function TrainerDetail({ trainer: listTrainer }: { trainer: DirectoryTrainer }) 
   const { data: detailTrainer } = useQuery<DirectoryTrainer>({
     queryKey: ["/api/trainers/directory", listTrainer.id],
     queryFn: async () => {
-      const res = await fetch(`/api/trainers/directory/${listTrainer.id}`);
+      const res = await nativeFetch(`/api/trainers/directory/${listTrainer.id}`);
       if (!res.ok) throw new Error("Failed to load trainer details");
       return res.json();
     },

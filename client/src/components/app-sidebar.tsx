@@ -317,7 +317,7 @@ export function AppSidebar() {
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem 
-                  onClick={async () => { await fetch("/api/auth/logout", { method: "POST", credentials: "include" }); window.location.href = "/auth"; }}
+                  onClick={() => logout()}
                   className="cursor-pointer text-destructive focus:text-destructive"
                   data-testid="button-logout"
                 >

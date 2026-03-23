@@ -36,7 +36,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, nativeFetch } from "@/lib/queryClient";
 import { 
   Plus, 
   Clock, 
@@ -271,7 +271,7 @@ export default function TrainingLogPage() {
         (async () => {
           // Fetch metrics for the drill
           try {
-            const res = await fetch(`/api/drills/${drillId}/metrics`, { credentials: 'include' });
+            const res = await nativeFetch(`/api/drills/${drillId}/metrics`);
             const drillMetrics: DrillMetricWithTemplate[] = res.ok ? await res.json() : [];
             
             // Create initial metric values
@@ -404,10 +404,9 @@ export default function TrainingLogPage() {
       if (drillVideoFile) {
         setDrillVideoUploading(true);
         setDrillVideoProgress(10);
-        const metaRes = await fetch("/api/user/uploads/request-url", {
+        const metaRes = await nativeFetch("/api/user/uploads/request-url", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          credentials: "include",
           body: JSON.stringify({ name: drillVideoFile.name, size: drillVideoFile.size, contentType: drillVideoFile.type || "video/mp4" }),
         });
         if (!metaRes.ok) throw new Error("Failed to get upload URL");
@@ -786,7 +785,7 @@ export default function TrainingLogPage() {
   // Fetch drill metrics for a drill
   const fetchDrillMetrics = async (drillId: string): Promise<DrillMetricWithTemplate[]> => {
     try {
-      const response = await fetch(`/api/drills/${drillId}/metrics`);
+      const response = await nativeFetch(`/api/drills/${drillId}/metrics`);
       if (!response.ok) return [];
       return await response.json();
     } catch {
@@ -862,7 +861,7 @@ export default function TrainingLogPage() {
   // Start workout from saved workout template
   const startWorkoutFromTemplate = async (workoutId: string) => {
     try {
-      const response = await fetch(`/api/workouts/${workoutId}`);
+      const response = await nativeFetch(`/api/workouts/${workoutId}`);
       if (!response.ok) throw new Error("Failed to fetch workout");
       const data: WorkoutWithDrills = await response.json();
 

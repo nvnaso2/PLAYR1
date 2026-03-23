@@ -41,7 +41,7 @@ import {
 } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, nativeFetch } from "@/lib/queryClient";
 import {
   Search,
   Plus,
@@ -629,10 +629,9 @@ function MyDrillsSection() {
     if (!videoFile) return null;
     setVideoUploading(true);
     setVideoProgress(10);
-    const metaRes = await fetch("/api/user/uploads/request-url", {
+    const metaRes = await nativeFetch("/api/user/uploads/request-url", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      credentials: "include",
       body: JSON.stringify({ name: videoFile.name, size: videoFile.size, contentType: videoFile.type || "video/mp4" }),
     });
     if (!metaRes.ok) throw new Error("Failed to get upload URL");
@@ -946,7 +945,7 @@ function WorkoutsSection() {
 
   const openEdit = async (workout: WorkoutData) => {
     try {
-      const res = await fetch(`/api/workouts/${workout.id}`, { credentials: "include" });
+      const res = await nativeFetch(`/api/workouts/${workout.id}`);
       if (!res.ok) throw new Error("Failed to load workout");
       const data: WorkoutWithDrills = await res.json();
       setWorkoutName(data.workout.name);
@@ -1267,7 +1266,7 @@ function AssignmentsSection() {
       const seen = new Set<string>();
       const unique = allEntities.filter(e => { if (seen.has(e.id)) return false; seen.add(e.id); return true; });
       await Promise.all(unique.map(async (entity) => {
-        const res = await fetch(`/api/trainer/groups/${entity.id}/assignments`, { credentials: "include" });
+        const res = await nativeFetch(`/api/trainer/groups/${entity.id}/assignments`);
         if (!res.ok) return;
         results[entity.id] = await res.json();
       }));

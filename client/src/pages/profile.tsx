@@ -108,7 +108,7 @@ function PushNotificationToggle() {
 }
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { toast } = useToast();
 
   const { data: profile, isLoading } = useQuery<UserProfile>({
@@ -521,7 +521,7 @@ export default function ProfilePage() {
                 Sign out of your PLAYR1 account
               </p>
             </div>
-            <Button variant="outline" className="gap-2" data-testid="button-signout" onClick={async () => { await fetch("/api/auth/logout", { method: "POST", credentials: "include" }); window.location.href = "/auth"; }}>
+            <Button variant="outline" className="gap-2" data-testid="button-signout" onClick={() => logout()}>
               <LogOut className="w-4 h-4" />
               Sign Out
             </Button>

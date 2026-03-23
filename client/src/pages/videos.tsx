@@ -36,7 +36,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, nativeFetch } from "@/lib/queryClient";
 import { 
   Video, 
   Upload, 
@@ -143,10 +143,9 @@ export default function VideosPage() {
   const uploadThumbnailBlob = async (blob: Blob): Promise<string | null> => {
     try {
       const thumbFile = new File([blob], "thumbnail.jpg", { type: "image/jpeg" });
-      const resp = await fetch("/api/user/uploads/photo-url", {
+      const resp = await nativeFetch("/api/user/uploads/photo-url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ name: thumbFile.name, size: thumbFile.size, contentType: "image/jpeg" }),
       });
       if (!resp.ok) return null;
@@ -172,10 +171,9 @@ export default function VideosPage() {
       const thumbnailPromise = generateVideoThumbnail(file);
 
       // Step 1: Request presigned URL
-      const response = await fetch("/api/user/uploads/request-url", {
+      const response = await nativeFetch("/api/user/uploads/request-url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({
           name: file.name,
           size: file.size,

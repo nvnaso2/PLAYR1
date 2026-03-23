@@ -43,7 +43,7 @@ import {
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, nativeFetch } from "@/lib/queryClient";
 import { 
   User, 
   Target, 
@@ -698,7 +698,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
         });
       }
 
-      const existing = await fetch("/api/career", { credentials: "include" }).then(r => r.ok ? r.json() : null);
+      const existing = await nativeFetch("/api/career").then(r => r.ok ? r.json() : null);
       if (existing) {
         await apiRequest("PUT", "/api/career", profileData);
       } else {
@@ -880,7 +880,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
       };
       if (cardPhotoUrl) profileData.cardPhotoUrl = cardPhotoUrl;
 
-      const existing = await fetch("/api/career", { credentials: "include" }).then(r => r.ok ? r.json() : null);
+      const existing = await nativeFetch("/api/career").then(r => r.ok ? r.json() : null);
       if (existing) {
         await apiRequest("PUT", "/api/career", profileData);
       } else {

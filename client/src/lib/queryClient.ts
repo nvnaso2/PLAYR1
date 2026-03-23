@@ -20,15 +20,23 @@ export function clearAuthToken() {
   localStorage.removeItem(TOKEN_KEY);
 }
 
-function getAuthHeaders(): Record<string, string> {
+export function getAuthHeaders(): Record<string, string> {
   const token = localStorage.getItem(TOKEN_KEY);
   if (token) return { Authorization: `Bearer ${token}` };
   return {};
 }
 
-function buildUrl(url: string): string {
+export function buildUrl(url: string): string {
   if (url.startsWith("http")) return url;
   return `${getApiBase()}${url}`;
+}
+
+export async function nativeFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const headers = {
+    ...getAuthHeaders(),
+    ...(options.headers as Record<string, string> || {}),
+  };
+  return fetch(buildUrl(url), { credentials: "include", ...options, headers });
 }
 
 async function throwIfResNotOk(res: Response) {
