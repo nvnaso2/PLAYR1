@@ -1,5 +1,7 @@
 import { db } from "./db";
-import { drills, benchmarks, evaluationAttributes, shotLocations, shotTypes } from "@shared/schema";
+import { drills, benchmarks, evaluationAttributes, shotLocations, shotTypes, userProfiles } from "@shared/schema";
+import { users } from "@shared/models/auth";
+import { eq } from "drizzle-orm";
 
 const sampleDrills = [
   // Ball Handling
@@ -349,6 +351,23 @@ export async function seedDatabase() {
     }
 
     console.log("Database seeding complete!");
+
+    const adminEmail = process.env.ADMIN_EMAIL;
+    if (adminEmail) {
+      const [adminUser] = await db.select().from(users).where(eq(users.email, adminEmail.toLowerCase()));
+      if (adminUser) {
+        const [existingProfile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, adminUser.id));
+        if (existingProfile) {
+          if (!existingProfile.isAdmin) {
+            await db.update(userProfiles).set({ isAdmin: true }).where(eq(userProfiles.userId, adminUser.id));
+            console.log(`Admin privileges granted to ${adminEmail}`);
+          }
+        } else {
+          await db.insert(userProfiles).values({ userId: adminUser.id, isAdmin: true });
+          console.log(`Admin profile created for ${adminEmail}`);
+        }
+      }
+    }
   } catch (error) {
     console.error("Error seeding database:", error);
     throw error;
