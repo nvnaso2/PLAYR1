@@ -110,6 +110,7 @@ const createDrillFormSchema = insertDrillSchema.pick({
   title: z.string().min(1, "Title is required"),
   trackShots: z.boolean().default(false),
   tips: z.string().optional(),
+  equipment: z.string().optional(),
   isShared: z.boolean().default(false),
 });
 
@@ -388,6 +389,7 @@ export default function TrainingLogPage() {
       difficulty: "beginner",
       trackShots: false,
       tips: "",
+      equipment: "",
       isShared: false,
     },
   });
@@ -430,9 +432,13 @@ export default function TrainingLogPage() {
       const tipsArray = data.tips
         ? data.tips.split("\n").map(t => t.trim()).filter(Boolean)
         : [];
+      const equipmentArray = data.equipment
+        ? data.equipment.split(",").map(e => e.trim()).filter(Boolean)
+        : [];
       const response = await apiRequest("POST", "/api/user/drills", {
         ...data,
         tips: tipsArray,
+        equipment: equipmentArray,
         ...(videoUrl ? { videoUrl } : {}),
       });
       const newDrill = await response.json();
@@ -1348,6 +1354,29 @@ export default function TrainingLogPage() {
                           </FormItem>
                         )}
                       />
+                      {/* Equipment */}
+                      <FormField
+                        control={createDrillForm.control}
+                        name="equipment"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Equipment Needed (Optional)</FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                placeholder="e.g. Basketball, Cones, Chair"
+                                value={field.value ?? ''}
+                                data-testid="input-drill-equipment"
+                              />
+                            </FormControl>
+                            <p className="text-xs text-muted-foreground">
+                              Separate multiple items with commas.
+                            </p>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <FormField
                           control={createDrillForm.control}
