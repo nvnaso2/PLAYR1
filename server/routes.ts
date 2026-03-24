@@ -396,6 +396,29 @@ export async function registerRoutes(
     isAdmin: z.boolean().optional().default(false),
   });
 
+  app.delete("/api/admin/users/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const selfId = req.user.claims.sub;
+      if (req.params.id === selfId) return res.status(400).json({ message: "Cannot delete your own account" });
+      await storage.deleteUser(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      res.status(500).json({ message: "Failed to delete user" });
+    }
+  });
+
+  app.put("/api/admin/users/:id/role", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { staffRole } = req.body;
+      await storage.setUserStaffRole(req.params.id, staffRole || null);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating user role:", error);
+      res.status(500).json({ message: "Failed to update user role" });
+    }
+  });
+
   app.post("/api/admin/users", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const parsed = createUserSchema.safeParse(req.body);

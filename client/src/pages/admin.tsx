@@ -2413,11 +2413,33 @@ export default function AdminPage() {
       toast({ title: "User permissions updated" });
     },
     onError: (error: any) => {
-      toast({ 
-        title: "Failed to update user", 
-        description: error.message,
-        variant: "destructive" 
-      });
+      toast({ title: "Failed to update user", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const setRoleMutation = useMutation({
+    mutationFn: async ({ userId, staffRole }: { userId: string; staffRole: string | null }) => {
+      return await apiRequest("PUT", `/api/admin/users/${userId}/role`, { staffRole });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      toast({ title: "User role updated" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to update role", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      return await apiRequest("DELETE", `/api/admin/users/${userId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      toast({ title: "User deleted" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to delete user", description: error.message, variant: "destructive" });
     },
   });
 
@@ -3688,8 +3710,9 @@ export default function AdminPage() {
                       <TableRow>
                         <TableHead>User</TableHead>
                         <TableHead>Email</TableHead>
-                        <TableHead>Role</TableHead>
+                        <TableHead>App Role</TableHead>
                         <TableHead className="text-right">Admin Access</TableHead>
+                        <TableHead></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -3699,25 +3722,33 @@ export default function AdminPage() {
                             {user.firstName && user.lastName 
                               ? `${user.firstName} ${user.lastName}` 
                               : user.firstName || "User"}
+                            {user.isAdmin && (
+                              <Badge className="ml-2 gap-1 text-xs" variant="outline">
+                                <Shield className="w-3 h-3" /> Admin
+                              </Badge>
+                            )}
                           </TableCell>
-                          <TableCell className="text-muted-foreground">
+                          <TableCell className="text-muted-foreground text-sm">
                             {user.email || "No email"}
                           </TableCell>
                           <TableCell>
-                            {user.isAdmin ? (
-                              <Badge className="gap-1">
-                                <Shield className="w-3 h-3" />
-                                Admin
-                              </Badge>
-                            ) : (
-                              <Badge variant="secondary">User</Badge>
-                            )}
+                            <Select
+                              value={(user as any).staffRole || "player"}
+                              onValueChange={(val) => setRoleMutation.mutate({ userId: user.id, staffRole: val === "player" ? null : val })}
+                              disabled={setRoleMutation.isPending}
+                            >
+                              <SelectTrigger className="h-8 w-[120px] text-xs" data-testid={`select-role-${user.id}`}>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="player">Player</SelectItem>
+                                <SelectItem value="trainer">Trainer</SelectItem>
+                                <SelectItem value="both">Both</SelectItem>
+                              </SelectContent>
+                            </Select>
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-2">
-                              <span className="text-sm text-muted-foreground">
-                                {user.isAdmin ? "Admin" : "User"}
-                              </span>
                               <Switch
                                 checked={user.isAdmin}
                                 onCheckedChange={(checked) => 
@@ -3727,6 +3758,22 @@ export default function AdminPage() {
                                 data-testid={`switch-admin-${user.id}`}
                               />
                             </div>
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => {
+                                if (confirm(`Delete user ${user.firstName || user.email}? This cannot be undone.`)) {
+                                  deleteUserMutation.mutate(user.id);
+                                }
+                              }}
+                              disabled={deleteUserMutation.isPending}
+                              data-testid={`button-delete-user-${user.id}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
                           </TableCell>
                         </TableRow>
                       ))}

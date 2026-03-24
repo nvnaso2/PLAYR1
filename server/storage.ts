@@ -81,8 +81,10 @@ export interface IStorage {
   // Admin
   isUserAdmin(userId: string): Promise<boolean>;
   setUserAdmin(userId: string, isAdmin: boolean): Promise<boolean>;
-  getAllUsers(): Promise<Array<{ id: string; email: string | null; firstName: string | null; lastName: string | null; isAdmin: boolean }>>;
+  getAllUsers(): Promise<Array<{ id: string; email: string | null; firstName: string | null; lastName: string | null; isAdmin: boolean; staffRole: string | null }>>;
   createUser(userData: { email: string; firstName?: string; lastName?: string; isAdmin?: boolean }): Promise<{ id: string; email: string | null; firstName: string | null; lastName: string | null; isAdmin: boolean }>;
+  deleteUser(userId: string): Promise<boolean>;
+  setUserStaffRole(userId: string, staffRole: string | null): Promise<boolean>;
 
   // Training Logs
   getTrainingLogs(userId: string): Promise<TrainingLog[]>;
@@ -579,13 +581,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   // User management
-  async getAllUsers(): Promise<Array<{ id: string; email: string | null; firstName: string | null; lastName: string | null; isAdmin: boolean }>> {
+  async getAllUsers(): Promise<Array<{ id: string; email: string | null; firstName: string | null; lastName: string | null; isAdmin: boolean; staffRole: string | null }>> {
     const allUsers = await db.select().from(users);
     const profiles = await db.select().from(userProfiles);
+    const careers = await db.select({ userId: careerProfiles.userId, staffRole: careerProfiles.staffRole }).from(careerProfiles);
     const envAdminIds = process.env.ADMIN_USER_IDS?.split(',').map(id => id.trim()) || [];
     
     return allUsers.map(user => {
       const profile = profiles.find(p => p.userId === user.id);
+      const career = careers.find(c => c.userId === user.id);
       const isEnvAdmin = envAdminIds.includes(user.id);
       return {
         id: user.id,
@@ -593,8 +597,25 @@ export class DatabaseStorage implements IStorage {
         firstName: user.firstName,
         lastName: user.lastName,
         isAdmin: isEnvAdmin || (profile?.isAdmin === true),
+        staffRole: career?.staffRole ?? null,
       };
     });
+  }
+
+  async deleteUser(userId: string): Promise<boolean> {
+    await db.delete(users).where(eq(users.id, userId));
+    return true;
+  }
+
+  async setUserStaffRole(userId: string, staffRole: string | null): Promise<boolean> {
+    const alsoPlayer = staffRole === "both" || staffRole === null;
+    const [existing] = await db.select().from(careerProfiles).where(eq(careerProfiles.userId, userId));
+    if (existing) {
+      await db.update(careerProfiles).set({ staffRole: staffRole as any, alsoPlayer }).where(eq(careerProfiles.userId, userId));
+    } else {
+      await db.insert(careerProfiles).values({ userId, staffRole: staffRole as any, alsoPlayer });
+    }
+    return true;
   }
 
   async createUser(userData: { email: string; firstName?: string; lastName?: string; isAdmin?: boolean }): Promise<{ id: string; email: string | null; firstName: string | null; lastName: string | null; isAdmin: boolean }> {
