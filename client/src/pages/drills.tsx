@@ -10,6 +10,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -35,7 +46,8 @@ import {
   Users,
   User,
   Share2,
-  Plus
+  Plus,
+  Trash2
 } from "lucide-react";
 import type { Drill, DrillCategory, DifficultyLevel } from "@shared/schema";
 
@@ -50,13 +62,14 @@ const categoryInfo: Record<string, { label: string; icon: React.ReactNode; color
   "workouts": { label: "Workouts", icon: <Dumbbell className="w-4 h-4" />, color: "#14b8a6" },
 };
 
-function DrillGrid({ drills, viewMode, searchQuery, isLoading, showShareToggle, onToggleShare }: { 
+function DrillGrid({ drills, viewMode, searchQuery, isLoading, showShareToggle, onToggleShare, onDelete }: { 
   drills: Drill[] | undefined; 
   viewMode: "grid" | "list"; 
   searchQuery: string;
   isLoading: boolean;
   showShareToggle?: boolean;
   onToggleShare?: (drillId: string, isShared: boolean) => void;
+  onDelete?: (drillId: string) => void;
 }) {
   if (isLoading) {
     return (
@@ -103,20 +116,58 @@ function DrillGrid({ drills, viewMode, searchQuery, isLoading, showShareToggle, 
         {drills.map((drill) => (
           <div key={drill.id} className="relative">
             <DrillCard drill={drill} />
-            {showShareToggle && onToggleShare && (
+            {(showShareToggle || onDelete) && (
               <div 
                 className="mt-2 flex items-center justify-between gap-2 px-2 py-1.5 rounded-md bg-muted/50"
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Share2 className="w-3.5 h-3.5" />
-                  <span>Share with Community</span>
+                {showShareToggle && onToggleShare ? (
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Share2 className="w-3.5 h-3.5" />
+                    <span>Share</span>
+                  </div>
+                ) : <div />}
+                <div className="flex items-center gap-2">
+                  {showShareToggle && onToggleShare && (
+                    <Switch
+                      checked={drill.isShared || false}
+                      onCheckedChange={(checked) => onToggleShare(drill.id, checked)}
+                      data-testid={`switch-share-drill-${drill.id}`}
+                    />
+                  )}
+                  {onDelete && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                          data-testid={`button-delete-drill-${drill.id}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Drill</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete "{drill.title}"? This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => onDelete(drill.id)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            data-testid={`button-confirm-delete-drill-${drill.id}`}
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
                 </div>
-                <Switch
-                  checked={drill.isShared || false}
-                  onCheckedChange={(checked) => onToggleShare(drill.id, checked)}
-                  data-testid={`switch-share-drill-${drill.id}`}
-                />
               </div>
             )}
           </div>
@@ -171,6 +222,21 @@ export default function Drills() {
       description: isShared ? "Other players can now see and use this drill." : "This drill is now private.",
     });
   };
+
+  const deleteDrillMutation = useMutation({
+    mutationFn: async (drillId: string) => {
+      await apiRequest("DELETE", `/api/user/drills/${drillId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/drills'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/user/my-drills'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/drills/community'] });
+      toast({ title: "Drill deleted" });
+    },
+    onError: () => {
+      toast({ title: "Failed to delete drill", variant: "destructive" });
+    },
+  });
 
   const filterDrills = (drillList: Drill[] | undefined) => {
     if (!drillList) return [];
@@ -357,6 +423,7 @@ export default function Drills() {
                 isLoading={isLoading}
                 showShareToggle={true}
                 onToggleShare={handleToggleShare}
+                onDelete={(drillId) => deleteDrillMutation.mutate(drillId)}
               />
             </TabsContent>
           )}
