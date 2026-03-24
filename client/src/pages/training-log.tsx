@@ -631,6 +631,21 @@ export default function TrainingLogPage() {
     },
   });
 
+  const deleteSessionMutation = useMutation({
+    mutationFn: async (logIds: string[]) => {
+      await Promise.all(logIds.map(id => apiRequest("DELETE", `/api/training-logs/${id}`)));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/training-logs'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stats/overview'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stats/weekly'] });
+      toast({ title: "Workout session deleted" });
+    },
+    onError: () => {
+      toast({ title: "Failed to delete session", variant: "destructive" });
+    },
+  });
+
   // Open log for viewing
   const openViewLog = (logId: string) => {
     setViewEditLogId(logId);
@@ -2680,44 +2695,61 @@ export default function TrainingLogPage() {
                             return (
                             <Collapsible key={group.sessionId} defaultOpen={true}>
                               <Card className="border-primary/20" data-testid={`card-session-${group.sessionId}`}>
-                                <CollapsibleTrigger asChild>
-                                  <CardHeader className="pb-2 cursor-pointer hover-elevate p-3 sm:p-4" data-testid={`trigger-session-${group.sessionId}`}>
-                                    <div className="space-y-1">
-                                      <div className="flex items-center gap-2 flex-wrap">
-                                        <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 transition-transform [[data-state=open]_&]:rotate-90" />
-                                        <Layers className="w-4 h-4 text-primary shrink-0" />
-                                        <span className="text-sm font-medium">Workout Session</span>
-                                        <Badge variant="secondary" className="text-xs">
-                                          {uniqueDrillCount} drill{uniqueDrillCount > 1 ? 's' : ''}, {totalRounds} round{totalRounds > 1 ? 's' : ''}
-                                        </Badge>
-                                      </div>
-                                      <div className="flex items-center gap-1.5 flex-wrap pl-6 text-xs text-muted-foreground">
-                                        {sessionPercentage !== null && (
-                                          <>
-                                            <span className="text-sm font-medium text-foreground">{sessionTotalMade}/{sessionTotalAttempts} shots</span>
-                                            <Badge 
-                                              variant="secondary"
-                                              className={`text-xs ${sessionPercentage >= 70 ? "bg-green-500/20 text-green-400" : 
-                                                        sessionPercentage >= 50 ? "bg-orange-500/20 text-orange-400" : 
-                                                        "bg-red-500/20 text-red-400"}`}
-                                            >
-                                              {sessionPercentage}%
-                                            </Badge>
-                                            <span>·</span>
-                                          </>
-                                        )}
-                                        <span>
-                                          {group.logs.reduce((sum, l) => sum + l.duration, 0)} min
-                                        </span>
-                                        {sessionShotData.length > 0 && (
-                                          <span className="shrink-0" onClick={(e) => e.stopPropagation()}>
-                                            <ShotChartButton shotData={sessionShotData} title="Workout Shot Chart" testId={`button-shot-chart-workout-${group.sessionId}`} />
+                                <CardHeader className="pb-2 p-3 sm:p-4">
+                                  <div className="flex items-start gap-2">
+                                    <CollapsibleTrigger asChild>
+                                      <div className="flex-1 cursor-pointer space-y-1 min-w-0" data-testid={`trigger-session-${group.sessionId}`}>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 transition-transform [[data-state=open]_&]:rotate-90" />
+                                          <Layers className="w-4 h-4 text-primary shrink-0" />
+                                          <span className="text-sm font-medium">Workout Session</span>
+                                          <Badge variant="secondary" className="text-xs">
+                                            {uniqueDrillCount} drill{uniqueDrillCount > 1 ? 's' : ''}, {totalRounds} round{totalRounds > 1 ? 's' : ''}
+                                          </Badge>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 flex-wrap pl-6 text-xs text-muted-foreground">
+                                          {sessionPercentage !== null && (
+                                            <>
+                                              <span className="text-sm font-medium text-foreground">{sessionTotalMade}/{sessionTotalAttempts} shots</span>
+                                              <Badge 
+                                                variant="secondary"
+                                                className={`text-xs ${sessionPercentage >= 70 ? "bg-green-500/20 text-green-400" : 
+                                                          sessionPercentage >= 50 ? "bg-orange-500/20 text-orange-400" : 
+                                                          "bg-red-500/20 text-red-400"}`}
+                                              >
+                                                {sessionPercentage}%
+                                              </Badge>
+                                              <span>·</span>
+                                            </>
+                                          )}
+                                          <span>
+                                            {group.logs.reduce((sum, l) => sum + l.duration, 0)} min
                                           </span>
-                                        )}
+                                          {sessionShotData.length > 0 && (
+                                            <span className="shrink-0" onClick={(e) => e.stopPropagation()}>
+                                              <ShotChartButton shotData={sessionShotData} title="Workout Shot Chart" testId={`button-shot-chart-workout-${group.sessionId}`} />
+                                            </span>
+                                          )}
+                                        </div>
                                       </div>
-                                    </div>
-                                  </CardHeader>
-                                </CollapsibleTrigger>
+                                    </CollapsibleTrigger>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="shrink-0 h-8 w-8 text-muted-foreground hover:text-destructive"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (confirm('Delete this entire workout session and all its rounds?')) {
+                                          deleteSessionMutation.mutate(group.logs.map(l => l.id));
+                                        }
+                                      }}
+                                      disabled={deleteSessionMutation.isPending}
+                                      data-testid={`button-delete-session-${group.sessionId}`}
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                </CardHeader>
                                 <CollapsibleContent>
                                   <CardContent className="space-y-3 pt-0">
                                     {/* Drills within this workout */}
