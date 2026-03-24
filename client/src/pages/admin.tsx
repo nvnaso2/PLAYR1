@@ -113,6 +113,7 @@ function DrillForm({
   const { toast } = useToast();
   const isEditing = !!drill;
   const [selectedMetricIds, setSelectedMetricIds] = useState<string[]>([]);
+  const [presetRounds, setPresetRounds] = useState<Array<{ shotLocation?: string; metricValues: Record<string, number> }>>([]);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const thumbnailInputRef = useRef<HTMLInputElement>(null);
   
@@ -132,12 +133,25 @@ function DrillForm({
     enabled: !!drill?.id,
   });
 
+  // Fetch active shot locations for preset round builder
+  const { data: shotLocationOptions } = useQuery<ShotLocationDB[]>({
+    queryKey: ['/api/shot-locations'],
+  });
+
   // Initialize selected metrics when drill metrics load
   useEffect(() => {
     if (drillMetrics && selectedMetricIds.length === 0) {
       setSelectedMetricIds(drillMetrics.map(m => m.metricTemplateId));
     }
   }, [drillMetrics]);
+
+  // Initialize preset rounds when editing a drill
+  useEffect(() => {
+    const rounds = (drill as any)?.presetRounds as Array<{ shotLocation?: string; metricValues: Record<string, number> }> | undefined;
+    if (rounds && rounds.length > 0 && presetRounds.length === 0) {
+      setPresetRounds(rounds);
+    }
+  }, [drill]);
 
   const { uploadFile: uploadVideoFile, isUploading: isUploadingVideo } = useUpload({
     onSuccess: (response) => {
@@ -258,6 +272,7 @@ function DrillForm({
         pdfUrl: data.pdfUrl || null,
         equipment: data.equipment ? data.equipment.split(",").map(s => s.trim()).filter(Boolean) : [],
         tips: data.tips ? data.tips.split("\n").map(s => s.trim()).filter(Boolean) : [],
+        ...(presetRounds.length > 0 ? { presetRounds } : {}),
       };
       const response = await apiRequest("POST", "/api/drills", payload);
       const newDrill = await response.json();
@@ -290,6 +305,7 @@ function DrillForm({
         pdfUrl: data.pdfUrl || null,
         equipment: data.equipment ? data.equipment.split(",").map(s => s.trim()).filter(Boolean) : [],
         tips: data.tips ? data.tips.split("\n").map(s => s.trim()).filter(Boolean) : [],
+        presetRounds: presetRounds.length > 0 ? presetRounds : null,
       };
       await apiRequest("PUT", `/api/drills/${drill!.id}`, payload);
       // Update metrics for the drill
@@ -706,6 +722,98 @@ function DrillForm({
             Select which metrics users will track when logging this drill
           </FormDescription>
         </FormItem>
+
+        {/* Preset Rounds Builder */}
+        {(() => {
+          const trackShots = form.watch("trackShots");
+          const addRound = () => {
+            const metricValues: Record<string, number> = {};
+            selectedMetricIds.forEach(id => { metricValues[id] = 0; });
+            setPresetRounds(prev => [...prev, { metricValues }]);
+          };
+          const removeRound = (idx: number) => setPresetRounds(prev => prev.filter((_, i) => i !== idx));
+          const updateLoc = (idx: number, slug: string) =>
+            setPresetRounds(prev => prev.map((r, i) => i === idx ? { ...r, shotLocation: slug || undefined } : r));
+          const updateMetric = (idx: number, templateId: string, val: number) =>
+            setPresetRounds(prev => prev.map((r, i) => i === idx ? { ...r, metricValues: { ...r.metricValues, [templateId]: val } } : r));
+
+          return (
+            <FormItem>
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <FormLabel className="flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-primary" />
+                    Preset Rounds <span className="font-normal text-muted-foreground text-xs ml-1">(optional)</span>
+                  </FormLabel>
+                  <FormDescription>Pre-configure rounds that auto-load when this drill is started by a player.</FormDescription>
+                </div>
+                <Button type="button" size="sm" variant="outline" onClick={addRound} data-testid="button-add-preset-round">
+                  <Plus className="w-3.5 h-3.5 mr-1" /> Add Round
+                </Button>
+              </div>
+
+              {presetRounds.length > 0 && (
+                <div className="overflow-x-auto border rounded-md">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/30">
+                        <th className="p-2 text-left text-xs font-medium text-muted-foreground">#</th>
+                        {trackShots && <th className="p-2 text-left text-xs font-medium text-muted-foreground">Location</th>}
+                        {selectedMetricIds.map(id => {
+                          const t = metricTemplates?.find(t => t.id === id);
+                          return t ? <th key={id} className="p-2 text-center text-xs font-medium text-muted-foreground">{t.label || t.name}</th> : null;
+                        })}
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {presetRounds.map((round, roundIdx) => (
+                        <tr key={roundIdx} className="border-b last:border-0 hover:bg-muted/20">
+                          <td className="p-2">
+                            <Badge variant="secondary" className="text-xs">{roundIdx + 1}</Badge>
+                          </td>
+                          {trackShots && (
+                            <td className="p-1">
+                              <Select value={round.shotLocation || ''} onValueChange={v => updateLoc(roundIdx, v)}>
+                                <SelectTrigger className="w-36 h-8 text-xs" data-testid={`select-preset-round-loc-${roundIdx}`}>
+                                  <SelectValue placeholder="Location" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="">Any</SelectItem>
+                                  {shotLocationOptions?.filter(l => l.isActive).map(loc => (
+                                    <SelectItem key={loc.slug} value={loc.slug}>{loc.label}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </td>
+                          )}
+                          {selectedMetricIds.map(templateId => (
+                            <td key={templateId} className="p-1">
+                              <Input
+                                type="number"
+                                min={0}
+                                placeholder="0"
+                                value={round.metricValues[templateId] ?? ''}
+                                onChange={e => updateMetric(roundIdx, templateId, e.target.value === '' ? 0 : Number(e.target.value))}
+                                className="w-16 h-8 text-sm text-center"
+                                data-testid={`input-preset-round-${roundIdx}-metric-${templateId}`}
+                              />
+                            </td>
+                          ))}
+                          <td className="p-1">
+                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => removeRound(roundIdx)} data-testid={`button-remove-preset-round-${roundIdx}`}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </FormItem>
+          );
+        })()}
 
         <div className="flex gap-2 justify-end pt-4">
           <Button type="button" variant="outline" onClick={onCancel} data-testid="button-cancel-drill">

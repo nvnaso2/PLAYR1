@@ -112,7 +112,6 @@ const createDrillFormSchema = insertDrillSchema.pick({
   tips: z.string().optional(),
   equipment: z.string().optional(),
   isShared: z.boolean().default(false),
-  defaultRounds: z.number().int().min(1).optional(),
 });
 
 type CreateDrillFormData = z.infer<typeof createDrillFormSchema>;
@@ -141,8 +140,7 @@ export default function TrainingLogPage() {
   const [isStartWorkoutDialogOpen, setIsStartWorkoutDialogOpen] = useState(false);
   const [drillSearchQuery, setDrillSearchQuery] = useState("");
   const [selectedMetricTemplateIds, setSelectedMetricTemplateIds] = useState<string[]>([]);
-  const [presetShotLocations, setPresetShotLocations] = useState<string[]>([]);
-  const [presetMetricValues, setPresetMetricValues] = useState<Record<string, number>>({});
+  const [presetRounds, setPresetRounds] = useState<Array<{ shotLocation?: string; metricValues: Record<string, number> }>>([]);
   const [drillVideoFile, setDrillVideoFile] = useState<File | null>(null);
   const [drillVideoUploading, setDrillVideoUploading] = useState(false);
   const [drillVideoProgress, setDrillVideoProgress] = useState(0);
@@ -394,7 +392,6 @@ export default function TrainingLogPage() {
       tips: "",
       equipment: "",
       isShared: false,
-      defaultRounds: undefined,
     },
   });
 
@@ -444,8 +441,7 @@ export default function TrainingLogPage() {
         tips: tipsArray,
         equipment: equipmentArray,
         ...(videoUrl ? { videoUrl } : {}),
-        ...(presetShotLocations.length > 0 ? { defaultShotLocations: presetShotLocations } : {}),
-        ...(Object.keys(presetMetricValues).length > 0 ? { defaultMetricValues: presetMetricValues } : {}),
+        ...(presetRounds.length > 0 ? { presetRounds } : {}),
       });
       const newDrill = await response.json();
       if (selectedMetricTemplateIds.length > 0) {
@@ -462,8 +458,7 @@ export default function TrainingLogPage() {
       setIsCreateDrillOpen(false);
       createDrillForm.reset();
       setSelectedMetricTemplateIds([]);
-      setPresetShotLocations([]);
-      setPresetMetricValues({});
+      setPresetRounds([]);
       setDrillVideoFile(null);
       setDrillVideoUploading(false);
       setDrillVideoProgress(0);
@@ -870,40 +865,31 @@ export default function TrainingLogPage() {
   // Build entries for a single drill, respecting its presets
   const buildDrillEntries = async (drillId: string, drill: Drill): Promise<WorkoutDrillEntry[]> => {
     const drillMetrics = await fetchDrillMetrics(drillId);
-    const defaultValues = (drill as any).defaultMetricValues as Record<string, number> | undefined;
-    const defaultShots = (drill as any).defaultShotLocations as string[] | undefined;
-    const defaultRounds = (drill as any).defaultRounds as number | undefined;
+    const rounds = (drill as any).presetRounds as Array<{ shotLocation?: string; metricValues: Record<string, number> }> | undefined;
 
-    const buildEntry = (shotLocation?: string): WorkoutDrillEntry => {
-      const metricValues: Record<string, number> = {};
-      drillMetrics.forEach(dm => {
-        metricValues[dm.metricTemplateId] = defaultValues?.[dm.metricTemplateId] ?? 0;
+    // If the drill has preset rounds, use them directly
+    if (rounds && rounds.length > 0) {
+      return rounds.map(round => {
+        const metricValues: Record<string, number> = {};
+        drillMetrics.forEach(dm => {
+          metricValues[dm.metricTemplateId] = round.metricValues?.[dm.metricTemplateId] ?? 0;
+        });
+        return {
+          drillId,
+          drill,
+          duration: Math.round((drill.duration || 300) / 60),
+          notes: "",
+          metrics: metricValues,
+          drillMetrics,
+          ...(round.shotLocation ? { shotLocation: round.shotLocation } : {}),
+        };
       });
-      return {
-        drillId,
-        drill,
-        duration: Math.round((drill.duration || 300) / 60),
-        notes: "",
-        metrics: metricValues,
-        drillMetrics,
-        ...(shotLocation ? { shotLocation } : {}),
-      };
-    };
-
-    const rounds = Math.max(1, defaultRounds || 1);
-
-    // If shot locations are preset, create one entry per location per round
-    if (drill.trackShots && defaultShots && defaultShots.length > 0) {
-      const entries: WorkoutDrillEntry[] = [];
-      for (let r = 0; r < rounds; r++) {
-        for (const slug of defaultShots) {
-          entries.push(buildEntry(slug));
-        }
-      }
-      return entries;
     }
 
-    // Otherwise create one entry per round (with auto-detect free-throw)
+    // No presets — fall back to a single round with auto-detect for free throws
+    const metricValues: Record<string, number> = {};
+    drillMetrics.forEach(dm => { metricValues[dm.metricTemplateId] = 0; });
+
     let autoShotLocation: string | undefined;
     if (drill.trackShots) {
       const titleLower = drill.title.toLowerCase();
@@ -913,7 +899,15 @@ export default function TrainingLogPage() {
       }
     }
 
-    return Array.from({ length: rounds }, () => buildEntry(autoShotLocation));
+    return [{
+      drillId,
+      drill,
+      duration: Math.round((drill.duration || 300) / 60),
+      notes: "",
+      metrics: metricValues,
+      drillMetrics,
+      ...(autoShotLocation ? { shotLocation: autoShotLocation } : {}),
+    }];
   };
 
   // Quick start a single drill (for dropdown selection)
@@ -1438,7 +1432,7 @@ export default function TrainingLogPage() {
                                 checked={field.value}
                                 onCheckedChange={(checked) => {
                                   field.onChange(checked);
-                                  if (!checked) setPresetShotLocations([]);
+                                  if (!checked) setPresetRounds(prev => prev.map(r => ({ ...r, shotLocation: undefined })));
                                 }}
                                 data-testid="checkbox-track-shots"
                               />
@@ -1448,34 +1442,6 @@ export default function TrainingLogPage() {
                           </FormItem>
                         )}
                       />
-
-                      {/* Preset Shot Locations – only when trackShots is on */}
-                      {createDrillForm.watch("trackShots") && shotLocationOptions && shotLocationOptions.length > 0 && (
-                        <div className="space-y-2 pl-6 border-l-2 border-primary/20">
-                          <FormLabel className="text-sm">Preset Shot Locations <span className="text-muted-foreground font-normal">(optional)</span></FormLabel>
-                          <p className="text-xs text-muted-foreground">
-                            Pre-select the court zones used in this drill. Players can still change them while logging.
-                          </p>
-                          <div className="flex flex-wrap gap-2">
-                            {shotLocationOptions.map(loc => (
-                              <Badge
-                                key={loc.slug}
-                                variant={presetShotLocations.includes(loc.slug) ? "default" : "outline"}
-                                className="cursor-pointer"
-                                onClick={() => setPresetShotLocations(prev =>
-                                  prev.includes(loc.slug)
-                                    ? prev.filter(s => s !== loc.slug)
-                                    : [...prev, loc.slug]
-                                )}
-                                data-testid={`preset-loc-badge-${loc.slug}`}
-                              >
-                                {presetShotLocations.includes(loc.slug) && <Check className="w-3 h-3 mr-1" />}
-                                {loc.label}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      )}
 
                       {/* Metrics Multi-Select */}
                       <div className="space-y-2">
@@ -1494,12 +1460,11 @@ export default function TrainingLogPage() {
                                   setSelectedMetricTemplateIds(prev => {
                                     const isSelected = prev.includes(template.id);
                                     if (isSelected) {
-                                      // Remove from preset values too
-                                      setPresetMetricValues(vals => {
-                                        const next = { ...vals };
+                                      setPresetRounds(rounds => rounds.map(r => {
+                                        const next = { ...r.metricValues };
                                         delete next[template.id];
-                                        return next;
-                                      });
+                                        return { ...r, metricValues: next };
+                                      }));
                                     }
                                     return isSelected
                                       ? prev.filter(id => id !== template.id)
@@ -1520,67 +1485,94 @@ export default function TrainingLogPage() {
                         </div>
                       </div>
 
-                      {/* Preset Metric Values – only when metrics are selected */}
-                      {selectedMetricTemplateIds.length > 0 && metricTemplates && (
-                        <div className="space-y-3 pl-6 border-l-2 border-primary/20">
-                          <FormLabel className="text-sm">Preset Metric Targets <span className="text-muted-foreground font-normal">(optional)</span></FormLabel>
-                          <p className="text-xs text-muted-foreground">
-                            Set default target values for each metric. Leave blank to start at 0.
-                          </p>
-                          {selectedMetricTemplateIds.map(templateId => {
-                            const template = metricTemplates.find(t => t.id === templateId);
-                            if (!template) return null;
-                            return (
-                              <div key={templateId} className="flex items-center gap-3">
-                                <span className="text-sm min-w-[120px] text-muted-foreground">{template.label || template.name}</span>
-                                <Input
-                                  type="number"
-                                  min={0}
-                                  placeholder="0"
-                                  value={presetMetricValues[templateId] ?? ""}
-                                  onChange={e => {
-                                    const val = e.target.value === "" ? undefined : Number(e.target.value);
-                                    setPresetMetricValues(prev => {
-                                      const next = { ...prev };
-                                      if (val === undefined) delete next[templateId];
-                                      else next[templateId] = val;
-                                      return next;
-                                    });
-                                  }}
-                                  className="w-28 h-8 text-sm"
-                                  data-testid={`input-preset-metric-${templateId}`}
-                                />
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
+                      {/* Preset Rounds Builder */}
+                      {(() => {
+                        const trackShots = createDrillForm.watch("trackShots");
+                        const addPresetRound = () => {
+                          const metricValues: Record<string, number> = {};
+                          selectedMetricTemplateIds.forEach(id => { metricValues[id] = 0; });
+                          setPresetRounds(prev => [...prev, { metricValues }]);
+                        };
+                        const removePresetRound = (idx: number) => setPresetRounds(prev => prev.filter((_, i) => i !== idx));
+                        const updatePresetRoundLocation = (idx: number, slug: string) =>
+                          setPresetRounds(prev => prev.map((r, i) => i === idx ? { ...r, shotLocation: slug || undefined } : r));
+                        const updatePresetRoundMetric = (idx: number, templateId: string, val: number) =>
+                          setPresetRounds(prev => prev.map((r, i) => i === idx ? { ...r, metricValues: { ...r.metricValues, [templateId]: val } } : r));
 
-                      {/* Default Rounds */}
-                      <FormField
-                        control={createDrillForm.control}
-                        name="defaultRounds"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Default Rounds <span className="text-muted-foreground font-normal text-xs">(optional)</span></FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                min={1}
-                                placeholder="e.g. 3"
-                                value={field.value ?? ""}
-                                onChange={e => field.onChange(e.target.value === "" ? undefined : parseInt(e.target.value))}
-                                className="w-32"
-                                data-testid="input-default-rounds"
-                              />
-                            </FormControl>
-                            <p className="text-xs text-muted-foreground">
-                              Auto-creates this many rounds when the drill is started.
-                            </p>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                        return (
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <FormLabel>Preset Rounds <span className="font-normal text-muted-foreground text-xs">(optional)</span></FormLabel>
+                                <p className="text-xs text-muted-foreground mt-0.5">Pre-configure rounds that auto-load when this drill is started.</p>
+                              </div>
+                              <Button type="button" size="sm" variant="outline" onClick={addPresetRound} data-testid="button-add-preset-round">
+                                <Plus className="w-3.5 h-3.5 mr-1" /> Add Round
+                              </Button>
+                            </div>
+
+                            {presetRounds.length > 0 && (
+                              <div className="overflow-x-auto border rounded-md">
+                                <table className="w-full text-sm">
+                                  <thead>
+                                    <tr className="border-b bg-muted/30">
+                                      <th className="p-2 text-left text-xs font-medium text-muted-foreground">#</th>
+                                      {trackShots && <th className="p-2 text-left text-xs font-medium text-muted-foreground">Location</th>}
+                                      {selectedMetricTemplateIds.map(id => {
+                                        const t = metricTemplates?.find(t => t.id === id);
+                                        return t ? <th key={id} className="p-2 text-center text-xs font-medium text-muted-foreground">{t.label || t.name}</th> : null;
+                                      })}
+                                      <th></th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {presetRounds.map((round, roundIdx) => (
+                                      <tr key={roundIdx} className="border-b last:border-0 hover:bg-muted/20">
+                                        <td className="p-2">
+                                          <Badge variant="secondary" className="text-xs">{roundIdx + 1}</Badge>
+                                        </td>
+                                        {trackShots && (
+                                          <td className="p-1">
+                                            <Select value={round.shotLocation || ''} onValueChange={v => updatePresetRoundLocation(roundIdx, v)}>
+                                              <SelectTrigger className="w-32 h-8 text-xs" data-testid={`select-preset-round-loc-${roundIdx}`}>
+                                                <SelectValue placeholder="Location" />
+                                              </SelectTrigger>
+                                              <SelectContent>
+                                                <SelectItem value="">Any</SelectItem>
+                                                {shotLocationOptions?.map(loc => (
+                                                  <SelectItem key={loc.slug} value={loc.slug}>{loc.label}</SelectItem>
+                                                ))}
+                                              </SelectContent>
+                                            </Select>
+                                          </td>
+                                        )}
+                                        {selectedMetricTemplateIds.map(templateId => (
+                                          <td key={templateId} className="p-1">
+                                            <Input
+                                              type="number"
+                                              min={0}
+                                              placeholder="0"
+                                              value={round.metricValues[templateId] ?? ''}
+                                              onChange={e => updatePresetRoundMetric(roundIdx, templateId, e.target.value === '' ? 0 : Number(e.target.value))}
+                                              className="w-16 h-8 text-sm text-center"
+                                              data-testid={`input-preset-round-${roundIdx}-metric-${templateId}`}
+                                            />
+                                          </td>
+                                        ))}
+                                        <td className="p-1">
+                                          <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => removePresetRound(roundIdx)} data-testid={`button-remove-preset-round-${roundIdx}`}>
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                          </Button>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
 
                       {/* Tips */}
                       <FormField
@@ -1684,8 +1676,7 @@ export default function TrainingLogPage() {
                     <Button type="button" variant="outline" onClick={() => {
                       setIsCreateDrillOpen(false);
                       setSelectedMetricTemplateIds([]);
-                      setPresetShotLocations([]);
-                      setPresetMetricValues({});
+                      setPresetRounds([]);
                       setDrillVideoFile(null);
                     }}>
                       Cancel

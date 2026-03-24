@@ -330,9 +330,7 @@ export const drills = pgTable("drills", {
   trackShots: boolean("track_shots").default(false), // Enable shot location tracking
   isShared: boolean("is_shared").default(false), // Share user drill with community
   userId: varchar("user_id"), // null = admin drill, set = user-created drill
-  defaultRounds: integer("default_rounds"), // Preset number of rounds when starting drill
-  defaultShotLocations: text("default_shot_locations").array(), // Preset shot zone slugs
-  defaultMetricValues: jsonb("default_metric_values").$type<Record<string, number>>(), // metricTemplateId -> default value
+  presetRounds: jsonb("preset_rounds").$type<Array<{ shotLocation?: string; metricValues: Record<string, number> }>>(), // Preset round configs for auto-loading when drill is started
   createdAt: timestamp("created_at").defaultNow()
 });
 
