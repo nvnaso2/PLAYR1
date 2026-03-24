@@ -1,5 +1,5 @@
 import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, boolean, decimal, doublePrecision } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, boolean, decimal, doublePrecision, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -330,6 +330,9 @@ export const drills = pgTable("drills", {
   trackShots: boolean("track_shots").default(false), // Enable shot location tracking
   isShared: boolean("is_shared").default(false), // Share user drill with community
   userId: varchar("user_id"), // null = admin drill, set = user-created drill
+  defaultRounds: integer("default_rounds"), // Preset number of rounds when starting drill
+  defaultShotLocations: text("default_shot_locations").array(), // Preset shot zone slugs
+  defaultMetricValues: jsonb("default_metric_values").$type<Record<string, number>>(), // metricTemplateId -> default value
   createdAt: timestamp("created_at").defaultNow()
 });
 
