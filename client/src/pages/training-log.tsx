@@ -3114,6 +3114,22 @@ export default function TrainingLogPage() {
                 <Button variant="outline" onClick={closeViewEdit}>
                   Close
                 </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => {
+                    if (viewEditLogId && confirm('Delete this training log?')) {
+                      deleteLogMutation.mutate(viewEditLogId, {
+                        onSuccess: () => closeViewEdit(),
+                      });
+                    }
+                  }}
+                  disabled={deleteLogMutation.isPending}
+                  data-testid="button-delete-log-dialog"
+                >
+                  <Trash2 className="w-4 h-4 mr-1" />
+                  Delete
+                </Button>
                 <Button onClick={() => {
                   if (viewEditLog) {
                     setIsEditMode(true);

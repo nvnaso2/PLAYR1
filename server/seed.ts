@@ -1,7 +1,7 @@
 import { db } from "./db";
-import { drills, benchmarks, evaluationAttributes, shotLocations, shotTypes, userProfiles, metricTemplates } from "@shared/schema";
+import { drills, benchmarks, evaluationAttributes, shotLocations, shotTypes, userProfiles, metricTemplates, drillMetrics } from "@shared/schema";
 import { users } from "@shared/models/auth";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, notInArray } from "drizzle-orm";
 
 const sampleDrills = [
   // Ball Handling
@@ -306,30 +306,38 @@ export async function seedDatabase() {
       console.log("Evaluation attributes already exist, skipping seed");
     }
 
-    const defaultShotLocations = [
-      { slug: "free-throw", label: "Free Throw", classification: "free-throw", sortOrder: 0 },
-      { slug: "block-left", label: "Block Left", classification: "2-pointer", sortOrder: 1 },
-      { slug: "block-right", label: "Block Right", classification: "2-pointer", sortOrder: 2 },
-      { slug: "mid-range-left", label: "Mid Range Left", classification: "2-pointer", sortOrder: 3 },
-      { slug: "mid-range-right", label: "Mid Range Right", classification: "2-pointer", sortOrder: 4 },
-      { slug: "1st-hash-left", label: "1st Hash Left", classification: "2-pointer", sortOrder: 5 },
-      { slug: "1st-hash-right", label: "1st Hash Right", classification: "2-pointer", sortOrder: 6 },
-      { slug: "2nd-hash-left", label: "2nd Hash Left", classification: "2-pointer", sortOrder: 7 },
-      { slug: "2nd-hash-right", label: "2nd Hash Right", classification: "2-pointer", sortOrder: 8 },
-      { slug: "corner-left", label: "Corner Left", classification: "3-pointer", sortOrder: 9 },
-      { slug: "corner-right", label: "Corner Right", classification: "3-pointer", sortOrder: 10 },
-      { slug: "wing-left", label: "Wing Left", classification: "3-pointer", sortOrder: 11 },
-      { slug: "wing-right", label: "Wing Right", classification: "3-pointer", sortOrder: 12 },
-      { slug: "top-of-key", label: "Top of Key", classification: "3-pointer", sortOrder: 13 },
-      { slug: "top-of-key-3-point", label: "Top of Key (Mid-Range)", classification: "2-pointer", sortOrder: 16 },
-      { slug: "3rd-hash-left", label: "3rd Hash Left", classification: "3-pointer", sortOrder: 14 },
-      { slug: "3rd-hash-right", label: "3rd Hash Right", classification: "3-pointer", sortOrder: 15 },
+    const canonicalShotLocations = [
+      { slug: "free-throw",            label: "Free Throw",             classification: "free-throw", sortOrder: 0  },
+      { slug: "block-left",            label: "Block Left",             classification: "2-pointer",  sortOrder: 1  },
+      { slug: "block-right",           label: "Block Right",            classification: "2-pointer",  sortOrder: 2  },
+      { slug: "post-shots",            label: "Post Shots",             classification: "2-pointer",  sortOrder: 3  },
+      { slug: "floaters",              label: "Floaters",               classification: "2-pointer",  sortOrder: 4  },
+      { slug: "left-corner-mid-range", label: "Corner Left (MR)",      classification: "2-pointer",  sortOrder: 5  },
+      { slug: "right-corner-mid-range",label: "Corner Right (MR)",     classification: "2-pointer",  sortOrder: 6  },
+      { slug: "wing-left-mid-range",   label: "Wing Left (MR)",        classification: "2-pointer",  sortOrder: 7  },
+      { slug: "wing-right-mid-range",  label: "Wing Right (MR)",       classification: "2-pointer",  sortOrder: 8  },
+      { slug: "top-of-key-3-point",    label: "Top of Key (MR)",       classification: "2-pointer",  sortOrder: 9  },
+      { slug: "corner-left",           label: "Corner Left (3)",       classification: "3-pointer",  sortOrder: 10 },
+      { slug: "corner-right",          label: "Corner Right (3)",      classification: "3-pointer",  sortOrder: 11 },
+      { slug: "wing-left",             label: "Wing Left (3)",         classification: "3-pointer",  sortOrder: 12 },
+      { slug: "wing-right",            label: "Wing Right (3)",        classification: "3-pointer",  sortOrder: 13 },
+      { slug: "top-of-key",            label: "Top of Key (3)",        classification: "3-pointer",  sortOrder: 14 },
+      { slug: "form-shot-left",        label: "Form Shots Left Block", classification: "2-pointer",  sortOrder: 15 },
+      { slug: "form-shots-right",      label: "Form Shots Right Block",classification: "2-pointer",  sortOrder: 16 },
+      { slug: "form-shots-1st-hash",   label: "Form Shots 1st Hash",  classification: "2-pointer",  sortOrder: 17 },
+      { slug: "left-hand-layup",       label: "Left Hand Layup",      classification: "2-pointer",  sortOrder: 18 },
+      { slug: "right-hand-layup",      label: "Right Hand Layup",     classification: "2-pointer",  sortOrder: 19 },
     ];
-    for (const loc of defaultShotLocations) {
-      await db.insert(shotLocations).values(loc as any).onConflictDoUpdate({
+    const canonicalSlugs = canonicalShotLocations.map(l => l.slug);
+    for (const loc of canonicalShotLocations) {
+      await db.insert(shotLocations).values({ ...loc, active: true } as any).onConflictDoUpdate({
         target: shotLocations.slug,
-        set: { label: sql`EXCLUDED.label`, classification: sql`EXCLUDED.classification`, sortOrder: sql`EXCLUDED.sort_order` },
+        set: { label: sql`EXCLUDED.label`, classification: sql`EXCLUDED.classification`, sortOrder: sql`EXCLUDED.sort_order`, active: sql`true` },
       });
+    }
+    // Deactivate any shot locations not in the canonical list
+    if (canonicalSlugs.length > 0) {
+      await db.update(shotLocations).set({ active: false }).where(notInArray(shotLocations.slug, canonicalSlugs));
     }
     console.log("Shot locations synced");
 
@@ -350,22 +358,27 @@ export async function seedDatabase() {
       console.log("Shot types already exist, skipping seed");
     }
 
-    const existingMetrics = await db.select().from(metricTemplates).limit(1);
-    if (existingMetrics.length === 0) {
-      console.log("Inserting default metric templates...");
-      await db.insert(metricTemplates).values([
-        { name: "makes", label: "Makes", type: "number", unit: "shots" },
-        { name: "attempts", label: "Attempts", type: "number", unit: "shots" },
-        { name: "reps", label: "Reps", type: "number", unit: "reps" },
-        { name: "time", label: "Time", type: "timer", unit: "seconds" },
-        { name: "score", label: "Score", type: "number", unit: "pts" },
-        { name: "distance", label: "Distance", type: "number", unit: "ft" },
-        { name: "dribbles", label: "Dribbles", type: "number", unit: "dribbles" },
-        { name: "speed", label: "Speed", type: "number", unit: "mph" },
-      ]);
-      console.log("Inserted default metric templates");
+    const canonicalMetrics = [
+      { name: "dribbles",      label: "Dribbles",       type: "number" as const, unit: "dribbles" },
+      { name: "passes",        label: "Passes",          type: "number" as const, unit: "passes"   },
+      { name: "pass-attempts", label: "Pass Attempts",   type: "number" as const, unit: "passes"   },
+      { name: "shots-made",    label: "Shots Made",      type: "number" as const, unit: "shots"    },
+      { name: "shot-attempts", label: "Shot Attempts",   type: "number" as const, unit: "shots"    },
+      { name: "time",          label: "Time",            type: "timer"  as const, unit: "seconds"  },
+    ];
+    const canonicalMetricNames = canonicalMetrics.map(m => m.name);
+    const existingMetrics = await db.select().from(metricTemplates);
+    const existingNames = existingMetrics.map(m => m.name).sort().join(",");
+    const expectedNames = [...canonicalMetricNames].sort().join(",");
+    if (existingNames !== expectedNames) {
+      console.log("Syncing metric templates...");
+      // Clear drill-metric associations and all templates, then re-insert canonical set
+      await db.delete(drillMetrics);
+      await db.delete(metricTemplates);
+      await db.insert(metricTemplates).values(canonicalMetrics);
+      console.log("Metric templates synced");
     } else {
-      console.log("Metric templates already exist, skipping seed");
+      console.log("Metric templates already synced");
     }
 
     console.log("Database seeding complete!");
