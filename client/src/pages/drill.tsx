@@ -366,17 +366,46 @@ export default function DrillPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           {/* Video section */}
-          {drill.videoUrl && (
-            <div className="relative aspect-video bg-muted rounded-xl overflow-hidden">
-              <video
-                src={drill.videoUrl}
-                controls
-                className="w-full h-full object-cover"
-                poster={drill.thumbnailUrl || undefined}
-                data-testid="video-player"
-              />
-            </div>
-          )}
+          {drill.videoUrl && (() => {
+            const url = drill.videoUrl;
+            const ytMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+            const vimeoMatch = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+            if (ytMatch) {
+              return (
+                <div className="relative aspect-video bg-muted rounded-xl overflow-hidden" data-testid="video-player">
+                  <iframe
+                    src={`https://www.youtube.com/embed/${ytMatch[1]}`}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    className="w-full h-full"
+                  />
+                </div>
+              );
+            }
+            if (vimeoMatch) {
+              return (
+                <div className="relative aspect-video bg-muted rounded-xl overflow-hidden" data-testid="video-player">
+                  <iframe
+                    src={`https://player.vimeo.com/video/${vimeoMatch[1]}`}
+                    allow="autoplay; fullscreen; picture-in-picture"
+                    allowFullScreen
+                    className="w-full h-full"
+                  />
+                </div>
+              );
+            }
+            return (
+              <div className="relative aspect-video bg-muted rounded-xl overflow-hidden">
+                <video
+                  src={url}
+                  controls
+                  className="w-full h-full object-cover"
+                  poster={drill.thumbnailUrl || undefined}
+                  data-testid="video-player"
+                />
+              </div>
+            );
+          })()}
 
           {/* PDF / document section */}
           {drill.pdfUrl && (

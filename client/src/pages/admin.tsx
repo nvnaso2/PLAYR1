@@ -113,6 +113,8 @@ function DrillForm({
   const { toast } = useToast();
   const isEditing = !!drill;
   const [selectedMetricIds, setSelectedMetricIds] = useState<string[]>([]);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const thumbnailInputRef = useRef<HTMLInputElement>(null);
   
   // Fetch all metric templates
   const { data: metricTemplates } = useQuery<MetricTemplate[]>({
@@ -453,16 +455,23 @@ function DrillForm({
                 <FormControl>
                   <Input placeholder="https://youtube.com/... or upload a file" {...field} data-testid="input-drill-video-url" />
                 </FormControl>
-                <div className="relative">
+                <div>
                   <input
+                    ref={videoInputRef}
                     type="file"
-                    accept="video/*,application/pdf,image/*,.pdf"
+                    accept="video/*"
                     onChange={handleVideoUpload}
-                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    className="hidden"
                     disabled={isUploadingVideo}
                     data-testid="input-drill-video-upload"
                   />
-                  <Button type="button" variant="outline" disabled={isUploadingVideo} data-testid="button-drill-video-upload">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isUploadingVideo}
+                    onClick={() => videoInputRef.current?.click()}
+                    data-testid="button-drill-video-upload"
+                  >
                     {isUploadingVideo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
                   </Button>
                 </div>
@@ -482,16 +491,23 @@ function DrillForm({
                 <FormControl>
                   <Input placeholder="https://... or upload a file" {...field} data-testid="input-drill-thumbnail-url" />
                 </FormControl>
-                <div className="relative">
+                <div>
                   <input
+                    ref={thumbnailInputRef}
                     type="file"
                     accept="image/*"
                     onChange={handleThumbnailUpload}
-                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    className="hidden"
                     disabled={isUploadingThumbnail}
                     data-testid="input-drill-thumbnail-upload"
                   />
-                  <Button type="button" variant="outline" disabled={isUploadingThumbnail} data-testid="button-drill-thumbnail-upload">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isUploadingThumbnail}
+                    onClick={() => thumbnailInputRef.current?.click()}
+                    data-testid="button-drill-thumbnail-upload"
+                  >
                     {isUploadingThumbnail ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
                   </Button>
                 </div>

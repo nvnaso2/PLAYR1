@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import {
   Form,
   FormControl,
@@ -108,6 +109,8 @@ const createDrillFormSchema = insertDrillSchema.pick({
 }).extend({
   title: z.string().min(1, "Title is required"),
   trackShots: z.boolean().default(false),
+  tips: z.string().optional(),
+  isShared: z.boolean().default(false),
 });
 
 type CreateDrillFormData = z.infer<typeof createDrillFormSchema>;
@@ -384,6 +387,8 @@ export default function TrainingLogPage() {
       category: "ball-handling",
       difficulty: "beginner",
       trackShots: false,
+      tips: "",
+      isShared: false,
     },
   });
 
@@ -422,8 +427,12 @@ export default function TrainingLogPage() {
         setDrillVideoUploading(false);
         videoUrl = objectPath;
       }
+      const tipsArray = data.tips
+        ? data.tips.split("\n").map(t => t.trim()).filter(Boolean)
+        : [];
       const response = await apiRequest("POST", "/api/user/drills", {
         ...data,
+        tips: tipsArray,
         ...(videoUrl ? { videoUrl } : {}),
       });
       const newDrill = await response.json();
@@ -1442,6 +1451,52 @@ export default function TrainingLogPage() {
                           )}
                         </div>
                       </div>
+
+                      {/* Tips */}
+                      <FormField
+                        control={createDrillForm.control}
+                        name="tips"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Pro Tips (Optional)</FormLabel>
+                            <FormControl>
+                              <Textarea
+                                {...field}
+                                placeholder="Enter one tip per line, e.g.&#10;Keep your elbow in&#10;Follow through on every shot"
+                                rows={3}
+                                data-testid="input-drill-tips"
+                              />
+                            </FormControl>
+                            <p className="text-xs text-muted-foreground">
+                              Each line becomes a separate tip shown on the drill detail page.
+                            </p>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      {/* Share to Community */}
+                      <FormField
+                        control={createDrillForm.control}
+                        name="isShared"
+                        render={({ field }) => (
+                          <FormItem className="flex items-center gap-3 rounded-md border p-3 bg-muted/20">
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                                data-testid="switch-share-community"
+                              />
+                            </FormControl>
+                            <div className="space-y-0.5">
+                              <FormLabel className="!mt-0">Share with Community</FormLabel>
+                              <p className="text-xs text-muted-foreground">
+                                Make this drill visible to all players in the drill library.
+                              </p>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
 
                       <div className="space-y-2">
                         <FormLabel>Drill Video (Optional)</FormLabel>
