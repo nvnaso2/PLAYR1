@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 import type { Drill } from "@shared/schema";
 import { BasketballRating } from "@/components/basketball-rating";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, getObjectUrl } from "@/lib/queryClient";
 
 const difficultyColors = {
   beginner: "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20",
@@ -214,7 +214,7 @@ function ShareDrillDialog({
                           data-testid={`button-select-connection-${u.id}`}
                         >
                           <Avatar className="w-9 h-9 flex-shrink-0">
-                            <AvatarImage src={u.profilePhotoUrl || u.profileImageUrl || undefined} />
+                            <AvatarImage src={getObjectUrl(u.profilePhotoUrl || u.profileImageUrl) || undefined} />
                             <AvatarFallback>{getInitials(u)}</AvatarFallback>
                           </Avatar>
                           <span className="text-sm font-medium flex-1 truncate">{getDisplayName(u)}</span>
@@ -397,10 +397,10 @@ export default function DrillPage() {
             return (
               <div className="relative aspect-video bg-muted rounded-xl overflow-hidden">
                 <video
-                  src={url}
+                  src={getObjectUrl(url)}
                   controls
                   className="w-full h-full object-cover"
-                  poster={drill.thumbnailUrl || undefined}
+                  poster={getObjectUrl(drill.thumbnailUrl) || undefined}
                   data-testid="video-player"
                 />
               </div>
@@ -411,7 +411,7 @@ export default function DrillPage() {
           {drill.pdfUrl && (
             <div className="relative rounded-xl overflow-hidden">
               <img
-                src={drill.pdfUrl}
+                src={getObjectUrl(drill.pdfUrl)}
                 alt={`${drill.title} - Training Document`}
                 className="w-full h-auto object-contain"
                 data-testid="document-image"
@@ -423,7 +423,7 @@ export default function DrillPage() {
           {!drill.videoUrl && !drill.pdfUrl && drill.thumbnailUrl && (
             <div className="relative aspect-video bg-muted rounded-xl overflow-hidden">
               <img
-                src={drill.thumbnailUrl}
+                src={getObjectUrl(drill.thumbnailUrl)}
                 alt={drill.title}
                 className="w-full h-full object-cover"
               />

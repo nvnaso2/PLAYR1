@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient, getObjectUrl } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -117,7 +117,7 @@ export default function MySessionsPage() {
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-3 min-w-0">
               <Avatar>
-                <AvatarImage src={session.trainerPhotoUrl || undefined} />
+                <AvatarImage src={getObjectUrl(session.trainerPhotoUrl) || undefined} />
                 <AvatarFallback>
                   <User className="h-4 w-4" />
                 </AvatarFallback>

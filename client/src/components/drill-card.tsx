@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Play, Clock, Target, Trophy } from "lucide-react";
 import type { Drill } from "@shared/schema";
 import { BasketballRating } from "@/components/basketball-rating";
+import { getObjectUrl } from "@/lib/queryClient";
 
 interface DrillCardProps {
   drill: Drill;
@@ -45,8 +46,8 @@ export function DrillCard({ drill, personalBest, totalSessions }: DrillCardProps
           {drill.videoUrl ? (
             // Video available: show thumbnail as poster (first-frame fallback if poster fails)
             <video
-              src={drill.videoUrl}
-              poster={drill.thumbnailUrl || undefined}
+              src={getObjectUrl(drill.videoUrl)}
+              poster={getObjectUrl(drill.thumbnailUrl) || undefined}
               preload={drill.thumbnailUrl ? "none" : "metadata"}
               muted
               playsInline
@@ -57,13 +58,13 @@ export function DrillCard({ drill, personalBest, totalSessions }: DrillCardProps
             />
           ) : drill.thumbnailUrl ? (
             <img 
-              src={drill.thumbnailUrl} 
+              src={getObjectUrl(drill.thumbnailUrl)} 
               alt={drill.title}
               className="w-full h-full object-cover"
             />
           ) : drill.pdfUrl ? (
             <img 
-              src={drill.pdfUrl} 
+              src={getObjectUrl(drill.pdfUrl)} 
               alt={drill.title}
               className="w-full h-full object-cover"
             />

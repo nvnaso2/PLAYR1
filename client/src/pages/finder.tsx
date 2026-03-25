@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, getObjectUrl } from "@/lib/queryClient";
 import { useAdmin } from "@/hooks/use-admin";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
@@ -1316,7 +1316,7 @@ function MyConnectionsTab() {
   };
 
   const getPhoto = (conn: EnrichedConnection) => {
-    return conn.otherUser?.profilePhotoUrl || conn.otherUser?.profileImageUrl || undefined;
+    return getObjectUrl(conn.otherUser?.profilePhotoUrl || conn.otherUser?.profileImageUrl) || undefined;
   };
 
   const isIncoming = (conn: EnrichedConnection) => {

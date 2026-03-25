@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { queryClient, apiRequest, nativeFetch } from "@/lib/queryClient";
+import { queryClient, apiRequest, nativeFetch, getObjectUrl } from "@/lib/queryClient";
 import {
   Search,
   UserCheck,
@@ -204,7 +204,7 @@ export function FindPeopleTab() {
               <Card key={result.userId} data-testid={`card-user-${result.userId}`}>
                 <CardContent className="flex items-center gap-3 py-3">
                   <Avatar className="h-10 w-10 shrink-0">
-                    <AvatarImage src={result.profilePhotoUrl || undefined} />
+                    <AvatarImage src={getObjectUrl(result.profilePhotoUrl) || undefined} />
                     <AvatarFallback className="text-xs">{initials || "?"}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">

@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, getObjectUrl } from "@/lib/queryClient";
 import {
   Save,
   ExternalLink,
@@ -276,8 +276,8 @@ export function PlayerProfileSection() {
   };
 
   const profilePhotoSrc = userProfile?.profilePhotoUrl
-    ? (userProfile.profilePhotoUrl.startsWith("/") ? userProfile.profilePhotoUrl : `/objects/${userProfile.profilePhotoUrl}`)
-    : user?.profileImageUrl || undefined;
+    ? getObjectUrl(userProfile.profilePhotoUrl)
+    : (user?.profileImageUrl ? getObjectUrl(user.profileImageUrl) : undefined);
 
   const getInitials = () => {
     if (user?.firstName && user?.lastName) return `${user.firstName[0]}${user.lastName[0]}`;

@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, getObjectUrl } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAdmin } from "@/hooks/use-admin";
 import { Button } from "@/components/ui/button";
@@ -2131,7 +2131,7 @@ function TutorialVideosManager() {
                 {tutorial ? (
                   <div className="aspect-video bg-black relative group">
                     <video
-                      src={tutorial.videoUrl}
+                      src={getObjectUrl(tutorial.videoUrl)}
                       className="w-full h-full object-contain"
                       controls
                       data-testid={`tutorial-video-${key}`}
@@ -2841,13 +2841,13 @@ export default function AdminPage() {
                       <div className="aspect-video bg-muted relative">
                         {video.thumbnailUrl ? (
                           <img 
-                            src={video.thumbnailUrl} 
+                            src={getObjectUrl(video.thumbnailUrl)} 
                             alt={video.title} 
                             className="w-full h-full object-cover"
                           />
                         ) : video.videoUrl ? (
                           <video 
-                            src={video.videoUrl}
+                            src={getObjectUrl(video.videoUrl)}
                             className="w-full h-full object-cover"
                             muted
                           />
@@ -2872,7 +2872,7 @@ export default function AdminPage() {
                             <DialogContent className="max-w-4xl p-0 overflow-hidden">
                               <div className="aspect-video bg-black">
                                 <video 
-                                  src={video.videoUrl}
+                                  src={getObjectUrl(video.videoUrl)}
                                   controls
                                   autoPlay
                                   className="w-full h-full"

@@ -1,5 +1,6 @@
 import { useRoute } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import { getObjectUrl } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -126,8 +127,8 @@ export default function PlayerPublicPage() {
     : "P";
 
   const photoSrc = career?.cardPhotoUrl
-    ? career.cardPhotoUrl.startsWith("/") ? career.cardPhotoUrl : `/objects/${career.cardPhotoUrl}`
-    : user?.profileImageUrl || undefined;
+    ? getObjectUrl(career.cardPhotoUrl)
+    : (user?.profileImageUrl ? getObjectUrl(user.profileImageUrl) : undefined);
 
   const hasPhysicalAttrs = profile.heightFeet || profile.weight || profile.wingspan || profile.gradYear || profile.gpa;
   const hasSocials = profile.socialTwitter || profile.socialInstagram || profile.socialTiktok || profile.socialYoutube;

@@ -35,7 +35,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { queryClient, apiRequest, nativeFetch } from "@/lib/queryClient";
+import { queryClient, apiRequest, nativeFetch, getObjectUrl } from "@/lib/queryClient";
 import { EmojiPicker } from "@/components/emoji-picker";
 import { Users, Plus, Trash2, MessageCircle, Send, ArrowLeft } from "lucide-react";
 
@@ -345,7 +345,7 @@ export default function TrainerChat() {
                     <div className={`flex items-end gap-2 max-w-[80%] ${msg.senderId === user?.id ? "flex-row-reverse" : ""}`}>
                       {msg.senderId !== user?.id && (
                         <Avatar className="h-6 w-6 shrink-0">
-                          {msg.senderImage && <AvatarImage src={msg.senderImage} />}
+                          {msg.senderImage && <AvatarImage src={getObjectUrl(msg.senderImage)} />}
                           <AvatarFallback className="text-[10px]">{msg.senderName?.charAt(0) || "?"}</AvatarFallback>
                         </Avatar>
                       )}
@@ -499,7 +499,7 @@ export default function TrainerChat() {
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-3 min-w-0">
                         <Avatar className="h-8 w-8 shrink-0">
-                          {conv.partnerImage && <AvatarImage src={conv.partnerImage} />}
+                          {conv.partnerImage && <AvatarImage src={getObjectUrl(conv.partnerImage)} />}
                           <AvatarFallback className="text-xs">{conv.partnerName.charAt(0)}</AvatarFallback>
                         </Avatar>
                         <div className="min-w-0">
@@ -663,7 +663,7 @@ export default function TrainerChat() {
                     <div key={contact.id} className="flex items-center gap-2 p-1.5 rounded-md" data-testid={`trainer-group-member-option-${contact.id}`}>
                       <Checkbox checked={newGroupMemberIds.has(contact.id)} onCheckedChange={() => toggleGroupMember(contact.id)} data-testid={`trainer-checkbox-group-member-${contact.id}`} />
                       <Avatar className="h-6 w-6 shrink-0">
-                        {contact.image && <AvatarImage src={contact.image} />}
+                        {contact.image && <AvatarImage src={getObjectUrl(contact.image)} />}
                         <AvatarFallback className="text-[10px]">{contact.name.charAt(0)}</AvatarFallback>
                       </Avatar>
                       <div className="min-w-0 flex-1">
@@ -680,7 +680,7 @@ export default function TrainerChat() {
                     <div key={member.userId} className="flex items-center gap-2 p-1.5 rounded-md" data-testid={`trainer-group-member-option-${member.userId}`}>
                       <Checkbox checked={newGroupMemberIds.has(member.userId)} onCheckedChange={() => toggleGroupMember(member.userId)} data-testid={`trainer-checkbox-group-member-${member.userId}`} />
                       <Avatar className="h-6 w-6 shrink-0">
-                        {member.profileImageUrl && <AvatarImage src={member.profileImageUrl} />}
+                        {member.profileImageUrl && <AvatarImage src={getObjectUrl(member.profileImageUrl)} />}
                         <AvatarFallback className="text-[10px]">{(member.firstName?.[0] || "") + (member.lastName?.[0] || "")}</AvatarFallback>
                       </Avatar>
                       <div className="min-w-0 flex-1">
@@ -696,7 +696,7 @@ export default function TrainerChat() {
                     <div key={contact.id} className="flex items-center gap-2 p-1.5 rounded-md" data-testid={`trainer-group-member-option-${contact.id}`}>
                       <Checkbox checked={newGroupMemberIds.has(contact.id)} onCheckedChange={() => toggleGroupMember(contact.id)} data-testid={`trainer-checkbox-group-member-${contact.id}`} />
                       <Avatar className="h-6 w-6 shrink-0">
-                        {contact.image && <AvatarImage src={contact.image} />}
+                        {contact.image && <AvatarImage src={getObjectUrl(contact.image)} />}
                         <AvatarFallback className="text-[10px]">{contact.name.charAt(0)}</AvatarFallback>
                       </Avatar>
                       <div className="min-w-0 flex-1">

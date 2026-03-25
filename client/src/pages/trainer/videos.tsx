@@ -33,7 +33,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient, apiRequest, nativeFetch } from "@/lib/queryClient";
+import { queryClient, apiRequest, nativeFetch, getObjectUrl } from "@/lib/queryClient";
 import {
   Video,
   Upload,
@@ -335,7 +335,7 @@ export function MyVideosSection() {
                       data-testid={`thumbnail-trainer-video-${video.id}`}
                     >
                       <img
-                        src={video.thumbnailUrl}
+                        src={getObjectUrl(video.thumbnailUrl) ?? undefined}
                         alt={video.title}
                         className="w-full h-full object-cover"
                       />

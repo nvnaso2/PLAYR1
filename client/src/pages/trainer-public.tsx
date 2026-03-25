@@ -1,5 +1,6 @@
 import { useRoute } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import { getObjectUrl } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -125,7 +126,7 @@ export default function TrainerPublic() {
           <CardContent className="pt-6">
             <div className="flex flex-col sm:flex-row gap-5">
               <Avatar className="h-24 w-24 shrink-0 mx-auto sm:mx-0">
-                <AvatarImage src={trainer.profilePhotoUrl || undefined} alt={fullName} />
+                <AvatarImage src={getObjectUrl(trainer.profilePhotoUrl) || undefined} alt={fullName} />
                 <AvatarFallback className="text-2xl bg-primary/10 text-primary">{initials}</AvatarFallback>
               </Avatar>
               <div className="text-center sm:text-left flex-1 min-w-0">

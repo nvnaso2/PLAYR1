@@ -33,7 +33,7 @@ import {
 import { cn } from "@/lib/utils";
 import { EmojiPicker } from "@/components/emoji-picker";
 import { US_STATES, TRAINER_SPECIALTIES } from "@shared/schema";
-import { apiRequest, queryClient, nativeFetch } from "@/lib/queryClient";
+import { apiRequest, queryClient, nativeFetch, getObjectUrl } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useGoogleCalendar } from "@/hooks/use-google-calendar";
@@ -629,7 +629,7 @@ function TrainerCard({ trainer, onClick, isFavorited, isMyTrainer, onToggleFavor
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
           <Avatar className="h-14 w-14 shrink-0">
-            <AvatarImage src={trainer.profilePhotoUrl || undefined} />
+            <AvatarImage src={getObjectUrl(trainer.profilePhotoUrl) || undefined} />
             <AvatarFallback className="text-lg bg-primary/10 text-primary">
               {initials || "T"}
             </AvatarFallback>
@@ -847,7 +847,7 @@ function TrainerDetail({ trainer: listTrainer, favorite, onToggleFavorite, onTog
       <SheetHeader>
         <div className="flex items-start gap-4">
           <Avatar className="h-16 w-16 shrink-0">
-            <AvatarImage src={trainer.profilePhotoUrl || undefined} />
+            <AvatarImage src={getObjectUrl(trainer.profilePhotoUrl) || undefined} />
             <AvatarFallback className="text-xl bg-primary/10 text-primary">
               {initials || "T"}
             </AvatarFallback>
@@ -1329,7 +1329,7 @@ function MySessionsTab() {
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-3 min-w-0">
               <Avatar>
-                <AvatarImage src={session.trainerPhotoUrl || undefined} />
+                <AvatarImage src={getObjectUrl(session.trainerPhotoUrl) || undefined} />
                 <AvatarFallback>
                   <User className="h-4 w-4" />
                 </AvatarFallback>
@@ -1995,7 +1995,7 @@ function ChatTab() {
                 data-testid={`button-start-chat-${contact.id}`}
               >
                 <Avatar className="h-5 w-5 mr-1.5">
-                  {contact.image && <AvatarImage src={contact.image} />}
+                  {contact.image && <AvatarImage src={getObjectUrl(contact.image)} />}
                   <AvatarFallback className="text-[8px]">
                     {contact.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                   </AvatarFallback>

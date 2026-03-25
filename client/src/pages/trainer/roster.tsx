@@ -55,7 +55,7 @@ import {
 } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { queryClient, apiRequest, nativeFetch } from "@/lib/queryClient";
+import { queryClient, apiRequest, nativeFetch, getObjectUrl } from "@/lib/queryClient";
 import {
   Users,
   Plus,
@@ -649,7 +649,7 @@ function FindPlayersDialog({ open, onOpenChange }: { open: boolean; onOpenChange
                   data-testid={`card-search-player-${player.userId}`}
                 >
                   <Avatar className="h-9 w-9 shrink-0">
-                    <AvatarImage src={player.profilePhotoUrl || undefined} />
+                    <AvatarImage src={getObjectUrl(player.profilePhotoUrl) || undefined} />
                     <AvatarFallback className="text-xs">{initials || "?"}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
@@ -795,7 +795,7 @@ function ConnectionRequestsSection() {
               data-testid={`card-connection-request-${req.id}`}
             >
               <Avatar className="h-9 w-9 shrink-0">
-                <AvatarImage src={photo || undefined} />
+                <AvatarImage src={getObjectUrl(photo) || undefined} />
                 <AvatarFallback className="text-xs">{initials || "?"}</AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">

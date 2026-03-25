@@ -43,7 +43,7 @@ import {
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { queryClient, apiRequest, nativeFetch } from "@/lib/queryClient";
+import { queryClient, apiRequest, nativeFetch, getObjectUrl } from "@/lib/queryClient";
 import { 
   User, 
   Target, 
@@ -389,7 +389,7 @@ function TutorialVideoStep({
           <CardContent className="space-y-4">
             <div className="aspect-video bg-black rounded-lg overflow-hidden">
               <video
-                src={tutorial!.videoUrl}
+                src={getObjectUrl(tutorial!.videoUrl)}
                 controls
                 className="w-full h-full"
                 data-testid="tutorial-video-player"

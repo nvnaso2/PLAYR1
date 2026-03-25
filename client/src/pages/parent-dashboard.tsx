@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient, getObjectUrl } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -145,7 +145,7 @@ function ChildCard({ child, onSelect }: { child: ChildData; onSelect: () => void
       <CardContent className="p-4">
         <div className="flex items-center gap-3">
           <Avatar className="h-12 w-12">
-            <AvatarImage src={info?.profilePhotoUrl || info?.profileImageUrl || undefined} />
+            <AvatarImage src={getObjectUrl(info?.profilePhotoUrl || info?.profileImageUrl) || undefined} />
             <AvatarFallback className="bg-primary text-primary-foreground">{initials}</AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
@@ -422,7 +422,7 @@ function ChildDetailView({ childId, onBack }: { childId: string; onBack: () => v
                   <CardContent className="p-4">
                     <div className="flex items-center gap-3">
                       <Avatar className="h-10 w-10">
-                        <AvatarImage src={conn.trainer?.profilePhotoUrl || undefined} />
+                        <AvatarImage src={getObjectUrl(conn.trainer?.profilePhotoUrl) || undefined} />
                         <AvatarFallback className="bg-primary text-primary-foreground">
                           {conn.trainer
                             ? `${(conn.trainer.firstName || "T")[0]}${(conn.trainer.lastName || "")[0] || ""}`.toUpperCase()

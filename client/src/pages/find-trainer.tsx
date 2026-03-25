@@ -15,7 +15,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Search, MapPin, DollarSign, Clock, Award, Star, Mail, Phone, Globe, Instagram, Twitter, X, ChevronRight, CalendarDays, CheckCircle, Briefcase, Crosshair, UserPlus, Hourglass, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { US_STATES, TRAINER_SPECIALTIES } from "@shared/schema";
-import { apiRequest, queryClient, nativeFetch } from "@/lib/queryClient";
+import { apiRequest, queryClient, nativeFetch, getObjectUrl } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -408,7 +408,7 @@ function TrainerCard({ trainer, onClick }: { trainer: DirectoryTrainer; onClick:
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
           <Avatar className="h-14 w-14 shrink-0">
-            <AvatarImage src={trainer.profilePhotoUrl || undefined} />
+            <AvatarImage src={getObjectUrl(trainer.profilePhotoUrl) || undefined} />
             <AvatarFallback className="text-lg bg-primary/10 text-primary">
               {initials || "T"}
             </AvatarFallback>
@@ -632,7 +632,7 @@ function TrainerDetail({ trainer: listTrainer }: { trainer: DirectoryTrainer }) 
       <SheetHeader>
         <div className="flex items-start gap-4">
           <Avatar className="h-16 w-16 shrink-0">
-            <AvatarImage src={trainer.profilePhotoUrl || undefined} />
+            <AvatarImage src={getObjectUrl(trainer.profilePhotoUrl) || undefined} />
             <AvatarFallback className="text-xl bg-primary/10 text-primary">
               {initials || "T"}
             </AvatarFallback>
