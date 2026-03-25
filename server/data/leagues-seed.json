@@ -1,0 +1,166 @@
+[
+  {
+    "name": "Battleground",
+    "slug": "battleground",
+    "leagueType": "AAU Circuit",
+    "city": "Houston",
+    "state": "TX",
+    "ageGroups": [
+      "10U",
+      "11U",
+      "12U",
+      "13U",
+      "14U"
+    ],
+    "seasons": [
+      "Spring",
+      "Summer"
+    ],
+    "description": "Battleground basketball circuit featuring competitive youth AAU programs in the Houston/Texas area.",
+    "website": null,
+    "registrationUrl": null,
+    "contactEmail": null,
+    "contactPhone": null,
+    "costInfo": null,
+    "isVerified": true
+  },
+  {
+    "name": "Boys UA Rise",
+    "slug": "boys-ua-rise",
+    "leagueType": "Circuit",
+    "city": "National",
+    "state": "US",
+    "ageGroups": [
+      "15U",
+      "16U",
+      "17U"
+    ],
+    "seasons": [
+      "Spring",
+      "Summer"
+    ],
+    "description": "The Boys UA Rise provides elite travel teams with a league-style circuit at the 17U, 16U, and 15U levels. Teams compete in 10 regular season games that transition into a 32-team single-elimination championship bracket at the UAA Finals in July.",
+    "website": "https://underarmournext.com/basketball/boys-rise/",
+    "registrationUrl": null,
+    "contactEmail": null,
+    "contactPhone": null,
+    "costInfo": null,
+    "isVerified": true
+  },
+  {
+    "name": "Girls UA Rise",
+    "slug": "girls-ua-rise",
+    "leagueType": "Circuit",
+    "city": "National",
+    "state": "US",
+    "ageGroups": [
+      "15U",
+      "16U",
+      "17U"
+    ],
+    "seasons": [
+      "Spring",
+      "Summer"
+    ],
+    "description": "The Girls UA Rise provides elite travel teams with a league-style circuit at the 17U, 16U, and 15U levels. Teams participate in 10 regular season games that transition into a 32-team single-elimination championship bracket at the UAA Finals in July.",
+    "website": "https://underarmournext.com/basketball/girls-rise/",
+    "registrationUrl": null,
+    "contactEmail": null,
+    "contactPhone": null,
+    "costInfo": null,
+    "isVerified": true
+  },
+  {
+    "name": "Girls Under Armour Association (GUAA)",
+    "slug": "girls-under-armour-association-guaa",
+    "leagueType": "Circuit",
+    "city": "Louisville",
+    "state": "KY",
+    "ageGroups": [
+      "15U",
+      "16U",
+      "17U"
+    ],
+    "seasons": [
+      "Spring",
+      "Summer"
+    ],
+    "description": "The Girls Under Armour Association (GUAA) is the premier girls basketball circuit featuring top AAU programs from across the nation. Teams compete in a league-style format at 17U, 16U, and 15U levels with 10 regular season games leading to a 32-team single-elimination championship bracket at UAA Finals.",
+    "website": "https://underarmournext.com/basketball/girls-uaa/",
+    "registrationUrl": null,
+    "contactEmail": null,
+    "contactPhone": null,
+    "costInfo": null,
+    "isVerified": true
+  },
+  {
+    "name": "OTR Circuit",
+    "slug": "otr-circuit",
+    "leagueType": "AAU Circuit",
+    "city": "Atlanta",
+    "state": "GA",
+    "ageGroups": [
+      "14U",
+      "15U",
+      "16U",
+      "17U"
+    ],
+    "seasons": [
+      "Spring",
+      "Summer"
+    ],
+    "description": "On The Radar Circuit - premier grassroots basketball circuit featuring top AAU programs across the Southeast.",
+    "website": "https://www.ontheradarhoops.com",
+    "registrationUrl": null,
+    "contactEmail": null,
+    "contactPhone": null,
+    "costInfo": null,
+    "isVerified": true
+  },
+  {
+    "name": "UA Future",
+    "slug": "ua-future",
+    "leagueType": "Circuit",
+    "city": "National",
+    "state": "US",
+    "ageGroups": [
+      "6th Grade",
+      "7th Grade",
+      "8th Grade"
+    ],
+    "seasons": [
+      "Spring",
+      "Summer"
+    ],
+    "description": "UA Future is Under Armour's premier middle school basketball circuit for boys and girls in grades 6-8. The circuit models the format of the UAA and serves as the foundation for Under Armour's youth basketball platform, featuring events across 13 cities nationwide.",
+    "website": "https://underarmournext.com/basketball/future/",
+    "registrationUrl": null,
+    "contactEmail": null,
+    "contactPhone": null,
+    "costInfo": null,
+    "isVerified": true
+  },
+  {
+    "name": "Under Armour Association (UAA)",
+    "slug": "under-armour-association-uaa",
+    "leagueType": "Circuit",
+    "city": "Louisville",
+    "state": "KY",
+    "ageGroups": [
+      "15U",
+      "16U",
+      "17U"
+    ],
+    "seasons": [
+      "Spring",
+      "Summer"
+    ],
+    "description": "The Boys Under Armour Association provides elite travel teams with a league-style circuit at the 17U, 16U and 15U level. Teams participate in 12 regular season games that transition into a single-elimination championship bracket at the UAA Finals in July to crown the UAA Champions.",
+    "website": "https://underarmournext.com/basketball/boys-uaa/",
+    "registrationUrl": "https://underarmournext.com/basketball/boys-uaa/",
+    "contactEmail": null,
+    "contactPhone": null,
+    "costInfo": null,
+    "isVerified": true
+  }
+]
