@@ -145,8 +145,8 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="px-4 pb-2 safe-area-top" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1rem)' }}>
         <Link href={isTrainerView ? "/trainer" : "/dashboard"} onClick={closeSidebar}>
-          <div className="flex items-center cursor-pointer h-16" data-testid="link-sidebar-logo">
-            <img src={playr1Logo} alt="PLAYR1" className="h-16 object-contain mix-blend-screen" />
+          <div className="flex items-center cursor-pointer h-24" data-testid="link-sidebar-logo">
+            <img src={playr1Logo} alt="PLAYR1" className="h-24 object-contain mix-blend-screen" />
           </div>
         </Link>
         {canToggle && (

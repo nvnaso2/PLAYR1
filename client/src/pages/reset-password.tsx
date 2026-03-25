@@ -68,7 +68,7 @@ export default function ResetPassword() {
     <div className="min-h-screen flex items-center justify-center p-6 bg-background" data-testid="page-reset-password">
       <div className="w-full max-w-md">
         <div className="flex justify-center mb-8">
-          <img src={playr1Logo} alt="PLAYR1" className="w-80 object-contain mix-blend-screen" />
+          <img src={playr1Logo} alt="PLAYR1" className="w-[360px] object-contain mix-blend-screen" />
         </div>
         <Card className="border-border/50 bg-card/80 backdrop-blur">
           <CardHeader className="text-center pb-2">
