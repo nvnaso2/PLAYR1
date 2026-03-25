@@ -52,7 +52,7 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
     },
     onSuccess: async (data) => {
       if (data?.token) storeAuthToken(data.token);
-      await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/auth/user"] });
       navigate("/");
     },
     onError: (error: Error) => {

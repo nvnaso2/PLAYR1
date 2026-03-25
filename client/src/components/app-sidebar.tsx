@@ -257,32 +257,6 @@ export function AppSidebar() {
           </>
         )}
 
-        {!isTrainerView && (
-          <>
-            <SidebarSeparator />
-            <SidebarGroup>
-              <SidebarGroupLabel>Categories</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {categoryItems.map((item) => (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton 
-                        asChild
-                        isActive={location.includes(item.url.split('?')[1]?.split('=')[1] || '')}
-                        data-testid={`link-category-${item.title.toLowerCase().replace(/\s/g, '-')}`}
-                      >
-                        <Link href={item.url} onClick={closeSidebar}>
-                          <item.icon className="w-4 h-4" />
-                          <span>{item.title}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          </>
-        )}
       </SidebarContent>
 
       <SidebarFooter className="p-2">

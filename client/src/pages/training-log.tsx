@@ -69,7 +69,8 @@ import {
   Video,
   Star,
   Heart,
-  Search
+  Search,
+  Loader2
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Drill, TrainingLog, DrillMetric, MetricTemplate, Workout, WorkoutDrill, ShotLocationDB, Challenge, UserChallenge } from "@shared/schema";
@@ -160,6 +161,7 @@ export default function TrainingLogPage() {
   });
   
   const [challengesSectionOpen, setChallengesSectionOpen] = useState(false);
+  const [isSavingWorkout, setIsSavingWorkout] = useState(false);
   
   // Timer state: tracks which rounds have active timers
   const [activeTimers, setActiveTimers] = useState<Record<number, number>>({}); // index -> start timestamp
@@ -1075,6 +1077,8 @@ export default function TrainingLogPage() {
   // Save workout
   const saveWorkout = async () => {
     if (!validateRequiredMetrics()) return;
+    if (isSavingWorkout) return;
+    setIsSavingWorkout(true);
 
     try {
       const sessionId = crypto.randomUUID();
@@ -1234,6 +1238,8 @@ export default function TrainingLogPage() {
     } catch (error) {
       console.error("Error saving workout:", error);
       toast({ title: "Failed to save workout", variant: "destructive" });
+    } finally {
+      setIsSavingWorkout(false);
     }
   };
 
@@ -2488,9 +2494,9 @@ export default function TrainingLogPage() {
                     </DialogContent>
                   </Dialog>
                 )}
-                <Button onClick={saveWorkout} className="gap-2" disabled={createLogMutation.isPending} data-testid="button-finish-workout">
-                  <Save className="w-4 h-4" />
-                  Finish Workout
+                <Button onClick={saveWorkout} className="gap-2" disabled={isSavingWorkout} data-testid="button-finish-workout">
+                  {isSavingWorkout ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  {isSavingWorkout ? "Saving..." : "Finish Workout"}
                 </Button>
               </div>
             </div>

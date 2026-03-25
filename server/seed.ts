@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { drills, benchmarks, evaluationAttributes, shotLocations, shotTypes, userProfiles, metricTemplates, drillMetrics } from "@shared/schema";
+import { drills, benchmarks, evaluationAttributes, shotLocations, shotTypes, userProfiles, metricTemplates, drillMetrics, teamClubs, leagues } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { eq, sql, notInArray } from "drizzle-orm";
 
@@ -388,6 +388,183 @@ export async function seedDatabase() {
       console.log("Metric templates synced");
     } else {
       console.log("Metric templates already synced");
+    }
+
+    const existingTeams = await db.select().from(teamClubs).limit(1);
+    if (existingTeams.length === 0) {
+      console.log("Inserting sample team clubs...");
+      await db.insert(teamClubs).values([
+        {
+          name: "Chicago Elite Basketball",
+          slug: "chicago-elite-basketball",
+          organizationType: "AAU",
+          city: "Chicago",
+          state: "IL",
+          gender: "Boys",
+          ageGroups: ["14U", "15U", "16U", "17U"],
+          description: "Premier AAU basketball program developing elite players in the Chicago metropolitan area.",
+          createdByUserId: "system",
+        },
+        {
+          name: "LA Grind Academy",
+          slug: "la-grind-academy",
+          organizationType: "AAU",
+          city: "Los Angeles",
+          state: "CA",
+          gender: "Boys",
+          ageGroups: ["13U", "14U", "15U", "16U"],
+          description: "Top-tier AAU program in Southern California focused on player development.",
+          circuit: "Nike EYBL",
+          createdByUserId: "system",
+        },
+        {
+          name: "New York Rise Basketball",
+          slug: "new-york-rise-basketball",
+          organizationType: "AAU",
+          city: "New York",
+          state: "NY",
+          gender: "Boys",
+          ageGroups: ["15U", "16U", "17U", "18U"],
+          description: "Competitive AAU organization serving the greater New York area.",
+          createdByUserId: "system",
+        },
+        {
+          name: "Houston Hoops Elite",
+          slug: "houston-hoops-elite",
+          organizationType: "AAU",
+          city: "Houston",
+          state: "TX",
+          gender: "Boys",
+          ageGroups: ["14U", "15U", "16U"],
+          description: "High-level AAU program committed to developing the next generation of Texas talent.",
+          createdByUserId: "system",
+        },
+        {
+          name: "Atlanta Celtics",
+          slug: "atlanta-celtics",
+          organizationType: "AAU",
+          city: "Atlanta",
+          state: "GA",
+          gender: "Boys",
+          ageGroups: ["13U", "14U", "15U"],
+          description: "Building champions on and off the court in the Atlanta metro area.",
+          circuit: "Adidas 3SSB",
+          createdByUserId: "system",
+        },
+        {
+          name: "Phoenix Suns Youth",
+          slug: "phoenix-suns-youth",
+          organizationType: "Club",
+          city: "Phoenix",
+          state: "AZ",
+          gender: "Boys",
+          ageGroups: ["12U", "13U", "14U"],
+          description: "Official youth development partner of the Phoenix Suns.",
+          createdByUserId: "system",
+        },
+        {
+          name: "Miami Ballers",
+          slug: "miami-ballers",
+          organizationType: "AAU",
+          city: "Miami",
+          state: "FL",
+          gender: "Boys",
+          ageGroups: ["14U", "15U", "16U", "17U"],
+          description: "South Florida's premier AAU basketball program.",
+          createdByUserId: "system",
+        },
+        {
+          name: "Chicago Sky Girls Elite",
+          slug: "chicago-sky-girls-elite",
+          organizationType: "AAU",
+          city: "Chicago",
+          state: "IL",
+          gender: "Girls",
+          ageGroups: ["14U", "15U", "16U", "17U"],
+          description: "Top girls AAU program in the Midwest developing future college athletes.",
+          createdByUserId: "system",
+        },
+        {
+          name: "Dallas Defenders",
+          slug: "dallas-defenders",
+          organizationType: "AAU",
+          city: "Dallas",
+          state: "TX",
+          gender: "Boys",
+          ageGroups: ["15U", "16U", "17U"],
+          description: "Developing elite basketball talent across the Dallas-Fort Worth metroplex.",
+          circuit: "Under Armour Association",
+          createdByUserId: "system",
+        },
+        {
+          name: "Seattle Storm Youth",
+          slug: "seattle-storm-youth",
+          organizationType: "Club",
+          city: "Seattle",
+          state: "WA",
+          gender: "Girls",
+          ageGroups: ["13U", "14U", "15U", "16U"],
+          description: "Girls basketball development program in the Pacific Northwest.",
+          createdByUserId: "system",
+        },
+      ]);
+      console.log("Inserted sample team clubs");
+    } else {
+      console.log("Team clubs already exist, skipping seed");
+    }
+
+    const existingLeagues = await db.select().from(leagues).limit(1);
+    if (existingLeagues.length === 0) {
+      console.log("Inserting sample leagues...");
+      await db.insert(leagues).values([
+        {
+          name: "Midwest Youth Basketball League",
+          slug: "midwest-youth-basketball-league",
+          leagueType: "Youth",
+          city: "Chicago",
+          state: "IL",
+          ageGroups: ["13U", "14U", "15U"],
+          seasons: ["Fall", "Winter"],
+          description: "Competitive youth basketball league across the Midwest region.",
+          createdByUserId: "system",
+        },
+        {
+          name: "SoCal Premier League",
+          slug: "socal-premier-league",
+          leagueType: "Travel",
+          city: "Los Angeles",
+          state: "CA",
+          ageGroups: ["14U", "15U", "16U", "17U"],
+          seasons: ["Year-Round"],
+          description: "Southern California's most competitive youth basketball league.",
+          createdByUserId: "system",
+        },
+        {
+          name: "Texas Girls Basketball League",
+          slug: "texas-girls-basketball-league",
+          leagueType: "Youth",
+          city: "Houston",
+          state: "TX",
+          ageGroups: ["14U", "15U", "16U"],
+          seasons: ["Winter", "Spring"],
+          description: "Premier girls basketball competition across Texas.",
+          createdByUserId: "system",
+        },
+        {
+          name: "Southeast Basketball Conference",
+          slug: "southeast-basketball-conference",
+          leagueType: "Scholastic",
+          city: "Atlanta",
+          state: "GA",
+          ageGroups: ["13U", "14U", "15U", "16U"],
+          seasons: ["Fall", "Spring"],
+          description: "Multi-state basketball conference across the Southeast.",
+          createdByUserId: "system",
+        },
+      ]);
+      console.log("Inserted sample leagues");
+    } else {
+      console.log("Leagues already exist, skipping seed");
     }
 
     console.log("Database seeding complete!");
