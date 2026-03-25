@@ -168,17 +168,19 @@ export default function TrainingLogPage() {
   // drillId → timestamp (ms) when that drill was first added to the session
   const [drillStartTimes, setDrillStartTimes] = useState<Record<string, number>>({});
 
+  // Auto-start the timer the moment a workout begins — no manual button needed
+  useEffect(() => {
+    if (workoutInProgress && !workoutStartTime) {
+      setWorkoutStartTime(Date.now());
+    }
+  }, [workoutInProgress]);
+
   // Tick effect — rerenders the header clock every second while timer runs
   useEffect(() => {
     if (!workoutStartTime) return;
     const interval = setInterval(() => setWorkoutTimerTick(t => t + 1), 1000);
     return () => clearInterval(interval);
   }, [workoutStartTime]);
-
-  // Start the single workout timer (idempotent)
-  const startWorkoutTimer = () => {
-    if (!workoutStartTime) setWorkoutStartTime(Date.now());
-  };
 
   // Format a millisecond duration into M:SS or H:MM:SS
   const formatMs = (ms: number): string => {
@@ -2441,24 +2443,11 @@ export default function TrainingLogPage() {
                     {workoutEntries.length} drill{workoutEntries.length > 1 ? 's' : ''} in this session
                   </CardDescription>
                 </div>
-                {/* Single workout elapsed timer */}
-                {workoutStartTime ? (
-                  <div className="flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-lg px-3 py-1.5" data-testid="workout-elapsed-timer">
-                    <Timer className="w-4 h-4 text-primary" />
-                    <span className="font-mono text-lg font-bold text-primary tabular-nums">{workoutElapsed}</span>
-                  </div>
-                ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={startWorkoutTimer}
-                    className="gap-2 border-primary/40 text-primary hover:bg-primary/10"
-                    data-testid="button-start-workout-timer"
-                  >
-                    <Timer className="w-4 h-4" />
-                    Start Timer
-                  </Button>
-                )}
+                {/* Single workout elapsed timer — auto-starts when workout begins */}
+                <div className="flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-lg px-3 py-1.5" data-testid="workout-elapsed-timer">
+                  <Timer className="w-4 h-4 text-primary" />
+                  <span className="font-mono text-lg font-bold text-primary tabular-nums">{workoutElapsed}</span>
+                </div>
               </div>
               <div className="flex gap-2 flex-wrap">
                 <Button variant="outline" onClick={cancelWorkout} className="gap-2" data-testid="button-cancel-workout">
