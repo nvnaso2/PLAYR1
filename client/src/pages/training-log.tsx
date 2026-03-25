@@ -141,6 +141,7 @@ export default function TrainingLogPage() {
   const [drillSearchQuery, setDrillSearchQuery] = useState("");
   const [selectedMetricTemplateIds, setSelectedMetricTemplateIds] = useState<string[]>([]);
   const [presetRounds, setPresetRounds] = useState<Array<{ shotLocation?: string; metricValues: Record<string, number> }>>([]);
+  const createDrillTrackShots = createDrillForm.watch("trackShots");
   const [drillVideoFile, setDrillVideoFile] = useState<File | null>(null);
   const [drillVideoUploading, setDrillVideoUploading] = useState(false);
   const [drillVideoProgress, setDrillVideoProgress] = useState(0);
@@ -862,6 +863,18 @@ export default function TrainingLogPage() {
     setActiveView("workout");
   };
 
+  // Preset round builder helpers (used in Create Drill dialog)
+  const addPresetRound = () => {
+    const metricValues: Record<string, number> = {};
+    selectedMetricTemplateIds.forEach(id => { metricValues[id] = 0; });
+    setPresetRounds(prev => [...prev, { metricValues }]);
+  };
+  const removePresetRound = (idx: number) => setPresetRounds(prev => prev.filter((_, i) => i !== idx));
+  const updatePresetRoundLocation = (idx: number, slug: string) =>
+    setPresetRounds(prev => prev.map((r, i) => i === idx ? { ...r, shotLocation: (slug && slug !== '__any__') ? slug : undefined } : r));
+  const updatePresetRoundMetric = (idx: number, templateId: string, val: number) =>
+    setPresetRounds(prev => prev.map((r, i) => i === idx ? { ...r, metricValues: { ...r.metricValues, [templateId]: val } } : r));
+
   // Build entries for a single drill, respecting its presets
   const buildDrillEntries = async (drillId: string, drill: Drill): Promise<WorkoutDrillEntry[]> => {
     const drillMetrics = await fetchDrillMetrics(drillId);
@@ -1486,93 +1499,77 @@ export default function TrainingLogPage() {
                       </div>
 
                       {/* Preset Rounds Builder */}
-                      {(() => {
-                        const trackShots = createDrillForm.watch("trackShots");
-                        const addPresetRound = () => {
-                          const metricValues: Record<string, number> = {};
-                          selectedMetricTemplateIds.forEach(id => { metricValues[id] = 0; });
-                          setPresetRounds(prev => [...prev, { metricValues }]);
-                        };
-                        const removePresetRound = (idx: number) => setPresetRounds(prev => prev.filter((_, i) => i !== idx));
-                        const updatePresetRoundLocation = (idx: number, slug: string) =>
-                          setPresetRounds(prev => prev.map((r, i) => i === idx ? { ...r, shotLocation: (slug && slug !== '__any__') ? slug : undefined } : r));
-                        const updatePresetRoundMetric = (idx: number, templateId: string, val: number) =>
-                          setPresetRounds(prev => prev.map((r, i) => i === idx ? { ...r, metricValues: { ...r.metricValues, [templateId]: val } } : r));
-
-                        return (
-                          <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <FormLabel>Preset Rounds <span className="font-normal text-muted-foreground text-xs">(optional)</span></FormLabel>
-                                <p className="text-xs text-muted-foreground mt-0.5">Pre-configure rounds that auto-load when this drill is started.</p>
-                              </div>
-                              <Button type="button" size="sm" variant="outline" onClick={addPresetRound} data-testid="button-add-preset-round">
-                                <Plus className="w-3.5 h-3.5 mr-1" /> Add Round
-                              </Button>
-                            </div>
-
-                            {presetRounds.length > 0 && (
-                              <div className="overflow-x-auto border rounded-md">
-                                <table className="w-full text-sm">
-                                  <thead>
-                                    <tr className="border-b bg-muted/30">
-                                      <th className="p-2 text-left text-xs font-medium text-muted-foreground">#</th>
-                                      {trackShots && <th className="p-2 text-left text-xs font-medium text-muted-foreground">Location</th>}
-                                      {selectedMetricTemplateIds.map(id => {
-                                        const t = metricTemplates?.find(t => t.id === id);
-                                        return t ? <th key={id} className="p-2 text-center text-xs font-medium text-muted-foreground">{t.label || t.name}</th> : null;
-                                      })}
-                                      <th></th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {presetRounds.map((round, roundIdx) => (
-                                      <tr key={roundIdx} className="border-b last:border-0 hover:bg-muted/20">
-                                        <td className="p-2">
-                                          <Badge variant="secondary" className="text-xs">{roundIdx + 1}</Badge>
-                                        </td>
-                                        {trackShots && (
-                                          <td className="p-1">
-                                            <Select value={round.shotLocation || '__any__'} onValueChange={v => updatePresetRoundLocation(roundIdx, v)}>
-                                              <SelectTrigger className="w-32 h-8 text-xs" data-testid={`select-preset-round-loc-${roundIdx}`}>
-                                                <SelectValue placeholder="Location" />
-                                              </SelectTrigger>
-                                              <SelectContent>
-                                                <SelectItem value="__any__">Any</SelectItem>
-                                                {shotLocationOptions?.map(loc => (
-                                                  <SelectItem key={loc.slug} value={loc.slug}>{loc.label}</SelectItem>
-                                                ))}
-                                              </SelectContent>
-                                            </Select>
-                                          </td>
-                                        )}
-                                        {selectedMetricTemplateIds.map(templateId => (
-                                          <td key={templateId} className="p-1">
-                                            <Input
-                                              type="number"
-                                              min={0}
-                                              placeholder="0"
-                                              value={round.metricValues[templateId] ?? ''}
-                                              onChange={e => updatePresetRoundMetric(roundIdx, templateId, e.target.value === '' ? 0 : Number(e.target.value))}
-                                              className="w-16 h-8 text-sm text-center"
-                                              data-testid={`input-preset-round-${roundIdx}-metric-${templateId}`}
-                                            />
-                                          </td>
-                                        ))}
-                                        <td className="p-1">
-                                          <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => removePresetRound(roundIdx)} data-testid={`button-remove-preset-round-${roundIdx}`}>
-                                            <Trash2 className="w-3.5 h-3.5" />
-                                          </Button>
-                                        </td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
-                            )}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <FormLabel>Preset Rounds <span className="font-normal text-muted-foreground text-xs">(optional)</span></FormLabel>
+                            <p className="text-xs text-muted-foreground mt-0.5">Pre-configure rounds that auto-load when this drill is started.</p>
                           </div>
-                        );
-                      })()}
+                          <Button type="button" size="sm" variant="outline" onClick={addPresetRound} data-testid="button-add-preset-round">
+                            <Plus className="w-3.5 h-3.5 mr-1" /> Add Round
+                          </Button>
+                        </div>
+
+                        {presetRounds.length > 0 && (
+                          <div className="overflow-x-auto border rounded-md">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="border-b bg-muted/30">
+                                  <th className="p-2 text-left text-xs font-medium text-muted-foreground">#</th>
+                                  {createDrillTrackShots && <th className="p-2 text-left text-xs font-medium text-muted-foreground">Location</th>}
+                                  {selectedMetricTemplateIds.map(id => {
+                                    const t = metricTemplates?.find(t => t.id === id);
+                                    return t ? <th key={id} className="p-2 text-center text-xs font-medium text-muted-foreground">{t.label || t.name}</th> : null;
+                                  })}
+                                  <th></th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {presetRounds.map((round, roundIdx) => (
+                                  <tr key={roundIdx} className="border-b last:border-0 hover:bg-muted/20">
+                                    <td className="p-2">
+                                      <Badge variant="secondary" className="text-xs">{roundIdx + 1}</Badge>
+                                    </td>
+                                    {createDrillTrackShots && (
+                                      <td className="p-1">
+                                        <Select value={round.shotLocation || '__any__'} onValueChange={v => updatePresetRoundLocation(roundIdx, v)}>
+                                          <SelectTrigger className="w-32 h-8 text-xs" data-testid={`select-preset-round-loc-${roundIdx}`}>
+                                            <SelectValue placeholder="Location" />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="__any__">Any</SelectItem>
+                                            {(shotLocationOptions ?? []).map(loc => (
+                                              <SelectItem key={loc.slug} value={loc.slug}>{loc.label}</SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                      </td>
+                                    )}
+                                    {selectedMetricTemplateIds.map(templateId => (
+                                      <td key={templateId} className="p-1">
+                                        <Input
+                                          type="number"
+                                          min={0}
+                                          placeholder="0"
+                                          value={round.metricValues[templateId] ?? ''}
+                                          onChange={e => updatePresetRoundMetric(roundIdx, templateId, e.target.value === '' ? 0 : Number(e.target.value))}
+                                          className="w-16 h-8 text-sm text-center"
+                                          data-testid={`input-preset-round-${roundIdx}-metric-${templateId}`}
+                                        />
+                                      </td>
+                                    ))}
+                                    <td className="p-1">
+                                      <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => removePresetRound(roundIdx)} data-testid={`button-remove-preset-round-${roundIdx}`}>
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </Button>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
 
                       {/* Tips */}
                       <FormField
