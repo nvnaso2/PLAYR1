@@ -1085,6 +1085,20 @@ export default function TrainingLogPage() {
       const sessionId = crypto.randomUUID();
       const challengeUpdates: Record<string, number> = {};
 
+      // Compute actual per-drill duration from workout timer timestamps.
+      // Order: each drill's actual time = (its start stamp → next drill's start stamp, or now for the last drill).
+      // Falls back to the estimated duration when no timer was running.
+      const saveNow = Date.now();
+      const drillIdOrder = Array.from(new Set(workoutEntries.map(e => e.drillId)));
+      const getActualDuration = (drillId: string, fallback: number): number => {
+        if (!workoutStartTime || !drillStartTimes[drillId]) return fallback;
+        const startMs = drillStartTimes[drillId];
+        const idx = drillIdOrder.indexOf(drillId);
+        const nextId = drillIdOrder[idx + 1];
+        const endMs = nextId ? (drillStartTimes[nextId] ?? saveNow) : saveNow;
+        return Math.max(1, Math.round((endMs - startMs) / 60000));
+      };
+
       // Build bulk payload synchronously (no awaits)
       const bulkEntries = workoutEntries.map(entry => {
         const isShootingDrill = entry.drill.trackShots;
@@ -1150,7 +1164,7 @@ export default function TrainingLogPage() {
         const metrics = Object.entries(entry.metrics).map(([metricId, value]) => ({ metricId, value: Number(value) }));
         return {
           drillId: entry.drillId,
-          duration: entry.duration,
+          duration: getActualDuration(entry.drillId, entry.duration),
           notes: entry.notes || undefined,
           workoutSessionId: workoutEntries.length > 1 ? sessionId : undefined,
           shotLocation: isShootingDrill ? entry.shotLocation : undefined,
