@@ -595,9 +595,10 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   const handleCardPhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
-    if (!allowedTypes.includes(file.type)) {
-      toast({ title: "Invalid file type", description: "Please upload a JPEG, PNG, GIF, or WebP image.", variant: "destructive" });
+    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/heic", "image/heif"];
+    const fileType = file.type || "image/jpeg";
+    if (file.type && !allowedTypes.includes(file.type)) {
+      toast({ title: "Invalid file type", description: "Please upload a JPEG, PNG, GIF, WebP, or HEIC image.", variant: "destructive" });
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
@@ -613,16 +614,18 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   const uploadCardPhoto = async (): Promise<string | null> => {
     if (!cardPhotoFile) return null;
     setUploadingPhoto(true);
+    const contentType = cardPhotoFile.type || "image/jpeg";
+    const fileName = cardPhotoFile.name || "photo.jpg";
     try {
       const urlRes = await apiRequest("POST", "/api/user/uploads/photo-url", {
-        name: cardPhotoFile.name,
+        name: fileName,
         size: cardPhotoFile.size,
-        contentType: cardPhotoFile.type,
+        contentType,
       });
       const { uploadURL, objectPath } = await urlRes.json();
       await fetch(uploadURL, {
         method: "PUT",
-        headers: { "Content-Type": cardPhotoFile.type },
+        headers: { "Content-Type": contentType },
         body: cardPhotoFile,
       });
       return objectPath;
@@ -1081,7 +1084,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
               <input
                 id="onboarding-card-photo"
                 type="file"
-                accept="image/jpeg,image/png,image/gif,image/webp"
+                accept="image/*"
                 className="hidden"
                 onChange={handleCardPhotoSelect}
                 data-testid="input-card-photo"
@@ -2252,9 +2255,11 @@ function BaseballCard({ profile, careerStats, onPhotoUpdated, userName }: { prof
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
-    if (!allowedTypes.includes(file.type)) {
-      toast({ title: "Invalid file type", description: "Please upload a JPEG, PNG, GIF, or WebP image.", variant: "destructive" });
+    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/heic", "image/heif"];
+    const contentType = file.type || "image/jpeg";
+    const fileName = file.name || "photo.jpg";
+    if (file.type && !allowedTypes.includes(file.type)) {
+      toast({ title: "Invalid file type", description: "Please upload a JPEG, PNG, GIF, WebP, or HEIC image.", variant: "destructive" });
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
@@ -2265,15 +2270,15 @@ function BaseballCard({ profile, careerStats, onPhotoUpdated, userName }: { prof
     setUploading(true);
     try {
       const urlRes = await apiRequest("POST", "/api/user/uploads/photo-url", {
-        name: file.name,
+        name: fileName,
         size: file.size,
-        contentType: file.type,
+        contentType,
       });
       const { uploadURL, objectPath } = await urlRes.json();
 
       await fetch(uploadURL, {
         method: "PUT",
-        headers: { "Content-Type": file.type },
+        headers: { "Content-Type": contentType },
         body: file,
       });
 
@@ -2353,7 +2358,7 @@ function BaseballCard({ profile, careerStats, onPhotoUpdated, userName }: { prof
               <Camera className="w-4 h-4" />
               <input
                 type="file"
-                accept="image/jpeg,image/png,image/gif,image/webp"
+                accept="image/*"
                 className="hidden"
                 onChange={handlePhotoUpload}
                 disabled={uploading}

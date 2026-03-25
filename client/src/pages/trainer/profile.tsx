@@ -335,7 +335,7 @@ export default function TrainerProfilePage() {
     setUploading(true);
     try {
       const urlRes = await apiRequest("POST", "/api/user/uploads/photo-url", {
-        name: file.name, size: file.size, contentType,
+        name: file.name || "photo.jpg", size: file.size, contentType,
       });
       const { uploadURL, objectPath } = await urlRes.json();
       await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": contentType }, body: file });

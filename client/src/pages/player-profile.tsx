@@ -237,9 +237,11 @@ export function PlayerProfileSection() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
-    if (!allowedTypes.includes(file.type)) {
-      toast({ title: "Invalid file type", description: "Please upload a JPEG, PNG, GIF, or WebP image.", variant: "destructive" });
+    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/heic", "image/heif"];
+    const contentType = file.type || "image/jpeg";
+    const fileName = file.name || "photo.jpg";
+    if (file.type && !allowedTypes.includes(file.type)) {
+      toast({ title: "Invalid file type", description: "Please upload a JPEG, PNG, GIF, WebP, or HEIC image.", variant: "destructive" });
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
@@ -250,15 +252,15 @@ export function PlayerProfileSection() {
     setUploading(true);
     try {
       const urlRes = await apiRequest("POST", "/api/user/uploads/photo-url", {
-        name: file.name,
+        name: fileName,
         size: file.size,
-        contentType: file.type,
+        contentType,
       });
       const { uploadURL, objectPath } = await urlRes.json();
 
       const uploadRes = await fetch(uploadURL, {
         method: "PUT",
-        headers: { "Content-Type": file.type },
+        headers: { "Content-Type": contentType },
         body: file,
       });
       if (!uploadRes.ok) throw new Error("Upload failed");

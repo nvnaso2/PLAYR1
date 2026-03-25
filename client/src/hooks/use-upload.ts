@@ -69,7 +69,7 @@ export function useUpload(options: UseUploadOptions = {}) {
         },
         credentials: "include",
         body: JSON.stringify({
-          name: file.name,
+          name: file.name || "upload",
           size: file.size,
           contentType: file.type || "application/octet-stream",
         }),
@@ -170,7 +170,7 @@ export function useUpload(options: UseUploadOptions = {}) {
         },
         credentials: "include",
         body: JSON.stringify({
-          name: file.name,
+          name: file.name || "upload",
           size: file.size,
           contentType: file.type || "application/octet-stream",
         }),
