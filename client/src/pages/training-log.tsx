@@ -1085,18 +1085,59 @@ export default function TrainingLogPage() {
       const sessionId = crypto.randomUUID();
       const challengeUpdates: Record<string, number> = {};
 
-      // Compute actual per-drill duration from workout timer timestamps.
-      // Order: each drill's actual time = (its start stamp → next drill's start stamp, or now for the last drill).
-      // Falls back to the estimated duration when no timer was running.
+      // Compute actual per-drill duration from workout timer.
+      //
+      // Two cases:
+      //   A) Drills were added mid-workout at meaningfully different times (> 60 s apart from
+      //      the first drill) → use the timestamp span between consecutive drill adds.
+      //   B) All drills were pre-selected at once (same or very close timestamps, the normal
+      //      workflow) → split the total elapsed time proportionally by each drill's estimated
+      //      duration so every drill gets a fair share of the real session time.
+      //
+      // If the timer was never started fall back to the estimated duration.
       const saveNow = Date.now();
       const drillIdOrder = Array.from(new Set(workoutEntries.map(e => e.drillId)));
+
+      // Per-drill estimated minutes (average across rounds of that drill)
+      const drillEstimateMap = new Map<string, number>(
+        drillIdOrder.map(id => {
+          const ents = workoutEntries.filter(e => e.drillId === id);
+          const avg = ents.reduce((s, e) => s + e.duration, 0) / ents.length;
+          return [id, Math.max(1, Math.round(avg))];
+        })
+      );
+      const totalEstimateMinutes = Array.from(drillEstimateMap.values()).reduce((s, v) => s + v, 0);
+      const totalElapsedMs = workoutStartTime ? (saveNow - workoutStartTime) : 0;
+      const totalElapsedMinutes = workoutStartTime
+        ? Math.max(drillIdOrder.length, Math.round(totalElapsedMs / 60000))
+        : 0;
+
+      // Earliest stamp across all drills (for detecting mid-workout adds)
+      const stampValues = Object.values(drillStartTimes).filter((v): v is number => !!v);
+      const firstStamp = stampValues.length ? Math.min(...stampValues) : saveNow;
+
       const getActualDuration = (drillId: string, fallback: number): number => {
-        if (!workoutStartTime || !drillStartTimes[drillId]) return fallback;
-        const startMs = drillStartTimes[drillId];
+        if (!workoutStartTime) return fallback;
+
+        const thisStamp = drillStartTimes[drillId];
         const idx = drillIdOrder.indexOf(drillId);
         const nextId = drillIdOrder[idx + 1];
-        const endMs = nextId ? (drillStartTimes[nextId] ?? saveNow) : saveNow;
-        return Math.max(1, Math.round((endMs - startMs) / 60000));
+        const nextStamp = nextId ? drillStartTimes[nextId] : undefined;
+
+        // "Mid-workout add" = stamped more than 60 s after the first drill
+        const thisMid = thisStamp != null && (thisStamp - firstStamp) > 60000;
+        const nextMid = nextStamp != null && (nextStamp - firstStamp) > 60000;
+
+        if (thisMid || nextMid) {
+          // Case A: use the span between consecutive drill-add timestamps
+          const startMs = thisStamp ?? firstStamp;
+          const endMs = nextMid && nextStamp != null ? nextStamp : saveNow;
+          return Math.max(1, Math.round((endMs - startMs) / 60000));
+        }
+
+        // Case B: pre-selected drills — distribute total elapsed proportionally
+        const estimate = drillEstimateMap.get(drillId) ?? 1;
+        return Math.max(1, Math.round(totalElapsedMinutes * (estimate / totalEstimateMinutes)));
       };
 
       // Build bulk payload synchronously (no awaits)
@@ -2524,10 +2565,18 @@ export default function TrainingLogPage() {
                     });
                   const isShootingDrill = group.drill.trackShots;
 
-                  // Compute "started at / ended at" relative to workout timer
+                  // Compute "started at / ended at" relative to workout timer.
+                  // Only show these when drills were added at meaningfully different times
+                  // (i.e. mid-workout adds > 60 s apart from each other).  When all drills
+                  // were pre-selected they share the same stamp, so we skip the display.
+                  const allStamps = Object.values(drillStartTimes).filter((v): v is number => !!v);
+                  const earliestStamp = allStamps.length ? Math.min(...allStamps) : null;
                   const drillStartedMs = drillStartTimes[drillId];
                   const nextDrillId = drillIds[drillIdx + 1];
                   const drillEndedMs = nextDrillId ? drillStartTimes[nextDrillId] : null;
+                  // Only meaningful if this drill was added > 60 s after the first drill
+                  const showTimestamps = workoutStartTime && drillStartedMs && earliestStamp != null
+                    && (drillStartedMs - earliestStamp) > 60000;
                   const estMinutes = group.drill.duration ? Math.round(group.drill.duration / 60) : null;
                   
                   return (
@@ -2541,12 +2590,12 @@ export default function TrainingLogPage() {
                                 {formatCategory(group.drill.category)} · {group.entries.length} round{group.entries.length > 1 ? 's' : ''}
                                 {estMinutes ? ` · ~${estMinutes}m est.` : ''}
                               </CardDescription>
-                              {/* "Started at / Ended at" timestamps */}
-                              {workoutStartTime && drillStartedMs && (
+                              {/* "Started at / Ended at" timestamps — only for mid-workout adds */}
+                              {showTimestamps && (
                                 <span className="flex items-center gap-1 text-xs text-muted-foreground">
                                   <Clock className="w-3 h-3 shrink-0" />
                                   <span>
-                                    Started {relativeTime(drillStartedMs)}
+                                    Started {relativeTime(drillStartedMs!)}
                                     {drillEndedMs
                                       ? ` · Ended ${relativeTime(drillEndedMs)}`
                                       : ''}
