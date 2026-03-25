@@ -3,10 +3,7 @@ import { drills, benchmarks, evaluationAttributes, shotLocations, shotTypes, use
 import { users } from "@shared/models/auth";
 import { eq, sql, notInArray } from "drizzle-orm";
 import { readFileSync } from "fs";
-import { join, dirname } from "path";
-import { fileURLToPath } from "url";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
+import { join } from "path";
 
 const sampleDrills = [
   // Ball Handling
@@ -398,7 +395,7 @@ export async function seedDatabase() {
     const existingTeams = await db.select().from(teamClubs).limit(1);
     if (existingTeams.length === 0) {
       console.log("Inserting team clubs from data file...");
-      const teamClubsData = JSON.parse(readFileSync(join(__dirname, "data/team-clubs-seed.json"), "utf-8"));
+      const teamClubsData = JSON.parse(readFileSync(join(process.cwd(), "server", "data", "team-clubs-seed.json"), "utf-8"));
       const teamBatchSize = 50;
       for (let i = 0; i < teamClubsData.length; i += teamBatchSize) {
         const batch = teamClubsData.slice(i, i + teamBatchSize).map((t: any) => ({
@@ -415,7 +412,7 @@ export async function seedDatabase() {
     const existingLeagues = await db.select().from(leagues).limit(1);
     if (existingLeagues.length === 0) {
       console.log("Inserting leagues from data file...");
-      const leaguesData = JSON.parse(readFileSync(join(__dirname, "data/leagues-seed.json"), "utf-8"));
+      const leaguesData = JSON.parse(readFileSync(join(process.cwd(), "server", "data", "leagues-seed.json"), "utf-8"));
       await db.insert(leagues).values(leaguesData.map((l: any) => ({
         ...l,
         createdByUserId: "system",
