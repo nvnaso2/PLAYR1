@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Loader2, ArrowLeft, Mail } from "lucide-react";
 import { Link } from "wouter";
-import playr1Logo from "@assets/Playr1_App_Logo_1774460124826.png";
+import { Playr1Logo } from "@/components/playr1-logo";
 
 const forgotSchema = z.object({
   email: z.string().email("Enter a valid email address"),
@@ -37,7 +37,7 @@ export default function ForgotPassword() {
     <div className="min-h-screen flex items-center justify-center p-6 bg-background" data-testid="page-forgot-password">
       <div className="w-full max-w-md">
         <div className="flex justify-center mb-8">
-          <img src={playr1Logo} alt="PLAYR1" className="w-[360px] object-contain mix-blend-screen" />
+          <Playr1Logo className="w-[360px] object-contain" />
         </div>
         <Card className="border-border/50 bg-card/80 backdrop-blur">
           <CardHeader className="text-center pb-2">

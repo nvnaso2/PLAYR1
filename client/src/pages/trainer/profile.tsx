@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest, nativeFetch } from "@/lib/queryClient";
+import { queryClient, apiRequest, nativeFetch, getObjectUrl } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent } from "@/components/ui/card";
@@ -355,7 +355,7 @@ export default function TrainerProfilePage() {
   const trainerName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || "Trainer";
   const initials = (user?.firstName?.[0] || "") + (user?.lastName?.[0] || "");
   const photoSrc = (profile?.profilePhotoUrl || profilePhotoUrl)
-    ? `/objects/${(profile?.profilePhotoUrl || profilePhotoUrl)?.replace(/^\/objects\//, "")}`
+    ? getObjectUrl(profile?.profilePhotoUrl || profilePhotoUrl) ?? undefined
     : undefined;
   const p = profile;
 
@@ -661,7 +661,7 @@ export default function TrainerProfilePage() {
             <div className="flex flex-col items-center gap-3">
               <div className="relative group">
                 <Avatar className="h-24 w-24 border-2 border-border">
-                  <AvatarImage src={profilePhotoUrl ? `/objects/${profilePhotoUrl.replace(/^\/objects\//, "")}` : undefined} className="object-cover" />
+                  <AvatarImage src={getObjectUrl(profilePhotoUrl)} className="object-cover" />
                   <AvatarFallback className="text-2xl bg-muted text-muted-foreground font-semibold">
                     {initials || <User className="w-8 h-8" />}
                   </AvatarFallback>

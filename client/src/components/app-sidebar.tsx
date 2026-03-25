@@ -55,7 +55,8 @@ import {
   ClipboardCheck,
   Eye,
 } from "lucide-react";
-import playr1Logo from "@assets/Playr1_App_Logo_1774460124826.png";
+import { Playr1Logo } from "@/components/playr1-logo";
+import { getObjectUrl } from "@/lib/queryClient";
 
 const playerNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: BarChart3 },
@@ -146,10 +147,8 @@ export function AppSidebar() {
       <SidebarHeader className="px-3 pb-3 safe-area-top" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1rem)' }}>
         <Link href={isTrainerView ? "/trainer" : "/dashboard"} onClick={closeSidebar}>
           <div className="w-full relative overflow-hidden cursor-pointer" style={{ height: '34px' }} data-testid="link-sidebar-logo">
-            <img
-              src={playr1Logo}
-              alt="PLAYR1"
-              className="absolute w-full mix-blend-screen"
+            <Playr1Logo
+              className="absolute w-full"
               style={{ top: '50%', transform: 'translateY(-50%)' }}
             />
           </div>
@@ -270,7 +269,7 @@ export function AppSidebar() {
                   data-testid="button-user-menu"
                 >
                   <Avatar className="h-6 w-6">
-                    <AvatarImage src={user?.profileImageUrl || undefined} />
+                    <AvatarImage src={user?.profileImageUrl ? getObjectUrl(user.profileImageUrl) : undefined} />
                     <AvatarFallback className="text-xs bg-primary text-primary-foreground">
                       {getInitials()}
                     </AvatarFallback>

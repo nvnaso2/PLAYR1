@@ -1,4 +1,5 @@
 import { QueryClient, QueryCache, MutationCache, QueryFunction } from "@tanstack/react-query";
+import { Capacitor } from "@capacitor/core";
 
 const NATIVE_API_BASE = "https://PLAYR1Basketball.replit.app";
 const TOKEN_KEY = "playr1_auth_token";
@@ -48,8 +49,22 @@ async function throwIfResNotOk(res: Response) {
 
 function handle401(error: unknown) {
   if (error instanceof Error && error.message.startsWith("401:")) {
+    // Don't hard-redirect if we have a stored token — this is a race condition
+    // (e.g. a pre-login in-flight request completing after login on iOS).
+    if (localStorage.getItem(TOKEN_KEY)) return;
     window.location.href = "/auth";
   }
+}
+
+/**
+ * Convert a relative /objects/... path to an absolute URL on iOS native,
+ * where WKWebView can struggle with relative src attributes for media elements.
+ */
+export function getObjectUrl(path: string | null | undefined): string | undefined {
+  if (!path) return undefined;
+  const rel = path.startsWith("/objects/") ? path : `/objects/${path.replace(/^\//, "")}`;
+  if (Capacitor.isNativePlatform()) return `${NATIVE_API_BASE}${rel}`;
+  return rel;
 }
 
 export async function apiRequest(

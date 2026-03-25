@@ -36,7 +36,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient, apiRequest, nativeFetch } from "@/lib/queryClient";
+import { queryClient, apiRequest, nativeFetch, getObjectUrl } from "@/lib/queryClient";
 import { 
   Video, 
   Upload, 
@@ -662,14 +662,14 @@ export default function VideosPage() {
               <div className="relative aspect-video bg-muted">
                 {video.thumbnailUrl ? (
                   <img 
-                    src={video.thumbnailUrl}
+                    src={getObjectUrl(video.thumbnailUrl) ?? video.thumbnailUrl}
                     alt={video.title}
                     className="w-full h-full object-cover"
                   />
                 ) : isInternalVideoUrl(video.videoUrl) ? (
                   // Render first frame of object-storage video as visual thumbnail
                   <video
-                    src={video.videoUrl ?? undefined}
+                    src={getObjectUrl(video.videoUrl) ?? undefined}
                     preload="metadata"
                     muted
                     playsInline
@@ -848,10 +848,11 @@ export default function VideosPage() {
             const url = playingVideo.videoUrl;
             if (isInternalVideoUrl(url)) {
               // Uploaded file — serve through backend proxy
+              const resolvedUrl = getObjectUrl(url) ?? url;
               return (
                 <video
-                  key={url}
-                  src={url ?? undefined}
+                  key={resolvedUrl}
+                  src={resolvedUrl ?? undefined}
                   controls
                   autoPlay
                   className="w-full bg-black"

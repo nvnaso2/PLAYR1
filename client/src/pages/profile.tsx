@@ -28,7 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, getObjectUrl } from "@/lib/queryClient";
 import { 
   User, 
   MapPin, 
@@ -260,8 +260,8 @@ export default function ProfilePage() {
   };
 
   const profilePhotoSrc = profile?.profilePhotoUrl
-    ? (profile.profilePhotoUrl.startsWith("/") ? profile.profilePhotoUrl : `/objects/${profile.profilePhotoUrl}`)
-    : user?.profileImageUrl || undefined;
+    ? getObjectUrl(profile.profilePhotoUrl)
+    : (user?.profileImageUrl ? getObjectUrl(user.profileImageUrl) : undefined);
 
   if (isLoading) {
     return (
