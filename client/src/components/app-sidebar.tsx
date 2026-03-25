@@ -143,14 +143,19 @@ export function AppSidebar() {
 
   return (
     <Sidebar>
-      <SidebarHeader className="px-4 pb-2 safe-area-top" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1rem)' }}>
+      <SidebarHeader className="px-2 pb-1 safe-area-top" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.5rem)' }}>
         <Link href={isTrainerView ? "/trainer" : "/dashboard"} onClick={closeSidebar}>
-          <div className="flex items-center cursor-pointer h-24" data-testid="link-sidebar-logo">
-            <img src={playr1Logo} alt="PLAYR1" className="h-24 object-contain mix-blend-screen" />
+          <div className="w-full relative overflow-hidden cursor-pointer" style={{ height: '72px' }} data-testid="link-sidebar-logo">
+            <img
+              src={playr1Logo}
+              alt="PLAYR1"
+              className="absolute w-full mix-blend-screen"
+              style={{ top: '50%', transform: 'translateY(-50%)' }}
+            />
           </div>
         </Link>
         {canToggle && (
-          <div className="flex items-center gap-1 mt-2">
+          <div className="flex items-center gap-1 mt-1">
             <Button
               size="sm"
               variant={!isTrainerView ? "default" : "ghost"}
