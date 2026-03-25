@@ -733,7 +733,7 @@ function DrillForm({
           };
           const removeRound = (idx: number) => setPresetRounds(prev => prev.filter((_, i) => i !== idx));
           const updateLoc = (idx: number, slug: string) =>
-            setPresetRounds(prev => prev.map((r, i) => i === idx ? { ...r, shotLocation: slug || undefined } : r));
+            setPresetRounds(prev => prev.map((r, i) => i === idx ? { ...r, shotLocation: (slug && slug !== '__any__') ? slug : undefined } : r));
           const updateMetric = (idx: number, templateId: string, val: number) =>
             setPresetRounds(prev => prev.map((r, i) => i === idx ? { ...r, metricValues: { ...r.metricValues, [templateId]: val } } : r));
 
@@ -774,12 +774,12 @@ function DrillForm({
                           </td>
                           {trackShots && (
                             <td className="p-1">
-                              <Select value={round.shotLocation || ''} onValueChange={v => updateLoc(roundIdx, v)}>
+                              <Select value={round.shotLocation || '__any__'} onValueChange={v => updateLoc(roundIdx, v)}>
                                 <SelectTrigger className="w-36 h-8 text-xs" data-testid={`select-preset-round-loc-${roundIdx}`}>
                                   <SelectValue placeholder="Location" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="">Any</SelectItem>
+                                  <SelectItem value="__any__">Any</SelectItem>
                                   {shotLocationOptions?.filter(l => l.isActive).map(loc => (
                                     <SelectItem key={loc.slug} value={loc.slug}>{loc.label}</SelectItem>
                                   ))}
