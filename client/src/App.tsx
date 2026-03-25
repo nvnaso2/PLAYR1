@@ -107,6 +107,7 @@ function SplashScreen({ isAuthLoading, isAuthenticated, onComplete }: {
 }
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
+  const isNative = Capacitor.isNativePlatform();
   const style = {
     "--sidebar-width": "16rem",
     "--sidebar-width-icon": "3rem",
@@ -117,10 +118,10 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
       <div className="flex h-screen w-full safe-area-inset">
         <AppSidebar />
         <SidebarInset className="flex-1 flex flex-col overflow-hidden">
-          <header className="relative flex items-center justify-between gap-4 p-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40 safe-area-top">
+          <header className={`relative flex items-center justify-between gap-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40 safe-area-top ${isNative ? 'px-3 pb-1' : 'p-3'}`}>
             <SidebarTrigger data-testid="button-sidebar-toggle" />
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <Playr1Logo className="h-32 w-auto" />
+              <Playr1Logo className={isNative ? 'h-10 w-auto' : 'h-32 w-auto'} />
             </div>
             <ThemeToggle />
           </header>
