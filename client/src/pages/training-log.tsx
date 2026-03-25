@@ -59,7 +59,6 @@ import {
   Pencil,
   MoreVertical,
   Timer,
-  Square,
   Check,
   Trophy,
   Medal,
@@ -163,51 +162,46 @@ export default function TrainingLogPage() {
   const [challengesSectionOpen, setChallengesSectionOpen] = useState(false);
   const [isSavingWorkout, setIsSavingWorkout] = useState(false);
   
-  // Timer state: tracks which rounds have active timers
-  const [activeTimers, setActiveTimers] = useState<Record<number, number>>({}); // index -> start timestamp
-  const [timerTick, setTimerTick] = useState(0); // Force re-render for timer display
-  
-  // Timer tick effect - update every second when any timer is active
+  // Single workout-level timer state
+  const [workoutStartTime, setWorkoutStartTime] = useState<number | null>(null);
+  const [, setWorkoutTimerTick] = useState(0);
+  // drillId → timestamp (ms) when that drill was first added to the session
+  const [drillStartTimes, setDrillStartTimes] = useState<Record<string, number>>({});
+
+  // Tick effect — rerenders the header clock every second while timer runs
   useEffect(() => {
-    const hasActiveTimers = Object.keys(activeTimers).length > 0;
-    if (!hasActiveTimers) return;
-    
-    const interval = setInterval(() => {
-      setTimerTick(t => t + 1);
-    }, 1000);
-    
+    if (!workoutStartTime) return;
+    const interval = setInterval(() => setWorkoutTimerTick(t => t + 1), 1000);
     return () => clearInterval(interval);
-  }, [Object.keys(activeTimers).length]);
-  
-  // Start timer for a round
-  const startTimer = (index: number) => {
-    setActiveTimers(prev => ({ ...prev, [index]: Date.now() }));
+  }, [workoutStartTime]);
+
+  // Start the single workout timer (idempotent)
+  const startWorkoutTimer = () => {
+    if (!workoutStartTime) setWorkoutStartTime(Date.now());
   };
-  
-  // Stop timer and update duration
-  const stopTimer = (index: number) => {
-    const startTime = activeTimers[index];
-    if (startTime) {
-      const elapsedMs = Date.now() - startTime;
-      const elapsedMinutes = Math.max(1, Math.round(elapsedMs / 60000));
-      updateEntry(index, 'duration', elapsedMinutes);
-    }
-    setActiveTimers(prev => {
-      const next = { ...prev };
-      delete next[index];
-      return next;
-    });
-  };
-  
-  // Get elapsed time string for a timer
-  const getElapsedTime = (index: number): string => {
-    const startTime = activeTimers[index];
-    if (!startTime) return "0:00";
-    const elapsedMs = Date.now() - startTime;
-    const totalSeconds = Math.floor(elapsedMs / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
+
+  // Format a millisecond duration into M:SS or H:MM:SS
+  const formatMs = (ms: number): string => {
+    const totalSeconds = Math.floor(Math.max(0, ms) / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
+    if (hours > 0) return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  // Current workout elapsed display (re-renders via workoutTimerTick)
+  const workoutElapsed = workoutStartTime ? formatMs(Date.now() - workoutStartTime) : "0:00";
+
+  // Converts an absolute timestamp to "X:XX into workout"
+  const relativeTime = (timestamp: number): string => {
+    if (!workoutStartTime) return "";
+    return formatMs(timestamp - workoutStartTime);
+  };
+
+  // Stamp a drill's start time (only sets once — preserves original)
+  const stampDrillStart = (drillId: string) => {
+    setDrillStartTimes(prev => prev[drillId] ? prev : { ...prev, [drillId]: Date.now() });
   };
   
   // View/Edit log state
@@ -937,6 +931,9 @@ export default function TrainingLogPage() {
     setWorkoutEntries(entries);
     setWorkoutInProgress(true);
     setActiveView("workout");
+    // Stamp each drill's start time at workout launch
+    const now = Date.now();
+    setDrillStartTimes(entries.reduce((acc, e) => ({ ...acc, [e.drillId]: acc[e.drillId] ?? now }), {} as Record<string, number>));
   };
 
   // Start workout from saved workout template
@@ -971,6 +968,9 @@ export default function TrainingLogPage() {
       setWorkoutEntries(entries);
       setWorkoutInProgress(true);
       setActiveView("workout");
+      // Stamp each drill's start time at workout launch
+      const now = Date.now();
+      setDrillStartTimes(entries.reduce((acc, e) => ({ ...acc, [e.drillId]: acc[e.drillId] ?? now }), {} as Record<string, number>));
     } catch {
       toast({ title: "Failed to load workout", variant: "destructive" });
     }
@@ -1034,6 +1034,7 @@ export default function TrainingLogPage() {
 
     const newEntries = await buildDrillEntries(drillId, drill);
     setWorkoutEntries(prev => [...prev, ...newEntries]);
+    stampDrillStart(drillId);
     setIsAddDrillToWorkoutOpen(false);
     toast({ title: "Drill added", description: `${drill.title} added to workout` });
   };
@@ -1185,14 +1186,17 @@ export default function TrainingLogPage() {
       queryClient.invalidateQueries({ queryKey: ['/api/assigned-drills'] });
 
       const challengeCount = Object.keys(challengeUpdates).length;
+      const elapsedLabel = workoutStartTime ? ` · ${formatMs(Date.now() - workoutStartTime)}` : "";
       toast({
         title: "Workout Complete!",
         description: challengeCount > 0
-          ? `Logged ${workoutEntries.length} drill${workoutEntries.length > 1 ? 's' : ''} and updated ${challengeCount} challenge${challengeCount > 1 ? 's' : ''}`
-          : `Logged ${workoutEntries.length} drill${workoutEntries.length > 1 ? 's' : ''}`,
+          ? `Logged ${workoutEntries.length} drill${workoutEntries.length > 1 ? 's' : ''} and updated ${challengeCount} challenge${challengeCount > 1 ? 's' : ''}${elapsedLabel}`
+          : `Logged ${workoutEntries.length} drill${workoutEntries.length > 1 ? 's' : ''}${elapsedLabel}`,
       });
 
       setWorkoutInProgress(false);
+      setWorkoutStartTime(null);
+      setDrillStartTimes({});
       setShowFavoriteDialog(true);
     } catch (error) {
       console.error("Error saving workout:", error);
@@ -1206,6 +1210,8 @@ export default function TrainingLogPage() {
   const cancelWorkout = () => {
     setWorkoutInProgress(false);
     setWorkoutEntries([]);
+    setWorkoutStartTime(null);
+    setDrillStartTimes({});
     setActiveView("library");
   };
 
@@ -2358,14 +2364,34 @@ export default function TrainingLogPage() {
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between flex-wrap gap-4">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Play className="w-5 h-5 text-primary" />
-                  Active Workout
-                </CardTitle>
-                <CardDescription>
-                  {workoutEntries.length} drill{workoutEntries.length > 1 ? 's' : ''} in this session
-                </CardDescription>
+              <div className="flex items-center gap-4 flex-wrap">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Play className="w-5 h-5 text-primary" />
+                    Active Workout
+                  </CardTitle>
+                  <CardDescription>
+                    {workoutEntries.length} drill{workoutEntries.length > 1 ? 's' : ''} in this session
+                  </CardDescription>
+                </div>
+                {/* Single workout elapsed timer */}
+                {workoutStartTime ? (
+                  <div className="flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-lg px-3 py-1.5" data-testid="workout-elapsed-timer">
+                    <Timer className="w-4 h-4 text-primary" />
+                    <span className="font-mono text-lg font-bold text-primary tabular-nums">{workoutElapsed}</span>
+                  </div>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={startWorkoutTimer}
+                    className="gap-2 border-primary/40 text-primary hover:bg-primary/10"
+                    data-testid="button-start-workout-timer"
+                  >
+                    <Timer className="w-4 h-4" />
+                    Start Timer
+                  </Button>
+                )}
               </div>
               <div className="flex gap-2 flex-wrap">
                 <Button variant="outline" onClick={cancelWorkout} className="gap-2" data-testid="button-cancel-workout">
@@ -2472,7 +2498,8 @@ export default function TrainingLogPage() {
                   drillGroups.get(entry.drillId)!.entries.push({ entry, index });
                 });
                 
-                return Array.from(drillGroups.entries()).map(([drillId, group]) => {
+                const drillIds = Array.from(drillGroups.keys());
+                return Array.from(drillGroups.entries()).map(([drillId, group], drillIdx) => {
                   const firstEntry = group.entries[0].entry;
                   const metricColumns = firstEntry.drillMetrics
                     .filter(dm => dm.template.type !== 'calculated')
@@ -2482,6 +2509,12 @@ export default function TrainingLogPage() {
                       return Number(isAttemptA) - Number(isAttemptB);
                     });
                   const isShootingDrill = group.drill.trackShots;
+
+                  // Compute "started at / ended at" relative to workout timer
+                  const drillStartedMs = drillStartTimes[drillId];
+                  const nextDrillId = drillIds[drillIdx + 1];
+                  const drillEndedMs = nextDrillId ? drillStartTimes[nextDrillId] : null;
+                  const estMinutes = group.drill.duration ? Math.round(group.drill.duration / 60) : null;
                   
                   return (
                     <Card key={drillId} className="border-muted" data-testid={`drill-table-${drillId}`}>
@@ -2489,9 +2522,24 @@ export default function TrainingLogPage() {
                         <div className="flex items-center justify-between">
                           <div>
                             <CardTitle className="text-base">{group.drill.title}</CardTitle>
-                            <CardDescription className="text-xs">
-                              {formatCategory(group.drill.category)} - {group.entries.length} round{group.entries.length > 1 ? 's' : ''}
-                            </CardDescription>
+                            <div className="flex items-center gap-3 flex-wrap mt-0.5">
+                              <CardDescription className="text-xs">
+                                {formatCategory(group.drill.category)} · {group.entries.length} round{group.entries.length > 1 ? 's' : ''}
+                                {estMinutes ? ` · ~${estMinutes}m est.` : ''}
+                              </CardDescription>
+                              {/* "Started at / Ended at" timestamps */}
+                              {workoutStartTime && drillStartedMs && (
+                                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  <Clock className="w-3 h-3 shrink-0" />
+                                  <span>
+                                    Started {relativeTime(drillStartedMs)}
+                                    {drillEndedMs
+                                      ? ` · Ended ${relativeTime(drillEndedMs)}`
+                                      : ''}
+                                  </span>
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <Button 
                             variant="outline" 
@@ -2507,7 +2555,7 @@ export default function TrainingLogPage() {
                       </CardHeader>
                       <CardContent className="p-0">
                         <div className="overflow-x-auto -mx-1 px-1">
-                          <table className="w-full text-sm min-w-[500px]">
+                          <table className="w-full text-sm min-w-[400px]">
                             <thead>
                               <tr className="border-b bg-muted/30">
                                 <th className="text-left p-2 sm:p-3 font-medium text-muted-foreground w-14 sm:w-20 text-xs sm:text-sm">Round</th>
@@ -2520,7 +2568,6 @@ export default function TrainingLogPage() {
                                     {dm.isRequired && <span className="text-destructive ml-1">*</span>}
                                   </th>
                                 ))}
-                                <th className="text-left p-2 sm:p-3 font-medium text-muted-foreground w-20 sm:w-24 text-xs sm:text-sm">Time</th>
                                 <th className="text-left p-2 sm:p-3 font-medium text-muted-foreground hidden sm:table-cell">Notes</th>
                                 {getMatchingChallenges(group.drill.category || '').length > 0 && (
                                   <th className="text-left p-2 sm:p-3 font-medium text-primary text-xs sm:text-sm whitespace-nowrap">
@@ -2580,39 +2627,6 @@ export default function TrainingLogPage() {
                                       />
                                     </td>
                                   ))}
-                                  <td className="p-2">
-                                    <div className="flex items-center gap-1">
-                                      {activeTimers[index] ? (
-                                        <>
-                                          <span className="font-mono text-sm text-primary font-bold min-w-[45px]" data-testid={`timer-display-${index}`}>
-                                            {getElapsedTime(index)}
-                                          </span>
-                                          <Button
-                                            variant="destructive"
-                                            size="icon"
-                                            className="h-7 w-7"
-                                            onClick={() => stopTimer(index)}
-                                            data-testid={`button-stop-timer-${index}`}
-                                          >
-                                            <Square className="w-3 h-3" />
-                                          </Button>
-                                        </>
-                                      ) : (
-                                        <>
-                                          <span className="text-xs text-muted-foreground min-w-[35px]">{entry.duration}m</span>
-                                          <Button
-                                            variant="outline"
-                                            size="icon"
-                                            className="h-7 w-7"
-                                            onClick={() => startTimer(index)}
-                                            data-testid={`button-start-timer-${index}`}
-                                          >
-                                            <Timer className="w-3 h-3" />
-                                          </Button>
-                                        </>
-                                      )}
-                                    </div>
-                                  </td>
                                   <td className="p-2 hidden sm:table-cell">
                                     <Input
                                       placeholder="Notes..."
