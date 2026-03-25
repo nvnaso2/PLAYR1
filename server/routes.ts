@@ -1415,6 +1415,58 @@ export async function registerRoutes(
     }
   });
 
+  // Bulk save training logs (used by finish-workout for speed)
+  app.post("/api/training-logs/bulk", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { entries } = req.body;
+      if (!Array.isArray(entries) || entries.length === 0) {
+        return res.status(400).json({ message: "entries must be a non-empty array" });
+      }
+      const logs = await Promise.all(entries.map(async (entry: any) => {
+        const data = insertTrainingLogSchema.parse({ ...entry, userId });
+        if (data.shotsMade !== undefined && data.shotsAttempted !== undefined &&
+            data.shotsMade !== null && data.shotsAttempted !== null &&
+            data.shotsMade > data.shotsAttempted) {
+          data.shotsMade = data.shotsAttempted;
+        }
+        const log = await storage.createTrainingLog(data);
+        const prMetrics: { metricName: string; value: number }[] = [];
+        if (log.score && log.score > 0) prMetrics.push({ metricName: "Score", value: log.score });
+        if (log.shotsMade && log.shotsMade > 0) prMetrics.push({ metricName: "Shots Made", value: log.shotsMade });
+        if (log.duration && log.duration > 0) prMetrics.push({ metricName: "Duration (min)", value: log.duration });
+        if (log.shotsAttempted && log.shotsMade && log.shotsAttempted > 0 && log.shotsMade <= log.shotsAttempted) {
+          const pct = Math.round((log.shotsMade / log.shotsAttempted) * 100);
+          if (pct > 0) prMetrics.push({ metricName: "Shooting %", value: pct });
+        }
+        if (Array.isArray(entry.metrics) && entry.metrics.length > 0) {
+          const saved = await storage.saveTrainingLogMetrics(log.id, entry.metrics);
+          const templates = await storage.getMetricTemplates();
+          for (const m of saved) {
+            if (m.value !== null && Number(m.value) > 0) {
+              const template = templates.find(t => t.id === m.metricId);
+              prMetrics.push({ metricName: template?.name || m.metricId, value: Number(m.value) });
+            }
+          }
+        }
+        if (prMetrics.length > 0) {
+          try { await storage.checkAndCreateDrillPRs(userId, log.drillId, log.id, prMetrics); } catch (e) { /* non-fatal */ }
+        }
+        if (log.drillId) {
+          try {
+            const toComplete = await storage.getActiveAssignmentsForDrillAndUser(userId, log.drillId);
+            for (const a of toComplete) await storage.updateDrillAssignmentStatus(a.id, "completed", log.id);
+          } catch (e) { /* non-fatal */ }
+        }
+        return log;
+      }));
+      res.status(201).json({ logs });
+    } catch (error) {
+      console.error("Error bulk saving training logs:", error);
+      res.status(500).json({ message: "Failed to save workout" });
+    }
+  });
+
   // Get single training log with metrics
   app.get("/api/training-logs/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {

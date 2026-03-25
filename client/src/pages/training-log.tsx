@@ -1082,14 +1082,11 @@ export default function TrainingLogPage() {
 
     try {
       const sessionId = crypto.randomUUID();
-      
-      // Track challenge progress updates to apply
       const challengeUpdates: Record<string, number> = {};
-      
-      for (const entry of workoutEntries) {
+
+      // Build bulk payload synchronously (no awaits)
+      const bulkEntries = workoutEntries.map(entry => {
         const isShootingDrill = entry.drill.trackShots;
-        
-        // Derive shot values from metric templates for heatmap/stats
         let derivedAttempted: number | undefined;
         let derivedMade: number | undefined;
         if (entry.drillMetrics.length > 0) {
@@ -1106,8 +1103,51 @@ export default function TrainingLogPage() {
           if (attemptMetric) derivedAttempted = entry.metrics[attemptMetric.metricTemplateId] || 0;
           if (madeMetric) derivedMade = entry.metrics[madeMetric.metricTemplateId] || 0;
         }
-        
-        const logResponse = await apiRequest("POST", "/api/training-logs", {
+
+        // Accumulate challenge updates
+        if (entry.trackToChallengeIds && entry.trackToChallengeIds.length > 0) {
+          for (const userChallengeId of entry.trackToChallengeIds) {
+            const userChallenge = activeChallenges?.find(uc => uc.id === userChallengeId);
+            if (!userChallenge) continue;
+            const metric = userChallenge.challenge.metric;
+            let metricValue = 0;
+            if (metric === 'makes') metricValue = derivedMade || 0;
+            else if (metric === 'time') metricValue = entry.duration || 0;
+            else if (metric === 'reps') {
+              const repMetrics = entry.drillMetrics.filter(dm => {
+                const n = dm.template.name.toLowerCase();
+                return n.includes('rep') || n.includes('count') || n.includes('total');
+              });
+              metricValue = repMetrics.length > 0
+                ? repMetrics.reduce((s, dm) => s + (entry.metrics[dm.metricTemplateId] || 0), 0)
+                : entry.drillMetrics.length === 1 ? Object.values(entry.metrics)[0] || 0 : 0;
+            } else if (metric === 'score') {
+              const scoreMetrics = entry.drillMetrics.filter(dm => {
+                const n = dm.template.name.toLowerCase();
+                return n.includes('score') || n.includes('point');
+              });
+              metricValue = scoreMetrics.length > 0
+                ? scoreMetrics.reduce((s, dm) => s + (entry.metrics[dm.metricTemplateId] || 0), 0)
+                : entry.drillMetrics.length === 1 ? Object.values(entry.metrics)[0] || 0 : 0;
+            } else if (metric === 'dribbles') {
+              const dribbleMetrics = entry.drillMetrics.filter(dm => {
+                const n = dm.template.name.toLowerCase();
+                return n.includes('dribble') || n.includes('handle') || n.includes('ball control');
+              });
+              metricValue = dribbleMetrics.reduce((s, dm) => s + (entry.metrics[dm.metricTemplateId] || 0), 0);
+            } else if (metric === 'passes') {
+              const passMetrics = entry.drillMetrics.filter(dm => {
+                const n = dm.template.name.toLowerCase();
+                return n.includes('pass') || n.includes('assist');
+              });
+              metricValue = passMetrics.reduce((s, dm) => s + (entry.metrics[dm.metricTemplateId] || 0), 0);
+            }
+            if (metricValue > 0) challengeUpdates[userChallengeId] = (challengeUpdates[userChallengeId] || 0) + metricValue;
+          }
+        }
+
+        const metrics = Object.entries(entry.metrics).map(([metricId, value]) => ({ metricId, value: Number(value) }));
+        return {
           drillId: entry.drillId,
           duration: entry.duration,
           notes: entry.notes || undefined,
@@ -1115,107 +1155,26 @@ export default function TrainingLogPage() {
           shotLocation: isShootingDrill ? entry.shotLocation : undefined,
           shotsAttempted: derivedAttempted,
           shotsMade: derivedMade,
-        });
-        
-        if (entry.drillMetrics.length > 0 && Object.keys(entry.metrics).length > 0) {
-          const logData = await logResponse.json();
-          const metricsToSave = Object.entries(entry.metrics)
-            .map(([metricId, value]) => ({
-              metricId,
-              value: Number(value)
-            }));
-          
-          if (metricsToSave.length > 0) {
-            await apiRequest("POST", `/api/training-logs/${logData.id}/metrics`, {
-              metrics: metricsToSave
-            });
-          }
-        }
-        
-        // Update challenge progress for tracked challenges
-        if (entry.trackToChallengeIds && entry.trackToChallengeIds.length > 0) {
-          for (const userChallengeId of entry.trackToChallengeIds) {
-            const userChallenge = activeChallenges?.find(uc => uc.id === userChallengeId);
-            if (!userChallenge) continue;
-            
-            // Calculate metric value based on challenge metric type
-            let metricValue = 0;
-            const metric = userChallenge.challenge.metric;
-            
-            if (metric === 'makes') {
-              // For shooting challenges, use shots made derived from metric templates
-              metricValue = derivedMade || 0;
-            } else if (metric === 'time') {
-              // Time is tracked in the duration field (minutes)
-              metricValue = entry.duration || 0;
-            } else if (metric === 'reps') {
-              // Find metrics related to reps (look for specific patterns)
-              const repMetrics = entry.drillMetrics.filter(dm => {
-                const name = dm.template.name.toLowerCase();
-                return name.includes('rep') || name.includes('count') || name.includes('total');
-              });
-              if (repMetrics.length > 0) {
-                // Sum all rep-related metrics
-                metricValue = repMetrics.reduce((sum, dm) => sum + (entry.metrics[dm.metricTemplateId] || 0), 0);
-              } else if (entry.drillMetrics.length === 1) {
-                // If only one metric, use it
-                metricValue = Object.values(entry.metrics)[0] || 0;
-              }
-            } else if (metric === 'score') {
-              // Find metrics related to score
-              const scoreMetrics = entry.drillMetrics.filter(dm => {
-                const name = dm.template.name.toLowerCase();
-                return name.includes('score') || name.includes('point');
-              });
-              if (scoreMetrics.length > 0) {
-                metricValue = scoreMetrics.reduce((sum, dm) => sum + (entry.metrics[dm.metricTemplateId] || 0), 0);
-              } else if (entry.drillMetrics.length === 1) {
-                // If only one metric, use it as score
-                metricValue = Object.values(entry.metrics)[0] || 0;
-              }
-            } else if (metric === 'dribbles') {
-              // Find dribble-related metrics (expanded patterns)
-              const dribbleMetrics = entry.drillMetrics.filter(dm => {
-                const name = dm.template.name.toLowerCase();
-                return name.includes('dribble') || name.includes('handle') || name.includes('ball control');
-              });
-              if (dribbleMetrics.length > 0) {
-                metricValue = dribbleMetrics.reduce((sum, dm) => sum + (entry.metrics[dm.metricTemplateId] || 0), 0);
-              }
-            } else if (metric === 'passes') {
-              // Find pass-related metrics (expanded patterns)
-              const passMetrics = entry.drillMetrics.filter(dm => {
-                const name = dm.template.name.toLowerCase();
-                return name.includes('pass') || name.includes('assist');
-              });
-              if (passMetrics.length > 0) {
-                metricValue = passMetrics.reduce((sum, dm) => sum + (entry.metrics[dm.metricTemplateId] || 0), 0);
-              }
-            }
-            
-            if (metricValue > 0) {
-              challengeUpdates[userChallengeId] = (challengeUpdates[userChallengeId] || 0) + metricValue;
-            }
-          }
-        }
-      }
-      
-      // Apply all challenge progress updates
-      for (const [userChallengeId, addedValue] of Object.entries(challengeUpdates)) {
+          metrics,
+        };
+      });
+
+      // Single bulk request + challenge updates all in parallel
+      const challengeRequests = Object.entries(challengeUpdates).map(async ([userChallengeId, addedValue]) => {
         const userChallenge = activeChallenges?.find(uc => uc.id === userChallengeId);
-        if (!userChallenge) continue;
-        
+        if (!userChallenge) return;
         const newValue = (userChallenge.currentValue || 0) + addedValue;
-        await apiRequest("PUT", `/api/challenges/${userChallengeId}/progress`, {
-          currentValue: newValue
-        });
-        
-        // Check if challenge is complete
+        await apiRequest("PUT", `/api/challenges/${userChallengeId}/progress`, { currentValue: newValue });
         if (newValue >= userChallenge.challenge.targetValue) {
           await apiRequest("POST", `/api/challenges/${userChallengeId}/complete`);
         }
-      }
-      
+      });
+
+      await Promise.all([
+        apiRequest("POST", "/api/training-logs/bulk", { entries: bulkEntries }),
+        ...challengeRequests,
+      ]);
+
       queryClient.invalidateQueries({ queryKey: ['/api/training-logs'] });
       queryClient.invalidateQueries({ queryKey: ['/api/stats/overview'] });
       queryClient.invalidateQueries({ queryKey: ['/api/stats/weekly'] });
@@ -1224,15 +1183,15 @@ export default function TrainingLogPage() {
       queryClient.invalidateQueries({ queryKey: ['/api/stats/dashboard-training'] });
       queryClient.invalidateQueries({ queryKey: ['/api/challenges/my-challenges'] });
       queryClient.invalidateQueries({ queryKey: ['/api/assigned-drills'] });
-      
+
       const challengeCount = Object.keys(challengeUpdates).length;
-      toast({ 
-        title: "Workout Complete!", 
-        description: challengeCount > 0 
+      toast({
+        title: "Workout Complete!",
+        description: challengeCount > 0
           ? `Logged ${workoutEntries.length} drill${workoutEntries.length > 1 ? 's' : ''} and updated ${challengeCount} challenge${challengeCount > 1 ? 's' : ''}`
-          : `Logged ${workoutEntries.length} drill${workoutEntries.length > 1 ? 's' : ''}` 
+          : `Logged ${workoutEntries.length} drill${workoutEntries.length > 1 ? 's' : ''}`,
       });
-      
+
       setWorkoutInProgress(false);
       setShowFavoriteDialog(true);
     } catch (error) {

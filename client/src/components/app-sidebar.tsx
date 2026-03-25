@@ -55,7 +55,6 @@ import {
   ClipboardCheck,
   Eye,
 } from "lucide-react";
-import logoLandscape from "@assets/PNG_image_auth_trimmed.png";
 
 const playerNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: BarChart3 },
@@ -143,14 +142,10 @@ export function AppSidebar() {
 
   return (
     <Sidebar>
-      <SidebarHeader className="px-4 pt-4 pb-2">
+      <SidebarHeader className="px-4 pb-2 safe-area-top" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1rem)' }}>
         <Link href={isTrainerView ? "/trainer" : "/dashboard"} onClick={closeSidebar}>
           <div className="flex items-center cursor-pointer overflow-hidden h-12" data-testid="link-sidebar-logo">
-            <img 
-              src={logoLandscape} 
-              alt="PLAYR1" 
-              className="w-40 min-w-[10rem] object-contain invert hue-rotate-180 dark:invert-0 dark:hue-rotate-0"
-            />
+            <span className="font-black text-xl tracking-widest text-primary">PLAYR1</span>
           </div>
         </Link>
         {canToggle && (

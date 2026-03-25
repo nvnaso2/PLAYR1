@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Loader2, ArrowLeft, Mail } from "lucide-react";
-import logoLandscape from "@assets/PNG_image_auth_trimmed.png";
 import { Link } from "wouter";
 
 const forgotSchema = z.object({
@@ -37,7 +36,7 @@ export default function ForgotPassword() {
     <div className="min-h-screen flex items-center justify-center p-6 bg-background" data-testid="page-forgot-password">
       <div className="w-full max-w-md">
         <div className="flex justify-center mb-8">
-          <img src={logoLandscape} alt="PLAYR1" className="w-4/5 max-w-sm object-contain invert hue-rotate-180 dark:invert-0 dark:hue-rotate-0" />
+          <span className="font-black text-5xl tracking-widest text-primary">PLAYR1</span>
         </div>
         <Card className="border-border/50 bg-card/80 backdrop-blur">
           <CardHeader className="text-center pb-2">

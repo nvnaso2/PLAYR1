@@ -191,13 +191,36 @@ export default function ProfilePage() {
     return "U";
   };
 
+  // Convert any image (including HEIC from iOS camera) to JPEG via canvas
+  const convertToJpeg = (file: File): Promise<{ blob: Blob; name: string; type: string }> => {
+    return new Promise((resolve) => {
+      const objectUrl = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { URL.revokeObjectURL(objectUrl); resolve({ blob: file, name: file.name || "photo.jpg", type: "image/jpeg" }); return; }
+        ctx.drawImage(img, 0, 0);
+        canvas.toBlob((blob) => {
+          URL.revokeObjectURL(objectUrl);
+          resolve({ blob: blob ?? file, name: "photo.jpg", type: "image/jpeg" });
+        }, "image/jpeg", 0.88);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        resolve({ blob: file, name: file.name || "photo.jpg", type: "image/jpeg" });
+      };
+      img.src = objectUrl;
+    });
+  };
+
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/heic", "image/heif"];
-    const contentType = file.type || "image/jpeg";
-    const fileName = file.name || "photo.jpg";
     if (file.type && !allowedTypes.includes(file.type)) {
       toast({ title: "Invalid file type", description: "Please upload a JPEG, PNG, GIF, WebP, or HEIC image.", variant: "destructive" });
       return;
@@ -209,21 +232,25 @@ export default function ProfilePage() {
 
     setUploading(true);
     try {
+      // Convert to JPEG (handles HEIC from iOS cameras and normalises all formats)
+      const { blob, name, type } = await convertToJpeg(file);
+
       const urlRes = await apiRequest("POST", "/api/user/uploads/photo-url", {
-        name: fileName,
-        size: file.size,
-        contentType,
+        name,
+        size: blob.size,
+        contentType: type,
       });
       const { uploadURL, objectPath } = await urlRes.json();
 
       await fetch(uploadURL, {
         method: "PUT",
-        headers: { "Content-Type": contentType },
-        body: file,
+        headers: { "Content-Type": type },
+        body: blob,
       });
 
       await apiRequest("PUT", "/api/profile", { ...form.getValues(), profilePhotoUrl: objectPath });
       queryClient.invalidateQueries({ queryKey: ['/api/profile'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
       toast({ title: "Photo updated" });
     } catch (err) {
       toast({ title: "Upload failed", description: "Could not upload photo. Please try again.", variant: "destructive" });

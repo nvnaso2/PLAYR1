@@ -99,8 +99,8 @@ export default function FinderPage() {
   const [mainTab, setMainTab] = useState("find");
 
   return (
-    <div className="pb-24">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-6">
+    <div className="pb-24 overflow-x-hidden">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-6 overflow-x-hidden">
         <Tabs value={mainTab} onValueChange={setMainTab} className="w-full">
           <TabsList className="w-full max-w-2xl grid grid-cols-4" data-testid="tabs-teams-main">
             <TabsTrigger value="find" data-testid="tab-find-teams">
@@ -361,7 +361,7 @@ function TeamFinderTab({ searchQuery }: { searchQuery: string }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center flex-wrap gap-2">
           <Button
             variant="outline"
             size="sm"
