@@ -30,3 +30,9 @@ id = "a_gvO8dRS1oF3dxM6rQqP"
 uri = "file://playr1-public-bundle.tar.gz"
 type = "unspecified"
 title = "PLAYR1 iOS Public Bundle"
+
+[[outputs]]
+id = "1x9ItTLi-GyZH85HCLxxv"
+uri = "file://playr1-ios-public.tar.gz"
+type = "unspecified"
+title = "PLAYR1 iOS Public Folder (latest build)"
