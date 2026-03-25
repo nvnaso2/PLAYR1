@@ -120,7 +120,7 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
           <header className="relative flex items-center justify-between gap-4 p-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40 safe-area-top">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <Playr1Logo className="h-16 object-contain" />
+              <Playr1Logo className="h-24 object-contain" />
             </div>
             <ThemeToggle />
           </header>
