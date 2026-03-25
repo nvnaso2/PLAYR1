@@ -264,6 +264,15 @@ export async function seedDatabase() {
   console.log("Seeding database...");
   
   try {
+    // Schema migration: replace old preset columns with single preset_rounds JSONB column
+    await db.execute(sql`
+      ALTER TABLE drills
+        DROP COLUMN IF EXISTS default_rounds,
+        DROP COLUMN IF EXISTS default_shot_locations,
+        DROP COLUMN IF EXISTS default_metric_values,
+        ADD COLUMN IF NOT EXISTS preset_rounds jsonb;
+    `);
+
     // Check if drills already exist
     const existingDrills = await db.select().from(drills).limit(1);
     
