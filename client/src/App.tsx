@@ -209,7 +209,7 @@ function Router() {
       <Route path="/t/:id" component={TrainerPublic} />
       <Route path="/teams/:slug" component={TeamProfile} />
       <Route path="/leagues/:slug" component={LeagueProfile} />
-      <Route path="/auth" component={AuthPage} />
+      <Route path="/auth">{() => isAuthenticated ? <Redirect to="/" /> : <AuthPage />}</Route>
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password" component={ResetPassword} />
       <Route path="/privacy" component={Privacy} />

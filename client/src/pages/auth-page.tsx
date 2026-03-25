@@ -50,9 +50,10 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
       const res = await apiRequest("POST", "/api/auth/login", data);
       return res.json();
     },
-    onSuccess: async (data) => {
+    onSuccess: (data) => {
       if (data?.token) storeAuthToken(data.token);
-      await queryClient.refetchQueries({ queryKey: ["/api/auth/user"] });
+      const { token: _t, ...user } = data;
+      queryClient.setQueryData(["/api/auth/user"], user);
       navigate("/");
     },
     onError: (error: Error) => {
@@ -155,9 +156,10 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
       const res = await apiRequest("POST", "/api/auth/register", payload);
       return res.json();
     },
-    onSuccess: async (data) => {
+    onSuccess: (data) => {
       if (data?.token) storeAuthToken(data.token);
-      await queryClient.refetchQueries({ queryKey: ["/api/auth/user"] });
+      const { token: _t, ...user } = data;
+      queryClient.setQueryData(["/api/auth/user"], user);
       navigate("/");
     },
     onError: (error: Error) => {
