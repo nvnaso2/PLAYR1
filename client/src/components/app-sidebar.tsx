@@ -143,9 +143,9 @@ export function AppSidebar() {
 
   return (
     <Sidebar>
-      <SidebarHeader className="px-2 pb-1 safe-area-top" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.5rem)' }}>
+      <SidebarHeader className="px-3 pb-3 safe-area-top" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1rem)' }}>
         <Link href={isTrainerView ? "/trainer" : "/dashboard"} onClick={closeSidebar}>
-          <div className="w-full relative overflow-hidden cursor-pointer" style={{ height: '72px' }} data-testid="link-sidebar-logo">
+          <div className="w-full relative overflow-hidden cursor-pointer" style={{ height: '52px' }} data-testid="link-sidebar-logo">
             <img
               src={playr1Logo}
               alt="PLAYR1"
