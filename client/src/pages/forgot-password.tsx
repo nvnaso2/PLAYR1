@@ -34,7 +34,7 @@ export default function ForgotPassword() {
   });
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-background" data-testid="page-forgot-password">
+    <div className="min-h-screen flex items-center justify-center p-6 bg-background safe-area-top" data-testid="page-forgot-password">
       <div className="w-full max-w-md">
         <div className="flex justify-center mb-8">
           <Playr1Logo className="w-[360px] object-contain" />

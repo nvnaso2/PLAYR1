@@ -82,7 +82,7 @@ export default function TeamProfilePage() {
   }
 
   return (
-    <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6 pb-24">
+    <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6 pb-24 safe-area-top">
       <Link href="/finder">
         <Button variant="ghost" size="sm" data-testid="link-back-finder">
           <ArrowLeft className="h-4 w-4 mr-1" />

@@ -279,7 +279,7 @@ export default function AuthPage() {
   const [mode, setMode] = useState<"login" | "register">("login");
 
   return (
-    <div className="min-h-screen flex" data-testid="page-auth">
+    <div className="min-h-screen flex safe-area-top" data-testid="page-auth">
       <div className="flex-1 bg-background flex flex-col justify-center">
         <div className="flex flex-col items-center px-6 py-6">
           <div className="w-full max-w-md">

@@ -39,7 +39,7 @@ const faqs = [
 
 export default function SupportPage() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background safe-area-top">
       <div className="max-w-3xl mx-auto px-6 py-12">
         <Link href="/">
           <Button variant="ghost" className="mb-8 gap-2" data-testid="button-back-home">

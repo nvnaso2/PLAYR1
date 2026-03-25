@@ -134,38 +134,40 @@ export default function PlayerPublicPage() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Sticky nav bar — safe area keeps it below the notch/status bar */}
+      <div className="sticky top-0 z-20 bg-background/90 backdrop-blur border-b border-border/30 safe-area-top">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-2 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => window.history.back()}
+              data-testid="button-back"
+            >
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Back
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.location.href = "/auth"}
+              data-testid="button-sign-in"
+            >
+              Sign In to PLAYR1
+            </Button>
+          </div>
+          <ShareMenu
+            url={`/player/${slug}`}
+            title={`${playerName} - PLAYR1 Player Profile`}
+            description={`Check out ${playerName}'s basketball profile on PLAYR1!`}
+            testId="button-share-profile"
+          />
+        </div>
+      </div>
       <div className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-orange-600/20 via-background to-background" />
-        <div className="relative max-w-4xl mx-auto px-4 sm:px-6 pt-8 pb-6">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => window.history.back()}
-                data-testid="button-back"
-              >
-                <ArrowLeft className="h-4 w-4 mr-1" />
-                Back
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => window.location.href = "/auth"}
-                data-testid="button-sign-in"
-              >
-                Sign In to PLAYR1
-              </Button>
-            </div>
-            <ShareMenu
-              url={`/player/${slug}`}
-              title={`${playerName} - PLAYR1 Player Profile`}
-              description={`Check out ${playerName}'s basketball profile on PLAYR1!`}
-              testId="button-share-profile"
-            />
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
+        <div className="relative max-w-4xl mx-auto px-4 sm:px-6 pt-6 pb-6">
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 mb-6">
             <Avatar className="h-28 w-28 sm:h-32 sm:w-32 border-4 border-orange-500/30">
               <AvatarImage src={photoSrc} alt={playerName} />
               <AvatarFallback className="text-2xl bg-orange-500/10 text-foreground">

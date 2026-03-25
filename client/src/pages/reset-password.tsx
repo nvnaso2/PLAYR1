@@ -48,7 +48,7 @@ export default function ResetPassword() {
 
   if (!token) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-background" data-testid="page-reset-invalid">
+      <div className="min-h-screen flex items-center justify-center p-6 bg-background safe-area-top" data-testid="page-reset-invalid">
         <Card className="w-full max-w-md border-border/50 bg-card/80 backdrop-blur">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-bold">Invalid Link</CardTitle>
@@ -65,7 +65,7 @@ export default function ResetPassword() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-background" data-testid="page-reset-password">
+    <div className="min-h-screen flex items-center justify-center p-6 bg-background safe-area-top" data-testid="page-reset-password">
       <div className="w-full max-w-md">
         <div className="flex justify-center mb-8">
           <Playr1Logo className="w-[360px] object-contain" />

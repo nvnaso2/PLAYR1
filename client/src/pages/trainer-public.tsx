@@ -100,8 +100,8 @@ export default function TrainerPublic() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-3xl mx-auto p-4 sm:p-6 space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="sticky top-0 z-20 bg-background/90 backdrop-blur border-b border-border/30 safe-area-top">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-2 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={() => window.history.back()} data-testid="button-back">
               <ArrowLeft className="w-4 h-4 mr-1" />
@@ -118,6 +118,8 @@ export default function TrainerPublic() {
             testId="button-share-public-profile"
           />
         </div>
+      </div>
+      <div className="max-w-3xl mx-auto p-4 sm:p-6 space-y-6">
 
         <Card data-testid="card-trainer-profile">
           <CardContent className="pt-6">
