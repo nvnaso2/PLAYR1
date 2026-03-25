@@ -1,5 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { spawn } from "child_process";
+import path from "path";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated, getAppBaseUrl, type AuthenticatedRequest } from "./auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
@@ -96,8 +98,6 @@ export async function registerRoutes(
 
   // Temporary: download iOS app bundle
   app.get("/api/download/ios-bundle", (req, res) => {
-    const { spawn } = require('child_process');
-    const path = require('path');
     const distPublic = path.join(process.cwd(), 'dist', 'public');
     res.setHeader('Content-Disposition', 'attachment; filename="ios-bundle.tar.gz"');
     res.setHeader('Content-Type', 'application/gzip');
