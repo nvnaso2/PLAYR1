@@ -2247,7 +2247,7 @@ function BaseballCard({ profile, careerStats, onPhotoUpdated, userName }: { prof
   const backH = 240;
 
   const photoSrc = profile.cardPhotoUrl
-    ? (profile.cardPhotoUrl.startsWith("/") ? profile.cardPhotoUrl : `/objects/${profile.cardPhotoUrl}`)
+    ? (getObjectUrl(profile.cardPhotoUrl) ?? defaultPlayerImg)
     : defaultPlayerImg;
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
