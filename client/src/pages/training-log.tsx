@@ -141,7 +141,6 @@ export default function TrainingLogPage() {
   const [drillSearchQuery, setDrillSearchQuery] = useState("");
   const [selectedMetricTemplateIds, setSelectedMetricTemplateIds] = useState<string[]>([]);
   const [presetRounds, setPresetRounds] = useState<Array<{ shotLocation?: string; metricValues: Record<string, number> }>>([]);
-  const createDrillTrackShots = createDrillForm.watch("trackShots");
   const [drillVideoFile, setDrillVideoFile] = useState<File | null>(null);
   const [drillVideoUploading, setDrillVideoUploading] = useState(false);
   const [drillVideoProgress, setDrillVideoProgress] = useState(0);
@@ -395,6 +394,7 @@ export default function TrainingLogPage() {
       isShared: false,
     },
   });
+  const createDrillTrackShots = createDrillForm.watch("trackShots");
 
   // Save workout form
   const saveWorkoutForm = useForm<SaveWorkoutFormData>({
