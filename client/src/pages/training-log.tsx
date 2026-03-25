@@ -190,6 +190,15 @@ export default function TrainingLogPage() {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
+  // Format a stored minutes value for display — handles 0 from very short sessions
+  const formatDuration = (minutes: number): string => {
+    if (!minutes || minutes <= 0) return "< 1 min";
+    if (minutes < 60) return `${minutes} min`;
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  };
+
   // Current workout elapsed display (re-renders via workoutTimerTick)
   const workoutElapsed = workoutStartTime ? formatMs(Date.now() - workoutStartTime) : "0:00";
 
@@ -1107,10 +1116,10 @@ export default function TrainingLogPage() {
         })
       );
       const totalEstimateMinutes = Array.from(drillEstimateMap.values()).reduce((s, v) => s + v, 0);
+      // Total elapsed in whole seconds and fractional minutes — no artificial floor
       const totalElapsedMs = workoutStartTime ? (saveNow - workoutStartTime) : 0;
-      const totalElapsedMinutes = workoutStartTime
-        ? Math.max(drillIdOrder.length, Math.round(totalElapsedMs / 60000))
-        : 0;
+      // Keep full precision (fractional minutes) for proportional math; we round per-drill below
+      const totalElapsedMinutesFrac = totalElapsedMs / 60000;
 
       // Earliest stamp across all drills (for detecting mid-workout adds)
       const stampValues = Object.values(drillStartTimes).filter((v): v is number => !!v);
@@ -1132,12 +1141,15 @@ export default function TrainingLogPage() {
           // Case A: use the span between consecutive drill-add timestamps
           const startMs = thisStamp ?? firstStamp;
           const endMs = nextMid && nextStamp != null ? nextStamp : saveNow;
+          // Round to nearest minute; store at least 1 min for any genuine span
           return Math.max(1, Math.round((endMs - startMs) / 60000));
         }
 
-        // Case B: pre-selected drills — distribute total elapsed proportionally
+        // Case B: pre-selected drills — distribute total elapsed proportionally.
+        // No artificial floor here: if the session was genuinely < 1 min, store 0.
         const estimate = drillEstimateMap.get(drillId) ?? 1;
-        return Math.max(1, Math.round(totalElapsedMinutes * (estimate / totalEstimateMinutes)));
+        const proportionalMinutes = totalElapsedMinutesFrac * (estimate / totalEstimateMinutes);
+        return Math.round(proportionalMinutes); // can be 0 for very short test sessions
       };
 
       // Build bulk payload synchronously (no awaits)
@@ -2940,7 +2952,7 @@ export default function TrainingLogPage() {
                                             </>
                                           )}
                                           <span>
-                                            {group.logs.reduce((sum, l) => sum + l.duration, 0)} min
+                                            {formatDuration(group.logs.reduce((sum, l) => sum + l.duration, 0))}
                                           </span>
                                           {sessionShotData.length > 0 && (
                                             <span className="shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -3001,7 +3013,7 @@ export default function TrainingLogPage() {
                                                     <div className="flex items-center gap-1.5 flex-wrap text-xs text-muted-foreground mt-0.5">
                                                       <span>{drillLogs.length} round{drillLogs.length > 1 ? 's' : ''}</span>
                                                       <span>·</span>
-                                                      <span>{drillDuration} min</span>
+                                                      <span>{formatDuration(drillDuration)}</span>
                                                       {drillPercentage !== null && (
                                                         <>
                                                           <span>·</span>
@@ -3061,7 +3073,7 @@ export default function TrainingLogPage() {
                                                               </Badge>
                                                             </>
                                                           )}
-                                                          <span>{log.duration} min</span>
+                                                          <span>{formatDuration(log.duration)}</span>
                                                         </div>
                                                         <Button 
                                                           variant="ghost" 
@@ -3118,7 +3130,7 @@ export default function TrainingLogPage() {
                                       <div className="flex items-center gap-1.5 sm:gap-2 text-xs text-muted-foreground flex-wrap">
                                         <span className="flex items-center gap-1">
                                           <Clock className="w-3 h-3" />
-                                          {log.duration} min
+                                          {formatDuration(log.duration)}
                                         </span>
                                         {stats && (
                                           <>
