@@ -55,6 +55,7 @@ import {
   ClipboardCheck,
   Eye,
 } from "lucide-react";
+import playr1Logo from "@assets/Playr1_App_Logo_1774460124826.png";
 
 const playerNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: BarChart3 },
@@ -145,7 +146,7 @@ export function AppSidebar() {
       <SidebarHeader className="px-4 pb-2 safe-area-top" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1rem)' }}>
         <Link href={isTrainerView ? "/trainer" : "/dashboard"} onClick={closeSidebar}>
           <div className="flex items-center cursor-pointer overflow-hidden h-12" data-testid="link-sidebar-logo">
-            <span className="font-black text-xl tracking-widest text-primary">PLAYR1</span>
+            <img src={playr1Logo} alt="PLAYR1" className="h-10 object-contain mix-blend-screen" />
           </div>
         </Link>
         {canToggle && (

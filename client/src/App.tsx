@@ -11,6 +11,7 @@ import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/s
 import { AppSidebar } from "@/components/app-sidebar";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect, useRef } from "react";
+import playr1Logo from "@assets/Playr1_App_Logo_1774460124826.png";
 
 import Landing from "@/pages/landing";
 import AuthPage from "@/pages/auth-page";
@@ -87,7 +88,7 @@ function SplashScreen({ isAuthLoading, isAuthenticated, onComplete }: {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-12 bg-background px-8">
-      <span className="font-black text-5xl tracking-widest text-primary">PLAYR1</span>
+      <img src={playr1Logo} alt="PLAYR1" className="w-64 object-contain mix-blend-screen" />
       <div className="w-full max-w-xs space-y-8">
         <div className="h-1 bg-muted rounded-full overflow-hidden">
           <div
@@ -119,7 +120,7 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
           <header className="relative flex items-center justify-between gap-4 p-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40 safe-area-top">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <span className="font-black text-lg tracking-widest text-primary">PLAYR1</span>
+              <img src={playr1Logo} alt="PLAYR1" className="h-8 object-contain mix-blend-screen" />
             </div>
             <ThemeToggle />
           </header>
