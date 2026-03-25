@@ -9,6 +9,9 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/hooks/use-auth";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
+import { Button } from "@/components/ui/button";
+import { useState, useEffect, useRef } from "react";
+import logoLandscape from "@assets/PNG_image_1770494053382.png";
 
 import Landing from "@/pages/landing";
 import AuthPage from "@/pages/auth-page";
@@ -47,6 +50,66 @@ import NotFound from "@/pages/not-found";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRole } from "@/hooks/use-role";
 
+function SplashScreen({ isAuthLoading, isAuthenticated, onComplete }: {
+  isAuthLoading: boolean;
+  isAuthenticated: boolean;
+  onComplete: () => void;
+}) {
+  const [progress, setProgress] = useState(0);
+  const [barFull, setBarFull] = useState(false);
+  const rafRef = useRef<number | null>(null);
+  const startRef = useRef<number | null>(null);
+  const DURATION = 2000;
+
+  useEffect(() => {
+    startRef.current = Date.now();
+    const tick = () => {
+      const elapsed = Date.now() - (startRef.current ?? Date.now());
+      const p = Math.min((elapsed / DURATION) * 100, 100);
+      setProgress(p);
+      if (p < 100) {
+        rafRef.current = requestAnimationFrame(tick);
+      } else {
+        setBarFull(true);
+      }
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, []);
+
+  useEffect(() => {
+    if (barFull && !isAuthLoading && isAuthenticated) {
+      const t = setTimeout(onComplete, 250);
+      return () => clearTimeout(t);
+    }
+  }, [barFull, isAuthLoading, isAuthenticated, onComplete]);
+
+  const showButton = barFull && !isAuthLoading && !isAuthenticated;
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center gap-12 bg-background px-8">
+      <img
+        src={logoLandscape}
+        alt="PLAYR1"
+        className="w-72 object-contain mix-blend-screen dark:mix-blend-screen"
+      />
+      <div className="w-full max-w-xs space-y-8">
+        <div className="h-1 bg-muted rounded-full overflow-hidden">
+          <div
+            className="h-full bg-primary rounded-full"
+            style={{ width: `${progress}%`, transition: "width 80ms linear" }}
+          />
+        </div>
+        {showButton && (
+          <Button onClick={onComplete} className="w-full" size="lg" data-testid="button-get-started">
+            Get Started
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const style = {
     "--sidebar-width": "16rem",
@@ -58,8 +121,15 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
       <div className="flex h-screen w-full safe-area-inset">
         <AppSidebar />
         <SidebarInset className="flex-1 flex flex-col overflow-hidden">
-          <header className="flex items-center justify-between gap-4 p-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40 safe-area-top">
+          <header className="relative flex items-center justify-between gap-4 p-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40 safe-area-top">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <img
+                src={logoLandscape}
+                alt="PLAYR1"
+                className="h-7 object-contain mix-blend-screen dark:mix-blend-screen"
+              />
+            </div>
             <ThemeToggle />
           </header>
           <main className="flex-1 overflow-y-auto">
@@ -129,9 +199,16 @@ function CoachRedirect() {
 
 function Router() {
   const { user, isLoading, isAuthenticated } = useAuth();
+  const [splashDone, setSplashDone] = useState(false);
 
-  if (isLoading) {
-    return <LoadingScreen />;
+  if (!splashDone) {
+    return (
+      <SplashScreen
+        isAuthLoading={isLoading}
+        isAuthenticated={isAuthenticated ?? false}
+        onComplete={() => setSplashDone(true)}
+      />
+    );
   }
 
   return (

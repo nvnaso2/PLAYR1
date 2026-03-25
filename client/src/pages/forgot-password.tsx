@@ -37,7 +37,7 @@ export default function ForgotPassword() {
     <div className="min-h-screen flex items-center justify-center p-6 bg-background" data-testid="page-forgot-password">
       <div className="w-full max-w-md">
         <div className="flex justify-center mb-8">
-          <img src={logoLandscape} alt="PLAYR1" className="h-44 object-contain mix-blend-screen dark:mix-blend-screen" />
+          <img src={logoLandscape} alt="PLAYR1" className="w-4/5 max-w-sm object-contain mix-blend-screen dark:mix-blend-screen" />
         </div>
         <Card className="border-border/50 bg-card/80 backdrop-blur">
           <CardHeader className="text-center pb-2">
