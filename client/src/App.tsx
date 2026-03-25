@@ -118,10 +118,10 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
       <div className="flex h-screen w-full safe-area-inset">
         <AppSidebar />
         <SidebarInset className="flex-1 flex flex-col overflow-hidden">
-          <header className={`relative flex items-center justify-between gap-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40 safe-area-top overflow-hidden ${isNative ? 'px-3 pb-2' : 'p-3'}`}>
+          <header className={`relative flex items-center justify-between border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40 safe-area-top overflow-hidden ${isNative ? 'px-3 py-1' : 'p-3'}`}>
             <SidebarTrigger data-testid="button-sidebar-toggle" />
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <Playr1Logo className={isNative ? 'h-14 w-auto' : 'h-32 w-auto'} />
+            <div className="absolute inset-x-0 bottom-0 top-[env(safe-area-inset-top)] flex items-center justify-center pointer-events-none">
+              <Playr1Logo className={isNative ? 'h-8 w-auto' : 'h-32 w-auto'} />
             </div>
             <ThemeToggle />
           </header>
