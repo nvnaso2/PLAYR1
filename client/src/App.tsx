@@ -11,7 +11,7 @@ import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/s
 import { AppSidebar } from "@/components/app-sidebar";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect, useRef } from "react";
-import logoLandscape from "@assets/PNG_image_1770494053382.png";
+import logoLandscape from "@assets/PNG_image_auth_trimmed.png";
 
 import Landing from "@/pages/landing";
 import AuthPage from "@/pages/auth-page";
@@ -91,7 +91,7 @@ function SplashScreen({ isAuthLoading, isAuthenticated, onComplete }: {
       <img
         src={logoLandscape}
         alt="PLAYR1"
-        className="w-72 object-contain mix-blend-screen dark:mix-blend-screen"
+        className="w-72 object-contain invert hue-rotate-180 dark:invert-0 dark:hue-rotate-0"
       />
       <div className="w-full max-w-xs space-y-8">
         <div className="h-1 bg-muted rounded-full overflow-hidden">
@@ -127,7 +127,7 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
               <img
                 src={logoLandscape}
                 alt="PLAYR1"
-                className="h-7 object-contain mix-blend-screen dark:mix-blend-screen"
+                className="h-7 object-contain invert hue-rotate-180 dark:invert-0 dark:hue-rotate-0"
               />
             </div>
             <ThemeToggle />

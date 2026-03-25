@@ -55,7 +55,7 @@ import {
   ClipboardCheck,
   Eye,
 } from "lucide-react";
-import logoLandscape from "@assets/PNG_image_1770494053382.png";
+import logoLandscape from "@assets/PNG_image_auth_trimmed.png";
 
 const playerNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: BarChart3 },
@@ -149,7 +149,7 @@ export function AppSidebar() {
             <img 
               src={logoLandscape} 
               alt="PLAYR1" 
-              className="w-40 min-w-[10rem] object-contain mix-blend-screen dark:mix-blend-screen"
+              className="w-40 min-w-[10rem] object-contain invert hue-rotate-180 dark:invert-0 dark:hue-rotate-0"
             />
           </div>
         </Link>

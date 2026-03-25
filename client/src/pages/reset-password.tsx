@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Eye, EyeOff, CheckCircle2 } from "lucide-react";
-import logoLandscape from "@assets/PNG_image_1770494053382.png";
+import logoLandscape from "@assets/PNG_image_auth_trimmed.png";
 import { Link } from "wouter";
 
 const resetSchema = z.object({
@@ -68,7 +68,7 @@ export default function ResetPassword() {
     <div className="min-h-screen flex items-center justify-center p-6 bg-background" data-testid="page-reset-password">
       <div className="w-full max-w-md">
         <div className="flex justify-center mb-8">
-          <img src={logoLandscape} alt="PLAYR1" className="h-14 object-contain mix-blend-screen dark:mix-blend-screen" />
+          <img src={logoLandscape} alt="PLAYR1" className="h-14 object-contain invert hue-rotate-180 dark:invert-0 dark:hue-rotate-0" />
         </div>
         <Card className="border-border/50 bg-card/80 backdrop-blur">
           <CardHeader className="text-center pb-2">
