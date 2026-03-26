@@ -1676,7 +1676,7 @@ function MyEvaluationsTab() {
   const { data: evalDetail } = useQuery<EvalDetail>({
     queryKey: ["/api/my-evaluations", viewingEvalId],
     enabled: !!viewingEvalId,
-    queryFn: () => fetch(`/api/my-evaluations/${viewingEvalId}`, { credentials: "include" }).then(r => r.json()),
+    queryFn: () => nativeFetch(`/api/my-evaluations/${viewingEvalId}`).then(r => r.json()),
   });
 
   if (isLoading) {

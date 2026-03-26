@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { getObjectUrl } from "@/lib/queryClient";
 import { useParams, Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -93,7 +94,7 @@ export default function TeamProfilePage() {
       <div className="space-y-6">
         <div className="flex items-start gap-4">
           {club.logoUrl ? (
-            <img src={club.logoUrl} alt={club.name} className="h-16 w-16 rounded-md object-cover shrink-0" />
+            <img src={getObjectUrl(club.logoUrl) ?? club.logoUrl ?? undefined} alt={club.name} className="h-16 w-16 rounded-md object-cover shrink-0" />
           ) : (
             <div className={`h-16 w-16 rounded-md ${getTeamColor(club.name)} flex items-center justify-center shrink-0`}>
               <span className="text-lg font-bold text-white">{getTeamInitials(club.name)}</span>

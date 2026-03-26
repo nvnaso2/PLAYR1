@@ -85,7 +85,7 @@ function TeamLogo({ name, logoUrl, size = "sm" }: { name: string; logoUrl?: stri
   const textSize = size === "lg" ? "text-lg" : "text-xs";
 
   if (logoUrl) {
-    return <img src={logoUrl} alt={name} className={`${dim} rounded-md object-cover`} />;
+    return <img src={getObjectUrl(logoUrl) ?? logoUrl} alt={name} className={`${dim} rounded-md object-cover`} />;
   }
 
   return (

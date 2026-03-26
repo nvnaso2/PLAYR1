@@ -1,6 +1,6 @@
 import { useRoute } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { getObjectUrl } from "@/lib/queryClient";
+import { getObjectUrl, nativeFetch } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -58,7 +58,7 @@ export default function TrainerPublic() {
 
   const { data: trainer, isLoading, error } = useQuery<TrainerPublicData>({
     queryKey: ["/api/trainers/directory", trainerId],
-    queryFn: () => fetch(`/api/trainers/directory/${trainerId}`).then(r => {
+    queryFn: () => nativeFetch(`/api/trainers/directory/${trainerId}`).then(r => {
       if (!r.ok) throw new Error("Trainer not found");
       return r.json();
     }),

@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { queryClient, apiRequest, getObjectUrl } from "@/lib/queryClient";
+import { queryClient, apiRequest, getObjectUrl, nativeFetch } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAdmin } from "@/hooks/use-admin";
 import { Button } from "@/components/ui/button";
@@ -126,7 +126,7 @@ function DrillForm({
   const { data: drillMetrics } = useQuery<DrillMetricWithTemplate[]>({
     queryKey: ['/api/drills', drill?.id, 'metrics'],
     queryFn: async () => {
-      const res = await fetch(`/api/drills/${drill!.id}/metrics`);
+      const res = await nativeFetch(`/api/drills/${drill!.id}/metrics`);
       if (!res.ok) throw new Error('Failed to fetch metrics');
       return res.json();
     },
@@ -2619,7 +2619,7 @@ export default function AdminPage() {
       setWorkoutCategory(workout.category || "");
       // Fetch drill IDs for this workout
       try {
-        const res = await fetch(`/api/workouts/${workout.id}`);
+        const res = await nativeFetch(`/api/workouts/${workout.id}`);
         const data = await res.json();
         setWorkoutDrillIds(data.drills?.map((wd: any) => wd.drillId) || []);
       } catch {

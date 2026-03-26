@@ -943,7 +943,7 @@ export default function TrainerRoster() {
     queryKey: ["/api/invitations", inviteOpen ? (selectedTeam?.id || selectedGroup?.id || "my") : ""],
     queryFn: () => {
       const entityId = selectedTeam?.id || selectedGroup?.id;
-      return fetch(entityId ? `/api/invitations/${entityId}` : `/api/invitations/my`, { credentials: "include" }).then(r => r.json());
+      return nativeFetch(entityId ? `/api/invitations/${entityId}` : `/api/invitations/my`).then(r => r.json());
     },
     enabled: inviteOpen,
   });

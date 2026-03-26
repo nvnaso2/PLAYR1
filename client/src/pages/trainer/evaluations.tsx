@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient, nativeFetch } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -148,13 +148,13 @@ export default function TrainerEvaluationsPage() {
   const { data: evaluations, isLoading: evalsLoading } = useQuery<PlayerEvaluation[]>({
     queryKey: ["/api/player-evaluations", selectedPlayerId],
     enabled: !!selectedPlayerId,
-    queryFn: () => fetch(`/api/player-evaluations/${selectedPlayerId}`, { credentials: "include" }).then(r => r.json()),
+    queryFn: () => nativeFetch(`/api/player-evaluations/${selectedPlayerId}`).then(r => r.json()),
   });
 
   const { data: evalDetail } = useQuery<EvalDetail>({
     queryKey: ["/api/player-evaluations/detail", viewingEvalId],
     enabled: !!viewingEvalId,
-    queryFn: () => fetch(`/api/player-evaluations/detail/${viewingEvalId}`, { credentials: "include" }).then(r => r.json()),
+    queryFn: () => nativeFetch(`/api/player-evaluations/detail/${viewingEvalId}`).then(r => r.json()),
   });
 
   const createEvalMutation = useMutation({

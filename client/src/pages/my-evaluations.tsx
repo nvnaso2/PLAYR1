@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { nativeFetch } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -65,7 +66,7 @@ export default function MyEvaluationsPage() {
   const { data: evalDetail } = useQuery<EvalDetail>({
     queryKey: ["/api/my-evaluations", viewingEvalId],
     enabled: !!viewingEvalId,
-    queryFn: () => fetch(`/api/my-evaluations/${viewingEvalId}`, { credentials: "include" }).then(r => r.json()),
+    queryFn: () => nativeFetch(`/api/my-evaluations/${viewingEvalId}`).then(r => r.json()),
   });
 
   if (isLoading) {
