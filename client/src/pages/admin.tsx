@@ -154,9 +154,19 @@ function DrillForm({
   }, [drill]);
 
   const { uploadFile: uploadVideoFile, isUploading: isUploadingVideo } = useUpload({
-    onSuccess: (response) => {
+    onSuccess: async (response) => {
       form.setValue("videoUrl", response.objectPath);
-      toast({ title: "Video uploaded successfully" });
+      if (drill?.id) {
+        try {
+          await apiRequest("PUT", `/api/drills/${drill.id}`, { videoUrl: response.objectPath });
+          queryClient.invalidateQueries({ queryKey: ['/api/drills'] });
+          toast({ title: "Video uploaded and saved to drill" });
+        } catch {
+          toast({ title: "Video uploaded — click Save to apply", variant: "destructive" });
+        }
+      } else {
+        toast({ title: "Video uploaded successfully" });
+      }
     },
     onError: (error) => {
       toast({ title: "Failed to upload video", description: error.message, variant: "destructive" });
@@ -164,9 +174,19 @@ function DrillForm({
   });
 
   const { uploadFile: uploadThumbnailFile, isUploading: isUploadingThumbnail } = useUpload({
-    onSuccess: (response) => {
+    onSuccess: async (response) => {
       form.setValue("thumbnailUrl", response.objectPath);
-      toast({ title: "Thumbnail uploaded successfully" });
+      if (drill?.id) {
+        try {
+          await apiRequest("PUT", `/api/drills/${drill.id}`, { thumbnailUrl: response.objectPath });
+          queryClient.invalidateQueries({ queryKey: ['/api/drills'] });
+          toast({ title: "Thumbnail uploaded and saved to drill" });
+        } catch {
+          toast({ title: "Thumbnail uploaded — click Save to apply", variant: "destructive" });
+        }
+      } else {
+        toast({ title: "Thumbnail uploaded successfully" });
+      }
     },
     onError: (error) => {
       toast({ title: "Failed to upload thumbnail", description: error.message, variant: "destructive" });
