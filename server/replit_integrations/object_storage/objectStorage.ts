@@ -183,11 +183,20 @@ export class ObjectStorageService {
       throw new ObjectNotFoundError();
     }
 
-    const entityId = parts.slice(1).join("/");
+    let entityId = parts.slice(1).join("/"); // everything after "objects/"
     let entityDir = this.getPrivateObjectDir();
     if (!entityDir.endsWith("/")) {
       entityDir = `${entityDir}/`;
     }
+
+    // Handle legacy broken records: before the normalizeObjectEntityPath fix,
+    // paths were stored with the full bucket+private-dir prefix baked in
+    // (e.g. "repl-default-bucket-xxx/.private/uploads/uuid"). Strip it so the
+    // lookup resolves correctly for both old and new records.
+    if (entityId.startsWith(entityDir)) {
+      entityId = entityId.slice(entityDir.length);
+    }
+
     const objectEntityPath = `${entityDir}${entityId}`;
     const { bucketName, objectName } = parseObjectPath(objectEntityPath);
     const bucket = objectStorageClient.bucket(bucketName);
@@ -208,19 +217,24 @@ export class ObjectStorageService {
   
     // Extract the path from the URL by removing query parameters and domain
     const url = new URL(rawPath);
-    const rawObjectPath = url.pathname;
+    const rawObjectPath = url.pathname; // always starts with "/"
   
     let objectEntityDir = this.getPrivateObjectDir();
     if (!objectEntityDir.endsWith("/")) {
       objectEntityDir = `${objectEntityDir}/`;
     }
+    // rawObjectPath has a leading "/" but PRIVATE_OBJECT_DIR env var does not,
+    // so we must add one before comparing.
+    const normalizedEntityDir = objectEntityDir.startsWith("/")
+      ? objectEntityDir
+      : `/${objectEntityDir}`;
   
-    if (!rawObjectPath.startsWith(objectEntityDir)) {
+    if (!rawObjectPath.startsWith(normalizedEntityDir)) {
       return rawObjectPath;
     }
   
-    // Extract the entity ID from the path
-    const entityId = rawObjectPath.slice(objectEntityDir.length);
+    // Extract the entity ID (the part after the bucket+private dir prefix)
+    const entityId = rawObjectPath.slice(normalizedEntityDir.length);
     return `/objects/${entityId}`;
   }
 
