@@ -1323,22 +1323,34 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
 
   if (step === "parent-email") {
     const handleParentEmailNext = async () => {
-      if (!parentEmail.trim()) {
-        toast({ title: "Please enter a parent/guardian email", variant: "destructive" });
-        return;
-      }
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(parentEmail.trim())) {
+      if (parentEmail.trim() && !emailRegex.test(parentEmail.trim())) {
         toast({ title: "Please enter a valid email address", variant: "destructive" });
         return;
       }
       setIsSaving(true);
       try {
-        await apiRequest("PUT", "/api/career", { parentEmail: parentEmail.trim(), isMinor: true });
+        await apiRequest("PUT", "/api/career", {
+          isMinor: true,
+          parentEmail: parentEmail.trim() || undefined,
+        });
         queryClient.invalidateQueries({ queryKey: ['/api/career'] });
         setStep("reason");
       } catch {
-        toast({ title: "Failed to save parent email", variant: "destructive" });
+        toast({ title: "Failed to save", variant: "destructive" });
+      } finally {
+        setIsSaving(false);
+      }
+    };
+
+    const handleSkip = async () => {
+      setIsSaving(true);
+      try {
+        await apiRequest("PUT", "/api/career", { isMinor: true });
+        queryClient.invalidateQueries({ queryKey: ['/api/career'] });
+        setStep("reason");
+      } catch {
+        toast({ title: "Failed to save", variant: "destructive" });
       } finally {
         setIsSaving(false);
       }
@@ -1348,12 +1360,12 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
       <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-background to-muted/20">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <CardTitle className="text-xl font-bold">Parent / Guardian Info</CardTitle>
-            <CardDescription>Since you're under 18, we need a parent or guardian's email so they can stay connected to your training.</CardDescription>
+            <CardTitle className="text-xl font-bold">Parent / Guardian Access</CardTitle>
+            <CardDescription>Optionally let a parent or guardian follow your training — completely up to you.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label className="text-sm font-medium">Parent/Guardian Email *</Label>
+              <Label className="text-sm font-medium">Parent/Guardian Email <span className="text-muted-foreground font-normal">(optional)</span></Label>
               <Input
                 type="email"
                 value={parentEmail}
@@ -1362,17 +1374,24 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
                 data-testid="input-parent-email"
                 className="mt-1.5"
               />
-              <p className="text-xs text-muted-foreground mt-1.5">We'll send them an invite to view your training progress.</p>
+              <p className="text-xs text-muted-foreground mt-1.5">
+                After setup, you'll get a unique invite code in your Profile to share with them. They create their own PLAYR1 account and use the code to connect.
+              </p>
             </div>
             <div className="flex justify-between pt-4">
               <Button type="button" variant="outline" onClick={() => setStep("profile")} data-testid="button-back-profile">
                 <ChevronLeft className="w-4 h-4 mr-1" />
                 Back
               </Button>
-              <Button type="button" onClick={handleParentEmailNext} disabled={isSaving} data-testid="button-next-parent-email">
-                {isSaving ? "Saving..." : "Next"}
-                {!isSaving && <ChevronRight className="w-4 h-4 ml-1" />}
-              </Button>
+              <div className="flex gap-2">
+                <Button type="button" variant="ghost" onClick={handleSkip} disabled={isSaving} data-testid="button-skip-parent-email">
+                  Skip for now
+                </Button>
+                <Button type="button" onClick={handleParentEmailNext} disabled={isSaving} data-testid="button-next-parent-email">
+                  {isSaving ? "Saving..." : "Next"}
+                  {!isSaving && <ChevronRight className="w-4 h-4 ml-1" />}
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
