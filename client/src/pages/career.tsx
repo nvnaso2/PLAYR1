@@ -819,11 +819,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
     const currentYear = new Date().getFullYear();
     const currentMonth = new Date().getMonth() + 1;
     const playerIsMinor = birthYear ? (currentYear - birthYear < 18 || (currentYear - birthYear === 18 && birthMonth !== undefined && birthMonth > currentMonth)) : false;
-    if (playerIsMinor) {
-      setStep("parent-email");
-    } else {
-      setStep("reason");
-    }
+    setStep("reason");
   };
 
   const commitSpecReorder = (from: number, to: number) => {

@@ -8,6 +8,7 @@ import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -57,7 +58,18 @@ import {
   Copy,
   Trash2,
   ChevronRight,
+  Mail,
+  Send,
+  Loader2,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
 import type { UserProfile } from "@shared/schema";
 
@@ -229,6 +241,21 @@ export default function ProfilePage() {
   };
 
   const [uploading, setUploading] = useState(false);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteSent, setInviteSent] = useState(false);
+
+  const sendInviteMutation = useMutation({
+    mutationFn: async (parentEmail: string) =>
+      apiRequest("POST", "/api/parent/send-invite", { parentEmail }),
+    onSuccess: () => {
+      setInviteSent(true);
+      queryClient.invalidateQueries({ queryKey: ["/api/career"] });
+    },
+    onError: () => {
+      toast({ title: "Failed to send invite", variant: "destructive" });
+    },
+  });
 
   const getInitials = () => {
     if (user?.firstName && user?.lastName) {
@@ -605,37 +632,45 @@ export default function ProfilePage() {
             </div>
             <p className="text-sm text-muted-foreground">
               {isMinor
-                ? "This account is registered as a minor (under 18). A parent or guardian can link their account to monitor training activity, sessions, and communications."
+                ? "Your account is registered as a minor (under 18). You can invite a parent or guardian to follow your training in read-only mode."
                 : "Your account is registered as an adult. PLAYR1 collects birth year during onboarding to provide age-appropriate parental oversight for minor users."}
             </p>
           </div>
 
           {isMinor && (
-            <div className="p-4 rounded-lg border space-y-3" data-testid="section-parental-controls">
-              <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-primary" />
-                <p className="font-medium text-sm">Parent / Guardian Access</p>
+            <div className="p-4 rounded-lg border space-y-4" data-testid="section-parental-controls">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-primary" />
+                  <p className="font-medium text-sm">Parent / Guardian Access</p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5"
+                  onClick={() => { setInviteSent(false); setInviteEmail(""); setInviteDialogOpen(true); }}
+                  data-testid="button-invite-parent"
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  Invite Parent
+                </Button>
               </div>
               <p className="text-sm text-muted-foreground">
-                Share this invite code with a parent or guardian. They can create a PLAYR1 account and use this code to link to your profile for read-only oversight.
+                Send your parent or guardian an email invite. They'll get a link to create a simple parent account and connect to your profile automatically.
               </p>
-              {parentInviteCode ? (
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 bg-muted rounded-md px-3 py-2 font-mono text-sm tracking-widest" data-testid="text-parent-invite-code">
-                    {parentInviteCode}
+              {parentInviteCode && (
+                <div className="space-y-1.5">
+                  <p className="text-xs text-muted-foreground font-medium">Manual invite code (share directly if needed)</p>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 bg-muted rounded-md px-3 py-2 font-mono text-sm tracking-widest" data-testid="text-parent-invite-code">
+                      {parentInviteCode}
+                    </div>
+                    <Button size="icon" variant="outline" onClick={copyInviteCode} data-testid="button-copy-invite-code">
+                      <Copy className="w-4 h-4" />
+                    </Button>
                   </div>
-                  <Button size="icon" variant="outline" onClick={copyInviteCode} data-testid="button-copy-invite-code">
-                    <Copy className="w-4 h-4" />
-                  </Button>
                 </div>
-              ) : (
-                <p className="text-sm text-muted-foreground italic">
-                  Complete your player profile to generate a parent invite code.
-                </p>
               )}
-              <p className="text-xs text-muted-foreground">
-                Parents access your training logs, sessions, messages, and trainer connections in read-only mode.
-              </p>
             </div>
           )}
 
@@ -652,6 +687,66 @@ export default function ProfilePage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Parent invite dialog */}
+      <Dialog open={inviteDialogOpen} onOpenChange={open => { setInviteDialogOpen(open); if (!open) setInviteSent(false); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Invite a Parent or Guardian</DialogTitle>
+            <DialogDescription>
+              We'll send them an email with a private link to create a parent account and connect to your profile.
+            </DialogDescription>
+          </DialogHeader>
+          {inviteSent ? (
+            <div className="py-4 text-center space-y-2">
+              <div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center mx-auto">
+                <Send className="w-5 h-5 text-green-500" />
+              </div>
+              <p className="font-medium">Invite sent!</p>
+              <p className="text-sm text-muted-foreground">
+                They'll receive an email shortly with a link to set up their parent account.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="space-y-3 py-2">
+                <div>
+                  <Label htmlFor="invite-email" className="text-sm font-medium">Parent / Guardian Email</Label>
+                  <Input
+                    id="invite-email"
+                    type="email"
+                    value={inviteEmail}
+                    onChange={e => setInviteEmail(e.target.value)}
+                    placeholder="parent@example.com"
+                    className="mt-1.5"
+                    data-testid="input-invite-email"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setInviteDialogOpen(false)}>Cancel</Button>
+                <Button
+                  onClick={() => {
+                    if (!inviteEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteEmail.trim())) {
+                      toast({ title: "Please enter a valid email address", variant: "destructive" });
+                      return;
+                    }
+                    sendInviteMutation.mutate(inviteEmail.trim());
+                  }}
+                  disabled={sendInviteMutation.isPending}
+                  data-testid="button-send-invite"
+                >
+                  {sendInviteMutation.isPending ? (
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sending…</>
+                  ) : (
+                    <><Send className="w-4 h-4 mr-2" /> Send Invite</>
+                  )}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Card>
         <CardHeader>

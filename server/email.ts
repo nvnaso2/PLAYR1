@@ -307,3 +307,32 @@ export async function sendPasswordResetEmail(
     </p>`;
   return sendEmail(email, `Reset Your ${APP_NAME} Password`, baseTemplate("Reset Your Password", body));
 }
+
+export async function sendParentInviteEmail(
+  parentEmail: string,
+  playerName: string,
+  inviteCode: string,
+  appBaseUrl: string
+): Promise<boolean> {
+  const inviteUrl = `${appBaseUrl}/parent-invite/${inviteCode}`;
+  const body = `
+    <p style="color:#ccc;font-size:16px;line-height:1.6;margin:0 0 16px 0;">
+      You've been invited to follow <strong style="color:#fff;">${playerName}</strong>'s basketball training on ${APP_NAME}.
+    </p>
+    <p style="color:#ccc;font-size:16px;line-height:1.6;margin:0 0 16px 0;">
+      As a connected parent or guardian, you'll be able to see their training sessions, drill logs, coach connections, and overall progress — all in one place.
+    </p>
+    <div style="text-align:center;margin:28px 0;">
+      <a href="${inviteUrl}" style="display:inline-block;background-color:#f97316;color:#fff;font-size:16px;font-weight:600;text-decoration:none;padding:14px 36px;border-radius:8px;">
+        Set Up Parent Account
+      </a>
+    </div>
+    <p style="color:#999;font-size:14px;line-height:1.6;margin:0 0 12px 0;">
+      Clicking the button will take you to a quick setup page — just enter your name and create a password. No app store download required; it works in any browser.
+    </p>
+    <p style="color:#666;font-size:12px;line-height:1.6;margin:0;">
+      If the button doesn't work, copy and paste this URL:<br>
+      <span style="color:#f97316;word-break:break-all;">${inviteUrl}</span>
+    </p>`;
+  return sendEmail(parentEmail, `${playerName} invited you to follow their training on ${APP_NAME}`, baseTemplate(`Follow ${playerName}'s Training`, body));
+}

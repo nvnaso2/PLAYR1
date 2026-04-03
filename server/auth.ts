@@ -318,4 +318,62 @@ export function registerAuthRoutes(app: Express) {
       res.status(500).json({ message: "Failed to reset password" });
     }
   });
+
+  // Parent account creation via invite link (public — no auth required)
+  app.post("/api/parent/register", async (req, res) => {
+    try {
+      const { inviteCode, firstName, email, password } = req.body;
+      if (!inviteCode || !firstName || !email || !password) {
+        return res.status(400).json({ message: "All fields are required" });
+      }
+      if (password.length < 8) {
+        return res.status(400).json({ message: "Password must be at least 8 characters" });
+      }
+
+      const { careerProfiles, parentLinks } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const { db } = await import("./db");
+      const { storage } = await import("./storage");
+
+      // Validate the invite code
+      const [career] = await db.select().from(careerProfiles).where(eq(careerProfiles.parentInviteCode, inviteCode));
+      if (!career) {
+        return res.status(404).json({ message: "Invalid or expired invite link" });
+      }
+
+      // Check if this player already has a linked parent
+      const existingLink = await storage.getParentForPlayer(career.userId);
+      if (existingLink) {
+        return res.status(400).json({ message: "This player already has a linked parent account" });
+      }
+
+      // Check if email is already registered
+      const [existingUser] = await db.select().from(users).where(eq(users.email, email.toLowerCase().trim()));
+      if (existingUser) {
+        return res.status(400).json({ message: "An account with this email already exists. Please log in and go to /parent to link your account." });
+      }
+
+      const passwordHash = await hashPassword(password);
+      const userId = crypto.randomUUID();
+      const [newUser] = await db.insert(users).values({
+        id: userId,
+        email: email.toLowerCase().trim(),
+        firstName: firstName.trim(),
+        passwordHash,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }).returning();
+
+      // Auto-link parent to the player
+      await storage.createParentLink(newUser.id, career.userId);
+
+      // Issue auth token
+      const token = generateToken(newUser.id);
+      res.cookie(COOKIE_NAME, token, COOKIE_OPTIONS);
+      res.status(201).json({ id: newUser.id, email: newUser.email, firstName: newUser.firstName, token });
+    } catch (error) {
+      console.error("Parent register error:", error);
+      res.status(500).json({ message: "Failed to create parent account" });
+    }
+  });
 }

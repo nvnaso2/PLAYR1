@@ -45,6 +45,7 @@ import TrainerEvaluations from "@/pages/trainer/evaluations";
 import TrainerPlayerDetail from "@/pages/trainer/player-detail";
 import MyTrainer from "@/pages/my-trainer";
 import ParentDashboard from "@/pages/parent-dashboard";
+import ParentInvite from "@/pages/parent-invite";
 import FindPeople from "@/pages/find-people";
 import NotFound from "@/pages/not-found";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -217,6 +218,7 @@ function Router() {
       <Route path="/terms" component={Terms} />
       <Route path="/support" component={Support} />
       <Route path="/finder">{() => <Redirect to="/teams" />}</Route>
+      <Route path="/parent-invite/:code" component={ParentInvite} />
       <Route>
         {() => {
           if (!isAuthenticated) {

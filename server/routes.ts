@@ -19,6 +19,7 @@ import {
   sendSessionRescheduledEmail,
   sendSessionDeclinedEmail,
   sendInviteEmail,
+  sendParentInviteEmail,
 } from "./email";
 import { sendPushNotification, getVapidPublicKey } from "./push";
 
@@ -1980,7 +1981,8 @@ export async function registerRoutes(
 
       const updateData: Record<string, any> = { onboardingCompleted: true };
 
-      if (existingProfile?.isMinor && existingProfile?.parentEmail && !existingProfile?.parentInviteCode) {
+      const willBeMinor = updateData.isMinor ?? existingProfile?.isMinor;
+      if (willBeMinor && !existingProfile?.parentInviteCode) {
         const crypto = await import("crypto");
         updateData.parentInviteCode = crypto.randomBytes(6).toString("hex");
       }
@@ -6737,6 +6739,65 @@ export async function registerRoutes(
   });
 
   // ===== PARENT / GUARDIAN =====
+
+  // Public: validate an invite code and return the player's display name (so the invite page can show context)
+  app.get("/api/parent-invite/validate/:code", async (req, res) => {
+    try {
+      const { code } = req.params;
+      const [career] = await db.select().from(careerProfiles).where(eq(careerProfiles.parentInviteCode, code));
+      if (!career) {
+        return res.status(404).json({ message: "Invalid invite link" });
+      }
+      const [profile] = await db.select({ displayName: userProfiles.displayName, firstName: userProfiles.firstName }).from(userProfiles).where(eq(userProfiles.userId, career.userId));
+      const playerName = profile?.displayName || profile?.firstName || "your player";
+      res.json({ valid: true, playerName });
+    } catch (error) {
+      console.error("Error validating parent invite:", error);
+      res.status(500).json({ message: "Failed to validate invite" });
+    }
+  });
+
+  // Authenticated: player sends a parent invite email
+  app.post("/api/parent/send-invite", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { parentEmail } = req.body;
+      if (!parentEmail?.trim()) {
+        return res.status(400).json({ message: "Parent email is required" });
+      }
+
+      // Get or generate invite code
+      let career = await storage.getCareerProfile(userId);
+      if (!career) {
+        return res.status(404).json({ message: "Career profile not found" });
+      }
+
+      if (!career.isMinor) {
+        return res.status(400).json({ message: "Parent visibility is only available for minor players" });
+      }
+
+      let inviteCode = career.parentInviteCode;
+      if (!inviteCode) {
+        const crypto = await import("crypto");
+        inviteCode = crypto.randomBytes(6).toString("hex");
+        career = await storage.updateCareerProfile(userId, { parentInviteCode: inviteCode, parentEmail: parentEmail.trim() });
+      } else {
+        career = await storage.updateCareerProfile(userId, { parentEmail: parentEmail.trim() });
+      }
+
+      // Get player's name
+      const [profile] = await db.select({ displayName: userProfiles.displayName, firstName: userProfiles.firstName }).from(userProfiles).where(eq(userProfiles.userId, userId));
+      const playerName = profile?.displayName || profile?.firstName || "A player";
+
+      const appBaseUrl = getAppBaseUrl();
+      await sendParentInviteEmail(parentEmail.trim(), playerName, inviteCode!, appBaseUrl);
+
+      res.json({ message: "Invite sent", inviteCode });
+    } catch (error) {
+      console.error("Error sending parent invite:", error);
+      res.status(500).json({ message: "Failed to send invite" });
+    }
+  });
 
   app.post("/api/parent/link", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
