@@ -6748,8 +6748,9 @@ export async function registerRoutes(
       if (!career) {
         return res.status(404).json({ message: "Invalid invite link" });
       }
-      const [profile] = await db.select({ displayName: userProfiles.displayName, firstName: userProfiles.firstName }).from(userProfiles).where(eq(userProfiles.userId, career.userId));
-      const playerName = profile?.displayName || profile?.firstName || "your player";
+      const [profile] = await db.select({ displayName: userProfiles.displayName }).from(userProfiles).where(eq(userProfiles.userId, career.userId));
+      const [userRow] = await db.select({ firstName: users.firstName }).from(users).where(eq(users.id, career.userId));
+      const playerName = profile?.displayName || userRow?.firstName || "your player";
       res.json({ valid: true, playerName });
     } catch (error) {
       console.error("Error validating parent invite:", error);
@@ -6786,8 +6787,9 @@ export async function registerRoutes(
       }
 
       // Get player's name
-      const [profile] = await db.select({ displayName: userProfiles.displayName, firstName: userProfiles.firstName }).from(userProfiles).where(eq(userProfiles.userId, userId));
-      const playerName = profile?.displayName || profile?.firstName || "A player";
+      const [profile] = await db.select({ displayName: userProfiles.displayName }).from(userProfiles).where(eq(userProfiles.userId, userId));
+      const [userRow] = await db.select({ firstName: users.firstName }).from(users).where(eq(users.id, userId));
+      const playerName = profile?.displayName || userRow?.firstName || "A player";
 
       const appBaseUrl = getAppBaseUrl();
       await sendParentInviteEmail(parentEmail.trim(), playerName, inviteCode!, appBaseUrl);
