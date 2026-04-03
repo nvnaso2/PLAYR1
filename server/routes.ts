@@ -7317,8 +7317,8 @@ export async function registerRoutes(
   app.patch("/api/feedback/:id/status", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user!.claims.sub;
-      const [userRow] = await db.select({ role: users.role }).from(users).where(eq(users.id, userId));
-      if (userRow?.role !== "admin") return res.status(403).json({ message: "Admins only" });
+      const adminCheck = await storage.isUserAdmin(userId);
+      if (!adminCheck) return res.status(403).json({ message: "Admins only" });
       const { status } = req.body;
       const post = await storage.updateFeedbackStatus(req.params.id, status);
       res.json(post);
@@ -7331,8 +7331,8 @@ export async function registerRoutes(
   app.delete("/api/feedback/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user!.claims.sub;
-      const [userRow] = await db.select({ role: users.role }).from(users).where(eq(users.id, userId));
-      if (userRow?.role !== "admin") return res.status(403).json({ message: "Admins only" });
+      const adminCheck = await storage.isUserAdmin(userId);
+      if (!adminCheck) return res.status(403).json({ message: "Admins only" });
       await storage.deleteFeedbackPost(req.params.id);
       res.json({ success: true });
     } catch (err) {
@@ -7376,10 +7376,10 @@ export async function registerRoutes(
   app.delete("/api/feedback/:postId/comments/:commentId", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user!.claims.sub;
-      const [userRow] = await db.select({ role: users.role }).from(users).where(eq(users.id, userId));
+      const adminCheck = await storage.isUserAdmin(userId);
       const [comment] = await db.select().from(feedbackComments).where(eq(feedbackComments.id, req.params.commentId));
       if (!comment) return res.status(404).json({ message: "Not found" });
-      if (comment.userId !== userId && userRow?.role !== "admin") return res.status(403).json({ message: "Forbidden" });
+      if (comment.userId !== userId && !adminCheck) return res.status(403).json({ message: "Forbidden" });
       await db.delete(feedbackComments).where(eq(feedbackComments.id, req.params.commentId));
       res.json({ success: true });
     } catch (err) {
@@ -7404,8 +7404,8 @@ export async function registerRoutes(
   app.get("/api/admin/analytics", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user!.claims.sub;
-      const [userRow] = await db.select({ role: users.role }).from(users).where(eq(users.id, userId));
-      if (userRow?.role !== "admin") return res.status(403).json({ message: "Admins only" });
+      const adminCheck = await storage.isUserAdmin(userId);
+      if (!adminCheck) return res.status(403).json({ message: "Admins only" });
       const data = await storage.getAdminAnalytics();
       res.json(data);
     } catch (err) {
