@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, startTransition } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -1245,28 +1245,44 @@ export default function TrainingLogPage() {
         ...challengeRequests,
       ]);
 
+      // Immediately invalidate only what the user sees next
       queryClient.invalidateQueries({ queryKey: ['/api/training-logs'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/stats/overview'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/stats/weekly'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/stats/by-category'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/stats/shots'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/stats/dashboard-training'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/challenges/my-challenges'] });
       queryClient.invalidateQueries({ queryKey: ['/api/assigned-drills'] });
 
+      // Compute summary before state is cleared
       const challengeCount = Object.keys(challengeUpdates).length;
+      const drillCount = workoutEntries.length;
       const elapsedLabel = workoutStartTime ? ` · ${formatMs(Date.now() - workoutStartTime)}` : "";
+
+      // Transition UI state — clear heavy workout entries immediately to free memory,
+      // then show the completion dialog. Use startTransition so React treats this as
+      // a low-priority update and keeps the UI responsive.
+      startTransition(() => {
+        setWorkoutEntries([]);
+        setWorkoutInProgress(false);
+        setWorkoutStartTime(null);
+        setDrillStartTimes({});
+        setShowFavoriteDialog(true);
+      });
+
       toast({
         title: "Workout Complete!",
         description: challengeCount > 0
-          ? `Logged ${workoutEntries.length} drill${workoutEntries.length > 1 ? 's' : ''} and updated ${challengeCount} challenge${challengeCount > 1 ? 's' : ''}${elapsedLabel}`
-          : `Logged ${workoutEntries.length} drill${workoutEntries.length > 1 ? 's' : ''}${elapsedLabel}`,
+          ? `Logged ${drillCount} drill${drillCount > 1 ? 's' : ''} and updated ${challengeCount} challenge${challengeCount > 1 ? 's' : ''}${elapsedLabel}`
+          : `Logged ${drillCount} drill${drillCount > 1 ? 's' : ''}${elapsedLabel}`,
       });
 
-      setWorkoutInProgress(false);
-      setWorkoutStartTime(null);
-      setDrillStartTimes({});
-      setShowFavoriteDialog(true);
+      // Defer non-critical stat/challenge invalidations so they don't race with the UI transition
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['/api/stats/overview'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/stats/weekly'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/challenges/my-challenges'] });
+      }, 800);
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['/api/stats/by-category'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/stats/shots'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/stats/dashboard-training'] });
+      }, 1600);
     } catch (error) {
       console.error("Error saving workout:", error);
       toast({ title: "Failed to save workout", variant: "destructive" });

@@ -10,9 +10,12 @@ import { useAuth } from "@/hooks/use-auth";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Button } from "@/components/ui/button";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { Playr1Logo } from "@/components/playr1-logo";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useRole } from "@/hooks/use-role";
 
+// Critical path — load immediately
 import Landing from "@/pages/landing";
 import AuthPage from "@/pages/auth-page";
 import ForgotPassword from "@/pages/forgot-password";
@@ -20,36 +23,49 @@ import ResetPassword from "@/pages/reset-password";
 import Privacy from "@/pages/privacy";
 import Terms from "@/pages/terms";
 import Support from "@/pages/support";
-import Drills from "@/pages/drills";
-import DrillPage from "@/pages/drill";
-import TrainingLog from "@/pages/training-log";
-import Dashboard from "@/pages/progress";
-import Videos from "@/pages/videos";
-import Profile from "@/pages/profile";
-import Career from "@/pages/career";
-import PlayerPublic from "@/pages/player-public";
-import TrainerPublic from "@/pages/trainer-public";
-import Admin from "@/pages/admin";
-import TrainerDashboard from "@/pages/trainer/index";
-import TrainerRoster from "@/pages/trainer/roster";
-import TrainerDrills from "@/pages/trainer/drills";
-import TrainerLogs from "@/pages/trainer/logs";
-import TrainerChat from "@/pages/trainer/chat";
-import TrainerProgress from "@/pages/trainer/progress";
-import Finder from "@/pages/finder";
-import TeamProfile from "@/pages/team-profile";
-import LeagueProfile from "@/pages/league-profile";
-import TrainerProfile from "@/pages/trainer/profile";
-import TrainerSchedule from "@/pages/trainer/schedule";
-import TrainerEvaluations from "@/pages/trainer/evaluations";
-import TrainerPlayerDetail from "@/pages/trainer/player-detail";
-import MyTrainer from "@/pages/my-trainer";
-import ParentDashboard from "@/pages/parent-dashboard";
 import ParentInvite from "@/pages/parent-invite";
-import FindPeople from "@/pages/find-people";
 import NotFound from "@/pages/not-found";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useRole } from "@/hooks/use-role";
+
+// Heavy pages — lazy load on first visit so the initial bundle is smaller
+const Drills = lazy(() => import("@/pages/drills"));
+const DrillPage = lazy(() => import("@/pages/drill"));
+const TrainingLog = lazy(() => import("@/pages/training-log"));
+const Dashboard = lazy(() => import("@/pages/progress"));
+const Videos = lazy(() => import("@/pages/videos"));
+const Profile = lazy(() => import("@/pages/profile"));
+const Career = lazy(() => import("@/pages/career"));
+const PlayerPublic = lazy(() => import("@/pages/player-public"));
+const TrainerPublic = lazy(() => import("@/pages/trainer-public"));
+const Admin = lazy(() => import("@/pages/admin"));
+const TrainerDashboard = lazy(() => import("@/pages/trainer/index"));
+const TrainerRoster = lazy(() => import("@/pages/trainer/roster"));
+const TrainerDrills = lazy(() => import("@/pages/trainer/drills"));
+const TrainerLogs = lazy(() => import("@/pages/trainer/logs"));
+const TrainerChat = lazy(() => import("@/pages/trainer/chat"));
+const TrainerProgress = lazy(() => import("@/pages/trainer/progress"));
+const Finder = lazy(() => import("@/pages/finder"));
+const TeamProfile = lazy(() => import("@/pages/team-profile"));
+const LeagueProfile = lazy(() => import("@/pages/league-profile"));
+const TrainerProfile = lazy(() => import("@/pages/trainer/profile"));
+const TrainerSchedule = lazy(() => import("@/pages/trainer/schedule"));
+const TrainerEvaluations = lazy(() => import("@/pages/trainer/evaluations"));
+const TrainerPlayerDetail = lazy(() => import("@/pages/trainer/player-detail"));
+const MyTrainer = lazy(() => import("@/pages/my-trainer"));
+const ParentDashboard = lazy(() => import("@/pages/parent-dashboard"));
+const FindPeople = lazy(() => import("@/pages/find-people"));
+
+function PageLoader() {
+  return (
+    <div className="flex-1 flex items-center justify-center p-8">
+      <div className="space-y-3 w-full max-w-sm">
+        <Skeleton className="h-8 w-3/4" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-5/6" />
+        <Skeleton className="h-32 w-full mt-4" />
+      </div>
+    </div>
+  );
+}
 
 function SplashScreen({ isAuthLoading, isAuthenticated, onComplete }: {
   isAuthLoading: boolean;
@@ -127,7 +143,9 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
             <ThemeToggle />
           </header>
           <main className="flex-1 overflow-y-auto">
-            {children}
+            <Suspense fallback={<PageLoader />}>
+              {children}
+            </Suspense>
           </main>
         </SidebarInset>
       </div>

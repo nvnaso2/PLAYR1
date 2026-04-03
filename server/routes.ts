@@ -1424,6 +1424,18 @@ export async function registerRoutes(
       if (!Array.isArray(entries) || entries.length === 0) {
         return res.status(400).json({ message: "entries must be a non-empty array" });
       }
+      // Fetch shared data once — avoids N DB round-trips for N entries in the workout
+      const [metricTemplates, allActiveAssignments] = await Promise.all([
+        storage.getMetricTemplates(),
+        storage.getAllActiveAssignmentsForUser(userId).catch(() => [] as any[]),
+      ]);
+      // Build a drillId→assignments map for O(1) lookups per entry
+      const assignmentsByDrill = new Map<string, any[]>();
+      for (const a of allActiveAssignments) {
+        if (!assignmentsByDrill.has(a.drillId)) assignmentsByDrill.set(a.drillId, []);
+        assignmentsByDrill.get(a.drillId)!.push(a);
+      }
+
       const logs = await Promise.all(entries.map(async (entry: any) => {
         const data = insertTrainingLogSchema.parse({ ...entry, userId });
         if (data.shotsMade !== undefined && data.shotsAttempted !== undefined &&
@@ -1442,10 +1454,9 @@ export async function registerRoutes(
         }
         if (Array.isArray(entry.metrics) && entry.metrics.length > 0) {
           const saved = await storage.saveTrainingLogMetrics(log.id, entry.metrics);
-          const templates = await storage.getMetricTemplates();
           for (const m of saved) {
             if (m.value !== null && Number(m.value) > 0) {
-              const template = templates.find(t => t.id === m.metricId);
+              const template = metricTemplates.find(t => t.id === m.metricId);
               prMetrics.push({ metricName: template?.name || m.metricId, value: Number(m.value) });
             }
           }
@@ -1455,7 +1466,7 @@ export async function registerRoutes(
         }
         if (log.drillId) {
           try {
-            const toComplete = await storage.getActiveAssignmentsForDrillAndUser(userId, log.drillId);
+            const toComplete = assignmentsByDrill.get(log.drillId) || [];
             for (const a of toComplete) await storage.updateDrillAssignmentStatus(a.id, "completed", log.id);
           } catch (e) { /* non-fatal */ }
         }
