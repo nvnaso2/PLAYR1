@@ -5,7 +5,7 @@ import path from "path";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated, getAppBaseUrl, type AuthenticatedRequest } from "./auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
-import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, drills, trainingLogs } from "@shared/schema";
+import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, drills, trainingLogs, feedbackComments } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
 import { eq, and, or, isNull, ilike, sql, inArray, gte } from "drizzle-orm";
@@ -7338,6 +7338,52 @@ export async function registerRoutes(
     } catch (err) {
       console.error("Error deleting feedback:", err);
       res.status(500).json({ message: "Failed to delete feedback" });
+    }
+  });
+
+  // ─── Feedback Comments ────────────────────────────────────────────────────
+
+  app.get("/api/feedback/:id/comments", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const comments = await db.select().from(feedbackComments)
+        .where(eq(feedbackComments.postId, req.params.id))
+        .orderBy(feedbackComments.createdAt);
+      res.json(comments);
+    } catch (err) {
+      console.error("Error fetching comments:", err);
+      res.status(500).json({ message: "Failed to fetch comments" });
+    }
+  });
+
+  app.post("/api/feedback/:id/comments", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const { content } = req.body;
+      if (!content?.trim()) return res.status(400).json({ message: "Content required" });
+      const [userRow] = await db.select({ firstName: users.firstName, lastName: users.lastName, email: users.email })
+        .from(users).where(eq(users.id, userId));
+      const authorName = `${userRow?.firstName || ""} ${userRow?.lastName || ""}`.trim() || userRow?.email || "User";
+      const [comment] = await db.insert(feedbackComments).values({
+        postId: req.params.id, userId, content: content.trim(), authorName,
+      }).returning();
+      res.json(comment);
+    } catch (err) {
+      console.error("Error posting comment:", err);
+      res.status(500).json({ message: "Failed to post comment" });
+    }
+  });
+
+  app.delete("/api/feedback/:postId/comments/:commentId", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const [userRow] = await db.select({ role: users.role }).from(users).where(eq(users.id, userId));
+      const [comment] = await db.select().from(feedbackComments).where(eq(feedbackComments.id, req.params.commentId));
+      if (!comment) return res.status(404).json({ message: "Not found" });
+      if (comment.userId !== userId && userRow?.role !== "admin") return res.status(403).json({ message: "Forbidden" });
+      await db.delete(feedbackComments).where(eq(feedbackComments.id, req.params.commentId));
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to delete comment" });
     }
   });
 

@@ -3614,101 +3614,48 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAdminAnalytics(): Promise<any> {
-    // Pull raw counts from existing tables
-    const [totalUsersRow] = await db.execute(sql`SELECT COUNT(*) as count FROM users`);
-    const [totalLogsRow] = await db.execute(sql`SELECT COUNT(*) as count FROM training_logs`);
-    const [totalSessionsRow] = await db.execute(sql`SELECT COUNT(*) as count FROM training_sessions`);
-    const [totalConnectionsRow] = await db.execute(sql`SELECT COUNT(*) as count FROM player_trainer_connections WHERE status = 'accepted'`);
-    const [totalFeedbackRow] = await db.execute(sql`SELECT COUNT(*) as count FROM feedback_posts`);
+    const r = <T = any>(res: any): T[] => (res.rows ?? res) as T[];
+    const r1 = (res: any): any => r(res)[0] ?? {};
 
-    const usersByWeek = await db.execute(sql`
-      SELECT DATE_TRUNC('week', created_at) as week, COUNT(*) as count
-      FROM users WHERE created_at >= NOW() - INTERVAL '12 weeks'
-      GROUP BY week ORDER BY week ASC
-    `);
+    const totalUsersRow    = r1(await db.execute(sql`SELECT COUNT(*) as count FROM users`));
+    const totalLogsRow     = r1(await db.execute(sql`SELECT COUNT(*) as count FROM training_logs`));
+    const totalSessionsRow = r1(await db.execute(sql`SELECT COUNT(*) as count FROM training_sessions`));
+    const totalConnRow     = r1(await db.execute(sql`SELECT COUNT(*) as count FROM player_trainer_connections WHERE status = 'accepted'`));
+    const totalFbRow       = r1(await db.execute(sql`SELECT COUNT(*) as count FROM feedback_posts`));
+    const active7Row       = r1(await db.execute(sql`SELECT COUNT(DISTINCT user_id) as count FROM training_logs WHERE created_at >= NOW() - INTERVAL '7 days'`));
+    const active30Row      = r1(await db.execute(sql`SELECT COUNT(DISTINCT user_id) as count FROM training_logs WHERE created_at >= NOW() - INTERVAL '30 days'`));
 
-    const logsByWeek = await db.execute(sql`
-      SELECT DATE_TRUNC('week', created_at) as week, COUNT(*) as count
-      FROM training_logs WHERE created_at >= NOW() - INTERVAL '12 weeks'
-      GROUP BY week ORDER BY week ASC
-    `);
-
-    const popularDrills = await db.execute(sql`
-      SELECT d.title, COUNT(tl.id) as log_count
-      FROM training_logs tl
-      JOIN drills d ON d.id = tl.drill_id
-      GROUP BY d.id, d.title
-      ORDER BY log_count DESC LIMIT 10
-    `);
-
-    const activeUsers7d = await db.execute(sql`
-      SELECT COUNT(DISTINCT user_id) as count FROM training_logs
-      WHERE created_at >= NOW() - INTERVAL '7 days'
-    `);
-
-    const activeUsers30d = await db.execute(sql`
-      SELECT COUNT(DISTINCT user_id) as count FROM training_logs
-      WHERE created_at >= NOW() - INTERVAL '30 days'
-    `);
-
-    const usersByRole = await db.execute(sql`
-      SELECT role, COUNT(*) as count FROM users GROUP BY role
-    `);
-
-    const topActiveUsers = await db.execute(sql`
-      SELECT u.first_name, u.last_name, u.email, COUNT(tl.id) as log_count
-      FROM users u
-      JOIN training_logs tl ON tl.user_id = u.id
-      GROUP BY u.id, u.first_name, u.last_name, u.email
-      ORDER BY log_count DESC LIMIT 10
-    `);
-
-    const recentSignups = await db.execute(sql`
-      SELECT u.first_name, u.last_name, u.email, u.role, u.created_at
-      FROM users u ORDER BY u.created_at DESC LIMIT 10
-    `);
-
-    const sessionsByStatus = await db.execute(sql`
-      SELECT status, COUNT(*) as count FROM training_sessions GROUP BY status
-    `);
-
-    const categoryBreakdown = await db.execute(sql`
-      SELECT d.category, COUNT(tl.id) as count
-      FROM training_logs tl JOIN drills d ON d.id = tl.drill_id
-      GROUP BY d.category ORDER BY count DESC
-    `);
-
-    const analyticsEventCounts = await db.execute(sql`
-      SELECT event, COUNT(*) as count FROM analytics_events
-      GROUP BY event ORDER BY count DESC LIMIT 20
-    `);
-
-    const pageViews = await db.execute(sql`
-      SELECT page, COUNT(*) as count FROM analytics_events
-      WHERE event = 'page_view' AND page IS NOT NULL
-      GROUP BY page ORDER BY count DESC LIMIT 15
-    `);
+    const usersByWeek      = r(await db.execute(sql`SELECT DATE_TRUNC('week', created_at) as week, COUNT(*) as count FROM users WHERE created_at >= NOW() - INTERVAL '12 weeks' GROUP BY week ORDER BY week ASC`));
+    const logsByWeek       = r(await db.execute(sql`SELECT DATE_TRUNC('week', created_at) as week, COUNT(*) as count FROM training_logs WHERE created_at >= NOW() - INTERVAL '12 weeks' GROUP BY week ORDER BY week ASC`));
+    const popularDrills    = r(await db.execute(sql`SELECT d.title, COUNT(tl.id) as log_count FROM training_logs tl JOIN drills d ON d.id = tl.drill_id GROUP BY d.id, d.title ORDER BY log_count DESC LIMIT 10`));
+    const usersByRole      = r(await db.execute(sql`SELECT role, COUNT(*) as count FROM users GROUP BY role`));
+    const topActiveUsers   = r(await db.execute(sql`SELECT u.first_name, u.last_name, u.email, COUNT(tl.id) as log_count FROM users u JOIN training_logs tl ON tl.user_id = u.id GROUP BY u.id, u.first_name, u.last_name, u.email ORDER BY log_count DESC LIMIT 10`));
+    const recentSignups    = r(await db.execute(sql`SELECT u.first_name, u.last_name, u.email, u.role, u.created_at FROM users u ORDER BY u.created_at DESC LIMIT 10`));
+    const sessionsByStatus = r(await db.execute(sql`SELECT status, COUNT(*) as count FROM training_sessions GROUP BY status`));
+    const categoryBrkdn    = r(await db.execute(sql`SELECT d.category, COUNT(tl.id) as count FROM training_logs tl JOIN drills d ON d.id = tl.drill_id GROUP BY d.category ORDER BY count DESC`));
+    const analyticsEvents  = r(await db.execute(sql`SELECT event, COUNT(*) as count FROM analytics_events GROUP BY event ORDER BY count DESC LIMIT 20`));
+    const pageViews        = r(await db.execute(sql`SELECT page, COUNT(*) as count FROM analytics_events WHERE event = 'page_view' AND page IS NOT NULL GROUP BY page ORDER BY count DESC LIMIT 15`));
 
     return {
       totals: {
-        users: Number((totalUsersRow as any).count),
-        trainingLogs: Number((totalLogsRow as any).count),
-        sessions: Number((totalSessionsRow as any).count),
-        connections: Number((totalConnectionsRow as any).count),
-        feedbackPosts: Number((totalFeedbackRow as any).count),
-        activeUsers7d: Number((activeUsers7d[0] as any).count),
-        activeUsers30d: Number((activeUsers30d[0] as any).count),
+        users:          Number(totalUsersRow.count    || 0),
+        trainingLogs:   Number(totalLogsRow.count     || 0),
+        sessions:       Number(totalSessionsRow.count || 0),
+        connections:    Number(totalConnRow.count      || 0),
+        feedbackPosts:  Number(totalFbRow.count        || 0),
+        activeUsers7d:  Number(active7Row.count        || 0),
+        activeUsers30d: Number(active30Row.count       || 0),
       },
-      usersByWeek: (usersByWeek as any[]).map(r => ({ week: r.week, count: Number(r.count) })),
-      logsByWeek: (logsByWeek as any[]).map(r => ({ week: r.week, count: Number(r.count) })),
-      popularDrills: (popularDrills as any[]).map(r => ({ title: r.title, count: Number(r.log_count) })),
-      usersByRole: (usersByRole as any[]).map(r => ({ role: r.role || 'unknown', count: Number(r.count) })),
-      topActiveUsers: (topActiveUsers as any[]).map(r => ({ name: `${r.first_name || ''} ${r.last_name || ''}`.trim(), email: r.email, logs: Number(r.log_count) })),
-      recentSignups: (recentSignups as any[]).map(r => ({ name: `${r.first_name || ''} ${r.last_name || ''}`.trim(), email: r.email, role: r.role, createdAt: r.created_at })),
-      sessionsByStatus: (sessionsByStatus as any[]).map(r => ({ status: r.status, count: Number(r.count) })),
-      categoryBreakdown: (categoryBreakdown as any[]).map(r => ({ category: r.category || 'unknown', count: Number(r.count) })),
-      topEvents: (analyticsEventCounts as any[]).map(r => ({ event: r.event, count: Number(r.count) })),
-      topPages: (pageViews as any[]).map(r => ({ page: r.page, count: Number(r.count) })),
+      usersByWeek:      usersByWeek.map((x: any) => ({ week: x.week, count: Number(x.count) })),
+      logsByWeek:       logsByWeek.map((x: any) => ({ week: x.week, count: Number(x.count) })),
+      popularDrills:    popularDrills.map((x: any) => ({ title: x.title, count: Number(x.log_count) })),
+      usersByRole:      usersByRole.map((x: any) => ({ role: x.role || 'unknown', count: Number(x.count) })),
+      topActiveUsers:   topActiveUsers.map((x: any) => ({ name: `${x.first_name || ''} ${x.last_name || ''}`.trim(), email: x.email, logs: Number(x.log_count) })),
+      recentSignups:    recentSignups.map((x: any) => ({ name: `${x.first_name || ''} ${x.last_name || ''}`.trim(), email: x.email, role: x.role, createdAt: x.created_at })),
+      sessionsByStatus: sessionsByStatus.map((x: any) => ({ status: x.status, count: Number(x.count) })),
+      categoryBreakdown: categoryBrkdn.map((x: any) => ({ category: x.category || 'unknown', count: Number(x.count) })),
+      topEvents:        analyticsEvents.map((x: any) => ({ event: x.event, count: Number(x.count) })),
+      topPages:         pageViews.map((x: any) => ({ page: x.page, count: Number(x.count) })),
     };
   }
 }

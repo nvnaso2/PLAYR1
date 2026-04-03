@@ -12,8 +12,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronUp, Plus, Trash2, MessageSquare, Lightbulb, Bug, Megaphone, CheckCircle, Clock, X } from "lucide-react";
-import type { FeedbackPost, FeedbackCategory } from "@shared/schema";
+import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  ChevronUp, Plus, Trash2, MessageSquare, Lightbulb, Bug, Megaphone,
+  CheckCircle2, Clock, Circle, BookOpen, XCircle, Send, ChevronDown, ChevronRight
+} from "lucide-react";
+import type { FeedbackPost, FeedbackCategory, FeedbackComment } from "@shared/schema";
 import { FEEDBACK_CATEGORIES, FEEDBACK_STATUSES } from "@shared/schema";
 
 type FeedbackPostWithMeta = FeedbackPost & { authorName: string; hasVoted: boolean };
@@ -39,24 +44,197 @@ const CATEGORY_COLORS: Record<string, string> = {
   "general": "bg-gray-500/10 text-gray-400 border-gray-500/20",
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  "open": "bg-muted text-muted-foreground",
-  "in-review": "bg-yellow-500/10 text-yellow-400",
-  "planned": "bg-blue-500/10 text-blue-400",
-  "done": "bg-green-500/10 text-green-400",
-  "closed": "bg-gray-500/10 text-gray-400",
+const STATUS_CONFIG: Record<string, {
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badgeClass: string;
+  btnClass: string;
+  desc: string;
+}> = {
+  "open": {
+    label: "Open",
+    icon: Circle,
+    badgeClass: "bg-muted text-muted-foreground border-border",
+    btnClass: "border-border text-muted-foreground hover:bg-muted",
+    desc: "Submitted and awaiting review",
+  },
+  "in-review": {
+    label: "In Review",
+    icon: Clock,
+    badgeClass: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30",
+    btnClass: "border-yellow-500/50 bg-yellow-500/10 text-yellow-400",
+    desc: "We're actively looking into this",
+  },
+  "planned": {
+    label: "Planned",
+    icon: BookOpen,
+    badgeClass: "bg-blue-500/15 text-blue-400 border-blue-500/30",
+    btnClass: "border-blue-500/50 bg-blue-500/10 text-blue-400",
+    desc: "This is on our roadmap — it's coming!",
+  },
+  "done": {
+    label: "Done ✓",
+    icon: CheckCircle2,
+    badgeClass: "bg-green-500/15 text-green-400 border-green-500/30",
+    btnClass: "border-green-500/50 bg-green-500/10 text-green-400",
+    desc: "Shipped! This is now live in the app",
+  },
+  "closed": {
+    label: "Closed",
+    icon: XCircle,
+    badgeClass: "bg-gray-500/10 text-gray-500 border-gray-500/20",
+    btnClass: "border-gray-500/30 text-gray-500",
+    desc: "Won't be implemented at this time",
+  },
 };
 
-const STATUS_LABELS: Record<string, string> = {
-  "open": "Open",
-  "in-review": "In Review",
-  "planned": "Planned",
-  "done": "Done",
-  "closed": "Closed",
-};
+// ─── Status Badge for regular users ──────────────────────────────────────────
+function StatusBadge({ status }: { status: string }) {
+  const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG["open"];
+  const Icon = cfg.icon;
+  return (
+    <div className="flex items-center gap-2">
+      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${cfg.badgeClass}`}>
+        <Icon className="w-3 h-3" />
+        {cfg.label}
+      </span>
+      <span className="text-[11px] text-muted-foreground">{cfg.desc}</span>
+    </div>
+  );
+}
 
-export default function FeedbackPage() {
+// ─── Admin Status Picker ──────────────────────────────────────────────────────
+function AdminStatusPicker({ postId, current, onUpdate }: { postId: string; current: string; onUpdate: (val: string) => void }) {
+  return (
+    <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t">
+      <span className="text-xs text-muted-foreground self-center mr-1">Set status:</span>
+      {FEEDBACK_STATUSES.map(s => {
+        const cfg = STATUS_CONFIG[s];
+        const Icon = cfg.icon;
+        const isActive = s === current;
+        return (
+          <button
+            key={s}
+            onClick={() => onUpdate(s)}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${isActive ? cfg.btnClass + " ring-1 ring-offset-1 ring-current" : "border-border text-muted-foreground hover:bg-muted"}`}
+            data-testid={`button-status-${s}-${postId}`}
+          >
+            <Icon className="w-3 h-3" />
+            {cfg.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Comment Thread ───────────────────────────────────────────────────────────
+function CommentThread({ postId }: { postId: string }) {
   const { user } = useAuth();
+  const { isAdmin } = useAdmin();
+  const { toast } = useToast();
+  const [newComment, setNewComment] = useState("");
+
+  const { data: comments = [], isLoading } = useQuery<FeedbackComment[]>({
+    queryKey: ["/api/feedback", postId, "comments"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/feedback/${postId}/comments`);
+      return res.json();
+    },
+  });
+
+  const addMutation = useMutation({
+    mutationFn: async (content: string) => {
+      const res = await apiRequest("POST", `/api/feedback/${postId}/comments`, { content });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/feedback", postId, "comments"] });
+      setNewComment("");
+    },
+    onError: () => toast({ title: "Failed to post comment", variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (commentId: string) => {
+      const res = await apiRequest("DELETE", `/api/feedback/${postId}/comments/${commentId}`);
+      return res.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/feedback", postId, "comments"] }),
+    onError: () => toast({ title: "Failed to delete comment", variant: "destructive" }),
+  });
+
+  return (
+    <div className="mt-3 space-y-3 border-t pt-3">
+      {isLoading ? (
+        <div className="space-y-2">
+          {[1, 2].map(i => <Skeleton key={i} className="h-10 w-full rounded" />)}
+        </div>
+      ) : comments.length > 0 ? (
+        <div className="space-y-2">
+          {comments.map(c => (
+            <div key={c.id} className="flex gap-2 group" data-testid={`comment-${c.id}`}>
+              <Avatar className="w-7 h-7 shrink-0 mt-0.5">
+                <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                  {(c.authorName || "U").charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-xs font-semibold">{c.authorName}</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {new Date(c.createdAt!).toLocaleDateString()}
+                  </span>
+                  {(isAdmin || c.userId === user?.id) && (
+                    <button
+                      onClick={() => deleteMutation.mutate(c.id)}
+                      className="ml-auto opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all text-xs"
+                      data-testid={`button-delete-comment-${c.id}`}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground mt-0.5">{c.content}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground text-center py-2">No comments yet. Be first to chime in!</p>
+      )}
+
+      {/* Add comment */}
+      <div className="flex gap-2 items-end">
+        <Textarea
+          value={newComment}
+          onChange={e => setNewComment(e.target.value)}
+          placeholder="Add a comment..."
+          rows={2}
+          className="text-sm resize-none"
+          onKeyDown={e => {
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && newComment.trim()) {
+              addMutation.mutate(newComment);
+            }
+          }}
+          data-testid={`input-comment-${postId}`}
+        />
+        <Button
+          size="sm"
+          onClick={() => newComment.trim() && addMutation.mutate(newComment)}
+          disabled={addMutation.isPending || !newComment.trim()}
+          className="shrink-0 h-9"
+          data-testid={`button-submit-comment-${postId}`}
+        >
+          <Send className="w-3.5 h-3.5" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+export default function FeedbackPage() {
   const { isAdmin } = useAdmin();
   const { toast } = useToast();
 
@@ -66,6 +244,7 @@ export default function FeedbackPage() {
   const [newTitle, setNewTitle] = useState("");
   const [newContent, setNewContent] = useState("");
   const [newCategory, setNewCategory] = useState<FeedbackCategory>("general");
+  const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
 
   const { data: posts = [], isLoading } = useQuery<FeedbackPostWithMeta[]>({
     queryKey: ["/api/feedback", categoryFilter, sortBy],
@@ -87,9 +266,7 @@ export default function FeedbackPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/feedback"] });
       toast({ title: "Feedback submitted!", description: "Thanks for helping us improve." });
       setDialogOpen(false);
-      setNewTitle("");
-      setNewContent("");
-      setNewCategory("general");
+      setNewTitle(""); setNewContent(""); setNewCategory("general");
     },
     onError: () => toast({ title: "Failed to submit", variant: "destructive" }),
   });
@@ -124,12 +301,12 @@ export default function FeedbackPage() {
     onError: () => toast({ title: "Failed to delete", variant: "destructive" }),
   });
 
-  const handleSubmit = () => {
-    if (!newTitle.trim() || !newContent.trim()) {
-      toast({ title: "Please fill in title and description", variant: "destructive" });
-      return;
-    }
-    createMutation.mutate({ title: newTitle, content: newContent, category: newCategory });
+  const toggleComments = (id: string) => {
+    setExpandedComments(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
   };
 
   return (
@@ -139,7 +316,7 @@ export default function FeedbackPage() {
         <div>
           <h1 className="text-2xl font-bold" data-testid="text-feedback-title">Feedback &amp; Ideas</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Share bugs, suggest features, or vote on what matters to you.
+            Share bugs, suggest features, or vote on what matters to you. We track every submission and keep you updated.
           </p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -187,18 +364,42 @@ export default function FeedbackPage() {
                   data-testid="input-feedback-content"
                 />
               </div>
-              <Button
-                className="w-full"
-                onClick={handleSubmit}
-                disabled={createMutation.isPending}
-                data-testid="button-submit-feedback"
-              >
+              <Button className="w-full" onClick={() => {
+                if (!newTitle.trim() || !newContent.trim()) {
+                  toast({ title: "Please fill in title and description", variant: "destructive" });
+                  return;
+                }
+                createMutation.mutate({ title: newTitle, content: newContent, category: newCategory });
+              }} disabled={createMutation.isPending} data-testid="button-submit-feedback">
                 {createMutation.isPending ? "Submitting..." : "Submit"}
               </Button>
             </div>
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Status legend for non-admins */}
+      {!isAdmin && (
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-3">
+            <p className="text-xs font-semibold text-primary mb-2">HOW WE TRACK YOUR FEEDBACK</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+              {FEEDBACK_STATUSES.map(s => {
+                const cfg = STATUS_CONFIG[s];
+                const Icon = cfg.icon;
+                return (
+                  <div key={s} className="flex items-center gap-2">
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border shrink-0 ${cfg.badgeClass}`}>
+                      <Icon className="w-2.5 h-2.5" />{cfg.label}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">{cfg.desc}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Filters */}
       <div className="flex gap-2 flex-wrap items-center">
@@ -244,75 +445,83 @@ export default function FeedbackPage() {
         <div className="space-y-3">
           {posts.map(post => {
             const CatIcon = CATEGORY_ICONS[post.category] || Megaphone;
+            const isExpanded = expandedComments.has(post.id);
+            const cfg = STATUS_CONFIG[post.status] ?? STATUS_CONFIG["open"];
+            const StatusIcon = cfg.icon;
             return (
               <Card key={post.id} className="group" data-testid={`card-feedback-${post.id}`}>
-                <CardContent className="p-4 flex gap-3">
-                  {/* Vote column */}
-                  <div className="flex flex-col items-center gap-1 min-w-[48px]">
-                    <button
-                      onClick={() => voteMutation.mutate(post.id)}
-                      disabled={voteMutation.isPending}
-                      className={`flex flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 border transition-all ${post.hasVoted ? "bg-primary/10 border-primary text-primary" : "border-border hover:border-primary/50 hover:bg-primary/5 text-muted-foreground"}`}
-                      data-testid={`button-vote-${post.id}`}
-                    >
-                      <ChevronUp className="w-4 h-4" />
-                      <span className="text-xs font-semibold">{post.voteCount}</span>
-                    </button>
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2 mb-1.5">
-                      <h3 className="font-semibold leading-snug" data-testid={`text-post-title-${post.id}`}>
-                        {post.title}
-                      </h3>
-                      {isAdmin && (
-                        <button
-                          onClick={() => deleteMutation.mutate(post.id)}
-                          className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all"
-                          data-testid={`button-delete-${post.id}`}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
+                <CardContent className="p-4">
+                  <div className="flex gap-3">
+                    {/* Vote column */}
+                    <div className="flex flex-col items-center gap-1 min-w-[48px]">
+                      <button
+                        onClick={() => voteMutation.mutate(post.id)}
+                        disabled={voteMutation.isPending}
+                        className={`flex flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 border transition-all ${post.hasVoted ? "bg-primary/10 border-primary text-primary" : "border-border hover:border-primary/50 hover:bg-primary/5 text-muted-foreground"}`}
+                        data-testid={`button-vote-${post.id}`}
+                      >
+                        <ChevronUp className="w-4 h-4" />
+                        <span className="text-xs font-semibold">{post.voteCount}</span>
+                      </button>
                     </div>
 
-                    <p className="text-sm text-muted-foreground line-clamp-2 mb-2.5">
-                      {post.content}
-                    </p>
-
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Badge variant="outline" className={`text-[11px] px-2 py-0.5 ${CATEGORY_COLORS[post.category]}`}>
-                        <CatIcon className="w-3 h-3 mr-1" />
-                        {CATEGORY_LABELS[post.category]}
-                      </Badge>
-
-                      {isAdmin ? (
-                        <Select
-                          value={post.status}
-                          onValueChange={val => statusMutation.mutate({ id: post.id, status: val })}
-                        >
-                          <SelectTrigger
-                            className={`h-5 text-[11px] px-2 border-0 w-auto gap-1 ${STATUS_COLORS[post.status]}`}
-                            data-testid={`select-status-${post.id}`}
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2 mb-1.5">
+                        <h3 className="font-semibold leading-snug" data-testid={`text-post-title-${post.id}`}>
+                          {post.title}
+                        </h3>
+                        {isAdmin && (
+                          <button
+                            onClick={() => deleteMutation.mutate(post.id)}
+                            className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all shrink-0"
+                            data-testid={`button-delete-${post.id}`}
                           >
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {FEEDBACK_STATUSES.map(s => (
-                              <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <span className={`inline-flex items-center text-[11px] px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[post.status]}`}>
-                          {STATUS_LABELS[post.status]}
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+
+                      <p className="text-sm text-muted-foreground mb-2.5">
+                        {post.content}
+                      </p>
+
+                      {/* Meta row */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant="outline" className={`text-[11px] px-2 py-0.5 ${CATEGORY_COLORS[post.category]}`}>
+                          <CatIcon className="w-3 h-3 mr-1" />
+                          {CATEGORY_LABELS[post.category]}
+                        </Badge>
+
+                        {/* Status — prominent for all */}
+                        {!isAdmin && <StatusBadge status={post.status} />}
+
+                        <span className="text-[11px] text-muted-foreground ml-auto shrink-0">
+                          {post.authorName} · {new Date(post.createdAt!).toLocaleDateString()}
                         </span>
+                      </div>
+
+                      {/* Admin status picker */}
+                      {isAdmin && (
+                        <AdminStatusPicker
+                          postId={post.id}
+                          current={post.status}
+                          onUpdate={val => statusMutation.mutate({ id: post.id, status: val })}
+                        />
                       )}
 
-                      <span className="text-[11px] text-muted-foreground ml-auto">
-                        {post.authorName} · {new Date(post.createdAt!).toLocaleDateString()}
-                      </span>
+                      {/* Comment toggle */}
+                      <button
+                        onClick={() => toggleComments(post.id)}
+                        className="mt-2.5 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        data-testid={`button-toggle-comments-${post.id}`}
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span>Comments</span>
+                        {isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                      </button>
+
+                      {isExpanded && <CommentThread postId={post.id} />}
                     </div>
                   </div>
                 </CardContent>

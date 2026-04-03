@@ -1416,6 +1416,17 @@ export const feedbackVotes = pgTable("feedback_votes", {
 
 export type FeedbackVote = typeof feedbackVotes.$inferSelect;
 
+export const feedbackComments = pgTable("feedback_comments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  postId: varchar("post_id").notNull().references(() => feedbackPosts.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull(),
+  content: text("content").notNull(),
+  authorName: varchar("author_name", { length: 100 }).notNull().default(""),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type FeedbackComment = typeof feedbackComments.$inferSelect;
+
 // ─── User Analytics Events ────────────────────────────────────────────────
 
 export const analyticsEvents = pgTable("analytics_events", {
