@@ -7044,6 +7044,100 @@ export async function registerRoutes(
     }
   });
 
+  // ─── Feedback Forum ──────────────────────────────────────────────────────
+
+  app.get("/api/feedback", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { category, sort } = req.query as { category?: string; sort?: string };
+      const userId = req.user!.claims.sub;
+      const posts = await storage.getFeedbackPosts({ category, sort });
+      const votedSet = await storage.getUserFeedbackVotes(userId);
+      const result = posts.map(p => ({ ...p, hasVoted: votedSet.has(p.id) }));
+      res.json(result);
+    } catch (err) {
+      console.error("Error getting feedback:", err);
+      res.status(500).json({ message: "Failed to get feedback" });
+    }
+  });
+
+  app.post("/api/feedback", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const { title, content, category } = req.body;
+      if (!title?.trim() || !content?.trim()) return res.status(400).json({ message: "Title and content are required" });
+      const post = await storage.createFeedbackPost({ userId, title: title.trim(), content: content.trim(), category: category || "general", status: "open" });
+      res.json(post);
+    } catch (err) {
+      console.error("Error creating feedback:", err);
+      res.status(500).json({ message: "Failed to create feedback" });
+    }
+  });
+
+  app.post("/api/feedback/:id/vote", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const result = await storage.toggleFeedbackVote(userId, req.params.id);
+      res.json(result);
+    } catch (err) {
+      console.error("Error voting on feedback:", err);
+      res.status(500).json({ message: "Failed to vote" });
+    }
+  });
+
+  app.patch("/api/feedback/:id/status", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const [userRow] = await db.select({ role: users.role }).from(users).where(eq(users.id, userId));
+      if (userRow?.role !== "admin") return res.status(403).json({ message: "Admins only" });
+      const { status } = req.body;
+      const post = await storage.updateFeedbackStatus(req.params.id, status);
+      res.json(post);
+    } catch (err) {
+      console.error("Error updating feedback status:", err);
+      res.status(500).json({ message: "Failed to update status" });
+    }
+  });
+
+  app.delete("/api/feedback/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const [userRow] = await db.select({ role: users.role }).from(users).where(eq(users.id, userId));
+      if (userRow?.role !== "admin") return res.status(403).json({ message: "Admins only" });
+      await storage.deleteFeedbackPost(req.params.id);
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Error deleting feedback:", err);
+      res.status(500).json({ message: "Failed to delete feedback" });
+    }
+  });
+
+  // ─── Analytics Events ─────────────────────────────────────────────────────
+
+  app.post("/api/analytics/track", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const { event, page, metadata } = req.body;
+      if (!event) return res.status(400).json({ message: "Event required" });
+      await storage.trackAnalyticsEvent(userId, event, page, metadata);
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to track event" });
+    }
+  });
+
+  app.get("/api/admin/analytics", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const [userRow] = await db.select({ role: users.role }).from(users).where(eq(users.id, userId));
+      if (userRow?.role !== "admin") return res.status(403).json({ message: "Admins only" });
+      const data = await storage.getAdminAnalytics();
+      res.json(data);
+    } catch (err) {
+      console.error("Error getting analytics:", err);
+      res.status(500).json({ message: "Failed to get analytics" });
+    }
+  });
+
   return httpServer;
 }
 

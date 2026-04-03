@@ -1377,3 +1377,52 @@ export const nativePushTokens = pgTable("native_push_tokens", {
 });
 
 export type NativePushToken = typeof nativePushTokens.$inferSelect;
+
+// ─── User Feedback Forum ───────────────────────────────────────────────────
+
+export const FEEDBACK_CATEGORIES = ["bug", "feature-request", "suggestion", "general"] as const;
+export type FeedbackCategory = (typeof FEEDBACK_CATEGORIES)[number];
+
+export const FEEDBACK_STATUSES = ["open", "in-review", "planned", "done", "closed"] as const;
+export type FeedbackStatus = (typeof FEEDBACK_STATUSES)[number];
+
+export const feedbackPosts = pgTable("feedback_posts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  title: varchar("title", { length: 200 }).notNull(),
+  content: text("content").notNull(),
+  category: varchar("category", { length: 50 }).notNull().default("general"),
+  status: varchar("status", { length: 30 }).notNull().default("open"),
+  voteCount: integer("vote_count").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertFeedbackPostSchema = createInsertSchema(feedbackPosts).omit({
+  id: true,
+  voteCount: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertFeedbackPost = z.infer<typeof insertFeedbackPostSchema>;
+export type FeedbackPost = typeof feedbackPosts.$inferSelect;
+
+export const feedbackVotes = pgTable("feedback_votes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  postId: varchar("post_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type FeedbackVote = typeof feedbackVotes.$inferSelect;
+
+// ─── User Analytics Events ────────────────────────────────────────────────
+
+export const analyticsEvents = pgTable("analytics_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  event: varchar("event", { length: 100 }).notNull(),
+  page: varchar("page", { length: 200 }),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+});

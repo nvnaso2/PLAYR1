@@ -53,6 +53,7 @@ const TrainerPlayerDetail = lazy(() => import("@/pages/trainer/player-detail"));
 const MyTrainer = lazy(() => import("@/pages/my-trainer"));
 const ParentDashboard = lazy(() => import("@/pages/parent-dashboard"));
 const FindPeople = lazy(() => import("@/pages/find-people"));
+const FeedbackPage = lazy(() => import("@/pages/feedback"));
 
 function PageLoader() {
   return (
@@ -278,6 +279,7 @@ function Router() {
                 <Route path="/trainer/evaluations">{() => <TrainerGuard><TrainerEvaluations /></TrainerGuard>}</Route>
                 <Route path="/teams" component={Finder} />
                 <Route path="/connect" component={FindPeople} />
+                <Route path="/feedback" component={FeedbackPage} />
                 <Route path="/my-trainer" component={MyTrainer} />
                 <Route path="/parent" component={ParentDashboard} />
                 <Route path="/find-trainer">{() => <Redirect to="/my-trainer" />}</Route>

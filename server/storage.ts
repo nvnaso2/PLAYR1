@@ -55,7 +55,10 @@ import {
   pushSubscriptions, type PushSubscription,
   nativePushTokens, type NativePushToken,
   shotLocations, type ShotLocationDB, type InsertShotLocation,
-  shotTypes, type ShotTypeDB, type InsertShotType
+  shotTypes, type ShotTypeDB, type InsertShotType,
+  feedbackPosts, type FeedbackPost, type InsertFeedbackPost,
+  feedbackVotes, type FeedbackVote,
+  analyticsEvents,
 } from "@shared/schema";
 import { users, type User } from "@shared/models/auth";
 import { db } from "./db";
@@ -3550,6 +3553,163 @@ export class DatabaseStorage implements IStorage {
     await db.delete(nativePushTokens).where(
       and(eq(nativePushTokens.userId, userId), eq(nativePushTokens.token, token))
     );
+  }
+
+  // ─── Feedback Forum ───────────────────────────────────────────────────────
+
+  async getFeedbackPosts(opts?: { category?: string; sort?: string }): Promise<Array<FeedbackPost & { authorName: string; hasVoted?: boolean }>> {
+    const rows = await db.select().from(feedbackPosts)
+      .where(opts?.category && opts.category !== 'all' ? eq(feedbackPosts.category, opts.category) : undefined)
+      .orderBy(opts?.sort === 'new' ? desc(feedbackPosts.createdAt) : desc(feedbackPosts.voteCount));
+    const userIds = [...new Set(rows.map(r => r.userId))];
+    const profiles = userIds.length > 0
+      ? await db.select({ userId: userProfiles.userId, displayName: userProfiles.displayName }).from(userProfiles).where(inArray(userProfiles.userId, userIds))
+      : [];
+    const nameMap = new Map(profiles.map(p => [p.userId, p.displayName || 'User']));
+    return rows.map(r => ({ ...r, authorName: nameMap.get(r.userId) || 'User' }));
+  }
+
+  async createFeedbackPost(data: InsertFeedbackPost): Promise<FeedbackPost> {
+    const [row] = await db.insert(feedbackPosts).values(data).returning();
+    return row;
+  }
+
+  async getFeedbackVote(userId: string, postId: string): Promise<FeedbackVote | undefined> {
+    const [row] = await db.select().from(feedbackVotes).where(and(eq(feedbackVotes.userId, userId), eq(feedbackVotes.postId, postId)));
+    return row;
+  }
+
+  async toggleFeedbackVote(userId: string, postId: string): Promise<{ voted: boolean; voteCount: number }> {
+    const existing = await this.getFeedbackVote(userId, postId);
+    if (existing) {
+      await db.delete(feedbackVotes).where(and(eq(feedbackVotes.userId, userId), eq(feedbackVotes.postId, postId)));
+      const [updated] = await db.update(feedbackPosts).set({ voteCount: sql`vote_count - 1` }).where(eq(feedbackPosts.id, postId)).returning();
+      return { voted: false, voteCount: updated.voteCount };
+    } else {
+      await db.insert(feedbackVotes).values({ userId, postId });
+      const [updated] = await db.update(feedbackPosts).set({ voteCount: sql`vote_count + 1` }).where(eq(feedbackPosts.id, postId)).returning();
+      return { voted: true, voteCount: updated.voteCount };
+    }
+  }
+
+  async updateFeedbackStatus(id: string, status: string): Promise<FeedbackPost | undefined> {
+    const [row] = await db.update(feedbackPosts).set({ status, updatedAt: new Date() }).where(eq(feedbackPosts.id, id)).returning();
+    return row;
+  }
+
+  async deleteFeedbackPost(id: string): Promise<void> {
+    await db.delete(feedbackVotes).where(eq(feedbackVotes.postId, id));
+    await db.delete(feedbackPosts).where(eq(feedbackPosts.id, id));
+  }
+
+  async getUserFeedbackVotes(userId: string): Promise<Set<string>> {
+    const votes = await db.select({ postId: feedbackVotes.postId }).from(feedbackVotes).where(eq(feedbackVotes.userId, userId));
+    return new Set(votes.map(v => v.postId));
+  }
+
+  // ─── Analytics Events ─────────────────────────────────────────────────────
+
+  async trackAnalyticsEvent(userId: string, event: string, page?: string, metadata?: any): Promise<void> {
+    await db.insert(analyticsEvents).values({ userId, event, page: page || null, metadata: metadata || null });
+  }
+
+  async getAdminAnalytics(): Promise<any> {
+    // Pull raw counts from existing tables
+    const [totalUsersRow] = await db.execute(sql`SELECT COUNT(*) as count FROM users`);
+    const [totalLogsRow] = await db.execute(sql`SELECT COUNT(*) as count FROM training_logs`);
+    const [totalSessionsRow] = await db.execute(sql`SELECT COUNT(*) as count FROM training_sessions`);
+    const [totalConnectionsRow] = await db.execute(sql`SELECT COUNT(*) as count FROM player_trainer_connections WHERE status = 'accepted'`);
+    const [totalFeedbackRow] = await db.execute(sql`SELECT COUNT(*) as count FROM feedback_posts`);
+
+    const usersByWeek = await db.execute(sql`
+      SELECT DATE_TRUNC('week', created_at) as week, COUNT(*) as count
+      FROM users WHERE created_at >= NOW() - INTERVAL '12 weeks'
+      GROUP BY week ORDER BY week ASC
+    `);
+
+    const logsByWeek = await db.execute(sql`
+      SELECT DATE_TRUNC('week', created_at) as week, COUNT(*) as count
+      FROM training_logs WHERE created_at >= NOW() - INTERVAL '12 weeks'
+      GROUP BY week ORDER BY week ASC
+    `);
+
+    const popularDrills = await db.execute(sql`
+      SELECT d.title, COUNT(tl.id) as log_count
+      FROM training_logs tl
+      JOIN drills d ON d.id = tl.drill_id
+      GROUP BY d.id, d.title
+      ORDER BY log_count DESC LIMIT 10
+    `);
+
+    const activeUsers7d = await db.execute(sql`
+      SELECT COUNT(DISTINCT user_id) as count FROM training_logs
+      WHERE created_at >= NOW() - INTERVAL '7 days'
+    `);
+
+    const activeUsers30d = await db.execute(sql`
+      SELECT COUNT(DISTINCT user_id) as count FROM training_logs
+      WHERE created_at >= NOW() - INTERVAL '30 days'
+    `);
+
+    const usersByRole = await db.execute(sql`
+      SELECT role, COUNT(*) as count FROM users GROUP BY role
+    `);
+
+    const topActiveUsers = await db.execute(sql`
+      SELECT u.first_name, u.last_name, u.email, COUNT(tl.id) as log_count
+      FROM users u
+      JOIN training_logs tl ON tl.user_id = u.id
+      GROUP BY u.id, u.first_name, u.last_name, u.email
+      ORDER BY log_count DESC LIMIT 10
+    `);
+
+    const recentSignups = await db.execute(sql`
+      SELECT u.first_name, u.last_name, u.email, u.role, u.created_at
+      FROM users u ORDER BY u.created_at DESC LIMIT 10
+    `);
+
+    const sessionsByStatus = await db.execute(sql`
+      SELECT status, COUNT(*) as count FROM training_sessions GROUP BY status
+    `);
+
+    const categoryBreakdown = await db.execute(sql`
+      SELECT d.category, COUNT(tl.id) as count
+      FROM training_logs tl JOIN drills d ON d.id = tl.drill_id
+      GROUP BY d.category ORDER BY count DESC
+    `);
+
+    const analyticsEventCounts = await db.execute(sql`
+      SELECT event, COUNT(*) as count FROM analytics_events
+      GROUP BY event ORDER BY count DESC LIMIT 20
+    `);
+
+    const pageViews = await db.execute(sql`
+      SELECT page, COUNT(*) as count FROM analytics_events
+      WHERE event = 'page_view' AND page IS NOT NULL
+      GROUP BY page ORDER BY count DESC LIMIT 15
+    `);
+
+    return {
+      totals: {
+        users: Number((totalUsersRow as any).count),
+        trainingLogs: Number((totalLogsRow as any).count),
+        sessions: Number((totalSessionsRow as any).count),
+        connections: Number((totalConnectionsRow as any).count),
+        feedbackPosts: Number((totalFeedbackRow as any).count),
+        activeUsers7d: Number((activeUsers7d[0] as any).count),
+        activeUsers30d: Number((activeUsers30d[0] as any).count),
+      },
+      usersByWeek: (usersByWeek as any[]).map(r => ({ week: r.week, count: Number(r.count) })),
+      logsByWeek: (logsByWeek as any[]).map(r => ({ week: r.week, count: Number(r.count) })),
+      popularDrills: (popularDrills as any[]).map(r => ({ title: r.title, count: Number(r.log_count) })),
+      usersByRole: (usersByRole as any[]).map(r => ({ role: r.role || 'unknown', count: Number(r.count) })),
+      topActiveUsers: (topActiveUsers as any[]).map(r => ({ name: `${r.first_name || ''} ${r.last_name || ''}`.trim(), email: r.email, logs: Number(r.log_count) })),
+      recentSignups: (recentSignups as any[]).map(r => ({ name: `${r.first_name || ''} ${r.last_name || ''}`.trim(), email: r.email, role: r.role, createdAt: r.created_at })),
+      sessionsByStatus: (sessionsByStatus as any[]).map(r => ({ status: r.status, count: Number(r.count) })),
+      categoryBreakdown: (categoryBreakdown as any[]).map(r => ({ category: r.category || 'unknown', count: Number(r.count) })),
+      topEvents: (analyticsEventCounts as any[]).map(r => ({ event: r.event, count: Number(r.count) })),
+      topPages: (pageViews as any[]).map(r => ({ page: r.page, count: Number(r.count) })),
+    };
   }
 }
 

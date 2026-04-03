@@ -54,6 +54,7 @@ import {
   CalendarDays,
   ClipboardCheck,
   Eye,
+  Megaphone,
 } from "lucide-react";
 import { Playr1Logo } from "@/components/playr1-logo";
 import { getObjectUrl } from "@/lib/queryClient";
@@ -66,6 +67,7 @@ const playerNavItems = [
   { title: "Drill Library", url: "/drills", icon: Play },
   { title: "My Film Room", url: "/videos", icon: Video },
   { title: "Teams & Leagues", url: "/teams", icon: Shield },
+  { title: "Feedback", url: "/feedback", icon: Megaphone },
 ];
 
 const trainerNavItems = [
@@ -76,6 +78,7 @@ const trainerNavItems = [
   { title: "Schedule", url: "/trainer/schedule", icon: CalendarDays },
   { title: "Evaluations", url: "/trainer/evaluations", icon: ClipboardCheck },
   { title: "Trainer Profile", url: "/trainer/profile", icon: UserCircle },
+  { title: "Feedback", url: "/feedback", icon: Megaphone },
 ];
 
 const categoryItems = [

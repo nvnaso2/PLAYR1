@@ -58,7 +58,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText, Play, ChevronDown, GraduationCap, MapPin, ListFilter, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText, Play, ChevronDown, GraduationCap, MapPin, ListFilter, X, BarChart2, TrendingUp, Activity, UserCheck } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
 import type { Drill, DrillCategory, DifficultyLevel, DrillMetric, VideoLibrary, PdfLibrary, MetricTemplate, Workout, WorkoutDrill, TrainingLocation, ShotLocationDB, ShotTypeDB } from "@shared/schema";
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, METRIC_TYPES, US_STATES } from "@shared/schema";
 import { Layers, GripVertical } from "lucide-react";
@@ -2814,6 +2815,10 @@ export default function AdminPage() {
             <ListFilter className="w-4 h-4 shrink-0" />
             <span>Picklists</span>
           </TabsTrigger>
+          <TabsTrigger value="analytics" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-analytics">
+            <BarChart2 className="w-4 h-4 shrink-0" />
+            <span>Analytics</span>
+          </TabsTrigger>
         </TabsList>
 
         {/* Video Library Tab */}
@@ -4107,8 +4112,270 @@ export default function AdminPage() {
             )}
           </div>
         </TabsContent>
+        {/* Analytics Tab */}
+        <TabsContent value="analytics" className="space-y-6">
+          <AdminAnalyticsTab />
+        </TabsContent>
       </Tabs>
 
+    </div>
+  );
+}
+
+// ─── Admin Analytics Tab Component ───────────────────────────────────────────
+
+const CHART_COLORS = ["#f97316", "#3b82f6", "#22c55e", "#a855f7", "#ec4899", "#14b8a6", "#eab308", "#ef4444"];
+
+function StatCard({ label, value, sub, icon: Icon }: { label: string; value: string | number; sub?: string; icon: ({ className }: { className?: string }) => JSX.Element }) {
+  return (
+    <Card>
+      <CardContent className="p-5 flex items-start gap-3">
+        <div className="p-2 rounded-lg bg-primary/10">
+          <Icon className="w-5 h-5 text-primary" />
+        </div>
+        <div>
+          <p className="text-2xl font-bold">{typeof value === 'number' ? value.toLocaleString() : value}</p>
+          <p className="text-sm font-medium text-foreground">{label}</p>
+          {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AdminAnalyticsTab() {
+  const { data, isLoading } = useQuery<any>({
+    queryKey: ["/api/admin/analytics"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/admin/analytics");
+      return res.json();
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[1,2,3,4,5,6,7].map(i => <Skeleton key={i} className="h-24 rounded-xl" />)}
+        </div>
+        <Skeleton className="h-64 rounded-xl" />
+        <Skeleton className="h-64 rounded-xl" />
+      </div>
+    );
+  }
+
+  if (!data) return null;
+
+  const { totals, usersByWeek, logsByWeek, popularDrills, usersByRole, topActiveUsers, recentSignups, sessionsByStatus, categoryBreakdown } = data;
+
+  const weekLabel = (w: string) => {
+    const d = new Date(w);
+    return `${d.getMonth() + 1}/${d.getDate()}`;
+  };
+
+  return (
+    <div className="space-y-8" data-testid="section-analytics">
+      {/* KPI Cards */}
+      <div>
+        <h2 className="text-lg font-semibold mb-3">Platform Overview</h2>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <StatCard label="Total Users" value={totals.users} icon={Users} />
+          <StatCard label="Active (7 days)" value={totals.activeUsers7d} sub="unique users with logs" icon={Activity} />
+          <StatCard label="Active (30 days)" value={totals.activeUsers30d} sub="unique users with logs" icon={TrendingUp} />
+          <StatCard label="Training Logs" value={totals.trainingLogs} icon={BarChart2} />
+          <StatCard label="Sessions Booked" value={totals.sessions} icon={UserCheck} />
+          <StatCard label="Connections" value={totals.connections} icon={Users} />
+          <StatCard label="Feedback Posts" value={totals.feedbackPosts} icon={Activity} />
+        </div>
+      </div>
+
+      {/* User Growth Chart */}
+      <div>
+        <h2 className="text-lg font-semibold mb-3">User Signups (Last 12 Weeks)</h2>
+        <Card>
+          <CardContent className="p-4">
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={usersByWeek.map((r: any) => ({ week: weekLabel(r.week), count: r.count }))}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="week" tick={{ fontSize: 11 }} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                <Tooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8 }} />
+                <Bar dataKey="count" name="New Users" fill="#f97316" radius={[4,4,0,0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Training Log Activity Chart */}
+      <div>
+        <h2 className="text-lg font-semibold mb-3">Training Logs (Last 12 Weeks)</h2>
+        <Card>
+          <CardContent className="p-4">
+            <ResponsiveContainer width="100%" height={240}>
+              <LineChart data={logsByWeek.map((r: any) => ({ week: weekLabel(r.week), count: r.count }))}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="week" tick={{ fontSize: 11 }} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                <Tooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8 }} />
+                <Line type="monotone" dataKey="count" name="Logs" stroke="#f97316" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Two columns: role breakdown + drill categories */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* User Roles */}
+        <div>
+          <h2 className="text-lg font-semibold mb-3">Users by Role</h2>
+          <Card>
+            <CardContent className="p-4">
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie data={usersByRole} dataKey="count" nameKey="role" cx="50%" cy="50%" outerRadius={80} label={({ role, count }) => `${role} (${count})`}>
+                    {usersByRole.map((_: any, i: number) => (
+                      <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Drill Category Breakdown */}
+        <div>
+          <h2 className="text-lg font-semibold mb-3">Top Drill Categories</h2>
+          <Card>
+            <CardContent className="p-4">
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={categoryBreakdown.slice(0, 6)} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis type="number" allowDecimals={false} tick={{ fontSize: 10 }} />
+                  <YAxis type="category" dataKey="category" tick={{ fontSize: 10 }} width={90} />
+                  <Tooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8 }} />
+                  <Bar dataKey="count" name="Logs" fill="#3b82f6" radius={[0,4,4,0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Session Status */}
+      {sessionsByStatus.length > 0 && (
+        <div>
+          <h2 className="text-lg font-semibold mb-3">Session Status Breakdown</h2>
+          <div className="flex gap-3 flex-wrap">
+            {sessionsByStatus.map((s: any, i: number) => (
+              <Card key={s.status} className="flex-1 min-w-[120px]">
+                <CardContent className="p-4 text-center">
+                  <p className="text-2xl font-bold" style={{ color: CHART_COLORS[i % CHART_COLORS.length] }}>{s.count}</p>
+                  <p className="text-sm text-muted-foreground capitalize">{s.status}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Popular Drills */}
+      <div>
+        <h2 className="text-lg font-semibold mb-3">Top 10 Most Practiced Drills</h2>
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="pl-4">#</TableHead>
+                  <TableHead>Drill</TableHead>
+                  <TableHead className="text-right pr-4">Log Count</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {popularDrills.map((d: any, i: number) => (
+                  <TableRow key={d.title} data-testid={`row-drill-${i}`}>
+                    <TableCell className="pl-4 text-muted-foreground">{i + 1}</TableCell>
+                    <TableCell className="font-medium">{d.title}</TableCell>
+                    <TableCell className="text-right pr-4">{d.count.toLocaleString()}</TableCell>
+                  </TableRow>
+                ))}
+                {popularDrills.length === 0 && (
+                  <TableRow><TableCell colSpan={3} className="text-center py-8 text-muted-foreground">No data yet</TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Top Active Users */}
+      <div>
+        <h2 className="text-lg font-semibold mb-3">Most Active Users (All Time)</h2>
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="pl-4">#</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead className="text-right pr-4">Training Logs</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {topActiveUsers.map((u: any, i: number) => (
+                  <TableRow key={u.email} data-testid={`row-user-${i}`}>
+                    <TableCell className="pl-4 text-muted-foreground">{i + 1}</TableCell>
+                    <TableCell className="font-medium">{u.name || "—"}</TableCell>
+                    <TableCell className="text-muted-foreground text-sm">{u.email}</TableCell>
+                    <TableCell className="text-right pr-4">{u.logs.toLocaleString()}</TableCell>
+                  </TableRow>
+                ))}
+                {topActiveUsers.length === 0 && (
+                  <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">No data yet</TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Recent Signups */}
+      <div>
+        <h2 className="text-lg font-semibold mb-3">Recent Signups</h2>
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="pl-4">Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead className="text-right pr-4">Joined</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {recentSignups.map((u: any, i: number) => (
+                  <TableRow key={u.email + i} data-testid={`row-signup-${i}`}>
+                    <TableCell className="pl-4 font-medium">{u.name || "—"}</TableCell>
+                    <TableCell className="text-muted-foreground text-sm">{u.email}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="capitalize text-xs">{u.role}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right pr-4 text-sm text-muted-foreground">
+                      {new Date(u.createdAt).toLocaleDateString()}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
