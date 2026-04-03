@@ -128,7 +128,6 @@ export function AppSidebar() {
 
   const isTrainerView = activeView === "trainer";
   const navItems = isTrainerView ? trainerNavItems : playerNavItems;
-  const isParentOnly = hasLinkedChildren && (!careerData || !careerData.onboardingCompleted);
 
   const { data: pendingConnections } = useQuery<any[]>({
     queryKey: ["/api/connections/pending"],
@@ -141,6 +140,7 @@ export function AppSidebar() {
     enabled: !!user,
   });
   const hasLinkedChildren = (parentChildren?.length || 0) > 0;
+  const isParentOnly = hasLinkedChildren && (!careerData || !careerData.onboardingCompleted);
 
   const isActiveLink = (url: string) => {
     if (url === "/dashboard" && location === "/") return true;
