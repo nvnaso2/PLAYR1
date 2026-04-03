@@ -82,8 +82,8 @@ const STATUS_CONFIG: Record<string, {
   "closed": {
     label: "Closed",
     icon: XCircle,
-    badgeClass: "bg-gray-500/10 text-gray-500 border-gray-500/20",
-    btnClass: "border-gray-500/30 text-gray-500",
+    badgeClass: "bg-red-500/10 text-red-500 border-red-500/20",
+    btnClass: "border-red-500/40 bg-red-500/10 text-red-500",
     desc: "Won't be implemented at this time",
   },
 };

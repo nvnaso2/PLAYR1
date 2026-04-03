@@ -174,11 +174,10 @@ function WorkoutSessionCard({ data, platform }: { data: WorkoutData; platform: P
   const showDrills = data.drills.slice(0, isPortrait ? 7 : hasShotData ? 4 : 6);
   const W = cfg.w; const H = cfg.h;
   const pad = isPortrait ? 52 : 40;
-  const headerH = isPortrait ? 100 : 72;
-  const kpiH = isPortrait ? 100 : 72;
 
   return (
-    <div style={{ width: W * s, height: H * s, position: "relative", flexShrink: 0 }}>
+    <div style={{ width: W * s, height: H * s, overflow: "hidden", flexShrink: 0, position: "relative" }}>
+      <div style={{ transform: `scale(${s})`, transformOrigin: "top left", position: "absolute", top: 0, left: 0 }}>
       <div data-share-card style={{ ...cardStyle(W, H), padding: `${pad}px ${pad}px` }}>
         {/* Decorative orbs */}
         <div style={{ position: "absolute", top: -80, right: -80, width: 320, height: 320, borderRadius: "50%", background: "radial-gradient(circle, rgba(249,115,22,0.1) 0%, transparent 65%)", pointerEvents: "none" }} />
@@ -266,6 +265,7 @@ function WorkoutSessionCard({ data, platform }: { data: WorkoutData; platform: P
           <span style={{ color: "rgba(255,255,255,0.15)", fontSize: isPortrait ? "0.65em" : "0.52em" }}>playr1.app</span>
         </div>
       </div>
+      </div>
     </div>
   );
 }
@@ -294,7 +294,8 @@ function TrainingPeriodCard({ data, platform }: { data: PeriodData; platform: Pl
   const barMaxH = isPortrait ? 80 : 60;
 
   return (
-    <div style={{ width: W * s, height: H * s, position: "relative", flexShrink: 0 }}>
+    <div style={{ width: W * s, height: H * s, overflow: "hidden", flexShrink: 0, position: "relative" }}>
+      <div style={{ transform: `scale(${s})`, transformOrigin: "top left", position: "absolute", top: 0, left: 0 }}>
       <div data-share-card style={{ ...cardStyle(W, H), padding: `${pad}px ${pad}px` }}>
         <div style={{ position: "absolute", top: -80, right: -80, width: 320, height: 320, borderRadius: "50%", background: "radial-gradient(circle, rgba(249,115,22,0.09) 0%, transparent 65%)", pointerEvents: "none" }} />
         <div style={{ position: "absolute", top: 0, left: 0, width: 4, height: "100%", background: `linear-gradient(180deg, ${ORANGE} 0%, rgba(249,115,22,0.3) 100%)` }} />
@@ -406,6 +407,7 @@ function TrainingPeriodCard({ data, platform }: { data: PeriodData; platform: Pl
           <span style={{ color: "rgba(255,255,255,0.15)", fontSize: isPortrait ? "0.65em" : "0.52em" }}>playr1.app</span>
         </div>
       </div>
+      </div>
     </div>
   );
 }
@@ -442,7 +444,8 @@ function SeasonStatsCard({ data, platform }: { data: SeasonData; platform: Platf
   ];
 
   return (
-    <div style={{ width: W * s, height: H * s, position: "relative", flexShrink: 0 }}>
+    <div style={{ width: W * s, height: H * s, overflow: "hidden", flexShrink: 0, position: "relative" }}>
+      <div style={{ transform: `scale(${s})`, transformOrigin: "top left", position: "absolute", top: 0, left: 0 }}>
       <div data-share-card style={{ ...cardStyle(W, H), padding: `${pad}px ${pad}px`, justifyContent: "space-between" }}>
         <div style={{ position: "absolute", top: -80, right: -80, width: 340, height: 340, borderRadius: "50%", background: "radial-gradient(circle, rgba(249,115,22,0.1) 0%, transparent 65%)", pointerEvents: "none" }} />
         <div style={{ position: "absolute", top: 0, left: 0, width: 4, height: "100%", background: `linear-gradient(180deg, ${ORANGE} 0%, rgba(249,115,22,0.3) 100%)` }} />
@@ -501,6 +504,7 @@ function SeasonStatsCard({ data, platform }: { data: SeasonData; platform: Platf
           </div>
           <span style={{ color: "rgba(255,255,255,0.15)", fontSize: isPortrait ? "0.65em" : "0.52em" }}>playr1.app</span>
         </div>
+      </div>
       </div>
     </div>
   );
@@ -735,7 +739,7 @@ export function WorkoutShareDialog({ open, onOpenChange, workoutSessionId, defau
               </div>
 
               {/* Card preview */}
-              <div className="flex justify-center bg-[#06090f] rounded-xl p-3 min-h-[200px] items-center border border-border/50 overflow-hidden">
+              <div className="flex justify-center bg-card rounded-xl p-4 items-center border border-border overflow-hidden" style={{ minHeight: "240px" }}>
                 {isLoading ? (
                   <Skeleton className="w-full h-52 rounded-lg" />
                 ) : tab.value === "workout" && workoutData ? (
