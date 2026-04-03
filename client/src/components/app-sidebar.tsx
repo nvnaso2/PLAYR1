@@ -101,6 +101,12 @@ export function AppSidebar() {
     }
   };
 
+  const { data: careerData } = useQuery<any>({
+    queryKey: ["/api/career"],
+    retry: false,
+    enabled: !!user,
+  });
+
   const getInitials = () => {
     if (!user) return "U";
     if (user.firstName && user.lastName) {
@@ -122,6 +128,7 @@ export function AppSidebar() {
 
   const isTrainerView = activeView === "trainer";
   const navItems = isTrainerView ? trainerNavItems : playerNavItems;
+  const isParentOnly = hasLinkedChildren && (!careerData || !careerData.onboardingCompleted);
 
   const { data: pendingConnections } = useQuery<any[]>({
     queryKey: ["/api/connections/pending"],
@@ -145,7 +152,7 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="px-3 pb-3 safe-area-top" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1rem)' }}>
-        <Link href={isTrainerView ? "/trainer" : "/dashboard"} onClick={closeSidebar}>
+        <Link href={isParentOnly ? "/parent" : isTrainerView ? "/trainer" : "/dashboard"} onClick={closeSidebar}>
           <div className="w-full relative overflow-hidden cursor-pointer" style={{ height: '34px' }} data-testid="link-sidebar-logo">
             <Playr1Logo
               className="absolute w-full"
@@ -153,7 +160,12 @@ export function AppSidebar() {
             />
           </div>
         </Link>
-        {canToggle && (
+        {isParentOnly && (
+          <div className="mt-1 px-1">
+            <p className="text-xs text-muted-foreground font-medium">Parent View</p>
+          </div>
+        )}
+        {!isParentOnly && canToggle && (
           <div className="flex items-center gap-1 mt-1">
             <Button
               size="sm"
@@ -180,80 +192,104 @@ export function AppSidebar() {
       </SidebarHeader>
       
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>{isTrainerView ? "Trainer" : "Menu"}</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {navItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
-                    asChild 
-                    isActive={isActiveLink(item.url)}
-                    data-testid={`link-nav-${item.title.toLowerCase().replace(/\s/g, '-')}`}
+        {isParentOnly ? (
+          <SidebarGroup>
+            <SidebarGroupLabel>Menu</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === "/parent" || location.startsWith("/parent")}
+                    data-testid="link-nav-parent-dashboard"
                   >
-                    <Link href={item.url} onClick={closeSidebar}>
-                      <item.icon className="w-4 h-4" />
-                      <span className="flex-1">{item.title}</span>
-                      {item.title === "Player Management" && pendingCount > 0 && (
-                        <Badge variant="destructive" className="no-default-hover-elevate text-[10px] ml-auto" data-testid="badge-sidebar-pending-connections">
-                          {pendingCount}
-                        </Badge>
-                      )}
+                    <Link href="/parent" onClick={closeSidebar}>
+                      <Eye className="w-4 h-4" />
+                      <span>My Child's Progress</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {isAdmin && (
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ) : (
           <>
-            <SidebarSeparator />
             <SidebarGroup>
-              <SidebarGroupLabel>Admin</SidebarGroupLabel>
+              <SidebarGroupLabel>{isTrainerView ? "Trainer" : "Menu"}</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton 
-                      asChild 
-                      isActive={location === "/admin"}
-                      data-testid="link-nav-admin"
-                    >
-                      <Link href="/admin" onClick={closeSidebar}>
-                        <Settings className="w-4 h-4" />
-                        <span>Admin Dashboard</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
+                  {navItems.map((item) => (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton 
+                        asChild 
+                        isActive={isActiveLink(item.url)}
+                        data-testid={`link-nav-${item.title.toLowerCase().replace(/\s/g, '-')}`}
+                      >
+                        <Link href={item.url} onClick={closeSidebar}>
+                          <item.icon className="w-4 h-4" />
+                          <span className="flex-1">{item.title}</span>
+                          {item.title === "Player Management" && pendingCount > 0 && (
+                            <Badge variant="destructive" className="no-default-hover-elevate text-[10px] ml-auto" data-testid="badge-sidebar-pending-connections">
+                              {pendingCount}
+                            </Badge>
+                          )}
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
-          </>
-        )}
 
-        {hasLinkedChildren && (
-          <>
-            <SidebarSeparator />
-            <SidebarGroup>
-              <SidebarGroupLabel>Parent</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton 
-                      asChild 
-                      isActive={location === "/parent" || location.startsWith("/parent")}
-                      data-testid="link-nav-parent-dashboard"
-                    >
-                      <Link href="/parent" onClick={closeSidebar}>
-                        <Eye className="w-4 h-4" />
-                        <span>Parent Dashboard</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
+            {isAdmin && (
+              <>
+                <SidebarSeparator />
+                <SidebarGroup>
+                  <SidebarGroupLabel>Admin</SidebarGroupLabel>
+                  <SidebarGroupContent>
+                    <SidebarMenu>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton 
+                          asChild 
+                          isActive={location === "/admin"}
+                          data-testid="link-nav-admin"
+                        >
+                          <Link href="/admin" onClick={closeSidebar}>
+                            <Settings className="w-4 h-4" />
+                            <span>Admin Dashboard</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    </SidebarMenu>
+                  </SidebarGroupContent>
+                </SidebarGroup>
+              </>
+            )}
+
+            {hasLinkedChildren && (
+              <>
+                <SidebarSeparator />
+                <SidebarGroup>
+                  <SidebarGroupLabel>Parent</SidebarGroupLabel>
+                  <SidebarGroupContent>
+                    <SidebarMenu>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton 
+                          asChild 
+                          isActive={location === "/parent" || location.startsWith("/parent")}
+                          data-testid="link-nav-parent-dashboard"
+                        >
+                          <Link href="/parent" onClick={closeSidebar}>
+                            <Eye className="w-4 h-4" />
+                            <span>Parent Dashboard</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    </SidebarMenu>
+                  </SidebarGroupContent>
+                </SidebarGroup>
+              </>
+            )}
           </>
         )}
 

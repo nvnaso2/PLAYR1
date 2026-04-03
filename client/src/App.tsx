@@ -152,7 +152,14 @@ function HomeRedirect() {
     queryKey: ['/api/career'],
     retry: false,
   });
-  if (roleLoading || careerLoading) return <LoadingScreen />;
+  const { data: parentChildren, isLoading: parentLoading } = useQuery<any[]>({
+    queryKey: ['/api/parent/children'],
+  });
+  if (roleLoading || careerLoading || parentLoading) return <LoadingScreen />;
+
+  const isParentOnlyAccount = (parentChildren?.length || 0) > 0 && (!careerProfile || !careerProfile.onboardingCompleted);
+  if (isParentOnlyAccount) return <Redirect to="/parent" />;
+
   if (!isError && (!careerProfile || !careerProfile.onboardingCompleted)) {
     return <Redirect to="/career" />;
   }
