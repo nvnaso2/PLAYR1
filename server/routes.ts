@@ -2968,6 +2968,22 @@ export async function registerRoutes(
       for (const l of periodLogs) { drillMap[l.drillTitle || 'Unknown'] = (drillMap[l.drillTitle || 'Unknown'] || 0) + 1; }
       const topDrills = Object.entries(drillMap).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([name, count]) => ({ name, count }));
 
+      // Categorise shots by type using zone slug patterns
+      const threePtSlugs = new Set(["top-of-key","wing-left","wing-right","corner-left","corner-right","top-of-key-3-point"]);
+      const layupSlugs   = new Set(["left-hand-layup","right-hand-layup"]);
+      const ftSlugs      = new Set(["free-throw"]);
+      let shots3ptM = 0, shots3ptA = 0, shotsLayupM = 0, shotsLayupA = 0;
+      let shotsFtM = 0, shotsFtA = 0, shots2ptM = 0, shots2ptA = 0;
+      for (const [loc, d] of Object.entries(shotMap)) {
+        if (threePtSlugs.has(loc))      { shots3ptM += d.made; shots3ptA += d.attempted; }
+        else if (layupSlugs.has(loc))   { shotsLayupM += d.made; shotsLayupA += d.attempted; }
+        else if (ftSlugs.has(loc))      { shotsFtM += d.made; shotsFtA += d.attempted; }
+        else                            { shots2ptM += d.made; shots2ptA += d.attempted; }
+      }
+
+      // Best training day
+      const bestDay = Object.entries(dayMap).sort((a, b) => b[1] - a[1])[0] || null;
+
       res.json({
         period,
         since: since.toISOString(),
@@ -2981,10 +2997,17 @@ export async function registerRoutes(
         totalShotsAttempted: totalShots,
         totalShotsMade: totalMade,
         shootingPct: totalShots > 0 ? Math.round((totalMade / totalShots) * 100) : null,
+        shotTypeBreakdown: {
+          threePoint: { made: shots3ptM, attempted: shots3ptA },
+          midRange:   { made: shots2ptM, attempted: shots2ptA },
+          layup:      { made: shotsLayupM, attempted: shotsLayupA },
+          freeThrow:  { made: shotsFtM, attempted: shotsFtA },
+        },
         categoryBreakdown: Object.entries(catMap).map(([category, minutes]) => ({ category, minutes })).sort((a, b) => b.minutes - a.minutes),
         shotData: Object.entries(shotMap).map(([location, d]) => ({ location, ...d })),
         dailyActivity: Object.entries(dayMap).map(([date, minutes]) => ({ date, minutes })).sort((a, b) => a.date.localeCompare(b.date)),
         topDrills,
+        bestDay: bestDay ? { date: bestDay[0], minutes: bestDay[1] } : null,
       });
     } catch (err) {
       console.error("Error generating training summary share data:", err);
@@ -3020,6 +3043,13 @@ export async function registerRoutes(
       const totalFTA = seasonGames.reduce((s, g) => s + (g.ftAttempted || 0), 0);
       const totalFTM = seasonGames.reduce((s, g) => s + (g.ftMade || 0), 0);
 
+      const totalPts = seasonGames.reduce((s, g) => s + (g.points || 0), 0);
+      const totalReb = seasonGames.reduce((s, g) => s + (g.rebounds || 0), 0);
+      const totalAst = seasonGames.reduce((s, g) => s + (g.assists || 0), 0);
+      const totalStl = seasonGames.reduce((s, g) => s + (g.steals || 0), 0);
+      const totalBlk = seasonGames.reduce((s, g) => s + (g.blocks || 0), 0);
+      const topGame  = seasonGames.slice().sort((a, b) => (b.points || 0) - (a.points || 0))[0] || null;
+
       res.json({
         seasonId,
         seasonName: season.name,
@@ -3029,16 +3059,27 @@ export async function registerRoutes(
         displayName: profile?.displayName || null,
         jerseyNumber: career?.jerseyNumber || null,
         gamesPlayed: gp,
+        wins, losses: gp - wins,
         record: `${wins}-${gp - wins}`,
+        // Per game
         ppg: avg(g => g.points || 0),
         rpg: avg(g => g.rebounds || 0),
         apg: avg(g => g.assists || 0),
         spg: avg(g => g.steals || 0),
         bpg: avg(g => g.blocks || 0),
+        // Shooting
         fgPct: totalFgA > 0 ? Math.round((totalFgM / totalFgA) * 100) : 0,
         threePct: total3PA > 0 ? Math.round((total3PM / total3PA) * 100) : 0,
         ftPct: totalFTA > 0 ? Math.round((totalFTM / totalFTA) * 100) : 0,
-        topGame: seasonGames.sort((a, b) => (b.points || 0) - (a.points || 0))[0] || null,
+        totalFgM, totalFgA, total3PM, total3PA, totalFtM: totalFTM, totalFtA: totalFTA,
+        // Season totals
+        totalPts, totalReb, totalAst, totalStl, totalBlk,
+        // Best game
+        topGame: topGame ? {
+          points: topGame.points || 0, rebounds: topGame.rebounds || 0, assists: topGame.assists || 0,
+          steals: topGame.steals || 0, blocks: topGame.blocks || 0,
+          date: topGame.gameDate, opponent: topGame.opponent, result: topGame.result,
+        } : null,
       });
     } catch (err) {
       console.error("Error generating season stats share data:", err);
