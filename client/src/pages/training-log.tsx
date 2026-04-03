@@ -996,6 +996,24 @@ export default function TrainingLogPage() {
     });
   };
 
+  // Apply a challenge to all rounds of a specific drill
+  const applyChallengeToAllRounds = (drillId: string, challengeId: string) => {
+    setWorkoutEntries(prev => prev.map(e =>
+      e.drillId === drillId
+        ? { ...e, trackToChallengeIds: challengeId === 'none' ? [] : [challengeId] }
+        : e
+    ));
+  };
+
+  // Apply a challenge to ALL entries in the workout whose category matches
+  const applyChallengeToDrillCategory = (category: string, challengeId: string) => {
+    setWorkoutEntries(prev => prev.map(e =>
+      e.drill.category === category
+        ? { ...e, trackToChallengeIds: challengeId === 'none' ? [] : [challengeId] }
+        : e
+    ));
+  };
+
   // Update metric value for a workout entry
   const updateMetricValue = (entryIndex: number, metricTemplateId: string, value: number) => {
     setWorkoutEntries(prev => {
@@ -2560,6 +2578,47 @@ export default function TrainingLogPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
+              {/* Global challenge quick-apply — visible when the user has active challenges */}
+              {activeChallenges && activeChallenges.filter(uc => !uc.isCompleted).length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap bg-primary/5 border border-primary/20 rounded-lg px-3 py-2">
+                  <Target className="w-4 h-4 text-primary shrink-0" />
+                  <span className="text-sm text-muted-foreground shrink-0">Apply challenge to all drills:</span>
+                  <Select
+                    onValueChange={(challengeId) => {
+                      if (challengeId === 'none') {
+                        // Clear challenge from all entries
+                        setWorkoutEntries(prev => prev.map(e => ({ ...e, trackToChallengeIds: [] })));
+                      } else {
+                        // Only apply to entries whose drill category matches this challenge
+                        setWorkoutEntries(prev => prev.map(e => {
+                          const matches = getMatchingChallenges(e.drill.category || '').some(uc => uc.id === challengeId);
+                          return matches ? { ...e, trackToChallengeIds: [challengeId] } : e;
+                        }));
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs flex-1 min-w-[160px] max-w-xs border-primary/30" data-testid="select-global-challenge">
+                      <SelectValue placeholder="Pick a challenge…" />
+                    </SelectTrigger>
+                    <SelectContent position="popper" sideOffset={4}>
+                      <SelectItem value="none">
+                        <span className="text-muted-foreground">Clear all</span>
+                      </SelectItem>
+                      {activeChallenges.filter(uc => !uc.isCompleted).map(uc => (
+                        <SelectItem key={uc.id} value={uc.id}>
+                          <span className="flex items-center gap-2">
+                            <span>{uc.challenge.name}</span>
+                            <Badge variant="outline" className="text-[10px] px-1 py-0">
+                              {uc.currentValue || 0}/{uc.challenge.targetValue}
+                            </Badge>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               {/* Group entries by drill for table display */}
               {(() => {
                 const drillGroups = new Map<string, { drill: Drill; entries: Array<{ entry: WorkoutDrillEntry; index: number }> }>();
@@ -2651,10 +2710,31 @@ export default function TrainingLogPage() {
                                 <th className="text-left p-2 sm:p-3 font-medium text-muted-foreground hidden sm:table-cell">Notes</th>
                                 {getMatchingChallenges(group.drill.category || '').length > 0 && (
                                   <th className="text-left p-2 sm:p-3 font-medium text-primary text-xs sm:text-sm whitespace-nowrap">
-                                    <span className="flex items-center gap-1">
-                                      <Target className="w-3 h-3" />
-                                      Challenge
-                                    </span>
+                                    <div className="flex flex-col gap-1">
+                                      <span className="flex items-center gap-1">
+                                        <Target className="w-3 h-3" />
+                                        Challenge
+                                      </span>
+                                      {group.entries.length > 1 && (
+                                        <Select
+                                          onValueChange={(val) => applyChallengeToAllRounds(drillId, val)}
+                                        >
+                                          <SelectTrigger className="h-6 text-[10px] w-28 border-primary/40 text-primary" data-testid={`select-challenge-all-${drillId}`}>
+                                            <SelectValue placeholder="Apply all…" />
+                                          </SelectTrigger>
+                                          <SelectContent position="popper" sideOffset={4}>
+                                            <SelectItem value="none">
+                                              <span className="text-muted-foreground text-xs">Clear all</span>
+                                            </SelectItem>
+                                            {getMatchingChallenges(group.drill.category || '').map(uc => (
+                                              <SelectItem key={uc.id} value={uc.id}>
+                                                <span className="text-xs">{uc.challenge.name}</span>
+                                              </SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                      )}
+                                    </div>
                                   </th>
                                 )}
                                 <th className="text-center p-2 sm:p-3 font-medium text-muted-foreground w-10 sm:w-12"></th>
@@ -2677,7 +2757,7 @@ export default function TrainingLogPage() {
                                         <SelectTrigger className="w-32 sm:w-40 h-8 text-xs" data-testid={`select-location-${index}`}>
                                           <SelectValue placeholder="Select location" />
                                         </SelectTrigger>
-                                        <SelectContent>
+                                        <SelectContent position="popper" sideOffset={4} className="max-h-[50vh] overflow-y-auto">
                                           {(shotLocationOptions || []).map(loc => (
                                             <SelectItem key={loc.slug} value={loc.slug}>
                                               <span className="flex items-center gap-2">
@@ -2731,7 +2811,7 @@ export default function TrainingLogPage() {
                                         <SelectTrigger className="w-28 sm:w-36 h-8 text-xs" data-testid={`select-challenge-${index}`}>
                                           <SelectValue placeholder="Select..." />
                                         </SelectTrigger>
-                                        <SelectContent>
+                                        <SelectContent position="popper" sideOffset={4}>
                                           <SelectItem value="none">
                                             <span className="text-muted-foreground">None</span>
                                           </SelectItem>
