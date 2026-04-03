@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { Copy, Download, Share2, Twitter, Instagram, Facebook, Youtube } from "lucide-react";
+import { shareToSocialPlatform, type SharePlatform } from "@/lib/share-utils";
 import playr1Logo from "@assets/Playr1_App_Logo_1774122925857.png";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -428,17 +429,26 @@ export function ShareCardDialog({ open, onOpenChange, gameId }: ShareCardDialogP
     } finally { setIsBusy(false); }
   };
 
-  const handleCopyCaption = () => {
-    if (!raw) return;
-    const s = raw.stats;
+  const handleShareTo = async (p: Platform) => {
+    setIsBusy(true);
+    try {
+      const canvas = await capture();
+      if (!canvas) { toast({ title: "Could not capture card", variant: "destructive" }); return; }
+      const cap = raw ? buildCaption(raw) : "";
+      await shareToSocialPlatform(p as SharePlatform, canvas, cap, `game-${p}`, toast);
+    } finally { setIsBusy(false); }
+  };
+
+  const buildCaption = (r: GameStatsRaw): string => {
+    const s = r.stats;
     const fgP = pct(s.fgMade, s.fgAttempted);
     const tpP = pct(s.threePtMade, s.threePtAttempted);
     const ftP = pct(s.ftMade, s.ftAttempted);
-    const dateStr = raw.gameDate ? new Date(raw.gameDate).toLocaleDateString() : "";
-    const text = [
+    const dateStr = r.gameDate ? new Date(r.gameDate).toLocaleDateString() : "";
+    return [
       `🏀 GAME DAY STATS · ${dateStr}`,
-      `${raw.displayName || raw.playerName}${raw.jerseyNumber != null ? ` #${raw.jerseyNumber}` : ""}${raw.teamName ? ` | ${raw.teamName}` : ""}`,
-      `vs ${raw.opponent} · ${raw.result} ${raw.teamScore}-${raw.opponentScore}`,
+      `${r.displayName || r.playerName}${r.jerseyNumber != null ? ` #${r.jerseyNumber}` : ""}${r.teamName ? ` | ${r.teamName}` : ""}`,
+      `vs ${r.opponent} · ${r.result} ${r.teamScore}-${r.opponentScore}`,
       "",
       `🔥 ${s.points} PTS · ${s.rebounds} REB · ${s.assists} AST · ${s.steals} STL · ${s.blocks} BLK`,
       `🎯 FG ${fgP}% (${s.fgMade}/${s.fgAttempted}) · 3PT ${tpP}% (${s.threePtMade}/${s.threePtAttempted}) · FT ${ftP}% (${s.ftMade}/${s.ftAttempted})`,
@@ -447,7 +457,11 @@ export function ShareCardDialog({ open, onOpenChange, gameId }: ShareCardDialogP
       "",
       "#PLAYR1 #Basketball #GameDay #HoopLife",
     ].join("\n");
-    navigator.clipboard.writeText(text)
+  };
+
+  const handleCopyCaption = () => {
+    if (!raw) return;
+    navigator.clipboard.writeText(buildCaption(raw))
       .then(() => toast({ title: "Caption copied!" }))
       .catch(() => toast({ title: "Copy failed", variant: "destructive" }));
   };
@@ -490,6 +504,30 @@ export function ShareCardDialog({ open, onOpenChange, gameId }: ShareCardDialogP
               No stats available for this game
             </p>
           )}
+        </div>
+
+        {/* Share directly to */}
+        <div className="space-y-1.5">
+          <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">
+            Share directly to
+          </p>
+          <div className="grid grid-cols-5 gap-2">
+            {PLATFORMS.map(p => (
+              <button key={p.id} onClick={() => handleShareTo(p.id)}
+                disabled={isBusy || isLoading || !raw}
+                className="flex flex-col items-center gap-1 p-2.5 rounded-lg border border-border bg-muted/30 hover:bg-muted transition-colors disabled:opacity-40 text-xs font-medium"
+                data-testid={`button-share-to-${p.id}`}>
+                <PlatformIcon p={p.id} />
+                <span className="text-[10px] text-muted-foreground leading-tight text-center">
+                  {p.label.split(" /")[0]}
+                </span>
+              </button>
+            ))}
+          </div>
+          <p className="text-[10px] text-muted-foreground leading-snug">
+            <span className="font-medium">On phone:</span> opens your share sheet to post directly.&nbsp;
+            <span className="font-medium">On desktop:</span> downloads the image and copies it to your clipboard — just paste it when posting.
+          </p>
         </div>
 
         {/* Action bar */}

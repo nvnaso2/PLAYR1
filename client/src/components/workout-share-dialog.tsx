@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { Download, Copy, Share2, Twitter, Instagram, Facebook, Youtube } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { shareToSocialPlatform } from "@/lib/share-utils";
 import playr1Logo from "@assets/Playr1_App_Logo_1774122925857.png";
 
 // ─── Platform Config ──────────────────────────────────────────────────────────
@@ -901,33 +902,7 @@ function buildCaption(type: CardType, data: WorkoutData | PeriodData | SeasonDat
   return `🏀 ${PERIOD_LABEL[d.period]||"TRAINING SUMMARY"}\n${d.displayName||d.playerName}${d.teamName?` | ${d.teamName}`:""}\n\n📊 ${d.totalSessions} Sessions · ${d.totalDrills} Drills · ${fmtMin(d.totalDuration)}${pct!=null?`\n🎯 ${pct}% FG (${totalMade}/${totalAtt})`:""}\n\nTrack your game → ${url}\n\n#PLAYR1 #Basketball #HoopLife #Training`;
 }
 
-async function shareToPlatform(
-  p: Platform, canvas: HTMLCanvasElement, text: string,
-  toast: ReturnType<typeof useToast>["toast"],
-) {
-  const url = "https://playr1basketball.replit.app";
-  if (p === "twitter")  { window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text.slice(0,280))}`,"_blank"); return; }
-  if (p === "facebook") { window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(text.slice(0,200))}`,"_blank"); return; }
-  if (p === "youtube")  { window.open("https://studio.youtube.com","_blank"); toast({ title:"YouTube Studio opened", description:"Download your card then upload as a Community Post." }); return; }
-  if (navigator.share) {
-    canvas.toBlob(async (blob) => {
-      if (!blob) return;
-      const file = new File([blob], `playr1-${p}.png`, { type:"image/png" });
-      try {
-        if (navigator.canShare?.({ files:[file] })) { await navigator.share({ files:[file], title:"PLAYR1", text }); }
-        else { await navigator.share({ title:"PLAYR1", text, url }); }
-      } catch (e) {
-        if ((e as Error).name !== "AbortError") toast({ title:"Download and share manually", description:`Open ${p} and upload from gallery.` });
-      }
-    }, "image/png");
-    return;
-  }
-  const link = document.createElement("a");
-  link.download = `playr1-${p}.png`;
-  link.href = canvas.toDataURL("image/png");
-  link.click();
-  toast({ title:"Image saved!", description:`Open ${p} and share from your gallery.` });
-}
+// shareToPlatform replaced by shareToSocialPlatform from @/lib/share-utils
 
 // ─── Platform icon ─────────────────────────────────────────────────────────────
 function PlatformIcon({ p }: { p: Platform }) {
@@ -1006,7 +981,7 @@ export function WorkoutShareDialog({ open, onOpenChange, workoutSessionId, defau
     setIsBusy(true);
     try {
       const c = await getCanvas(); if (!c) return;
-      await shareToPlatform(p, c, buildCaption(activeTab, currentData), toast);
+      await shareToSocialPlatform(p, c, buildCaption(activeTab, currentData), `${activeTab}-${platform}`, toast);
     } finally { setIsBusy(false); }
   };
 
@@ -1094,6 +1069,10 @@ export function WorkoutShareDialog({ open, onOpenChange, workoutSessionId, defau
                     </button>
                   ))}
                 </div>
+                <p className="text-[10px] text-muted-foreground leading-snug">
+                  <span className="font-medium">On phone:</span> opens your share sheet to post directly.&nbsp;
+                  <span className="font-medium">On desktop:</span> downloads the image and copies it to your clipboard — just paste it when posting.
+                </p>
               </div>
 
               {/* Action bar */}
