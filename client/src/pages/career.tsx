@@ -100,6 +100,7 @@ import {
   CHALLENGE_GOAL_TYPES
 } from "@shared/schema";
 import { ShareCardDialog } from "@/components/share-card";
+import { WorkoutShareDialog } from "@/components/workout-share-dialog";
 import { PlayerProfileSection } from "@/pages/player-profile";
 import CsvImportDialog from "@/components/csv-import-dialog";
 
@@ -2791,6 +2792,8 @@ function StatsTab() {
   const [showGameDialog, setShowGameDialog] = useState(false);
   const [editingGame, setEditingGame] = useState<Game | null>(null);
   const [shareGameId, setShareGameId] = useState<string | null>(null);
+  const [shareSeasonId, setShareSeasonId] = useState<string | null>(null);
+  const [showSeasonShareDialog, setShowSeasonShareDialog] = useState(false);
   const [expandedSeasons, setExpandedSeasons] = useState<Set<string>>(new Set());
   const [initialExpandDone, setInitialExpandDone] = useState(false);
   const [showCsvImport, setShowCsvImport] = useState(false);
@@ -3191,6 +3194,19 @@ function StatsTab() {
                             data-testid={`button-edit-season-${season.id}`}
                           >
                             <Pencil className="w-4 h-4 text-muted-foreground" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShareSeasonId(season.id);
+                              setShowSeasonShareDialog(true);
+                            }}
+                            title="Share season stats"
+                            data-testid={`button-share-season-${season.id}`}
+                          >
+                            <Share2 className="w-4 h-4 text-muted-foreground" />
                           </Button>
                           <Button
                             size="icon"
@@ -3715,6 +3731,16 @@ function StatsTab() {
       )}
 
       <CsvImportDialog open={showCsvImport} onOpenChange={setShowCsvImport} />
+
+      <WorkoutShareDialog
+        open={showSeasonShareDialog}
+        onOpenChange={(open) => {
+          setShowSeasonShareDialog(open);
+          if (!open) setShareSeasonId(null);
+        }}
+        seasonId={shareSeasonId}
+        defaultTab="season"
+      />
     </div>
   );
 }

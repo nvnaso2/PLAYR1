@@ -5,10 +5,10 @@ import path from "path";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated, getAppBaseUrl, type AuthenticatedRequest } from "./auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
-import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, drills } from "@shared/schema";
+import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, drills, trainingLogs } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db } from "./db";
-import { eq, and, or, isNull, ilike, sql, inArray } from "drizzle-orm";
+import { eq, and, or, isNull, ilike, sql, inArray, gte } from "drizzle-orm";
 import { z } from "zod";
 import { zipToCoords, cityStateToCoords, haversineDistance } from "./geo";
 import {
@@ -2812,6 +2812,236 @@ export async function registerRoutes(
       res.json(shareData);
     } catch (error) {
       console.error("Error generating share data:", error);
+      res.status(500).json({ message: "Failed to generate share data" });
+    }
+  });
+
+  // Share: workout session summary
+  app.get("/api/share/workout-session/:sessionId", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const { sessionId } = req.params;
+
+      const sessionLogs = await db.select({
+        id: trainingLogs.id,
+        drillId: trainingLogs.drillId,
+        duration: trainingLogs.duration,
+        reps: trainingLogs.reps,
+        sets: trainingLogs.sets,
+        score: trainingLogs.score,
+        shotLocation: trainingLogs.shotLocation,
+        shotsAttempted: trainingLogs.shotsAttempted,
+        shotsMade: trainingLogs.shotsMade,
+        completedAt: trainingLogs.completedAt,
+        drillTitle: drills.title,
+        drillCategory: drills.category,
+      }).from(trainingLogs)
+        .leftJoin(drills, eq(drills.id, trainingLogs.drillId))
+        .where(and(
+          eq(trainingLogs.userId, userId),
+          eq(trainingLogs.workoutSessionId, sessionId)
+        ))
+        .orderBy(trainingLogs.completedAt);
+
+      if (!sessionLogs.length) return res.status(404).json({ message: "Session not found" });
+
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      const profile = await storage.getUserProfile(userId);
+      const career = await storage.getCareerProfile(userId);
+
+      // Aggregate shot data by location
+      const shotMap: Record<string, { made: number; attempted: number }> = {};
+      for (const l of sessionLogs) {
+        if (l.shotLocation && (l.shotsAttempted || 0) > 0) {
+          if (!shotMap[l.shotLocation]) shotMap[l.shotLocation] = { made: 0, attempted: 0 };
+          shotMap[l.shotLocation].made += l.shotsMade || 0;
+          shotMap[l.shotLocation].attempted += l.shotsAttempted || 0;
+        }
+      }
+
+      // Category breakdown
+      const catMap: Record<string, number> = {};
+      for (const l of sessionLogs) {
+        const cat = l.drillCategory || 'general';
+        catMap[cat] = (catMap[cat] || 0) + 1;
+      }
+
+      const totalShots = sessionLogs.reduce((s, l) => s + (l.shotsAttempted || 0), 0);
+      const totalMade = sessionLogs.reduce((s, l) => s + (l.shotsMade || 0), 0);
+
+      res.json({
+        sessionId,
+        date: sessionLogs[0].completedAt,
+        playerName: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'Player',
+        displayName: profile?.displayName || null,
+        teamName: career?.teamName || null,
+        jerseyNumber: career?.jerseyNumber || null,
+        totalDuration: sessionLogs.reduce((s, l) => s + l.duration, 0),
+        drillCount: sessionLogs.length,
+        totalShotsAttempted: totalShots,
+        totalShotsMade: totalMade,
+        shootingPct: totalShots > 0 ? Math.round((totalMade / totalShots) * 100) : null,
+        drills: sessionLogs.map(l => ({
+          title: l.drillTitle || 'Drill',
+          category: l.drillCategory || 'general',
+          duration: l.duration,
+          reps: l.reps,
+          sets: l.sets,
+          score: l.score,
+          shotsAttempted: l.shotsAttempted,
+          shotsMade: l.shotsMade,
+        })),
+        shotData: Object.entries(shotMap).map(([location, d]) => ({ location, ...d })),
+        categoryBreakdown: Object.entries(catMap).map(([category, count]) => ({ category, count })),
+      });
+    } catch (err) {
+      console.error("Error generating workout share data:", err);
+      res.status(500).json({ message: "Failed to generate share data" });
+    }
+  });
+
+  // Share: training period summary (day / week / month / year)
+  app.get("/api/share/training-summary", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const period = (req.query.period as string) || 'week';
+
+      let since: Date;
+      const now = new Date();
+      if (period === 'day') { since = new Date(now); since.setHours(0, 0, 0, 0); }
+      else if (period === 'month') { since = new Date(now.getFullYear(), now.getMonth(), 1); }
+      else if (period === 'year') { since = new Date(now.getFullYear(), 0, 1); }
+      else { since = new Date(now); since.setDate(now.getDate() - 6); since.setHours(0, 0, 0, 0); } // week default
+
+      const periodLogs = await db.select({
+        id: trainingLogs.id,
+        drillId: trainingLogs.drillId,
+        duration: trainingLogs.duration,
+        reps: trainingLogs.reps,
+        shotLocation: trainingLogs.shotLocation,
+        shotsAttempted: trainingLogs.shotsAttempted,
+        shotsMade: trainingLogs.shotsMade,
+        completedAt: trainingLogs.completedAt,
+        workoutSessionId: trainingLogs.workoutSessionId,
+        drillCategory: drills.category,
+        drillTitle: drills.title,
+      }).from(trainingLogs)
+        .leftJoin(drills, eq(drills.id, trainingLogs.drillId))
+        .where(and(eq(trainingLogs.userId, userId), gte(trainingLogs.completedAt, since)))
+        .orderBy(trainingLogs.completedAt);
+
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      const profile = await storage.getUserProfile(userId);
+      const career = await storage.getCareerProfile(userId);
+
+      const totalSessions = new Set(periodLogs.map(l => l.workoutSessionId || l.id)).size;
+      const totalDuration = periodLogs.reduce((s, l) => s + l.duration, 0);
+      const totalShots = periodLogs.reduce((s, l) => s + (l.shotsAttempted || 0), 0);
+      const totalMade = periodLogs.reduce((s, l) => s + (l.shotsMade || 0), 0);
+
+      // Category breakdown
+      const catMap: Record<string, number> = {};
+      for (const l of periodLogs) {
+        const cat = l.drillCategory || 'general';
+        catMap[cat] = (catMap[cat] || 0) + l.duration;
+      }
+
+      // Shot data
+      const shotMap: Record<string, { made: number; attempted: number }> = {};
+      for (const l of periodLogs) {
+        if (l.shotLocation && (l.shotsAttempted || 0) > 0) {
+          if (!shotMap[l.shotLocation]) shotMap[l.shotLocation] = { made: 0, attempted: 0 };
+          shotMap[l.shotLocation].made += l.shotsMade || 0;
+          shotMap[l.shotLocation].attempted += l.shotsAttempted || 0;
+        }
+      }
+
+      // Daily activity for sparkline (group by date)
+      const dayMap: Record<string, number> = {};
+      for (const l of periodLogs) {
+        const day = l.completedAt ? new Date(l.completedAt).toISOString().split('T')[0] : 'unknown';
+        dayMap[day] = (dayMap[day] || 0) + l.duration;
+      }
+
+      // Top drills
+      const drillMap: Record<string, number> = {};
+      for (const l of periodLogs) { drillMap[l.drillTitle || 'Unknown'] = (drillMap[l.drillTitle || 'Unknown'] || 0) + 1; }
+      const topDrills = Object.entries(drillMap).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([name, count]) => ({ name, count }));
+
+      res.json({
+        period,
+        since: since.toISOString(),
+        playerName: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'Player',
+        displayName: profile?.displayName || null,
+        teamName: career?.teamName || null,
+        jerseyNumber: career?.jerseyNumber || null,
+        totalSessions,
+        totalDrills: periodLogs.length,
+        totalDuration,
+        totalShotsAttempted: totalShots,
+        totalShotsMade: totalMade,
+        shootingPct: totalShots > 0 ? Math.round((totalMade / totalShots) * 100) : null,
+        categoryBreakdown: Object.entries(catMap).map(([category, minutes]) => ({ category, minutes })).sort((a, b) => b.minutes - a.minutes),
+        shotData: Object.entries(shotMap).map(([location, d]) => ({ location, ...d })),
+        dailyActivity: Object.entries(dayMap).map(([date, minutes]) => ({ date, minutes })).sort((a, b) => a.date.localeCompare(b.date)),
+        topDrills,
+      });
+    } catch (err) {
+      console.error("Error generating training summary share data:", err);
+      res.status(500).json({ message: "Failed to generate share data" });
+    }
+  });
+
+  // Share: season stats averages
+  app.get("/api/share/season-stats/:seasonId", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const { seasonId } = req.params;
+
+      const [season] = await db.select().from(seasons).where(and(eq(seasons.id, seasonId), eq(seasons.userId, userId)));
+      if (!season) return res.status(404).json({ message: "Season not found" });
+
+      const seasonGames = await db.select().from(games).where(and(eq(games.seasonId, seasonId), eq(games.userId, userId)));
+
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      const career = await storage.getCareerProfile(userId);
+      const profile = await storage.getUserProfile(userId);
+
+      const gp = seasonGames.length;
+      const wins = seasonGames.filter(g => g.result === 'W').length;
+
+      const avg = (fn: (g: typeof seasonGames[0]) => number) =>
+        gp > 0 ? +(seasonGames.reduce((s, g) => s + fn(g), 0) / gp).toFixed(1) : 0;
+
+      const totalFgA = seasonGames.reduce((s, g) => s + (g.fgAttempted || 0), 0);
+      const totalFgM = seasonGames.reduce((s, g) => s + (g.fgMade || 0), 0);
+      const total3PA = seasonGames.reduce((s, g) => s + (g.threePtAttempted || 0), 0);
+      const total3PM = seasonGames.reduce((s, g) => s + (g.threePtMade || 0), 0);
+      const totalFTA = seasonGames.reduce((s, g) => s + (g.ftAttempted || 0), 0);
+      const totalFTM = seasonGames.reduce((s, g) => s + (g.ftMade || 0), 0);
+
+      res.json({
+        seasonId,
+        seasonName: season.name,
+        seasonYear: season.year,
+        teamName: season.teamName || career?.teamName || null,
+        playerName: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'Player',
+        displayName: profile?.displayName || null,
+        jerseyNumber: career?.jerseyNumber || null,
+        gamesPlayed: gp,
+        record: `${wins}-${gp - wins}`,
+        ppg: avg(g => g.points || 0),
+        rpg: avg(g => g.rebounds || 0),
+        apg: avg(g => g.assists || 0),
+        spg: avg(g => g.steals || 0),
+        bpg: avg(g => g.blocks || 0),
+        fgPct: totalFgA > 0 ? Math.round((totalFgM / totalFgA) * 100) : 0,
+        threePct: total3PA > 0 ? Math.round((total3PM / total3PA) * 100) : 0,
+        ftPct: totalFTA > 0 ? Math.round((totalFTM / totalFTA) * 100) : 0,
+        topGame: seasonGames.sort((a, b) => (b.points || 0) - (a.points || 0))[0] || null,
+      });
+    } catch (err) {
+      console.error("Error generating season stats share data:", err);
       res.status(500).json({ message: "Failed to generate share data" });
     }
   });

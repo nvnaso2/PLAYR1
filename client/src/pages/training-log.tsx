@@ -69,12 +69,14 @@ import {
   Star,
   Heart,
   Search,
-  Loader2
+  Loader2,
+  Share2
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Drill, TrainingLog, DrillMetric, MetricTemplate, Workout, WorkoutDrill, ShotLocationDB, Challenge, UserChallenge } from "@shared/schema";
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, insertDrillSchema, insertWorkoutSchema } from "@shared/schema";
 import { HalfCourtMap, ShotChartButton, type ShotData } from "@/components/half-court-map";
+import { WorkoutShareDialog } from "@/components/workout-share-dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -146,6 +148,8 @@ export default function TrainingLogPage() {
   const [drillVideoProgress, setDrillVideoProgress] = useState(0);
   const [activeView, setActiveView] = useState<"library" | "workout" | "history">("library");
   const [showFavoriteDialog, setShowFavoriteDialog] = useState(false);
+  const [shareSessionId, setShareSessionId] = useState<string | null>(null);
+  const [showShareDialog, setShowShareDialog] = useState(false);
   const [showCreateWorkoutMode, setShowCreateWorkoutMode] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [showChallengeDialog, setShowChallengeDialog] = useState(false);
@@ -1280,6 +1284,7 @@ export default function TrainingLogPage() {
         setWorkoutInProgress(false);
         setWorkoutStartTime(null);
         setDrillStartTimes({});
+        setShareSessionId(workoutEntries.length > 1 ? sessionId : null);
         setShowFavoriteDialog(true);
       });
 
@@ -2385,6 +2390,15 @@ export default function TrainingLogPage() {
             }} data-testid="button-skip-favorite">
               Skip
             </Button>
+            {shareSessionId && (
+              <Button variant="outline" onClick={() => {
+                setShowFavoriteDialog(false);
+                setShowShareDialog(true);
+              }} className="gap-2" data-testid="button-share-workout">
+                <Share2 className="w-4 h-4" />
+                Share Workout
+              </Button>
+            )}
             {workoutEntries.length === 1 ? (
               <Button onClick={() => {
                 favoriteDrillMutation.mutate(workoutEntries[0].drillId);
@@ -2409,6 +2423,17 @@ export default function TrainingLogPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Share Workout Dialog */}
+      <WorkoutShareDialog
+        open={showShareDialog}
+        onOpenChange={(open) => {
+          setShowShareDialog(open);
+          if (!open) setShareSessionId(null);
+        }}
+        workoutSessionId={shareSessionId}
+        defaultTab={shareSessionId ? "workout" : "week"}
+      />
 
       {/* Save Workout Dialog (after completing multi-drill workout) */}
       <Dialog open={isSaveWorkoutOpen && !showCreateWorkoutMode && !workoutInProgress} onOpenChange={(open) => {
@@ -3047,6 +3072,22 @@ export default function TrainingLogPage() {
                                         </div>
                                       </div>
                                     </CollapsibleTrigger>
+                                    {group.sessionId && (
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="shrink-0 h-8 w-8 text-muted-foreground hover:text-primary"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setShareSessionId(group.sessionId);
+                                          setShowShareDialog(true);
+                                        }}
+                                        title="Share workout"
+                                        data-testid={`button-share-session-${group.sessionId}`}
+                                      >
+                                        <Share2 className="w-4 h-4" />
+                                      </Button>
+                                    )}
                                     <Button
                                       variant="ghost"
                                       size="icon"
