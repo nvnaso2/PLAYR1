@@ -4,6 +4,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,17 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import {
   Form,
   FormControl,
@@ -28,7 +40,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient, apiRequest, getObjectUrl } from "@/lib/queryClient";
+import { queryClient, apiRequest, getObjectUrl, clearAuthToken } from "@/lib/queryClient";
 import { 
   User, 
   MapPin, 
@@ -39,7 +51,12 @@ import {
   Save,
   Camera,
   Bell,
-  BellOff
+  BellOff,
+  Shield,
+  Users,
+  Copy,
+  Trash2,
+  ChevronRight,
 } from "lucide-react";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
 import type { UserProfile } from "@shared/schema";
@@ -110,9 +127,15 @@ function PushNotificationToggle() {
 export default function ProfilePage() {
   const { user, logout } = useAuth();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
   const { data: profile, isLoading } = useQuery<UserProfile>({
     queryKey: ['/api/profile'],
+  });
+
+  const { data: careerProfile } = useQuery<any>({
+    queryKey: ['/api/career'],
   });
 
   const form = useForm<ProfileFormData>({
@@ -178,6 +201,31 @@ export default function ProfilePage() {
 
   const onSubmit = (data: ProfileFormData) => {
     updateProfileMutation.mutate(data);
+  };
+
+  const deleteAccountMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("DELETE", "/api/auth/me");
+    },
+    onSuccess: () => {
+      clearAuthToken();
+      queryClient.clear();
+      toast({ title: "Account deleted", description: "Your account has been permanently deleted." });
+      setLocation("/auth");
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete account. Please try again.", variant: "destructive" });
+    },
+  });
+
+  const isMinor = careerProfile?.isMinor === true;
+  const parentInviteCode = careerProfile?.parentInviteCode;
+
+  const copyInviteCode = () => {
+    if (parentInviteCode) {
+      navigator.clipboard.writeText(parentInviteCode);
+      toast({ title: "Copied!", description: "Parent invite code copied to clipboard." });
+    }
   };
 
   const [uploading, setUploading] = useState(false);
@@ -534,6 +582,77 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
 
+      <Card data-testid="card-family-privacy">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Shield className="w-5 h-5" />
+            Family &amp; Privacy
+          </CardTitle>
+          <CardDescription>
+            Age assurance and parental oversight controls
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="p-4 rounded-lg border space-y-2">
+            <div className="flex items-center gap-2">
+              <Shield className="w-4 h-4 text-primary" />
+              <p className="font-medium text-sm">Age Assurance</p>
+              {isMinor ? (
+                <Badge variant="secondary" className="text-xs">Minor Account</Badge>
+              ) : (
+                <Badge variant="outline" className="text-xs">Adult Account</Badge>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {isMinor
+                ? "This account is registered as a minor (under 18). A parent or guardian can link their account to monitor training activity, sessions, and communications."
+                : "Your account is registered as an adult. PLAYR1 collects birth year during onboarding to provide age-appropriate parental oversight for minor users."}
+            </p>
+          </div>
+
+          {isMinor && (
+            <div className="p-4 rounded-lg border space-y-3" data-testid="section-parental-controls">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-primary" />
+                <p className="font-medium text-sm">Parent / Guardian Access</p>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Share this invite code with a parent or guardian. They can create a PLAYR1 account and use this code to link to your profile for read-only oversight.
+              </p>
+              {parentInviteCode ? (
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 bg-muted rounded-md px-3 py-2 font-mono text-sm tracking-widest" data-testid="text-parent-invite-code">
+                    {parentInviteCode}
+                  </div>
+                  <Button size="icon" variant="outline" onClick={copyInviteCode} data-testid="button-copy-invite-code">
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">
+                  Complete your player profile to generate a parent invite code.
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Parents access your training logs, sessions, messages, and trainer connections in read-only mode.
+              </p>
+            </div>
+          )}
+
+          {!isMinor && (
+            <div className="flex items-center justify-between p-4 rounded-lg border">
+              <div>
+                <p className="font-medium text-sm">Parent Dashboard</p>
+                <p className="text-sm text-muted-foreground">View linked children's activity</p>
+              </div>
+              <Button variant="ghost" size="sm" className="gap-1" onClick={() => setLocation("/parent")} data-testid="button-parent-dashboard">
+                Open <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
@@ -554,6 +673,58 @@ export default function ProfilePage() {
               <LogOut className="w-4 h-4" />
               Sign Out
             </Button>
+          </div>
+
+          <Separator />
+
+          <div className="flex items-center justify-between p-4 rounded-lg border border-destructive/30 bg-destructive/5">
+            <div>
+              <p className="font-medium text-destructive">Delete Account</p>
+              <p className="text-sm text-muted-foreground">
+                Permanently delete your account and all data
+              </p>
+            </div>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="sm" className="gap-2" data-testid="button-delete-account">
+                  <Trash2 className="w-4 h-4" />
+                  Delete
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete your account?</AlertDialogTitle>
+                  <AlertDialogDescription className="space-y-3">
+                    <span className="block">
+                      This will permanently delete your PLAYR1 account including all training logs, sessions, videos, achievements, and profile data. This action cannot be undone.
+                    </span>
+                    <span className="block mt-3">
+                      Type <strong>DELETE</strong> below to confirm.
+                    </span>
+                    <Input
+                      className="mt-2"
+                      placeholder="Type DELETE to confirm"
+                      value={deleteConfirmText}
+                      onChange={(e) => setDeleteConfirmText(e.target.value)}
+                      data-testid="input-delete-confirm"
+                    />
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel onClick={() => setDeleteConfirmText("")} data-testid="button-cancel-delete">
+                    Cancel
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    disabled={deleteConfirmText !== "DELETE" || deleteAccountMutation.isPending}
+                    onClick={() => deleteAccountMutation.mutate()}
+                    data-testid="button-confirm-delete"
+                  >
+                    {deleteAccountMutation.isPending ? "Deleting..." : "Delete Account"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </CardContent>
       </Card>

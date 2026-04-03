@@ -210,6 +210,18 @@ export function registerAuthRoutes(app: Express) {
     res.json({ success: true });
   });
 
+  app.delete("/api/auth/me", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      await db.delete(users).where(eq(users.id, userId));
+      res.clearCookie(COOKIE_NAME, { path: "/" });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting account:", error);
+      res.status(500).json({ message: "Failed to delete account" });
+    }
+  });
+
   app.get("/api/auth/user", isAuthenticated, async (req, res) => {
     try {
       const userId = req.user!.claims.sub;
