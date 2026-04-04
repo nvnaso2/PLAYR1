@@ -3622,11 +3622,11 @@ export class DatabaseStorage implements IStorage {
     const totalSessionsRow = r1(await db.execute(sql`SELECT COUNT(*) as count FROM training_sessions`));
     const totalConnRow     = r1(await db.execute(sql`SELECT COUNT(*) as count FROM player_trainer_connections WHERE status = 'accepted'`));
     const totalFbRow       = r1(await db.execute(sql`SELECT COUNT(*) as count FROM feedback_posts`));
-    const active7Row       = r1(await db.execute(sql`SELECT COUNT(DISTINCT user_id) as count FROM training_logs WHERE created_at >= NOW() - INTERVAL '7 days'`));
-    const active30Row      = r1(await db.execute(sql`SELECT COUNT(DISTINCT user_id) as count FROM training_logs WHERE created_at >= NOW() - INTERVAL '30 days'`));
+    const active7Row       = r1(await db.execute(sql`SELECT COUNT(DISTINCT user_id) as count FROM training_logs WHERE completed_at >= NOW() - INTERVAL '7 days'`));
+    const active30Row      = r1(await db.execute(sql`SELECT COUNT(DISTINCT user_id) as count FROM training_logs WHERE completed_at >= NOW() - INTERVAL '30 days'`));
 
     const usersByWeek      = r(await db.execute(sql`SELECT DATE_TRUNC('week', created_at) as week, COUNT(*) as count FROM users WHERE created_at >= NOW() - INTERVAL '12 weeks' GROUP BY week ORDER BY week ASC`));
-    const logsByWeek       = r(await db.execute(sql`SELECT DATE_TRUNC('week', created_at) as week, COUNT(*) as count FROM training_logs WHERE created_at >= NOW() - INTERVAL '12 weeks' GROUP BY week ORDER BY week ASC`));
+    const logsByWeek       = r(await db.execute(sql`SELECT DATE_TRUNC('week', completed_at) as week, COUNT(*) as count FROM training_logs WHERE completed_at >= NOW() - INTERVAL '12 weeks' GROUP BY week ORDER BY week ASC`));
     const popularDrills    = r(await db.execute(sql`SELECT d.title, COUNT(tl.id) as log_count FROM training_logs tl JOIN drills d ON d.id = tl.drill_id GROUP BY d.id, d.title ORDER BY log_count DESC LIMIT 10`));
     const usersByRole      = r(await db.execute(sql`SELECT role, COUNT(*) as count FROM users GROUP BY role`));
     const topActiveUsers   = r(await db.execute(sql`SELECT u.first_name, u.last_name, u.email, COUNT(tl.id) as log_count FROM users u JOIN training_logs tl ON tl.user_id = u.id GROUP BY u.id, u.first_name, u.last_name, u.email ORDER BY log_count DESC LIMIT 10`));
