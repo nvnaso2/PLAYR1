@@ -36,3 +36,9 @@ id = "1x9ItTLi-GyZH85HCLxxv"
 uri = "file://playr1-ios-public.tar.gz"
 type = "unspecified"
 title = "PLAYR1 iOS Bundle — Compact Header + Proper Logo"
+
+[[outputs]]
+id = "DmGTpk4uCM30Ig-kKPitH"
+uri = "file://playr1-ios-bundle.tar.gz"
+type = "unspecified"
+title = "PLAYR1 iOS Web Bundle (dist/public)"
