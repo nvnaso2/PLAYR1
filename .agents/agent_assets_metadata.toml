@@ -42,3 +42,15 @@ id = "DmGTpk4uCM30Ig-kKPitH"
 uri = "file://playr1-ios-bundle.tar.gz"
 type = "unspecified"
 title = "PLAYR1 iOS Bundle (public + capacitor.config.json)"
+
+[[outputs]]
+id = "iLRE8j6clrI73oho3gH40"
+uri = "file://PLAYR1_App_Overview.md"
+type = "text"
+title = "PLAYR1 Full App Overview — Every Screen, UI & Function"
+
+[[outputs]]
+id = "QsTzbTg65MpfE9xW_fmPN"
+uri = "file://PLAYR1_Schema.txt"
+type = "text"
+title = "PLAYR1 Database Schema — All Data Models (Code)"
