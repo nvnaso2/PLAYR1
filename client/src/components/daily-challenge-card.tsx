@@ -1,12 +1,10 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { nativeFetch } from "@/lib/queryClient";
-import { queryClient } from "@/lib/queryClient";
+import { nativeFetch, queryClient, getObjectUrl } from "@/lib/queryClient";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { getObjectUrl } from "@/lib/object-storage";
 import { cn } from "@/lib/utils";
 import {
   Flame,
