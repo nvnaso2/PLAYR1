@@ -328,7 +328,11 @@ function SecLabel({ children, fs = 11 }: { children: React.ReactNode; fs?: numbe
 }
 
 // ─── Card footer ──────────────────────────────────────────────────────────────
-function CardFtr({ pad }: { pad: number }) {
+function CardFtr({ pad, streak, showBest = false }: {
+  pad: number;
+  streak?: { currentStreak: number; longestStreak: number };
+  showBest?: boolean;
+}) {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
       padding: `9px ${pad}px`, borderTop: `1px solid ${OR30}`,
@@ -340,7 +344,14 @@ function CardFtr({ pad }: { pad: number }) {
         <span style={{ fontWeight: 900, fontSize: "0.70em", letterSpacing: "0.18em",
           color: "rgba(249,115,22,0.6)" }}>PLAYR1</span>
       </div>
-      <span style={{ color: W30, fontSize: "0.55em" }}>playr1.app</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        {streak && streak.currentStreak > 0 && (
+          <span style={{ fontSize: "0.58em", color: W60, letterSpacing: "0.05em", fontWeight: 600 }}>
+            {"🔥"} {streak.currentStreak}{showBest && streak.longestStreak > streak.currentStreak ? ` · Best ${streak.longestStreak}` : ""} day streak
+          </span>
+        )}
+        <span style={{ color: W30, fontSize: "0.55em" }}>playr1.app</span>
+      </div>
     </div>
   );
 }
@@ -420,7 +431,7 @@ interface SeasonData {
 }
 
 // ─── Workout Session Card ─────────────────────────────────────────────────────
-function WorkoutCard({ data, platform }: { data: WorkoutData; platform: Platform }) {
+function WorkoutCard({ data, platform, streak }: { data: WorkoutData; platform: Platform; streak?: { currentStreak: number; longestStreak: number } }) {
   const cfg = PLATFORMS.find(p => p.id === platform)!;
   const { w: W, h: H, scale: s } = cfg;
   const pad = Math.round(W * 0.033);
@@ -530,7 +541,7 @@ function WorkoutCard({ data, platform }: { data: WorkoutData; platform: Platform
             )}
           </div>
         </div>
-        <CardFtr pad={pad} />
+        <CardFtr pad={pad} streak={streak} showBest={false} />
       </div>
       </div>
     </div>
@@ -538,7 +549,7 @@ function WorkoutCard({ data, platform }: { data: WorkoutData; platform: Platform
 }
 
 // ─── Training Period Card ─────────────────────────────────────────────────────
-function PeriodCard({ data, platform }: { data: PeriodData; platform: Platform }) {
+function PeriodCard({ data, platform, streak }: { data: PeriodData; platform: Platform; streak?: { currentStreak: number; longestStreak: number } }) {
   const cfg = PLATFORMS.find(p => p.id === platform)!;
   const { w: W, h: H, scale: s } = cfg;
   const pad = Math.round(W * 0.033);
@@ -675,7 +686,7 @@ function PeriodCard({ data, platform }: { data: PeriodData; platform: Platform }
           )}
         </div>
 
-        <CardFtr pad={pad} />
+        <CardFtr pad={pad} streak={streak} showBest={data.period === "month" || data.period === "year"} />
       </div>
       </div>
     </div>
@@ -930,6 +941,12 @@ export function WorkoutShareDialog({ open, onOpenChange, workoutSessionId, defau
   const initialTab: CardType = defaultTab || (workoutSessionId ? "workout" : seasonId ? "season" : "week");
   const [activeTab, setActiveTab] = useState<CardType>(initialTab);
 
+  const { data: streakData } = useQuery<{ currentStreak: number; longestStreak: number }>({
+    queryKey: ["/api/streak/me"],
+    queryFn: async () => (await apiRequest("GET", "/api/streak/me")).json(),
+    enabled: open,
+  });
+
   const { data: workoutData, isLoading: lW } = useQuery<WorkoutData>({
     queryKey: ["/api/share/workout-session", workoutSessionId],
     queryFn: async () => (await apiRequest("GET", `/api/share/workout-session/${workoutSessionId}`)).json(),
@@ -995,10 +1012,10 @@ export function WorkoutShareDialog({ open, onOpenChange, workoutSessionId, defau
   const cfg = PLATFORMS.find(p => p.id === platform)!;
 
   const renderCard = (tab: CardType) => {
-    if (tab==="workout" && workoutData)  return <div ref={cardRef}><WorkoutCard data={workoutData} platform={platform} /></div>;
-    if (tab==="week"    && weekData)     return <div ref={cardRef}><PeriodCard  data={weekData}   platform={platform} /></div>;
-    if (tab==="month"   && monthData)    return <div ref={cardRef}><PeriodCard  data={monthData}  platform={platform} /></div>;
-    if (tab==="year"    && yearData)     return <div ref={cardRef}><PeriodCard  data={yearData}   platform={platform} /></div>;
+    if (tab==="workout" && workoutData)  return <div ref={cardRef}><WorkoutCard data={workoutData} platform={platform} streak={streakData} /></div>;
+    if (tab==="week"    && weekData)     return <div ref={cardRef}><PeriodCard  data={weekData}   platform={platform} streak={streakData} /></div>;
+    if (tab==="month"   && monthData)    return <div ref={cardRef}><PeriodCard  data={monthData}  platform={platform} streak={streakData} /></div>;
+    if (tab==="year"    && yearData)     return <div ref={cardRef}><PeriodCard  data={yearData}   platform={platform} streak={streakData} /></div>;
     if (tab==="season"  && seasonData)   return <div ref={cardRef}><SeasonCard  data={seasonData} platform={platform} /></div>;
     return null;
   };

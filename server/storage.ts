@@ -3843,16 +3843,21 @@ export class DatabaseStorage implements IStorage {
         currentStreak: userStreaks.currentStreak,
         displayName: userProfiles.displayName,
         profilePhotoUrl: userProfiles.profilePhotoUrl,
+        firstName: users.firstName,
+        lastName: users.lastName,
       })
       .from(userStreaks)
       .leftJoin(userProfiles, eq(userProfiles.userId, userStreaks.userId))
+      .leftJoin(users, eq(users.id, userStreaks.userId))
       .where(sql`${userStreaks.currentStreak} > 0`)
       .orderBy(desc(userStreaks.currentStreak))
       .limit(10);
 
     return rows.map(r => ({
       userId: r.userId,
-      displayName: r.displayName || "Player",
+      displayName: r.displayName
+        || (r.firstName ? [r.firstName, r.lastName].filter(Boolean).join(" ") : null)
+        || "Player",
       currentStreak: r.currentStreak ?? 0,
       profilePhotoUrl: r.profilePhotoUrl ?? null,
     }));

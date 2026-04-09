@@ -7541,6 +7541,18 @@ export async function registerRoutes(
     }
   });
 
+  // GET /api/streak/me — current user's streak stats
+  app.get("/api/streak/me", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const streak = await storage.getUserStreak(userId);
+      res.json({ currentStreak: streak.currentStreak ?? 0, longestStreak: streak.longestStreak ?? 0 });
+    } catch (err) {
+      console.error("Error getting user streak:", err);
+      res.status(500).json({ message: "Failed to get streak" });
+    }
+  });
+
   // Admin: set daily challenge override for a date
   app.post("/api/admin/daily-challenge", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
