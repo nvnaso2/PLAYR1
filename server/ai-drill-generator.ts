@@ -47,39 +47,42 @@ function extractJson(raw: string): string {
 export async function generateAiDrill(dateStr: string): Promise<AiGeneratedDrill> {
   const suggestedCategory = pickCategoryForDate(dateStr);
 
-  const prompt = `You are an expert basketball trainer. Design a unique, creative basketball training drill for ${dateStr}.
+  const prompt = `You are an expert basketball trainer creating the daily training challenge for players.
 
-Category (you can adjust if it makes the drill better): ${suggestedCategory}
+Date: ${dateStr}
+Category: ${suggestedCategory}
 
-Requirements:
-- SOLO ONLY: The drill must be completable by a single player alone on a basketball court. No partner, coach, or rebounder required. Players should be able to retrieve their own ball.
-- Give it a specific, creative name (not generic like "Ball Handling Drill")
-- Write a 2-3 sentence description explaining what to do and why it builds skill
-- Choose appropriate difficulty: beginner, intermediate, or advanced
-- List 1-3 pieces of equipment needed (minimal — basketball, hoop, and optional cones/markers only)
-- Write exactly 3 short coaching tips (under 60 chars each, specific and actionable)
-- Choose 1-3 metrics to track from: shots-made, shot-attempts, time, dribbles, passes, pass-attempts
-  - shooting/finishing MUST use: shots-made, shot-attempts
-  - ball-handling MUST use: time (optionally: dribbles)
-  - passing MUST use: time (wall-passing drills only)
-  - defense/workouts MUST use: time
+Design a SOLO drill that one player can do alone on a basketball court. No partner needed.
 
-Respond with ONLY a JSON object (no markdown, no explanation):
+CRITICAL RULES:
+1. Use REAL, PHYSICAL actions only — no "imaginary" defenders, "invisible" cones, or abstract concepts.
+2. Reference REAL court landmarks: free throw line, 3-point line, elbow, wing, baseline, paint, half court, lane lines, etc.
+3. The description must be a numbered step-by-step breakdown (3-5 steps) that leaves zero ambiguity about what to do. Format exactly like: "1. Start at the free throw line. 2. Dribble to the right elbow and back. 3. Repeat for 60 seconds."
+4. Difficulty: beginner = simple movements any newcomer can follow; intermediate = moderate athleticism; advanced = high-speed or complex footwork.
+5. Tips must be specific to THIS drill, not generic advice.
+
+Metric rules:
+- shooting/finishing: MUST use shots-made + shot-attempts
+- ball-handling: MUST use time (optionally dribbles)
+- passing: MUST use time (wall passes only)
+- defense/workouts: MUST use time
+
+Respond with ONLY valid JSON (no markdown fences):
 {
-  "title": "Creative Drill Name",
-  "description": "2-3 sentence description.",
-  "category": "ball-handling",
-  "difficulty": "intermediate",
+  "title": "Specific Drill Name Here",
+  "description": "1. Step one with real court location. 2. Step two with clear action. 3. Step three.",
+  "category": "${suggestedCategory}",
+  "difficulty": "beginner|intermediate|advanced",
   "duration": 300,
   "equipment": ["Basketball"],
-  "tips": ["Tip one", "Tip two", "Tip three"],
+  "tips": ["Tip specific to this drill", "Second specific tip", "Third specific tip"],
   "metrics": ["time"]
 }`;
 
   const response = await openai.chat.completions.create({
     model: "gpt-4o",
     messages: [{ role: "user", content: prompt }],
-    max_completion_tokens: 600,
+    max_completion_tokens: 900,
   });
 
   const raw = response.choices[0]?.message?.content ?? "";
