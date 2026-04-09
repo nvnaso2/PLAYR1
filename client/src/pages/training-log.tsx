@@ -77,6 +77,7 @@ import type { Drill, TrainingLog, DrillMetric, MetricTemplate, Workout, WorkoutD
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, insertDrillSchema, insertWorkoutSchema } from "@shared/schema";
 import { HalfCourtMap, ShotChartButton, type ShotData } from "@/components/half-court-map";
 import { WorkoutShareDialog } from "@/components/workout-share-dialog";
+import { DrillTimer } from "@/components/drill-timer";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -2728,7 +2729,10 @@ export default function TrainingLogPage() {
                                 )}
                                 {metricColumns.map(dm => (
                                   <th key={dm.metricTemplateId} className="text-left p-2 sm:p-3 font-medium text-muted-foreground text-xs sm:text-sm whitespace-nowrap">
-                                    <span className="inline-block max-w-[80px] sm:max-w-none truncate sm:whitespace-normal">{dm.template.label}</span>
+                                    <span className="inline-flex items-center gap-1 max-w-[80px] sm:max-w-none truncate sm:whitespace-normal">
+                                      {dm.template.type === 'time' && <Timer className="w-3 h-3 text-primary shrink-0" />}
+                                      {dm.template.label}
+                                    </span>
                                     {dm.isRequired && <span className="text-destructive ml-1">*</span>}
                                   </th>
                                 ))}
@@ -2800,16 +2804,24 @@ export default function TrainingLogPage() {
                                   )}
                                   {metricColumns.map(dm => (
                                     <td key={dm.metricTemplateId} className="p-1 sm:p-2">
-                                      <Input
-                                        type="text"
-                                        inputMode="numeric"
-                                        pattern="[0-9]*"
-                                        value={entry.metrics[dm.metricTemplateId] || ''}
-                                        onChange={(e) => updateMetricValue(index, dm.metricTemplateId, parseFloat(e.target.value) || 0)}
-                                        className="w-14 sm:w-20 h-8 text-sm"
-                                        placeholder="0"
-                                        data-testid={`input-metric-${index}-${dm.metricTemplateId}`}
-                                      />
+                                      {dm.template.type === 'time' ? (
+                                        <DrillTimer
+                                          value={entry.metrics[dm.metricTemplateId] || 0}
+                                          onChange={(seconds) => updateMetricValue(index, dm.metricTemplateId, seconds)}
+                                          data-testid={`timer-metric-${index}-${dm.metricTemplateId}`}
+                                        />
+                                      ) : (
+                                        <Input
+                                          type="text"
+                                          inputMode="numeric"
+                                          pattern="[0-9]*"
+                                          value={entry.metrics[dm.metricTemplateId] || ''}
+                                          onChange={(e) => updateMetricValue(index, dm.metricTemplateId, parseFloat(e.target.value) || 0)}
+                                          className="w-14 sm:w-20 h-8 text-sm"
+                                          placeholder="0"
+                                          data-testid={`input-metric-${index}-${dm.metricTemplateId}`}
+                                        />
+                                      )}
                                     </td>
                                   ))}
                                   <td className="p-2 hidden sm:table-cell">
