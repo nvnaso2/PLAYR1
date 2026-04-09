@@ -1263,7 +1263,7 @@ export default function TrainingLogPage() {
         }
       });
 
-      await Promise.all([
+      const [bulkRes] = await Promise.all([
         apiRequest("POST", "/api/training-logs/bulk", { entries: bulkEntries }),
         ...challengeRequests,
       ]);
@@ -1288,6 +1288,25 @@ export default function TrainingLogPage() {
         setShareSessionId(workoutEntries.length > 1 ? sessionId : null);
         setShowFavoriteDialog(true);
       });
+
+      // Show streak celebration if daily challenge was auto-completed
+      const bulkData = bulkRes?.ok ? await bulkRes.json().catch(() => null) : null;
+      const streakResult = bulkData?.streakResult;
+      if (streakResult?.streak) {
+        const newStreak = streakResult.streak.currentStreak;
+        const milestone = streakResult.milestoneReached;
+        setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: ['/api/daily-challenge'] });
+          toast({
+            title: milestone
+              ? `🏆 ${newStreak}-Day Milestone!`
+              : `🔥 Daily Challenge Complete!`,
+            description: milestone
+              ? `You hit a ${newStreak}-day streak — keep it going!`
+              : `${newStreak}-day streak! Keep it up.`,
+          });
+        }, 600);
+      }
 
       toast({
         title: "Workout Complete!",

@@ -1472,7 +1472,24 @@ export async function registerRoutes(
         }
         return log;
       }));
-      res.status(201).json({ logs });
+
+      // Auto-complete daily challenge if any logged drill matches today's challenge
+      let streakResult: any = null;
+      try {
+        const todayStr = new Date().toISOString().split("T")[0];
+        const challengeData = await storage.getDailyChallenge(todayStr);
+        if (challengeData) {
+          const alreadyDone = await storage.getTodayCompletion(userId, todayStr);
+          if (!alreadyDone) {
+            const matchingLog = logs.find(l => l.drillId === challengeData.drill.id);
+            if (matchingLog) {
+              streakResult = await storage.completeDailyChallenge(userId, challengeData.drill.id, todayStr, matchingLog.id);
+            }
+          }
+        }
+      } catch (e) { /* non-fatal */ }
+
+      res.status(201).json({ logs, streakResult });
     } catch (error) {
       console.error("Error bulk saving training logs:", error);
       res.status(500).json({ message: "Failed to save workout" });
@@ -7452,6 +7469,85 @@ export async function registerRoutes(
     } catch (err) {
       console.error("Error getting analytics:", err);
       res.status(500).json({ message: "Failed to get analytics" });
+    }
+  });
+
+  // ─── Daily Streak Challenge ──────────────────────────────────────────────
+
+  function todayUTC(): string {
+    return new Date().toISOString().split("T")[0];
+  }
+
+  // GET /api/daily-challenge — today's challenge + user's streak + completion status
+  app.get("/api/daily-challenge", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const date = todayUTC();
+      const [challengeData, completion, streak] = await Promise.all([
+        storage.getDailyChallenge(date),
+        storage.getTodayCompletion(userId, date),
+        storage.getUserStreak(userId),
+      ]);
+      res.json({ challenge: challengeData, completedToday: !!completion, completion, streak, date });
+    } catch (err) {
+      console.error("Error getting daily challenge:", err);
+      res.status(500).json({ message: "Failed to get daily challenge" });
+    }
+  });
+
+  // POST /api/daily-challenge/complete — mark today's challenge done (linked to a log)
+  app.post("/api/daily-challenge/complete", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const date = todayUTC();
+      const { drillId, trainingLogId } = req.body;
+      if (!drillId) return res.status(400).json({ message: "drillId required" });
+      const result = await storage.completeDailyChallenge(userId, drillId, date, trainingLogId);
+      res.json(result);
+    } catch (err) {
+      console.error("Error completing daily challenge:", err);
+      res.status(500).json({ message: "Failed to complete daily challenge" });
+    }
+  });
+
+  // GET /api/streak/leaderboard — top 10 players by current streak
+  app.get("/api/streak/leaderboard", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const board = await storage.getStreakLeaderboard();
+      res.json(board);
+    } catch (err) {
+      console.error("Error getting leaderboard:", err);
+      res.status(500).json({ message: "Failed to get leaderboard" });
+    }
+  });
+
+  // Admin: set daily challenge override for a date
+  app.post("/api/admin/daily-challenge", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      if (!await storage.isUserAdmin(userId)) return res.status(403).json({ message: "Admins only" });
+      const { date, drillId } = req.body;
+      if (!date || !drillId) return res.status(400).json({ message: "date and drillId required" });
+      const challenge = await storage.setAdminDailyChallenge(date, drillId);
+      res.json(challenge);
+    } catch (err) {
+      console.error("Error setting admin daily challenge:", err);
+      res.status(500).json({ message: "Failed to set daily challenge" });
+    }
+  });
+
+  // Admin: list daily challenges for a range
+  app.get("/api/admin/daily-challenges", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      if (!await storage.isUserAdmin(userId)) return res.status(403).json({ message: "Admins only" });
+      const from = (req.query.from as string) || todayUTC();
+      const to = (req.query.to as string) || todayUTC();
+      const challenges = await storage.getAdminDailyChallenges(from, to);
+      res.json(challenges);
+    } catch (err) {
+      console.error("Error getting admin daily challenges:", err);
+      res.status(500).json({ message: "Failed to get challenges" });
     }
   });
 

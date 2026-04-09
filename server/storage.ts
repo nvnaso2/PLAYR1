@@ -59,6 +59,9 @@ import {
   feedbackPosts, type FeedbackPost, type InsertFeedbackPost,
   feedbackVotes, type FeedbackVote,
   analyticsEvents,
+  dailyChallenges, type DailyChallenge,
+  dailyCompletions, type DailyCompletion,
+  userStreaks, type UserStreak,
 } from "@shared/schema";
 import { users, type User } from "@shared/models/auth";
 import { db } from "./db";
@@ -479,6 +482,15 @@ export interface IStorage {
   saveNativePushToken(userId: string, token: string, platform: string): Promise<NativePushToken>;
   getNativePushTokensForUser(userId: string): Promise<NativePushToken[]>;
   deleteNativePushToken(userId: string, token: string): Promise<void>;
+
+  // Daily Streak Challenge
+  getDailyChallenge(dateStr: string): Promise<{ challenge: DailyChallenge; drill: Drill } | null>;
+  getTodayCompletion(userId: string, dateStr: string): Promise<DailyCompletion | null>;
+  completeDailyChallenge(userId: string, drillId: string, dateStr: string, trainingLogId?: string): Promise<{ completion: DailyCompletion; streak: UserStreak; milestoneReached: number | null }>;
+  getUserStreak(userId: string): Promise<UserStreak>;
+  getStreakLeaderboard(): Promise<Array<{ userId: string; displayName: string; currentStreak: number; profilePhotoUrl: string | null }>>;
+  setAdminDailyChallenge(dateStr: string, drillId: string): Promise<DailyChallenge>;
+  getAdminDailyChallenges(from: string, to: string): Promise<Array<DailyChallenge & { drill: Drill }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3657,6 +3669,154 @@ export class DatabaseStorage implements IStorage {
       topEvents:        analyticsEvents.map((x: any) => ({ event: x.event, count: Number(x.count) })),
       topPages:         pageViews.map((x: any) => ({ page: x.page, count: Number(x.count) })),
     };
+  }
+
+  // ─── Daily Streak Challenge ─────────────────────────────────────────────
+
+  async getDailyChallenge(dateStr: string): Promise<{ challenge: DailyChallenge; drill: Drill } | null> {
+    // Check for an existing record for this date
+    const [existing] = await db.select().from(dailyChallenges).where(eq(dailyChallenges.challengeDate, dateStr));
+    if (existing) {
+      const [drill] = await db.select().from(drills).where(eq(drills.id, existing.drillId));
+      if (!drill) return null;
+      return { challenge: existing, drill };
+    }
+
+    // Auto-select by date-seeded rotation over all admin drills
+    const adminDrills = await db
+      .select()
+      .from(drills)
+      .where(isNull(drills.userId))
+      .orderBy(drills.id);
+
+    if (adminDrills.length === 0) return null;
+
+    const epoch = new Date("2024-01-01T00:00:00Z").getTime();
+    const target = new Date(`${dateStr}T00:00:00Z`).getTime();
+    const dayIndex = Math.floor((target - epoch) / (1000 * 60 * 60 * 24));
+    const selectedDrill = adminDrills[((dayIndex % adminDrills.length) + adminDrills.length) % adminDrills.length];
+
+    const [challenge] = await db
+      .insert(dailyChallenges)
+      .values({ challengeDate: dateStr, drillId: selectedDrill.id, isAdminOverride: false })
+      .onConflictDoNothing()
+      .returning();
+
+    // If onConflictDoNothing swallowed it, fetch the existing row
+    const final = challenge ?? (await db.select().from(dailyChallenges).where(eq(dailyChallenges.challengeDate, dateStr)))[0];
+    if (!final) return null;
+    const [finalDrill] = await db.select().from(drills).where(eq(drills.id, final.drillId));
+    return finalDrill ? { challenge: final, drill: finalDrill } : null;
+  }
+
+  async getTodayCompletion(userId: string, dateStr: string): Promise<DailyCompletion | null> {
+    const [row] = await db
+      .select()
+      .from(dailyCompletions)
+      .where(and(eq(dailyCompletions.userId, userId), eq(dailyCompletions.challengeDate, dateStr)));
+    return row ?? null;
+  }
+
+  async getUserStreak(userId: string): Promise<UserStreak> {
+    const [existing] = await db.select().from(userStreaks).where(eq(userStreaks.userId, userId));
+    if (existing) return existing;
+    // Create a fresh streak row for new users
+    const [created] = await db
+      .insert(userStreaks)
+      .values({ userId, currentStreak: 0, longestStreak: 0 })
+      .returning();
+    return created;
+  }
+
+  async completeDailyChallenge(
+    userId: string,
+    drillId: string,
+    dateStr: string,
+    trainingLogId?: string
+  ): Promise<{ completion: DailyCompletion; streak: UserStreak; milestoneReached: number | null }> {
+    // Idempotent — if already completed today, return existing
+    const already = await this.getTodayCompletion(userId, dateStr);
+    const streak = await this.getUserStreak(userId);
+
+    if (already) {
+      return { completion: already, streak, milestoneReached: null };
+    }
+
+    // Record the completion
+    const [completion] = await db
+      .insert(dailyCompletions)
+      .values({ userId, challengeDate: dateStr, drillId, trainingLogId })
+      .returning();
+
+    // Update streak
+    const yesterday = new Date(`${dateStr}T00:00:00Z`);
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split("T")[0];
+
+    let newCurrent = 1;
+    if (streak.lastCompletedDate === yesterdayStr) {
+      newCurrent = (streak.currentStreak ?? 0) + 1;
+    }
+
+    const newLongest = Math.max(streak.longestStreak ?? 0, newCurrent);
+
+    const MILESTONES = [3, 7, 14, 30, 60, 100];
+    const milestoneReached = MILESTONES.includes(newCurrent) ? newCurrent : null;
+
+    const [updatedStreak] = await db
+      .insert(userStreaks)
+      .values({ userId, currentStreak: newCurrent, longestStreak: newLongest, lastCompletedDate: dateStr })
+      .onConflictDoUpdate({
+        target: userStreaks.userId,
+        set: { currentStreak: newCurrent, longestStreak: newLongest, lastCompletedDate: dateStr, updatedAt: new Date() },
+      })
+      .returning();
+
+    return { completion, streak: updatedStreak, milestoneReached };
+  }
+
+  async getStreakLeaderboard(): Promise<Array<{ userId: string; displayName: string; currentStreak: number; profilePhotoUrl: string | null }>> {
+    const rows = await db
+      .select({
+        userId: userStreaks.userId,
+        currentStreak: userStreaks.currentStreak,
+        displayName: userProfiles.displayName,
+        profilePhotoUrl: userProfiles.profilePhotoUrl,
+      })
+      .from(userStreaks)
+      .leftJoin(userProfiles, eq(userProfiles.userId, userStreaks.userId))
+      .where(sql`${userStreaks.currentStreak} > 0`)
+      .orderBy(desc(userStreaks.currentStreak))
+      .limit(10);
+
+    return rows.map(r => ({
+      userId: r.userId,
+      displayName: r.displayName || "Player",
+      currentStreak: r.currentStreak ?? 0,
+      profilePhotoUrl: r.profilePhotoUrl ?? null,
+    }));
+  }
+
+  async setAdminDailyChallenge(dateStr: string, drillId: string): Promise<DailyChallenge> {
+    const [row] = await db
+      .insert(dailyChallenges)
+      .values({ challengeDate: dateStr, drillId, isAdminOverride: true })
+      .onConflictDoUpdate({
+        target: dailyChallenges.challengeDate,
+        set: { drillId, isAdminOverride: true },
+      })
+      .returning();
+    return row;
+  }
+
+  async getAdminDailyChallenges(from: string, to: string): Promise<Array<DailyChallenge & { drill: Drill }>> {
+    const rows = await db
+      .select({ challenge: dailyChallenges, drill: drills })
+      .from(dailyChallenges)
+      .innerJoin(drills, eq(drills.id, dailyChallenges.drillId))
+      .where(and(sql`${dailyChallenges.challengeDate} >= ${from}`, sql`${dailyChallenges.challengeDate} <= ${to}`))
+      .orderBy(dailyChallenges.challengeDate);
+    return rows.map(r => ({ ...r.challenge, drill: r.drill }));
   }
 }
 

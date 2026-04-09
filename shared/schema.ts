@@ -1437,3 +1437,40 @@ export const analyticsEvents = pgTable("analytics_events", {
   metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+// ─── Daily Streak Challenge ───────────────────────────────────────────────
+
+// Which drill is the daily challenge for a given date (YYYY-MM-DD)
+export const dailyChallenges = pgTable("daily_challenges", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  challengeDate: varchar("challenge_date", { length: 10 }).notNull().unique(), // YYYY-MM-DD
+  drillId: varchar("drill_id").notNull(),
+  isAdminOverride: boolean("is_admin_override").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type DailyChallenge = typeof dailyChallenges.$inferSelect;
+
+// Per-user daily completion record
+export const dailyCompletions = pgTable("daily_completions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  challengeDate: varchar("challenge_date", { length: 10 }).notNull(), // YYYY-MM-DD
+  drillId: varchar("drill_id").notNull(),
+  trainingLogId: varchar("training_log_id"),
+  completedAt: timestamp("completed_at").defaultNow(),
+});
+
+export type DailyCompletion = typeof dailyCompletions.$inferSelect;
+
+// Per-user streak state (current and all-time best)
+export const userStreaks = pgTable("user_streaks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique(),
+  currentStreak: integer("current_streak").default(0),
+  longestStreak: integer("longest_streak").default(0),
+  lastCompletedDate: varchar("last_completed_date", { length: 10 }), // YYYY-MM-DD
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type UserStreak = typeof userStreaks.$inferSelect;
