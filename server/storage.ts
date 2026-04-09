@@ -3688,8 +3688,19 @@ export class DatabaseStorage implements IStorage {
     try {
       aiDrill = await generateAiDrill(dateStr);
     } catch (err) {
-      console.error("[daily-challenge] AI generation failed:", err);
-      return null;
+      console.error("[daily-challenge] AI generation failed, falling back to library drill:", err);
+      // Fallback: pick a library drill by date rotation
+      const adminDrills = await db.select().from(drills).where(and(isNull(drills.userId), or(eq(drills.isAiGenerated, false), isNull(drills.isAiGenerated)))).orderBy(drills.id);
+      if (adminDrills.length === 0) return null;
+      const epoch = new Date("2024-01-01T00:00:00Z").getTime();
+      const target = new Date(`${dateStr}T00:00:00Z`).getTime();
+      const dayIndex = Math.floor((target - epoch) / (1000 * 60 * 60 * 24));
+      const fallbackDrill = adminDrills[((dayIndex % adminDrills.length) + adminDrills.length) % adminDrills.length];
+      const [challenge] = await db.insert(dailyChallenges).values({ challengeDate: dateStr, drillId: fallbackDrill.id, isAdminOverride: false }).onConflictDoNothing().returning();
+      const final = challenge ?? (await db.select().from(dailyChallenges).where(eq(dailyChallenges.challengeDate, dateStr)))[0];
+      if (!final) return null;
+      const [finalDrill] = await db.select().from(drills).where(eq(drills.id, final.drillId));
+      return finalDrill ? { challenge: final, drill: finalDrill } : null;
     }
 
     // Insert the AI-generated drill into the drills table

@@ -17,7 +17,7 @@ export interface AiGeneratedDrill {
   duration: number; // seconds
   equipment: string[];
   tips: string[];
-  metrics: MetricName[]; // which metrics to track
+  metrics: MetricName[];
 }
 
 const CATEGORIES: DrillCategory[] = [
@@ -29,92 +29,84 @@ const CATEGORIES: DrillCategory[] = [
   "workouts",
 ];
 
-const METRIC_OPTIONS: Record<string, string> = {
-  "shots-made":    "shots-made (number of shots made)",
-  "shot-attempts": "shot-attempts (number of shots attempted)",
-  "time":          "time (timer/duration in seconds)",
-  "dribbles":      "dribbles (number of dribbles)",
-  "passes":        "passes (number of passes completed)",
-  "pass-attempts": "pass-attempts (number of passes attempted)",
-};
-
-// Use the date string as a seed for category rotation so it's deterministic
-// but different from the old library rotation
+// Deterministic category rotation based on date
 function pickCategoryForDate(dateStr: string): DrillCategory {
   const hash = dateStr.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
   return CATEGORIES[hash % CATEGORIES.length];
 }
 
+// Extract JSON from a response that might have markdown code fences
+function extractJson(raw: string): string {
+  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenced) return fenced[1].trim();
+  const brace = raw.match(/\{[\s\S]*\}/);
+  if (brace) return brace[0];
+  return raw.trim();
+}
+
 export async function generateAiDrill(dateStr: string): Promise<AiGeneratedDrill> {
   const suggestedCategory = pickCategoryForDate(dateStr);
 
-  const systemPrompt = `You are an expert basketball trainer with 20+ years of experience coaching players at all levels. 
-Your job is to design creative, practical, and effective basketball training drills.
-You will create a unique drill for the date ${dateStr}. This drill will be the "Daily Challenge" seen by every player on the PLAYR1 app.
-Make it engaging, clearly described, and suitable for players to do on their own with minimal equipment.
-Return ONLY valid JSON with no markdown or extra text.`;
+  const prompt = `You are an expert basketball trainer. Design a unique, creative basketball training drill for ${dateStr}.
 
-  const userPrompt = `Design a unique basketball training drill for ${dateStr}. 
-Suggested category (you can choose a different one if it makes the drill better): ${suggestedCategory}.
+Category (you can adjust if it makes the drill better): ${suggestedCategory}
 
-The drill must be fresh and not generic. Give it a creative, specific name (not just "Ball Handling Drill").
+Requirements:
+- Give it a specific, creative name (not generic like "Ball Handling Drill")
+- Write a 2-3 sentence description explaining what to do and why it builds skill
+- Choose appropriate difficulty: beginner, intermediate, or advanced
+- List 1-3 pieces of equipment needed (minimal, always include Basketball unless pure conditioning)
+- Write exactly 3 short coaching tips (under 60 chars each, specific and actionable)
+- Choose 1-3 metrics to track from: shots-made, shot-attempts, time, dribbles, passes, pass-attempts
+  - shooting/finishing MUST use: shots-made, shot-attempts
+  - ball-handling MUST use: time (optionally: dribbles)
+  - passing MUST use: time (optionally: passes, pass-attempts)
+  - defense/workouts MUST use: time
 
-Return a JSON object with EXACTLY this structure:
+Respond with ONLY a JSON object (no markdown, no explanation):
 {
-  "title": "string - creative specific name (max 50 chars)",
-  "description": "string - 2-3 sentence description explaining what to do and why it builds skill",
-  "category": "one of: ball-handling, shooting, passing, finishing, defense, workouts",
-  "difficulty": "one of: beginner, intermediate, advanced",
-  "duration": number (seconds, between 180 and 1800),
-  "equipment": ["array of equipment needed, keep it minimal"],
-  "tips": ["exactly 3 coaching tips as short actionable strings"],
-  "metrics": ["array of 1-3 metric names to track from this list only: shots-made, shot-attempts, time, dribbles, passes, pass-attempts"]
-}
-
-Rules:
-- shooting/finishing drills MUST include shots-made and shot-attempts in metrics
-- ball-handling drills MUST include time in metrics, optionally dribbles
-- passing drills MUST include time in metrics, optionally passes and pass-attempts
-- defense/workouts MUST include time in metrics
-- Keep equipment minimal (1-3 items max, always include Basketball unless it's a pure conditioning drill)
-- Tips must be short, specific, and actionable (under 60 chars each)
-- Description must explain the drill clearly in 2-3 sentences`;
+  "title": "Creative Drill Name",
+  "description": "2-3 sentence description.",
+  "category": "ball-handling",
+  "difficulty": "intermediate",
+  "duration": 300,
+  "equipment": ["Basketball"],
+  "tips": ["Tip one", "Tip two", "Tip three"],
+  "metrics": ["time"]
+}`;
 
   const response = await openai.chat.completions.create({
-    model: "gpt-5-mini",
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
-    response_format: { type: "json_object" },
-    max_completion_tokens: 500,
+    model: "gpt-4o",
+    messages: [{ role: "user", content: prompt }],
+    max_completion_tokens: 600,
   });
 
-  const raw = response.choices[0]?.message?.content ?? "{}";
+  const raw = response.choices[0]?.message?.content ?? "";
+  if (!raw) throw new Error("AI returned empty content");
+
+  const jsonStr = extractJson(raw);
 
   let parsed: any;
   try {
-    parsed = JSON.parse(raw);
+    parsed = JSON.parse(jsonStr);
   } catch {
-    throw new Error(`AI returned invalid JSON: ${raw}`);
+    throw new Error(`AI returned invalid JSON: ${raw.slice(0, 200)}`);
   }
 
   const validCategories: DrillCategory[] = ["ball-handling", "shooting", "passing", "finishing", "defense", "workouts", "film-session"];
   const validDifficulties: DifficultyLevel[] = ["beginner", "intermediate", "advanced"];
   const validMetrics: MetricName[] = ["shots-made", "shot-attempts", "time", "dribbles", "passes", "pass-attempts"];
 
-  const drill: AiGeneratedDrill = {
+  return {
     title: String(parsed.title ?? "Daily Basketball Drill").slice(0, 50),
-    description: String(parsed.description ?? "Complete this drill to improve your game."),
+    description: String(parsed.description ?? "Complete this drill to improve your basketball skills."),
     category: validCategories.includes(parsed.category) ? parsed.category : suggestedCategory,
     difficulty: validDifficulties.includes(parsed.difficulty) ? parsed.difficulty : "intermediate",
     duration: Math.min(1800, Math.max(180, Number(parsed.duration) || 300)),
     equipment: Array.isArray(parsed.equipment) ? parsed.equipment.slice(0, 5).map(String) : ["Basketball"],
     tips: Array.isArray(parsed.tips) ? parsed.tips.slice(0, 3).map(String) : ["Stay focused", "Go at game speed", "Track your reps"],
     metrics: Array.isArray(parsed.metrics)
-      ? parsed.metrics.filter((m: any) => validMetrics.includes(m)).slice(0, 3)
+      ? (parsed.metrics as any[]).filter((m) => validMetrics.includes(m)).slice(0, 3)
       : ["time"],
   };
-
-  return drill;
 }
