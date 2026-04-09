@@ -78,7 +78,7 @@ export interface IStorage {
   getFeaturedDrills(): Promise<Drill[]>;
   getDrillsByCategory(category: string): Promise<Drill[]>;
   getDrillsForUser(userId: string): Promise<Drill[]>; // Admin drills + user's own drills
-  getDailyChallengeHistory(limit?: number): Promise<Array<{ challengeDate: string; drill: Drill }>>;
+  getDailyChallengeHistory(limit?: number, userId?: string): Promise<Array<{ challengeDate: string; drill: Drill; trainingLogId?: string | null; completed?: boolean }>>;
   getUserDrills(userId: string): Promise<Drill[]>; // Only user's own drills
   getCommunityDrills(): Promise<Drill[]>; // Shared user drills
   toggleDrillSharing(id: string, isShared: boolean): Promise<Drill | undefined>;
@@ -529,14 +529,30 @@ export class DatabaseStorage implements IStorage {
       .orderBy(drills.title);
   }
 
-  async getDailyChallengeHistory(limit = 30): Promise<Array<{ challengeDate: string; drill: Drill }>> {
+  async getDailyChallengeHistory(limit = 30, userId?: string): Promise<Array<{ challengeDate: string; drill: Drill; trainingLogId?: string | null; completed?: boolean }>> {
     const results = await db
-      .select({ challengeDate: dailyChallenges.challengeDate, drill: drills })
+      .select({
+        challengeDate: dailyChallenges.challengeDate,
+        drill: drills,
+        trainingLogId: dailyCompletions.trainingLogId,
+        completedAt: dailyCompletions.completedAt,
+      })
       .from(dailyChallenges)
       .innerJoin(drills, eq(drills.id, dailyChallenges.drillId))
+      .leftJoin(
+        dailyCompletions,
+        userId
+          ? and(eq(dailyCompletions.challengeDate, dailyChallenges.challengeDate), eq(dailyCompletions.userId, userId))
+          : sql`false`
+      )
       .orderBy(desc(dailyChallenges.challengeDate))
       .limit(limit);
-    return results;
+    return results.map(r => ({
+      challengeDate: r.challengeDate,
+      drill: r.drill,
+      trainingLogId: r.trainingLogId ?? null,
+      completed: !!r.completedAt,
+    }));
   }
 
   async getUserDrills(userId: string): Promise<Drill[]> {

@@ -7504,8 +7504,9 @@ export async function registerRoutes(
   // GET /api/daily-challenge/history — past challenge history
   app.get("/api/daily-challenge/history", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
+      const userId = req.user!.claims.sub;
       const limit = Math.min(parseInt(req.query.limit as string) || 30, 90);
-      const history = await storage.getDailyChallengeHistory(limit);
+      const history = await storage.getDailyChallengeHistory(limit, userId);
       res.json(history);
     } catch (err) {
       console.error("Error getting challenge history:", err);

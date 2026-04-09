@@ -1,10 +1,12 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { nativeFetch } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Flame, ArrowLeft, Calendar, Timer, ChevronRight } from "lucide-react";
+import { Flame, ArrowLeft, Calendar, Timer, Share2, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { WorkoutShareDialog } from "@/components/workout-share-dialog";
 
 interface HistoryEntry {
   challengeDate: string;
@@ -16,6 +18,8 @@ interface HistoryEntry {
     duration?: number;
     isAiGenerated?: boolean;
   };
+  trainingLogId?: string | null;
+  completed?: boolean;
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -25,6 +29,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   conditioning: "text-red-400",
   workout: "text-purple-400",
   defense: "text-yellow-400",
+  finishing: "text-emerald-400",
 };
 
 const DIFFICULTY_COLORS: Record<string, string> = {
@@ -57,6 +62,8 @@ function formatDuration(seconds?: number) {
 
 export default function ChallengeHistory() {
   const [, navigate] = useLocation();
+  const [shareSessionId, setShareSessionId] = useState<string | null>(null);
+  const [showShareDialog, setShowShareDialog] = useState(false);
 
   const { data: history, isLoading } = useQuery<HistoryEntry[]>({
     queryKey: ["/api/daily-challenge/history"],
@@ -67,6 +74,12 @@ export default function ChallengeHistory() {
     },
     staleTime: 1000 * 60 * 5,
   });
+
+  const handleShare = (e: React.MouseEvent, sessionId: string) => {
+    e.stopPropagation();
+    setShareSessionId(sessionId);
+    setShowShareDialog(true);
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -114,32 +127,45 @@ export default function ChallengeHistory() {
           <div className="space-y-2">
             {history.map((entry, idx) => {
               const isToday = idx === 0 && formatDate(entry.challengeDate) === "Today";
+              const hasSession = !!entry.trainingLogId;
               return (
-                <button
+                <div
                   key={entry.challengeDate}
                   className={cn(
-                    "w-full rounded-xl border p-4 flex items-center gap-4 text-left transition-colors hover:bg-muted/40",
+                    "w-full rounded-xl border p-4 flex items-center gap-4 transition-colors",
                     isToday ? "border-orange-500/40 bg-orange-500/5" : "border-border bg-card"
                   )}
-                  onClick={() => navigate(`/log?drill=${entry.drill.id}`)}
                   data-testid={`challenge-history-row-${entry.challengeDate}`}
                 >
-                  {/* Date + streak icon */}
-                  <div className={cn(
-                    "w-12 h-12 rounded-xl flex flex-col items-center justify-center shrink-0",
-                    isToday ? "bg-orange-500/20" : "bg-muted"
-                  )}>
+                  {/* Date + streak icon — clickable to start a new session */}
+                  <button
+                    className={cn(
+                      "w-12 h-12 rounded-xl flex flex-col items-center justify-center shrink-0 transition-opacity hover:opacity-70",
+                      isToday ? "bg-orange-500/20" : "bg-muted"
+                    )}
+                    onClick={() => navigate(`/log?drill=${entry.drill.id}`)}
+                    data-testid={`challenge-start-${entry.challengeDate}`}
+                  >
                     <span className="text-lg leading-none">🔥</span>
                     <span className={cn("text-[10px] font-bold mt-0.5 uppercase tracking-wide", isToday ? "text-orange-400" : "text-muted-foreground")}>
                       {isToday ? "Today" : new Date(entry.challengeDate + "T00:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}
                     </span>
-                  </div>
+                  </button>
 
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm leading-tight truncate" data-testid={`challenge-title-${entry.challengeDate}`}>
-                      {entry.drill.title}
-                    </p>
+                  {/* Info — clickable to start a new session */}
+                  <button
+                    className="flex-1 min-w-0 text-left"
+                    onClick={() => navigate(`/log?drill=${entry.drill.id}`)}
+                    data-testid={`challenge-info-${entry.challengeDate}`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <p className="font-semibold text-sm leading-tight truncate" data-testid={`challenge-title-${entry.challengeDate}`}>
+                        {entry.drill.title}
+                      </p>
+                      {entry.completed && (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+                      )}
+                    </div>
                     <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                       <span className={cn("text-[11px] font-medium", CATEGORY_COLORS[entry.drill.category] || "text-muted-foreground")}>
                         {formatCategory(entry.drill.category)}
@@ -163,15 +189,37 @@ export default function ChallengeHistory() {
                         </span>
                       )}
                     </div>
-                  </div>
+                  </button>
 
-                  <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-                </button>
+                  {/* Share button — only shown when a saved session exists */}
+                  {hasSession && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="shrink-0 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                      onClick={(e) => handleShare(e, entry.trainingLogId!)}
+                      data-testid={`challenge-share-${entry.challengeDate}`}
+                    >
+                      <Share2 className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
               );
             })}
           </div>
         )}
       </div>
+
+      {/* Share dialog */}
+      <WorkoutShareDialog
+        open={showShareDialog}
+        onOpenChange={(open) => {
+          setShowShareDialog(open);
+          if (!open) setShareSessionId(null);
+        }}
+        workoutSessionId={shareSessionId}
+        defaultTab="workout"
+      />
     </div>
   );
 }
