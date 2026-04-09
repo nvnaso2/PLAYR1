@@ -52,15 +52,16 @@ export async function generateAiDrill(dateStr: string): Promise<AiGeneratedDrill
 Category (you can adjust if it makes the drill better): ${suggestedCategory}
 
 Requirements:
+- SOLO ONLY: The drill must be completable by a single player alone on a basketball court. No partner, coach, or rebounder required. Players should be able to retrieve their own ball.
 - Give it a specific, creative name (not generic like "Ball Handling Drill")
 - Write a 2-3 sentence description explaining what to do and why it builds skill
 - Choose appropriate difficulty: beginner, intermediate, or advanced
-- List 1-3 pieces of equipment needed (minimal, always include Basketball unless pure conditioning)
+- List 1-3 pieces of equipment needed (minimal — basketball, hoop, and optional cones/markers only)
 - Write exactly 3 short coaching tips (under 60 chars each, specific and actionable)
 - Choose 1-3 metrics to track from: shots-made, shot-attempts, time, dribbles, passes, pass-attempts
   - shooting/finishing MUST use: shots-made, shot-attempts
   - ball-handling MUST use: time (optionally: dribbles)
-  - passing MUST use: time (optionally: passes, pass-attempts)
+  - passing MUST use: time (wall-passing drills only)
   - defense/workouts MUST use: time
 
 Respond with ONLY a JSON object (no markdown, no explanation):

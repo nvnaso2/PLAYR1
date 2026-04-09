@@ -274,57 +274,57 @@ export default function TrainingLogPage() {
   }, []);
 
   useEffect(() => {
-    // Only handle the drill param once and when drills are loaded
-    if (drillParamHandled.current || !allDrills || allDrills.length === 0) return;
-    
+    // Only handle the drill param once, and wait until drill queries have finished loading
+    const isDrillsLoading = handlzDrillsLoading || personalDrillsLoading || communityDrillsLoading;
+    if (drillParamHandled.current || isDrillsLoading) return;
+
     const urlParams = new URLSearchParams(window.location.search);
     const drillId = urlParams.get('drill');
-    
-    if (drillId) {
-      const drill = allDrills.find(d => d.id === drillId);
-      if (drill) {
-        drillParamHandled.current = true;
-        // Auto-start a workout with this drill
-        (async () => {
-          // Fetch metrics for the drill
-          try {
-            const res = await nativeFetch(`/api/drills/${drillId}/metrics`);
-            const drillMetrics: DrillMetricWithTemplate[] = res.ok ? await res.json() : [];
-            
-            // Create initial metric values
-            const metricValues: Record<string, number> = {};
-            drillMetrics.forEach(dm => {
-              metricValues[dm.metricTemplateId] = 0;
-            });
-            
-            // Auto-detect shot location for well-known drill types
-            let autoShotLocation: string | undefined;
-            if (drill.trackShots && drill.title.toLowerCase().includes('free throw')) {
-              autoShotLocation = 'free-throw';
-            }
+    if (!drillId) return;
 
-            // Add drill to workout entries and start workout
-            setWorkoutEntries([{
-              drillId: drill.id,
-              drill,
-              duration: 0,
-              notes: '',
-              metrics: metricValues,
-              drillMetrics,
-              shotLocation: autoShotLocation,
-            }]);
-            setWorkoutInProgress(true);
-            setActiveView("workout");
-            
-            // Clear the URL parameter
-            setLocation('/log', { replace: true });
-          } catch (error) {
-            console.error('Failed to start drill workout:', error);
-          }
-        })();
+    drillParamHandled.current = true;
+
+    (async () => {
+      try {
+        // Try library first; fall back to direct API fetch (e.g. AI-generated daily challenge drills)
+        let drill: Drill | undefined = allDrills?.find(d => d.id === drillId);
+        if (!drill) {
+          const res = await nativeFetch(`/api/drills/${drillId}`);
+          if (res.ok) drill = await res.json();
+        }
+        if (!drill) return;
+
+        // Fetch metrics for the drill
+        const metricsRes = await nativeFetch(`/api/drills/${drillId}/metrics`);
+        const drillMetrics: DrillMetricWithTemplate[] = metricsRes.ok ? await metricsRes.json() : [];
+
+        const metricValues: Record<string, number> = {};
+        drillMetrics.forEach(dm => { metricValues[dm.metricTemplateId] = 0; });
+
+        let autoShotLocation: string | undefined;
+        if (drill.trackShots && drill.title.toLowerCase().includes('free throw')) {
+          autoShotLocation = 'free-throw';
+        }
+
+        setWorkoutEntries([{
+          drillId: drill.id,
+          drill,
+          duration: 0,
+          notes: '',
+          metrics: metricValues,
+          drillMetrics,
+          shotLocation: autoShotLocation,
+        }]);
+        setWorkoutInProgress(true);
+        setActiveView("workout");
+
+        // Clear the URL parameter
+        setLocation('/log', { replace: true });
+      } catch (error) {
+        console.error('Failed to start drill workout:', error);
       }
-    }
-  }, [allDrills, setLocation]);
+    })();
+  }, [handlzDrillsLoading, personalDrillsLoading, communityDrillsLoading, allDrills, setLocation]);
 
   // Fetch workouts
   const { data: handlzWorkouts, isLoading: handlzWorkoutsLoading } = useQuery<Workout[]>({
