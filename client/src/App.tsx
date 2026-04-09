@@ -43,6 +43,7 @@ const TrainerDrills = lazy(() => import("@/pages/trainer/drills"));
 const TrainerLogs = lazy(() => import("@/pages/trainer/logs"));
 const TrainerChat = lazy(() => import("@/pages/trainer/chat"));
 const TrainerProgress = lazy(() => import("@/pages/trainer/progress"));
+const ChallengeHistory = lazy(() => import("@/pages/challenge-history"));
 const Finder = lazy(() => import("@/pages/finder"));
 const TeamProfile = lazy(() => import("@/pages/team-profile"));
 const LeagueProfile = lazy(() => import("@/pages/league-profile"));
@@ -279,6 +280,7 @@ function Router() {
                 <Route path="/trainer/evaluations">{() => <TrainerGuard><TrainerEvaluations /></TrainerGuard>}</Route>
                 <Route path="/teams" component={Finder} />
                 <Route path="/connect" component={FindPeople} />
+                <Route path="/challenge-history" component={ChallengeHistory} />
                 <Route path="/feedback" component={FeedbackPage} />
                 <Route path="/my-trainer" component={MyTrainer} />
                 <Route path="/parent" component={ParentDashboard} />

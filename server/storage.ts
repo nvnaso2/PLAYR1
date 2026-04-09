@@ -78,6 +78,7 @@ export interface IStorage {
   getFeaturedDrills(): Promise<Drill[]>;
   getDrillsByCategory(category: string): Promise<Drill[]>;
   getDrillsForUser(userId: string): Promise<Drill[]>; // Admin drills + user's own drills
+  getDailyChallengeHistory(limit?: number): Promise<Array<{ challengeDate: string; drill: Drill }>>;
   getUserDrills(userId: string): Promise<Drill[]>; // Only user's own drills
   getCommunityDrills(): Promise<Drill[]>; // Shared user drills
   toggleDrillSharing(id: string, isShared: boolean): Promise<Drill | undefined>;
@@ -502,7 +503,7 @@ export class DatabaseStorage implements IStorage {
 
   // Drills
   async getDrills(): Promise<Drill[]> {
-    return await db.select().from(drills).orderBy(drills.title);
+    return await db.select().from(drills).where(or(eq(drills.isAiGenerated, false), isNull(drills.isAiGenerated))).orderBy(drills.title);
   }
 
   async getDrillById(id: string): Promise<Drill | undefined> {
@@ -511,18 +512,31 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getFeaturedDrills(): Promise<Drill[]> {
-    return await db.select().from(drills).where(eq(drills.isFeatured, true)).limit(8);
+    return await db.select().from(drills).where(and(eq(drills.isFeatured, true), or(eq(drills.isAiGenerated, false), isNull(drills.isAiGenerated)))).limit(8);
   }
 
   async getDrillsByCategory(category: string): Promise<Drill[]> {
-    return await db.select().from(drills).where(eq(drills.category, category as any));
+    return await db.select().from(drills).where(and(eq(drills.category, category as any), or(eq(drills.isAiGenerated, false), isNull(drills.isAiGenerated))));
   }
 
   async getDrillsForUser(userId: string): Promise<Drill[]> {
-    // Get admin drills (userId is null) and user's own drills
+    // Get admin drills (userId is null, not AI) and user's own drills
     return await db.select().from(drills)
-      .where(sql`${drills.userId} IS NULL OR ${drills.userId} = ${userId}`)
+      .where(and(
+        sql`${drills.userId} IS NULL OR ${drills.userId} = ${userId}`,
+        or(eq(drills.isAiGenerated, false), isNull(drills.isAiGenerated))
+      ))
       .orderBy(drills.title);
+  }
+
+  async getDailyChallengeHistory(limit = 30): Promise<Array<{ challengeDate: string; drill: Drill }>> {
+    const results = await db
+      .select({ challengeDate: dailyChallenges.challengeDate, drill: drills })
+      .from(dailyChallenges)
+      .innerJoin(drills, eq(drills.id, dailyChallenges.drillId))
+      .orderBy(desc(dailyChallenges.challengeDate))
+      .limit(limit);
+    return results;
   }
 
   async getUserDrills(userId: string): Promise<Drill[]> {

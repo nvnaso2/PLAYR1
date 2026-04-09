@@ -11,11 +11,9 @@ import {
   Trophy,
   CheckCircle2,
   Timer,
-  Dumbbell,
   ChevronRight,
   Crown,
-  Star,
-  Zap,
+  History,
 } from "lucide-react";
 
 interface DailyData {
@@ -233,17 +231,12 @@ export function DailyChallengeCard() {
               )}
               data-testid="daily-drill-card"
             >
-              {drill.thumbnailUrl ? (
-                <img
-                  src={getObjectUrl(drill.thumbnailUrl)}
-                  alt={drill.title}
-                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg object-cover shrink-0"
-                />
-              ) : (
-                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg bg-orange-500/10 flex items-center justify-center shrink-0">
-                  <Dumbbell className="w-5 h-5 text-orange-400" />
-                </div>
-              )}
+              <div className={cn(
+                "w-12 h-12 sm:w-14 sm:h-14 rounded-xl flex flex-col items-center justify-center shrink-0",
+                completedToday ? "bg-green-500/15" : "bg-orange-500/15"
+              )}>
+                <span className="text-2xl sm:text-3xl leading-none">🔥</span>
+              </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-sm sm:text-base leading-tight truncate" data-testid="daily-drill-title">
                   {drill.title}
@@ -263,16 +256,6 @@ export function DailyChallengeCard() {
                       <Timer className="w-2.5 h-2.5" />
                       {formatDuration(drill.duration)}
                     </span>
-                  )}
-                  {drill.isAiGenerated && (
-                    <Badge
-                      variant="outline"
-                      className="text-[10px] px-1.5 py-0 h-4 border border-purple-500/40 bg-purple-500/10 text-purple-400 flex items-center gap-0.5"
-                      data-testid="ai-generated-badge"
-                    >
-                      <Zap className="w-2.5 h-2.5" />
-                      AI
-                    </Badge>
                   )}
                 </div>
               </div>
@@ -351,18 +334,28 @@ export function DailyChallengeCard() {
         </div>
       </div>
 
-      {/* ── Leaderboard toggle ── */}
-      <button
-        className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl border border-border bg-card hover:bg-muted/50 transition-colors text-sm"
-        onClick={() => setShowLeaderboard(v => !v)}
-        data-testid="btn-toggle-leaderboard"
-      >
-        <span className="flex items-center gap-2 font-medium">
-          <Crown className="w-4 h-4 text-amber-400" />
-          Streak Leaderboard
-        </span>
-        <ChevronRight className={cn("w-4 h-4 text-muted-foreground transition-transform", showLeaderboard && "rotate-90")} />
-      </button>
+      {/* ── History + Leaderboard row ── */}
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-border bg-card hover:bg-muted/50 transition-colors text-sm font-medium"
+          onClick={() => navigate("/challenge-history")}
+          data-testid="btn-view-challenge-history"
+        >
+          <History className="w-4 h-4 text-muted-foreground" />
+          Challenge Archive
+        </button>
+        <button
+          className="flex items-center justify-between px-3 py-2.5 rounded-xl border border-border bg-card hover:bg-muted/50 transition-colors text-sm"
+          onClick={() => setShowLeaderboard(v => !v)}
+          data-testid="btn-toggle-leaderboard"
+        >
+          <span className="flex items-center gap-2 font-medium">
+            <Crown className="w-4 h-4 text-amber-400" />
+            Leaderboard
+          </span>
+          <ChevronRight className={cn("w-4 h-4 text-muted-foreground transition-transform", showLeaderboard && "rotate-90")} />
+        </button>
+      </div>
 
       {showLeaderboard && (
         <div className="rounded-xl border border-border bg-card overflow-hidden" data-testid="streak-leaderboard">

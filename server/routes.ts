@@ -7495,6 +7495,18 @@ export async function registerRoutes(
     }
   });
 
+  // GET /api/daily-challenge/history — past challenge history
+  app.get("/api/daily-challenge/history", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const limit = Math.min(parseInt(req.query.limit as string) || 30, 90);
+      const history = await storage.getDailyChallengeHistory(limit);
+      res.json(history);
+    } catch (err) {
+      console.error("Error getting challenge history:", err);
+      res.status(500).json({ message: "Failed to get challenge history" });
+    }
+  });
+
   // POST /api/daily-challenge/complete — mark today's challenge done (linked to a log)
   app.post("/api/daily-challenge/complete", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
