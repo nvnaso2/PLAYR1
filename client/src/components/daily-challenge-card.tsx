@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 
 interface DailyData {
-  challenge: { challenge: { challengeDate: string; drillId: string }; drill: { id: string; title: string; category: string; difficulty: string; duration?: number; thumbnailUrl?: string } } | null;
+  challenge: { challenge: { challengeDate: string; drillId: string }; drill: { id: string; title: string; category: string; difficulty: string; duration?: number; thumbnailUrl?: string; isAiGenerated?: boolean } } | null;
   completedToday: boolean;
   streak: { currentStreak: number; longestStreak: number; lastCompletedDate?: string } | null;
   date: string;
@@ -263,6 +263,16 @@ export function DailyChallengeCard() {
                       <Timer className="w-2.5 h-2.5" />
                       {formatDuration(drill.duration)}
                     </span>
+                  )}
+                  {drill.isAiGenerated && (
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] px-1.5 py-0 h-4 border border-purple-500/40 bg-purple-500/10 text-purple-400 flex items-center gap-0.5"
+                      data-testid="ai-generated-badge"
+                    >
+                      <Zap className="w-2.5 h-2.5" />
+                      AI
+                    </Badge>
                   )}
                 </div>
               </div>

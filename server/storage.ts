@@ -66,6 +66,7 @@ import {
 import { users, type User } from "@shared/models/auth";
 import { db } from "./db";
 import { eq, desc, and, or, sql, gte, isNotNull, isNull, inArray } from "drizzle-orm";
+import { generateAiDrill } from "./ai-drill-generator";
 
 export interface IStorage {
   // Users
@@ -3682,27 +3683,62 @@ export class DatabaseStorage implements IStorage {
       return { challenge: existing, drill };
     }
 
-    // Auto-select by date-seeded rotation over all admin drills
-    const adminDrills = await db
-      .select()
-      .from(drills)
-      .where(isNull(drills.userId))
-      .orderBy(drills.id);
+    // Generate a brand-new AI drill for today
+    let aiDrill;
+    try {
+      aiDrill = await generateAiDrill(dateStr);
+    } catch (err) {
+      console.error("[daily-challenge] AI generation failed:", err);
+      return null;
+    }
 
-    if (adminDrills.length === 0) return null;
+    // Insert the AI-generated drill into the drills table
+    const [insertedDrill] = await db
+      .insert(drills)
+      .values({
+        title: aiDrill.title,
+        description: aiDrill.description,
+        category: aiDrill.category,
+        difficulty: aiDrill.difficulty,
+        duration: aiDrill.duration,
+        equipment: aiDrill.equipment,
+        tips: aiDrill.tips,
+        isFeatured: false,
+        isAiGenerated: true,
+        userId: null, // system drill
+      })
+      .returning();
 
-    const epoch = new Date("2024-01-01T00:00:00Z").getTime();
-    const target = new Date(`${dateStr}T00:00:00Z`).getTime();
-    const dayIndex = Math.floor((target - epoch) / (1000 * 60 * 60 * 24));
-    const selectedDrill = adminDrills[((dayIndex % adminDrills.length) + adminDrills.length) % adminDrills.length];
+    if (!insertedDrill) return null;
 
+    // Wire up the AI-specified metrics for this drill
+    const allTemplates = await db.select().from(metricTemplates);
+    const tmByName = Object.fromEntries(allTemplates.map(t => [t.name, t.id]));
+    const metricAssociations = aiDrill.metrics
+      .map((name, idx) => {
+        const tmId = tmByName[name];
+        if (!tmId) return null;
+        return {
+          drillId: insertedDrill.id,
+          metricTemplateId: tmId,
+          isRequired: name === "shots-made" || name === "shot-attempts" || name === "time",
+          sortOrder: idx,
+        };
+      })
+      .filter(Boolean) as { drillId: string; metricTemplateId: string; isRequired: boolean; sortOrder: number }[];
+
+    if (metricAssociations.length > 0) {
+      await db.insert(drillMetrics).values(metricAssociations).onConflictDoNothing();
+    }
+
+    // Create the daily challenge record
     const [challenge] = await db
       .insert(dailyChallenges)
-      .values({ challengeDate: dateStr, drillId: selectedDrill.id, isAdminOverride: false })
+      .values({ challengeDate: dateStr, drillId: insertedDrill.id, isAdminOverride: false })
       .onConflictDoNothing()
       .returning();
 
-    // If onConflictDoNothing swallowed it, fetch the existing row
+    // Race condition guard — if another process already inserted it, fetch that one
     const final = challenge ?? (await db.select().from(dailyChallenges).where(eq(dailyChallenges.challengeDate, dateStr)))[0];
     if (!final) return null;
     const [finalDrill] = await db.select().from(drills).where(eq(drills.id, final.drillId));

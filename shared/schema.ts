@@ -329,6 +329,7 @@ export const drills = pgTable("drills", {
   isFeatured: boolean("is_featured").default(false),
   trackShots: boolean("track_shots").default(false), // Enable shot location tracking
   isShared: boolean("is_shared").default(false), // Share user drill with community
+  isAiGenerated: boolean("is_ai_generated").default(false), // true = AI-generated daily challenge drill
   userId: varchar("user_id"), // null = admin drill, set = user-created drill
   presetRounds: jsonb("preset_rounds").$type<Array<{ shotLocation?: string; metricValues: Record<string, number> }>>(), // Preset round configs for auto-loading when drill is started
   createdAt: timestamp("created_at").defaultNow()

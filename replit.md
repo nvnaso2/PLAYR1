@@ -15,7 +15,7 @@ The platform is built using a modern web stack: React with TypeScript for the fr
 
 **Key Features:**
 
-*   **Core Training System**: Includes a dynamic drill library, detailed training log with shot location tracking and visual half-court charts, and progress tracking with analytics, shooting heatmaps, and a "Trophy Room" for achievements.
+*   **Core Training System**: Includes a dynamic drill library, detailed training log with shot location tracking and visual half-court charts, and progress tracking with analytics, shooting heatmaps, and a "Trophy Room" for achievements. The Daily Streak Challenge uses GPT (via Replit AI Integrations / OpenAI) to generate a brand-new, unique drill every day — the same drill for all users globally to create a shared community experience.
 *   **User & Community Engagement**: Supports user-generated drills and video uploads, customizable public player profiles, performance comparison, social media sharing, and a public feedback forum for suggestions and bugs.
 *   **Role-Based Access**: Features distinct interfaces for players and trainers, including a "Coach / Trainer Mode" for player management, drill assignments, evaluations, and communication.
 *   **Communication & Collaboration**: Offers group chat functionalities, a universal connection system with invite capabilities, and integrates push notifications for key events.
