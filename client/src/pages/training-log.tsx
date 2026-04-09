@@ -1263,8 +1263,9 @@ export default function TrainingLogPage() {
         }
       });
 
+      const clientDate = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD in local timezone
       const [bulkRes] = await Promise.all([
-        apiRequest("POST", "/api/training-logs/bulk", { entries: bulkEntries }),
+        apiRequest("POST", "/api/training-logs/bulk", { entries: bulkEntries, clientDate }),
         ...challengeRequests,
       ]);
 
@@ -1296,7 +1297,7 @@ export default function TrainingLogPage() {
         const newStreak = streakResult.streak.currentStreak;
         const milestone = streakResult.milestoneReached;
         setTimeout(() => {
-          queryClient.invalidateQueries({ queryKey: ['/api/daily-challenge'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/daily-challenge'] }); // matches all daily-challenge keys regardless of clientDate
           toast({
             title: milestone
               ? `🏆 ${newStreak}-Day Milestone!`

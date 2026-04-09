@@ -1476,7 +1476,10 @@ export async function registerRoutes(
       // Auto-complete daily challenge if any logged drill matches today's challenge
       let streakResult: any = null;
       try {
-        const todayStr = new Date().toISOString().split("T")[0];
+        const { clientDate } = req.body;
+        const todayStr = (typeof clientDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(clientDate))
+          ? clientDate
+          : new Date().toISOString().split("T")[0];
         const challengeData = await storage.getDailyChallenge(todayStr);
         if (challengeData) {
           const alreadyDone = await storage.getTodayCompletion(userId, todayStr);
@@ -7482,13 +7485,16 @@ export async function registerRoutes(
   app.get("/api/daily-challenge", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user!.claims.sub;
-      const date = todayUTC();
+      // Use client-provided local date if valid (YYYY-MM-DD), otherwise fall back to UTC
+      const clientDate = typeof req.query.clientDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(req.query.clientDate)
+        ? req.query.clientDate
+        : todayUTC();
       const [challengeData, completion, streak] = await Promise.all([
-        storage.getDailyChallenge(date),
-        storage.getTodayCompletion(userId, date),
+        storage.getDailyChallenge(clientDate),
+        storage.getTodayCompletion(userId, clientDate),
         storage.getUserStreak(userId),
       ]);
-      res.json({ challenge: challengeData, completedToday: !!completion, completion, streak, date });
+      res.json({ challenge: challengeData, completedToday: !!completion, completion, streak, date: clientDate });
     } catch (err) {
       console.error("Error getting daily challenge:", err);
       res.status(500).json({ message: "Failed to get daily challenge" });
@@ -7511,8 +7517,10 @@ export async function registerRoutes(
   app.post("/api/daily-challenge/complete", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user!.claims.sub;
-      const date = todayUTC();
-      const { drillId, trainingLogId } = req.body;
+      const { drillId, trainingLogId, clientDate } = req.body;
+      const date = (typeof clientDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(clientDate))
+        ? clientDate
+        : todayUTC();
       if (!drillId) return res.status(400).json({ message: "drillId required" });
       const result = await storage.completeDailyChallenge(userId, drillId, date, trainingLogId);
       res.json(result);

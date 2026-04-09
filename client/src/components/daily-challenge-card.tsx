@@ -72,14 +72,17 @@ function formatDuration(seconds?: number) {
   return m > 0 ? `~${m}m` : `${seconds}s`;
 }
 
+function localMidnight(): Date {
+  const m = new Date();
+  m.setHours(24, 0, 0, 0); // local midnight
+  return m;
+}
+
 function TimeRemaining() {
   const [remaining, setRemaining] = useState("");
   useEffect(() => {
     function calc() {
-      const now = new Date();
-      const midnight = new Date();
-      midnight.setUTCHours(24, 0, 0, 0);
-      const diff = midnight.getTime() - now.getTime();
+      const diff = localMidnight().getTime() - Date.now();
       const h = Math.floor(diff / 3600000);
       const m = Math.floor((diff % 3600000) / 60000);
       if (h >= 6) return `${h}h remaining`;
@@ -91,10 +94,7 @@ function TimeRemaining() {
     return () => clearInterval(id);
   }, []);
 
-  const now = new Date();
-  const midnight = new Date();
-  midnight.setUTCHours(24, 0, 0, 0);
-  const hoursLeft = (midnight.getTime() - now.getTime()) / 3600000;
+  const hoursLeft = (localMidnight().getTime() - Date.now()) / 3600000;
   const isUrgent = hoursLeft < 4;
 
   return (
@@ -134,10 +134,13 @@ export function DailyChallengeCard() {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [celebrated, setCelebrated] = useState(false);
 
+  // Use local date (YYYY-MM-DD) so the challenge matches the user's timezone
+  const clientDate = new Date().toLocaleDateString("en-CA");
+
   const { data, isLoading } = useQuery<DailyData>({
-    queryKey: ["/api/daily-challenge"],
+    queryKey: ["/api/daily-challenge", clientDate],
     queryFn: async () => {
-      const res = await nativeFetch("/api/daily-challenge");
+      const res = await nativeFetch(`/api/daily-challenge?clientDate=${clientDate}`);
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
@@ -161,10 +164,7 @@ export function DailyChallengeCard() {
   const drill = data?.challenge?.drill;
   const next = nextMilestone(streak);
 
-  const now = new Date();
-  const midnight = new Date();
-  midnight.setUTCHours(24, 0, 0, 0);
-  const hoursLeft = (midnight.getTime() - now.getTime()) / 3600000;
+  const hoursLeft = (localMidnight().getTime() - Date.now()) / 3600000;
   const isUrgent = streak > 0 && !completedToday && hoursLeft < 4;
 
   // Did the streak just break? (last completed != yesterday and streak is 0)
@@ -220,15 +220,16 @@ export function DailyChallengeCard() {
             <FlameCounter count={streak} isUrgent={isUrgent} />
           </div>
 
-          {/* Drill card */}
+          {/* Drill card — clickable to preview */}
           {drill && (
-            <div
+            <button
               className={cn(
-                "rounded-xl border p-3 sm:p-4 flex items-center gap-3 transition-all",
+                "w-full rounded-xl border p-3 sm:p-4 flex items-center gap-3 transition-all text-left",
                 completedToday
-                  ? "border-green-500/20 bg-green-950/20"
-                  : "border-border bg-muted/30 hover:bg-muted/50"
+                  ? "border-green-500/20 bg-green-950/20 hover:bg-green-950/30"
+                  : "border-border bg-muted/30 hover:bg-muted/60 active:scale-[0.99]"
               )}
+              onClick={() => navigate(`/drill/${drill.id}`)}
               data-testid="daily-drill-card"
             >
               <div className={cn(
@@ -259,10 +260,12 @@ export function DailyChallengeCard() {
                   )}
                 </div>
               </div>
-              {completedToday && (
+              {completedToday ? (
                 <CheckCircle2 className="w-6 h-6 text-green-500 shrink-0" />
+              ) : (
+                <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
               )}
-            </div>
+            </button>
           )}
 
           {/* Milestone progress bar */}
