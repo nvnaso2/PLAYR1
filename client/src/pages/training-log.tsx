@@ -2749,7 +2749,7 @@ export default function TrainingLogPage() {
                                 {metricColumns.map(dm => (
                                   <th key={dm.metricTemplateId} className="text-left p-2 sm:p-3 font-medium text-muted-foreground text-xs sm:text-sm whitespace-nowrap">
                                     <span className="inline-flex items-center gap-1 max-w-[80px] sm:max-w-none truncate sm:whitespace-normal">
-                                      {dm.template.type === 'time' && <Timer className="w-3 h-3 text-primary shrink-0" />}
+                                      {dm.template.type === 'timer' && <Timer className="w-3 h-3 text-primary shrink-0" />}
                                       {dm.template.label}
                                     </span>
                                     {dm.isRequired && <span className="text-destructive ml-1">*</span>}
@@ -2823,7 +2823,7 @@ export default function TrainingLogPage() {
                                   )}
                                   {metricColumns.map(dm => (
                                     <td key={dm.metricTemplateId} className="p-1 sm:p-2">
-                                      {dm.template.type === 'time' ? (
+                                      {dm.template.type === 'timer' ? (
                                         <DrillTimer
                                           value={entry.metrics[dm.metricTemplateId] || 0}
                                           onChange={(seconds) => updateMetricValue(index, dm.metricTemplateId, seconds)}

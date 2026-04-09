@@ -1,7 +1,7 @@
 import { db } from "./db";
 import { drills, benchmarks, evaluationAttributes, shotLocations, shotTypes, userProfiles, metricTemplates, drillMetrics, teamClubs, leagues } from "@shared/schema";
 import { users } from "@shared/models/auth";
-import { eq, sql, notInArray } from "drizzle-orm";
+import { eq, sql, notInArray, isNull } from "drizzle-orm";
 import { readFileSync } from "fs";
 import { join } from "path";
 
@@ -383,13 +383,70 @@ export async function seedDatabase() {
     const expectedNames = [...canonicalMetricNames].sort().join(",");
     if (existingNames !== expectedNames) {
       console.log("Syncing metric templates...");
-      // Clear drill-metric associations and all templates, then re-insert canonical set
       await db.delete(drillMetrics);
       await db.delete(metricTemplates);
       await db.insert(metricTemplates).values(canonicalMetrics);
       console.log("Metric templates synced");
     } else {
       console.log("Metric templates already synced");
+    }
+
+    // Always ensure drill-metric associations exist for admin (system) drills
+    const existingDrillMetrics = await db.select().from(drillMetrics).limit(1);
+    if (existingDrillMetrics.length === 0) {
+      console.log("Seeding drill-metric associations...");
+      const allTemplates = await db.select().from(metricTemplates);
+      const tmByName = Object.fromEntries(allTemplates.map(t => [t.name, t.id]));
+      const adminDrills = await db.select().from(drills).where(isNull(drills.userId));
+
+      // Metric assignments per category
+      const categoryMetrics: Record<string, { name: string; isRequired: boolean }[]> = {
+        "shooting":     [
+          { name: "shots-made",    isRequired: true  },
+          { name: "shot-attempts", isRequired: true  },
+          { name: "time",          isRequired: false },
+        ],
+        "finishing":    [
+          { name: "shots-made",    isRequired: true  },
+          { name: "shot-attempts", isRequired: true  },
+          { name: "time",          isRequired: false },
+        ],
+        "ball-handling":[
+          { name: "dribbles",      isRequired: false },
+          { name: "time",          isRequired: true  },
+        ],
+        "passing":      [
+          { name: "passes",        isRequired: false },
+          { name: "pass-attempts", isRequired: false },
+          { name: "time",          isRequired: true  },
+        ],
+        "defense":      [
+          { name: "time",          isRequired: true  },
+        ],
+        "workouts":     [
+          { name: "shots-made",    isRequired: false },
+          { name: "shot-attempts", isRequired: false },
+          { name: "time",          isRequired: true  },
+        ],
+        "film-session": [
+          { name: "time",          isRequired: true  },
+        ],
+      };
+
+      const associations: { drillId: number; metricTemplateId: number; isRequired: boolean; sortOrder: number }[] = [];
+      for (const drill of adminDrills) {
+        const metrics = categoryMetrics[drill.category] ?? [{ name: "time", isRequired: true }];
+        metrics.forEach((m, idx) => {
+          const tmId = tmByName[m.name];
+          if (tmId) associations.push({ drillId: drill.id, metricTemplateId: tmId, isRequired: m.isRequired, sortOrder: idx });
+        });
+      }
+      if (associations.length > 0) {
+        await db.insert(drillMetrics).values(associations).onConflictDoNothing();
+        console.log(`Seeded ${associations.length} drill-metric associations`);
+      }
+    } else {
+      console.log("Drill-metric associations already exist");
     }
 
     const existingTeams = await db.select().from(teamClubs).limit(1);
