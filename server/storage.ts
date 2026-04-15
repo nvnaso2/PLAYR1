@@ -1078,14 +1078,10 @@ export class DatabaseStorage implements IStorage {
             }
           } else if (!classification) {
             // Locations not in LOCATION_CLASSIFICATIONS (e.g. left-hand-layup, right-hand-layup)
-            // — infer type from the location slug itself
-            if (loc.includes("layup") || loc.includes("floater")) {
+            if (loc.includes("layup")) {
               layupsMade += log.shotsMade;
-            } else if (loc.includes("3") || loc.includes("corner") || loc.includes("wing") || loc.includes("top")) {
-              threePointersMade += log.shotsMade;
-            } else {
-              fieldGoalsMade += log.shotsMade;
             }
+            // All other unrecognised locations are left uncategorised (total still counts)
           }
         }
       }
