@@ -272,6 +272,10 @@ export function registerObjectStorageRoutes(app: Express): void {
    * Use this to fix already-uploaded videos that have moov at end.
    */
   app.post("/api/admin/reprocess-video", isAuthenticated, isAdmin, async (req, res) => {
+    // Allow up to 10 minutes per video (download + ffmpeg + re-upload for large files)
+    req.socket.setTimeout(10 * 60 * 1000);
+    res.setTimeout(10 * 60 * 1000);
+
     const { objectPath } = req.body;
     if (!objectPath || !objectPath.startsWith("/objects/")) {
       return res.status(400).json({ error: "Invalid objectPath" });

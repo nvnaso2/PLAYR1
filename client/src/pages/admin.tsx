@@ -2838,19 +2838,36 @@ export default function AdminPage() {
     }
     setRepairingVideos(true);
     setRepairResults(null);
-    let fixed = 0, skipped = 0;
+    let fixed = 0, failed = 0;
     for (const drill of videoDrills) {
       try {
-        const res = await apiRequest("POST", "/api/admin/reprocess-video", { objectPath: drill.videoUrl });
-        const data = await res.json();
-        if (data.fixed) fixed++; else skipped++;
-      } catch {
-        skipped++;
+        const res = await nativeFetch("/api/admin/reprocess-video", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ objectPath: drill.videoUrl }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          console.error(`[repair] ${drill.title} failed:`, err);
+          failed++;
+        } else {
+          const data = await res.json();
+          console.log(`[repair] ${drill.title}:`, data);
+          fixed++;
+        }
+      } catch (e) {
+        console.error(`[repair] ${drill.title} threw:`, e);
+        failed++;
       }
     }
     setRepairingVideos(false);
-    setRepairResults({ fixed, skipped });
-    toast({ title: `Video repair complete`, description: `${fixed} fixed, ${skipped} already OK` });
+    setRepairResults({ fixed, skipped: failed });
+    toast({
+      title: `Video repair complete`,
+      description: failed > 0
+        ? `${fixed} videos fixed, ${failed} failed (check console)`
+        : `${fixed} videos successfully optimized for playback`,
+    });
   };
 
   const categoryCount = (category: string) => 
