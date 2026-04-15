@@ -6,6 +6,11 @@ import { exec } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import { randomUUID } from "crypto";
+import { createRequire } from "module";
+// ffmpeg-static ships a pre-built ffmpeg binary that works in any environment,
+// including the production deployment container which has no system ffmpeg.
+const _require = createRequire(import.meta.url);
+const ffmpegBin: string = _require("ffmpeg-static");
 
 /**
  * Run ffmpeg -movflags faststart on a video file.
@@ -16,7 +21,7 @@ import { randomUUID } from "crypto";
 function fixVideoFastStart(inputPath: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const outputPath = path.join("/tmp", `playr1_fixed_${randomUUID()}.mp4`);
-    const cmd = `ffmpeg -y -i "${inputPath}" -movflags +faststart -c copy -f mp4 "${outputPath}"`;
+    const cmd = `"${ffmpegBin}" -y -i "${inputPath}" -movflags +faststart -c copy -f mp4 "${outputPath}"`;
     console.log(`[ffmpeg] Running: ${cmd}`);
     exec(cmd, { timeout: 300000 }, (err, stdout, stderr) => {
       if (err) {
