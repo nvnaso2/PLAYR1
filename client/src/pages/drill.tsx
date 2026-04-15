@@ -79,11 +79,18 @@ function VideoPlayer({ src, poster }: { src: string | null; poster?: string }) {
         src={src}
         controls
         playsInline
-        preload="metadata"
         className="w-full h-full object-cover"
         poster={poster}
         data-testid="video-player"
-        onError={() => setHasError(true)}
+        onError={(e) => {
+          // Only show error for format/decode failures, not transient network issues
+          const code = (e.currentTarget as HTMLVideoElement).error?.code;
+          const MEDIA_ERR_SRC_NOT_SUPPORTED = 4;
+          const MEDIA_ERR_DECODE = 3;
+          if (code === MEDIA_ERR_SRC_NOT_SUPPORTED || code === MEDIA_ERR_DECODE) {
+            setHasError(true);
+          }
+        }}
       />
     </div>
   );
