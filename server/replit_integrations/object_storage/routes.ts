@@ -12,24 +12,41 @@ import ffmpegStaticPath from "ffmpeg-static";
 const ffmpegBin = ffmpegStaticPath as string;
 
 /**
- * Run ffmpeg -movflags faststart on a video file.
- * This moves the moov atom to the beginning so browsers can play it
- * without downloading the entire file first.
- * Uses -c copy so no re-encoding — very fast.
+ * Convert a video to a browser-compatible MP4 with moov atom at the front.
+ *
+ * Strategy (two-pass for maximum compatibility):
+ * 1. Try -c:v copy -c:a aac  — copies the video stream unchanged (fast, no quality loss)
+ *    and converts audio to AAC (required for MP4; QuickTime/MOV often uses LPCM which
+ *    Chrome rejects inside an MP4 container).
+ * 2. If pass 1 fails (e.g. video codec like ProRes can't be muxed in MP4), fall back to
+ *    -c:v libx264 -c:a aac with fast preset — universal H.264/AAC output.
  */
 function fixVideoFastStart(inputPath: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const outputPath = path.join("/tmp", `playr1_fixed_${randomUUID()}.mp4`);
-    const cmd = `"${ffmpegBin}" -y -i "${inputPath}" -movflags +faststart -c copy -f mp4 "${outputPath}"`;
-    console.log(`[ffmpeg] Running: ${cmd}`);
-    exec(cmd, { timeout: 300000 }, (err, stdout, stderr) => {
-      if (err) {
-        console.error(`[ffmpeg] stderr: ${stderr}`);
-        reject(new Error(`ffmpeg failed: ${stderr || err.message}`));
-      } else {
-        console.log(`[ffmpeg] Success: ${outputPath}`);
-        resolve(outputPath);
+
+    // Pass 1: copy video, convert audio to AAC
+    const cmd1 = `"${ffmpegBin}" -y -i "${inputPath}" -movflags +faststart -c:v copy -c:a aac -f mp4 "${outputPath}"`;
+    console.log(`[ffmpeg] Pass 1: ${cmd1}`);
+    exec(cmd1, { timeout: 600000 }, (err1, _stdout1, stderr1) => {
+      if (!err1) {
+        console.log(`[ffmpeg] Pass 1 success: ${outputPath}`);
+        return resolve(outputPath);
       }
+
+      // Pass 1 failed — video codec likely can't be muxed in MP4; transcode to H.264
+      console.warn(`[ffmpeg] Pass 1 failed (${stderr1?.slice(0, 200)}), falling back to H.264 transcode`);
+      const outputPath2 = path.join("/tmp", `playr1_fixed_${randomUUID()}.mp4`);
+      const cmd2 = `"${ffmpegBin}" -y -i "${inputPath}" -movflags +faststart -c:v libx264 -c:a aac -crf 23 -preset fast -f mp4 "${outputPath2}"`;
+      console.log(`[ffmpeg] Pass 2: ${cmd2}`);
+      exec(cmd2, { timeout: 600000 }, (err2, _stdout2, stderr2) => {
+        if (err2) {
+          console.error(`[ffmpeg] Pass 2 failed: ${stderr2}`);
+          return reject(new Error(`ffmpeg failed: ${stderr2 || err2.message}`));
+        }
+        console.log(`[ffmpeg] Pass 2 success: ${outputPath2}`);
+        resolve(outputPath2);
+      });
     });
   });
 }

@@ -201,9 +201,22 @@ export default function VideosPage() {
       }
 
       setUploadProgress(80);
+
+      // Step 3: Run ffmpeg to ensure browser-compatible MP4 (moov atom at front, AAC audio)
+      // This is non-fatal — if it fails the raw upload may still play for small files.
+      try {
+        await nativeFetch("/api/uploads/finalize-video", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ objectPath }),
+        });
+      } catch (finalizeErr) {
+        console.warn("Video finalize step failed (non-fatal):", finalizeErr);
+      }
+
       setUploadedVideoUrl(objectPath);
 
-      // Step 3: Upload thumbnail (if generation succeeded)
+      // Step 4: Upload thumbnail (if generation succeeded)
       const thumbnailBlob = await thumbnailPromise;
       if (thumbnailBlob) {
         const thumbPath = await uploadThumbnailBlob(thumbnailBlob);
@@ -258,11 +271,11 @@ export default function VideosPage() {
       return;
     }
 
-    // Validate file size (100MB max)
-    if (file.size > 100 * 1024 * 1024) {
+    // Validate file size (4GB max — matches server limit)
+    if (file.size > 4 * 1024 * 1024 * 1024) {
       toast({
         title: "File Too Large",
-        description: "Video files must be under 100MB.",
+        description: "Video files must be under 4GB.",
         variant: "destructive",
       });
       return;
@@ -471,7 +484,7 @@ export default function VideosPage() {
                           Click to upload a video file
                         </p>
                         <p className="text-xs text-muted-foreground/60 mt-1">
-                          MP4, WebM, QuickTime, AVI (max 100MB)
+                          MP4, WebM, QuickTime, AVI (max 4GB)
                         </p>
                       </div>
                     ) : (
