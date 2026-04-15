@@ -16,11 +16,14 @@ import { randomUUID } from "crypto";
 function fixVideoFastStart(inputPath: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const outputPath = path.join("/tmp", `playr1_fixed_${randomUUID()}.mp4`);
-    const cmd = `ffmpeg -y -i "${inputPath}" -movflags faststart -c copy "${outputPath}" 2>&1`;
-    exec(cmd, { timeout: 120000 }, (err, stdout, stderr) => {
+    const cmd = `ffmpeg -y -i "${inputPath}" -movflags +faststart -c copy -f mp4 "${outputPath}"`;
+    console.log(`[ffmpeg] Running: ${cmd}`);
+    exec(cmd, { timeout: 300000 }, (err, stdout, stderr) => {
       if (err) {
+        console.error(`[ffmpeg] stderr: ${stderr}`);
         reject(new Error(`ffmpeg failed: ${stderr || err.message}`));
       } else {
+        console.log(`[ffmpeg] Success: ${outputPath}`);
         resolve(outputPath);
       }
     });
@@ -28,21 +31,12 @@ function fixVideoFastStart(inputPath: string): Promise<string> {
 }
 
 /**
- * Check if a video file needs moov-faststart fix.
- * Returns true if ftyp brand is "qt  " (QuickTime) — these have moov at end.
+ * Always returns true — we always run ffmpeg faststart on every video.
+ * The -movflags faststart -c copy command is idempotent and very fast (no re-encoding).
+ * Checking the brand is unreliable: files may show "isom" but still have moov at end.
  */
-async function videoNeedsFix(filePath: string): Promise<boolean> {
-  try {
-    const buf = Buffer.alloc(12);
-    const fd = fs.openSync(filePath, "r");
-    fs.readSync(fd, buf, 0, 12, 0);
-    fs.closeSync(fd);
-    const brand = buf.slice(8, 12).toString("ascii");
-    // QuickTime files (qt  brand) have moov at end and need fixing
-    return brand === "qt  " || brand === "qt\x00\x00";
-  } catch {
-    return false;
-  }
+async function videoNeedsFix(_filePath: string): Promise<boolean> {
+  return true;
 }
 
 // Allowed content types for uploads
