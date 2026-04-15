@@ -6,11 +6,10 @@ import { exec } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import { randomUUID } from "crypto";
-import { createRequire } from "module";
 // ffmpeg-static ships a pre-built ffmpeg binary that works in any environment,
 // including the production deployment container which has no system ffmpeg.
-const _require = createRequire(import.meta.url);
-const ffmpegBin: string = _require("ffmpeg-static");
+import ffmpegStaticPath from "ffmpeg-static";
+const ffmpegBin = ffmpegStaticPath as string;
 
 /**
  * Run ffmpeg -movflags faststart on a video file.
