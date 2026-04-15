@@ -49,6 +49,47 @@ const categoryLabels: Record<string, string> = {
   "workouts": "Workouts",
 };
 
+// ── Video Player with error handling ─────────────────────────────────────────
+function VideoPlayer({ src, poster }: { src: string | null; poster?: string }) {
+  const [hasError, setHasError] = useState(false);
+
+  if (!src) return null;
+  if (hasError) {
+    return (
+      <div
+        className="relative aspect-video bg-muted rounded-xl overflow-hidden flex flex-col items-center justify-center gap-2 text-muted-foreground"
+        data-testid="video-player-error"
+      >
+        <Play className="h-10 w-10 opacity-40" />
+        <p className="text-sm">Video unavailable or unsupported format</p>
+        <a
+          href={src}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs underline text-primary"
+        >
+          Open video directly
+        </a>
+      </div>
+    );
+  }
+  return (
+    <div className="relative aspect-video bg-muted rounded-xl overflow-hidden">
+      <video
+        ref={videoRef}
+        src={src}
+        controls
+        playsInline
+        preload="metadata"
+        className="w-full h-full object-cover"
+        poster={poster}
+        data-testid="video-player"
+        onError={() => setHasError(true)}
+      />
+    </div>
+  );
+}
+
 // ── Share Drill Dialog ────────────────────────────────────────────────────────
 
 type Connection = {
@@ -395,15 +436,10 @@ export default function DrillPage() {
               );
             }
             return (
-              <div className="relative aspect-video bg-muted rounded-xl overflow-hidden">
-                <video
-                  src={getObjectUrl(url)}
-                  controls
-                  className="w-full h-full object-cover"
-                  poster={getObjectUrl(drill.thumbnailUrl) || undefined}
-                  data-testid="video-player"
-                />
-              </div>
+              <VideoPlayer
+                src={getObjectUrl(url)}
+                poster={getObjectUrl(drill.thumbnailUrl) || undefined}
+              />
             );
           })()}
 

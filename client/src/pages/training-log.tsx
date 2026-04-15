@@ -173,6 +173,44 @@ export default function TrainingLogPage() {
   // drillId → timestamp (ms) when that drill was first added to the session
   const [drillStartTimes, setDrillStartTimes] = useState<Record<string, number>>({});
 
+  // ── localStorage draft persistence ──────────────────────────────────────────
+  const WORKOUT_DRAFT_KEY = "playr1_workout_draft";
+
+  // Restore draft on first mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(WORKOUT_DRAFT_KEY);
+      if (!raw) return;
+      const draft = JSON.parse(raw);
+      if (draft.workoutEntries && draft.workoutEntries.length > 0) {
+        setWorkoutEntries(draft.workoutEntries);
+        setWorkoutInProgress(true);
+        if (draft.workoutStartTime) setWorkoutStartTime(draft.workoutStartTime);
+        if (draft.drillStartTimes) setDrillStartTimes(draft.drillStartTimes);
+        if (draft.activeView === "workout") setActiveView("workout");
+      }
+    } catch {
+      // Ignore corrupt drafts
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Persist draft whenever workout state changes
+  useEffect(() => {
+    if (workoutInProgress && workoutEntries.length > 0) {
+      try {
+        localStorage.setItem(WORKOUT_DRAFT_KEY, JSON.stringify({
+          workoutEntries,
+          workoutStartTime,
+          drillStartTimes,
+          activeView,
+        }));
+      } catch {
+        // Ignore storage errors (e.g. quota exceeded)
+      }
+    }
+  }, [workoutInProgress, workoutEntries, workoutStartTime, drillStartTimes, activeView]);
+
   // Auto-start the timer the moment a workout begins — no manual button needed
   useEffect(() => {
     if (workoutInProgress && !workoutStartTime) {
@@ -1281,6 +1319,7 @@ export default function TrainingLogPage() {
       // Transition UI state — clear heavy workout entries immediately to free memory,
       // then show the completion dialog. Use startTransition so React treats this as
       // a low-priority update and keeps the UI responsive.
+      localStorage.removeItem(WORKOUT_DRAFT_KEY);
       startTransition(() => {
         setWorkoutEntries([]);
         setWorkoutInProgress(false);
@@ -1337,6 +1376,7 @@ export default function TrainingLogPage() {
 
   // Cancel workout
   const cancelWorkout = () => {
+    localStorage.removeItem(WORKOUT_DRAFT_KEY);
     setWorkoutInProgress(false);
     setWorkoutEntries([]);
     setWorkoutStartTime(null);

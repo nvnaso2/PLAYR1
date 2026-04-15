@@ -84,21 +84,36 @@ export function useUpload(options: UseUploadOptions = {}) {
   );
 
   /**
-   * Upload a file directly to the presigned URL.
+   * Upload a file directly to the presigned URL using XHR for real progress reporting.
    */
   const uploadToPresignedUrl = useCallback(
-    async (file: File, uploadURL: string): Promise<void> => {
-      const response = await fetch(uploadURL, {
-        method: "PUT",
-        body: file,
-        headers: {
-          "Content-Type": file.type || "application/octet-stream",
-        },
-      });
+    (file: File, uploadURL: string): Promise<void> => {
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("PUT", uploadURL, true);
+        xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
 
-      if (!response.ok) {
-        throw new Error("Failed to upload file to storage");
-      }
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            // Map upload progress from 30% → 95%
+            const pct = Math.round(30 + (e.loaded / e.total) * 65);
+            setProgress(pct);
+          }
+        };
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve();
+          } else {
+            reject(new Error(`Upload failed: ${xhr.status} ${xhr.statusText}`));
+          }
+        };
+
+        xhr.onerror = () => reject(new Error("Network error during upload"));
+        xhr.ontimeout = () => reject(new Error("Upload timed out"));
+
+        xhr.send(file);
+      });
     },
     []
   );

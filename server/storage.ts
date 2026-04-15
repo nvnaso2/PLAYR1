@@ -1067,12 +1067,22 @@ export class DatabaseStorage implements IStorage {
         totalShotsMade += log.shotsMade;
         if (log.shotLocation) {
           const classification = LOCATION_CLASSIFICATIONS[log.shotLocation as ShotLocation];
+          const loc = log.shotLocation as string;
           if (classification === "3-pointer") threePointersMade += log.shotsMade;
           else if (classification === "free-throw") freeThrowsMade += log.shotsMade;
           else if (classification === "2-pointer") {
-            const loc = log.shotLocation as string;
-            if (loc.includes("block")) {
+            if (loc.includes("block") || loc.includes("layup")) {
               layupsMade += log.shotsMade;
+            } else {
+              fieldGoalsMade += log.shotsMade;
+            }
+          } else if (!classification) {
+            // Locations not in LOCATION_CLASSIFICATIONS (e.g. left-hand-layup, right-hand-layup)
+            // — infer type from the location slug itself
+            if (loc.includes("layup") || loc.includes("floater")) {
+              layupsMade += log.shotsMade;
+            } else if (loc.includes("3") || loc.includes("corner") || loc.includes("wing") || loc.includes("top")) {
+              threePointersMade += log.shotsMade;
             } else {
               fieldGoalsMade += log.shotsMade;
             }
