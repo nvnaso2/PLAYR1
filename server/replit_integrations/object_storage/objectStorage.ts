@@ -100,7 +100,11 @@ export class ObjectStorageService {
       const [metadata] = await file.getMetadata();
       const aclPolicy = await getObjectAclPolicy(file);
       const isPublic = aclPolicy?.visibility === "public";
-      const contentType = (metadata.contentType as string) || "application/octet-stream";
+      const rawContentType = (metadata.contentType as string) || "application/octet-stream";
+      // Remap QuickTime/MOV to video/mp4 so all browsers can attempt playback.
+      // iPhone MOV files use H.264, which every browser can decode — only the
+      // MIME type declaration was preventing Chrome/Firefox from playing them.
+      const contentType = rawContentType === "video/quicktime" ? "video/mp4" : rawContentType;
       const fileSize = parseInt(metadata.size as string, 10);
 
       const rangeHeader = req?.headers?.range;
@@ -163,12 +167,12 @@ export class ObjectStorageService {
 
     const { bucketName, objectName } = parseObjectPath(fullPath);
 
-    // Sign URL for PUT method with TTL
+    // Sign URL for PUT method with TTL — 1 hour to accommodate large video uploads
     return signObjectURL({
       bucketName,
       objectName,
       method: "PUT",
-      ttlSec: 900,
+      ttlSec: 3600,
     });
   }
 
