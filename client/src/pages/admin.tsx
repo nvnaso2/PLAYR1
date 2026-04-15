@@ -154,7 +154,7 @@ function DrillForm({
     }
   }, [drill]);
 
-  const { uploadFile: uploadVideoFile, isUploading: isUploadingVideo } = useUpload({
+  const { uploadFile: uploadVideoFile, isUploading: isUploadingVideo, progress: videoUploadProgress } = useUpload({
     onSuccess: async (response) => {
       form.setValue("videoUrl", response.objectPath);
       if (drill?.id) {
@@ -530,6 +530,39 @@ function DrillForm({
             </FormItem>
           )}
         />
+
+        {/* Video upload progress bar */}
+        {isUploadingVideo && (
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Uploading video…</span>
+              <span>{videoUploadProgress}%</span>
+            </div>
+            <div className="h-2 bg-muted rounded-full overflow-hidden">
+              <div
+                className="h-full bg-primary transition-all duration-300"
+                style={{ width: `${videoUploadProgress}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Video preview after upload */}
+        {(() => {
+          const watchedUrl = form.watch("videoUrl");
+          if (!watchedUrl || !watchedUrl.startsWith("/objects/")) return null;
+          return (
+            <div className="rounded-xl overflow-hidden border border-border">
+              <video
+                src={getObjectUrl(watchedUrl)}
+                controls
+                playsInline
+                className="w-full max-h-48 bg-black"
+                data-testid="video-preview-admin"
+              />
+            </div>
+          );
+        })()}
 
         <FormField
           control={form.control}
@@ -1014,10 +1047,10 @@ function VideoLibraryForm({
     ? drillsList?.find(d => d.videoLibraryId === video.id) 
     : undefined;
   
-  const { uploadFile: uploadVideoFile, isUploading: isUploadingVideo } = useUpload({
+  const { uploadFile: uploadVideoFile, isUploading: isUploadingVideo, progress: videoUploadProgress } = useUpload({
     onSuccess: (response) => {
       form.setValue("videoUrl", response.objectPath);
-      toast({ title: "Video uploaded successfully" });
+      toast({ title: "Video uploaded successfully — click Save to apply" });
     },
     onError: (error) => {
       toast({ title: "Failed to upload video", description: error.message, variant: "destructive" });
@@ -1254,6 +1287,39 @@ function VideoLibraryForm({
             </FormItem>
           )}
         />
+
+        {/* Video upload progress bar */}
+        {isUploadingVideo && (
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Uploading video…</span>
+              <span>{videoUploadProgress}%</span>
+            </div>
+            <div className="h-2 bg-muted rounded-full overflow-hidden">
+              <div
+                className="h-full bg-primary transition-all duration-300"
+                style={{ width: `${videoUploadProgress}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Video preview after upload */}
+        {(() => {
+          const watchedUrl = form.watch("videoUrl");
+          if (!watchedUrl || !watchedUrl.startsWith("/objects/")) return null;
+          return (
+            <div className="rounded-xl overflow-hidden border border-border">
+              <video
+                src={getObjectUrl(watchedUrl)}
+                controls
+                playsInline
+                className="w-full max-h-48 bg-black"
+                data-testid="video-preview-library"
+              />
+            </div>
+          );
+        })()}
 
         <FormField
           control={form.control}
