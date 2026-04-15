@@ -76,7 +76,6 @@ function VideoPlayer({ src, poster }: { src: string | null; poster?: string }) {
   return (
     <div className="relative aspect-video bg-muted rounded-xl overflow-hidden">
       <video
-        ref={videoRef}
         src={src}
         controls
         playsInline
