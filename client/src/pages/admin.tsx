@@ -58,7 +58,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText, Play, ChevronDown, GraduationCap, MapPin, ListFilter, X, BarChart2, TrendingUp, Activity, UserCheck } from "lucide-react";
+import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText, Play, ChevronDown, GraduationCap, MapPin, ListFilter, X, BarChart2, TrendingUp, Activity, UserCheck, Wrench } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
 import type { Drill, DrillCategory, DifficultyLevel, DrillMetric, VideoLibrary, PdfLibrary, MetricTemplate, Workout, WorkoutDrill, TrainingLocation, ShotLocationDB, ShotTypeDB } from "@shared/schema";
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, METRIC_TYPES, US_STATES } from "@shared/schema";
@@ -2420,6 +2420,8 @@ export default function AdminPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("videos");
+  const [repairingVideos, setRepairingVideos] = useState(false);
+  const [repairResults, setRepairResults] = useState<{ fixed: number; skipped: number } | null>(null);
   
   // Workout state
   const [isCreateWorkoutOpen, setIsCreateWorkoutOpen] = useState(false);
@@ -2827,6 +2829,29 @@ export default function AdminPage() {
     const matchesCategory = filterCategory === "all" || drill.category === filterCategory;
     return matchesSearch && matchesCategory;
   }) || [];
+
+  const handleRepairAllVideos = async () => {
+    const videoDrills = drills?.filter(d => d.videoUrl?.startsWith("/objects/")) || [];
+    if (videoDrills.length === 0) {
+      toast({ title: "No videos to repair" });
+      return;
+    }
+    setRepairingVideos(true);
+    setRepairResults(null);
+    let fixed = 0, skipped = 0;
+    for (const drill of videoDrills) {
+      try {
+        const res = await apiRequest("POST", "/api/admin/reprocess-video", { objectPath: drill.videoUrl });
+        const data = await res.json();
+        if (data.fixed) fixed++; else skipped++;
+      } catch {
+        skipped++;
+      }
+    }
+    setRepairingVideos(false);
+    setRepairResults({ fixed, skipped });
+    toast({ title: `Video repair complete`, description: `${fixed} fixed, ${skipped} already OK` });
+  };
 
   const categoryCount = (category: string) => 
     drills?.filter(d => d.category === category).length || 0;
@@ -3393,13 +3418,26 @@ export default function AdminPage() {
                 <Video className="w-5 h-5" />
                 Drill Library ({filteredDrills.length})
               </CardTitle>
-              <Input 
-                placeholder="Search drills..." 
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="max-w-xs"
-                data-testid="input-search-drills"
-              />
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRepairAllVideos}
+                  disabled={repairingVideos}
+                  data-testid="button-repair-videos"
+                  title="Fix existing videos that won't play in Chrome"
+                >
+                  {repairingVideos ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Wrench className="w-4 h-4 mr-1" />}
+                  {repairingVideos ? "Repairing…" : "Repair Videos"}
+                </Button>
+                <Input 
+                  placeholder="Search drills..." 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="max-w-xs"
+                  data-testid="input-search-drills"
+                />
+              </div>
             </CardHeader>
             <CardContent>
               {isLoading ? (

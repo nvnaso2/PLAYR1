@@ -1,6 +1,8 @@
 import { Storage, File } from "@google-cloud/storage";
 import { Request, Response } from "express";
 import { randomUUID } from "crypto";
+import * as fs from "fs";
+import * as path from "path";
 import {
   ObjectAclPolicy,
   ObjectPermission,
@@ -150,6 +152,36 @@ export class ObjectStorageService {
         res.status(500).json({ error: "Error downloading file" });
       }
     }
+  }
+
+  // Downloads an object to a local temp file. Caller is responsible for deleting it.
+  async downloadToTempFile(objectPath: string): Promise<{ tempPath: string; contentType: string }> {
+    const objectFile = await this.getObjectEntityFile(objectPath);
+    const [metadata] = await objectFile.getMetadata();
+    const contentType = (metadata.contentType as string) || "application/octet-stream";
+    const ext = contentType === "video/quicktime" ? ".mov" : ".mp4";
+    const tempPath = path.join("/tmp", `playr1_${randomUUID()}${ext}`);
+
+    await new Promise<void>((resolve, reject) => {
+      const writeStream = fs.createWriteStream(tempPath);
+      const readStream = objectFile.createReadStream();
+      readStream.on("error", reject);
+      writeStream.on("error", reject);
+      writeStream.on("finish", resolve);
+      readStream.pipe(writeStream);
+    });
+
+    return { tempPath, contentType };
+  }
+
+  // Replaces an existing object with a new file from local disk.
+  async replaceObjectFromFile(objectPath: string, srcPath: string, contentType: string): Promise<void> {
+    const objectFile = await this.getObjectEntityFile(objectPath);
+    await objectFile.save(fs.createReadStream(srcPath), {
+      contentType,
+      metadata: { contentType },
+      resumable: false,
+    });
   }
 
   // Gets the upload URL for an object entity.

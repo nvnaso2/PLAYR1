@@ -139,6 +139,22 @@ export function useUpload(options: UseUploadOptions = {}) {
         setProgress(30);
         await uploadToPresignedUrl(file, uploadResponse.uploadURL);
 
+        // Step 3: For videos, run server-side ffmpeg faststart fix
+        // This moves the moov atom to the front so all browsers can play immediately.
+        if (file.type.startsWith("video/") || file.name.toLowerCase().match(/\.(mov|mp4|m4v|avi|webm)$/)) {
+          setProgress(97);
+          try {
+            await nativeFetch("/api/uploads/finalize-video", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ objectPath: uploadResponse.objectPath }),
+            });
+          } catch (finalizeErr) {
+            // Non-fatal — video may still play, just log it
+            console.warn("Video finalize step failed:", finalizeErr);
+          }
+        }
+
         setProgress(100);
         options.onSuccess?.(uploadResponse);
         return uploadResponse;

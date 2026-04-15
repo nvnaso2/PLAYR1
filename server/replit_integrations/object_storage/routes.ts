@@ -2,6 +2,48 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { isAuthenticated } from "../../auth";
 import { storage } from "../../storage";
+import { exec } from "child_process";
+import * as fs from "fs";
+import * as path from "path";
+import { randomUUID } from "crypto";
+
+/**
+ * Run ffmpeg -movflags faststart on a video file.
+ * This moves the moov atom to the beginning so browsers can play it
+ * without downloading the entire file first.
+ * Uses -c copy so no re-encoding — very fast.
+ */
+function fixVideoFastStart(inputPath: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const outputPath = path.join("/tmp", `playr1_fixed_${randomUUID()}.mp4`);
+    const cmd = `ffmpeg -y -i "${inputPath}" -movflags faststart -c copy "${outputPath}" 2>&1`;
+    exec(cmd, { timeout: 120000 }, (err, stdout, stderr) => {
+      if (err) {
+        reject(new Error(`ffmpeg failed: ${stderr || err.message}`));
+      } else {
+        resolve(outputPath);
+      }
+    });
+  });
+}
+
+/**
+ * Check if a video file needs moov-faststart fix.
+ * Returns true if ftyp brand is "qt  " (QuickTime) — these have moov at end.
+ */
+async function videoNeedsFix(filePath: string): Promise<boolean> {
+  try {
+    const buf = Buffer.alloc(12);
+    const fd = fs.openSync(filePath, "r");
+    fs.readSync(fd, buf, 0, 12, 0);
+    fs.closeSync(fd);
+    const brand = buf.slice(8, 12).toString("ascii");
+    // QuickTime files (qt  brand) have moov at end and need fixing
+    return brand === "qt  " || brand === "qt\x00\x00";
+  } catch {
+    return false;
+  }
+}
 
 // Allowed content types for uploads
 const ALLOWED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime", "video/x-msvideo"];
@@ -186,6 +228,87 @@ export function registerObjectStorageRoutes(app: Express): void {
     } catch (error) {
       console.error("Error generating photo upload URL:", error);
       res.status(500).json({ error: "Failed to generate upload URL" });
+    }
+  });
+
+  /**
+   * Finalize a video after GCS direct upload.
+   * Runs ffmpeg -movflags faststart to move moov atom to front so all browsers can play it.
+   * Called by the client after a presigned URL upload completes.
+   */
+  app.post("/api/uploads/finalize-video", isAuthenticated, async (req, res) => {
+    const { objectPath } = req.body;
+    if (!objectPath || !objectPath.startsWith("/objects/")) {
+      return res.status(400).json({ error: "Invalid objectPath" });
+    }
+
+    let tempInput: string | null = null;
+    let tempOutput: string | null = null;
+
+    try {
+      console.log(`[finalize-video] Downloading ${objectPath}...`);
+      const { tempPath } = await objectStorageService.downloadToTempFile(objectPath);
+      tempInput = tempPath;
+
+      const needsFix = await videoNeedsFix(tempInput);
+      if (!needsFix) {
+        console.log(`[finalize-video] ${objectPath} already has moov at start — skipping`);
+        return res.json({ objectPath, fixed: false });
+      }
+
+      console.log(`[finalize-video] Running ffmpeg faststart on ${objectPath}...`);
+      tempOutput = await fixVideoFastStart(tempInput);
+
+      console.log(`[finalize-video] Re-uploading fixed video to ${objectPath}...`);
+      await objectStorageService.replaceObjectFromFile(objectPath, tempOutput, "video/mp4");
+
+      console.log(`[finalize-video] Done: ${objectPath}`);
+      res.json({ objectPath, fixed: true });
+    } catch (error) {
+      console.error("[finalize-video] Error:", error);
+      res.status(500).json({ error: "Failed to process video" });
+    } finally {
+      if (tempInput) try { fs.unlinkSync(tempInput); } catch {}
+      if (tempOutput) try { fs.unlinkSync(tempOutput); } catch {}
+    }
+  });
+
+  /**
+   * Admin: reprocess an existing video with ffmpeg faststart.
+   * Use this to fix already-uploaded videos that have moov at end.
+   */
+  app.post("/api/admin/reprocess-video", isAuthenticated, isAdmin, async (req, res) => {
+    const { objectPath } = req.body;
+    if (!objectPath || !objectPath.startsWith("/objects/")) {
+      return res.status(400).json({ error: "Invalid objectPath" });
+    }
+
+    let tempInput: string | null = null;
+    let tempOutput: string | null = null;
+
+    try {
+      console.log(`[reprocess-video] Downloading ${objectPath}...`);
+      const { tempPath } = await objectStorageService.downloadToTempFile(objectPath);
+      tempInput = tempPath;
+
+      const needsFix = await videoNeedsFix(tempInput);
+      if (!needsFix) {
+        return res.json({ objectPath, fixed: false, message: "Video already optimized" });
+      }
+
+      console.log(`[reprocess-video] Running ffmpeg faststart...`);
+      tempOutput = await fixVideoFastStart(tempInput);
+
+      console.log(`[reprocess-video] Re-uploading...`);
+      await objectStorageService.replaceObjectFromFile(objectPath, tempOutput, "video/mp4");
+
+      res.json({ objectPath, fixed: true, message: "Video optimized for streaming" });
+    } catch (error) {
+      console.error("[reprocess-video] Error:", error);
+      res.status(500).json({ error: "Failed to reprocess video" });
+    } finally {
+      if (tempInput) try { fs.unlinkSync(tempInput); } catch {}
+      if (tempOutput) try { fs.unlinkSync(tempOutput); } catch {}
     }
   });
 
