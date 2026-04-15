@@ -201,12 +201,6 @@ function DrillForm({
         toast({ title: "Please select a video file", variant: "destructive" });
         return;
       }
-      if (file.type === "video/quicktime" || file.name.toLowerCase().endsWith(".mov")) {
-        toast({
-          title: "MOV file detected",
-          description: "MOV files from iPhone should work. If playback fails on some devices, re-export as MP4 (H.264) for guaranteed compatibility.",
-        });
-      }
       await uploadVideoFile(file);
     }
   };
@@ -1046,12 +1040,6 @@ function VideoLibraryForm({
       if (!file.type.startsWith("video/")) {
         toast({ title: "Please select a video file", variant: "destructive" });
         return;
-      }
-      if (file.type === "video/quicktime" || file.name.toLowerCase().endsWith(".mov")) {
-        toast({
-          title: "MOV file detected",
-          description: "MOV files from iPhone should work. If playback fails on some devices, re-export as MP4 (H.264) for guaranteed compatibility.",
-        });
       }
       await uploadVideoFile(file);
     }
