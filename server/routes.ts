@@ -1791,6 +1791,18 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/stats/trends", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const weeks = Math.min(52, Math.max(4, parseInt((req.query.weeks as string) || "12", 10)));
+      const stats = await storage.getProgressTrends(userId, weeks);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching progress trends:", error);
+      res.status(500).json({ message: "Failed to fetch progress trends" });
+    }
+  });
+
   // ===== BENCHMARKS =====
 
   // Get benchmarks

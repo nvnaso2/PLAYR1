@@ -1009,6 +1009,45 @@ export class DatabaseStorage implements IStorage {
       .sort((a, b) => a.date.localeCompare(b.date));
   }
 
+  async getProgressTrends(userId: string, weeks: number = 12): Promise<{ week: string; shotsMade: number; minutes: number; sessions: number }[]> {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - weeks * 7);
+
+    const logs = await db.select()
+      .from(trainingLogs)
+      .where(and(
+        eq(trainingLogs.userId, userId),
+        gte(trainingLogs.completedAt, startDate)
+      ));
+
+    const weekMap: Record<string, { shotsMade: number; minutes: number; sessions: number }> = {};
+
+    for (let i = weeks - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i * 7);
+      const monday = new Date(d);
+      monday.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+      const key = monday.toISOString().split("T")[0];
+      if (!weekMap[key]) weekMap[key] = { shotsMade: 0, minutes: 0, sessions: 0 };
+    }
+
+    logs.forEach(log => {
+      const d = new Date(log.completedAt!);
+      const monday = new Date(d);
+      monday.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+      const key = monday.toISOString().split("T")[0];
+      if (weekMap[key]) {
+        weekMap[key].shotsMade += log.shotsMade || 0;
+        weekMap[key].minutes += log.duration || 0;
+        weekMap[key].sessions += 1;
+      }
+    });
+
+    return Object.entries(weekMap)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([week, stats]) => ({ week, ...stats }));
+  }
+
   async getCategoryStats(userId: string, period: string = "weekly"): Promise<{ category: string; minutes: number; sessions: number }[]> {
     const startDate = this.getDateRangeForPeriod(period);
     const logs = await db.select()

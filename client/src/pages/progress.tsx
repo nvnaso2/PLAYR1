@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { nativeFetch } from "@/lib/queryClient";
 import { QueryError } from "@/components/query-error";
 import { DailyChallengeCard } from "@/components/daily-challenge-card";
@@ -20,6 +21,10 @@ import {
   PieChart,
   Pie,
   Cell,
+  LineChart,
+  Line,
+  Area,
+  AreaChart,
 } from "recharts";
 import { 
   TrendingUp, 
@@ -37,6 +42,9 @@ import {
   Lightbulb,
   Film,
   Activity,
+  PlayCircle,
+  BookOpen,
+  TrendingDown,
 } from "lucide-react";
 
 const CHART_COLORS = ["#f97316", "#22c55e", "#3b82f6", "#8b5cf6", "#ec4899", "#14b8a6", "#ef4444"];
@@ -101,9 +109,39 @@ const TIME_PERIOD_LABELS: Record<TimePeriod, string> = {
   annual: "This Year"
 };
 
+type TrendPoint = { week: string; shotsMade: number; minutes: number; sessions: number };
+
+function formatWeekLabel(dateStr: string): string {
+  const d = new Date(dateStr + "T00:00:00");
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function calcPercentChange(data: TrendPoint[], key: keyof TrendPoint): number | null {
+  if (data.length < 2) return null;
+  const recent = data.slice(-4).reduce((s, p) => s + (p[key] as number), 0);
+  const prev = data.slice(-8, -4).reduce((s, p) => s + (p[key] as number), 0);
+  if (prev === 0) return recent > 0 ? 100 : null;
+  return Math.round(((recent - prev) / prev) * 100);
+}
+
+function TrendBadge({ pct }: { pct: number | null }) {
+  if (pct === null) return null;
+  const positive = pct >= 0;
+  return (
+    <Badge
+      variant="outline"
+      className={`text-xs font-semibold ${positive ? "border-green-500/50 text-green-500" : "border-red-400/50 text-red-400"}`}
+    >
+      {positive ? <TrendingUp className="w-3 h-3 mr-1" /> : <TrendingDown className="w-3 h-3 mr-1" />}
+      {positive ? "+" : ""}{pct}% vs prev 4 wks
+    </Badge>
+  );
+}
+
 export default function ProgressPage() {
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("weekly");
   const [activeSkill, setActiveSkill] = useState("all");
+  const [, setLocation] = useLocation();
 
   const { data: weeklyStats } = useQuery<{ date: string; minutes: number; sessions: number }[]>({
     queryKey: ['/api/stats/weekly', timePeriod],
@@ -155,6 +193,15 @@ export default function ProgressPage() {
     }
   });
 
+  const { data: trendsData } = useQuery<TrendPoint[]>({
+    queryKey: ['/api/stats/trends'],
+    queryFn: async () => {
+      const res = await nativeFetch(`/api/stats/trends?weeks=12`);
+      if (!res.ok) throw new Error("Failed to fetch trends");
+      return res.json();
+    }
+  });
+
   const shotHeatmapData: ShotData[] = shotStats?.map(s => ({
     location: s.location,
     made: s.made,
@@ -186,6 +233,10 @@ export default function ProgressPage() {
 
   const showShootingHeatmap = activeSkill === "all" || activeSkill === "shooting";
 
+  const hasTrends = trendsData && trendsData.some(p => p.sessions > 0);
+  const shotsTrend = trendsData ? calcPercentChange(trendsData, "shotsMade") : null;
+  const minutesTrend = trendsData ? calcPercentChange(trendsData, "minutes") : null;
+
   if (overviewError) {
     return (
       <div className="p-4 sm:p-6 max-w-7xl mx-auto">
@@ -193,6 +244,8 @@ export default function ProgressPage() {
       </div>
     );
   }
+
+  const isNewUser = !overviewLoading && totalSessions === 0;
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
@@ -251,195 +304,356 @@ export default function ProgressPage() {
         )}
       </div>
 
-      <div className="space-y-4">
-        <div className="flex gap-1.5 flex-wrap" data-testid="skill-tabs">
-          {SKILL_TABS.map((tab) => {
-            const hasData = tab.key === "all" || skillsWithData.has(tab.key);
-            return (
-              <Button
-                key={tab.key}
-                size="sm"
-                variant={activeSkill === tab.key ? "default" : "outline"}
-                onClick={() => setActiveSkill(tab.key)}
-                className={`gap-1.5 ${!hasData && tab.key !== "all" ? "opacity-50" : ""}`}
-                data-testid={`button-skill-${tab.key}`}
-              >
-                {tab.label}
-              </Button>
-            );
-          })}
-        </div>
-
-        {trainingLoading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-[72px] rounded-lg" />
-            ))}
-          </div>
-        ) : filteredStats.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1" data-testid="training-stats-container">
-            {filteredStats.map((card) => {
-              const val = trainingStats![card.key] ?? 0;
-              const displayVal = card.format ? card.format(val) : val.toLocaleString();
-              return (
-                <StatsCard
-                  key={card.key}
-                  title={card.title}
-                  value={displayVal}
-                  icon={card.icon}
-                  testId={card.testId}
-                />
-              );
-            })}
-          </div>
-        ) : (
-          <Card>
-            <CardContent className="p-8 text-center">
-              <Activity className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-              <h3 className="font-semibold mb-1">No {activeSkill !== "all" ? categoryLabels[activeSkill] || activeSkill : ""} Stats Yet</h3>
-              <p className="text-sm text-muted-foreground">
-                Log training sessions to see your {activeSkill !== "all" ? (categoryLabels[activeSkill] || activeSkill).toLowerCase() : ""} stats here
+      {isNewUser ? (
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-8 text-center space-y-5">
+            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+              <Activity className="w-8 h-8 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold mb-2">Ready to start your journey?</h2>
+              <p className="text-muted-foreground text-sm max-w-sm mx-auto">
+                Log your first drill to start tracking your progress. Your stats, streaks, and improvement charts will all appear right here.
               </p>
-            </CardContent>
-          </Card>
-        )}
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Button
+                size="lg"
+                onClick={() => setLocation("/log")}
+                data-testid="button-log-first-drill"
+                className="gap-2"
+              >
+                <PlayCircle className="w-5 h-5" />
+                Log a Drill Now
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => setLocation("/drills")}
+                data-testid="button-browse-drills"
+                className="gap-2"
+              >
+                <BookOpen className="w-5 h-5" />
+                Browse Drill Library
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {hasTrends && (
+            <div className="space-y-2">
+              <h2 className="text-base font-semibold flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-primary" />
+                Progress Over Time
+                <span className="text-xs font-normal text-muted-foreground">Last 12 weeks</span>
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
+                        <Target className="w-4 h-4 text-primary" />
+                        Shots Made Per Week
+                      </CardTitle>
+                      <TrendBadge pct={shotsTrend} />
+                    </div>
+                  </CardHeader>
+                  <CardContent className="px-2 sm:px-4 pb-4">
+                    <ResponsiveContainer width="100%" height={160}>
+                      <AreaChart data={trendsData} margin={{ left: -10, right: 5, top: 4 }}>
+                        <defs>
+                          <linearGradient id="shotsGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#f97316" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                        <XAxis
+                          dataKey="week"
+                          tick={{ fontSize: 10 }}
+                          className="fill-muted-foreground"
+                          tickFormatter={formatWeekLabel}
+                          interval="preserveStartEnd"
+                        />
+                        <YAxis tick={{ fontSize: 10 }} className="fill-muted-foreground" width={28} />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "hsl(var(--card))",
+                            borderColor: "hsl(var(--border))",
+                            borderRadius: "8px",
+                            fontSize: 12,
+                          }}
+                          labelFormatter={formatWeekLabel}
+                          formatter={(v: number) => [v.toLocaleString(), "Shots Made"]}
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="shotsMade"
+                          stroke="#f97316"
+                          strokeWidth={2}
+                          fill="url(#shotsGrad)"
+                          dot={false}
+                          activeDot={{ r: 4 }}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
 
-        {showShootingHeatmap && (
-          shotHeatmapData.length > 0 ? (
-            <ShootingHeatmap 
-              shotData={shotHeatmapData} 
-              title="Shooting Heatmap"
-            />
-          ) : (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
+                        <Clock className="w-4 h-4 text-primary" />
+                        Training Minutes Per Week
+                      </CardTitle>
+                      <TrendBadge pct={minutesTrend} />
+                    </div>
+                  </CardHeader>
+                  <CardContent className="px-2 sm:px-4 pb-4">
+                    <ResponsiveContainer width="100%" height={160}>
+                      <AreaChart data={trendsData} margin={{ left: -10, right: 5, top: 4 }}>
+                        <defs>
+                          <linearGradient id="minsGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                        <XAxis
+                          dataKey="week"
+                          tick={{ fontSize: 10 }}
+                          className="fill-muted-foreground"
+                          tickFormatter={formatWeekLabel}
+                          interval="preserveStartEnd"
+                        />
+                        <YAxis tick={{ fontSize: 10 }} className="fill-muted-foreground" width={28} />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "hsl(var(--card))",
+                            borderColor: "hsl(var(--border))",
+                            fontSize: 12,
+                          }}
+                          labelFormatter={formatWeekLabel}
+                          formatter={(v: number) => [`${v} min`, "Minutes"]}
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="minutes"
+                          stroke="#3b82f6"
+                          strokeWidth={2}
+                          fill="url(#minsGrad)"
+                          dot={false}
+                          activeDot={{ r: 4 }}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <div className="flex gap-1.5 flex-wrap" data-testid="skill-tabs">
+              {SKILL_TABS.map((tab) => {
+                const hasData = tab.key === "all" || skillsWithData.has(tab.key);
+                return (
+                  <Button
+                    key={tab.key}
+                    size="sm"
+                    variant={activeSkill === tab.key ? "default" : "outline"}
+                    onClick={() => setActiveSkill(tab.key)}
+                    className={`gap-1.5 ${!hasData && tab.key !== "all" ? "opacity-50" : ""}`}
+                    data-testid={`button-skill-${tab.key}`}
+                  >
+                    {tab.label}
+                  </Button>
+                );
+              })}
+            </div>
+
+            {trainingLoading ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton key={i} className="h-[72px] rounded-lg" />
+                ))}
+              </div>
+            ) : filteredStats.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1" data-testid="training-stats-container">
+                {filteredStats.map((card) => {
+                  const val = trainingStats![card.key] ?? 0;
+                  const displayVal = card.format ? card.format(val) : val.toLocaleString();
+                  return (
+                    <StatsCard
+                      key={card.key}
+                      title={card.title}
+                      value={displayVal}
+                      icon={card.icon}
+                      testId={card.testId}
+                    />
+                  );
+                })}
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="p-6 text-center">
+                  <Activity className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+                  <h3 className="font-semibold mb-1">No {activeSkill !== "all" ? categoryLabels[activeSkill] || activeSkill : ""} Stats Yet</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Log training sessions to see your {activeSkill !== "all" ? (categoryLabels[activeSkill] || activeSkill).toLowerCase() : ""} stats here
+                  </p>
+                  <Button size="sm" variant="outline" onClick={() => setLocation("/log")} data-testid="button-log-drill-stats">
+                    <PlayCircle className="w-4 h-4 mr-1.5" />
+                    Log a Drill
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {showShootingHeatmap && (
+              shotHeatmapData.length > 0 ? (
+                <ShootingHeatmap 
+                  shotData={shotHeatmapData} 
+                  title="Shooting Heatmap"
+                />
+              ) : (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                      <Crosshair className="w-5 h-5 text-primary" />
+                      Shooting Heatmap
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[200px] flex items-center justify-center text-muted-foreground">
+                      <div className="text-center">
+                        <Crosshair className="w-12 h-12 text-muted-foreground/30 mx-auto mb-2" />
+                        <p className="text-sm">Log shooting drills with shot locations to see your heatmap</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
             <Card>
               <CardHeader>
                 <CardTitle className="text-base sm:text-lg flex items-center gap-2">
-                  <Crosshair className="w-5 h-5 text-primary" />
-                  Shooting Heatmap
+                  <BarChart3 className="w-5 h-5 text-primary" />
+                  Training Activity
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="h-[200px] flex items-center justify-center text-muted-foreground">
-                  <div className="text-center">
-                    <Crosshair className="w-12 h-12 text-muted-foreground/30 mx-auto mb-2" />
-                    <p className="text-sm">Log shooting drills with shot locations to see your heatmap</p>
+              <CardContent className="px-2 sm:px-6">
+                {weeklyStats && weeklyStats.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={200}>
+                    <BarChart data={weeklyStats} margin={{ left: -10, right: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                      <XAxis 
+                        dataKey="date" 
+                        className="text-xs fill-muted-foreground"
+                        tick={{ fontSize: 12 }}
+                        tickFormatter={(value) => {
+                          const date = new Date(value);
+                          return date.toLocaleDateString('en-US', { weekday: 'short' });
+                        }}
+                      />
+                      <YAxis className="text-xs fill-muted-foreground" tick={{ fontSize: 12 }} width={30} />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'hsl(var(--card))',
+                          borderColor: 'hsl(var(--border))',
+                          borderRadius: '8px',
+                          color: 'hsl(var(--foreground))'
+                        }}
+                        labelStyle={{ color: 'hsl(var(--foreground))' }}
+                      />
+                      <Bar 
+                        dataKey="minutes" 
+                        fill="hsl(var(--primary))" 
+                        radius={[4, 4, 0, 0]}
+                        name="Minutes"
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-[200px] flex flex-col items-center justify-center gap-3 text-muted-foreground text-sm">
+                    <p>Log sessions to see your training activity</p>
+                    <Button size="sm" variant="outline" onClick={() => setLocation("/log")} data-testid="button-log-activity">
+                      <PlayCircle className="w-4 h-4 mr-1.5" />
+                      Log a Drill
+                    </Button>
                   </div>
-                </div>
+                )}
               </CardContent>
             </Card>
-          )
-        )}
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base sm:text-lg flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-primary" />
-              Training Activity
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-2 sm:px-6">
-            {weeklyStats && weeklyStats.length > 0 ? (
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={weeklyStats} margin={{ left: -10, right: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis 
-                    dataKey="date" 
-                    className="text-xs fill-muted-foreground"
-                    tick={{ fontSize: 12 }}
-                    tickFormatter={(value) => {
-                      const date = new Date(value);
-                      return date.toLocaleDateString('en-US', { weekday: 'short' });
-                    }}
-                  />
-                  <YAxis className="text-xs fill-muted-foreground" tick={{ fontSize: 12 }} width={30} />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'hsl(var(--card))',
-                      borderColor: 'hsl(var(--border))',
-                      borderRadius: '8px',
-                      color: 'hsl(var(--foreground))'
-                    }}
-                    labelStyle={{ color: 'hsl(var(--foreground))' }}
-                  />
-                  <Bar 
-                    dataKey="minutes" 
-                    fill="hsl(var(--primary))" 
-                    radius={[4, 4, 0, 0]}
-                    name="Minutes"
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">
-                Log sessions to see your training activity
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base sm:text-lg flex items-center gap-2">
-              <Target className="w-5 h-5 text-primary" />
-              Time by Category
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-2 sm:px-6">
-            {pieData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius="40%"
-                    outerRadius="70%"
-                    paddingAngle={2}
-                    dataKey="value"
-                  >
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                  <Target className="w-5 h-5 text-primary" />
+                  Time by Category
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-2 sm:px-6">
+                {pieData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={200}>
+                    <PieChart>
+                      <Pie
+                        data={pieData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius="40%"
+                        outerRadius="70%"
+                        paddingAngle={2}
+                        dataKey="value"
+                      >
+                        {pieData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'hsl(var(--card))',
+                          borderColor: 'hsl(var(--border))',
+                          borderRadius: '8px',
+                          color: 'hsl(var(--foreground))'
+                        }}
+                        labelStyle={{ color: 'hsl(var(--foreground))' }}
+                        formatter={(value: number) => [`${value} min`, '']}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">
+                    Start training to see category breakdown
+                  </div>
+                )}
+                {pieData.length > 0 && (
+                  <div className="flex flex-wrap gap-2 justify-center mt-3">
                     {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
+                      <Badge 
+                        key={index} 
+                        variant="outline"
+                        className="flex items-center gap-1.5 text-foreground font-medium"
+                      >
+                        <span 
+                          className="w-2 h-2 rounded-full" 
+                          style={{ backgroundColor: entry.color }}
+                        />
+                        {entry.name}
+                      </Badge>
                     ))}
-                  </Pie>
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'hsl(var(--card))',
-                      borderColor: 'hsl(var(--border))',
-                      borderRadius: '8px',
-                      color: 'hsl(var(--foreground))'
-                    }}
-                    labelStyle={{ color: 'hsl(var(--foreground))' }}
-                    formatter={(value: number) => [`${value} min`, '']}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">
-                Start training to see category breakdown
-              </div>
-            )}
-            {pieData.length > 0 && (
-              <div className="flex flex-wrap gap-2 justify-center mt-3">
-                {pieData.map((entry, index) => (
-                  <Badge 
-                    key={index} 
-                    variant="outline"
-                    className="flex items-center gap-1.5 text-foreground font-medium"
-                  >
-                    <span 
-                      className="w-2 h-2 rounded-full" 
-                      style={{ backgroundColor: entry.color }}
-                    />
-                    {entry.name}
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </>
+      )}
     </div>
   );
 }

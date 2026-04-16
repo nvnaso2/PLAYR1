@@ -234,10 +234,10 @@ function Router() {
 
   return (
     <Switch>
-      <Route path="/player/:slug" component={PlayerPublic} />
-      <Route path="/t/:id" component={TrainerPublic} />
-      <Route path="/teams/:slug" component={TeamProfile} />
-      <Route path="/leagues/:slug" component={LeagueProfile} />
+      <Route path="/player/:slug">{() => <Suspense fallback={<LoadingScreen />}><PlayerPublic /></Suspense>}</Route>
+      <Route path="/t/:id">{() => <Suspense fallback={<LoadingScreen />}><TrainerPublic /></Suspense>}</Route>
+      <Route path="/teams/:slug">{() => <Suspense fallback={<LoadingScreen />}><TeamProfile /></Suspense>}</Route>
+      <Route path="/leagues/:slug">{() => <Suspense fallback={<LoadingScreen />}><LeagueProfile /></Suspense>}</Route>
       <Route path="/auth">{() => isAuthenticated ? <Redirect to="/" /> : <AuthPage />}</Route>
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password" component={ResetPassword} />
