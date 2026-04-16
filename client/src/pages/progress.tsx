@@ -8,6 +8,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { StatsCard } from "@/components/stats-card";
 import { ShootingHeatmap, type ShotData } from "@/components/shooting-heatmap";
 import {
@@ -21,15 +28,13 @@ import {
   PieChart,
   Pie,
   Cell,
-  LineChart,
-  Line,
   Area,
   AreaChart,
 } from "recharts";
-import { 
-  TrendingUp, 
-  Clock, 
-  Target, 
+import {
+  TrendingUp,
+  Clock,
+  Target,
   Zap,
   Crosshair,
   CircleDot,
@@ -37,14 +42,11 @@ import {
   HandMetal,
   Timer,
   BarChart3,
-  Dumbbell,
-  Shield,
-  Lightbulb,
-  Film,
   Activity,
   PlayCircle,
   BookOpen,
   TrendingDown,
+  LineChart,
 } from "lucide-react";
 
 const CHART_COLORS = ["#f97316", "#22c55e", "#3b82f6", "#8b5cf6", "#ec4899", "#14b8a6", "#ef4444"];
@@ -85,62 +87,113 @@ const TRAINING_STAT_DEFS: TrainingStatDef[] = [
   { key: "conditioningTime", title: "Conditioning Time", icon: <Timer className="w-4 h-4" />, format: (v) => { const h = Math.floor(v / 60); const m = v % 60; return h > 0 ? `${h}h ${m}m` : `${m}m`; }, testId: "stats-conditioning", skillType: "workouts" },
 ];
 
-type SkillTab = {
-  key: string;
-  label: string;
-  icon: React.ReactNode;
-};
+type SkillTab = { key: string; label: string };
 
 const SKILL_TABS: SkillTab[] = [
-  { key: "all", label: "All", icon: null },
-  { key: "shooting", label: "Shooting", icon: null },
-  { key: "ball-handling", label: "Ball Handling", icon: null },
-  { key: "passing", label: "Passing", icon: null },
-  { key: "finishing", label: "Finishing", icon: null },
-  { key: "defense", label: "Defense", icon: null },
-  { key: "basketball-iq", label: "Basketball IQ", icon: null },
-  { key: "workouts", label: "Workouts", icon: null },
+  { key: "all", label: "All" },
+  { key: "shooting", label: "Shooting" },
+  { key: "ball-handling", label: "Ball Handling" },
+  { key: "passing", label: "Passing" },
+  { key: "finishing", label: "Finishing" },
+  { key: "defense", label: "Defense" },
+  { key: "basketball-iq", label: "Basketball IQ" },
+  { key: "workouts", label: "Workouts" },
 ];
 
 const TIME_PERIOD_LABELS: Record<TimePeriod, string> = {
   daily: "Today",
   weekly: "This Week",
   monthly: "This Month",
-  annual: "This Year"
+  annual: "This Year",
 };
 
-type TrendPoint = { week: string; shotsMade: number; minutes: number; sessions: number };
+type TrendPoint = {
+  label: string;
+  shotsMade: number; shotsAttempted: number;
+  threesMade: number; threesAttempted: number;
+  freeThrowsMade: number; freeThrowsAttempted: number;
+  layupsMade: number; layupsAttempted: number;
+  midRangeMade: number; midRangeAttempted: number;
+  minutes: number; sessions: number;
+};
 
-function formatWeekLabel(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00");
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
+type MetricKey =
+  | "shotsMade" | "shotsAttempted" | "threesMade"
+  | "freeThrowsMade" | "layupsMade" | "midRangeMade"
+  | "minutes" | "sessions"
+  | "fgPct" | "threePct" | "midRangePct";
 
-function calcPercentChange(data: TrendPoint[], key: keyof TrendPoint): number | null {
-  if (data.length < 2) return null;
-  const recent = data.slice(-4).reduce((s, p) => s + (p[key] as number), 0);
-  const prev = data.slice(-8, -4).reduce((s, p) => s + (p[key] as number), 0);
-  if (prev === 0) return recent > 0 ? 100 : null;
-  return Math.round(((recent - prev) / prev) * 100);
-}
+type MetricDef = {
+  key: MetricKey;
+  label: string;
+  color: string;
+  isPercent?: boolean;
+  getValue: (p: TrendPoint) => number;
+  formatTooltip: (v: number) => string;
+};
 
-function TrendBadge({ pct }: { pct: number | null }) {
-  if (pct === null) return null;
-  const positive = pct >= 0;
-  return (
-    <Badge
-      variant="outline"
-      className={`text-xs font-semibold ${positive ? "border-green-500/50 text-green-500" : "border-red-400/50 text-red-400"}`}
-    >
-      {positive ? <TrendingUp className="w-3 h-3 mr-1" /> : <TrendingDown className="w-3 h-3 mr-1" />}
-      {positive ? "+" : ""}{pct}% vs prev 4 wks
-    </Badge>
-  );
-}
+const METRIC_DEFS: MetricDef[] = [
+  {
+    key: "shotsMade", label: "Shots Made", color: "#f97316",
+    getValue: p => p.shotsMade,
+    formatTooltip: v => `${v} shots made`,
+  },
+  {
+    key: "shotsAttempted", label: "Shots Taken", color: "#fb923c",
+    getValue: p => p.shotsAttempted,
+    formatTooltip: v => `${v} shots taken`,
+  },
+  {
+    key: "threesMade", label: "3's Made", color: "#22c55e",
+    getValue: p => p.threesMade,
+    formatTooltip: v => `${v} 3-pointers made`,
+  },
+  {
+    key: "freeThrowsMade", label: "Free Throws Made", color: "#3b82f6",
+    getValue: p => p.freeThrowsMade,
+    formatTooltip: v => `${v} free throws made`,
+  },
+  {
+    key: "layupsMade", label: "Layups Made", color: "#8b5cf6",
+    getValue: p => p.layupsMade,
+    formatTooltip: v => `${v} layups made`,
+  },
+  {
+    key: "midRangeMade", label: "Mid-Range Made", color: "#ec4899",
+    getValue: p => p.midRangeMade,
+    formatTooltip: v => `${v} mid-range shots made`,
+  },
+  {
+    key: "minutes", label: "Minutes Trained", color: "#14b8a6",
+    getValue: p => p.minutes,
+    formatTooltip: v => `${v} min`,
+  },
+  {
+    key: "sessions", label: "Drills Completed", color: "#f59e0b",
+    getValue: p => p.sessions,
+    formatTooltip: v => `${v} drills`,
+  },
+  {
+    key: "fgPct", label: "FG%", color: "#ef4444", isPercent: true,
+    getValue: p => p.shotsAttempted > 0 ? Math.round((p.shotsMade / p.shotsAttempted) * 100) : 0,
+    formatTooltip: v => `${v}%`,
+  },
+  {
+    key: "threePct", label: "3-Point %", color: "#a3e635", isPercent: true,
+    getValue: p => p.threesAttempted > 0 ? Math.round((p.threesMade / p.threesAttempted) * 100) : 0,
+    formatTooltip: v => `${v}%`,
+  },
+  {
+    key: "midRangePct", label: "Mid-Range %", color: "#67e8f9", isPercent: true,
+    getValue: p => p.midRangeAttempted > 0 ? Math.round((p.midRangeMade / p.midRangeAttempted) * 100) : 0,
+    formatTooltip: v => `${v}%`,
+  },
+];
 
 export default function ProgressPage() {
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("weekly");
   const [activeSkill, setActiveSkill] = useState("all");
+  const [selectedMetric, setSelectedMetric] = useState<MetricKey>("shotsMade");
   const [, setLocation] = useLocation();
 
   const { data: weeklyStats } = useQuery<{ date: string; minutes: number; sessions: number }[]>({
@@ -194,9 +247,9 @@ export default function ProgressPage() {
   });
 
   const { data: trendsData } = useQuery<TrendPoint[]>({
-    queryKey: ['/api/stats/trends'],
+    queryKey: ['/api/stats/trends', timePeriod],
     queryFn: async () => {
-      const res = await nativeFetch(`/api/stats/trends?weeks=12`);
+      const res = await nativeFetch(`/api/stats/trends?period=${timePeriod}`);
       if (!res.ok) throw new Error("Failed to fetch trends");
       return res.json();
     }
@@ -233,9 +286,19 @@ export default function ProgressPage() {
 
   const showShootingHeatmap = activeSkill === "all" || activeSkill === "shooting";
 
-  const hasTrends = trendsData && trendsData.some(p => p.sessions > 0);
-  const shotsTrend = trendsData ? calcPercentChange(trendsData, "shotsMade") : null;
-  const minutesTrend = trendsData ? calcPercentChange(trendsData, "minutes") : null;
+  const activeDef = METRIC_DEFS.find(m => m.key === selectedMetric) || METRIC_DEFS[0];
+  const chartData = trendsData?.map(p => ({
+    label: p.label,
+    value: activeDef.getValue(p),
+  }));
+  const hasTrendData = chartData?.some(p => p.value > 0);
+
+  const periodChartTitle: Record<TimePeriod, string> = {
+    daily: "Last 7 Days",
+    weekly: "This Week",
+    monthly: "This Month",
+    annual: "This Year",
+  };
 
   if (overviewError) {
     return (
@@ -341,120 +404,6 @@ export default function ProgressPage() {
         </Card>
       ) : (
         <>
-          {hasTrends && (
-            <div className="space-y-2">
-              <h2 className="text-base font-semibold flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-primary" />
-                Progress Over Time
-                <span className="text-xs font-normal text-muted-foreground">Last 12 weeks</span>
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between flex-wrap gap-2">
-                      <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
-                        <Target className="w-4 h-4 text-primary" />
-                        Shots Made Per Week
-                      </CardTitle>
-                      <TrendBadge pct={shotsTrend} />
-                    </div>
-                  </CardHeader>
-                  <CardContent className="px-2 sm:px-4 pb-4">
-                    <ResponsiveContainer width="100%" height={160}>
-                      <AreaChart data={trendsData} margin={{ left: -10, right: 5, top: 4 }}>
-                        <defs>
-                          <linearGradient id="shotsGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#f97316" stopOpacity={0.3} />
-                            <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                        <XAxis
-                          dataKey="week"
-                          tick={{ fontSize: 10 }}
-                          className="fill-muted-foreground"
-                          tickFormatter={formatWeekLabel}
-                          interval="preserveStartEnd"
-                        />
-                        <YAxis tick={{ fontSize: 10 }} className="fill-muted-foreground" width={28} />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: "hsl(var(--card))",
-                            borderColor: "hsl(var(--border))",
-                            borderRadius: "8px",
-                            fontSize: 12,
-                          }}
-                          labelFormatter={formatWeekLabel}
-                          formatter={(v: number) => [v.toLocaleString(), "Shots Made"]}
-                        />
-                        <Area
-                          type="monotone"
-                          dataKey="shotsMade"
-                          stroke="#f97316"
-                          strokeWidth={2}
-                          fill="url(#shotsGrad)"
-                          dot={false}
-                          activeDot={{ r: 4 }}
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between flex-wrap gap-2">
-                      <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
-                        <Clock className="w-4 h-4 text-primary" />
-                        Training Minutes Per Week
-                      </CardTitle>
-                      <TrendBadge pct={minutesTrend} />
-                    </div>
-                  </CardHeader>
-                  <CardContent className="px-2 sm:px-4 pb-4">
-                    <ResponsiveContainer width="100%" height={160}>
-                      <AreaChart data={trendsData} margin={{ left: -10, right: 5, top: 4 }}>
-                        <defs>
-                          <linearGradient id="minsGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                        <XAxis
-                          dataKey="week"
-                          tick={{ fontSize: 10 }}
-                          className="fill-muted-foreground"
-                          tickFormatter={formatWeekLabel}
-                          interval="preserveStartEnd"
-                        />
-                        <YAxis tick={{ fontSize: 10 }} className="fill-muted-foreground" width={28} />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: "hsl(var(--card))",
-                            borderColor: "hsl(var(--border))",
-                            fontSize: 12,
-                          }}
-                          labelFormatter={formatWeekLabel}
-                          formatter={(v: number) => [`${v} min`, "Minutes"]}
-                        />
-                        <Area
-                          type="monotone"
-                          dataKey="minutes"
-                          stroke="#3b82f6"
-                          strokeWidth={2}
-                          fill="url(#minsGrad)"
-                          dot={false}
-                          activeDot={{ r: 4 }}
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-          )}
-
           <div className="space-y-4">
             <div className="flex gap-1.5 flex-wrap" data-testid="skill-tabs">
               {SKILL_TABS.map((tab) => {
@@ -475,13 +424,16 @@ export default function ProgressPage() {
             </div>
 
             {trainingLoading ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                 {Array.from({ length: 4 }).map((_, i) => (
                   <Skeleton key={i} className="h-[72px] rounded-lg" />
                 ))}
               </div>
             ) : filteredStats.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1" data-testid="training-stats-container">
+              <div
+                className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1"
+                data-testid="training-stats-container"
+              >
                 {filteredStats.map((card) => {
                   const val = trainingStats![card.key] ?? 0;
                   const displayVal = card.format ? card.format(val) : val.toLocaleString();
@@ -500,9 +452,11 @@ export default function ProgressPage() {
               <Card>
                 <CardContent className="p-6 text-center">
                   <Activity className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
-                  <h3 className="font-semibold mb-1">No {activeSkill !== "all" ? categoryLabels[activeSkill] || activeSkill : ""} Stats Yet</h3>
+                  <h3 className="font-semibold mb-1">
+                    No {activeSkill !== "all" ? categoryLabels[activeSkill] || activeSkill : ""} Stats Yet
+                  </h3>
                   <p className="text-sm text-muted-foreground mb-4">
-                    Log training sessions to see your {activeSkill !== "all" ? (categoryLabels[activeSkill] || activeSkill).toLowerCase() : ""} stats here
+                    Log training sessions to see your stats here
                   </p>
                   <Button size="sm" variant="outline" onClick={() => setLocation("/log")} data-testid="button-log-drill-stats">
                     <PlayCircle className="w-4 h-4 mr-1.5" />
@@ -514,10 +468,7 @@ export default function ProgressPage() {
 
             {showShootingHeatmap && (
               shotHeatmapData.length > 0 ? (
-                <ShootingHeatmap 
-                  shotData={shotHeatmapData} 
-                  title="Shooting Heatmap"
-                />
+                <ShootingHeatmap shotData={shotHeatmapData} title="Shooting Heatmap" />
               ) : (
                 <Card>
                   <CardHeader>
@@ -539,6 +490,89 @@ export default function ProgressPage() {
             )}
           </div>
 
+          {/* Progress Chart — single chart with metric selector */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                  <LineChart className="w-5 h-5 text-primary" />
+                  Progress — {periodChartTitle[timePeriod]}
+                </CardTitle>
+                <Select
+                  value={selectedMetric}
+                  onValueChange={(v) => setSelectedMetric(v as MetricKey)}
+                >
+                  <SelectTrigger className="w-full sm:w-52" data-testid="select-chart-metric">
+                    <SelectValue placeholder="Select metric" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {METRIC_DEFS.map((m) => (
+                      <SelectItem key={m.key} value={m.key} data-testid={`option-metric-${m.key}`}>
+                        {m.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardHeader>
+            <CardContent className="px-2 sm:px-6 pb-4">
+              {hasTrendData ? (
+                <ResponsiveContainer width="100%" height={220}>
+                  <AreaChart data={chartData} margin={{ left: -10, right: 8, top: 4, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="metricGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={activeDef.color} stopOpacity={0.35} />
+                        <stop offset="95%" stopColor={activeDef.color} stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis
+                      dataKey="label"
+                      tick={{ fontSize: 10 }}
+                      className="fill-muted-foreground"
+                      interval="preserveStartEnd"
+                    />
+                    <YAxis
+                      tick={{ fontSize: 10 }}
+                      className="fill-muted-foreground"
+                      width={activeDef.isPercent ? 36 : 30}
+                      tickFormatter={activeDef.isPercent ? (v) => `${v}%` : undefined}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "hsl(var(--card))",
+                        borderColor: "hsl(var(--border))",
+                        borderRadius: "8px",
+                        fontSize: 12,
+                        color: "hsl(var(--foreground))",
+                      }}
+                      labelStyle={{ color: "hsl(var(--foreground))", fontWeight: 600, marginBottom: 4 }}
+                      formatter={(v: number) => [activeDef.formatTooltip(v), activeDef.label]}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="value"
+                      stroke={activeDef.color}
+                      strokeWidth={2.5}
+                      fill="url(#metricGrad)"
+                      dot={{ r: 3, fill: activeDef.color, strokeWidth: 0 }}
+                      activeDot={{ r: 5, fill: activeDef.color }}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[220px] flex flex-col items-center justify-center gap-3 text-muted-foreground text-sm">
+                  <LineChart className="w-12 h-12 text-muted-foreground/25" />
+                  <p>No {activeDef.label.toLowerCase()} data for {periodChartTitle[timePeriod].toLowerCase()}</p>
+                  <Button size="sm" variant="outline" onClick={() => setLocation("/log")} data-testid="button-log-for-chart">
+                    <PlayCircle className="w-4 h-4 mr-1.5" />
+                    Log a Drill
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
             <Card>
               <CardHeader>
@@ -552,8 +586,8 @@ export default function ProgressPage() {
                   <ResponsiveContainer width="100%" height={200}>
                     <BarChart data={weeklyStats} margin={{ left: -10, right: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                      <XAxis 
-                        dataKey="date" 
+                      <XAxis
+                        dataKey="date"
                         className="text-xs fill-muted-foreground"
                         tick={{ fontSize: 12 }}
                         tickFormatter={(value) => {
@@ -562,8 +596,8 @@ export default function ProgressPage() {
                         }}
                       />
                       <YAxis className="text-xs fill-muted-foreground" tick={{ fontSize: 12 }} width={30} />
-                      <Tooltip 
-                        contentStyle={{ 
+                      <Tooltip
+                        contentStyle={{
                           backgroundColor: 'hsl(var(--card))',
                           borderColor: 'hsl(var(--border))',
                           borderRadius: '8px',
@@ -571,12 +605,7 @@ export default function ProgressPage() {
                         }}
                         labelStyle={{ color: 'hsl(var(--foreground))' }}
                       />
-                      <Bar 
-                        dataKey="minutes" 
-                        fill="hsl(var(--primary))" 
-                        radius={[4, 4, 0, 0]}
-                        name="Minutes"
-                      />
+                      <Bar dataKey="minutes" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Minutes" />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
@@ -615,8 +644,8 @@ export default function ProgressPage() {
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
-                      <Tooltip 
-                        contentStyle={{ 
+                      <Tooltip
+                        contentStyle={{
                           backgroundColor: 'hsl(var(--card))',
                           borderColor: 'hsl(var(--border))',
                           borderRadius: '8px',
@@ -635,15 +664,12 @@ export default function ProgressPage() {
                 {pieData.length > 0 && (
                   <div className="flex flex-wrap gap-2 justify-center mt-3">
                     {pieData.map((entry, index) => (
-                      <Badge 
-                        key={index} 
+                      <Badge
+                        key={index}
                         variant="outline"
                         className="flex items-center gap-1.5 text-foreground font-medium"
                       >
-                        <span 
-                          className="w-2 h-2 rounded-full" 
-                          style={{ backgroundColor: entry.color }}
-                        />
+                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
                         {entry.name}
                       </Badge>
                     ))}

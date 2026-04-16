@@ -1794,8 +1794,8 @@ export async function registerRoutes(
   app.get("/api/stats/trends", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
-      const weeks = Math.min(52, Math.max(4, parseInt((req.query.weeks as string) || "12", 10)));
-      const stats = await storage.getProgressTrends(userId, weeks);
+      const period = (req.query.period as string) || "weekly";
+      const stats = await storage.getProgressTrends(userId, period);
       res.json(stats);
     } catch (error) {
       console.error("Error fetching progress trends:", error);

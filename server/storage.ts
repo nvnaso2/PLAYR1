@@ -127,6 +127,14 @@ export interface IStorage {
   getWeeklyStats(userId: string, period?: string): Promise<{ date: string; minutes: number; sessions: number }[]>;
   getCategoryStats(userId: string, period?: string): Promise<{ category: string; minutes: number; sessions: number }[]>;
   getDashboardTrainingStats(userId: string, period?: string): Promise<Record<string, number>>;
+  getProgressTrends(userId: string, period?: string): Promise<{
+    label: string; shotsMade: number; shotsAttempted: number;
+    threesMade: number; threesAttempted: number;
+    freeThrowsMade: number; freeThrowsAttempted: number;
+    layupsMade: number; layupsAttempted: number;
+    midRangeMade: number; midRangeAttempted: number;
+    minutes: number; sessions: number;
+  }[]>;
 
   // Benchmarks
   getBenchmarks(): Promise<Benchmark[]>;
@@ -1009,43 +1017,135 @@ export class DatabaseStorage implements IStorage {
       .sort((a, b) => a.date.localeCompare(b.date));
   }
 
-  async getProgressTrends(userId: string, weeks: number = 12): Promise<{ week: string; shotsMade: number; minutes: number; sessions: number }[]> {
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - weeks * 7);
+  async getProgressTrends(userId: string, period: string = "weekly"): Promise<{
+    label: string; shotsMade: number; shotsAttempted: number;
+    threesMade: number; threesAttempted: number;
+    freeThrowsMade: number; freeThrowsAttempted: number;
+    layupsMade: number; layupsAttempted: number;
+    midRangeMade: number; midRangeAttempted: number;
+    minutes: number; sessions: number;
+  }[]> {
+    const now = new Date();
+    type BucketEntry = { key: string; label: string; start: Date; end: Date };
+    const buckets: BucketEntry[] = [];
 
-    const logs = await db.select()
-      .from(trainingLogs)
-      .where(and(
-        eq(trainingLogs.userId, userId),
-        gte(trainingLogs.completedAt, startDate)
-      ));
-
-    const weekMap: Record<string, { shotsMade: number; minutes: number; sessions: number }> = {};
-
-    for (let i = weeks - 1; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i * 7);
-      const monday = new Date(d);
-      monday.setDate(d.getDate() - ((d.getDay() + 6) % 7));
-      const key = monday.toISOString().split("T")[0];
-      if (!weekMap[key]) weekMap[key] = { shotsMade: 0, minutes: 0, sessions: 0 };
+    if (period === "weekly" || period === "daily") {
+      // Last 7 days day-by-day
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(now);
+        d.setDate(now.getDate() - i);
+        d.setHours(0, 0, 0, 0);
+        const end = new Date(d);
+        end.setHours(23, 59, 59, 999);
+        buckets.push({
+          key: d.toISOString().split("T")[0],
+          label: d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }),
+          start: d, end,
+        });
+      }
+    } else if (period === "monthly") {
+      // Current month week-by-week
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+      let cursor = new Date(firstDay);
+      while (cursor <= now) {
+        const weekStart = new Date(cursor);
+        const weekEnd = new Date(cursor);
+        weekEnd.setDate(cursor.getDate() + 6);
+        weekEnd.setHours(23, 59, 59, 999);
+        if (weekEnd > now) weekEnd.setTime(now.getTime());
+        buckets.push({
+          key: weekStart.toISOString().split("T")[0],
+          label: weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+          start: weekStart, end: weekEnd,
+        });
+        cursor.setDate(cursor.getDate() + 7);
+      }
+    } else {
+      // Annual: each month Jan–Dec of current year
+      for (let m = 0; m < 12; m++) {
+        const ms = new Date(now.getFullYear(), m, 1);
+        const me = new Date(now.getFullYear(), m + 1, 0, 23, 59, 59, 999);
+        buckets.push({
+          key: `${now.getFullYear()}-${String(m + 1).padStart(2, "0")}`,
+          label: ms.toLocaleDateString("en-US", { month: "short" }),
+          start: ms, end: me,
+        });
+      }
     }
 
-    logs.forEach(log => {
-      const d = new Date(log.completedAt!);
-      const monday = new Date(d);
-      monday.setDate(d.getDate() - ((d.getDay() + 6) % 7));
-      const key = monday.toISOString().split("T")[0];
-      if (weekMap[key]) {
-        weekMap[key].shotsMade += log.shotsMade || 0;
-        weekMap[key].minutes += log.duration || 0;
-        weekMap[key].sessions += 1;
-      }
-    });
+    const startDate = buckets[0].start;
+    const logs = await db.select().from(trainingLogs).where(and(
+      eq(trainingLogs.userId, userId),
+      gte(trainingLogs.completedAt, startDate)
+    ));
 
-    return Object.entries(weekMap)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([week, stats]) => ({ week, ...stats }));
+    type TrendBucket = {
+      label: string; shotsMade: number; shotsAttempted: number;
+      threesMade: number; threesAttempted: number;
+      freeThrowsMade: number; freeThrowsAttempted: number;
+      layupsMade: number; layupsAttempted: number;
+      midRangeMade: number; midRangeAttempted: number;
+      minutes: number; sessions: number;
+    };
+
+    const bucketMap: Record<string, TrendBucket> = {};
+    for (const b of buckets) {
+      bucketMap[b.key] = {
+        label: b.label, shotsMade: 0, shotsAttempted: 0,
+        threesMade: 0, threesAttempted: 0,
+        freeThrowsMade: 0, freeThrowsAttempted: 0,
+        layupsMade: 0, layupsAttempted: 0,
+        midRangeMade: 0, midRangeAttempted: 0,
+        minutes: 0, sessions: 0,
+      };
+    }
+
+    for (const log of logs) {
+      if (!log.completedAt) continue;
+      const logDate = new Date(log.completedAt);
+      let bucketKey: string | null = null;
+
+      if (period === "weekly" || period === "daily") {
+        bucketKey = logDate.toISOString().split("T")[0];
+      } else if (period === "monthly") {
+        for (const b of buckets) {
+          if (logDate >= b.start && logDate <= b.end) { bucketKey = b.key; break; }
+        }
+      } else {
+        bucketKey = `${logDate.getFullYear()}-${String(logDate.getMonth() + 1).padStart(2, "0")}`;
+      }
+
+      if (!bucketKey || !bucketMap[bucketKey]) continue;
+      const bk = bucketMap[bucketKey];
+      bk.sessions += 1;
+      bk.minutes += log.duration || 0;
+
+      const made = log.shotsMade || 0;
+      const attempted = log.shotsAttempted || 0;
+      if (made > 0 || attempted > 0) {
+        bk.shotsMade += made;
+        bk.shotsAttempted += attempted;
+        if (log.shotLocation) {
+          const classification = LOCATION_CLASSIFICATIONS[log.shotLocation as ShotLocation];
+          const loc = log.shotLocation as string;
+          if (classification === "3-pointer") {
+            bk.threesMade += made; bk.threesAttempted += attempted;
+          } else if (classification === "free-throw") {
+            bk.freeThrowsMade += made; bk.freeThrowsAttempted += attempted;
+          } else if (classification === "2-pointer") {
+            if (loc.includes("block") || loc.includes("layup")) {
+              bk.layupsMade += made; bk.layupsAttempted += attempted;
+            } else {
+              bk.midRangeMade += made; bk.midRangeAttempted += attempted;
+            }
+          } else if (!classification && loc.includes("layup")) {
+            bk.layupsMade += made; bk.layupsAttempted += attempted;
+          }
+        }
+      }
+    }
+
+    return buckets.map(b => bucketMap[b.key]);
   }
 
   async getCategoryStats(userId: string, period: string = "weekly"): Promise<{ category: string; minutes: number; sessions: number }[]> {
