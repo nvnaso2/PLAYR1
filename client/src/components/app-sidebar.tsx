@@ -1,8 +1,10 @@
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useAdmin } from "@/hooks/use-admin";
 import { useRole } from "@/hooks/use-role";
+import { preloadRoute, preloadCommonPages } from "@/lib/pageLoaders";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -132,6 +134,12 @@ export function AppSidebar() {
   const isTrainerView = activeView === "trainer";
   const navItems = isTrainerView ? trainerNavItems : playerNavItems;
 
+  // Warm up the most common page chunks in the background after the sidebar
+  // mounts, so the first tap on a tab feels instant.
+  useEffect(() => {
+    preloadCommonPages(isTrainerView);
+  }, [isTrainerView]);
+
   const { data: pendingConnections } = useQuery<any[]>({
     queryKey: ["/api/connections/pending"],
     enabled: isTrainerView && !!user,
@@ -205,6 +213,9 @@ export function AppSidebar() {
                     asChild
                     isActive={location === "/parent" || location.startsWith("/parent")}
                     data-testid="link-nav-parent-dashboard"
+                    onMouseEnter={() => preloadRoute("/parent")}
+                    onTouchStart={() => preloadRoute("/parent")}
+                    onFocus={() => preloadRoute("/parent")}
                   >
                     <Link href="/parent" onClick={closeSidebar}>
                       <Eye className="w-4 h-4" />
@@ -227,6 +238,9 @@ export function AppSidebar() {
                         asChild 
                         isActive={isActiveLink(item.url)}
                         data-testid={`link-nav-${item.title.toLowerCase().replace(/\s/g, '-')}`}
+                        onMouseEnter={() => preloadRoute(item.url)}
+                        onTouchStart={() => preloadRoute(item.url)}
+                        onFocus={() => preloadRoute(item.url)}
                       >
                         <Link href={item.url} onClick={closeSidebar}>
                           <item.icon className="w-4 h-4" />
@@ -256,6 +270,9 @@ export function AppSidebar() {
                           asChild 
                           isActive={location === "/admin"}
                           data-testid="link-nav-admin"
+                          onMouseEnter={() => preloadRoute("/admin")}
+                          onTouchStart={() => preloadRoute("/admin")}
+                          onFocus={() => preloadRoute("/admin")}
                         >
                           <Link href="/admin" onClick={closeSidebar}>
                             <Settings className="w-4 h-4" />
@@ -281,6 +298,9 @@ export function AppSidebar() {
                           asChild 
                           isActive={location === "/parent" || location.startsWith("/parent")}
                           data-testid="link-nav-parent-dashboard"
+                          onMouseEnter={() => preloadRoute("/parent")}
+                          onTouchStart={() => preloadRoute("/parent")}
+                          onFocus={() => preloadRoute("/parent")}
                         >
                           <Link href="/parent" onClick={closeSidebar}>
                             <Eye className="w-4 h-4" />

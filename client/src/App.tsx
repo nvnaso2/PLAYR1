@@ -14,6 +14,7 @@ import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { Playr1Logo } from "@/components/playr1-logo";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRole } from "@/hooks/use-role";
+import { pageLoaders, preloadCommonPages } from "@/lib/pageLoaders";
 
 // Critical path — load immediately
 import Landing from "@/pages/landing";
@@ -26,35 +27,37 @@ import Support from "@/pages/support";
 import ParentInvite from "@/pages/parent-invite";
 import NotFound from "@/pages/not-found";
 
-// Heavy pages — lazy load on first visit so the initial bundle is smaller
-const Drills = lazy(() => import("@/pages/drills"));
-const DrillPage = lazy(() => import("@/pages/drill"));
-const TrainingLog = lazy(() => import("@/pages/training-log"));
-const Dashboard = lazy(() => import("@/pages/progress"));
-const Videos = lazy(() => import("@/pages/videos"));
-const Profile = lazy(() => import("@/pages/profile"));
-const Career = lazy(() => import("@/pages/career"));
-const PlayerPublic = lazy(() => import("@/pages/player-public"));
-const TrainerPublic = lazy(() => import("@/pages/trainer-public"));
-const Admin = lazy(() => import("@/pages/admin"));
-const TrainerDashboard = lazy(() => import("@/pages/trainer/index"));
-const TrainerRoster = lazy(() => import("@/pages/trainer/roster"));
-const TrainerDrills = lazy(() => import("@/pages/trainer/drills"));
-const TrainerLogs = lazy(() => import("@/pages/trainer/logs"));
-const TrainerChat = lazy(() => import("@/pages/trainer/chat"));
-const TrainerProgress = lazy(() => import("@/pages/trainer/progress"));
-const ChallengeHistory = lazy(() => import("@/pages/challenge-history"));
-const Finder = lazy(() => import("@/pages/finder"));
-const TeamProfile = lazy(() => import("@/pages/team-profile"));
-const LeagueProfile = lazy(() => import("@/pages/league-profile"));
-const TrainerProfile = lazy(() => import("@/pages/trainer/profile"));
-const TrainerSchedule = lazy(() => import("@/pages/trainer/schedule"));
-const TrainerEvaluations = lazy(() => import("@/pages/trainer/evaluations"));
-const TrainerPlayerDetail = lazy(() => import("@/pages/trainer/player-detail"));
-const MyTrainer = lazy(() => import("@/pages/my-trainer"));
-const ParentDashboard = lazy(() => import("@/pages/parent-dashboard"));
-const FindPeople = lazy(() => import("@/pages/find-people"));
-const FeedbackPage = lazy(() => import("@/pages/feedback"));
+// Heavy pages — lazy load on first visit so the initial bundle is smaller.
+// Sidebar preloads chunks on hover/touch (see pageLoaders.ts) to avoid
+// the blank skeleton on first tab visit.
+const Drills = lazy(pageLoaders.drills);
+const DrillPage = lazy(pageLoaders.drill);
+const TrainingLog = lazy(pageLoaders.trainingLog);
+const Dashboard = lazy(pageLoaders.dashboard);
+const Videos = lazy(pageLoaders.videos);
+const Profile = lazy(pageLoaders.profile);
+const Career = lazy(pageLoaders.career);
+const PlayerPublic = lazy(pageLoaders.playerPublic);
+const TrainerPublic = lazy(pageLoaders.trainerPublic);
+const Admin = lazy(pageLoaders.admin);
+const TrainerDashboard = lazy(pageLoaders.trainerDashboard);
+const TrainerRoster = lazy(pageLoaders.trainerRoster);
+const TrainerDrills = lazy(pageLoaders.trainerDrills);
+const TrainerLogs = lazy(pageLoaders.trainerLogs);
+const TrainerChat = lazy(pageLoaders.trainerChat);
+const TrainerProgress = lazy(pageLoaders.trainerProgress);
+const ChallengeHistory = lazy(pageLoaders.challengeHistory);
+const Finder = lazy(pageLoaders.finder);
+const TeamProfile = lazy(pageLoaders.teamProfile);
+const LeagueProfile = lazy(pageLoaders.leagueProfile);
+const TrainerProfile = lazy(pageLoaders.trainerProfile);
+const TrainerSchedule = lazy(pageLoaders.trainerSchedule);
+const TrainerEvaluations = lazy(pageLoaders.trainerEvaluations);
+const TrainerPlayerDetail = lazy(pageLoaders.trainerPlayerDetail);
+const MyTrainer = lazy(pageLoaders.myTrainer);
+const ParentDashboard = lazy(pageLoaders.parentDashboard);
+const FindPeople = lazy(pageLoaders.findPeople);
+const FeedbackPage = lazy(pageLoaders.feedback);
 
 function PageLoader() {
   return (
