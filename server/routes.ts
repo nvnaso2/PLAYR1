@@ -7,7 +7,7 @@ import { setupAuth, registerAuthRoutes, isAuthenticated, getAppBaseUrl, type Aut
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, drills, trainingLogs, feedbackComments } from "@shared/schema";
 import { users } from "@shared/models/auth";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { eq, and, or, isNull, ilike, sql, inArray, gte } from "drizzle-orm";
 import { z } from "zod";
 import { zipToCoords, cityStateToCoords, haversineDistance } from "./geo";
@@ -83,6 +83,32 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  // Health check endpoint — verifies the server is up AND the database is reachable.
+  // Returns 200 with diagnostics on success, 503 on failure. No auth, no DB writes.
+  app.get("/api/health", async (_req, res) => {
+    const startedAt = Date.now();
+    try {
+      const result = await pool.query("SELECT 1 as ok");
+      const dbLatencyMs = Date.now() - startedAt;
+      res.status(200).json({
+        status: "ok",
+        uptimeSeconds: Math.round(process.uptime()),
+        dbLatencyMs,
+        dbReady: result.rows?.[0]?.ok === 1,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err: any) {
+      console.error("Health check failed:", err);
+      res.status(503).json({
+        status: "error",
+        uptimeSeconds: Math.round(process.uptime()),
+        dbReady: false,
+        error: err?.message || "database unreachable",
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
   // Setup authentication
   setupAuth(app);
   registerAuthRoutes(app);
