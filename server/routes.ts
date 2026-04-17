@@ -1544,6 +1544,21 @@ export async function registerRoutes(
     }
   });
 
+  // Restore training_logs.duration values from workout_duration_backup.
+  // Reverts the most recent backfill run. Admin only.
+  app.post("/api/admin/restore-workout-durations", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const isAdmin = await storage.isUserAdmin(userId);
+      if (!isAdmin) return res.status(403).json({ message: "Admin only" });
+      const result = await storage.restoreWorkoutDurations();
+      res.json(result);
+    } catch (error) {
+      console.error("Error restoring workout durations:", error);
+      res.status(500).json({ message: "Failed to restore workout durations" });
+    }
+  });
+
   // Get single training log with metrics
   app.get("/api/training-logs/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {

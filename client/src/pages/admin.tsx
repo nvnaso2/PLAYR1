@@ -2409,27 +2409,60 @@ function LocationForm({
 // historical sessions, this card (and its endpoint) can be deleted.
 function BackfillWorkoutDurationsCard() {
   const { toast } = useToast();
-  const [result, setResult] = useState<{ sessionsScanned: number; sessionsFixed: number; minutesRemoved: number } | null>(null);
-  const mutation = useMutation({
+  const [result, setResult] = useState<{ sessionsScanned: number; sessionsFixed: number; minutesRemoved: number; rowsBackedUp: number } | null>(null);
+  const [restoreResult, setRestoreResult] = useState<{ rowsRestored: number; backupsCleared: number } | null>(null);
+
+  const invalidateStats = () => {
+    queryClient.invalidateQueries({ queryKey: ['/api/stats/overview'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/stats/weekly'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/stats/dashboard-training'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/training-logs'] });
+  };
+
+  const backfillMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest("POST", "/api/admin/backfill-workout-durations");
-      return await res.json() as { sessionsScanned: number; sessionsFixed: number; minutesRemoved: number };
+      return await res.json() as { sessionsScanned: number; sessionsFixed: number; minutesRemoved: number; rowsBackedUp: number };
     },
     onSuccess: (data) => {
       setResult(data);
-      queryClient.invalidateQueries({ queryKey: ['/api/stats/overview'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/stats/weekly'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/stats/dashboard-training'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/training-logs'] });
+      setRestoreResult(null);
+      invalidateStats();
       toast({
         title: "Backfill complete",
-        description: `Scanned ${data.sessionsScanned} sessions, fixed ${data.sessionsFixed}, removed ${data.minutesRemoved} inflated minutes.`,
+        description: `Scanned ${data.sessionsScanned} · Fixed ${data.sessionsFixed} · Removed ${data.minutesRemoved} min · Backed up ${data.rowsBackedUp} rows.`,
       });
     },
     onError: (err: any) => {
       toast({ title: "Backfill failed", description: err?.message || "Unknown error", variant: "destructive" });
     },
   });
+
+  const restoreMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/restore-workout-durations");
+      return await res.json() as { rowsRestored: number; backupsCleared: number };
+    },
+    onSuccess: (data) => {
+      setRestoreResult(data);
+      setResult(null);
+      invalidateStats();
+      toast({
+        title: data.rowsRestored > 0 ? "Restore complete" : "Nothing to restore",
+        description: data.rowsRestored > 0
+          ? `Restored ${data.rowsRestored} rows from backup. Backup table cleared.`
+          : "No backup rows found. The backfill may not have been run yet.",
+      });
+    },
+    onError: (err: any) => {
+      toast({ title: "Restore failed", description: err?.message || "Unknown error", variant: "destructive" });
+    },
+  });
+
+  const handleRestore = () => {
+    if (!confirm("Restore all training-log durations from backup? This undoes the most recent recalculation.")) return;
+    restoreMutation.mutate();
+  };
 
   return (
     <Card data-testid="card-backfill-durations" className="border-orange-500/30">
@@ -2438,24 +2471,37 @@ function BackfillWorkoutDurationsCard() {
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-muted-foreground">
-          Older multi-round workouts double-counted time. Click once to recover the
-          original timer total for every affected session. Safe to re-run; sessions
-          that already look correct are skipped.
+          Older multi-round workouts double-counted time. Run once to recover the
+          original timer total for every affected session. Originals are saved
+          to a backup table first — if anything looks wrong, click <strong>Restore from backup</strong> to revert.
         </p>
         <div className="flex flex-wrap items-center gap-3">
           <Button
-            onClick={() => mutation.mutate()}
-            disabled={mutation.isPending}
+            onClick={() => backfillMutation.mutate()}
+            disabled={backfillMutation.isPending || restoreMutation.isPending}
             data-testid="button-backfill-durations"
           >
-            {mutation.isPending ? "Recalculating…" : "Run recalculation"}
+            {backfillMutation.isPending ? "Recalculating…" : "Run recalculation"}
           </Button>
-          {result && (
-            <span className="text-sm text-muted-foreground" data-testid="text-backfill-result">
-              Scanned {result.sessionsScanned} · Fixed {result.sessionsFixed} · Removed {result.minutesRemoved} min
-            </span>
-          )}
+          <Button
+            variant="outline"
+            onClick={handleRestore}
+            disabled={backfillMutation.isPending || restoreMutation.isPending}
+            data-testid="button-restore-durations"
+          >
+            {restoreMutation.isPending ? "Restoring…" : "Restore from backup"}
+          </Button>
         </div>
+        {result && (
+          <p className="text-sm text-muted-foreground" data-testid="text-backfill-result">
+            Scanned {result.sessionsScanned} · Fixed {result.sessionsFixed} · Removed {result.minutesRemoved} min · Backed up {result.rowsBackedUp} rows
+          </p>
+        )}
+        {restoreResult && (
+          <p className="text-sm text-muted-foreground" data-testid="text-restore-result">
+            Restored {restoreResult.rowsRestored} rows · Cleared {restoreResult.backupsCleared} backup entries
+          </p>
+        )}
       </CardContent>
     </Card>
   );

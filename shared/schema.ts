@@ -536,6 +536,16 @@ export const trainingLogs = pgTable("training_logs", {
   completedAt: timestamp("completed_at").defaultNow()
 });
 
+// Backup of training_logs.duration values prior to the one-time
+// backfillWorkoutDurations() recalculation. Used to restore originals if
+// the backfill needs to be reverted. Safe to drop after backfill is verified.
+export const workoutDurationBackup = pgTable("workout_duration_backup", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  trainingLogId: varchar("training_log_id").notNull(),
+  originalDuration: integer("original_duration").notNull(),
+  backedUpAt: timestamp("backed_up_at").defaultNow()
+});
+
 // Personal training videos uploaded by users
 export const userVideos = pgTable("user_videos", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
