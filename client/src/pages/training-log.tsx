@@ -1157,66 +1157,21 @@ export default function TrainingLogPage() {
       const sessionId = crypto.randomUUID();
       const challengeUpdates: Record<string, number> = {};
 
-      // Compute actual per-drill duration from workout timer.
-      //
-      // Two cases:
-      //   A) Drills were added mid-workout at meaningfully different times (> 60 s apart from
-      //      the first drill) → use the timestamp span between consecutive drill adds.
-      //   B) All drills were pre-selected at once (same or very close timestamps, the normal
-      //      workflow) → split the total elapsed time proportionally by each drill's estimated
-      //      duration so every drill gets a fair share of the real session time.
-      //
-      // If the timer was never started fall back to the estimated duration.
+      // Total session duration is whatever the workout timer measured. We do NOT
+      // try to allocate it across individual drills/rounds — that produced very
+      // confusing inflation (each round of the same drill got the full slice and
+      // SUM(duration) ended up 2-3× the real session). Instead we put the entire
+      // session total on the first entry and zero on the rest, so SUM still equals
+      // the real total. If the timer never started, fall back to the estimated
+      // total so old behavior is preserved for ad-hoc logs.
       const saveNow = Date.now();
-      const drillIdOrder = Array.from(new Set(workoutEntries.map(e => e.drillId)));
-
-      // Per-drill estimated minutes (average across rounds of that drill)
-      const drillEstimateMap = new Map<string, number>(
-        drillIdOrder.map(id => {
-          const ents = workoutEntries.filter(e => e.drillId === id);
-          const avg = ents.reduce((s, e) => s + e.duration, 0) / ents.length;
-          return [id, Math.max(1, Math.round(avg))];
-        })
-      );
-      const totalEstimateMinutes = Array.from(drillEstimateMap.values()).reduce((s, v) => s + v, 0);
-      // Total elapsed in whole seconds and fractional minutes — no artificial floor
       const totalElapsedMs = workoutStartTime ? (saveNow - workoutStartTime) : 0;
-      // Keep full precision (fractional minutes) for proportional math; we round per-drill below
-      const totalElapsedMinutesFrac = totalElapsedMs / 60000;
-
-      // Earliest stamp across all drills (for detecting mid-workout adds)
-      const stampValues = Object.values(drillStartTimes).filter((v): v is number => !!v);
-      const firstStamp = stampValues.length ? Math.min(...stampValues) : saveNow;
-
-      const getActualDuration = (drillId: string, fallback: number): number => {
-        if (!workoutStartTime) return fallback;
-
-        const thisStamp = drillStartTimes[drillId];
-        const idx = drillIdOrder.indexOf(drillId);
-        const nextId = drillIdOrder[idx + 1];
-        const nextStamp = nextId ? drillStartTimes[nextId] : undefined;
-
-        // "Mid-workout add" = stamped more than 60 s after the first drill
-        const thisMid = thisStamp != null && (thisStamp - firstStamp) > 60000;
-        const nextMid = nextStamp != null && (nextStamp - firstStamp) > 60000;
-
-        if (thisMid || nextMid) {
-          // Case A: use the span between consecutive drill-add timestamps
-          const startMs = thisStamp ?? firstStamp;
-          const endMs = nextMid && nextStamp != null ? nextStamp : saveNow;
-          // Round to nearest minute; store at least 1 min for any genuine span
-          return Math.max(1, Math.round((endMs - startMs) / 60000));
-        }
-
-        // Case B: pre-selected drills — distribute total elapsed proportionally.
-        // No artificial floor here: if the session was genuinely < 1 min, store 0.
-        const estimate = drillEstimateMap.get(drillId) ?? 1;
-        const proportionalMinutes = totalElapsedMinutesFrac * (estimate / totalEstimateMinutes);
-        return Math.round(proportionalMinutes); // can be 0 for very short test sessions
-      };
+      const totalSessionMinutes = workoutStartTime
+        ? Math.max(0, Math.round(totalElapsedMs / 60000))
+        : workoutEntries.reduce((s, e) => s + (e.duration || 0), 0);
 
       // Build bulk payload synchronously (no awaits)
-      const bulkEntries = workoutEntries.map(entry => {
+      const bulkEntries = workoutEntries.map((entry, entryIdx) => {
         const isShootingDrill = entry.drill.trackShots;
         let derivedAttempted: number | undefined;
         let derivedMade: number | undefined;
@@ -1280,7 +1235,9 @@ export default function TrainingLogPage() {
         const metrics = Object.entries(entry.metrics).map(([metricId, value]) => ({ metricId, value: Number(value) }));
         return {
           drillId: entry.drillId,
-          duration: getActualDuration(entry.drillId, entry.duration),
+          // Put the entire timer-measured session total on the first entry; others
+          // get 0. SUM(duration) across the session = real total time, no inflation.
+          duration: entryIdx === 0 ? totalSessionMinutes : 0,
           notes: entry.notes || undefined,
           workoutSessionId: workoutEntries.length > 1 ? sessionId : undefined,
           shotLocation: isShootingDrill ? entry.shotLocation : undefined,

@@ -1525,6 +1525,25 @@ export async function registerRoutes(
     }
   });
 
+  // One-time backfill for inflated workout durations.
+  // Older client code stamped each round of a multi-round drill with the FULL
+  // proportional share of the session timer, so SUM(duration) for a session
+  // ended up 2-3× the real timer value. For each session we recover the
+  // original total as SUM(MAX(duration) per drillId), put that on the first
+  // entry, and zero the rest. Idempotent. Admin only.
+  app.post("/api/admin/backfill-workout-durations", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const isAdmin = await storage.isUserAdmin(userId);
+      if (!isAdmin) return res.status(403).json({ message: "Admin only" });
+      const result = await storage.backfillWorkoutDurations();
+      res.json(result);
+    } catch (error) {
+      console.error("Error backfilling workout durations:", error);
+      res.status(500).json({ message: "Failed to backfill workout durations" });
+    }
+  });
+
   // Get single training log with metrics
   app.get("/api/training-logs/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
@@ -1771,7 +1790,9 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const period = (req.query.period as string) || "weekly";
-      const stats = await storage.getUserStats(userId, period);
+      const startTsRaw = req.query.startTs as string | undefined;
+      const startTs = startTsRaw ? Number(startTsRaw) : undefined;
+      const stats = await storage.getUserStats(userId, period, startTs);
       res.json(stats);
     } catch (error) {
       console.error("Error fetching stats:", error);
@@ -1784,7 +1805,9 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const period = (req.query.period as string) || "weekly";
-      const stats = await storage.getWeeklyStats(userId, period);
+      const startTsRaw = req.query.startTs as string | undefined;
+      const startTs = startTsRaw ? Number(startTsRaw) : undefined;
+      const stats = await storage.getWeeklyStats(userId, period, startTs);
       res.json(stats);
     } catch (error) {
       console.error("Error fetching weekly stats:", error);
@@ -1797,7 +1820,9 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const period = (req.query.period as string) || "weekly";
-      const stats = await storage.getCategoryStats(userId, period);
+      const startTsRaw = req.query.startTs as string | undefined;
+      const startTs = startTsRaw ? Number(startTsRaw) : undefined;
+      const stats = await storage.getCategoryStats(userId, period, startTs);
       res.json(stats);
     } catch (error) {
       console.error("Error fetching category stats:", error);
@@ -1809,7 +1834,9 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const period = (req.query.period as string) || "weekly";
-      const stats = await storage.getDashboardTrainingStats(userId, period);
+      const startTsRaw = req.query.startTs as string | undefined;
+      const startTs = startTsRaw ? Number(startTsRaw) : undefined;
+      const stats = await storage.getDashboardTrainingStats(userId, period, startTs);
       res.json(stats);
     } catch (error) {
       console.error("Error fetching dashboard training stats:", error);
@@ -1821,7 +1848,9 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const period = (req.query.period as string) || "weekly";
-      const stats = await storage.getProgressTrends(userId, period);
+      const startTsRaw = req.query.startTs as string | undefined;
+      const startTs = startTsRaw ? Number(startTsRaw) : undefined;
+      const stats = await storage.getProgressTrends(userId, period, startTs);
       res.json(stats);
     } catch (error) {
       console.error("Error fetching progress trends:", error);
@@ -2402,7 +2431,9 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const period = (req.query.period as string) || "weekly";
-      const shotStats = await storage.getUserShotStats(userId, period);
+      const startTsRaw = req.query.startTs as string | undefined;
+      const startTs = startTsRaw ? Number(startTsRaw) : undefined;
+      const shotStats = await storage.getUserShotStats(userId, period, startTs);
       res.json(shotStats);
     } catch (error) {
       console.error("Error fetching shot stats:", error);

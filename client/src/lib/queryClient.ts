@@ -32,6 +32,43 @@ export function buildUrl(url: string): string {
   return `${getApiBase()}${url}`;
 }
 
+/**
+ * Compute the start-of-period timestamp (epoch ms) in the user's local
+ * timezone. Stats endpoints accept this so "today / this week / this month"
+ * boundaries roll over at the user's midnight rather than UTC midnight.
+ */
+export function periodStartTs(period: string = "weekly"): number {
+  const now = new Date();
+  const d = new Date(now);
+  switch (period) {
+    case "daily":
+      d.setHours(0, 0, 0, 0);
+      return d.getTime();
+    case "weekly":
+      d.setDate(d.getDate() - 7);
+      d.setHours(0, 0, 0, 0);
+      return d.getTime();
+    case "monthly":
+      d.setMonth(d.getMonth() - 1);
+      d.setHours(0, 0, 0, 0);
+      return d.getTime();
+    case "annual":
+      d.setFullYear(d.getFullYear() - 1);
+      d.setHours(0, 0, 0, 0);
+      return d.getTime();
+    default:
+      d.setDate(d.getDate() - 7);
+      d.setHours(0, 0, 0, 0);
+      return d.getTime();
+  }
+}
+
+/** Build a stats URL with period + local-tz startTs auto-appended. */
+export function statsUrl(path: string, period: string = "weekly"): string {
+  const sep = path.includes("?") ? "&" : "?";
+  return `${path}${sep}period=${encodeURIComponent(period)}&startTs=${periodStartTs(period)}`;
+}
+
 export async function nativeFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const headers = {
     ...getAuthHeaders(),

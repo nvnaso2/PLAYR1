@@ -65,7 +65,7 @@ import {
 } from "@shared/schema";
 import { users, type User } from "@shared/models/auth";
 import { db } from "./db";
-import { eq, desc, and, or, sql, gte, isNotNull, isNull, inArray } from "drizzle-orm";
+import { eq, desc, asc, and, or, sql, gte, isNotNull, isNull, inArray } from "drizzle-orm";
 import { generateAiDrill } from "./ai-drill-generator";
 
 export interface IStorage {
@@ -101,6 +101,7 @@ export interface IStorage {
   createTrainingLog(log: InsertTrainingLog): Promise<TrainingLog>;
   updateTrainingLog(id: string, updates: Partial<InsertTrainingLog>): Promise<TrainingLog>;
   deleteTrainingLog(id: string): Promise<boolean>;
+  backfillWorkoutDurations(): Promise<{ sessionsScanned: number; sessionsFixed: number; minutesRemoved: number }>;
 
   // User Profiles
   getUserProfile(userId: string): Promise<UserProfile | undefined>;
@@ -747,6 +748,69 @@ export class DatabaseStorage implements IStorage {
     return (result.rowCount ?? 0) > 0;
   }
 
+  async backfillWorkoutDurations(): Promise<{ sessionsScanned: number; sessionsFixed: number; minutesRemoved: number }> {
+    // Pull every multi-entry workout session. Single-entry workouts
+    // (workoutSessionId IS NULL) cannot be inflated and are skipped.
+    const sessionRows = await db
+      .selectDistinct({ sid: trainingLogs.workoutSessionId })
+      .from(trainingLogs)
+      .where(sql`${trainingLogs.workoutSessionId} IS NOT NULL`);
+
+    let sessionsScanned = 0;
+    let sessionsFixed = 0;
+    let minutesRemoved = 0;
+
+    for (const row of sessionRows) {
+      const sid = row.sid;
+      if (!sid) continue;
+      sessionsScanned++;
+
+      // Pull all entries in this session, ordered by completedAt then id.
+      const entries = await db
+        .select()
+        .from(trainingLogs)
+        .where(eq(trainingLogs.workoutSessionId, sid))
+        .orderBy(asc(trainingLogs.completedAt), asc(trainingLogs.id));
+
+      if (entries.length < 2) continue;
+
+      const currentSum = entries.reduce((s, e) => s + (e.duration || 0), 0);
+
+      // Recover original timer total: per-drillId, all rounds had the SAME
+      // proportional value, so MAX(duration) per drillId equals the per-drill
+      // share. Sum those shares = original total session minutes.
+      const maxByDrill = new Map<string, number>();
+      for (const e of entries) {
+        const k = e.drillId || "__nodrill__";
+        const v = e.duration || 0;
+        if (v > (maxByDrill.get(k) ?? 0)) maxByDrill.set(k, v);
+      }
+      const recoveredTotal = Array.from(maxByDrill.values()).reduce((s, v) => s + v, 0);
+
+      // If sum already equals recovered total, this session is either already
+      // fixed or was never inflated (one round per drill). Skip.
+      if (currentSum <= recoveredTotal) continue;
+
+      const firstId = entries[0].id;
+      const restIds = entries.slice(1).map(e => e.id);
+
+      await db.update(trainingLogs)
+        .set({ duration: recoveredTotal })
+        .where(eq(trainingLogs.id, firstId));
+
+      if (restIds.length > 0) {
+        await db.update(trainingLogs)
+          .set({ duration: 0 })
+          .where(inArray(trainingLogs.id, restIds));
+      }
+
+      sessionsFixed++;
+      minutesRemoved += (currentSum - recoveredTotal);
+    }
+
+    return { sessionsScanned, sessionsFixed, minutesRemoved };
+  }
+
   // User Profiles
   async getUserProfile(userId: string): Promise<UserProfile | undefined> {
     const [profile] = await db.select()
@@ -894,8 +958,19 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  // Helper to get date range based on period
-  private getDateRangeForPeriod(period: string = "weekly"): Date {
+  // Helper to get date range based on period.
+  //
+  // If `startTs` is provided (epoch ms), trust it — the client computed it in
+  // the user's local timezone so "today / this week / this month" boundaries
+  // match the user's wall clock instead of UTC. Falls back to server UTC math
+  // when no override is sent (legacy callers, server-internal calls).
+  private getDateRangeForPeriod(period: string = "weekly", startTs?: number): Date {
+    // Guard against junk values: must be a finite ms timestamp from after 2023
+    // (lower bound prevents accidental epoch-0 / clock-skewed clients) and not
+    // in the future (prevents leaking future-dated logs into "today").
+    if (typeof startTs === "number" && Number.isFinite(startTs) && startTs > 1_700_000_000_000 && startTs <= Date.now()) {
+      return new Date(startTs);
+    }
     const now = new Date();
     switch (period) {
       case "daily":
@@ -922,13 +997,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Stats
-  async getUserStats(userId: string, period: string = "weekly"): Promise<{
+  async getUserStats(userId: string, period: string = "weekly", startTs?: number): Promise<{
     totalSessions: number;
     totalMinutes: number;
     avgScore: number;
     streak: number;
   }> {
-    const startDate = this.getDateRangeForPeriod(period);
+    const startDate = this.getDateRangeForPeriod(period, startTs);
     const logs = await db.select()
       .from(trainingLogs)
       .where(and(
@@ -982,8 +1057,8 @@ export class DatabaseStorage implements IStorage {
     return { totalSessions, totalMinutes, avgScore: Math.round(avgScore * 10) / 10, streak };
   }
 
-  async getWeeklyStats(userId: string, period: string = "weekly"): Promise<{ date: string; minutes: number; sessions: number }[]> {
-    const startDate = this.getDateRangeForPeriod(period);
+  async getWeeklyStats(userId: string, period: string = "weekly", startTs?: number): Promise<{ date: string; minutes: number; sessions: number }[]> {
+    const startDate = this.getDateRangeForPeriod(period, startTs);
 
     const logs = await db.select()
       .from(trainingLogs)
@@ -1017,7 +1092,7 @@ export class DatabaseStorage implements IStorage {
       .sort((a, b) => a.date.localeCompare(b.date));
   }
 
-  async getProgressTrends(userId: string, period: string = "weekly"): Promise<{
+  async getProgressTrends(userId: string, period: string = "weekly", startTs?: number): Promise<{
     label: string; shotsMade: number; shotsAttempted: number;
     threesMade: number; threesAttempted: number;
     freeThrowsMade: number; freeThrowsAttempted: number;
@@ -1148,8 +1223,8 @@ export class DatabaseStorage implements IStorage {
     return buckets.map(b => bucketMap[b.key]);
   }
 
-  async getCategoryStats(userId: string, period: string = "weekly"): Promise<{ category: string; minutes: number; sessions: number }[]> {
-    const startDate = this.getDateRangeForPeriod(period);
+  async getCategoryStats(userId: string, period: string = "weekly", startTs?: number): Promise<{ category: string; minutes: number; sessions: number }[]> {
+    const startDate = this.getDateRangeForPeriod(period, startTs);
     const logs = await db.select()
       .from(trainingLogs)
       .where(and(
@@ -1183,9 +1258,9 @@ export class DatabaseStorage implements IStorage {
       .sort((a, b) => b.minutes - a.minutes);
   }
 
-  async getDashboardTrainingStats(userId: string, period: string = "weekly"): Promise<Record<string, number>> {
+  async getDashboardTrainingStats(userId: string, period: string = "weekly", startTs?: number): Promise<Record<string, number>> {
     const result: Record<string, number> = {};
-    const startDate = this.getDateRangeForPeriod(period);
+    const startDate = this.getDateRangeForPeriod(period, startTs);
 
     const logs = await db.select()
       .from(trainingLogs)
@@ -2010,8 +2085,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Shot Stats (for heatmap)
-  async getUserShotStats(userId: string, period: string = "weekly"): Promise<Array<{ location: string; made: number; missed: number }>> {
-    const startDate = this.getDateRangeForPeriod(period);
+  async getUserShotStats(userId: string, period: string = "weekly", startTs?: number): Promise<Array<{ location: string; made: number; missed: number }>> {
+    const startDate = this.getDateRangeForPeriod(period, startTs);
     const logs = await db
       .select({
         location: trainingLogs.shotLocation,
