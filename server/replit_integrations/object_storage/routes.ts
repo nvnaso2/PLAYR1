@@ -12,43 +12,96 @@ import ffmpegStaticPath from "ffmpeg-static";
 const ffmpegBin = ffmpegStaticPath as string;
 
 /**
+ * Probe a media file with ffmpeg and return its duration in seconds.
+ * Returns 0 if duration cannot be determined (file is broken/empty).
+ *
+ * We use ffmpeg itself (already shipped via ffmpeg-static) instead of ffprobe.
+ * Running `ffmpeg -i <file>` writes the file's metadata to stderr; we parse
+ * the "Duration: HH:MM:SS.ss" line.
+ */
+function probeDurationSec(filePath: string): Promise<number> {
+  return new Promise((resolve) => {
+    try {
+      const stat = fs.statSync(filePath);
+      if (!stat.size || stat.size < 1024) {
+        return resolve(0);
+      }
+    } catch {
+      return resolve(0);
+    }
+    const cmd = `"${ffmpegBin}" -i "${filePath}" -hide_banner -f null -`;
+    exec(cmd, { timeout: 60000 }, (_err, _stdout, stderr) => {
+      const out = stderr || "";
+      const m = out.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/);
+      if (!m) return resolve(0);
+      const h = parseInt(m[1], 10);
+      const mm = parseInt(m[2], 10);
+      const ss = parseFloat(m[3]);
+      if (!isFinite(h) || !isFinite(mm) || !isFinite(ss)) return resolve(0);
+      resolve(h * 3600 + mm * 60 + ss);
+    });
+  });
+}
+
+/**
  * Convert a video to a browser-compatible MP4 with moov atom at the front.
  *
- * Strategy (two-pass for maximum compatibility):
+ * Strategy (two-pass for maximum compatibility, with output validation):
  * 1. Try -c:v copy -c:a aac  — copies the video stream unchanged (fast, no quality loss)
  *    and converts audio to AAC (required for MP4; QuickTime/MOV often uses LPCM which
  *    Chrome rejects inside an MP4 container).
- * 2. If pass 1 fails (e.g. video codec like ProRes can't be muxed in MP4), fall back to
- *    -c:v libx264 -c:a aac with fast preset — universal H.264/AAC output.
+ * 2. If pass 1 fails OR produces a 0-duration / corrupt output (which can happen
+ *    silently for certain HEVC .mov, VP9 .webm, or ProRes sources where copy "succeeds"
+ *    but writes only headers), fall back to -c:v libx264 -c:a aac — universal H.264/AAC.
+ *
+ * If both passes produce an invalid file, this function REJECTS so the caller
+ * can leave the original upload untouched instead of replacing it with garbage.
  */
-function fixVideoFastStart(inputPath: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const outputPath = path.join("/tmp", `playr1_fixed_${randomUUID()}.mp4`);
+async function fixVideoFastStart(inputPath: string): Promise<string> {
+  const inputDuration = await probeDurationSec(inputPath);
+  // Minimum acceptable output duration. If we know the input duration, require at
+  // least 50% of it (ffmpeg occasionally drops a fraction of a second). Otherwise
+  // any positive duration is acceptable.
+  const minOutputSec = inputDuration > 0 ? Math.max(0.1, inputDuration * 0.5) : 0.1;
 
-    // Pass 1: copy video, convert audio to AAC
-    const cmd1 = `"${ffmpegBin}" -y -i "${inputPath}" -movflags +faststart -c:v copy -c:a aac -f mp4 "${outputPath}"`;
-    console.log(`[ffmpeg] Pass 1: ${cmd1}`);
-    exec(cmd1, { timeout: 600000 }, (err1, _stdout1, stderr1) => {
-      if (!err1) {
-        console.log(`[ffmpeg] Pass 1 success: ${outputPath}`);
-        return resolve(outputPath);
-      }
-
-      // Pass 1 failed — video codec likely can't be muxed in MP4; transcode to H.264
-      console.warn(`[ffmpeg] Pass 1 failed (${stderr1?.slice(0, 200)}), falling back to H.264 transcode`);
-      const outputPath2 = path.join("/tmp", `playr1_fixed_${randomUUID()}.mp4`);
-      const cmd2 = `"${ffmpegBin}" -y -i "${inputPath}" -movflags +faststart -c:v libx264 -c:a aac -crf 23 -preset fast -f mp4 "${outputPath2}"`;
-      console.log(`[ffmpeg] Pass 2: ${cmd2}`);
-      exec(cmd2, { timeout: 600000 }, (err2, _stdout2, stderr2) => {
-        if (err2) {
-          console.error(`[ffmpeg] Pass 2 failed: ${stderr2}`);
-          return reject(new Error(`ffmpeg failed: ${stderr2 || err2.message}`));
+  const runPass = (cmd: string, outputPath: string): Promise<{ ok: boolean; stderr: string; duration: number }> =>
+    new Promise((resolve) => {
+      console.log(`[ffmpeg] ${cmd}`);
+      exec(cmd, { timeout: 600000 }, async (err, _stdout, stderr) => {
+        if (err) {
+          return resolve({ ok: false, stderr: stderr || err.message, duration: 0 });
         }
-        console.log(`[ffmpeg] Pass 2 success: ${outputPath2}`);
-        resolve(outputPath2);
+        const duration = await probeDurationSec(outputPath);
+        resolve({ ok: duration >= minOutputSec, stderr: stderr || "", duration });
       });
     });
-  });
+
+  // Pass 1: copy video, convert audio to AAC
+  const outputPath1 = path.join("/tmp", `playr1_fixed_${randomUUID()}.mp4`);
+  const cmd1 = `"${ffmpegBin}" -y -i "${inputPath}" -movflags +faststart -c:v copy -c:a aac -f mp4 "${outputPath1}"`;
+  const pass1 = await runPass(cmd1, outputPath1);
+  if (pass1.ok) {
+    console.log(`[ffmpeg] Pass 1 success: ${outputPath1} (duration=${pass1.duration.toFixed(2)}s, input=${inputDuration.toFixed(2)}s)`);
+    return outputPath1;
+  }
+  console.warn(
+    `[ffmpeg] Pass 1 unusable (duration=${pass1.duration.toFixed(2)}s, input=${inputDuration.toFixed(2)}s) — falling back to H.264 transcode. stderr: ${pass1.stderr.slice(0, 300)}`
+  );
+  try { fs.unlinkSync(outputPath1); } catch {}
+
+  // Pass 2: full transcode to H.264/AAC
+  const outputPath2 = path.join("/tmp", `playr1_fixed_${randomUUID()}.mp4`);
+  const cmd2 = `"${ffmpegBin}" -y -i "${inputPath}" -movflags +faststart -c:v libx264 -c:a aac -crf 23 -preset fast -pix_fmt yuv420p -f mp4 "${outputPath2}"`;
+  const pass2 = await runPass(cmd2, outputPath2);
+  if (pass2.ok) {
+    console.log(`[ffmpeg] Pass 2 success: ${outputPath2} (duration=${pass2.duration.toFixed(2)}s)`);
+    return outputPath2;
+  }
+  try { fs.unlinkSync(outputPath2); } catch {}
+  console.error(`[ffmpeg] Pass 2 failed/unusable. stderr: ${pass2.stderr.slice(0, 500)}`);
+  throw new Error(
+    `ffmpeg produced unusable output (pass1=${pass1.duration.toFixed(2)}s, pass2=${pass2.duration.toFixed(2)}s, input=${inputDuration.toFixed(2)}s)`
+  );
 }
 
 /**
