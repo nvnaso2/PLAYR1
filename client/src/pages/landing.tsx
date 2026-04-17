@@ -134,6 +134,8 @@ export default function Landing() {
                 <img 
                   src={heroImage}
                   alt="Basketball player training"
+                  decoding="async"
+                  fetchPriority="high"
                   className="w-full h-auto object-cover transition-transform duration-500 hover:scale-105"
                   data-testid="img-hero"
                 />
@@ -200,6 +202,8 @@ export default function Landing() {
               <img 
                 src={productImage}
                 alt="PLAYR1 weighted basketball"
+                loading="lazy"
+                decoding="async"
                 className="w-full rounded-2xl ring-1 ring-black/5 dark:ring-white/5"
                 data-testid="img-product"
               />
@@ -246,6 +250,8 @@ export default function Landing() {
             <img 
               src={basketballImage}
               alt="PLAYR1 basketball on court"
+              loading="lazy"
+              decoding="async"
               className="w-full h-80 object-cover"
               data-testid="img-cta-background"
             />
@@ -277,6 +283,8 @@ export default function Landing() {
               <img 
                 src={logoLandscape} 
                 alt="PLAYR1" 
+                loading="lazy"
+                decoding="async"
                 className="h-8 w-32 object-cover invert hue-rotate-180 mix-blend-multiply dark:invert-0 dark:hue-rotate-0 dark:mix-blend-screen"
               />
               <span className="text-sm text-muted-foreground">

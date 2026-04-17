@@ -295,7 +295,7 @@ export default function AuthPage() {
         </div>
       </div>
       <div className="hidden lg:flex flex-1 relative items-center justify-center bg-black overflow-hidden">
-        <img src={heroImage} alt="Basketball training" className="absolute inset-0 w-full h-full object-cover opacity-60" />
+        <img src={heroImage} alt="Basketball training" loading="lazy" decoding="async" className="absolute inset-0 w-full h-full object-cover opacity-60" />
         <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-black/70" />
         <div className="relative text-center text-white px-12 max-w-lg">
           <h2 className="text-4xl font-bold mb-4">

@@ -81,7 +81,7 @@ function SplashScreen({ isAuthLoading, isAuthenticated, onComplete }: {
   const [barFull, setBarFull] = useState(false);
   const rafRef = useRef<number | null>(null);
   const startRef = useRef<number | null>(null);
-  const DURATION = 2000;
+  const DURATION = 800;
 
   useEffect(() => {
     startRef.current = Date.now();
@@ -101,8 +101,7 @@ function SplashScreen({ isAuthLoading, isAuthenticated, onComplete }: {
 
   useEffect(() => {
     if (barFull && !isAuthLoading && isAuthenticated) {
-      const t = setTimeout(onComplete, 250);
-      return () => clearTimeout(t);
+      onComplete();
     }
   }, [barFull, isAuthLoading, isAuthenticated, onComplete]);
 
