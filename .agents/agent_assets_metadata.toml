@@ -54,3 +54,9 @@ id = "QsTzbTg65MpfE9xW_fmPN"
 uri = "file://PLAYR1_Schema.txt"
 type = "text"
 title = "PLAYR1 Database Schema — All Data Models (Code)"
+
+[[outputs]]
+id = "0vQ1gABzVvBdW1uYX7AsU"
+uri = "file://docs/REQUIREMENTS.md"
+type = "text"
+title = "PLAYR1 Requirements Document"
