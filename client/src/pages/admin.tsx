@@ -2405,6 +2405,62 @@ function LocationForm({
   );
 }
 
+// Temporary one-time maintenance card. Once durations are recovered for all
+// historical sessions, this card (and its endpoint) can be deleted.
+function BackfillWorkoutDurationsCard() {
+  const { toast } = useToast();
+  const [result, setResult] = useState<{ sessionsScanned: number; sessionsFixed: number; minutesRemoved: number } | null>(null);
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/backfill-workout-durations");
+      return await res.json() as { sessionsScanned: number; sessionsFixed: number; minutesRemoved: number };
+    },
+    onSuccess: (data) => {
+      setResult(data);
+      queryClient.invalidateQueries({ queryKey: ['/api/stats/overview'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stats/weekly'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stats/dashboard-training'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/training-logs'] });
+      toast({
+        title: "Backfill complete",
+        description: `Scanned ${data.sessionsScanned} sessions, fixed ${data.sessionsFixed}, removed ${data.minutesRemoved} inflated minutes.`,
+      });
+    },
+    onError: (err: any) => {
+      toast({ title: "Backfill failed", description: err?.message || "Unknown error", variant: "destructive" });
+    },
+  });
+
+  return (
+    <Card data-testid="card-backfill-durations" className="border-orange-500/30">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">Recalculate workout times (one-time)</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          Older multi-round workouts double-counted time. Click once to recover the
+          original timer total for every affected session. Safe to re-run; sessions
+          that already look correct are skipped.
+        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            onClick={() => mutation.mutate()}
+            disabled={mutation.isPending}
+            data-testid="button-backfill-durations"
+          >
+            {mutation.isPending ? "Recalculating…" : "Run recalculation"}
+          </Button>
+          {result && (
+            <span className="text-sm text-muted-foreground" data-testid="text-backfill-result">
+              Scanned {result.sessionsScanned} · Fixed {result.sessionsFixed} · Removed {result.minutesRemoved} min
+            </span>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AdminPage() {
   const { toast } = useToast();
   const { isAdmin, isLoading: adminLoading } = useAdmin();
@@ -2884,6 +2940,8 @@ export default function AdminPage() {
           <p className="text-sm sm:text-base text-muted-foreground">Manage drills, users, and permissions</p>
         </div>
       </div>
+
+      <BackfillWorkoutDurationsCard />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-1 h-auto p-1">
