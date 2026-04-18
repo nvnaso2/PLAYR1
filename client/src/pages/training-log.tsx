@@ -3061,7 +3061,7 @@ export default function TrainingLogPage() {
                             const totalRounds = group.logs.length;
                             
                             return (
-                            <Collapsible key={group.sessionId} defaultOpen={true}>
+                            <Collapsible key={group.sessionId} defaultOpen={false}>
                               <Card className="border-primary/20" data-testid={`card-session-${group.sessionId}`}>
                                 <CardHeader className="pb-2 p-3 sm:p-4">
                                   <div className="flex items-start gap-2">
