@@ -1,7 +1,6 @@
 import { 
   drills, type Drill, type InsertDrill,
   trainingLogs, type TrainingLog, type InsertTrainingLog,
-  workoutDurationBackup,
   userProfiles, type UserProfile, type InsertUserProfile,
   userVideos, type UserVideo, type InsertUserVideo,
   drillProgress, type DrillProgress, type InsertDrillProgress,
@@ -102,8 +101,6 @@ export interface IStorage {
   createTrainingLog(log: InsertTrainingLog): Promise<TrainingLog>;
   updateTrainingLog(id: string, updates: Partial<InsertTrainingLog>): Promise<TrainingLog>;
   deleteTrainingLog(id: string): Promise<boolean>;
-  backfillWorkoutDurations(): Promise<{ sessionsScanned: number; sessionsFixed: number; minutesRemoved: number; rowsBackedUp: number }>;
-  restoreWorkoutDurations(): Promise<{ rowsRestored: number; backupsCleared: number }>;
 
   // User Profiles
   getUserProfile(userId: string): Promise<UserProfile | undefined>;
@@ -748,101 +745,6 @@ export class DatabaseStorage implements IStorage {
   async deleteTrainingLog(id: string): Promise<boolean> {
     const result = await db.delete(trainingLogs).where(eq(trainingLogs.id, id));
     return (result.rowCount ?? 0) > 0;
-  }
-
-  async restoreWorkoutDurations(): Promise<{ rowsRestored: number; backupsCleared: number }> {
-    const backups = await db.select().from(workoutDurationBackup);
-    let rowsRestored = 0;
-    for (const b of backups) {
-      await db.update(trainingLogs)
-        .set({ duration: b.originalDuration })
-        .where(eq(trainingLogs.id, b.trainingLogId));
-      rowsRestored++;
-    }
-    const backupsCleared = backups.length;
-    if (backupsCleared > 0) {
-      await db.delete(workoutDurationBackup);
-    }
-    return { rowsRestored, backupsCleared };
-  }
-
-  async backfillWorkoutDurations(): Promise<{ sessionsScanned: number; sessionsFixed: number; minutesRemoved: number; rowsBackedUp: number }> {
-    // Pull every multi-entry workout session. Single-entry workouts
-    // (workoutSessionId IS NULL) cannot be inflated and are skipped.
-    const sessionRows = await db
-      .selectDistinct({ sid: trainingLogs.workoutSessionId })
-      .from(trainingLogs)
-      .where(sql`${trainingLogs.workoutSessionId} IS NOT NULL`);
-
-    let sessionsScanned = 0;
-    let sessionsFixed = 0;
-    let minutesRemoved = 0;
-    let rowsBackedUp = 0;
-
-    for (const row of sessionRows) {
-      const sid = row.sid;
-      if (!sid) continue;
-      sessionsScanned++;
-
-      // Pull all entries in this session, ordered by completedAt then id.
-      const entries = await db
-        .select()
-        .from(trainingLogs)
-        .where(eq(trainingLogs.workoutSessionId, sid))
-        .orderBy(asc(trainingLogs.completedAt), asc(trainingLogs.id));
-
-      if (entries.length < 2) continue;
-
-      const currentSum = entries.reduce((s, e) => s + (e.duration || 0), 0);
-
-      // Recover original timer total: per-drillId, all rounds had the SAME
-      // proportional value, so MAX(duration) per drillId equals the per-drill
-      // share. Sum those shares = original total session minutes.
-      const maxByDrill = new Map<string, number>();
-      for (const e of entries) {
-        const k = e.drillId || "__nodrill__";
-        const v = e.duration || 0;
-        if (v > (maxByDrill.get(k) ?? 0)) maxByDrill.set(k, v);
-      }
-      const recoveredTotal = Array.from(maxByDrill.values()).reduce((s, v) => s + v, 0);
-
-      // If sum already equals recovered total, this session is either already
-      // fixed or was never inflated (one round per drill). Skip.
-      if (currentSum <= recoveredTotal) continue;
-
-      const firstId = entries[0].id;
-      const restIds = entries.slice(1).map(e => e.id);
-
-      // Backup originals BEFORE mutating, so a restore is always possible.
-      // Skip rows already present in the backup table (re-runs) so we keep
-      // the very first observed original value.
-      const alreadyBacked = await db.select({ id: workoutDurationBackup.trainingLogId })
-        .from(workoutDurationBackup)
-        .where(inArray(workoutDurationBackup.trainingLogId, entries.map(e => e.id)));
-      const backedSet = new Set(alreadyBacked.map(r => r.id));
-      const toBackup = entries
-        .filter(e => !backedSet.has(e.id))
-        .map(e => ({ trainingLogId: e.id, originalDuration: e.duration || 0 }));
-      if (toBackup.length > 0) {
-        await db.insert(workoutDurationBackup).values(toBackup);
-        rowsBackedUp += toBackup.length;
-      }
-
-      await db.update(trainingLogs)
-        .set({ duration: recoveredTotal })
-        .where(eq(trainingLogs.id, firstId));
-
-      if (restIds.length > 0) {
-        await db.update(trainingLogs)
-          .set({ duration: 0 })
-          .where(inArray(trainingLogs.id, restIds));
-      }
-
-      sessionsFixed++;
-      minutesRemoved += (currentSum - recoveredTotal);
-    }
-
-    return { sessionsScanned, sessionsFixed, minutesRemoved, rowsBackedUp };
   }
 
   // User Profiles

@@ -1525,40 +1525,6 @@ export async function registerRoutes(
     }
   });
 
-  // One-time backfill for inflated workout durations.
-  // Older client code stamped each round of a multi-round drill with the FULL
-  // proportional share of the session timer, so SUM(duration) for a session
-  // ended up 2-3× the real timer value. For each session we recover the
-  // original total as SUM(MAX(duration) per drillId), put that on the first
-  // entry, and zero the rest. Idempotent. Admin only.
-  app.post("/api/admin/backfill-workout-durations", isAuthenticated, async (req: AuthenticatedRequest, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const isAdmin = await storage.isUserAdmin(userId);
-      if (!isAdmin) return res.status(403).json({ message: "Admin only" });
-      const result = await storage.backfillWorkoutDurations();
-      res.json(result);
-    } catch (error) {
-      console.error("Error backfilling workout durations:", error);
-      res.status(500).json({ message: "Failed to backfill workout durations" });
-    }
-  });
-
-  // Restore training_logs.duration values from workout_duration_backup.
-  // Reverts the most recent backfill run. Admin only.
-  app.post("/api/admin/restore-workout-durations", isAuthenticated, async (req: AuthenticatedRequest, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const isAdmin = await storage.isUserAdmin(userId);
-      if (!isAdmin) return res.status(403).json({ message: "Admin only" });
-      const result = await storage.restoreWorkoutDurations();
-      res.json(result);
-    } catch (error) {
-      console.error("Error restoring workout durations:", error);
-      res.status(500).json({ message: "Failed to restore workout durations" });
-    }
-  });
-
   // Get single training log with metrics
   app.get("/api/training-logs/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
