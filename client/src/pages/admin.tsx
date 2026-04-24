@@ -58,7 +58,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText, Play, ChevronDown, GraduationCap, MapPin, ListFilter, X, BarChart2, TrendingUp, TrendingDown, Activity, UserCheck, Wrench, Flame, Lightbulb, Zap, Globe, AlertTriangle, Trophy, Target, GitBranch } from "lucide-react";
+import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText, Play, ChevronDown, GraduationCap, MapPin, ListFilter, X, BarChart2, TrendingUp, TrendingDown, Activity, UserCheck, Wrench, Flame, Lightbulb, Zap, Globe, AlertTriangle, Trophy, Target, GitBranch, Clock, ArrowDown } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
 import type { Drill, DrillCategory, DifficultyLevel, DrillMetric, VideoLibrary, PdfLibrary, MetricTemplate, Workout, WorkoutDrill, TrainingLocation, ShotLocationDB, ShotTypeDB } from "@shared/schema";
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, METRIC_TYPES, US_STATES } from "@shared/schema";
@@ -4294,7 +4294,7 @@ function AdminAnalyticsTab() {
 
         <TabsContent value="overview" className="mt-6"><OverviewSubTab /></TabsContent>
         <TabsContent value="retention" className="mt-6"><RetentionSubTab /></TabsContent>
-        <TabsContent value="funnels" className="mt-6"><ComingSoonCard title="Funnels" description="Conversion funnels for onboarding, booking, and key user journeys. Planned for Phase 2." icon={GitBranch} /></TabsContent>
+        <TabsContent value="funnels" className="mt-6"><FunnelsSubTab /></TabsContent>
         <TabsContent value="users" className="mt-6"><ComingSoonCard title="User Segmentation" description="Auto-segments (daily grinders, weekend warriors, ghost signups), engagement scoring leaderboard, and at-risk user actions. Planned for Phase 2." icon={Users} /></TabsContent>
         <TabsContent value="content" className="mt-6"><ComingSoonCard title="Content Performance" description="Drill effectiveness scoring, content gap analysis, video engagement, and Daily Streak Challenge ROI. Planned for Phase 3." icon={Trophy} /></TabsContent>
         <TabsContent value="ai" className="mt-6"><ComingSoonCard title="AI Insights" description="Daily auto-generated insight feed, anomaly alerts, weekly executive summary, and natural-language query box powered by GPT. Planned for Phase 3." icon={Lightbulb} /></TabsContent>
@@ -4894,6 +4894,205 @@ function EngagementUserList({ title, icon: Icon, accent, users, emptyMessage, su
       </Card>
     </div>
   );
+}
+
+// ─── Funnels sub-tab ───────────────────────────────────────────────────────
+
+const FUNNEL_PRESETS = [
+  { value: "activation", label: "Activation" },
+  { value: "booking",    label: "Booking" },
+  { value: "engagement", label: "Engagement Loop" },
+];
+
+const WINDOW_OPTIONS = [
+  { value: "7",  label: "Last 7 days" },
+  { value: "30", label: "Last 30 days" },
+  { value: "90", label: "Last 90 days" },
+];
+
+function FunnelsSubTab() {
+  const [funnel, setFunnel] = useState<string>("activation");
+  const [days, setDays] = useState<string>("30");
+
+  const { data, isLoading, isError, error, refetch } = useQuery<any>({
+    queryKey: ["/api/admin/analytics/funnels", funnel, days],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/admin/analytics/funnels?funnel=${encodeURIComponent(funnel)}&days=${encodeURIComponent(days)}`);
+      return res.json();
+    },
+  });
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-semibold mb-1">Conversion Funnels</h2>
+        <p className="text-sm text-muted-foreground">
+          See how users move through the most important sequences in your product. Each step requires the previous step to have happened first for the same user.
+        </p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground uppercase tracking-wide">Funnel</span>
+          <Select value={funnel} onValueChange={setFunnel}>
+            <SelectTrigger className="w-[200px]" data-testid="select-funnel">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {FUNNEL_PRESETS.map(o => (
+                <SelectItem key={o.value} value={o.value} data-testid={`funnel-option-${o.value}`}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground uppercase tracking-wide">Window</span>
+          <Select value={days} onValueChange={setDays}>
+            <SelectTrigger className="w-[160px]" data-testid="select-funnel-window">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {WINDOW_OPTIONS.map(o => (
+                <SelectItem key={o.value} value={o.value} data-testid={`window-option-${o.value}`}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {isLoading && (
+        <div className="space-y-3">
+          {[1,2,3,4].map(i => <Skeleton key={i} className="h-20 rounded-xl" />)}
+        </div>
+      )}
+
+      {isError && (
+        <Card data-testid="funnels-error-state">
+          <CardContent className="p-8 text-center space-y-3">
+            <AlertTriangle className="w-8 h-8 text-orange-500 mx-auto" />
+            <p className="font-medium">Couldn't load funnel data</p>
+            <p className="text-sm text-muted-foreground">{(error as Error)?.message || "Unknown error"}</p>
+            <Button size="sm" variant="outline" onClick={() => refetch()} data-testid="btn-retry-funnel">Retry</Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {!isLoading && !isError && data && (
+        <FunnelView data={data} />
+      )}
+    </div>
+  );
+}
+
+function FunnelView({ data }: { data: {
+  funnel: string;
+  label: string;
+  description: string;
+  windowDays: number;
+  totalCandidates: number;
+  steps: Array<{ key: string; label: string; users: number; pctFromStart: number; pctFromPrev: number; dropOff: number; medianTimeToNextSec: number | null }>;
+} }) {
+  const startUsers = data.steps[0]?.users ?? 0;
+
+  if (startUsers === 0) {
+    return (
+      <Card>
+        <CardContent className="p-12 text-center space-y-2">
+          <GitBranch className="w-8 h-8 text-muted-foreground mx-auto" />
+          <p className="font-medium">No funnel data yet</p>
+          <p className="text-sm text-muted-foreground max-w-md mx-auto">
+            No users have entered the "{data.steps[0]?.label}" step in the last {data.windowDays} days. Funnels populate as users start triggering events — try a longer window or pick a different funnel.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardContent className="p-5 space-y-2">
+        <div className="flex items-baseline justify-between mb-3">
+          <div>
+            <h3 className="text-base font-semibold">{data.label}</h3>
+            <p className="text-xs text-muted-foreground">{data.description}</p>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Last {data.windowDays} days · {data.totalCandidates.toLocaleString()} entered
+          </p>
+        </div>
+
+        <div className="space-y-1">
+          {data.steps.map((step, i) => {
+            const widthPct = data.steps[0].users > 0
+              ? Math.max(2, (step.users / data.steps[0].users) * 100)
+              : 2;
+            return (
+              <div key={step.key} data-testid={`funnel-step-${step.key}`}>
+                {i > 0 && (
+                  <div className="flex items-center gap-2 my-2 ml-2 text-xs text-muted-foreground">
+                    <ArrowDown className="w-3 h-3" />
+                    <span>
+                      {step.dropOff.toLocaleString()} dropped off
+                      {step.medianTimeToNextSec != null && (
+                        <>
+                          <span className="mx-1.5">·</span>
+                          <Clock className="inline w-3 h-3 mr-1" />
+                          median {humanizeSeconds(step.medianTimeToNextSec)} from previous step
+                        </>
+                      )}
+                    </span>
+                  </div>
+                )}
+                <div className="rounded-lg border bg-card overflow-hidden">
+                  <div
+                    className="bg-primary/15 transition-all"
+                    style={{ width: `${widthPct}%` }}
+                  >
+                    <div className="flex items-center justify-between gap-3 px-4 py-3 min-w-fit">
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold truncate">
+                          <span className="text-muted-foreground mr-2">{i + 1}.</span>
+                          {step.label}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {step.users.toLocaleString()} {step.users === 1 ? "user" : "users"}
+                          {i > 0 && (
+                            <>
+                              <span className="mx-1.5">·</span>
+                              {step.pctFromPrev}% from prev
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-2xl font-bold">{step.pctFromStart}%</div>
+                        <div className="text-[10px] text-muted-foreground uppercase tracking-wide">of start</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Overall summary */}
+        <div className="mt-4 pt-4 border-t flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">End-to-end conversion</span>
+          <span className="font-semibold text-lg">
+            {data.steps[data.steps.length - 1]?.pctFromStart ?? 0}%
+          </span>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function humanizeSeconds(sec: number): string {
+  if (sec < 60) return `${sec}s`;
+  if (sec < 3600) return `${Math.round(sec / 60)}m`;
+  if (sec < 86400) return `${Math.round((sec / 3600) * 10) / 10}h`;
+  return `${Math.round((sec / 86400) * 10) / 10}d`;
 }
 
 // ─── Coming-Soon placeholder for future analytics phases ───────────────────

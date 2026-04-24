@@ -1,5 +1,5 @@
 import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, boolean, decimal, doublePrecision, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, boolean, decimal, doublePrecision, jsonb, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -1437,7 +1437,12 @@ export const analyticsEvents = pgTable("analytics_events", {
   page: varchar("page", { length: 200 }),
   metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => ({
+  // Indexes for funnel/retention queries that filter by event + window
+  // and walk events per user in time order.
+  eventCreatedAtIdx: index("analytics_events_event_created_at_idx").on(table.event, table.createdAt),
+  userCreatedAtIdx:  index("analytics_events_user_created_at_idx").on(table.userId, table.createdAt),
+}));
 
 // ─── Analytics Insights (cached AI-generated insights & anomaly alerts) ────
 

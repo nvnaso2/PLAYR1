@@ -7557,6 +7557,23 @@ export async function registerRoutes(
     }
   });
 
+  // Funnel analysis (preset funnels: activation, booking, engagement)
+  app.get("/api/admin/analytics/funnels", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const adminCheck = await storage.isUserAdmin(userId);
+      if (!adminCheck) return res.status(403).json({ message: "Admins only" });
+      const funnel = typeof req.query.funnel === "string" ? req.query.funnel : "activation";
+      const days = typeof req.query.days === "string" ? parseInt(req.query.days, 10) : 30;
+      const data = await storage.getFunnelAnalysis(funnel, isNaN(days) ? 30 : days);
+      res.json(data);
+    } catch (err) {
+      console.error("Error getting funnel analytics:", err);
+      const msg = err instanceof Error ? err.message : "Failed to get funnel analytics";
+      res.status(msg.startsWith("Unknown funnel") ? 400 : 500).json({ message: msg });
+    }
+  });
+
   // Top movers (week-over-week change)
   app.get("/api/admin/analytics/movers", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {

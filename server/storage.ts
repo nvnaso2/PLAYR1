@@ -4160,6 +4160,150 @@ export class DatabaseStorage implements IStorage {
   }
 
   /**
+   * Funnel analysis — for each preset funnel, walks each user's events in
+   * time order and counts how many made it to each sequential step.
+   * The next step must occur *after* the previous step's timestamp for
+   * the same user. Median time-to-next is reported per step transition.
+   */
+  async getFunnelAnalysis(funnelKey: string, days: number): Promise<{
+    funnel: string;
+    label: string;
+    description: string;
+    windowDays: number;
+    steps: Array<{
+      key: string;
+      label: string;
+      users: number;
+      pctFromStart: number;
+      pctFromPrev: number;
+      dropOff: number;
+      medianTimeToNextSec: number | null;
+    }>;
+    totalCandidates: number;
+  }> {
+    type StepDef = {
+      key: string;
+      label: string;
+      events: string[];
+      pageMatch?: (path: string | null) => boolean;
+    };
+    const FUNNELS: Record<string, { label: string; description: string; steps: StepDef[] }> = {
+      activation: {
+        label: "New User Activation",
+        description: "Signup → Onboarding → First Drill Viewed → First Drill Logged",
+        steps: [
+          { key: "signup",      label: "Signed Up",            events: ["signup"] },
+          { key: "onboarding",  label: "Completed Onboarding", events: ["onboarding_completed"] },
+          { key: "first_view",  label: "Viewed First Drill",   events: ["drill_viewed"] },
+          { key: "first_log",   label: "Logged First Drill",   events: ["drill_log_completed"] },
+        ],
+      },
+      booking: {
+        label: "Trainer Booking",
+        description: "Discover trainers → View trainer profile → Book a session",
+        steps: [
+          { key: "discover", label: "Visited My Trainer",      events: ["page_view"], pageMatch: (p) => !!p && p.startsWith("/my-trainer") },
+          { key: "profile",  label: "Viewed Trainer Profile",  events: ["page_view"], pageMatch: (p) => !!p && p.startsWith("/t/") },
+          { key: "booked",   label: "Booked Session",          events: ["booking_completed"] },
+        ],
+      },
+      engagement: {
+        label: "Daily Engagement Loop",
+        description: "Drill View → Drill Log → Daily Challenge",
+        steps: [
+          { key: "view",      label: "Viewed a Drill",          events: ["drill_viewed"] },
+          { key: "log",       label: "Logged a Drill",          events: ["drill_log_completed"] },
+          { key: "challenge", label: "Started Daily Challenge", events: ["daily_challenge_started"] },
+        ],
+      },
+    };
+
+    const def = FUNNELS[funnelKey];
+    if (!def) throw new Error(`Unknown funnel: ${funnelKey}`);
+    const windowDays = Math.max(1, Math.min(365, Math.floor(days || 30)));
+
+    const r = <T = any>(res: any): T[] => (res.rows ?? res) as T[];
+
+    // Pull only events relevant to any step in this funnel
+    const eventNames = Array.from(new Set(def.steps.flatMap(s => s.events)));
+    const rows = r<{ user_id: string; event: string; page: string | null; created_at: string | Date }>(
+      await db.execute(sql`
+        SELECT user_id, event, page, created_at, id
+        FROM analytics_events
+        WHERE created_at >= NOW() - (${windowDays}::int || ' days')::interval
+          AND event IN (${sql.join(eventNames.map(e => sql`${e}`), sql`, `)})
+        -- Deterministic tiebreak on id so equal-timestamp events have a stable order.
+        ORDER BY user_id ASC, created_at ASC, id ASC
+      `)
+    );
+
+    // Group events by user, preserving time order
+    const byUser = new Map<string, Array<{ event: string; page: string | null; ts: number }>>();
+    for (const row of rows) {
+      const uid = String(row.user_id);
+      const ts = new Date(row.created_at as any).getTime();
+      if (!byUser.has(uid)) byUser.set(uid, []);
+      byUser.get(uid)!.push({ event: String(row.event), page: row.page ?? null, ts });
+    }
+
+    // For each user, walk events and find earliest-after-previous timestamp at each step
+    const stepReachCount = def.steps.map(() => 0);
+    const transitionDeltas: number[][] = def.steps.map(() => []); // index i = delta seconds between step i-1 and step i
+    let totalCandidates = 0; // users who reached at least step 0
+
+    for (const events of byUser.values()) {
+      let pointer = 0;
+      let lastReachedAt: number | null = null;
+      for (const e of events) {
+        if (pointer >= def.steps.length) break;
+        const step = def.steps[pointer];
+        const matchesEvent = step.events.includes(e.event);
+        const matchesPage = !step.pageMatch || step.pageMatch(e.page);
+        // Step 2+ must occur strictly AFTER the previous step's timestamp.
+        const isAfterPrev = pointer === 0 || lastReachedAt == null || e.ts > lastReachedAt;
+        if (matchesEvent && matchesPage && isAfterPrev) {
+          stepReachCount[pointer]++;
+          if (pointer === 0) totalCandidates++;
+          if (pointer > 0 && lastReachedAt != null) {
+            transitionDeltas[pointer].push((e.ts - lastReachedAt) / 1000);
+          }
+          lastReachedAt = e.ts;
+          pointer++;
+        }
+      }
+    }
+
+    const median = (arr: number[]): number | null => {
+      if (!arr.length) return null;
+      const sorted = [...arr].sort((a, b) => a - b);
+      const mid = Math.floor(sorted.length / 2);
+      return sorted.length % 2 === 0
+        ? Math.round((sorted[mid - 1] + sorted[mid]) / 2)
+        : Math.round(sorted[mid]);
+    };
+
+    const startCount = stepReachCount[0];
+    const steps = def.steps.map((s, i) => {
+      const users = stepReachCount[i];
+      const prev = i === 0 ? users : stepReachCount[i - 1];
+      const pctFromStart = startCount > 0 ? Math.round((users / startCount) * 1000) / 10 : 0;
+      const pctFromPrev  = prev > 0       ? Math.round((users / prev) * 1000) / 10       : 0;
+      const dropOff      = i === 0 ? 0 : prev - users;
+      const medianTimeToNextSec = i === 0 ? null : median(transitionDeltas[i]);
+      return { key: s.key, label: s.label, users, pctFromStart, pctFromPrev, dropOff, medianTimeToNextSec };
+    });
+
+    return {
+      funnel: funnelKey,
+      label: def.label,
+      description: def.description,
+      windowDays,
+      steps,
+      totalCandidates,
+    };
+  }
+
+  /**
    * Week-over-week % change for headline metrics.
    * Returns rows sorted by absolute change for "biggest movers" UI.
    */
