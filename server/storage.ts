@@ -3892,7 +3892,8 @@ export class DatabaseStorage implements IStorage {
         SELECT
           c.cohort_week,
           c.user_id,
-          GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (DATE_TRUNC('week', tl.completed_at)::date - c.cohort_week)) / 604800)::int) AS week_offset
+          -- Postgres date minus date returns integer days, so divide by 7 for weeks.
+          GREATEST(0, FLOOR((DATE_TRUNC('week', tl.completed_at)::date - c.cohort_week) / 7.0)::int) AS week_offset
         FROM cohorts c
         JOIN training_logs tl ON tl.user_id = c.user_id
         WHERE tl.completed_at >= c.cohort_week
