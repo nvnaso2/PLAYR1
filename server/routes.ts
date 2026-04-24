@@ -79,6 +79,36 @@ async function getSessionEmailData(session: any) {
   };
 }
 
+// Returns true if `ip` is a public, routable address suitable for geo lookup.
+// Excludes loopback, private, link-local, multicast, and broadcast ranges
+// (both IPv4 and IPv6). Used to filter analytics-event IPs before geoip-lite.
+function isPublicRoutableIp(ip: string): boolean {
+  if (!ip) return false;
+  // IPv6
+  if (ip.includes(":")) {
+    const lower = ip.toLowerCase();
+    if (lower === "::1" || lower === "::") return false;
+    // ULA fc00::/7
+    if (lower.startsWith("fc") || lower.startsWith("fd")) return false;
+    // Link-local fe80::/10
+    if (lower.startsWith("fe8") || lower.startsWith("fe9") || lower.startsWith("fea") || lower.startsWith("feb")) return false;
+    return true;
+  }
+  // IPv4
+  const parts = ip.split(".").map(Number);
+  if (parts.length !== 4 || parts.some((n) => Number.isNaN(n) || n < 0 || n > 255)) return false;
+  const [a, b] = parts;
+  if (a === 10) return false;                                 // 10.0.0.0/8
+  if (a === 127) return false;                                // loopback
+  if (a === 192 && b === 168) return false;                   // 192.168.0.0/16
+  if (a === 172 && b >= 16 && b <= 31) return false;          // 172.16.0.0/12
+  if (a === 169 && b === 254) return false;                   // link-local
+  if (a === 100 && b >= 64 && b <= 127) return false;         // CGNAT 100.64.0.0/10
+  if (a === 0) return false;                                  // 0.0.0.0/8
+  if (a >= 224) return false;                                 // multicast/reserved/broadcast
+  return true;
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -7505,7 +7535,40 @@ export async function registerRoutes(
       const userId = req.user!.claims.sub;
       const { event, page, metadata } = req.body;
       if (!event) return res.status(400).json({ message: "Event required" });
-      await storage.trackAnalyticsEvent(userId, event, page, metadata);
+
+      // Capture client IP and resolve to coarse geo (country/region/city/lat/lng)
+      // using the offline geoip-lite MaxMind DB. No network calls, no API key.
+      // We only persist the derived geo on the event — the raw IP is never stored.
+      let geo: any = undefined;
+      try {
+        const xff = String(req.headers["x-forwarded-for"] || "");
+        const rawIp = xff.split(",")[0].trim() || (req.ip ?? "");
+        const ip = rawIp.replace(/^::ffff:/, "");
+        if (ip && isPublicRoutableIp(ip)) {
+          const geoip = (await import("geoip-lite")).default;
+          const lookup = geoip.lookup(ip);
+          if (
+            lookup &&
+            Array.isArray(lookup.ll) &&
+            lookup.ll.length === 2 &&
+            Number.isFinite(lookup.ll[0]) &&
+            Number.isFinite(lookup.ll[1])
+          ) {
+            geo = {
+              country: lookup.country || null,
+              region: lookup.region || null,
+              city: lookup.city || null,
+              lat: lookup.ll[0],
+              lng: lookup.ll[1],
+            };
+          }
+        }
+      } catch {
+        // Geo lookup is best-effort; never fail the track call because of it.
+      }
+
+      const enrichedMetadata = geo ? { ...(metadata || {}), geo } : metadata;
+      await storage.trackAnalyticsEvent(userId, event, page, enrichedMetadata);
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ message: "Failed to track event" });

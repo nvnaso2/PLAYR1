@@ -65,6 +65,7 @@ import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, METRIC_TYPES, US_STATES } from "@s
 import { Layers, GripVertical } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useUpload } from "@/hooks/use-upload";
+import { LiveWorldMap } from "@/components/admin/LiveWorldMap";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 
@@ -5450,6 +5451,7 @@ type LiveData = {
   eventsByMinute: Array<{ minute: string; count: number }>;
   topActiveUsers: Array<{ userId: string; name: string; email: string; eventCount: number }>;
   recentEvents: Array<{ id: string; userId: string | null; userName: string; event: string; props: any; createdAt: string; ageSec: number }>;
+  activeLocations: Array<{ country: string | null; city: string | null; lat: number; lng: number; userCount: number; eventCount: number }>;
 };
 
 function formatAge(sec: number): string {
@@ -5531,6 +5533,9 @@ function LiveActivitySubTab() {
         <AccentStatCard label="Active (60 min)" value={data.active60min.toLocaleString()} sub={`${data.eventsLast60min} events fired`} icon={Users} accent="purple" testId="stat-live-60min" />
         <AccentStatCard label="Avg events/min" value={(data.eventsLast60min / 60).toFixed(1)} sub="rolling 60-min average" icon={TrendingUp} accent="orange" testId="stat-live-rate" />
       </div>
+
+      {/* World map of active users */}
+      <LiveWorldMap locations={data.activeLocations || []} />
 
       {/* Per-minute sparkline */}
       <Card>

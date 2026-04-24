@@ -4573,6 +4573,7 @@ export class DatabaseStorage implements IStorage {
     eventsByMinute: Array<{ minute: string; count: number }>;
     topActiveUsers: Array<{ userId: string; name: string; email: string; eventCount: number }>;
     recentEvents: Array<{ id: string; userId: string | null; userName: string; event: string; props: any; createdAt: string; ageSec: number }>;
+    activeLocations: Array<{ country: string | null; city: string | null; lat: number; lng: number; userCount: number; eventCount: number }>;
   }> {
     const r = <T = any>(res: any): T[] => (res.rows ?? res) as T[];
     const r1 = (res: any): any => r(res)[0] ?? {};
@@ -4631,6 +4632,38 @@ export class DatabaseStorage implements IStorage {
       LIMIT 50
     `));
 
+    // Active locations (last 60 min) — group by city dot, count distinct users.
+    // Geo data is stored in metadata.geo by the /api/analytics/track route.
+    // Casts are guarded: only rows whose lat/lng look like valid signed decimals
+    // are included, so a malformed metadata.geo can never crash this query.
+    const NUM_RE = "^-?[0-9]+(\\.[0-9]+)?$";
+    const locationRows = r(await db.execute(sql`
+      WITH geo_events AS (
+        SELECT
+          ae.user_id,
+          ae.metadata->'geo'->>'country' AS country,
+          ae.metadata->'geo'->>'city' AS city,
+          ae.metadata->'geo'->>'lat' AS lat_raw,
+          ae.metadata->'geo'->>'lng' AS lng_raw
+        FROM analytics_events ae
+        WHERE ae.created_at >= NOW() - INTERVAL '60 minutes'
+          AND ae.metadata ? 'geo'
+      )
+      SELECT
+        country,
+        city,
+        ROUND(lat_raw::numeric, 2)::float AS lat,
+        ROUND(lng_raw::numeric, 2)::float AS lng,
+        COUNT(DISTINCT user_id)::int AS user_count,
+        COUNT(*)::int AS event_count
+      FROM geo_events
+      WHERE lat_raw ~ ${NUM_RE}
+        AND lng_raw ~ ${NUM_RE}
+      GROUP BY country, city, ROUND(lat_raw::numeric, 2), ROUND(lng_raw::numeric, 2)
+      ORDER BY user_count DESC, event_count DESC
+      LIMIT 200
+    `));
+
     return {
       activeNow: Number(counts.active_now || 0),
       active15min: Number(counts.active_15min || 0),
@@ -4652,6 +4685,14 @@ export class DatabaseStorage implements IStorage {
         props: row.metadata ?? null,
         createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
         ageSec: Number(row.age_sec || 0),
+      })),
+      activeLocations: locationRows.map((row: any) => ({
+        country: row.country ? String(row.country) : null,
+        city: row.city ? String(row.city) : null,
+        lat: Number(row.lat),
+        lng: Number(row.lng),
+        userCount: Number(row.user_count || 0),
+        eventCount: Number(row.event_count || 0),
       })),
     };
   }
