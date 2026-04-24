@@ -4561,6 +4561,223 @@ export class DatabaseStorage implements IStorage {
   }
 
   /**
+   * Live activity feed — what's happening on the platform RIGHT NOW.
+   * Designed to be polled every ~10 seconds from the admin Live tab.
+   */
+  async getLiveActivity(): Promise<{
+    activeNow: number;
+    active15min: number;
+    active60min: number;
+    eventsLast15min: number;
+    eventsLast60min: number;
+    eventsByMinute: Array<{ minute: string; count: number }>;
+    topActiveUsers: Array<{ userId: string; name: string; email: string; eventCount: number }>;
+    recentEvents: Array<{ id: string; userId: string | null; userName: string; event: string; props: any; createdAt: string; ageSec: number }>;
+  }> {
+    const r = <T = any>(res: any): T[] => (res.rows ?? res) as T[];
+    const r1 = (res: any): any => r(res)[0] ?? {};
+
+    const counts = r1(await db.execute(sql`
+      SELECT
+        (SELECT COUNT(DISTINCT user_id) FROM analytics_events WHERE created_at >= NOW() - INTERVAL '5 minutes' AND user_id IS NOT NULL)::int  AS active_now,
+        (SELECT COUNT(DISTINCT user_id) FROM analytics_events WHERE created_at >= NOW() - INTERVAL '15 minutes' AND user_id IS NOT NULL)::int AS active_15min,
+        (SELECT COUNT(DISTINCT user_id) FROM analytics_events WHERE created_at >= NOW() - INTERVAL '60 minutes' AND user_id IS NOT NULL)::int AS active_60min,
+        (SELECT COUNT(*) FROM analytics_events WHERE created_at >= NOW() - INTERVAL '15 minutes')::int AS events_15min,
+        (SELECT COUNT(*) FROM analytics_events WHERE created_at >= NOW() - INTERVAL '60 minutes')::int AS events_60min
+    `));
+
+    // Per-minute event counts for last 60 minutes (for sparkline)
+    const minuteRows = r(await db.execute(sql`
+      WITH minutes AS (
+        SELECT generate_series(
+          date_trunc('minute', NOW() - INTERVAL '59 minutes'),
+          date_trunc('minute', NOW()),
+          INTERVAL '1 minute'
+        ) AS minute
+      )
+      SELECT
+        TO_CHAR(m.minute, 'HH24:MI') AS minute,
+        COUNT(ae.id)::int AS count
+      FROM minutes m
+      LEFT JOIN analytics_events ae
+        ON date_trunc('minute', ae.created_at) = m.minute
+       AND ae.created_at >= NOW() - INTERVAL '60 minutes'
+      GROUP BY m.minute
+      ORDER BY m.minute ASC
+    `));
+
+    const topUserRows = r(await db.execute(sql`
+      SELECT
+        ae.user_id,
+        u.first_name, u.last_name, u.email,
+        COUNT(*)::int AS event_count
+      FROM analytics_events ae
+      LEFT JOIN users u ON u.id = ae.user_id
+      WHERE ae.created_at >= NOW() - INTERVAL '60 minutes'
+        AND ae.user_id IS NOT NULL
+      GROUP BY ae.user_id, u.first_name, u.last_name, u.email
+      ORDER BY event_count DESC, ae.user_id ASC
+      LIMIT 10
+    `));
+
+    const recentRows = r(await db.execute(sql`
+      SELECT
+        ae.id, ae.user_id, ae.event, ae.metadata, ae.created_at,
+        u.first_name, u.last_name, u.email,
+        EXTRACT(EPOCH FROM (NOW() - ae.created_at))::int AS age_sec
+      FROM analytics_events ae
+      LEFT JOIN users u ON u.id = ae.user_id
+      ORDER BY ae.created_at DESC, ae.id DESC
+      LIMIT 50
+    `));
+
+    return {
+      activeNow: Number(counts.active_now || 0),
+      active15min: Number(counts.active_15min || 0),
+      active60min: Number(counts.active_60min || 0),
+      eventsLast15min: Number(counts.events_15min || 0),
+      eventsLast60min: Number(counts.events_60min || 0),
+      eventsByMinute: minuteRows.map((row: any) => ({ minute: String(row.minute), count: Number(row.count) })),
+      topActiveUsers: topUserRows.map((row: any) => ({
+        userId: String(row.user_id),
+        name: `${row.first_name ?? ""} ${row.last_name ?? ""}`.trim() || String(row.email ?? "—"),
+        email: String(row.email ?? ""),
+        eventCount: Number(row.event_count),
+      })),
+      recentEvents: recentRows.map((row: any) => ({
+        id: String(row.id),
+        userId: row.user_id ? String(row.user_id) : null,
+        userName: `${row.first_name ?? ""} ${row.last_name ?? ""}`.trim() || String(row.email ?? "anonymous"),
+        event: String(row.event),
+        props: row.metadata ?? null,
+        createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+        ageSec: Number(row.age_sec || 0),
+      })),
+    };
+  }
+
+  /**
+   * List active (non-dismissed) AI insights, newest first.
+   */
+  async listAnalyticsInsights(opts: number | { limit?: number; kinds?: string[]; since?: Date; includeDismissed?: boolean } = 30): Promise<AnalyticsInsight[]> {
+    const o = typeof opts === "number" ? { limit: opts } : opts;
+    const limit = o.limit ?? 30;
+    const includeDismissed = o.includeDismissed ?? false;
+    const r = <T = any>(res: any): T[] => (res.rows ?? res) as T[];
+    const conditions: any[] = [];
+    if (!includeDismissed) conditions.push(sql`is_dismissed = false`);
+    if (o.kinds && o.kinds.length > 0) {
+      conditions.push(sql`kind IN (${sql.join(o.kinds.map(k => sql`${k}`), sql`, `)})`);
+    }
+    if (o.since) {
+      conditions.push(sql`created_at >= ${o.since.toISOString()}`);
+    }
+    const whereClause = conditions.length > 0
+      ? sql`WHERE ${sql.join(conditions, sql` AND `)}`
+      : sql``;
+    const rows = r(await db.execute(sql`
+      SELECT id, kind, title, body, severity, metadata, is_dismissed, created_at
+      FROM analytics_insights
+      ${whereClause}
+      ORDER BY created_at DESC
+      LIMIT ${limit}
+    `));
+    return rows.map((row: any) => ({
+      id: String(row.id),
+      kind: String(row.kind),
+      title: String(row.title),
+      body: String(row.body),
+      severity: String(row.severity),
+      metadata: row.metadata,
+      isDismissed: Boolean(row.is_dismissed),
+      createdAt: row.created_at instanceof Date ? row.created_at : new Date(row.created_at),
+    })) as any;
+  }
+
+  async dismissAnalyticsInsight(id: string): Promise<void> {
+    await db.execute(sql`UPDATE analytics_insights SET is_dismissed = true WHERE id = ${id}`);
+  }
+
+  async insertAnalyticsInsight(insight: { kind: string; title: string; body: string; severity: string; metadata?: any }): Promise<string> {
+    const r = <T = any>(res: any): T[] => (res.rows ?? res) as T[];
+    const rows = r(await db.execute(sql`
+      INSERT INTO analytics_insights (kind, title, body, severity, metadata)
+      VALUES (${insight.kind}, ${insight.title}, ${insight.body}, ${insight.severity}, ${insight.metadata ? JSON.stringify(insight.metadata) : null}::jsonb)
+      RETURNING id
+    `));
+    return String(rows[0]?.id ?? "");
+  }
+
+  /**
+   * Code-based anomaly detection — scans key metrics for week-over-week
+   * swings of >=30% (in either direction) and inserts insight rows.
+   * Does NOT call any AI; safe to call frequently.
+   */
+  async detectAnalyticsAnomalies(): Promise<{ inserted: number; checked: number }> {
+    const movers = await this.getTopMovers();
+    let inserted = 0;
+    for (const m of movers) {
+      // Skip noise: only flag changes where last week had at least 5 events
+      if (m.lastWeek < 5) continue;
+      const absPct = Math.abs(m.deltaPct);
+      if (absPct < 30) continue;
+
+      const direction = m.deltaPct >= 0 ? "up" : "down";
+      const severity = direction === "down" && absPct >= 50 ? "critical"
+                     : direction === "down" && absPct >= 30 ? "warn"
+                     : direction === "up" && absPct >= 50 ? "positive"
+                     : "info";
+      const arrow = direction === "up" ? "▲" : "▼";
+      const title = `${m.metric} ${arrow} ${absPct.toFixed(0)}% week-over-week`;
+      const body = `**${m.metric}** moved ${direction} by **${absPct.toFixed(1)}%** week over week.\n\n- This week: **${m.thisWeek.toLocaleString()}**\n- Last week: ${m.lastWeek.toLocaleString()}\n- Net change: ${m.deltaAbs >= 0 ? "+" : ""}${m.deltaAbs.toLocaleString()}`;
+
+      // De-dupe by stable key (metric + direction) over the last 24h —
+      // not by title, since title embeds a rounded percentage that drifts.
+      const r = <T = any>(res: any): T[] => (res.rows ?? res) as T[];
+      const existing = r(await db.execute(sql`
+        SELECT id FROM analytics_insights
+        WHERE kind = 'anomaly'
+          AND metadata->>'metric' = ${m.metric}
+          AND metadata->>'direction' = ${direction}
+          AND created_at >= NOW() - INTERVAL '24 hours'
+          AND is_dismissed = false
+        LIMIT 1
+      `));
+      if (existing.length > 0) continue;
+
+      await this.insertAnalyticsInsight({
+        kind: "anomaly",
+        title,
+        body,
+        severity,
+        metadata: { metric: m.metric, direction, deltaPct: m.deltaPct, thisWeek: m.thisWeek, lastWeek: m.lastWeek },
+      });
+      inserted++;
+    }
+    return { inserted, checked: movers.length };
+  }
+
+  /**
+   * Snapshot of headline platform metrics — fed into the AI summary prompt.
+   */
+  async getMetricsSnapshot(): Promise<any> {
+    const r = <T = any>(res: any): T[] => (res.rows ?? res) as T[];
+    const r1 = (res: any): any => r(res)[0] ?? {};
+    const head = r1(await db.execute(sql`
+      SELECT
+        (SELECT COUNT(*) FROM users)::int AS total_users,
+        (SELECT COUNT(*) FROM users WHERE created_at >= NOW() - INTERVAL '7 days')::int AS signups_7d,
+        (SELECT COUNT(*) FROM users WHERE created_at >= NOW() - INTERVAL '14 days' AND created_at < NOW() - INTERVAL '7 days')::int AS signups_prev_7d,
+        (SELECT COUNT(*) FROM training_logs WHERE completed_at >= NOW() - INTERVAL '7 days')::int AS logs_7d,
+        (SELECT COUNT(*) FROM training_logs WHERE completed_at >= NOW() - INTERVAL '14 days' AND completed_at < NOW() - INTERVAL '7 days')::int AS logs_prev_7d,
+        (SELECT COUNT(DISTINCT user_id) FROM training_logs WHERE completed_at >= NOW() - INTERVAL '7 days')::int AS active_users_7d,
+        (SELECT COUNT(*) FROM daily_completions WHERE completed_at >= NOW() - INTERVAL '7 days')::int AS daily_challenge_7d,
+        (SELECT COUNT(*) FROM training_sessions WHERE created_at >= NOW() - INTERVAL '7 days')::int AS bookings_7d
+    `));
+    return head;
+  }
+
+  /**
    * Week-over-week % change for headline metrics.
    * Returns rows sorted by absolute change for "biggest movers" UI.
    */

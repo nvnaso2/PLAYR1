@@ -4297,8 +4297,8 @@ function AdminAnalyticsTab() {
         <TabsContent value="funnels" className="mt-6"><FunnelsSubTab /></TabsContent>
         <TabsContent value="users" className="mt-6"><UsersSubTab /></TabsContent>
         <TabsContent value="content" className="mt-6"><ContentSubTab /></TabsContent>
-        <TabsContent value="ai" className="mt-6"><ComingSoonCard title="AI Insights" description="Daily auto-generated insight feed, anomaly alerts, weekly executive summary, and natural-language query box powered by GPT. Planned for Phase 3." icon={Lightbulb} /></TabsContent>
-        <TabsContent value="live" className="mt-6"><ComingSoonCard title="Live Activity" description="Real-time user activity feed and global geo heatmap of who's training right now. Planned for Phase 3." icon={Zap} /></TabsContent>
+        <TabsContent value="ai" className="mt-6"><AiInsightsSubTab /></TabsContent>
+        <TabsContent value="live" className="mt-6"><LiveActivitySubTab /></TabsContent>
       </Tabs>
     </div>
   );
@@ -5439,6 +5439,374 @@ function AccentStatCard({ label, value, sub, icon: Icon, accent, testId }: {
         <p className="text-[11px] text-muted-foreground mt-1">{sub}</p>
       </CardContent>
     </Card>
+  );
+}
+
+// ─── Live Activity sub-tab ─────────────────────────────────────────────────
+
+type LiveData = {
+  activeNow: number; active15min: number; active60min: number;
+  eventsLast15min: number; eventsLast60min: number;
+  eventsByMinute: Array<{ minute: string; count: number }>;
+  topActiveUsers: Array<{ userId: string; name: string; email: string; eventCount: number }>;
+  recentEvents: Array<{ id: string; userId: string | null; userName: string; event: string; props: any; createdAt: string; ageSec: number }>;
+};
+
+function formatAge(sec: number): string {
+  if (sec < 60) return `${sec}s ago`;
+  if (sec < 3600) return `${Math.floor(sec / 60)}m ago`;
+  return `${Math.floor(sec / 3600)}h ago`;
+}
+
+function LiveActivitySubTab() {
+  const [paused, setPaused] = useState(false);
+
+  const { data, isLoading, isError, error, refetch, dataUpdatedAt } = useQuery<LiveData>({
+    queryKey: ["/api/admin/analytics/live"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/admin/analytics/live");
+      return res.json();
+    },
+    refetchInterval: paused ? false : 10000,
+    refetchOnWindowFocus: !paused,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[1,2,3,4].map(i => <Skeleton key={i} className="h-24 rounded-xl" />)}
+        </div>
+        <Skeleton className="h-72 rounded-xl" />
+      </div>
+    );
+  }
+
+  if (isError || !data) {
+    return (
+      <Card data-testid="live-error-state">
+        <CardContent className="p-8 text-center space-y-3">
+          <AlertTriangle className="w-8 h-8 text-orange-500 mx-auto" />
+          <p className="font-medium">Couldn't load live activity</p>
+          <p className="text-sm text-muted-foreground">{(error as Error)?.message || "Unknown error"}</p>
+          <Button size="sm" variant="outline" onClick={() => refetch()} data-testid="btn-retry-live">Retry</Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const maxMinuteCount = Math.max(1, ...data.eventsByMinute.map(m => m.count));
+  const lastUpdated = dataUpdatedAt ? new Date(dataUpdatedAt).toLocaleTimeString() : "—";
+
+  return (
+    <div className="space-y-6">
+      {/* Header with live indicator + pause toggle */}
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <span className={`relative inline-flex h-2.5 w-2.5 ${paused ? "" : ""}`}>
+              {!paused && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-75" />}
+              <span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${paused ? "bg-muted-foreground" : "bg-green-500"}`} />
+            </span>
+            {paused ? "Live Activity (paused)" : "Live Activity"}
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Refreshes every 10 seconds. Last updated {lastUpdated}.
+          </p>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setPaused(p => !p)}
+          data-testid="btn-toggle-live-pause"
+        >
+          {paused ? "Resume" : "Pause"}
+        </Button>
+      </div>
+
+      {/* Top stat cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <AccentStatCard label="Active right now" value={data.activeNow.toLocaleString()} sub="users active in last 5 min" icon={Zap} accent="green" testId="stat-live-active-now" />
+        <AccentStatCard label="Active (15 min)" value={data.active15min.toLocaleString()} sub={`${data.eventsLast15min} events fired`} icon={Activity} accent="blue" testId="stat-live-15min" />
+        <AccentStatCard label="Active (60 min)" value={data.active60min.toLocaleString()} sub={`${data.eventsLast60min} events fired`} icon={Users} accent="purple" testId="stat-live-60min" />
+        <AccentStatCard label="Avg events/min" value={(data.eventsLast60min / 60).toFixed(1)} sub="rolling 60-min average" icon={TrendingUp} accent="orange" testId="stat-live-rate" />
+      </div>
+
+      {/* Per-minute sparkline */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-baseline justify-between mb-2">
+            <h3 className="text-sm font-semibold">Events per minute (last 60 minutes)</h3>
+            <p className="text-xs text-muted-foreground">peak: {maxMinuteCount}</p>
+          </div>
+          <div className="flex items-end gap-px h-24" data-testid="chart-events-per-minute">
+            {data.eventsByMinute.map((m, i) => {
+              const h = Math.max(2, Math.round((m.count / maxMinuteCount) * 96));
+              return (
+                <div
+                  key={`${m.minute}-${i}`}
+                  className={`flex-1 rounded-sm ${m.count === 0 ? "bg-muted/30" : "bg-primary"}`}
+                  style={{ height: `${h}px` }}
+                  title={`${m.minute} — ${m.count} event${m.count === 1 ? "" : "s"}`}
+                />
+              );
+            })}
+          </div>
+          <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+            <span>{data.eventsByMinute[0]?.minute ?? ""}</span>
+            <span>now</span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Recent event feed + top users side by side */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <h3 className="text-base font-semibold mb-3">Recent activity feed</h3>
+          <Card>
+            <CardContent className="p-0 max-h-[500px] overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="pl-4">Event</TableHead>
+                    <TableHead>User</TableHead>
+                    <TableHead className="text-right pr-4">When</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.recentEvents.length === 0 && (
+                    <TableRow><TableCell colSpan={3} className="text-center py-6 text-muted-foreground text-sm">No activity yet.</TableCell></TableRow>
+                  )}
+                  {data.recentEvents.map(ev => (
+                    <TableRow key={ev.id} data-testid={`live-event-${ev.id}`}>
+                      <TableCell className="pl-4">
+                        <Badge variant="outline" className="text-xs font-mono">{ev.event}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm">{ev.userName}</div>
+                      </TableCell>
+                      <TableCell className="text-right pr-4 text-xs text-muted-foreground whitespace-nowrap">
+                        {formatAge(ev.ageSec)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div>
+          <h3 className="text-base font-semibold mb-3">Most active users (60 min)</h3>
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="pl-4">User</TableHead>
+                    <TableHead className="text-right pr-4">Events</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.topActiveUsers.length === 0 && (
+                    <TableRow><TableCell colSpan={2} className="text-center py-6 text-muted-foreground text-sm">No active users.</TableCell></TableRow>
+                  )}
+                  {data.topActiveUsers.map(u => (
+                    <TableRow key={u.userId} data-testid={`live-top-user-${u.userId}`}>
+                      <TableCell className="pl-4">
+                        <div className="font-medium text-sm">{u.name}</div>
+                        <div className="text-xs text-muted-foreground truncate max-w-[200px]">{u.email}</div>
+                      </TableCell>
+                      <TableCell className="text-right pr-4 font-semibold">{u.eventCount}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── AI Insights sub-tab ───────────────────────────────────────────────────
+
+type Insight = {
+  id: string; kind: string; title: string; body: string; severity: string;
+  metadata: any; isDismissed: boolean; createdAt: string;
+};
+
+const SEVERITY_STYLES: Record<string, { bg: string; border: string; icon: typeof Lightbulb; iconColor: string }> = {
+  positive: { bg: "bg-green-500/5",  border: "border-green-500/30",  icon: TrendingUp,    iconColor: "text-green-500" },
+  warn:     { bg: "bg-orange-500/5", border: "border-orange-500/30", icon: AlertTriangle, iconColor: "text-orange-500" },
+  critical: { bg: "bg-red-500/5",    border: "border-red-500/30",    icon: AlertTriangle, iconColor: "text-red-500" },
+  info:     { bg: "bg-blue-500/5",   border: "border-blue-500/30",   icon: Lightbulb,     iconColor: "text-blue-500" },
+};
+
+function AiInsightsSubTab() {
+  const { toast } = useToast();
+  const { data, isLoading, isError, error, refetch } = useQuery<{ insights: Insight[] }>({
+    queryKey: ["/api/admin/analytics/insights"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/admin/analytics/insights");
+      return res.json();
+    },
+  });
+
+  const generateMutation = useMutation({
+    mutationFn: async (force: boolean = false) => {
+      const res = await apiRequest("POST", "/api/admin/analytics/insights/generate", { force });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Weekly summary generated", description: "Fresh AI insight added to the feed." });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/analytics/insights"] });
+    },
+    onError: (e: any) => {
+      const msg = String(e?.message || "");
+      if (msg.includes("already generated")) {
+        toast({
+          title: "Already generated this week",
+          description: "A weekly summary exists from the last 7 days. Use \"Force regenerate\" to spend tokens on a new one.",
+        });
+      } else {
+        toast({ title: "Could not generate summary", description: msg || "Unknown error", variant: "destructive" });
+      }
+    },
+  });
+
+  const detectMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/analytics/insights/detect-anomalies");
+      return res.json();
+    },
+    onSuccess: (result: { inserted: number; checked: number }) => {
+      toast({
+        title: result.inserted > 0 ? `Found ${result.inserted} new anomal${result.inserted === 1 ? "y" : "ies"}` : "No new anomalies",
+        description: `Scanned ${result.checked} metrics. ${result.inserted === 0 ? "Things look stable." : ""}`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/analytics/insights"] });
+    },
+    onError: (e: any) => toast({ title: "Could not detect anomalies", description: e?.message || "Unknown error", variant: "destructive" }),
+  });
+
+  const dismissMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("DELETE", `/api/admin/analytics/insights/${id}`);
+      return res.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/admin/analytics/insights"] }),
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-12 rounded-xl" />
+        <Skeleton className="h-32 rounded-xl" />
+        <Skeleton className="h-32 rounded-xl" />
+      </div>
+    );
+  }
+
+  if (isError || !data) {
+    return (
+      <Card data-testid="insights-error-state">
+        <CardContent className="p-8 text-center space-y-3">
+          <AlertTriangle className="w-8 h-8 text-orange-500 mx-auto" />
+          <p className="font-medium">Couldn't load AI insights</p>
+          <p className="text-sm text-muted-foreground">{(error as Error)?.message || "Unknown error"}</p>
+          <Button size="sm" variant="outline" onClick={() => refetch()} data-testid="btn-retry-insights">Retry</Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const insights = data.insights;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h2 className="text-lg font-semibold">AI Insights</h2>
+          <p className="text-sm text-muted-foreground max-w-xl">
+            Auto-generated weekly executive summaries plus rule-based anomaly alerts (≥30% week-over-week swings).
+            Insights stay until you dismiss them.
+          </p>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => detectMutation.mutate()}
+            disabled={detectMutation.isPending}
+            data-testid="btn-detect-anomalies"
+          >
+            {detectMutation.isPending ? "Scanning…" : "Scan for anomalies"}
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => generateMutation.mutate()}
+            disabled={generateMutation.isPending}
+            data-testid="btn-generate-summary"
+          >
+            <Lightbulb className="w-4 h-4 mr-2" />
+            {generateMutation.isPending ? "Generating…" : "Generate weekly summary"}
+          </Button>
+        </div>
+      </div>
+
+      {insights.length === 0 ? (
+        <Card data-testid="insights-empty-state">
+          <CardContent className="p-12 text-center space-y-3">
+            <Lightbulb className="w-10 h-10 text-muted-foreground/50 mx-auto" />
+            <p className="font-medium">No active insights</p>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto">
+              Click <strong>Scan for anomalies</strong> for instant rule-based alerts, or <strong>Generate weekly summary</strong>
+              {" "}to have AI write a 5-bullet executive recap from your latest metrics.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {insights.map(ins => {
+            const style = SEVERITY_STYLES[ins.severity] ?? SEVERITY_STYLES.info;
+            const Icon = style.icon;
+            const created = new Date(ins.createdAt);
+            return (
+              <Card key={ins.id} className={`${style.bg} ${style.border} border`} data-testid={`insight-card-${ins.id}`}>
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    <div className={`p-2 rounded-md bg-background ${style.iconColor}`}>
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline gap-2 flex-wrap mb-1">
+                        <h3 className="font-semibold text-sm">{ins.title}</h3>
+                        <Badge variant="outline" className="text-[10px] uppercase">{ins.kind.replace("_", " ")}</Badge>
+                        <span className="text-xs text-muted-foreground ml-auto">{created.toLocaleString()}</span>
+                      </div>
+                      <div className="text-sm whitespace-pre-wrap text-foreground/90 leading-relaxed">{ins.body}</div>
+                    </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 shrink-0"
+                      onClick={() => dismissMutation.mutate(ins.id)}
+                      disabled={dismissMutation.isPending}
+                      data-testid={`btn-dismiss-insight-${ins.id}`}
+                      title="Dismiss"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 

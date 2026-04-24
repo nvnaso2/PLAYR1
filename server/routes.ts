@@ -7602,6 +7602,105 @@ export async function registerRoutes(
     }
   });
 
+  // Live activity feed
+  app.get("/api/admin/analytics/live", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const adminCheck = await storage.isUserAdmin(userId);
+      if (!adminCheck) return res.status(403).json({ message: "Admins only" });
+      const data = await storage.getLiveActivity();
+      // Hint clients not to cache this
+      res.setHeader("Cache-Control", "no-store");
+      res.json(data);
+    } catch (err) {
+      console.error("Error getting live activity:", err);
+      res.status(500).json({ message: "Failed to get live activity" });
+    }
+  });
+
+  // List active AI insights
+  app.get("/api/admin/analytics/insights", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const adminCheck = await storage.isUserAdmin(userId);
+      if (!adminCheck) return res.status(403).json({ message: "Admins only" });
+      const insights = await storage.listAnalyticsInsights(30);
+      res.json({ insights });
+    } catch (err) {
+      console.error("Error listing analytics insights:", err);
+      res.status(500).json({ message: "Failed to list insights" });
+    }
+  });
+
+  // Generate weekly executive summary via OpenAI (admin button)
+  app.post("/api/admin/analytics/insights/generate", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const adminCheck = await storage.isUserAdmin(userId);
+      if (!adminCheck) return res.status(403).json({ message: "Admins only" });
+      const force = req.body?.force === true;
+      // Idempotency: only one weekly_summary per 7-day window unless force=true.
+      // Avoids accidental duplicate spend if multiple admins click the button.
+      if (!force) {
+        const recent = await storage.listAnalyticsInsights({
+          kinds: ["weekly_summary"],
+          since: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+          includeDismissed: true,
+          limit: 1,
+        });
+        if (recent.length > 0) {
+          return res.status(409).json({
+            message: "A weekly summary was already generated in the last 7 days.",
+            existingId: recent[0].id,
+            existingCreatedAt: recent[0].createdAt,
+          });
+        }
+      }
+      const { generateWeeklyExecutiveSummary } = await import("./ai-analytics-summary");
+      const snapshot = await storage.getMetricsSnapshot();
+      const summary = await generateWeeklyExecutiveSummary(snapshot);
+      const id = await storage.insertAnalyticsInsight({
+        kind: "weekly_summary",
+        title: summary.title,
+        body: summary.body,
+        severity: summary.severity,
+        metadata: { snapshot },
+      });
+      res.json({ id, title: summary.title, severity: summary.severity });
+    } catch (err: any) {
+      console.error("Error generating AI insight:", err);
+      res.status(500).json({ message: err?.message || "Failed to generate insight" });
+    }
+  });
+
+  // Detect anomalies (code-based, no AI)
+  app.post("/api/admin/analytics/insights/detect-anomalies", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const adminCheck = await storage.isUserAdmin(userId);
+      if (!adminCheck) return res.status(403).json({ message: "Admins only" });
+      const result = await storage.detectAnalyticsAnomalies();
+      res.json(result);
+    } catch (err) {
+      console.error("Error detecting anomalies:", err);
+      res.status(500).json({ message: "Failed to detect anomalies" });
+    }
+  });
+
+  // Dismiss an insight
+  app.delete("/api/admin/analytics/insights/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const adminCheck = await storage.isUserAdmin(userId);
+      if (!adminCheck) return res.status(403).json({ message: "Admins only" });
+      await storage.dismissAnalyticsInsight(req.params.id);
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Error dismissing insight:", err);
+      res.status(500).json({ message: "Failed to dismiss insight" });
+    }
+  });
+
   // Top movers (week-over-week change)
   app.get("/api/admin/analytics/movers", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
