@@ -96,6 +96,45 @@ export class ObjectStorageService {
     return null;
   }
 
+  /**
+   * Serve an object to the client.
+   *
+   * For videos and large files (>8 MB), redirect the browser to a short-lived
+   * GCS signed URL so the file is streamed directly from Google's edge instead
+   * of through this Express server. This is critical in production because
+   * Replit Autoscale Deployments cannot reliably forward large streaming
+   * responses (the proxy buffers/caps long-running streams, which causes
+   * `<video>` elements to render a blank 0:00 player even when the underlying
+   * file is a perfectly valid H.264 MP4 with faststart applied).
+   *
+   * For small images/PDFs, stream through Express as before to avoid the
+   * extra redirect round-trip.
+   */
+  async serveObject(file: File, res: Response, req: Request, cacheTtlSec: number = 3600) {
+    const [metadata] = await file.getMetadata();
+    const rawContentType = (metadata.contentType as string) || "application/octet-stream";
+    const fileSize = parseInt(metadata.size as string, 10) || 0;
+    const isVideo = rawContentType.startsWith("video/");
+    const isLarge = fileSize > 8 * 1024 * 1024; // 8 MB
+
+    if (isVideo || isLarge) {
+      const bucketName = file.bucket.name;
+      const objectName = file.name;
+      const signed = await signObjectURL({
+        bucketName,
+        objectName,
+        method: "GET",
+        ttlSec: 3600,
+      });
+      // Cache the redirect briefly (much less than the signed URL TTL) so the
+      // browser doesn't keep re-using an about-to-expire signed URL.
+      res.set("Cache-Control", "private, max-age=300");
+      return res.redirect(302, signed);
+    }
+
+    return this.downloadObject(file, res, cacheTtlSec, req);
+  }
+
   // Downloads an object to the response, with Range request support for video streaming.
   async downloadObject(file: File, res: Response, cacheTtlSec: number = 3600, req?: Request) {
     try {
