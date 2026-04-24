@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
+import { track } from "@/lib/track";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -615,6 +616,7 @@ function TrainerDetail({ trainer: listTrainer }: { trainer: DirectoryTrainer }) 
       toast({ title: "Session Requested", description: "Your booking request has been sent to the trainer." });
       queryClient.invalidateQueries({ queryKey: ["/api/training-sessions/player/enriched"] });
       queryClient.invalidateQueries({ queryKey: ["/api/training-sessions/trainer/enriched"] });
+      track("booking_completed", { trainerProfileId: trainer.id, sessionType: sessionType || null });
       setBookingOpen(false);
       resetBookingForm();
     },

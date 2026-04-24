@@ -5,6 +5,7 @@ import { z } from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { apiRequest, storeAuthToken } from "@/lib/queryClient";
+import { track } from "@/lib/track";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -160,6 +161,7 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
       if (data?.token) storeAuthToken(data.token);
       const { token: _t, ...user } = data;
       queryClient.setQueryData(["/api/auth/user"], user);
+      track("signup", { userId: user?.id });
       navigate("/");
     },
     onError: (error: Error) => {

@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest, nativeFetch } from "@/lib/queryClient";
+import { track } from "@/lib/track";
 import { 
   Plus, 
   Clock, 
@@ -637,10 +638,11 @@ export default function TrainingLogPage() {
     mutationFn: async (data: { drillId: string; duration: number; notes?: string; score?: number }) => {
       return await apiRequest("POST", "/api/training-logs", data);
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['/api/training-logs'] });
       queryClient.invalidateQueries({ queryKey: ['/api/stats/overview'] });
       queryClient.invalidateQueries({ queryKey: ['/api/assigned-drills'] });
+      track("drill_log_completed", { drillId: variables?.drillId, duration: variables?.duration });
     },
   });
 

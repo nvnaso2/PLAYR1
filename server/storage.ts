@@ -3858,6 +3858,356 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
+  // ─── Retention & Cohort Analysis ─────────────────────────────────────────
+
+  /**
+   * Weekly signup cohorts. For each cohort week, returns the % of users from
+   * that cohort who were active (had >=1 training_log) in week 0, 1, 2, ...
+   */
+  async getCohortRetention(): Promise<{
+    cohorts: Array<{
+      cohortWeek: string;
+      cohortSize: number;
+      retention: Array<{ weekOffset: number; activeUsers: number; pct: number }>;
+    }>;
+    maxOffset: number;
+  }> {
+    const r = <T = any>(res: any): T[] => (res.rows ?? res) as T[];
+
+    // Cohort = users who signed up in the last 12 weeks, grouped by signup week.
+    // Activity = had >=1 training_log in week N relative to their cohort week.
+    const rows = r(await db.execute(sql`
+      WITH cohorts AS (
+        SELECT
+          DATE_TRUNC('week', created_at)::date AS cohort_week,
+          id AS user_id,
+          created_at
+        FROM users
+        WHERE created_at >= DATE_TRUNC('week', NOW() - INTERVAL '11 weeks')
+      ),
+      cohort_sizes AS (
+        SELECT cohort_week, COUNT(*) AS size FROM cohorts GROUP BY cohort_week
+      ),
+      activity AS (
+        SELECT
+          c.cohort_week,
+          c.user_id,
+          GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (DATE_TRUNC('week', tl.completed_at)::date - c.cohort_week)) / 604800)::int) AS week_offset
+        FROM cohorts c
+        JOIN training_logs tl ON tl.user_id = c.user_id
+        WHERE tl.completed_at >= c.cohort_week
+        GROUP BY c.cohort_week, c.user_id, week_offset
+      )
+      SELECT
+        cs.cohort_week,
+        cs.size AS cohort_size,
+        COALESCE(a.week_offset, 0) AS week_offset,
+        COUNT(DISTINCT a.user_id)::int AS active_users
+      FROM cohort_sizes cs
+      LEFT JOIN activity a ON a.cohort_week = cs.cohort_week
+      GROUP BY cs.cohort_week, cs.size, a.week_offset
+      ORDER BY cs.cohort_week DESC, week_offset ASC
+    `));
+
+    // Group by cohort
+    const map = new Map<string, { cohortWeek: string; cohortSize: number; retention: Map<number, number> }>();
+    for (const row of rows) {
+      const wk = new Date(row.cohort_week).toISOString().slice(0, 10);
+      const size = Number(row.cohort_size);
+      const offset = Number(row.week_offset);
+      const active = Number(row.active_users);
+      if (!map.has(wk)) map.set(wk, { cohortWeek: wk, cohortSize: size, retention: new Map() });
+      const c = map.get(wk)!;
+      // Only record if there were actually active users (LEFT JOIN may yield 0s)
+      if (active > 0) c.retention.set(offset, active);
+    }
+
+    // Max age (in weeks) of any cohort — limits how many columns to render
+    const now = Date.now();
+    let maxOffset = 0;
+    const cohorts = Array.from(map.values()).map(c => {
+      const cohortStart = new Date(c.cohortWeek).getTime();
+      const ageWeeks = Math.floor((now - cohortStart) / (7 * 24 * 3600 * 1000));
+      maxOffset = Math.max(maxOffset, ageWeeks);
+      const retention: Array<{ weekOffset: number; activeUsers: number; pct: number }> = [];
+      for (let off = 0; off <= ageWeeks; off++) {
+        const active = c.retention.get(off) ?? 0;
+        retention.push({
+          weekOffset: off,
+          activeUsers: active,
+          pct: c.cohortSize > 0 ? Math.round((active / c.cohortSize) * 1000) / 10 : 0,
+        });
+      }
+      return { cohortWeek: c.cohortWeek, cohortSize: c.cohortSize, retention };
+    }).sort((a, b) => a.cohortWeek.localeCompare(b.cohortWeek));
+
+    return { cohorts, maxOffset: Math.min(maxOffset, 11) };
+  }
+
+  /**
+   * D1 / D7 / D30 retention overall — % of eligible signups who had >=1
+   * training_log within N days of signup.
+   */
+  async getRetentionCurves(): Promise<{ d1: number; d7: number; d30: number; eligibleD1: number; eligibleD7: number; eligibleD30: number; }> {
+    const r = <T = any>(res: any): T[] => (res.rows ?? res) as T[];
+    const r1 = (res: any): any => r(res)[0] ?? {};
+
+    const row = r1(await db.execute(sql`
+      WITH first_log AS (
+        SELECT u.id, u.created_at, MIN(tl.completed_at) AS first_log_at
+        FROM users u
+        LEFT JOIN training_logs tl ON tl.user_id = u.id
+        GROUP BY u.id, u.created_at
+      )
+      SELECT
+        COUNT(*) FILTER (WHERE created_at <= NOW() - INTERVAL '1 day')::int AS elig_d1,
+        COUNT(*) FILTER (WHERE created_at <= NOW() - INTERVAL '7 days')::int AS elig_d7,
+        COUNT(*) FILTER (WHERE created_at <= NOW() - INTERVAL '30 days')::int AS elig_d30,
+        COUNT(*) FILTER (WHERE created_at <= NOW() - INTERVAL '1 day' AND first_log_at IS NOT NULL AND first_log_at <= created_at + INTERVAL '1 day')::int AS ret_d1,
+        COUNT(*) FILTER (WHERE created_at <= NOW() - INTERVAL '7 days' AND first_log_at IS NOT NULL AND first_log_at <= created_at + INTERVAL '7 days')::int AS ret_d7,
+        COUNT(*) FILTER (WHERE created_at <= NOW() - INTERVAL '30 days' AND first_log_at IS NOT NULL AND first_log_at <= created_at + INTERVAL '30 days')::int AS ret_d30
+      FROM first_log
+    `));
+
+    const pct = (n: number, d: number) => d > 0 ? Math.round((n / d) * 1000) / 10 : 0;
+    return {
+      eligibleD1: Number(row.elig_d1 || 0),
+      eligibleD7: Number(row.elig_d7 || 0),
+      eligibleD30: Number(row.elig_d30 || 0),
+      d1:  pct(Number(row.ret_d1  || 0), Number(row.elig_d1  || 0)),
+      d7:  pct(Number(row.ret_d7  || 0), Number(row.elig_d7  || 0)),
+      d30: pct(Number(row.ret_d30 || 0), Number(row.elig_d30 || 0)),
+    };
+  }
+
+  /**
+   * What % of all training logs come from the top 1%, 10%, 25% of users.
+   * Pareto reality check.
+   */
+  async getPowerUserConcentration(): Promise<{
+    totalUsers: number; totalLogs: number;
+    top1: { userCount: number; logShare: number };
+    top10: { userCount: number; logShare: number };
+    top25: { userCount: number; logShare: number };
+  }> {
+    const r = <T = any>(res: any): T[] => (res.rows ?? res) as T[];
+    const r1 = (res: any): any => r(res)[0] ?? {};
+
+    // Use deterministic rank cutoffs (GREATEST(1, CEIL(N * pct))) so the
+    // top-1% bucket always includes ≥1 user when the cohort is non-empty,
+    // instead of rounding down to zero on small populations.
+    const row = r1(await db.execute(sql`
+      WITH user_logs AS (
+        SELECT user_id, COUNT(*)::int AS log_count
+        FROM training_logs
+        GROUP BY user_id
+        HAVING COUNT(*) > 0
+      ),
+      stats AS (
+        SELECT
+          COUNT(*)::int AS total_users,
+          COALESCE(SUM(log_count), 0)::int AS total_logs,
+          GREATEST(1, CEIL(COUNT(*) * 0.01))::int AS top1_cut,
+          GREATEST(1, CEIL(COUNT(*) * 0.10))::int AS top10_cut,
+          GREATEST(1, CEIL(COUNT(*) * 0.25))::int AS top25_cut
+        FROM user_logs
+      ),
+      ranked AS (
+        SELECT
+          ul.log_count,
+          ROW_NUMBER() OVER (ORDER BY ul.log_count DESC) AS rn
+        FROM user_logs ul
+      )
+      SELECT
+        s.total_users,
+        s.total_logs,
+        (SELECT COUNT(*) FROM ranked WHERE rn <= s.top1_cut)::int  AS top1_count,
+        (SELECT COUNT(*) FROM ranked WHERE rn <= s.top10_cut)::int AS top10_count,
+        (SELECT COUNT(*) FROM ranked WHERE rn <= s.top25_cut)::int AS top25_count,
+        (SELECT COALESCE(SUM(log_count), 0) FROM ranked WHERE rn <= s.top1_cut)::int  AS top1_logs,
+        (SELECT COALESCE(SUM(log_count), 0) FROM ranked WHERE rn <= s.top10_cut)::int AS top10_logs,
+        (SELECT COALESCE(SUM(log_count), 0) FROM ranked WHERE rn <= s.top25_cut)::int AS top25_logs
+      FROM stats s
+    `));
+
+    const pct = (n: number, d: number) => d > 0 ? Math.round((n / d) * 1000) / 10 : 0;
+    const totalUsers = Number(row.total_users || 0);
+    const totalLogs  = Number(row.total_logs  || 0);
+
+    return {
+      totalUsers,
+      totalLogs,
+      top1:  { userCount: Number(row.top1_count  || 0), logShare: pct(Number(row.top1_logs  || 0), totalLogs) },
+      top10: { userCount: Number(row.top10_count || 0), logShare: pct(Number(row.top10_logs || 0), totalLogs) },
+      top25: { userCount: Number(row.top25_count || 0), logShare: pct(Number(row.top25_logs || 0), totalLogs) },
+    };
+  }
+
+  /**
+   * Per-user engagement score (0-100). Composite of recency, frequency,
+   * breadth (categories), and current streak. Returns:
+   *  - distribution across 5 buckets
+   *  - top 20 most engaged users
+   *  - 20 at-risk users (recently engaged but slipping: score 15-40)
+   */
+  async getEngagementScores(): Promise<{
+    distribution: Array<{ bucket: string; count: number }>;
+    topUsers: Array<{ userId: string; name: string; email: string; role: string; score: number; logs28d: number; currentStreak: number; daysSinceLast: number | null }>;
+    atRisk: Array<{ userId: string; name: string; email: string; role: string; score: number; logs28d: number; currentStreak: number; daysSinceLast: number | null }>;
+    avgScore: number;
+    activeUserCount: number;
+  }> {
+    const r = <T = any>(res: any): T[] => (res.rows ?? res) as T[];
+
+    const rows = r(await db.execute(sql`
+      WITH metrics AS (
+        SELECT
+          u.id AS user_id,
+          u.first_name, u.last_name, u.email, u.role,
+          MAX(tl.completed_at) AS last_log_at,
+          COUNT(tl.id) FILTER (WHERE tl.completed_at >= NOW() - INTERVAL '28 days')::int AS logs_28d,
+          COUNT(DISTINCT d.category) FILTER (WHERE tl.completed_at >= NOW() - INTERVAL '28 days')::int AS cats_28d,
+          COALESCE(MAX(us.current_streak), 0)::int AS current_streak
+        FROM users u
+        LEFT JOIN training_logs tl ON tl.user_id = u.id
+        LEFT JOIN drills d ON d.id = tl.drill_id
+        LEFT JOIN user_streaks us ON us.user_id = u.id
+        GROUP BY u.id, u.first_name, u.last_name, u.email, u.role
+      )
+      SELECT
+        user_id,
+        TRIM(BOTH ' ' FROM COALESCE(first_name, '') || ' ' || COALESCE(last_name, '')) AS name,
+        email,
+        role,
+        last_log_at,
+        logs_28d,
+        cats_28d,
+        current_streak,
+        CASE
+          WHEN last_log_at IS NULL THEN NULL
+          ELSE EXTRACT(EPOCH FROM (NOW() - last_log_at)) / 86400.0
+        END AS days_since_last
+      FROM metrics
+    `));
+
+    const buckets = [
+      { name: "0-20",   min: 0,  max: 20,  count: 0 },
+      { name: "20-40",  min: 20, max: 40,  count: 0 },
+      { name: "40-60",  min: 40, max: 60,  count: 0 },
+      { name: "60-80",  min: 60, max: 80,  count: 0 },
+      { name: "80-100", min: 80, max: 101, count: 0 },
+    ];
+
+    const scored = rows.map((row: any) => {
+      const daysSince = row.days_since_last == null ? null : Number(row.days_since_last);
+      const logs28d = Number(row.logs_28d || 0);
+      const cats28d = Number(row.cats_28d || 0);
+      const streak  = Number(row.current_streak || 0);
+
+      // Recency: 1.0 today → 0 at 30+ days
+      const r_score = daysSince == null ? 0 : Math.max(0, 1 - daysSince / 30);
+      // Frequency: 1+ log/day for 28d = perfect
+      const f_score = Math.min(logs28d / 28, 1);
+      // Breadth: 5+ distinct categories in 28d = perfect
+      const b_score = Math.min(cats28d / 5, 1);
+      // Streak: 30+ day streak = perfect
+      const s_score = Math.min(streak / 30, 1);
+
+      const score = Math.round((r_score * 35 + f_score * 35 + b_score * 15 + s_score * 15) * 10) / 10;
+
+      return {
+        userId: String(row.user_id),
+        name:   String(row.name || "—"),
+        email:  String(row.email || ""),
+        role:   String(row.role || "player"),
+        score,
+        logs28d,
+        currentStreak: streak,
+        daysSinceLast: daysSince == null ? null : Math.round(daysSince * 10) / 10,
+      };
+    });
+
+    // "Active" = had ≥1 training log in the last 28 days. This matches the
+    // product definition (active in the recent window), not "score > 0"
+    // which would include users whose only signal is recency.
+    let totalScore = 0;
+    let activeCount = 0;
+    for (const u of scored) {
+      const b = buckets.find(b => u.score >= b.min && u.score < b.max);
+      if (b) b.count++;
+      if (u.logs28d > 0) {
+        totalScore += u.score;
+        activeCount++;
+      }
+    }
+
+    const topUsers = [...scored].sort((a, b) => b.score - a.score).slice(0, 20);
+
+    // At-risk: had recent activity (logs in 28d > 0) but score 15-40 (slipping).
+    const atRisk = scored
+      .filter(u => u.logs28d > 0 && u.score >= 15 && u.score < 40)
+      .sort((a, b) => (b.daysSinceLast ?? 0) - (a.daysSinceLast ?? 0))
+      .slice(0, 20);
+
+    return {
+      distribution: buckets.map(b => ({ bucket: b.name, count: b.count })),
+      topUsers,
+      atRisk,
+      avgScore: activeCount > 0 ? Math.round((totalScore / activeCount) * 10) / 10 : 0,
+      activeUserCount: activeCount,
+    };
+  }
+
+  /**
+   * Week-over-week % change for headline metrics.
+   * Returns rows sorted by absolute change for "biggest movers" UI.
+   */
+  async getTopMovers(): Promise<Array<{ metric: string; thisWeek: number; lastWeek: number; deltaPct: number; deltaAbs: number }>> {
+    const r = <T = any>(res: any): T[] => (res.rows ?? res) as T[];
+    const r1 = (res: any): any => r(res)[0] ?? {};
+
+    const row = r1(await db.execute(sql`
+      SELECT
+        (SELECT COUNT(*) FROM users WHERE created_at >= NOW() - INTERVAL '7 days')::int AS signups_tw,
+        (SELECT COUNT(*) FROM users WHERE created_at >= NOW() - INTERVAL '14 days' AND created_at < NOW() - INTERVAL '7 days')::int AS signups_lw,
+        (SELECT COUNT(*) FROM training_logs WHERE completed_at >= NOW() - INTERVAL '7 days')::int AS logs_tw,
+        (SELECT COUNT(*) FROM training_logs WHERE completed_at >= NOW() - INTERVAL '14 days' AND completed_at < NOW() - INTERVAL '7 days')::int AS logs_lw,
+        (SELECT COUNT(DISTINCT user_id) FROM training_logs WHERE completed_at >= NOW() - INTERVAL '7 days')::int AS active_tw,
+        (SELECT COUNT(DISTINCT user_id) FROM training_logs WHERE completed_at >= NOW() - INTERVAL '14 days' AND completed_at < NOW() - INTERVAL '7 days')::int AS active_lw,
+        (SELECT COUNT(*) FROM training_sessions WHERE created_at >= NOW() - INTERVAL '7 days')::int AS sessions_tw,
+        (SELECT COUNT(*) FROM training_sessions WHERE created_at >= NOW() - INTERVAL '14 days' AND created_at < NOW() - INTERVAL '7 days')::int AS sessions_lw,
+        (SELECT COUNT(*) FROM daily_completions WHERE completed_at >= NOW() - INTERVAL '7 days')::int AS daily_tw,
+        (SELECT COUNT(*) FROM daily_completions WHERE completed_at >= NOW() - INTERVAL '14 days' AND completed_at < NOW() - INTERVAL '7 days')::int AS daily_lw,
+        (SELECT COUNT(*) FROM player_trainer_connections WHERE status = 'accepted' AND created_at >= NOW() - INTERVAL '7 days')::int AS conns_tw,
+        (SELECT COUNT(*) FROM player_trainer_connections WHERE status = 'accepted' AND created_at >= NOW() - INTERVAL '14 days' AND created_at < NOW() - INTERVAL '7 days')::int AS conns_lw,
+        (SELECT COUNT(*) FROM feedback_posts WHERE created_at >= NOW() - INTERVAL '7 days')::int AS fb_tw,
+        (SELECT COUNT(*) FROM feedback_posts WHERE created_at >= NOW() - INTERVAL '14 days' AND created_at < NOW() - INTERVAL '7 days')::int AS fb_lw
+    `));
+
+    const pct = (tw: number, lw: number) => {
+      if (lw === 0) return tw > 0 ? 100 : 0;
+      return Math.round(((tw - lw) / lw) * 1000) / 10;
+    };
+
+    const metrics = [
+      { metric: "New Signups",          tw: Number(row.signups_tw  || 0), lw: Number(row.signups_lw  || 0) },
+      { metric: "Training Logs",        tw: Number(row.logs_tw     || 0), lw: Number(row.logs_lw     || 0) },
+      { metric: "Active Users",         tw: Number(row.active_tw   || 0), lw: Number(row.active_lw   || 0) },
+      { metric: "Sessions Booked",      tw: Number(row.sessions_tw || 0), lw: Number(row.sessions_lw || 0) },
+      { metric: "Daily Challenges",     tw: Number(row.daily_tw    || 0), lw: Number(row.daily_lw    || 0) },
+      { metric: "New Connections",      tw: Number(row.conns_tw    || 0), lw: Number(row.conns_lw    || 0) },
+      { metric: "Feedback Posts",       tw: Number(row.fb_tw       || 0), lw: Number(row.fb_lw       || 0) },
+    ].map(m => ({
+      metric: m.metric,
+      thisWeek: m.tw,
+      lastWeek: m.lw,
+      deltaPct: pct(m.tw, m.lw),
+      deltaAbs: m.tw - m.lw,
+    }));
+
+    return metrics.sort((a, b) => Math.abs(b.deltaPct) - Math.abs(a.deltaPct));
+  }
+
   // ─── Daily Streak Challenge ─────────────────────────────────────────────
 
   async getDailyChallenge(dateStr: string): Promise<{ challenge: DailyChallenge; drill: Drill } | null> {

@@ -7525,6 +7525,52 @@ export async function registerRoutes(
     }
   });
 
+  // Retention & cohort analysis
+  app.get("/api/admin/analytics/retention", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const adminCheck = await storage.isUserAdmin(userId);
+      if (!adminCheck) return res.status(403).json({ message: "Admins only" });
+      const [cohort, curves, power] = await Promise.all([
+        storage.getCohortRetention(),
+        storage.getRetentionCurves(),
+        storage.getPowerUserConcentration(),
+      ]);
+      res.json({ cohort, curves, power });
+    } catch (err) {
+      console.error("Error getting retention analytics:", err);
+      res.status(500).json({ message: "Failed to get retention analytics" });
+    }
+  });
+
+  // Engagement scoring
+  app.get("/api/admin/analytics/engagement", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const adminCheck = await storage.isUserAdmin(userId);
+      if (!adminCheck) return res.status(403).json({ message: "Admins only" });
+      const data = await storage.getEngagementScores();
+      res.json(data);
+    } catch (err) {
+      console.error("Error getting engagement scores:", err);
+      res.status(500).json({ message: "Failed to get engagement scores" });
+    }
+  });
+
+  // Top movers (week-over-week change)
+  app.get("/api/admin/analytics/movers", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const adminCheck = await storage.isUserAdmin(userId);
+      if (!adminCheck) return res.status(403).json({ message: "Admins only" });
+      const data = await storage.getTopMovers();
+      res.json(data);
+    } catch (err) {
+      console.error("Error getting top movers:", err);
+      res.status(500).json({ message: "Failed to get top movers" });
+    }
+  });
+
   // ─── Daily Streak Challenge ──────────────────────────────────────────────
 
   function todayUTC(): string {

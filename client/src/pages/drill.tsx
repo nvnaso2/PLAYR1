@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, Link } from "wouter";
+import { track } from "@/lib/track";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -349,6 +350,10 @@ export default function DrillPage() {
   const { data: drill, isLoading, error } = useQuery<Drill>({
     queryKey: ['/api/drills', id],
   });
+
+  useEffect(() => {
+    if (id) track("drill_viewed", { drillId: id });
+  }, [id]);
 
   const formatDuration = (seconds?: number | null) => {
     if (!seconds) return "N/A";

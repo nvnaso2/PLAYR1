@@ -44,6 +44,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { queryClient, apiRequest, nativeFetch, getObjectUrl } from "@/lib/queryClient";
+import { track } from "@/lib/track";
 import { 
   User, 
   Target, 
@@ -782,6 +783,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
     try {
       await apiRequest("POST", "/api/career/complete-onboarding");
       queryClient.invalidateQueries({ queryKey: ['/api/career'] });
+      track("onboarding_completed", { role: selectedRole ?? "player" });
       toast({ title: "Welcome to PLAYR1!", description: "Your basketball journey begins now." });
       onComplete();
     } catch (error) {

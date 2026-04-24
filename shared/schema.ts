@@ -1439,6 +1439,23 @@ export const analyticsEvents = pgTable("analytics_events", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// ─── Analytics Insights (cached AI-generated insights & anomaly alerts) ────
+
+export const analyticsInsights = pgTable("analytics_insights", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // 'daily_summary' | 'weekly_summary' | 'anomaly' | 'top_movers' | 'manual'
+  kind: varchar("kind", { length: 50 }).notNull(),
+  title: varchar("title", { length: 300 }).notNull(),
+  body: text("body").notNull(), // markdown
+  // 'info' | 'warn' | 'critical' | 'positive'
+  severity: varchar("severity", { length: 20 }).notNull().default("info"),
+  metadata: jsonb("metadata"),
+  isDismissed: boolean("is_dismissed").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type AnalyticsInsight = typeof analyticsInsights.$inferSelect;
+
 // ─── Daily Streak Challenge ───────────────────────────────────────────────
 
 // Which drill is the daily challenge for a given date (YYYY-MM-DD)

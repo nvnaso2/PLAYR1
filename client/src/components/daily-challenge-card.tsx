@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { nativeFetch, queryClient, getObjectUrl } from "@/lib/queryClient";
+import { track } from "@/lib/track";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -326,7 +327,10 @@ export function DailyChallengeCard() {
           {!completedToday && drill && (
             <Button
               className="w-full mt-3 gap-2 font-semibold"
-              onClick={() => navigate(`/log?drill=${drill.id}`)}
+              onClick={() => {
+                track("daily_challenge_started", { drillId: drill.id, streak });
+                navigate(`/log?drill=${drill.id}`);
+              }}
               data-testid="btn-accept-challenge"
             >
               <Flame className="w-4 h-4" />

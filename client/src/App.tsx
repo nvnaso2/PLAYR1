@@ -15,6 +15,7 @@ import { Playr1Logo } from "@/components/playr1-logo";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRole } from "@/hooks/use-role";
 import { pageLoaders, preloadCommonPages } from "@/lib/pageLoaders";
+import { usePageViewTracking } from "@/lib/track";
 
 // Critical path — load immediately
 import Landing from "@/pages/landing";
@@ -129,6 +130,7 @@ function SplashScreen({ isAuthLoading, isAuthenticated, onComplete }: {
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const isNative = Capacitor.isNativePlatform();
+  usePageViewTracking();
   const style = {
     "--sidebar-width": "16rem",
     "--sidebar-width-icon": "3rem",

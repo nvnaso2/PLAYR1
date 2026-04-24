@@ -58,7 +58,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText, Play, ChevronDown, GraduationCap, MapPin, ListFilter, X, BarChart2, TrendingUp, Activity, UserCheck, Wrench } from "lucide-react";
+import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText, Play, ChevronDown, GraduationCap, MapPin, ListFilter, X, BarChart2, TrendingUp, TrendingDown, Activity, UserCheck, Wrench, Flame, Lightbulb, Zap, Globe, AlertTriangle, Trophy, Target, GitBranch } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
 import type { Drill, DrillCategory, DifficultyLevel, DrillMetric, VideoLibrary, PdfLibrary, MetricTemplate, Workout, WorkoutDrill, TrainingLocation, ShotLocationDB, ShotTypeDB } from "@shared/schema";
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, METRIC_TYPES, US_STATES } from "@shared/schema";
@@ -4265,10 +4265,60 @@ function StatCard({ label, value, sub, icon: Icon }: { label: string; value: str
 }
 
 function AdminAnalyticsTab() {
+  return (
+    <div className="space-y-4" data-testid="section-analytics">
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="flex flex-wrap h-auto gap-1 p-1 bg-muted/50">
+          <TabsTrigger value="overview" data-testid="tab-analytics-overview" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <BarChart2 className="w-4 h-4 mr-1.5" /> Overview
+          </TabsTrigger>
+          <TabsTrigger value="retention" data-testid="tab-analytics-retention" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <Flame className="w-4 h-4 mr-1.5" /> Retention
+          </TabsTrigger>
+          <TabsTrigger value="funnels" data-testid="tab-analytics-funnels" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <GitBranch className="w-4 h-4 mr-1.5" /> Funnels
+          </TabsTrigger>
+          <TabsTrigger value="users" data-testid="tab-analytics-users" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <Users className="w-4 h-4 mr-1.5" /> Users
+          </TabsTrigger>
+          <TabsTrigger value="content" data-testid="tab-analytics-content" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <Trophy className="w-4 h-4 mr-1.5" /> Content
+          </TabsTrigger>
+          <TabsTrigger value="ai" data-testid="tab-analytics-ai" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <Lightbulb className="w-4 h-4 mr-1.5" /> AI Insights
+          </TabsTrigger>
+          <TabsTrigger value="live" data-testid="tab-analytics-live" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <Zap className="w-4 h-4 mr-1.5" /> Live
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="mt-6"><OverviewSubTab /></TabsContent>
+        <TabsContent value="retention" className="mt-6"><RetentionSubTab /></TabsContent>
+        <TabsContent value="funnels" className="mt-6"><ComingSoonCard title="Funnels" description="Conversion funnels for onboarding, booking, and key user journeys. Planned for Phase 2." icon={GitBranch} /></TabsContent>
+        <TabsContent value="users" className="mt-6"><ComingSoonCard title="User Segmentation" description="Auto-segments (daily grinders, weekend warriors, ghost signups), engagement scoring leaderboard, and at-risk user actions. Planned for Phase 2." icon={Users} /></TabsContent>
+        <TabsContent value="content" className="mt-6"><ComingSoonCard title="Content Performance" description="Drill effectiveness scoring, content gap analysis, video engagement, and Daily Streak Challenge ROI. Planned for Phase 3." icon={Trophy} /></TabsContent>
+        <TabsContent value="ai" className="mt-6"><ComingSoonCard title="AI Insights" description="Daily auto-generated insight feed, anomaly alerts, weekly executive summary, and natural-language query box powered by GPT. Planned for Phase 3." icon={Lightbulb} /></TabsContent>
+        <TabsContent value="live" className="mt-6"><ComingSoonCard title="Live Activity" description="Real-time user activity feed and global geo heatmap of who's training right now. Planned for Phase 3." icon={Zap} /></TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+// ─── Overview Sub-Tab (existing widgets + Top Movers) ──────────────────────
+
+function OverviewSubTab() {
   const { data, isLoading } = useQuery<any>({
     queryKey: ["/api/admin/analytics"],
     queryFn: async () => {
       const res = await apiRequest("GET", "/api/admin/analytics");
+      return res.json();
+    },
+  });
+
+  const { data: movers } = useQuery<any[]>({
+    queryKey: ["/api/admin/analytics/movers"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/admin/analytics/movers");
       return res.json();
     },
   });
@@ -4295,7 +4345,7 @@ function AdminAnalyticsTab() {
   };
 
   return (
-    <div className="space-y-8" data-testid="section-analytics">
+    <div className="space-y-8">
       {/* KPI Cards */}
       <div>
         <h2 className="text-lg font-semibold mb-3">Platform Overview</h2>
@@ -4309,6 +4359,9 @@ function AdminAnalyticsTab() {
           <StatCard label="Feedback Posts" value={totals.feedbackPosts} icon={Activity} />
         </div>
       </div>
+
+      {/* Top Movers — Week-over-Week change */}
+      <TopMoversWidget movers={movers || []} />
 
       {/* User Growth Chart */}
       <div>
@@ -4348,7 +4401,6 @@ function AdminAnalyticsTab() {
 
       {/* Two columns: role breakdown + drill categories */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* User Roles */}
         <div>
           <h2 className="text-lg font-semibold mb-3">Users by Role</h2>
           <Card>
@@ -4367,7 +4419,6 @@ function AdminAnalyticsTab() {
           </Card>
         </div>
 
-        {/* Drill Category Breakdown */}
         <div>
           <h2 className="text-lg font-semibold mb-3">Top Drill Categories</h2>
           <Card>
@@ -4498,5 +4549,367 @@ function AdminAnalyticsTab() {
         </Card>
       </div>
     </div>
+  );
+}
+
+// ─── Top Movers Widget (week-over-week change) ─────────────────────────────
+
+function TopMoversWidget({ movers }: { movers: any[] }) {
+  if (!movers || movers.length === 0) return null;
+  return (
+    <div>
+      <div className="flex items-baseline justify-between mb-3">
+        <h2 className="text-lg font-semibold">Top Movers</h2>
+        <p className="text-xs text-muted-foreground">Week-over-week change · sorted by impact</p>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        {movers.slice(0, 8).map((m: any) => {
+          const isUp = m.deltaPct > 0;
+          const isFlat = m.deltaPct === 0;
+          const color = isFlat ? "text-muted-foreground" : isUp ? "text-green-500" : "text-red-500";
+          const Icon = isFlat ? Activity : isUp ? TrendingUp : TrendingDown;
+          return (
+            <Card key={m.metric} data-testid={`mover-${m.metric.replace(/\s+/g, "-").toLowerCase()}`}>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs font-medium text-muted-foreground">{m.metric}</p>
+                  <Icon className={`w-4 h-4 ${color}`} />
+                </div>
+                <p className="text-2xl font-bold">{m.thisWeek.toLocaleString()}</p>
+                <div className="flex items-baseline gap-2 mt-1">
+                  <span className={`text-sm font-semibold ${color}`}>
+                    {isUp && "+"}{m.deltaPct}%
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    vs {m.lastWeek.toLocaleString()} last wk
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Retention Sub-Tab ─────────────────────────────────────────────────────
+
+function RetentionSubTab() {
+  const { data, isLoading, isError, error, refetch } = useQuery<any>({
+    queryKey: ["/api/admin/analytics/retention"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/admin/analytics/retention");
+      return res.json();
+    },
+  });
+
+  const { data: engagement } = useQuery<any>({
+    queryKey: ["/api/admin/analytics/engagement"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/admin/analytics/engagement");
+      return res.json();
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[1,2,3].map(i => <Skeleton key={i} className="h-32 rounded-xl" />)}
+        </div>
+        <Skeleton className="h-96 rounded-xl" />
+      </div>
+    );
+  }
+
+  if (isError || !data) {
+    return (
+      <Card data-testid="retention-error-state">
+        <CardContent className="p-8 text-center space-y-3">
+          <AlertTriangle className="w-8 h-8 text-orange-500 mx-auto" />
+          <p className="font-medium">Couldn't load retention data</p>
+          <p className="text-sm text-muted-foreground">{(error as Error)?.message || "Unknown error"}</p>
+          <Button size="sm" variant="outline" onClick={() => refetch()} data-testid="btn-retry-retention">Retry</Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const { cohort, curves, power } = data;
+
+  return (
+    <div className="space-y-8">
+      {/* D1/D7/D30 Retention */}
+      <div>
+        <h2 className="text-lg font-semibold mb-3">Day-N Retention</h2>
+        <p className="text-sm text-muted-foreground mb-3">% of new signups who completed at least one drill within N days of joining.</p>
+        <div className="grid grid-cols-3 gap-4">
+          <RetentionCard label="Day 1" pct={curves.d1} sample={curves.eligibleD1} icon={Zap} accent="orange" />
+          <RetentionCard label="Day 7" pct={curves.d7} sample={curves.eligibleD7} icon={Flame} accent="blue" />
+          <RetentionCard label="Day 30" pct={curves.d30} sample={curves.eligibleD30} icon={Target} accent="purple" />
+        </div>
+      </div>
+
+      {/* Cohort Heatmap */}
+      <div>
+        <div className="flex items-baseline justify-between mb-3">
+          <h2 className="text-lg font-semibold">Cohort Retention Heatmap</h2>
+          <p className="text-xs text-muted-foreground">% of each weekly signup cohort still active in subsequent weeks</p>
+        </div>
+        <Card>
+          <CardContent className="p-4 overflow-x-auto">
+            <CohortHeatmap cohorts={cohort.cohorts} maxOffset={cohort.maxOffset} />
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Power-User Concentration */}
+      <div>
+        <h2 className="text-lg font-semibold mb-3">Power-User Concentration</h2>
+        <p className="text-sm text-muted-foreground mb-3">
+          What share of all training activity comes from your top users? A healthy product has activity distributed across many users.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <ConcentrationCard label="Top 1%" stat={power.top1} totalUsers={power.totalUsers} totalLogs={power.totalLogs} />
+          <ConcentrationCard label="Top 10%" stat={power.top10} totalUsers={power.totalUsers} totalLogs={power.totalLogs} />
+          <ConcentrationCard label="Top 25%" stat={power.top25} totalUsers={power.totalUsers} totalLogs={power.totalLogs} />
+        </div>
+      </div>
+
+      {/* Engagement Score Distribution */}
+      {engagement && (
+        <>
+          <div>
+            <div className="flex items-baseline justify-between mb-3">
+              <h2 className="text-lg font-semibold">Engagement Score Distribution</h2>
+              <p className="text-xs text-muted-foreground">
+                Avg score: <span className="font-semibold text-foreground">{engagement.avgScore}</span> across {engagement.activeUserCount} active users
+              </p>
+            </div>
+            <Card>
+              <CardContent className="p-4">
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={engagement.distribution}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="bucket" tick={{ fontSize: 11 }} />
+                    <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                    <Tooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8 }} />
+                    <Bar dataKey="count" name="Users" radius={[4,4,0,0]}>
+                      {engagement.distribution.map((_: any, i: number) => (
+                        <Cell key={i} fill={["#ef4444", "#f97316", "#eab308", "#22c55e", "#3b82f6"][i] || "#666"} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Score (0–100) = recency × 35 + frequency × 35 + breadth × 15 + streak × 15
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Two columns: Top engaged + At-risk */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <EngagementUserList
+              title="Most Engaged Users"
+              icon={Trophy}
+              accent="text-green-500"
+              users={engagement.topUsers}
+              emptyMessage="No engagement data yet"
+            />
+            <EngagementUserList
+              title="At-Risk Users"
+              icon={AlertTriangle}
+              accent="text-orange-500"
+              users={engagement.atRisk}
+              emptyMessage="No at-risk users — everyone's engaged!"
+              subtitle="Recently active but slipping (score 15–40). Re-engagement candidates."
+            />
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Retention helper components ───────────────────────────────────────────
+
+function RetentionCard({ label, pct, sample, icon: Icon, accent }: {
+  label: string; pct: number; sample: number; icon: ({ className }: { className?: string }) => JSX.Element;
+  accent: "orange" | "blue" | "purple";
+}) {
+  const colorMap = {
+    orange: "text-orange-500 bg-orange-500/10",
+    blue:   "text-blue-500 bg-blue-500/10",
+    purple: "text-purple-500 bg-purple-500/10",
+  };
+  return (
+    <Card data-testid={`retention-card-${label.toLowerCase().replace(/\s+/g, "-")}`}>
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between mb-3">
+          <p className="text-sm font-medium text-muted-foreground">{label}</p>
+          <div className={`p-2 rounded-lg ${colorMap[accent]}`}>
+            <Icon className="w-4 h-4" />
+          </div>
+        </div>
+        <p className="text-3xl font-bold">{pct}%</p>
+        <p className="text-xs text-muted-foreground mt-1">{sample.toLocaleString()} eligible signups</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ConcentrationCard({ label, stat, totalUsers, totalLogs }: {
+  label: string;
+  stat: { userCount: number; logShare: number };
+  totalUsers: number;
+  totalLogs: number;
+}) {
+  return (
+    <Card data-testid={`concentration-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`}>
+      <CardContent className="p-5">
+        <div className="flex items-baseline justify-between mb-2">
+          <p className="text-sm font-medium text-muted-foreground">{label} of users</p>
+          <p className="text-xs text-muted-foreground">{stat.userCount.toLocaleString()} of {totalUsers.toLocaleString()}</p>
+        </div>
+        <p className="text-3xl font-bold">{stat.logShare}%</p>
+        <p className="text-xs text-muted-foreground mt-1">of all {totalLogs.toLocaleString()} training logs</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CohortHeatmap({ cohorts, maxOffset }: {
+  cohorts: Array<{ cohortWeek: string; cohortSize: number; retention: Array<{ weekOffset: number; activeUsers: number; pct: number }> }>;
+  maxOffset: number;
+}) {
+  if (!cohorts || cohorts.length === 0) {
+    return <p className="text-sm text-muted-foreground py-8 text-center">Not enough cohort data yet.</p>;
+  }
+
+  const cellColor = (pct: number) => {
+    if (pct === 0) return "bg-muted/30 text-muted-foreground";
+    if (pct < 10)  return "bg-orange-500/10 text-foreground";
+    if (pct < 25)  return "bg-orange-500/25 text-foreground";
+    if (pct < 50)  return "bg-orange-500/45 text-foreground";
+    if (pct < 75)  return "bg-orange-500/65 text-white";
+    return "bg-orange-500/85 text-white";
+  };
+
+  const fmtCohort = (iso: string) => {
+    const d = new Date(iso);
+    return `${d.getMonth() + 1}/${d.getDate()}`;
+  };
+
+  // Sort cohorts newest first for readability
+  const orderedCohorts = [...cohorts].sort((a, b) => b.cohortWeek.localeCompare(a.cohortWeek));
+
+  return (
+    <div className="min-w-[700px]">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="text-muted-foreground">
+            <th className="text-left pb-2 pr-4 font-medium">Cohort</th>
+            <th className="text-right pb-2 pr-4 font-medium">Size</th>
+            {Array.from({ length: maxOffset + 1 }, (_, i) => (
+              <th key={i} className="text-center pb-2 px-1 font-medium">W{i}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {orderedCohorts.map(c => (
+            <tr key={c.cohortWeek} data-testid={`cohort-row-${c.cohortWeek}`}>
+              <td className="py-1 pr-4 font-medium">Week of {fmtCohort(c.cohortWeek)}</td>
+              <td className="py-1 pr-4 text-right text-muted-foreground">{c.cohortSize}</td>
+              {Array.from({ length: maxOffset + 1 }, (_, i) => {
+                const cell = c.retention.find(r => r.weekOffset === i);
+                if (!cell) {
+                  return <td key={i} className="py-1 px-0.5"><div className="h-9 rounded bg-transparent" /></td>;
+                }
+                return (
+                  <td key={i} className="py-1 px-0.5">
+                    <div className={`h-9 rounded flex flex-col items-center justify-center ${cellColor(cell.pct)}`} title={`${cell.activeUsers} of ${c.cohortSize} active`}>
+                      <span className="text-[11px] font-semibold">{cell.pct}%</span>
+                    </div>
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function EngagementUserList({ title, icon: Icon, accent, users, emptyMessage, subtitle }: {
+  title: string;
+  icon: ({ className }: { className?: string }) => JSX.Element;
+  accent: string;
+  users: Array<{ userId: string; name: string; email: string; role: string; score: number; logs28d: number; currentStreak: number; daysSinceLast: number | null }>;
+  emptyMessage: string;
+  subtitle?: string;
+}) {
+  return (
+    <div>
+      <div className="flex items-baseline justify-between mb-3">
+        <h3 className="text-base font-semibold flex items-center gap-2">
+          <Icon className={`w-4 h-4 ${accent}`} />
+          {title}
+        </h3>
+      </div>
+      {subtitle && <p className="text-xs text-muted-foreground mb-2">{subtitle}</p>}
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="pl-4">User</TableHead>
+                <TableHead className="text-right">Score</TableHead>
+                <TableHead className="text-right">28d Logs</TableHead>
+                <TableHead className="text-right pr-4">Last Active</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {users.length === 0 && (
+                <TableRow><TableCell colSpan={4} className="text-center py-6 text-muted-foreground text-sm">{emptyMessage}</TableCell></TableRow>
+              )}
+              {users.map(u => (
+                <TableRow key={u.userId} data-testid={`engagement-user-${u.userId}`}>
+                  <TableCell className="pl-4">
+                    <div className="font-medium text-sm">{u.name || u.email}</div>
+                    <div className="text-xs text-muted-foreground">{u.email}</div>
+                  </TableCell>
+                  <TableCell className="text-right font-semibold">{u.score}</TableCell>
+                  <TableCell className="text-right text-sm">{u.logs28d}</TableCell>
+                  <TableCell className="text-right pr-4 text-xs text-muted-foreground">
+                    {u.daysSinceLast == null ? "—" : `${Math.round(u.daysSinceLast)}d ago`}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ─── Coming-Soon placeholder for future analytics phases ───────────────────
+
+function ComingSoonCard({ title, description, icon: Icon }: {
+  title: string; description: string; icon: ({ className }: { className?: string }) => JSX.Element;
+}) {
+  return (
+    <Card>
+      <CardContent className="p-12 text-center">
+        <div className="inline-flex p-4 rounded-full bg-primary/10 mb-4">
+          <Icon className="w-8 h-8 text-primary" />
+        </div>
+        <h3 className="text-xl font-semibold mb-2">{title}</h3>
+        <p className="text-sm text-muted-foreground max-w-md mx-auto">{description}</p>
+      </CardContent>
+    </Card>
   );
 }

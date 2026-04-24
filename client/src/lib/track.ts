@@ -1,0 +1,31 @@
+import { useEffect } from "react";
+import { useLocation } from "wouter";
+import { nativeFetch } from "./queryClient";
+
+/**
+ * Fire-and-forget analytics event tracker.
+ * Silent on failure — never block UI on analytics.
+ */
+export function track(event: string, metadata?: Record<string, any>): void {
+  try {
+    const page = typeof window !== "undefined" ? window.location.pathname : undefined;
+    nativeFetch("/api/analytics/track", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event, page, metadata }),
+    }).catch(() => {});
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Hook that auto-tracks a page_view event whenever the route changes.
+ * Mount once at the App root.
+ */
+export function usePageViewTracking(): void {
+  const [location] = useLocation();
+  useEffect(() => {
+    track("page_view", { path: location });
+  }, [location]);
+}

@@ -34,6 +34,7 @@ import { cn } from "@/lib/utils";
 import { EmojiPicker } from "@/components/emoji-picker";
 import { US_STATES, TRAINER_SPECIALTIES } from "@shared/schema";
 import { apiRequest, queryClient, nativeFetch, getObjectUrl } from "@/lib/queryClient";
+import { track } from "@/lib/track";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useGoogleCalendar } from "@/hooks/use-google-calendar";
@@ -830,6 +831,7 @@ function TrainerDetail({ trainer: listTrainer, favorite, onToggleFavorite, onTog
       toast({ title: "Session Requested", description: "Your booking request has been sent to the trainer." });
       queryClient.invalidateQueries({ queryKey: ["/api/training-sessions/player/enriched"] });
       queryClient.invalidateQueries({ queryKey: ["/api/training-sessions/trainer/enriched"] });
+      track("booking_completed", { trainerProfileId: trainer.id, sessionType: sessionType || null });
       setBookingOpen(false);
       resetBookingForm();
     },
