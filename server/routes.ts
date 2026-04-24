@@ -7574,6 +7574,34 @@ export async function registerRoutes(
     }
   });
 
+  // User segmentation
+  app.get("/api/admin/analytics/segments", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const adminCheck = await storage.isUserAdmin(userId);
+      if (!adminCheck) return res.status(403).json({ message: "Admins only" });
+      const data = await storage.getUserSegments();
+      res.json(data);
+    } catch (err) {
+      console.error("Error getting user segments:", err);
+      res.status(500).json({ message: "Failed to get user segments" });
+    }
+  });
+
+  // Content (drill) performance
+  app.get("/api/admin/analytics/content", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const adminCheck = await storage.isUserAdmin(userId);
+      if (!adminCheck) return res.status(403).json({ message: "Admins only" });
+      const data = await storage.getContentPerformance();
+      res.json(data);
+    } catch (err) {
+      console.error("Error getting content performance:", err);
+      res.status(500).json({ message: "Failed to get content performance" });
+    }
+  });
+
   // Top movers (week-over-week change)
   app.get("/api/admin/analytics/movers", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {

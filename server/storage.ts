@@ -4304,6 +4304,263 @@ export class DatabaseStorage implements IStorage {
   }
 
   /**
+   * Behavioral user segmentation. Each user is assigned to exactly one
+   * segment based on signup recency + recent training activity.
+   */
+  async getUserSegments(): Promise<{
+    segments: Array<{ key: string; label: string; description: string; color: string; count: number; pct: number }>;
+    totalUsers: number;
+    segmentDetails: Record<string, Array<{
+      userId: string; name: string; email: string; role: string;
+      signedUpDaysAgo: number; logs28d: number; lastActiveDaysAgo: number | null; currentStreak: number;
+    }>>;
+  }> {
+    const r = <T = any>(res: any): T[] => (res.rows ?? res) as T[];
+
+    // Pull per-user metrics: signup age, total logs ever, last log timestamp, logs in 28d, weekend logs in 28d, current streak.
+    const rows = r(await db.execute(sql`
+      WITH metrics AS (
+        SELECT
+          u.id AS user_id,
+          u.first_name, u.last_name, u.email, u.role,
+          EXTRACT(EPOCH FROM (NOW() - u.created_at)) / 86400.0 AS signup_days_ago,
+          COUNT(tl.id)::int AS logs_total,
+          COUNT(tl.id) FILTER (WHERE tl.completed_at >= NOW() - INTERVAL '60 days')::int AS logs_60d,
+          COUNT(tl.id) FILTER (WHERE tl.completed_at >= NOW() - INTERVAL '28 days')::int AS logs_28d,
+          COUNT(tl.id) FILTER (WHERE tl.completed_at >= NOW() - INTERVAL '14 days')::int AS logs_14d,
+          COUNT(tl.id) FILTER (
+            WHERE tl.completed_at >= NOW() - INTERVAL '28 days'
+              AND EXTRACT(DOW FROM tl.completed_at) IN (0, 6)
+          )::int AS weekend_logs_28d,
+          MAX(tl.completed_at) AS last_log_at,
+          COALESCE(MAX(us.current_streak), 0)::int AS current_streak
+        FROM users u
+        LEFT JOIN training_logs tl ON tl.user_id = u.id
+        LEFT JOIN user_streaks us ON us.user_id = u.id
+        GROUP BY u.id, u.first_name, u.last_name, u.email, u.role, u.created_at
+      )
+      SELECT * FROM metrics
+    `));
+
+    const SEGMENT_DEFS: Array<{ key: string; label: string; description: string; color: string }> = [
+      { key: "power",       label: "Power Users",     description: "20+ training logs in the last 28 days. Your biggest fans.",                   color: "#22c55e" },
+      { key: "grinder",     label: "Daily Grinders",  description: "14–19 logs in 28 days. Logging almost every day.",                            color: "#3b82f6" },
+      { key: "weekend",     label: "Weekend Warriors", description: "4+ logs in 28 days, 60%+ on Saturday or Sunday.",                            color: "#a855f7" },
+      { key: "casual",      label: "Casual Loggers",   description: "1–13 logs in 28 days. Engaged, with room to grow.",                          color: "#06b6d4" },
+      { key: "new_active",  label: "New & Active",     description: "Signed up in the last 14 days and have already logged a drill.",             color: "#f59e0b" },
+      { key: "new_signup",  label: "New (Onboarding)", description: "Signed up in the last 14 days, no training log yet.",                        color: "#fbbf24" },
+      { key: "at_risk",     label: "At-Risk",          description: "Was active in last 60 days but hasn't logged in the last 14 days.",          color: "#f97316" },
+      { key: "ghost",       label: "Ghost Signups",    description: "Signed up over a week ago and never logged a single drill.",                 color: "#94a3b8" },
+      { key: "dormant",     label: "Dormant",          description: "Has logged in the past, but no activity in 60+ days.",                       color: "#64748b" },
+    ];
+
+    const counts = new Map<string, number>(SEGMENT_DEFS.map(s => [s.key, 0]));
+    const details = new Map<string, Array<any>>(SEGMENT_DEFS.map(s => [s.key, []]));
+
+    const totalUsers = rows.length;
+
+    for (const row of rows) {
+      const signupDaysAgo = Number(row.signup_days_ago);
+      const logsTotal = Number(row.logs_total);
+      const logs60d = Number(row.logs_60d);
+      const logs28d = Number(row.logs_28d);
+      const logs14d = Number(row.logs_14d);
+      const weekendLogs28d = Number(row.weekend_logs_28d);
+      const lastLogAt = row.last_log_at ? new Date(row.last_log_at) : null;
+      const lastActiveDaysAgo = lastLogAt ? Math.floor((Date.now() - lastLogAt.getTime()) / 86400000) : null;
+      const weekendShare = logs28d > 0 ? weekendLogs28d / logs28d : 0;
+
+      let key: string;
+      if (signupDaysAgo < 14) {
+        key = logsTotal > 0 ? "new_active" : "new_signup";
+      } else if (logsTotal === 0) {
+        key = "ghost";
+      } else if (logs60d > 0 && logs14d === 0) {
+        // At-Risk takes priority over Casual: any user with activity in the
+        // last 60 days but nothing in the last 14 is slipping away.
+        key = "at_risk";
+      } else if (logs28d >= 20) {
+        key = "power";
+      } else if (logs28d >= 14) {
+        key = "grinder";
+      } else if (logs28d >= 4 && weekendShare >= 0.6) {
+        key = "weekend";
+      } else if (logs28d >= 1) {
+        key = "casual";
+      } else {
+        key = "dormant";
+      }
+
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+      details.get(key)!.push({
+        userId: String(row.user_id),
+        name: `${row.first_name ?? ""} ${row.last_name ?? ""}`.trim() || String(row.email ?? "—"),
+        email: String(row.email ?? ""),
+        role: String(row.role ?? "player"),
+        signedUpDaysAgo: Math.round(signupDaysAgo),
+        logs28d,
+        lastActiveDaysAgo,
+        currentStreak: Number(row.current_streak),
+      });
+    }
+
+    // Sort each segment's full list deterministically, THEN cap to 50.
+    // Active segments sort by logs28d desc; recovery/inactive segments by
+    // signedUpDaysAgo desc (oldest first — most worth re-engaging).
+    const ACTIVE = new Set(["power", "grinder", "weekend", "casual", "new_active"]);
+    for (const [key, arr] of details) {
+      if (ACTIVE.has(key)) {
+        arr.sort((a, b) => b.logs28d - a.logs28d || a.userId.localeCompare(b.userId));
+      } else {
+        arr.sort((a, b) => b.signedUpDaysAgo - a.signedUpDaysAgo || a.userId.localeCompare(b.userId));
+      }
+      if (arr.length > 50) arr.length = 50;
+    }
+
+    const segments = SEGMENT_DEFS.map(def => {
+      const count = counts.get(def.key) ?? 0;
+      return {
+        ...def,
+        count,
+        pct: totalUsers > 0 ? Math.round((count / totalUsers) * 1000) / 10 : 0,
+      };
+    });
+
+    const segmentDetails: Record<string, any[]> = {};
+    for (const [key, arr] of details) segmentDetails[key] = arr;
+
+    return { segments, totalUsers, segmentDetails };
+  }
+
+  /**
+   * Content (drill) performance metrics — top/bottom drills, category
+   * breakdown, and Daily Challenge engagement summary.
+   */
+  async getContentPerformance(): Promise<{
+    topDrills: Array<{ id: string; title: string; category: string; difficulty: string; logs28d: number; uniqueUsers28d: number; logsAllTime: number }>;
+    underperformers: Array<{ id: string; title: string; category: string; difficulty: string; logs28d: number; ageDays: number }>;
+    categoryStats: Array<{ category: string; drillCount: number; logs28d: number; avgLogsPerDrill: number; uniqueUsers28d: number }>;
+    dailyChallenge: {
+      completionsLast7d: number;
+      completionsLast28d: number;
+      avgPerDay7d: number;
+      activeStreakUsers: number;
+      avgCurrentStreak: number;
+      longestCurrentStreak: number;
+      uniqueUsers28d: number;
+    };
+  }> {
+    const r = <T = any>(res: any): T[] => (res.rows ?? res) as T[];
+    const r1 = (res: any): any => r(res)[0] ?? {};
+
+    // Top 20 most-logged drills in 28d
+    const topRows = r(await db.execute(sql`
+      SELECT
+        d.id,
+        d.title,
+        d.category,
+        d.difficulty,
+        COUNT(tl.id) FILTER (WHERE tl.completed_at >= NOW() - INTERVAL '28 days')::int AS logs_28d,
+        COUNT(DISTINCT tl.user_id) FILTER (WHERE tl.completed_at >= NOW() - INTERVAL '28 days')::int AS users_28d,
+        COUNT(tl.id)::int AS logs_all_time
+      FROM drills d
+      LEFT JOIN training_logs tl ON tl.drill_id = d.id
+      GROUP BY d.id, d.title, d.category, d.difficulty
+      ORDER BY logs_28d DESC, logs_all_time DESC
+      LIMIT 20
+    `));
+
+    // Underperformers: drills older than 14 days with 0 logs in 28 days, oldest first
+    const underRows = r(await db.execute(sql`
+      WITH drill_stats AS (
+        SELECT
+          d.id, d.title, d.category, d.difficulty, d.created_at,
+          COUNT(tl.id) FILTER (WHERE tl.completed_at >= NOW() - INTERVAL '28 days')::int AS logs_28d
+        FROM drills d
+        LEFT JOIN training_logs tl ON tl.drill_id = d.id
+        WHERE d.created_at < NOW() - INTERVAL '14 days'
+          AND COALESCE(d.is_shared, true) = true
+        GROUP BY d.id, d.title, d.category, d.difficulty, d.created_at
+      )
+      SELECT
+        id, title, category, difficulty, logs_28d,
+        FLOOR(EXTRACT(EPOCH FROM (NOW() - created_at)) / 86400)::int AS age_days
+      FROM drill_stats
+      WHERE logs_28d = 0
+      ORDER BY age_days DESC
+      LIMIT 20
+    `));
+
+    // Category aggregates
+    const catRows = r(await db.execute(sql`
+      SELECT
+        d.category,
+        COUNT(DISTINCT d.id)::int AS drill_count,
+        COUNT(tl.id) FILTER (WHERE tl.completed_at >= NOW() - INTERVAL '28 days')::int AS logs_28d,
+        COUNT(DISTINCT tl.user_id) FILTER (WHERE tl.completed_at >= NOW() - INTERVAL '28 days')::int AS users_28d
+      FROM drills d
+      LEFT JOIN training_logs tl ON tl.drill_id = d.id
+      GROUP BY d.category
+      ORDER BY logs_28d DESC
+    `));
+
+    // Daily Challenge stats
+    const dcRow = r1(await db.execute(sql`
+      SELECT
+        (SELECT COUNT(*) FROM daily_completions WHERE completed_at >= NOW() - INTERVAL '7 days')::int  AS completions_7d,
+        (SELECT COUNT(*) FROM daily_completions WHERE completed_at >= NOW() - INTERVAL '28 days')::int AS completions_28d,
+        (SELECT COUNT(DISTINCT user_id) FROM daily_completions WHERE completed_at >= NOW() - INTERVAL '28 days')::int AS unique_users_28d,
+        (SELECT COUNT(*) FROM user_streaks WHERE current_streak >= 1)::int AS active_streak_users,
+        COALESCE((SELECT AVG(current_streak)::float FROM user_streaks WHERE current_streak >= 1), 0) AS avg_current_streak,
+        COALESCE((SELECT MAX(current_streak)::int FROM user_streaks), 0) AS longest_current_streak
+    `));
+
+    const topDrills = topRows.map((row: any) => ({
+      id: String(row.id),
+      title: String(row.title),
+      category: String(row.category ?? "—"),
+      difficulty: String(row.difficulty ?? "—"),
+      logs28d: Number(row.logs_28d),
+      uniqueUsers28d: Number(row.users_28d),
+      logsAllTime: Number(row.logs_all_time),
+    }));
+
+    const underperformers = underRows.map((row: any) => ({
+      id: String(row.id),
+      title: String(row.title),
+      category: String(row.category ?? "—"),
+      difficulty: String(row.difficulty ?? "—"),
+      logs28d: Number(row.logs_28d),
+      ageDays: Number(row.age_days),
+    }));
+
+    const categoryStats = catRows.map((row: any) => {
+      const drillCount = Number(row.drill_count);
+      const logs28d = Number(row.logs_28d);
+      return {
+        category: String(row.category ?? "—"),
+        drillCount,
+        logs28d,
+        avgLogsPerDrill: drillCount > 0 ? Math.round((logs28d / drillCount) * 10) / 10 : 0,
+        uniqueUsers28d: Number(row.users_28d),
+      };
+    });
+
+    const completions7d = Number(dcRow.completions_7d || 0);
+    const dailyChallenge = {
+      completionsLast7d: completions7d,
+      completionsLast28d: Number(dcRow.completions_28d || 0),
+      avgPerDay7d: Math.round((completions7d / 7) * 10) / 10,
+      activeStreakUsers: Number(dcRow.active_streak_users || 0),
+      avgCurrentStreak: Math.round(Number(dcRow.avg_current_streak || 0) * 10) / 10,
+      longestCurrentStreak: Number(dcRow.longest_current_streak || 0),
+      uniqueUsers28d: Number(dcRow.unique_users_28d || 0),
+    };
+
+    return { topDrills, underperformers, categoryStats, dailyChallenge };
+  }
+
+  /**
    * Week-over-week % change for headline metrics.
    * Returns rows sorted by absolute change for "biggest movers" UI.
    */

@@ -4295,8 +4295,8 @@ function AdminAnalyticsTab() {
         <TabsContent value="overview" className="mt-6"><OverviewSubTab /></TabsContent>
         <TabsContent value="retention" className="mt-6"><RetentionSubTab /></TabsContent>
         <TabsContent value="funnels" className="mt-6"><FunnelsSubTab /></TabsContent>
-        <TabsContent value="users" className="mt-6"><ComingSoonCard title="User Segmentation" description="Auto-segments (daily grinders, weekend warriors, ghost signups), engagement scoring leaderboard, and at-risk user actions. Planned for Phase 2." icon={Users} /></TabsContent>
-        <TabsContent value="content" className="mt-6"><ComingSoonCard title="Content Performance" description="Drill effectiveness scoring, content gap analysis, video engagement, and Daily Streak Challenge ROI. Planned for Phase 3." icon={Trophy} /></TabsContent>
+        <TabsContent value="users" className="mt-6"><UsersSubTab /></TabsContent>
+        <TabsContent value="content" className="mt-6"><ContentSubTab /></TabsContent>
         <TabsContent value="ai" className="mt-6"><ComingSoonCard title="AI Insights" description="Daily auto-generated insight feed, anomaly alerts, weekly executive summary, and natural-language query box powered by GPT. Planned for Phase 3." icon={Lightbulb} /></TabsContent>
         <TabsContent value="live" className="mt-6"><ComingSoonCard title="Live Activity" description="Real-time user activity feed and global geo heatmap of who's training right now. Planned for Phase 3." icon={Zap} /></TabsContent>
       </Tabs>
@@ -5093,6 +5093,353 @@ function humanizeSeconds(sec: number): string {
   if (sec < 3600) return `${Math.round(sec / 60)}m`;
   if (sec < 86400) return `${Math.round((sec / 3600) * 10) / 10}h`;
   return `${Math.round((sec / 86400) * 10) / 10}d`;
+}
+
+// ─── Users (Segmentation) sub-tab ──────────────────────────────────────────
+
+type Segment = { key: string; label: string; description: string; color: string; count: number; pct: number };
+type SegmentUser = {
+  userId: string; name: string; email: string; role: string;
+  signedUpDaysAgo: number; logs28d: number; lastActiveDaysAgo: number | null; currentStreak: number;
+};
+
+function UsersSubTab() {
+  const [selected, setSelected] = useState<string | null>(null);
+
+  const { data, isLoading, isError, error, refetch } = useQuery<{
+    segments: Segment[];
+    totalUsers: number;
+    segmentDetails: Record<string, SegmentUser[]>;
+  }>({
+    queryKey: ["/api/admin/analytics/segments"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/admin/analytics/segments");
+      return res.json();
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {[1,2,3,4,5,6].map(i => <Skeleton key={i} className="h-24 rounded-xl" />)}
+        </div>
+        <Skeleton className="h-96 rounded-xl" />
+      </div>
+    );
+  }
+
+  if (isError || !data) {
+    return (
+      <Card data-testid="segments-error-state">
+        <CardContent className="p-8 text-center space-y-3">
+          <AlertTriangle className="w-8 h-8 text-orange-500 mx-auto" />
+          <p className="font-medium">Couldn't load segment data</p>
+          <p className="text-sm text-muted-foreground">{(error as Error)?.message || "Unknown error"}</p>
+          <Button size="sm" variant="outline" onClick={() => refetch()} data-testid="btn-retry-segments">Retry</Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const activeSegment = selected ? data.segments.find(s => s.key === selected) ?? null : null;
+  const activeUsers = selected ? data.segmentDetails[selected] ?? [] : [];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-baseline justify-between">
+        <div>
+          <h2 className="text-lg font-semibold">User Segmentation</h2>
+          <p className="text-sm text-muted-foreground">
+            Every user is auto-grouped into one behavioral segment based on signup recency and 28-day activity. Click a segment to see who's in it.
+          </p>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {data.totalUsers.toLocaleString()} total users
+        </p>
+      </div>
+
+      {/* Segment cards grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {data.segments.map(seg => (
+          <button
+            key={seg.key}
+            type="button"
+            onClick={() => setSelected(seg.key === selected ? null : seg.key)}
+            className={`text-left rounded-xl border p-4 transition-all hover-elevate active-elevate-2 ${
+              selected === seg.key ? "border-primary ring-2 ring-primary/30" : "border-border"
+            }`}
+            data-testid={`segment-card-${seg.key}`}
+          >
+            <div className="flex items-baseline justify-between mb-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="inline-block w-3 h-3 rounded-full shrink-0" style={{ background: seg.color }} />
+                <span className="font-semibold text-sm truncate">{seg.label}</span>
+              </div>
+              <span className="text-xs text-muted-foreground shrink-0 ml-2">{seg.pct}%</span>
+            </div>
+            <p className="text-2xl font-bold mb-1">{seg.count.toLocaleString()}</p>
+            <p className="text-[11px] text-muted-foreground line-clamp-2">{seg.description}</p>
+          </button>
+        ))}
+      </div>
+
+      {/* Selected segment user list */}
+      {activeSegment && (
+        <Card data-testid={`segment-detail-${activeSegment.key}`}>
+          <CardContent className="p-0">
+            <div className="p-4 border-b flex items-baseline justify-between">
+              <div className="min-w-0">
+                <h3 className="text-base font-semibold flex items-center gap-2">
+                  <span className="inline-block w-3 h-3 rounded-full" style={{ background: activeSegment.color }} />
+                  {activeSegment.label}
+                </h3>
+                <p className="text-xs text-muted-foreground">{activeSegment.description}</p>
+              </div>
+              <p className="text-xs text-muted-foreground shrink-0 ml-4">
+                Showing {Math.min(activeUsers.length, 50)} of {activeSegment.count.toLocaleString()}
+              </p>
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="pl-4">User</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead className="text-right">Joined</TableHead>
+                  <TableHead className="text-right">28d Logs</TableHead>
+                  <TableHead className="text-right">Last Active</TableHead>
+                  <TableHead className="text-right pr-4">Streak</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {activeUsers.length === 0 && (
+                  <TableRow><TableCell colSpan={6} className="text-center py-6 text-muted-foreground text-sm">No users in this segment.</TableCell></TableRow>
+                )}
+                {activeUsers.map(u => (
+                  <TableRow key={u.userId} data-testid={`segment-user-${u.userId}`}>
+                    <TableCell className="pl-4">
+                      <div className="font-medium text-sm">{u.name || u.email}</div>
+                      <div className="text-xs text-muted-foreground">{u.email}</div>
+                    </TableCell>
+                    <TableCell><Badge variant="outline" className="text-xs capitalize">{u.role}</Badge></TableCell>
+                    <TableCell className="text-right text-xs text-muted-foreground">{u.signedUpDaysAgo}d ago</TableCell>
+                    <TableCell className="text-right font-semibold">{u.logs28d}</TableCell>
+                    <TableCell className="text-right text-xs text-muted-foreground">
+                      {u.lastActiveDaysAgo == null ? "Never" : `${u.lastActiveDaysAgo}d ago`}
+                    </TableCell>
+                    <TableCell className="text-right pr-4 text-xs">
+                      {u.currentStreak > 0 ? <span className="font-semibold text-orange-500">{u.currentStreak}d</span> : <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// ─── Content Performance sub-tab ───────────────────────────────────────────
+
+type ContentData = {
+  topDrills: Array<{ id: string; title: string; category: string; difficulty: string; logs28d: number; uniqueUsers28d: number; logsAllTime: number }>;
+  underperformers: Array<{ id: string; title: string; category: string; difficulty: string; logs28d: number; ageDays: number }>;
+  categoryStats: Array<{ category: string; drillCount: number; logs28d: number; avgLogsPerDrill: number; uniqueUsers28d: number }>;
+  dailyChallenge: {
+    completionsLast7d: number; completionsLast28d: number; avgPerDay7d: number;
+    activeStreakUsers: number; avgCurrentStreak: number; longestCurrentStreak: number; uniqueUsers28d: number;
+  };
+};
+
+function ContentSubTab() {
+  const { data, isLoading, isError, error, refetch } = useQuery<ContentData>({
+    queryKey: ["/api/admin/analytics/content"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/admin/analytics/content");
+      return res.json();
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[1,2,3,4].map(i => <Skeleton key={i} className="h-24 rounded-xl" />)}
+        </div>
+        <Skeleton className="h-96 rounded-xl" />
+      </div>
+    );
+  }
+
+  if (isError || !data) {
+    return (
+      <Card data-testid="content-error-state">
+        <CardContent className="p-8 text-center space-y-3">
+          <AlertTriangle className="w-8 h-8 text-orange-500 mx-auto" />
+          <p className="font-medium">Couldn't load content performance</p>
+          <p className="text-sm text-muted-foreground">{(error as Error)?.message || "Unknown error"}</p>
+          <Button size="sm" variant="outline" onClick={() => refetch()} data-testid="btn-retry-content">Retry</Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const dc = data.dailyChallenge;
+
+  return (
+    <div className="space-y-8">
+      {/* Daily Streak Challenge ROI */}
+      <div>
+        <h2 className="text-lg font-semibold mb-1">Daily Streak Challenge</h2>
+        <p className="text-sm text-muted-foreground mb-3">
+          The shared daily drill that drives habitual engagement. Higher streaks = stickier users.
+        </p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <AccentStatCard label="Completions (7d)" value={dc.completionsLast7d.toLocaleString()} sub={`~${dc.avgPerDay7d}/day avg`} icon={Flame} accent="orange" testId="stat-dc-7d" />
+          <AccentStatCard label="Completions (28d)" value={dc.completionsLast28d.toLocaleString()} sub={`${dc.uniqueUsers28d.toLocaleString()} unique users`} icon={Activity} accent="blue" testId="stat-dc-28d" />
+          <AccentStatCard label="Active Streaks" value={dc.activeStreakUsers.toLocaleString()} sub={`avg ${dc.avgCurrentStreak} days`} icon={Zap} accent="purple" testId="stat-dc-active" />
+          <AccentStatCard label="Longest Streak" value={`${dc.longestCurrentStreak}d`} sub="current best" icon={Trophy} accent="green" testId="stat-dc-longest" />
+        </div>
+      </div>
+
+      {/* Category breakdown */}
+      <div>
+        <h2 className="text-lg font-semibold mb-1">Category Performance (28d)</h2>
+        <p className="text-sm text-muted-foreground mb-3">Where your users are spending their training time, by drill category.</p>
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="pl-4">Category</TableHead>
+                  <TableHead className="text-right">Drills</TableHead>
+                  <TableHead className="text-right">Logs (28d)</TableHead>
+                  <TableHead className="text-right">Unique Users</TableHead>
+                  <TableHead className="text-right pr-4">Avg Logs / Drill</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.categoryStats.length === 0 && (
+                  <TableRow><TableCell colSpan={5} className="text-center py-6 text-muted-foreground text-sm">No drill categories yet.</TableCell></TableRow>
+                )}
+                {data.categoryStats.map(c => (
+                  <TableRow key={c.category} data-testid={`category-row-${c.category}`}>
+                    <TableCell className="pl-4 font-medium capitalize">{c.category}</TableCell>
+                    <TableCell className="text-right text-sm">{c.drillCount}</TableCell>
+                    <TableCell className="text-right font-semibold">{c.logs28d.toLocaleString()}</TableCell>
+                    <TableCell className="text-right text-sm">{c.uniqueUsers28d.toLocaleString()}</TableCell>
+                    <TableCell className="text-right pr-4 text-sm">{c.avgLogsPerDrill}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Top + Underperforming drills side by side */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div>
+          <h3 className="text-base font-semibold flex items-center gap-2 mb-3">
+            <Trophy className="w-4 h-4 text-green-500" />
+            Top Drills (28d)
+          </h3>
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="pl-4">Drill</TableHead>
+                    <TableHead className="text-right">Logs</TableHead>
+                    <TableHead className="text-right pr-4">Users</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.topDrills.length === 0 && (
+                    <TableRow><TableCell colSpan={3} className="text-center py-6 text-muted-foreground text-sm">No drill activity yet.</TableCell></TableRow>
+                  )}
+                  {data.topDrills.map(d => (
+                    <TableRow key={d.id} data-testid={`top-drill-${d.id}`}>
+                      <TableCell className="pl-4">
+                        <div className="font-medium text-sm">{d.title}</div>
+                        <div className="text-xs text-muted-foreground capitalize">{d.category} · {d.difficulty}</div>
+                      </TableCell>
+                      <TableCell className="text-right font-semibold">{d.logs28d}</TableCell>
+                      <TableCell className="text-right pr-4 text-sm">{d.uniqueUsers28d}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div>
+          <h3 className="text-base font-semibold flex items-center gap-2 mb-3">
+            <AlertTriangle className="w-4 h-4 text-orange-500" />
+            Content Gaps
+          </h3>
+          <p className="text-xs text-muted-foreground mb-2">
+            Drills 14+ days old with no logs in the last 28 days. Candidates to feature, refresh, or retire.
+          </p>
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="pl-4">Drill</TableHead>
+                    <TableHead className="text-right pr-4">Age</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.underperformers.length === 0 && (
+                    <TableRow><TableCell colSpan={2} className="text-center py-6 text-muted-foreground text-sm">No idle drills — all of your library has recent activity.</TableCell></TableRow>
+                  )}
+                  {data.underperformers.map(d => (
+                    <TableRow key={d.id} data-testid={`under-drill-${d.id}`}>
+                      <TableCell className="pl-4">
+                        <div className="font-medium text-sm">{d.title}</div>
+                        <div className="text-xs text-muted-foreground capitalize">{d.category} · {d.difficulty}</div>
+                      </TableCell>
+                      <TableCell className="text-right pr-4 text-xs text-muted-foreground">{d.ageDays}d</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AccentStatCard({ label, value, sub, icon: Icon, accent, testId }: {
+  label: string; value: string; sub: string; icon: ({ className }: { className?: string }) => JSX.Element;
+  accent: "orange" | "blue" | "purple" | "green"; testId?: string;
+}) {
+  const colorMap = {
+    orange: "text-orange-500 bg-orange-500/10",
+    blue:   "text-blue-500 bg-blue-500/10",
+    purple: "text-purple-500 bg-purple-500/10",
+    green:  "text-green-500 bg-green-500/10",
+  };
+  return (
+    <Card data-testid={testId}>
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between mb-2">
+          <p className="text-xs font-medium text-muted-foreground">{label}</p>
+          <div className={`p-1.5 rounded-md ${colorMap[accent]}`}>
+            <Icon className="w-3.5 h-3.5" />
+          </div>
+        </div>
+        <p className="text-2xl font-bold leading-tight">{value}</p>
+        <p className="text-[11px] text-muted-foreground mt-1">{sub}</p>
+      </CardContent>
+    </Card>
+  );
 }
 
 // ─── Coming-Soon placeholder for future analytics phases ───────────────────
