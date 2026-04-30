@@ -1,5 +1,5 @@
 import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, boolean, decimal, doublePrecision, jsonb, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, boolean, decimal, doublePrecision, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -1497,3 +1497,165 @@ export const userStreaks = pgTable("user_streaks", {
 });
 
 export type UserStreak = typeof userStreaks.$inferSelect;
+
+// ─── Programs ─────────────────────────────────────────────────────────────
+// Structured multi-day training journeys. Player-paced by default; events
+// (added later) wrap a program with strict timing + leaderboards. Trainers
+// will later author custom programs and assign them to players.
+
+export const PROGRAM_AUTHOR_TYPES = ["system", "trainer", "event"] as const;
+export type ProgramAuthorType = typeof PROGRAM_AUTHOR_TYPES[number];
+
+export const PROGRAM_CADENCES = ["userPaced", "daily", "fixedDates"] as const;
+export type ProgramCadence = typeof PROGRAM_CADENCES[number];
+
+export const PROGRAM_VISIBILITY = ["public", "unlisted", "private"] as const;
+export type ProgramVisibility = typeof PROGRAM_VISIBILITY[number];
+
+export const PROGRAM_ITEM_TYPES = ["workout", "drill", "challenge", "watch", "rest"] as const;
+export type ProgramItemType = typeof PROGRAM_ITEM_TYPES[number];
+
+export const PROGRAM_ENROLLMENT_STATUS = ["active", "completed", "abandoned"] as const;
+export type ProgramEnrollmentStatus = typeof PROGRAM_ENROLLMENT_STATUS[number];
+
+export const programs = pgTable("programs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  slug: varchar("slug").notNull().unique(),
+  title: varchar("title").notNull(),
+  tagline: varchar("tagline"),
+  description: text("description"),
+  coverImageUrl: varchar("cover_image_url"),
+  accentColor: varchar("accent_color"), // optional hex like "#f97316" — themes the hero
+  authorType: varchar("author_type").$type<ProgramAuthorType>().notNull().default("system"),
+  authorUserId: varchar("author_user_id"), // null for system; set for trainer-authored
+  lengthDays: integer("length_days").notNull(),
+  cadence: varchar("cadence").$type<ProgramCadence>().notNull().default("userPaced"),
+  difficulty: varchar("difficulty").$type<DifficultyLevel>().notNull().default("beginner"),
+  categoryTags: text("category_tags").array(),
+  estimatedMinutesPerDay: integer("estimated_minutes_per_day"),
+  visibility: varchar("visibility").$type<ProgramVisibility>().notNull().default("public"),
+  isPublished: boolean("is_published").default(false),
+  isFeatured: boolean("is_featured").default(false),
+  enrollmentCount: integer("enrollment_count").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const programItems = pgTable("program_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  programId: varchar("program_id").notNull(),
+  dayNumber: integer("day_number").notNull(),
+  orderInDay: integer("order_in_day").notNull().default(0),
+  itemType: varchar("item_type").$type<ProgramItemType>().notNull(),
+  title: varchar("title").notNull(),
+  notes: text("notes"), // coach-style instructions for the user
+  // Polymorphic refs — only one is populated based on itemType:
+  drillId: varchar("drill_id"), // for "drill" or simple "workout" w/ a single drill
+  workoutSpec: jsonb("workout_spec").$type<Array<{
+    drillId: string;
+    sets?: number;
+    reps?: number;
+    durationSec?: number;
+    targetScore?: number;
+    notes?: string;
+  }>>(), // for multi-drill "workout" items
+  challengeSpec: jsonb("challenge_spec").$type<{
+    scoringMetric: string; // "points" | "timeSeconds" | "madeShots" | "streak" | "custom"
+    target?: number;
+    timeLimitSec?: number;
+    description?: string;
+  }>(), // for "challenge" items
+  watchUrl: varchar("watch_url"), // for "watch" items
+  watchProvider: varchar("watch_provider"), // "youtube" | "vimeo" | "internal"
+  estimatedMinutes: integer("estimated_minutes"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  byProgramDay: index("program_items_program_day_idx").on(table.programId, table.dayNumber, table.orderInDay),
+}));
+
+export const programEnrollments = pgTable("program_enrollments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  programId: varchar("program_id").notNull(),
+  startedAt: timestamp("started_at").defaultNow(),
+  currentDay: integer("current_day").notNull().default(1),
+  completedAt: timestamp("completed_at"),
+  assignedByTrainerId: varchar("assigned_by_trainer_id"),
+  eventId: varchar("event_id"), // null until events ship
+  status: varchar("status").$type<ProgramEnrollmentStatus>().notNull().default("active"),
+}, (table) => ({
+  byUserStatus: index("program_enrollments_user_status_idx").on(table.userId, table.status),
+  byProgram: index("program_enrollments_program_idx").on(table.programId),
+  byUserProgram: index("program_enrollments_user_program_idx").on(table.userId, table.programId),
+  // Race-safe: at most one ACTIVE enrollment per (user, program). Allows
+  // multiple completed/abandoned rows so re-enrollment after a pause works.
+  uqUserProgramActive: uniqueIndex("program_enrollments_user_program_active_uq")
+    .on(table.userId, table.programId)
+    .where(sql`status = 'active'`),
+}));
+
+export const programItemCompletions = pgTable("program_item_completions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  enrollmentId: varchar("enrollment_id").notNull(),
+  programItemId: varchar("program_item_id").notNull(),
+  completedAt: timestamp("completed_at").defaultNow(),
+  trainingLogId: varchar("training_log_id"), // links to training_logs when applicable
+  score: decimal("score", { precision: 8, scale: 2 }), // for challenges / leaderboards
+  notes: text("notes"),
+}, (table) => ({
+  byEnrollment: index("program_item_completions_enrollment_idx").on(table.enrollmentId),
+  // Race-safe: a given (enrollment, item) pair can complete at most once.
+  uqEnrollmentItem: uniqueIndex("program_item_completions_enrollment_item_uq").on(table.enrollmentId, table.programItemId),
+}));
+
+// Relations
+export const programsRelations = relations(programs, ({ many }) => ({
+  items: many(programItems),
+  enrollments: many(programEnrollments),
+}));
+
+export const programItemsRelations = relations(programItems, ({ one, many }) => ({
+  program: one(programs, { fields: [programItems.programId], references: [programs.id] }),
+  drill: one(drills, { fields: [programItems.drillId], references: [drills.id] }),
+  completions: many(programItemCompletions),
+}));
+
+export const programEnrollmentsRelations = relations(programEnrollments, ({ one, many }) => ({
+  program: one(programs, { fields: [programEnrollments.programId], references: [programs.id] }),
+  completions: many(programItemCompletions),
+}));
+
+export const programItemCompletionsRelations = relations(programItemCompletions, ({ one }) => ({
+  enrollment: one(programEnrollments, { fields: [programItemCompletions.enrollmentId], references: [programEnrollments.id] }),
+  programItem: one(programItems, { fields: [programItemCompletions.programItemId], references: [programItems.id] }),
+}));
+
+// Insert schemas + types
+export const insertProgramSchema = createInsertSchema(programs).omit({
+  id: true, createdAt: true, updatedAt: true, enrollmentCount: true,
+}).extend({
+  coverImageUrl: urlOrObjectPath,
+});
+
+export const insertProgramItemSchema = createInsertSchema(programItems).omit({
+  id: true, createdAt: true,
+}).extend({
+  watchUrl: urlOrObjectPath,
+});
+
+export const insertProgramEnrollmentSchema = createInsertSchema(programEnrollments).omit({
+  id: true, startedAt: true, completedAt: true,
+});
+
+export const insertProgramItemCompletionSchema = createInsertSchema(programItemCompletions).omit({
+  id: true, completedAt: true,
+});
+
+export type Program = typeof programs.$inferSelect;
+export type InsertProgram = z.infer<typeof insertProgramSchema>;
+export type ProgramItem = typeof programItems.$inferSelect;
+export type InsertProgramItem = z.infer<typeof insertProgramItemSchema>;
+export type ProgramEnrollment = typeof programEnrollments.$inferSelect;
+export type InsertProgramEnrollment = z.infer<typeof insertProgramEnrollmentSchema>;
+export type ProgramItemCompletion = typeof programItemCompletions.$inferSelect;
+export type InsertProgramItemCompletion = z.infer<typeof insertProgramItemCompletionSchema>;

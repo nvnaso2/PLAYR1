@@ -1,5 +1,6 @@
 import { db } from "./db";
 import { drills, benchmarks, evaluationAttributes, shotLocations, shotTypes, userProfiles, metricTemplates, drillMetrics, teamClubs, leagues } from "@shared/schema";
+import { seedPrograms } from "./seed-programs";
 import { users } from "@shared/models/auth";
 import { eq, sql, notInArray, isNull } from "drizzle-orm";
 import { readFileSync } from "fs";
@@ -478,6 +479,8 @@ export async function seedDatabase() {
     } else {
       console.log("Leagues already exist, skipping seed");
     }
+
+    await seedPrograms();
 
     console.log("Database seeding complete!");
 

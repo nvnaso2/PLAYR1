@@ -59,6 +59,9 @@ const MyTrainer = lazy(pageLoaders.myTrainer);
 const ParentDashboard = lazy(pageLoaders.parentDashboard);
 const FindPeople = lazy(pageLoaders.findPeople);
 const FeedbackPage = lazy(pageLoaders.feedback);
+const Programs = lazy(pageLoaders.programs);
+const ProgramDetail = lazy(pageLoaders.programDetail);
+const ProgramToday = lazy(pageLoaders.programToday);
 
 function PageLoader() {
   return (
@@ -265,6 +268,9 @@ function Router() {
                 <Route path="/" component={HomeRedirect} />
                 <Route path="/drills" component={Drills} />
                 <Route path="/drill/:id" component={DrillPage} />
+                <Route path="/programs" component={Programs} />
+                <Route path="/programs/:slug/today" component={ProgramToday} />
+                <Route path="/programs/:slug" component={ProgramDetail} />
                 <Route path="/log" component={TrainingLog} />
                 <Route path="/videos" component={Videos} />
                 <Route path="/career" component={Career} />

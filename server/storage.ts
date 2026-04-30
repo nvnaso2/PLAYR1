@@ -62,6 +62,10 @@ import {
   dailyChallenges, type DailyChallenge,
   dailyCompletions, type DailyCompletion,
   userStreaks, type UserStreak,
+  programs, type Program, type InsertProgram,
+  programItems, type ProgramItem, type InsertProgramItem,
+  programEnrollments, type ProgramEnrollment, type InsertProgramEnrollment,
+  programItemCompletions, type ProgramItemCompletion, type InsertProgramItemCompletion,
 } from "@shared/schema";
 import { users, type User } from "@shared/models/auth";
 import { db } from "./db";
@@ -501,6 +505,32 @@ export interface IStorage {
   getStreakLeaderboard(): Promise<Array<{ userId: string; displayName: string; currentStreak: number; profilePhotoUrl: string | null }>>;
   setAdminDailyChallenge(dateStr: string, drillId: string): Promise<DailyChallenge>;
   getAdminDailyChallenges(from: string, to: string): Promise<Array<DailyChallenge & { drill: Drill }>>;
+
+  // Programs
+  listPrograms(opts?: {
+    category?: string;
+    difficulty?: string;
+    authorType?: string;
+    featuredFirst?: boolean;
+  }): Promise<Program[]>;
+  getProgramBySlug(slug: string): Promise<Program | undefined>;
+  getProgramById(id: string): Promise<Program | undefined>;
+  getProgramItems(programId: string): Promise<ProgramItem[]>;
+  getActiveEnrollmentsForUser(userId: string): Promise<Array<ProgramEnrollment & { program: Program; completedItemCount: number; totalItemCount: number }>>;
+  getEnrollmentById(enrollmentId: string): Promise<ProgramEnrollment | undefined>;
+  getEnrollmentForUserAndProgram(userId: string, programId: string): Promise<ProgramEnrollment | undefined>;
+  enrollUserInProgram(userId: string, programId: string, opts?: { assignedByTrainerId?: string; eventId?: string }): Promise<ProgramEnrollment>;
+  abandonEnrollment(enrollmentId: string, userId: string): Promise<ProgramEnrollment | undefined>;
+  resumeEnrollment(enrollmentId: string, userId: string): Promise<ProgramEnrollment | undefined>;
+  getCompletionsForEnrollment(enrollmentId: string): Promise<ProgramItemCompletion[]>;
+  completeProgramItem(input: {
+    enrollmentId: string;
+    programItemId: string;
+    userId: string;
+    trainingLogId?: string;
+    score?: number;
+    notes?: string;
+  }): Promise<{ completion: ProgramItemCompletion; enrollment: ProgramEnrollment; programCompleted: boolean }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -5065,6 +5095,267 @@ export class DatabaseStorage implements IStorage {
       .where(and(sql`${dailyChallenges.challengeDate} >= ${from}`, sql`${dailyChallenges.challengeDate} <= ${to}`))
       .orderBy(dailyChallenges.challengeDate);
     return rows.map(r => ({ ...r.challenge, drill: r.drill }));
+  }
+
+  // ─── Programs ───────────────────────────────────────────────────────────
+
+  async listPrograms(opts?: {
+    category?: string;
+    difficulty?: string;
+    authorType?: string;
+    featuredFirst?: boolean;
+  }): Promise<Program[]> {
+    const conds = [eq(programs.isPublished, true), eq(programs.visibility, "public")];
+    if (opts?.difficulty) conds.push(eq(programs.difficulty, opts.difficulty as any));
+    if (opts?.authorType) conds.push(eq(programs.authorType, opts.authorType as any));
+    let q = db.select().from(programs).where(and(...conds));
+    if (opts?.category) {
+      // Postgres array contains check via sql template
+      q = db.select().from(programs).where(and(...conds, sql`${programs.categoryTags} @> ARRAY[${opts.category}]::text[]`));
+    }
+    const rows = await q.orderBy(
+      desc(programs.isFeatured),
+      desc(programs.enrollmentCount),
+      desc(programs.createdAt),
+    );
+    return rows;
+  }
+
+  async getProgramBySlug(slug: string): Promise<Program | undefined> {
+    const [row] = await db.select().from(programs).where(eq(programs.slug, slug));
+    return row;
+  }
+
+  async getProgramById(id: string): Promise<Program | undefined> {
+    const [row] = await db.select().from(programs).where(eq(programs.id, id));
+    return row;
+  }
+
+  async getProgramItems(programId: string): Promise<ProgramItem[]> {
+    return await db
+      .select()
+      .from(programItems)
+      .where(eq(programItems.programId, programId))
+      .orderBy(asc(programItems.dayNumber), asc(programItems.orderInDay));
+  }
+
+  async getActiveEnrollmentsForUser(
+    userId: string,
+  ): Promise<Array<ProgramEnrollment & { program: Program; completedItemCount: number; totalItemCount: number }>> {
+    const rows = await db
+      .select({
+        enrollment: programEnrollments,
+        program: programs,
+        completedItemCount: sql<number>`(
+          SELECT COUNT(*)::int FROM ${programItemCompletions}
+          WHERE ${programItemCompletions.enrollmentId} = ${programEnrollments.id}
+        )`,
+        totalItemCount: sql<number>`(
+          SELECT COUNT(*)::int FROM ${programItems}
+          WHERE ${programItems.programId} = ${programs.id}
+        )`,
+      })
+      .from(programEnrollments)
+      .innerJoin(programs, eq(programs.id, programEnrollments.programId))
+      .where(and(eq(programEnrollments.userId, userId), eq(programEnrollments.status, "active")))
+      .orderBy(desc(programEnrollments.startedAt));
+    return rows.map(r => ({
+      ...r.enrollment,
+      program: r.program,
+      completedItemCount: Number(r.completedItemCount ?? 0),
+      totalItemCount: Number(r.totalItemCount ?? 0),
+    }));
+  }
+
+  async getEnrollmentById(enrollmentId: string): Promise<ProgramEnrollment | undefined> {
+    const [row] = await db.select().from(programEnrollments).where(eq(programEnrollments.id, enrollmentId));
+    return row;
+  }
+
+  async getEnrollmentForUserAndProgram(userId: string, programId: string): Promise<ProgramEnrollment | undefined> {
+    // Prefer the active enrollment so callers don't accidentally treat an
+    // abandoned/completed row as the user's current run.
+    const rows = await db
+      .select()
+      .from(programEnrollments)
+      .where(and(eq(programEnrollments.userId, userId), eq(programEnrollments.programId, programId)))
+      .orderBy(desc(programEnrollments.startedAt));
+    return rows.find((r) => r.status === "active") ?? rows[0];
+  }
+
+  async enrollUserInProgram(
+    userId: string,
+    programId: string,
+    opts?: { assignedByTrainerId?: string; eventId?: string },
+  ): Promise<ProgramEnrollment> {
+    // Race-safe idempotent insert. The partial unique index
+    // (userId, programId) WHERE status = 'active' makes the second concurrent
+    // INSERT a no-op via ON CONFLICT DO NOTHING. We only bump enrollmentCount
+    // when the row is actually created, so denormalized counts stay accurate.
+    const inserted = await db
+      .insert(programEnrollments)
+      .values({
+        userId,
+        programId,
+        currentDay: 1,
+        status: "active",
+        assignedByTrainerId: opts?.assignedByTrainerId,
+        eventId: opts?.eventId,
+      })
+      .onConflictDoNothing()
+      .returning();
+
+    if (inserted.length > 0) {
+      await db
+        .update(programs)
+        .set({ enrollmentCount: sql`${programs.enrollmentCount} + 1` })
+        .where(eq(programs.id, programId));
+      return inserted[0];
+    }
+
+    // Conflict — load the existing active enrollment.
+    const [existing] = await db
+      .select()
+      .from(programEnrollments)
+      .where(and(
+        eq(programEnrollments.userId, userId),
+        eq(programEnrollments.programId, programId),
+        eq(programEnrollments.status, "active"),
+      ));
+    if (!existing) throw new Error("Failed to enroll: conflict but no active enrollment");
+    return existing;
+  }
+
+  async abandonEnrollment(enrollmentId: string, userId: string): Promise<ProgramEnrollment | undefined> {
+    const [row] = await db
+      .update(programEnrollments)
+      .set({ status: "abandoned" })
+      .where(and(eq(programEnrollments.id, enrollmentId), eq(programEnrollments.userId, userId)))
+      .returning();
+    return row;
+  }
+
+  async resumeEnrollment(enrollmentId: string, userId: string): Promise<ProgramEnrollment | undefined> {
+    // Block resume if another active enrollment for the same program already exists.
+    const [target] = await db
+      .select()
+      .from(programEnrollments)
+      .where(and(eq(programEnrollments.id, enrollmentId), eq(programEnrollments.userId, userId)));
+    if (!target) return undefined;
+    if (target.status === "active") return target;
+    const [conflict] = await db
+      .select()
+      .from(programEnrollments)
+      .where(and(
+        eq(programEnrollments.userId, userId),
+        eq(programEnrollments.programId, target.programId),
+        eq(programEnrollments.status, "active"),
+      ));
+    if (conflict) throw new Error("Another active enrollment exists for this program");
+    const [row] = await db
+      .update(programEnrollments)
+      .set({ status: "active", completedAt: null })
+      .where(eq(programEnrollments.id, enrollmentId))
+      .returning();
+    return row;
+  }
+
+  async getCompletionsForEnrollment(enrollmentId: string): Promise<ProgramItemCompletion[]> {
+    return await db
+      .select()
+      .from(programItemCompletions)
+      .where(eq(programItemCompletions.enrollmentId, enrollmentId))
+      .orderBy(desc(programItemCompletions.completedAt));
+  }
+
+  async completeProgramItem(input: {
+    enrollmentId: string;
+    programItemId: string;
+    userId: string;
+    trainingLogId?: string;
+    score?: number;
+    notes?: string;
+  }): Promise<{ completion: ProgramItemCompletion; enrollment: ProgramEnrollment; programCompleted: boolean }> {
+    // Validate enrollment ownership
+    const [enrollment] = await db
+      .select()
+      .from(programEnrollments)
+      .where(and(
+        eq(programEnrollments.id, input.enrollmentId),
+        eq(programEnrollments.userId, input.userId),
+      ));
+    if (!enrollment) throw new Error("Enrollment not found or not owned by user");
+    if (enrollment.status !== "active") {
+      // Don't allow logging completions against abandoned/completed enrollments —
+      // the user must explicitly resume or re-enroll first.
+      throw new Error(`Enrollment is ${enrollment.status}; resume it first`);
+    }
+
+    // Validate item belongs to the enrolled program
+    const [item] = await db
+      .select()
+      .from(programItems)
+      .where(and(eq(programItems.id, input.programItemId), eq(programItems.programId, enrollment.programId)));
+    if (!item) throw new Error("Program item not found in this program");
+
+    // Race-safe idempotent insert. The unique index on (enrollmentId, programItemId)
+    // makes a concurrent second insert a no-op via ON CONFLICT DO NOTHING.
+    const insertedRows = await db
+      .insert(programItemCompletions)
+      .values({
+        enrollmentId: input.enrollmentId,
+        programItemId: input.programItemId,
+        trainingLogId: input.trainingLogId,
+        score: input.score != null ? String(input.score) : undefined,
+        notes: input.notes,
+      })
+      .onConflictDoNothing()
+      .returning();
+    let completion: ProgramItemCompletion;
+    if (insertedRows.length > 0) {
+      completion = insertedRows[0];
+    } else {
+      const [existing] = await db
+        .select()
+        .from(programItemCompletions)
+        .where(and(
+          eq(programItemCompletions.enrollmentId, input.enrollmentId),
+          eq(programItemCompletions.programItemId, input.programItemId),
+        ));
+      if (!existing) throw new Error("Failed to record completion");
+      completion = existing;
+    }
+
+    // Update enrollment progress: bump currentDay to the highest day completed + 1 (capped to lengthDays)
+    const [progress] = await db
+      .select({
+        completedDays: sql<number>`COUNT(DISTINCT ${programItems.dayNumber})::int`,
+        totalItems: sql<number>`(SELECT COUNT(*)::int FROM ${programItems} WHERE ${programItems.programId} = ${enrollment.programId})`,
+        completedItems: sql<number>`(SELECT COUNT(*)::int FROM ${programItemCompletions} WHERE ${programItemCompletions.enrollmentId} = ${input.enrollmentId})`,
+        maxCompletedDay: sql<number>`COALESCE(MAX(${programItems.dayNumber}), 0)::int`,
+      })
+      .from(programItemCompletions)
+      .innerJoin(programItems, eq(programItems.id, programItemCompletions.programItemId))
+      .where(eq(programItemCompletions.enrollmentId, input.enrollmentId));
+
+    const [program] = await db.select().from(programs).where(eq(programs.id, enrollment.programId));
+    const totalItems = Number(progress?.totalItems ?? 0);
+    const completedItems = Number(progress?.completedItems ?? 0);
+    const maxCompletedDay = Number(progress?.maxCompletedDay ?? 0);
+    const programCompleted = totalItems > 0 && completedItems >= totalItems;
+
+    const newCurrentDay = Math.min(maxCompletedDay + 1, program?.lengthDays ?? maxCompletedDay + 1);
+    const [updatedEnrollment] = await db
+      .update(programEnrollments)
+      .set({
+        currentDay: Math.max(enrollment.currentDay, newCurrentDay),
+        status: programCompleted ? "completed" : enrollment.status,
+        completedAt: programCompleted ? new Date() : enrollment.completedAt,
+      })
+      .where(eq(programEnrollments.id, input.enrollmentId))
+      .returning();
+
+    return { completion, enrollment: updatedEnrollment, programCompleted };
   }
 }
 

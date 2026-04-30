@@ -7887,6 +7887,138 @@ export async function registerRoutes(
     }
   });
 
+  // ===== PROGRAMS =====
+
+  // List published, public programs
+  app.get("/api/programs", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const category = (req.query.category as string) || undefined;
+      const difficulty = (req.query.difficulty as string) || undefined;
+      const authorType = (req.query.authorType as string) || undefined;
+      const programs = await storage.listPrograms({ category, difficulty, authorType });
+      res.json(programs);
+    } catch (err) {
+      console.error("Error listing programs:", err);
+      res.status(500).json({ message: "Failed to list programs" });
+    }
+  });
+
+  // Get current user's active enrollments (with progress counts)
+  app.get("/api/programs/me", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const enrollments = await storage.getActiveEnrollmentsForUser(userId);
+      res.json(enrollments);
+    } catch (err) {
+      console.error("Error getting my programs:", err);
+      res.status(500).json({ message: "Failed to get enrollments" });
+    }
+  });
+
+  // Get a program by slug, including items + (if signed in) the user's enrollment
+  app.get("/api/programs/:slug", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const program = await storage.getProgramBySlug(req.params.slug);
+      if (!program) return res.status(404).json({ message: "Program not found" });
+      // Hide unpublished or non-public programs to avoid slug-guessing leaks.
+      // Trainer-assigned access (when trainer authoring ships) will widen this.
+      const enrollment = await storage.getEnrollmentForUserAndProgram(userId, program.id);
+      const isOwner = program.authorUserId === userId;
+      const isVisible = program.isPublished && program.visibility === "public";
+      if (!isVisible && !isOwner && !enrollment) {
+        return res.status(404).json({ message: "Program not found" });
+      }
+      const items = await storage.getProgramItems(program.id);
+      const completions = enrollment ? await storage.getCompletionsForEnrollment(enrollment.id) : [];
+      res.json({ program, items, enrollment, completions });
+    } catch (err) {
+      console.error("Error getting program:", err);
+      res.status(500).json({ message: "Failed to get program" });
+    }
+  });
+
+  // Enroll in a program (idempotent — returns existing active enrollment if present)
+  app.post("/api/programs/:id/enroll", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const program = await storage.getProgramById(req.params.id);
+      if (!program) return res.status(404).json({ message: "Program not found" });
+      const isOwner = program.authorUserId === userId;
+      if (!program.isPublished && !isOwner) return res.status(403).json({ message: "Program not available" });
+      if (program.visibility !== "public" && !isOwner) {
+        return res.status(403).json({ message: "Program not available" });
+      }
+      const enrollment = await storage.enrollUserInProgram(userId, program.id);
+      res.json(enrollment);
+    } catch (err) {
+      console.error("Error enrolling in program:", err);
+      res.status(500).json({ message: "Failed to enroll" });
+    }
+  });
+
+  // Mark a program item complete
+  const completeItemSchema = z.object({
+    trainingLogId: z.string().optional(),
+    score: z.number().optional(),
+    notes: z.string().optional(),
+  });
+  app.post(
+    "/api/programs/enrollments/:enrollmentId/items/:itemId/complete",
+    isAuthenticated,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const userId = req.user!.claims.sub;
+        const body = completeItemSchema.parse(req.body ?? {});
+        const result = await storage.completeProgramItem({
+          enrollmentId: req.params.enrollmentId,
+          programItemId: req.params.itemId,
+          userId,
+          trainingLogId: body.trainingLogId,
+          score: body.score,
+          notes: body.notes,
+        });
+        res.json(result);
+      } catch (err: any) {
+        if (err instanceof z.ZodError) return res.status(400).json({ message: "Invalid body", errors: err.errors });
+        const msg = err?.message || "Failed to complete item";
+        let code = 500;
+        if (msg.includes("not found") || msg.includes("not owned")) code = 404;
+        else if (msg.includes("resume it first")) code = 409;
+        console.error("Error completing program item:", err);
+        res.status(code).json({ message: msg });
+      }
+    },
+  );
+
+  // Abandon an enrollment
+  app.post("/api/programs/enrollments/:enrollmentId/abandon", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const updated = await storage.abandonEnrollment(req.params.enrollmentId, userId);
+      if (!updated) return res.status(404).json({ message: "Enrollment not found" });
+      res.json(updated);
+    } catch (err) {
+      console.error("Error abandoning enrollment:", err);
+      res.status(500).json({ message: "Failed to abandon enrollment" });
+    }
+  });
+
+  // Resume an abandoned/completed enrollment
+  app.post("/api/programs/enrollments/:enrollmentId/resume", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const enrollment = await storage.resumeEnrollment(req.params.enrollmentId, userId);
+      if (!enrollment) return res.status(404).json({ message: "Enrollment not found" });
+      res.json(enrollment);
+    } catch (err: any) {
+      const msg = err?.message || "Failed to resume enrollment";
+      const code = msg.includes("Another active enrollment") ? 409 : 500;
+      console.error("Error resuming enrollment:", err);
+      res.status(code).json({ message: msg });
+    }
+  });
+
   return httpServer;
 }
 

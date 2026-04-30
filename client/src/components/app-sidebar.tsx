@@ -57,6 +57,7 @@ import {
   ClipboardCheck,
   Eye,
   Megaphone,
+  Sparkles,
 } from "lucide-react";
 import { Playr1Logo } from "@/components/playr1-logo";
 import { getObjectUrl } from "@/lib/queryClient";
@@ -66,6 +67,7 @@ const playerNavItems = [
   { title: "My Career", url: "/career", icon: Trophy },
   { title: "Training Log", url: "/log", icon: ClipboardList },
   { title: "My Trainer", url: "/my-trainer", icon: UserPlus },
+  { title: "Programs", url: "/programs", icon: Sparkles },
   { title: "Drill Library", url: "/drills", icon: Play },
   { title: "My Film Room", url: "/videos", icon: Video },
   { title: "Teams & Leagues", url: "/teams", icon: Shield },
