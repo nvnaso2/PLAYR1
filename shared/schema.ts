@@ -1509,7 +1509,7 @@ export type ProgramAuthorType = typeof PROGRAM_AUTHOR_TYPES[number];
 export const PROGRAM_CADENCES = ["userPaced", "daily", "fixedDates"] as const;
 export type ProgramCadence = typeof PROGRAM_CADENCES[number];
 
-export const PROGRAM_VISIBILITY = ["public", "unlisted", "private"] as const;
+export const PROGRAM_VISIBILITY = ["public", "unlisted", "private", "connections"] as const;
 export type ProgramVisibility = typeof PROGRAM_VISIBILITY[number];
 
 export const PROGRAM_ITEM_TYPES = ["workout", "drill", "challenge", "watch", "rest"] as const;

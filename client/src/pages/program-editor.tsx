@@ -26,11 +26,19 @@ import {
 import {
   ArrowLeft, ArrowUp, ArrowDown, Plus, Trash2, Pencil, Save, ExternalLink, Eye,
 } from "lucide-react";
+import { AssignProgramDialog } from "@/components/assign-program-dialog";
 import type { Program, ProgramItem, Drill } from "@shared/schema";
 import {
   PROGRAM_CADENCES, PROGRAM_VISIBILITY, PROGRAM_ITEM_TYPES,
   type ProgramItemType,
 } from "@shared/schema";
+
+const VISIBILITY_LABELS: Record<string, string> = {
+  public: "Public — anyone on PLAYR1",
+  connections: "My players — only my connected roster",
+  unlisted: "Unlisted — only people with the link",
+  private: "Private — only me",
+};
 
 type DetailResp = { program: Program; items: ProgramItem[] };
 
@@ -162,6 +170,9 @@ export default function ProgramEditorPage() {
               <Eye className="w-4 h-4 mr-1" /> Preview
             </Button>
           </Link>
+          {meta.id ? (
+            <AssignProgramDialog programId={meta.id} programTitle={meta.title ?? "this program"} />
+          ) : null}
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="destructive" size="sm" data-testid="button-delete-program">
@@ -257,7 +268,9 @@ export default function ProgramEditorPage() {
                 onValueChange={(v) => setMeta({ ...meta, visibility: v as any })}>
                 <SelectTrigger id="visibility" data-testid="select-program-visibility"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {PROGRAM_VISIBILITY.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                  {PROGRAM_VISIBILITY.map((v) => (
+                    <SelectItem key={v} value={v}>{VISIBILITY_LABELS[v] ?? v}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

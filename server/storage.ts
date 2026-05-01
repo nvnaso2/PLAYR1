@@ -544,6 +544,23 @@ export interface IStorage {
   updateProgramItem(id: string, patch: Partial<InsertProgramItem>): Promise<ProgramItem | undefined>;
   deleteProgramItem(id: string): Promise<boolean>;
   reorderProgramItems(programId: string, items: Array<{ id: string; dayNumber: number; orderInDay: number }>): Promise<void>;
+
+  // Trainer assignment + roster discovery
+  getRosterPlayerIds(trainerId: string): Promise<string[]>;
+  assignProgramToPlayers(programId: string, playerIds: string[], trainerId: string): Promise<{
+    assigned: string[];
+    alreadyEnrolled: string[];
+    skipped: string[];
+  }>;
+  listAssignedProgramsForUser(userId: string): Promise<Array<ProgramEnrollment & {
+    program: Program;
+    completedItemCount: number;
+    totalItemCount: number;
+    trainer: { id: string; firstName: string | null; lastName: string | null; profileImageUrl: string | null } | null;
+  }>>;
+  listProgramsFromConnectedTrainers(userId: string): Promise<Array<Program & {
+    trainer: { id: string; firstName: string | null; lastName: string | null; profileImageUrl: string | null } | null;
+  }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -5454,6 +5471,162 @@ export class DatabaseStorage implements IStorage {
           .where(and(eq(programItems.id, it.id), eq(programItems.programId, programId))),
       ),
     );
+  }
+
+  // ─── Trainer assignment + roster discovery ──────────────────────────────
+  async getRosterPlayerIds(trainerId: string): Promise<string[]> {
+    // Accepted connections where the OTHER user is the player. The
+    // connection table stores (playerId, trainerId) but in practice either
+    // side can initiate, so we resolve the "other" user by matching trainerId
+    // on either column.
+    const rows = await db
+      .select({ playerId: playerTrainerConnections.playerId, trainerId: playerTrainerConnections.trainerId })
+      .from(playerTrainerConnections)
+      .where(
+        and(
+          eq(playerTrainerConnections.status, "accepted"),
+          or(
+            eq(playerTrainerConnections.trainerId, trainerId),
+            eq(playerTrainerConnections.playerId, trainerId),
+          ),
+        ),
+      );
+    const ids = new Set<string>();
+    for (const r of rows) {
+      const otherId = r.playerId === trainerId ? r.trainerId : r.playerId;
+      if (otherId && otherId !== trainerId) ids.add(otherId);
+    }
+    return Array.from(ids);
+  }
+
+  async assignProgramToPlayers(
+    programId: string,
+    playerIds: string[],
+    trainerId: string,
+  ): Promise<{ assigned: string[]; alreadyEnrolled: string[]; skipped: string[] }> {
+    const rosterIds = new Set(await this.getRosterPlayerIds(trainerId));
+    const assigned: string[] = [];
+    const alreadyEnrolled: string[] = [];
+    const skipped: string[] = [];
+
+    for (const pid of playerIds) {
+      if (!rosterIds.has(pid)) {
+        skipped.push(pid);
+        continue;
+      }
+      // Race-safe: rely on the partial unique index `(userId, programId) WHERE status='active'`
+      // so the actual `inserted.length > 0` signal is the single source of truth for whether
+      // this call created a new enrollment. Pre-checks would race under concurrent assigns.
+      const inserted = await db
+        .insert(programEnrollments)
+        .values({
+          userId: pid,
+          programId,
+          currentDay: 1,
+          status: "active",
+          assignedByTrainerId: trainerId,
+        })
+        .onConflictDoNothing()
+        .returning();
+      if (inserted.length > 0) {
+        await db
+          .update(programs)
+          .set({ enrollmentCount: sql`${programs.enrollmentCount} + 1` })
+          .where(eq(programs.id, programId));
+        assigned.push(pid);
+      } else {
+        alreadyEnrolled.push(pid);
+      }
+    }
+
+    return { assigned, alreadyEnrolled, skipped };
+  }
+
+  async listAssignedProgramsForUser(userId: string): Promise<Array<ProgramEnrollment & {
+    program: Program;
+    completedItemCount: number;
+    totalItemCount: number;
+    trainer: { id: string; firstName: string | null; lastName: string | null; profileImageUrl: string | null } | null;
+  }>> {
+    const rows = await db
+      .select({
+        enrollment: programEnrollments,
+        program: programs,
+        trainer: {
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          profileImageUrl: users.profileImageUrl,
+        },
+        completedItemCount: sql<number>`(
+          SELECT COUNT(*)::int FROM ${programItemCompletions}
+          WHERE ${programItemCompletions.enrollmentId} = ${programEnrollments.id}
+        )`,
+        totalItemCount: sql<number>`(
+          SELECT COUNT(*)::int FROM ${programItems}
+          WHERE ${programItems.programId} = ${programs.id}
+        )`,
+      })
+      .from(programEnrollments)
+      .innerJoin(programs, eq(programs.id, programEnrollments.programId))
+      .leftJoin(users, eq(users.id, programEnrollments.assignedByTrainerId))
+      .where(and(
+        eq(programEnrollments.userId, userId),
+        eq(programEnrollments.status, "active"),
+        sql`${programEnrollments.assignedByTrainerId} IS NOT NULL`,
+      ))
+      .orderBy(desc(programEnrollments.startedAt));
+    return rows.map(r => ({
+      ...r.enrollment,
+      program: r.program,
+      completedItemCount: Number(r.completedItemCount ?? 0),
+      totalItemCount: Number(r.totalItemCount ?? 0),
+      trainer: r.trainer?.id ? r.trainer : null,
+    }));
+  }
+
+  async listProgramsFromConnectedTrainers(userId: string): Promise<Array<Program & {
+    trainer: { id: string; firstName: string | null; lastName: string | null; profileImageUrl: string | null } | null;
+  }>> {
+    // Find all accepted connection counterparts (trainers from the user's POV).
+    const conns = await db
+      .select({ playerId: playerTrainerConnections.playerId, trainerId: playerTrainerConnections.trainerId })
+      .from(playerTrainerConnections)
+      .where(and(
+        eq(playerTrainerConnections.status, "accepted"),
+        or(
+          eq(playerTrainerConnections.playerId, userId),
+          eq(playerTrainerConnections.trainerId, userId),
+        ),
+      ));
+    const trainerIds = new Set<string>();
+    for (const c of conns) {
+      const otherId = c.playerId === userId ? c.trainerId : c.playerId;
+      if (otherId && otherId !== userId) trainerIds.add(otherId);
+    }
+    if (trainerIds.size === 0) return [];
+
+    const idArr = Array.from(trainerIds);
+    const rows = await db
+      .select({
+        program: programs,
+        trainer: {
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          profileImageUrl: users.profileImageUrl,
+        },
+      })
+      .from(programs)
+      .leftJoin(users, eq(users.id, programs.authorUserId))
+      .where(and(
+        eq(programs.isPublished, true),
+        inArray(programs.authorUserId, idArr),
+        or(eq(programs.visibility, "public"), eq(programs.visibility, "connections")),
+      ))
+      .orderBy(desc(programs.isFeatured), desc(programs.enrollmentCount), desc(programs.createdAt));
+
+    return rows.map(r => ({ ...r.program, trainer: r.trainer?.id ? r.trainer : null }));
   }
 }
 

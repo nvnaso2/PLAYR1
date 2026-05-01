@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Calendar, Flame, Sparkles } from "lucide-react";
+import { ArrowRight, Calendar, Flame, Sparkles, UserCheck } from "lucide-react";
 import type { Program, ProgramEnrollment } from "@shared/schema";
 
 type EnrollmentRow = ProgramEnrollment & {
@@ -12,12 +12,27 @@ type EnrollmentRow = ProgramEnrollment & {
   totalItemCount: number;
 };
 
+type AssignedRow = EnrollmentRow & {
+  trainer: { id: string; firstName: string | null; lastName: string | null; profileImageUrl: string | null } | null;
+};
+
 export function ContinueProgramsWidget() {
   const { data: enrollments, isLoading } = useQuery<EnrollmentRow[]>({
     queryKey: ["/api/programs/me"],
   });
+  const { data: assigned } = useQuery<AssignedRow[]>({
+    queryKey: ["/api/programs/discover/assigned"],
+  });
 
   if (isLoading) return null;
+
+  // Build a map programId → trainer name so we can label assigned rows.
+  const trainerByProgramId = new Map<string, string>();
+  (assigned ?? []).forEach((a) => {
+    const name = [a.trainer?.firstName, a.trainer?.lastName].filter(Boolean).join(" ").trim();
+    if (a.trainer && name) trainerByProgramId.set(a.programId, name);
+    else if (a.trainer) trainerByProgramId.set(a.programId, "your coach");
+  });
 
   const active = (enrollments ?? []).filter((e) => e.status === "active");
 
@@ -83,6 +98,15 @@ export function ContinueProgramsWidget() {
                   <h3 className="text-sm font-semibold leading-tight line-clamp-2">
                     {e.program.title}
                   </h3>
+                  {trainerByProgramId.has(e.programId) ? (
+                    <p
+                      className="text-[11px] text-primary mt-1 flex items-center gap-1"
+                      data-testid={`text-assigned-by-${e.program.slug}`}
+                    >
+                      <UserCheck className="w-3 h-3" />
+                      Assigned by {trainerByProgramId.get(e.programId)}
+                    </p>
+                  ) : null}
                   <div className="flex items-center justify-between text-[11px] text-muted-foreground mt-3 mb-1">
                     <span>{e.completedItemCount}/{e.totalItemCount} items</span>
                     <span className="font-medium text-foreground">{pct}%</span>

@@ -7925,8 +7925,15 @@ export async function registerRoutes(
       // Trainer-assigned access (when trainer authoring ships) will widen this.
       const enrollment = await storage.getEnrollmentForUserAndProgram(userId, program.id);
       const isOwner = program.authorUserId === userId;
-      const isVisible = program.isPublished && program.visibility === "public";
-      if (!isVisible && !isOwner && !enrollment) {
+      const isPublic = program.isPublished && program.visibility === "public";
+      // Connections-tier programs are visible to players accepted-connected
+      // to the program's author trainer.
+      let isConnectionVisible = false;
+      if (program.isPublished && program.visibility === "connections" && program.authorUserId) {
+        const conn = await storage.getConnection(userId, program.authorUserId);
+        isConnectionVisible = conn?.status === "accepted";
+      }
+      if (!isPublic && !isConnectionVisible && !isOwner && !enrollment) {
         return res.status(404).json({ message: "Program not found" });
       }
       const items = await storage.getProgramItems(program.id);
@@ -7947,7 +7954,13 @@ export async function registerRoutes(
       const isOwner = program.authorUserId === userId;
       if (!program.isPublished && !isOwner) return res.status(403).json({ message: "Program not available" });
       if (program.visibility !== "public" && !isOwner) {
-        return res.status(403).json({ message: "Program not available" });
+        // Allow connections-tier programs for accepted-connected players.
+        let allowed = false;
+        if (program.visibility === "connections" && program.authorUserId) {
+          const conn = await storage.getConnection(userId, program.authorUserId);
+          allowed = conn?.status === "accepted";
+        }
+        if (!allowed) return res.status(403).json({ message: "Program not available" });
       }
       const enrollment = await storage.enrollUserInProgram(userId, program.id);
       res.json(enrollment);
@@ -8268,6 +8281,58 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) return res.status(400).json({ message: "Invalid body", errors: err.errors });
       console.error("Error reordering program items:", err);
       res.status(500).json({ message: "Failed to reorder items" });
+    }
+  });
+
+  // ─── Trainer assignment + roster discovery ───────────────────────────────
+  // Assign a program to one or more of the trainer's connected players.
+  // Author or admin only. Players not in the caller's roster are skipped.
+  const assignProgramSchema = z.object({
+    playerIds: z.array(z.string().min(1)).min(1).max(200),
+  });
+  app.post("/api/programs/:id/assign", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const ctx = await loadProgramForEdit(req, res, req.params.id);
+      if (!ctx) return;
+      const body = assignProgramSchema.parse(req.body ?? {});
+      // Roster used for validation belongs to the program's actual author.
+      // For admin-edited trainer programs that's still the trainer; for system
+      // programs there is no roster (authorUserId is null) so admins assigning
+      // a system program use their own connections — admins are commonly also
+      // staff, so this falls through to "no one in roster" → all skipped.
+      const trainerId = ctx.program.authorUserId ?? ctx.userId;
+      const result = await storage.assignProgramToPlayers(ctx.program.id, body.playerIds, trainerId);
+      res.json(result);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: "Invalid body", errors: err.errors });
+      console.error("Error assigning program:", err);
+      res.status(500).json({ message: "Failed to assign program" });
+    }
+  });
+
+  // Programs assigned to me by a trainer (active enrollments where
+  // assignedByTrainerId is set). Includes trainer info for display.
+  app.get("/api/programs/discover/assigned", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const list = await storage.listAssignedProgramsForUser(userId);
+      res.json(list);
+    } catch (err) {
+      console.error("Error listing assigned programs:", err);
+      res.status(500).json({ message: "Failed to list assigned programs" });
+    }
+  });
+
+  // Programs published by my connected trainers (visibility: public OR
+  // connections). Used to surface "From your trainers" on the player browse.
+  app.get("/api/programs/discover/from-trainers", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const list = await storage.listProgramsFromConnectedTrainers(userId);
+      res.json(list);
+    } catch (err) {
+      console.error("Error listing trainer programs:", err);
+      res.status(500).json({ message: "Failed to list trainer programs" });
     }
   });
 
