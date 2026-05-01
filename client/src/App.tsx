@@ -63,6 +63,9 @@ const Programs = lazy(pageLoaders.programs);
 const ProgramDetail = lazy(pageLoaders.programDetail);
 const ProgramToday = lazy(pageLoaders.programToday);
 const ProgramEditor = lazy(pageLoaders.programEditor);
+const Events = lazy(pageLoaders.events);
+const EventDetail = lazy(pageLoaders.eventDetail);
+const EventEditor = lazy(pageLoaders.eventEditor);
 const TrainerPrograms = lazy(pageLoaders.trainerPrograms);
 
 function PageLoader() {
@@ -255,6 +258,8 @@ function Router() {
       <Route path="/support" component={Support} />
       <Route path="/finder">{() => <Redirect to="/teams" />}</Route>
       <Route path="/parent-invite/:code" component={ParentInvite} />
+      <Route path="/events">{() => <Suspense fallback={<LoadingScreen />}><Events /></Suspense>}</Route>
+      <Route path="/events/:slug">{() => <Suspense fallback={<LoadingScreen />}><EventDetail /></Suspense>}</Route>
       <Route>
         {() => {
           if (!isAuthenticated) {
@@ -274,6 +279,7 @@ function Router() {
                 <Route path="/programs/:id/edit" component={ProgramEditor} />
                 <Route path="/programs/:slug/today" component={ProgramToday} />
                 <Route path="/programs/:slug" component={ProgramDetail} />
+                <Route path="/admin/events/:id/edit" component={EventEditor} />
                 <Route path="/log" component={TrainingLog} />
                 <Route path="/videos" component={Videos} />
                 <Route path="/career" component={Career} />

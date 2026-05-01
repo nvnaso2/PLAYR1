@@ -66,6 +66,9 @@ import {
   programItems, type ProgramItem, type InsertProgramItem,
   programEnrollments, type ProgramEnrollment, type InsertProgramEnrollment,
   programItemCompletions, type ProgramItemCompletion, type InsertProgramItemCompletion,
+  events, type Event, type InsertEvent,
+  eventParticipants, type EventParticipant,
+  type EventStatus,
 } from "@shared/schema";
 import { users, type User } from "@shared/models/auth";
 import { db } from "./db";
@@ -560,6 +563,28 @@ export interface IStorage {
   }>>;
   listProgramsFromConnectedTrainers(userId: string): Promise<Array<Program & {
     trainer: { id: string; firstName: string | null; lastName: string | null; profileImageUrl: string | null } | null;
+  }>>;
+
+  // Events (Program wrapper w/ time window + leaderboard)
+  listEvents(opts?: { includeUnpublished?: boolean }): Promise<Array<Event & { status: EventStatus; program: Program | null }>>;
+  getEventBySlug(slug: string): Promise<(Event & { program: Program | null; status: EventStatus }) | undefined>;
+  getEventById(id: string): Promise<Event | undefined>;
+  createEvent(input: InsertEvent): Promise<Event>;
+  updateEvent(id: string, patch: Partial<InsertEvent>): Promise<Event | undefined>;
+  deleteEvent(id: string): Promise<boolean>;
+  hasEventParticipants(eventId: string): Promise<boolean>;
+  joinEvent(eventId: string, userId: string): Promise<{ participant: EventParticipant; enrollment: ProgramEnrollment }>;
+  getEventParticipant(eventId: string, userId: string): Promise<EventParticipant | undefined>;
+  submitFinalChallengeScore(eventId: string, userId: string, score: number, notes?: string): Promise<EventParticipant>;
+  getEventLeaderboard(eventId: string, limit?: number): Promise<Array<{
+    userId: string;
+    user: { id: string; firstName: string | null; lastName: string | null; profileImageUrl: string | null };
+    joinedAt: Date | null;
+    completedItemCount: number;
+    lastCompletedAt: Date | null;
+    finalScore: string | null;
+    finalSubmittedAt: Date | null;
+    rank: number;
   }>>;
 }
 
@@ -5627,6 +5652,338 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(programs.isFeatured), desc(programs.enrollmentCount), desc(programs.createdAt));
 
     return rows.map(r => ({ ...r.program, trainer: r.trainer?.id ? r.trainer : null }));
+  }
+
+  // ─── Events ──────────────────────────────────────────────────────────────
+  private deriveEventStatus(e: { isPublished: boolean | null; startsAt: Date; endsAt: Date }): EventStatus {
+    if (!e.isPublished) return "draft";
+    const now = Date.now();
+    if (now < e.startsAt.getTime()) return "scheduled";
+    if (now > e.endsAt.getTime()) return "finished";
+    return "live";
+  }
+
+  async listEvents(opts?: { includeUnpublished?: boolean }): Promise<Array<Event & { status: EventStatus; program: Program | null }>> {
+    const rows = await db
+      .select({ event: events, program: programs })
+      .from(events)
+      .leftJoin(programs, eq(programs.id, events.programId))
+      .where(opts?.includeUnpublished ? sql`true` : eq(events.isPublished, true))
+      .orderBy(desc(events.startsAt));
+    return rows.map(r => ({
+      ...r.event,
+      program: r.program,
+      status: this.deriveEventStatus(r.event),
+    }));
+  }
+
+  async getEventBySlug(slug: string): Promise<(Event & { program: Program | null; status: EventStatus }) | undefined> {
+    const [row] = await db
+      .select({ event: events, program: programs })
+      .from(events)
+      .leftJoin(programs, eq(programs.id, events.programId))
+      .where(eq(events.slug, slug));
+    if (!row) return undefined;
+    return { ...row.event, program: row.program, status: this.deriveEventStatus(row.event) };
+  }
+
+  async getEventById(id: string): Promise<Event | undefined> {
+    const [row] = await db.select().from(events).where(eq(events.id, id));
+    return row;
+  }
+
+  async createEvent(input: InsertEvent): Promise<Event> {
+    const [row] = await db.insert(events).values(input).returning();
+    return row;
+  }
+
+  async updateEvent(id: string, patch: Partial<InsertEvent>): Promise<Event | undefined> {
+    const [row] = await db
+      .update(events)
+      .set({ ...patch, updatedAt: new Date() })
+      .where(eq(events.id, id))
+      .returning();
+    return row;
+  }
+
+  async deleteEvent(id: string): Promise<boolean> {
+    const result = await db.delete(events).where(eq(events.id, id)).returning({ id: events.id });
+    return result.length > 0;
+  }
+
+  async hasEventParticipants(eventId: string): Promise<boolean> {
+    const [row] = await db
+      .select({ c: sql<number>`count(*)::int` })
+      .from(eventParticipants)
+      .where(eq(eventParticipants.eventId, eventId));
+    return (row?.c ?? 0) > 0;
+  }
+
+  async joinEvent(eventId: string, userId: string): Promise<{ participant: EventParticipant; enrollment: ProgramEnrollment }> {
+    const [event] = await db.select().from(events).where(eq(events.id, eventId));
+    if (!event) throw new Error("Event not found");
+    if (!event.isPublished) throw new Error("Event is not published");
+    const status = this.deriveEventStatus(event);
+    if (status !== "live") throw new Error(`Event is ${status} — joining is only allowed while live`);
+
+    // 1) Resolve enrollment FIRST so a strict-scoping conflict aborts the join
+    //    BEFORE we ever create a participant row. This keeps the user from
+    //    becoming "joined" without an event-scoped enrollment under failure.
+    let enrollment: ProgramEnrollment;
+    let createdNewEnrollment = false;
+    const insertedEnrollments = await db
+      .insert(programEnrollments)
+      .values({
+        userId,
+        programId: event.programId,
+        currentDay: 1,
+        status: "active",
+        eventId,
+      })
+      .onConflictDoNothing()
+      .returning();
+    if (insertedEnrollments.length > 0) {
+      enrollment = insertedEnrollments[0];
+      createdNewEnrollment = true;
+    } else {
+      const [existing] = await db
+        .select()
+        .from(programEnrollments)
+        .where(and(
+          eq(programEnrollments.userId, userId),
+          eq(programEnrollments.programId, event.programId),
+          eq(programEnrollments.status, "active"),
+        ));
+      if (!existing) throw new Error("Failed to enroll in event program");
+      // Strict scoping: never backfill an event onto a pre-existing enrollment.
+      if (existing.eventId === eventId) {
+        enrollment = existing;
+      } else if (existing.eventId && existing.eventId !== eventId) {
+        throw new Error(
+          "You already have an active enrollment in this program for a different event. " +
+          "Pause that enrollment first to join this event.",
+        );
+      } else {
+        throw new Error(
+          "You already have an active enrollment in this program. " +
+          "Please pause it from the program page before joining this event.",
+        );
+      }
+    }
+
+    // 2) Now that we have an event-scoped enrollment, create the participant
+    //    row. Race-safe via UNIQUE(eventId,userId).
+    const insertedParticipants = await db
+      .insert(eventParticipants)
+      .values({ eventId, userId })
+      .onConflictDoNothing()
+      .returning();
+    let participant: EventParticipant;
+    if (insertedParticipants.length > 0) {
+      participant = insertedParticipants[0];
+      await db
+        .update(events)
+        .set({ participantCount: sql`${events.participantCount} + 1` })
+        .where(eq(events.id, eventId));
+    } else {
+      const [existing] = await db
+        .select()
+        .from(eventParticipants)
+        .where(and(eq(eventParticipants.eventId, eventId), eq(eventParticipants.userId, userId)));
+      if (!existing) throw new Error("Failed to join: race conflict but no participant row");
+      participant = existing;
+    }
+
+    // 3) Bump program enrollmentCount only when we actually created a new row.
+    if (createdNewEnrollment) {
+      await db
+        .update(programs)
+        .set({ enrollmentCount: sql`${programs.enrollmentCount} + 1` })
+        .where(eq(programs.id, event.programId));
+    }
+
+    return { participant, enrollment };
+  }
+
+  async getEventParticipant(eventId: string, userId: string): Promise<EventParticipant | undefined> {
+    const [row] = await db
+      .select()
+      .from(eventParticipants)
+      .where(and(eq(eventParticipants.eventId, eventId), eq(eventParticipants.userId, userId)));
+    return row;
+  }
+
+  async submitFinalChallengeScore(eventId: string, userId: string, score: number, notes?: string): Promise<EventParticipant> {
+    const [event] = await db.select().from(events).where(eq(events.id, eventId));
+    if (!event) throw new Error("Event not found");
+    const status = this.deriveEventStatus(event);
+    if (status !== "live") throw new Error(`Final challenge can only be submitted while event is live (currently ${status})`);
+
+    const participant = await this.getEventParticipant(eventId, userId);
+    if (!participant) throw new Error("You must join the event before submitting the final challenge");
+
+    // Tightening: require an event-scoped active enrollment to exist before
+    // accepting any final score. Prevents participant-only edge states from
+    // recording a score against an event they aren't actually running.
+    const [scopedEnrollment] = await db
+      .select({ id: programEnrollments.id })
+      .from(programEnrollments)
+      .where(and(
+        eq(programEnrollments.userId, userId),
+        eq(programEnrollments.programId, event.programId),
+        eq(programEnrollments.eventId, eventId),
+        eq(programEnrollments.status, "active"),
+      ));
+    if (!scopedEnrollment) {
+      throw new Error("You must join the event (active enrollment required) before submitting the final challenge");
+    }
+
+    const [updated] = await db
+      .update(eventParticipants)
+      .set({
+        finalScore: score.toString(),
+        finalSubmittedAt: new Date(),
+        finalNotes: notes ?? null,
+      })
+      .where(eq(eventParticipants.id, participant.id))
+      .returning();
+
+    // Mirror the score onto a program_item_completions row for the event's
+    // configured final challenge item, so the program flow stays consistent.
+    // Strictly scope to the event-specific enrollment so we never write the
+    // mirror to a pre-existing non-event run of the same program.
+    if (event.finalChallengeItemId) {
+      // Defensive: confirm the configured final item actually belongs to this
+      // event's program before mirroring.
+      const [finalItem] = await db
+        .select({ id: programItems.id, programId: programItems.programId })
+        .from(programItems)
+        .where(eq(programItems.id, event.finalChallengeItemId));
+      if (!finalItem || finalItem.programId !== event.programId) {
+        return updated;
+      }
+      const [enrollment] = await db
+        .select()
+        .from(programEnrollments)
+        .where(and(
+          eq(programEnrollments.userId, userId),
+          eq(programEnrollments.programId, event.programId),
+          eq(programEnrollments.eventId, eventId),
+          eq(programEnrollments.status, "active"),
+        ));
+      if (enrollment) {
+        // Upsert via insert-or-update on the unique (enrollment, item) index.
+        const inserted = await db
+          .insert(programItemCompletions)
+          .values({
+            enrollmentId: enrollment.id,
+            programItemId: event.finalChallengeItemId,
+            score: score.toString(),
+            notes: notes ?? null,
+          })
+          .onConflictDoNothing()
+          .returning();
+        if (inserted.length === 0) {
+          await db
+            .update(programItemCompletions)
+            .set({ score: score.toString(), notes: notes ?? null, completedAt: new Date() })
+            .where(and(
+              eq(programItemCompletions.enrollmentId, enrollment.id),
+              eq(programItemCompletions.programItemId, event.finalChallengeItemId),
+            ));
+        }
+      }
+    }
+
+    return updated;
+  }
+
+  async getEventLeaderboard(eventId: string, limit: number = 100): Promise<Array<{
+    userId: string;
+    user: { id: string; firstName: string | null; lastName: string | null; profileImageUrl: string | null };
+    joinedAt: Date | null;
+    completedItemCount: number;
+    lastCompletedAt: Date | null;
+    finalScore: string | null;
+    finalSubmittedAt: Date | null;
+    rank: number;
+  }>> {
+    const [event] = await db.select().from(events).where(eq(events.id, eventId));
+    if (!event) return [];
+
+    // Per participant: how many program_items have they completed inside the
+    // event-scoped enrollment, and when was the most-recent completion?
+    const rows = await db
+      .select({
+        userId: eventParticipants.userId,
+        joinedAt: eventParticipants.joinedAt,
+        finalScore: eventParticipants.finalScore,
+        finalSubmittedAt: eventParticipants.finalSubmittedAt,
+        userFirstName: users.firstName,
+        userLastName: users.lastName,
+        userProfileImageUrl: users.profileImageUrl,
+        completedItemCount: sql<number>`COALESCE((
+          SELECT COUNT(*)::int FROM ${programItemCompletions} pic
+          JOIN ${programEnrollments} pe ON pe.id = pic.enrollment_id
+          WHERE pe.event_id = ${eventId} AND pe.user_id = ${eventParticipants.userId}
+        ), 0)`,
+        lastCompletedAt: sql<Date | null>`(
+          SELECT MAX(pic.completed_at) FROM ${programItemCompletions} pic
+          JOIN ${programEnrollments} pe ON pe.id = pic.enrollment_id
+          WHERE pe.event_id = ${eventId} AND pe.user_id = ${eventParticipants.userId}
+        )`,
+      })
+      .from(eventParticipants)
+      .leftJoin(users, eq(users.id, eventParticipants.userId))
+      .where(eq(eventParticipants.eventId, eventId));
+
+    // Rank in JS so we can mix metric types without writing dialect-specific window SQL.
+    const decorated = rows.map(r => ({
+      userId: r.userId,
+      user: {
+        id: r.userId,
+        firstName: r.userFirstName,
+        lastName: r.userLastName,
+        profileImageUrl: r.userProfileImageUrl,
+      },
+      joinedAt: r.joinedAt,
+      completedItemCount: Number(r.completedItemCount ?? 0),
+      lastCompletedAt: r.lastCompletedAt,
+      finalScore: r.finalScore,
+      finalSubmittedAt: r.finalSubmittedAt,
+    }));
+
+    const compareCompletions = (a: typeof decorated[number], b: typeof decorated[number]) => {
+      if (b.completedItemCount !== a.completedItemCount) return b.completedItemCount - a.completedItemCount;
+      const aT = a.lastCompletedAt ? a.lastCompletedAt.getTime() : Infinity;
+      const bT = b.lastCompletedAt ? b.lastCompletedAt.getTime() : Infinity;
+      return aT - bT; // earlier = better tie-break
+    };
+    const compareFinal = (a: typeof decorated[number], b: typeof decorated[number]) => {
+      const aS = a.finalScore != null ? parseFloat(a.finalScore) : -Infinity;
+      const bS = b.finalScore != null ? parseFloat(b.finalScore) : -Infinity;
+      if (bS !== aS) return bS - aS;
+      const aT = a.finalSubmittedAt ? a.finalSubmittedAt.getTime() : Infinity;
+      const bT = b.finalSubmittedAt ? b.finalSubmittedAt.getTime() : Infinity;
+      return aT - bT;
+    };
+
+    let comparator: (a: typeof decorated[number], b: typeof decorated[number]) => number;
+    if (event.leaderboardMetric === "finalScore") comparator = compareFinal;
+    else if (event.leaderboardMetric === "completions") comparator = compareCompletions;
+    else {
+      // composite: prefer final-score submissions when present, else completions
+      comparator = (a, b) => {
+        const aHasFinal = a.finalScore != null;
+        const bHasFinal = b.finalScore != null;
+        if (aHasFinal !== bHasFinal) return aHasFinal ? -1 : 1;
+        if (aHasFinal && bHasFinal) return compareFinal(a, b);
+        return compareCompletions(a, b);
+      };
+    }
+
+    decorated.sort(comparator);
+    return decorated.slice(0, limit).map((d, idx) => ({ ...d, rank: idx + 1 }));
   }
 }
 

@@ -68,6 +68,7 @@ const playerNavItems = [
   { title: "Training Log", url: "/log", icon: ClipboardList },
   { title: "My Trainer", url: "/my-trainer", icon: UserPlus },
   { title: "Programs", url: "/programs", icon: Sparkles },
+  { title: "Events", url: "/events", icon: Trophy },
   { title: "Drill Library", url: "/drills", icon: Play },
   { title: "My Film Room", url: "/videos", icon: Video },
   { title: "Teams & Leagues", url: "/teams", icon: Shield },

@@ -1659,3 +1659,82 @@ export type ProgramEnrollment = typeof programEnrollments.$inferSelect;
 export type InsertProgramEnrollment = z.infer<typeof insertProgramEnrollmentSchema>;
 export type ProgramItemCompletion = typeof programItemCompletions.$inferSelect;
 export type InsertProgramItemCompletion = z.infer<typeof insertProgramItemCompletionSchema>;
+
+// ─── Events (Program Wrapper w/ Time Window + Leaderboard) ───────────────
+// An Event wraps a Program with a strict start/end window and a leaderboard.
+// During the window players join → auto-enrolls them in the wrapped program
+// with `programEnrollments.eventId` set so all completions are scoped. The
+// optional final-challenge item points at a specific program_items row whose
+// score becomes the final-leaderboard input.
+export const EVENT_LEADERBOARD_METRICS = ["completions", "finalScore", "composite"] as const;
+export type EventLeaderboardMetric = typeof EVENT_LEADERBOARD_METRICS[number];
+
+// `status` is derived (not stored): draft (!isPublished), scheduled (now < startsAt),
+// live (startsAt <= now <= endsAt), finished (now > endsAt).
+export const EVENT_STATUSES = ["draft", "scheduled", "live", "finished"] as const;
+export type EventStatus = typeof EVENT_STATUSES[number];
+
+export const events = pgTable("events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  slug: varchar("slug").notNull().unique(),
+  title: varchar("title").notNull(),
+  tagline: varchar("tagline"),
+  description: text("description"),
+  coverImageUrl: varchar("cover_image_url"),
+  accentColor: varchar("accent_color"),
+  programId: varchar("program_id").notNull(),
+  finalChallengeItemId: varchar("final_challenge_item_id"), // optional explicit pointer
+  startsAt: timestamp("starts_at").notNull(),
+  endsAt: timestamp("ends_at").notNull(),
+  isPublished: boolean("is_published").default(false),
+  leaderboardMetric: varchar("leaderboard_metric").$type<EventLeaderboardMetric>().notNull().default("composite"),
+  participantCount: integer("participant_count").default(0),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  byProgram: index("events_program_idx").on(table.programId),
+  byPublishedWindow: index("events_published_window_idx").on(table.isPublished, table.startsAt, table.endsAt),
+}));
+
+export const eventParticipants = pgTable("event_participants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  joinedAt: timestamp("joined_at").defaultNow(),
+  finalScore: decimal("final_score", { precision: 10, scale: 2 }),
+  finalSubmittedAt: timestamp("final_submitted_at"),
+  finalNotes: text("final_notes"),
+}, (table) => ({
+  byEvent: index("event_participants_event_idx").on(table.eventId),
+  byUser: index("event_participants_user_idx").on(table.userId),
+  uqEventUser: uniqueIndex("event_participants_event_user_uq").on(table.eventId, table.userId),
+}));
+
+export const eventsRelations = relations(events, ({ one, many }) => ({
+  program: one(programs, { fields: [events.programId], references: [programs.id] }),
+  finalChallengeItem: one(programItems, { fields: [events.finalChallengeItemId], references: [programItems.id] }),
+  participants: many(eventParticipants),
+}));
+
+export const eventParticipantsRelations = relations(eventParticipants, ({ one }) => ({
+  event: one(events, { fields: [eventParticipants.eventId], references: [events.id] }),
+}));
+
+export const insertEventSchema = createInsertSchema(events).omit({
+  id: true, createdAt: true, updatedAt: true, participantCount: true,
+}).extend({
+  coverImageUrl: urlOrObjectPath,
+  startsAt: z.coerce.date(),
+  endsAt: z.coerce.date(),
+  leaderboardMetric: z.enum(EVENT_LEADERBOARD_METRICS).default("composite"),
+});
+
+export const insertEventParticipantSchema = createInsertSchema(eventParticipants).omit({
+  id: true, joinedAt: true, finalScore: true, finalSubmittedAt: true, finalNotes: true,
+});
+
+export type Event = typeof events.$inferSelect;
+export type InsertEvent = z.infer<typeof insertEventSchema>;
+export type EventParticipant = typeof eventParticipants.$inferSelect;
+export type InsertEventParticipant = z.infer<typeof insertEventParticipantSchema>;

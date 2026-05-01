@@ -3,9 +3,9 @@ import { createServer, type Server } from "http";
 import { spawn } from "child_process";
 import path from "path";
 import { storage } from "./storage";
-import { setupAuth, registerAuthRoutes, isAuthenticated, getAppBaseUrl, type AuthenticatedRequest } from "./auth";
+import { setupAuth, registerAuthRoutes, isAuthenticated, optionalAuth, getAppBaseUrl, type AuthenticatedRequest } from "./auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
-import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, drills, trainingLogs, feedbackComments, insertProgramSchema, insertProgramItemSchema } from "@shared/schema";
+import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, drills, trainingLogs, feedbackComments, insertProgramSchema, insertProgramItemSchema, insertEventSchema, events } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db, pool } from "./db";
 import { eq, and, or, isNull, ilike, sql, inArray, gte } from "drizzle-orm";
@@ -8333,6 +8333,228 @@ export async function registerRoutes(
     } catch (err) {
       console.error("Error listing trainer programs:", err);
       res.status(500).json({ message: "Failed to list trainer programs" });
+    }
+  });
+
+  // ─── Events (Program wrapper w/ time window + leaderboard) ──────────────
+
+  // Slug helper for events (mirrors program slug logic).
+  async function ensureUniqueEventSlug(base: string, ignoreId?: string): Promise<string> {
+    const root = (base || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").substring(0, 80) || "event";
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const candidate = attempt === 0 ? root : `${root}-${Math.random().toString(36).substring(2, 6)}`;
+      const existing = await storage.getEventBySlug(candidate);
+      if (!existing || (ignoreId && existing.id === ignoreId)) return candidate;
+    }
+    return `${root}-${Date.now().toString(36)}`;
+  }
+
+  // Public: list published events
+  app.get("/api/events", async (_req, res) => {
+    try {
+      const list = await storage.listEvents({ includeUnpublished: false });
+      res.json(list);
+    } catch (err) {
+      console.error("Error listing events:", err);
+      res.status(500).json({ message: "Failed to list events" });
+    }
+  });
+
+  // Public: event detail by slug. Includes program + items, plus the caller's
+  // participant row when authenticated.
+  app.get("/api/events/:slug", optionalAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const event = await storage.getEventBySlug(req.params.slug);
+      if (!event) {
+        res.status(404).json({ message: "Event not found" });
+        return;
+      }
+      if (!event.isPublished) {
+        // Allow author/admin to preview unpublished events.
+        const viewerId = req.user?.claims?.sub;
+        const isAdminViewer = viewerId ? await storage.isUserAdmin(viewerId) : false;
+        const isAuthor = viewerId && event.createdBy === viewerId;
+        if (!isAdminViewer && !isAuthor) {
+          res.status(404).json({ message: "Event not found" });
+          return;
+        }
+      }
+      const items = event.programId ? await storage.getProgramItems(event.programId) : [];
+      let participant = null as Awaited<ReturnType<typeof storage.getEventParticipant>> | null;
+      const viewerId = req.user?.claims?.sub;
+      if (viewerId) {
+        participant = (await storage.getEventParticipant(event.id, viewerId)) ?? null;
+      }
+      res.json({ event, items, participant });
+    } catch (err) {
+      console.error("Error loading event:", err);
+      res.status(500).json({ message: "Failed to load event" });
+    }
+  });
+
+  // Public: leaderboard (top 100)
+  app.get("/api/events/:id/leaderboard", optionalAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const event = await storage.getEventById(req.params.id);
+      if (!event) return res.status(404).json({ message: "Event not found" });
+      // Hide leaderboards for unpublished events from non-admin callers so a
+      // leaked id can't expose draft event activity.
+      if (!event.isPublished) {
+        const callerId = req.user?.claims?.sub;
+        const isCallerAdmin = callerId ? await storage.isUserAdmin(callerId) : false;
+        if (!isCallerAdmin) return res.status(404).json({ message: "Event not found" });
+      }
+      const rows = await storage.getEventLeaderboard(req.params.id, 100);
+      res.json(rows);
+    } catch (err) {
+      console.error("Error loading leaderboard:", err);
+      res.status(500).json({ message: "Failed to load leaderboard" });
+    }
+  });
+
+  // Player: join event (must be live)
+  app.post("/api/events/:id/join", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const result = await storage.joinEvent(req.params.id, userId);
+      res.json(result);
+    } catch (err: any) {
+      const msg = err?.message ?? "Failed to join event";
+      if (msg.includes("not found")) return res.status(404).json({ message: msg });
+      if (
+        msg.includes("not published") ||
+        msg.includes("only allowed") ||
+        msg.includes("already have an active enrollment")
+      ) {
+        return res.status(409).json({ message: msg });
+      }
+      console.error("Error joining event:", err);
+      res.status(500).json({ message: msg });
+    }
+  });
+
+  // Player: submit final challenge score (must be live + joined)
+  app.post("/api/events/:id/submit-final", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const body = z.object({
+        score: z.coerce.number().finite().min(0).max(1_000_000),
+        notes: z.string().trim().max(500).optional(),
+      }).parse(req.body ?? {});
+      const updated = await storage.submitFinalChallengeScore(req.params.id, userId, body.score, body.notes);
+      res.json(updated);
+    } catch (err: any) {
+      const msg = err?.message ?? "Failed to submit final challenge";
+      if (err?.issues) return res.status(400).json({ message: "Invalid input", errors: err.issues });
+      if (msg.includes("not found")) return res.status(404).json({ message: msg });
+      if (msg.includes("must join") || msg.includes("only be submitted")) {
+        return res.status(400).json({ message: msg });
+      }
+      console.error("Error submitting final challenge:", err);
+      res.status(500).json({ message: msg });
+    }
+  });
+
+  // Admin: list ALL events (incl. unpublished)
+  app.get("/api/admin/events", isAuthenticated, isAdmin, async (_req: AuthenticatedRequest, res) => {
+    try {
+      const list = await storage.listEvents({ includeUnpublished: true });
+      res.json(list);
+    } catch (err) {
+      console.error("Error listing admin events:", err);
+      res.status(500).json({ message: "Failed to list events" });
+    }
+  });
+
+  // Admin: create event
+  app.post("/api/admin/events", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const parsed = insertEventSchema.partial({ slug: true }).parse(req.body ?? {});
+      if (!parsed.programId) return res.status(400).json({ message: "programId is required" });
+      const program = await storage.getProgramById(parsed.programId);
+      if (!program) return res.status(400).json({ message: "Program not found" });
+      if (parsed.startsAt && parsed.endsAt && parsed.endsAt <= parsed.startsAt) {
+        return res.status(400).json({ message: "endsAt must be after startsAt" });
+      }
+      // Validate finalChallengeItemId belongs to the wrapped program (if provided).
+      if (parsed.finalChallengeItemId) {
+        const item = await storage.getProgramItem(parsed.finalChallengeItemId);
+        if (!item || item.programId !== parsed.programId) {
+          return res.status(400).json({ message: "finalChallengeItemId must belong to the event's program" });
+        }
+      }
+      let slug = parsed.slug || parsed.title || program.title;
+      let lastErr: any;
+      for (let i = 0; i < 3; i++) {
+        const candidate = await ensureUniqueEventSlug(slug);
+        try {
+          const created = await storage.createEvent({
+            ...(parsed as any),
+            slug: candidate,
+            createdBy: userId,
+          });
+          return res.status(201).json(created);
+        } catch (e: any) {
+          lastErr = e;
+          if (e?.code !== "23505") throw e;
+        }
+      }
+      throw lastErr;
+    } catch (err: any) {
+      if (err?.issues) return res.status(400).json({ message: "Invalid input", errors: err.issues });
+      console.error("Error creating event:", err);
+      res.status(500).json({ message: "Failed to create event" });
+    }
+  });
+
+  // Admin: update event
+  app.patch("/api/admin/events/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const existing = await storage.getEventById(req.params.id);
+      if (!existing) return res.status(404).json({ message: "Event not found" });
+      const patch = insertEventSchema.partial().parse(req.body ?? {});
+      // If slug provided, ensure uniqueness; otherwise leave unchanged.
+      if (patch.slug !== undefined) {
+        patch.slug = await ensureUniqueEventSlug(patch.slug || existing.title, existing.id);
+      }
+      const startsAt = patch.startsAt ?? existing.startsAt;
+      const endsAt = patch.endsAt ?? existing.endsAt;
+      if (endsAt <= startsAt) {
+        return res.status(400).json({ message: "endsAt must be after startsAt" });
+      }
+      // Validate finalChallengeItemId belongs to the event's program. We must
+      // re-validate when EITHER finalChallengeItemId OR programId changes,
+      // since changing the program can orphan a previously valid item ref.
+      const programId = patch.programId ?? existing.programId;
+      const finalChallengeItemId =
+        patch.finalChallengeItemId !== undefined ? patch.finalChallengeItemId : existing.finalChallengeItemId;
+      if (finalChallengeItemId) {
+        const item = await storage.getProgramItem(finalChallengeItemId);
+        if (!item || item.programId !== programId) {
+          return res.status(400).json({ message: "finalChallengeItemId must belong to the event's program" });
+        }
+      }
+      const updated = await storage.updateEvent(existing.id, patch);
+      res.json(updated);
+    } catch (err: any) {
+      if (err?.issues) return res.status(400).json({ message: "Invalid input", errors: err.issues });
+      console.error("Error updating event:", err);
+      res.status(500).json({ message: "Failed to update event" });
+    }
+  });
+
+  // Admin: delete event (blocked when participants exist)
+  app.delete("/api/admin/events/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const has = await storage.hasEventParticipants(req.params.id);
+      if (has) return res.status(409).json({ message: "Cannot delete an event with participants. Unpublish instead." });
+      const ok = await storage.deleteEvent(req.params.id);
+      if (!ok) return res.status(404).json({ message: "Event not found" });
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("Error deleting event:", err);
+      res.status(500).json({ message: "Failed to delete event" });
     }
   });
 

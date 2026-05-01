@@ -58,6 +58,29 @@ const COOKIE_OPTIONS = {
   path: "/",
 };
 
+// Like isAuthenticated, but never rejects: if a valid token is present we
+// populate req.user; otherwise we just continue. Useful for endpoints that
+// behave differently for guests vs signed-in users (e.g., personalising a
+// public detail response with the caller's participant row).
+export const optionalAuth: RequestHandler = (req, _res, next) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith("Bearer ")) {
+    const payload = verifyToken(authHeader.slice(7));
+    if (payload) {
+      (req as any).user = { claims: { sub: payload.sub } };
+      return next();
+    }
+  }
+  const token = (req as any).cookies?.[COOKIE_NAME];
+  if (token) {
+    const payload = verifyToken(token);
+    if (payload) {
+      (req as any).user = { claims: { sub: payload.sub } };
+    }
+  }
+  next();
+};
+
 export const isAuthenticated: RequestHandler = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (authHeader?.startsWith("Bearer ")) {

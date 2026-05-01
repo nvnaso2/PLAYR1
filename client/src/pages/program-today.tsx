@@ -40,7 +40,9 @@ import {
   Trophy,
   Video,
 } from "lucide-react";
-import type { Program, ProgramItem, ProgramEnrollment, ProgramItemCompletion } from "@shared/schema";
+import type { Program, ProgramItem, ProgramEnrollment, ProgramItemCompletion, Event, EventStatus } from "@shared/schema";
+
+type EventListItem = Event & { status: EventStatus; program: Program | null };
 
 interface ProgramDetailResponse {
   program: Program;
@@ -66,6 +68,18 @@ export default function ProgramTodayPage() {
     queryKey: ["/api/programs", slug],
     enabled: !!slug,
   });
+
+  // If this enrollment is event-scoped, fetch published events to find the
+  // matching one and surface a badge + final-challenge CTA in the hero.
+  const eventId = data?.enrollment?.eventId ?? null;
+  const { data: allEvents } = useQuery<EventListItem[]>({
+    queryKey: ["/api/events"],
+    enabled: !!eventId,
+  });
+  const activeEvent = useMemo(
+    () => (eventId ? (allEvents ?? []).find((e) => e.id === eventId) ?? null : null),
+    [allEvents, eventId],
+  );
 
   const [viewedDay, setViewedDay] = useState<number | null>(null);
 
@@ -229,6 +243,17 @@ export default function ProgramTodayPage() {
             </AlertDialog>
           </div>
 
+          {activeEvent && (
+            <Link href={`/events/${activeEvent.slug}`}>
+              <Badge
+                className="mb-3 cursor-pointer text-white border-white/30 hover:bg-white/15"
+                style={{ background: `${activeEvent.accentColor || "#f97316"}55` }}
+                data-testid="badge-active-event"
+              >
+                <Trophy className="w-3.5 h-3.5 mr-1" /> Event: {activeEvent.title}
+              </Badge>
+            </Link>
+          )}
           <p className="text-xs uppercase tracking-widest text-white/80 mb-1">{program.title}</p>
           <div className="flex items-end gap-4 flex-wrap">
             <div>

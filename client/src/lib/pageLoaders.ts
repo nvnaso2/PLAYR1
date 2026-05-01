@@ -37,6 +37,9 @@ export const pageLoaders = {
   programToday: () => import("@/pages/program-today"),
   programEditor: () => import("@/pages/program-editor"),
   trainerPrograms: () => import("@/pages/trainer/programs"),
+  events: () => import("@/pages/events"),
+  eventDetail: () => import("@/pages/event-detail"),
+  eventEditor: () => import("@/pages/event-editor"),
 } as const;
 
 // Map URL path → loader key. Used by the sidebar to preload on hover/touch.
@@ -53,6 +56,7 @@ const routeToLoader: Record<string, keyof typeof pageLoaders> = {
   "/connect": "findPeople",
   "/feedback": "feedback",
   "/programs": "programs",
+  "/events": "events",
   "/my-trainer": "myTrainer",
   "/parent": "parentDashboard",
   "/challenge-history": "challengeHistory",
