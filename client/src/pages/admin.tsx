@@ -62,7 +62,8 @@ import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield,
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
 import type { Drill, DrillCategory, DifficultyLevel, DrillMetric, VideoLibrary, PdfLibrary, MetricTemplate, Workout, WorkoutDrill, TrainingLocation, ShotLocationDB, ShotTypeDB } from "@shared/schema";
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, METRIC_TYPES, US_STATES } from "@shared/schema";
-import { Layers, GripVertical } from "lucide-react";
+import { Layers, GripVertical, Calendar } from "lucide-react";
+import { ProgramListSection } from "@/components/program-list-section";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useUpload } from "@/hooks/use-upload";
 import { LiveWorldMap } from "@/components/admin/LiveWorldMap";
@@ -2887,7 +2888,7 @@ export default function AdminPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-1 h-auto p-1">
+        <TabsList className="grid w-full grid-cols-3 sm:grid-cols-5 lg:grid-cols-10 gap-1 h-auto p-1">
           <TabsTrigger value="videos" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-videos">
             <Film className="w-4 h-4 shrink-0" />
             <span>Videos</span>
@@ -2923,6 +2924,10 @@ export default function AdminPage() {
           <TabsTrigger value="picklists" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-picklists">
             <ListFilter className="w-4 h-4 shrink-0" />
             <span>Picklists</span>
+          </TabsTrigger>
+          <TabsTrigger value="programs" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-programs">
+            <Calendar className="w-4 h-4 shrink-0" />
+            <span>Programs</span>
           </TabsTrigger>
           <TabsTrigger value="analytics" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-analytics">
             <BarChart2 className="w-4 h-4 shrink-0" />
@@ -4235,6 +4240,10 @@ export default function AdminPage() {
           </div>
         </TabsContent>
         {/* Analytics Tab */}
+        <TabsContent value="programs" className="space-y-6">
+          <ProgramListSection mode="admin" />
+        </TabsContent>
+
         <TabsContent value="analytics" className="space-y-6">
           <AdminAnalyticsTab />
         </TabsContent>

@@ -5,7 +5,7 @@ import path from "path";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated, getAppBaseUrl, type AuthenticatedRequest } from "./auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
-import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, drills, trainingLogs, feedbackComments } from "@shared/schema";
+import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, drills, trainingLogs, feedbackComments, insertProgramSchema, insertProgramItemSchema } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db, pool } from "./db";
 import { eq, and, or, isNull, ilike, sql, inArray, gte } from "drizzle-orm";
@@ -8016,6 +8016,258 @@ export async function registerRoutes(
       const code = msg.includes("Another active enrollment") ? 409 : 500;
       console.error("Error resuming enrollment:", err);
       res.status(code).json({ message: msg });
+    }
+  });
+
+  // ===== PROGRAMS AUTHORING (admin + trainer) =====
+
+  // Resolve & enforce author/admin permission for a program. Returns
+  // { program, isAdmin } or null when forbidden — the caller must respond.
+  async function loadProgramForEdit(req: AuthenticatedRequest, res: any, programId: string) {
+    const userId = req.user!.claims.sub;
+    const program = await storage.getProgramById(programId);
+    if (!program) {
+      res.status(404).json({ message: "Program not found" });
+      return null;
+    }
+    const callerIsAdmin = await storage.isUserAdmin(userId);
+    const isOwner = program.authorUserId === userId;
+    if (!callerIsAdmin && !isOwner) {
+      res.status(403).json({ message: "Not allowed" });
+      return null;
+    }
+    return { program, isAdmin: callerIsAdmin, userId };
+  }
+
+  // Slug helper that retries on collision so admin/trainer authoring is robust.
+  async function ensureUniqueSlug(base: string, ignoreId?: string): Promise<string> {
+    const root = (base || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").substring(0, 80) || "program";
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const candidate = attempt === 0 ? root : `${root}-${Math.random().toString(36).substring(2, 6)}`;
+      const existing = await storage.getProgramBySlug(candidate);
+      if (!existing || (ignoreId && existing.id === ignoreId)) return candidate;
+    }
+    return `${root}-${Date.now().toString(36)}`;
+  }
+
+  // Run an insert/update with retry on unique-violation (PG 23505) — guards
+  // against the check-then-write race in ensureUniqueSlug under concurrent
+  // authoring. We retry up to 3 times by re-deriving a fresh slug.
+  async function withSlugRetry<T>(
+    base: string,
+    ignoreId: string | undefined,
+    op: (slug: string) => Promise<T>,
+  ): Promise<T> {
+    let lastErr: any;
+    for (let i = 0; i < 3; i++) {
+      const slug = await ensureUniqueSlug(base, ignoreId);
+      try {
+        return await op(slug);
+      } catch (e: any) {
+        lastErr = e;
+        if (e?.code !== "23505") throw e;
+      }
+    }
+    throw lastErr;
+  }
+
+  // Admin: list ALL programs (incl. unpublished, private)
+  app.get("/api/admin/programs", isAuthenticated, isAdmin, async (_req: AuthenticatedRequest, res) => {
+    try {
+      const rows = await storage.listAllProgramsAdmin();
+      res.json(rows);
+    } catch (err) {
+      console.error("Error listing admin programs:", err);
+      res.status(500).json({ message: "Failed to list programs" });
+    }
+  });
+
+  // Edit-mode fetch: returns the program + items for any user who is the
+  // author or an admin. Used by the program editor UI so admins can edit
+  // unpublished/private trainer programs (the public detail endpoint only
+  // serves published+public/owner/enrolled).
+  app.get("/api/programs/:id/edit", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const ctx = await loadProgramForEdit(req, res, req.params.id);
+      if (!ctx) return;
+      const items = await storage.getProgramItems(ctx.program.id);
+      res.json({ program: ctx.program, items });
+    } catch (err) {
+      console.error("Error loading program for edit:", err);
+      res.status(500).json({ message: "Failed to load program" });
+    }
+  });
+
+  // Trainer (and any author): list MY programs
+  app.get("/api/trainer/programs", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const rows = await storage.listProgramsForAuthor(userId);
+      res.json(rows);
+    } catch (err) {
+      console.error("Error listing trainer programs:", err);
+      res.status(500).json({ message: "Failed to list programs" });
+    }
+  });
+
+  // Create a program. Admin can set authorType="system" (no authorUserId);
+  // anyone else is forced to authorType="trainer" + authorUserId=self.
+  app.post("/api/programs", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const callerIsAdmin = await storage.isUserAdmin(userId);
+      const parsed = insertProgramSchema.partial({ slug: true }).parse(req.body ?? {});
+
+      // Force ownership: admins may create system programs; non-admins
+      // can only create trainer-authored programs they own.
+      let authorType = parsed.authorType ?? (callerIsAdmin ? "system" : "trainer");
+      let authorUserId: string | null | undefined = parsed.authorUserId ?? null;
+      if (!callerIsAdmin) {
+        authorType = "trainer";
+        authorUserId = userId;
+        // Admin-only ranking fields cannot be set by non-admins.
+        delete (parsed as any).isFeatured;
+      } else if (authorType === "trainer" && !authorUserId) {
+        authorUserId = userId;
+      } else if (authorType === "system") {
+        authorUserId = null;
+      }
+
+      const program = await withSlugRetry(parsed.slug || parsed.title || "", undefined, (slug) =>
+        storage.createProgram({
+          ...parsed,
+          slug,
+          authorType,
+          authorUserId: authorUserId ?? null,
+        } as any),
+      );
+      res.status(201).json(program);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: "Invalid body", errors: err.errors });
+      console.error("Error creating program:", err);
+      res.status(500).json({ message: "Failed to create program" });
+    }
+  });
+
+  // Patch program metadata. Author or admin only.
+  app.patch("/api/programs/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const ctx = await loadProgramForEdit(req, res, req.params.id);
+      if (!ctx) return;
+      const patch = insertProgramSchema.partial().parse(req.body ?? {});
+      // Don't let non-admins reassign authorship or set admin-only ranking.
+      if (!ctx.isAdmin) {
+        delete (patch as any).authorType;
+        delete (patch as any).authorUserId;
+        delete (patch as any).isFeatured;
+      }
+      // If slug is being changed, dedupe + retry on race.
+      if (patch.slug && patch.slug !== ctx.program.slug) {
+        const updated = await withSlugRetry(patch.slug, ctx.program.id, (slug) =>
+          storage.updateProgram(ctx.program.id, { ...patch, slug }),
+        );
+        return res.json(updated);
+      }
+      const updated = await storage.updateProgram(ctx.program.id, patch);
+      res.json(updated);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: "Invalid body", errors: err.errors });
+      console.error("Error updating program:", err);
+      res.status(500).json({ message: "Failed to update program" });
+    }
+  });
+
+  // Delete a program. Blocked when enrollments exist — author should
+  // unpublish instead so player history isn't silently destroyed.
+  app.delete("/api/programs/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const ctx = await loadProgramForEdit(req, res, req.params.id);
+      if (!ctx) return;
+      const hasUsers = await storage.hasProgramEnrollments(ctx.program.id);
+      if (hasUsers) {
+        return res.status(409).json({ message: "Players are enrolled — unpublish instead of deleting." });
+      }
+      const ok = await storage.deleteProgram(ctx.program.id);
+      if (!ok) return res.status(404).json({ message: "Program not found" });
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("Error deleting program:", err);
+      res.status(500).json({ message: "Failed to delete program" });
+    }
+  });
+
+  // Add an item to a program. Author or admin only.
+  app.post("/api/programs/:id/items", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const ctx = await loadProgramForEdit(req, res, req.params.id);
+      if (!ctx) return;
+      const parsed = insertProgramItemSchema
+        .omit({ programId: true })
+        .parse(req.body ?? {});
+      const item = await storage.addProgramItem({
+        ...parsed,
+        programId: ctx.program.id,
+      } as any);
+      res.status(201).json(item);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: "Invalid body", errors: err.errors });
+      console.error("Error adding program item:", err);
+      res.status(500).json({ message: "Failed to add item" });
+    }
+  });
+
+  // Patch a program item. Author or admin of its parent program only.
+  app.patch("/api/programs/items/:itemId", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const item = await storage.getProgramItem(req.params.itemId);
+      if (!item) return res.status(404).json({ message: "Item not found" });
+      const ctx = await loadProgramForEdit(req, res, item.programId);
+      if (!ctx) return;
+      const patch = insertProgramItemSchema.omit({ programId: true }).partial().parse(req.body ?? {});
+      const updated = await storage.updateProgramItem(item.id, patch);
+      res.json(updated);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: "Invalid body", errors: err.errors });
+      console.error("Error updating program item:", err);
+      res.status(500).json({ message: "Failed to update item" });
+    }
+  });
+
+  // Delete a program item.
+  app.delete("/api/programs/items/:itemId", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const item = await storage.getProgramItem(req.params.itemId);
+      if (!item) return res.status(404).json({ message: "Item not found" });
+      const ctx = await loadProgramForEdit(req, res, item.programId);
+      if (!ctx) return;
+      const ok = await storage.deleteProgramItem(item.id);
+      if (!ok) return res.status(404).json({ message: "Item not found" });
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("Error deleting program item:", err);
+      res.status(500).json({ message: "Failed to delete item" });
+    }
+  });
+
+  // Bulk reorder. Body: { items: [{ id, dayNumber, orderInDay }] }
+  const reorderSchema = z.object({
+    items: z.array(z.object({
+      id: z.string(),
+      dayNumber: z.number().int().min(1),
+      orderInDay: z.number().int().min(0),
+    })).min(1),
+  });
+  app.patch("/api/programs/:id/items/reorder", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const ctx = await loadProgramForEdit(req, res, req.params.id);
+      if (!ctx) return;
+      const body = reorderSchema.parse(req.body ?? {});
+      await storage.reorderProgramItems(ctx.program.id, body.items);
+      res.json({ ok: true });
+    } catch (err: any) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: "Invalid body", errors: err.errors });
+      console.error("Error reordering program items:", err);
+      res.status(500).json({ message: "Failed to reorder items" });
     }
   });
 

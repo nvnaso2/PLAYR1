@@ -531,6 +531,19 @@ export interface IStorage {
     score?: number;
     notes?: string;
   }): Promise<{ completion: ProgramItemCompletion; enrollment: ProgramEnrollment; programCompleted: boolean }>;
+
+  // Authoring (admin + trainer)
+  listAllProgramsAdmin(): Promise<Program[]>;
+  listProgramsForAuthor(authorUserId: string): Promise<Program[]>;
+  createProgram(input: InsertProgram): Promise<Program>;
+  updateProgram(id: string, patch: Partial<InsertProgram>): Promise<Program | undefined>;
+  deleteProgram(id: string): Promise<boolean>;
+  hasProgramEnrollments(programId: string): Promise<boolean>;
+  getProgramItem(id: string): Promise<ProgramItem | undefined>;
+  addProgramItem(input: InsertProgramItem): Promise<ProgramItem>;
+  updateProgramItem(id: string, patch: Partial<InsertProgramItem>): Promise<ProgramItem | undefined>;
+  deleteProgramItem(id: string): Promise<boolean>;
+  reorderProgramItems(programId: string, items: Array<{ id: string; dayNumber: number; orderInDay: number }>): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -5356,6 +5369,91 @@ export class DatabaseStorage implements IStorage {
       .returning();
 
     return { completion, enrollment: updatedEnrollment, programCompleted };
+  }
+
+  // ===== Programs authoring =====
+
+  async listAllProgramsAdmin(): Promise<Program[]> {
+    return await db
+      .select()
+      .from(programs)
+      .orderBy(desc(programs.isFeatured), desc(programs.createdAt));
+  }
+
+  async listProgramsForAuthor(authorUserId: string): Promise<Program[]> {
+    return await db
+      .select()
+      .from(programs)
+      .where(eq(programs.authorUserId, authorUserId))
+      .orderBy(desc(programs.createdAt));
+  }
+
+  async createProgram(input: InsertProgram): Promise<Program> {
+    const [row] = await db.insert(programs).values(input).returning();
+    return row;
+  }
+
+  async updateProgram(id: string, patch: Partial<InsertProgram>): Promise<Program | undefined> {
+    const [row] = await db
+      .update(programs)
+      .set({ ...patch, updatedAt: new Date() })
+      .where(eq(programs.id, id))
+      .returning();
+    return row;
+  }
+
+  async deleteProgram(id: string): Promise<boolean> {
+    // Items are removed first since we don't have FK CASCADE on this table.
+    await db.delete(programItems).where(eq(programItems.programId, id));
+    const result = await db.delete(programs).where(eq(programs.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async hasProgramEnrollments(programId: string): Promise<boolean> {
+    const [row] = await db
+      .select({ count: sql<number>`COUNT(*)::int` })
+      .from(programEnrollments)
+      .where(eq(programEnrollments.programId, programId));
+    return Number(row?.count ?? 0) > 0;
+  }
+
+  async getProgramItem(id: string): Promise<ProgramItem | undefined> {
+    const [row] = await db.select().from(programItems).where(eq(programItems.id, id));
+    return row;
+  }
+
+  async addProgramItem(input: InsertProgramItem): Promise<ProgramItem> {
+    const [row] = await db.insert(programItems).values(input).returning();
+    return row;
+  }
+
+  async updateProgramItem(id: string, patch: Partial<InsertProgramItem>): Promise<ProgramItem | undefined> {
+    const [row] = await db
+      .update(programItems)
+      .set(patch)
+      .where(eq(programItems.id, id))
+      .returning();
+    return row;
+  }
+
+  async deleteProgramItem(id: string): Promise<boolean> {
+    const result = await db.delete(programItems).where(eq(programItems.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async reorderProgramItems(
+    programId: string,
+    items: Array<{ id: string; dayNumber: number; orderInDay: number }>,
+  ): Promise<void> {
+    // Apply in a sequence; quantity per program is small (tens of items).
+    await Promise.all(
+      items.map((it) =>
+        db
+          .update(programItems)
+          .set({ dayNumber: it.dayNumber, orderInDay: it.orderInDay })
+          .where(and(eq(programItems.id, it.id), eq(programItems.programId, programId))),
+      ),
+    );
   }
 }
 

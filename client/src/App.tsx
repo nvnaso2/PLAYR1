@@ -62,6 +62,8 @@ const FeedbackPage = lazy(pageLoaders.feedback);
 const Programs = lazy(pageLoaders.programs);
 const ProgramDetail = lazy(pageLoaders.programDetail);
 const ProgramToday = lazy(pageLoaders.programToday);
+const ProgramEditor = lazy(pageLoaders.programEditor);
+const TrainerPrograms = lazy(pageLoaders.trainerPrograms);
 
 function PageLoader() {
   return (
@@ -269,6 +271,7 @@ function Router() {
                 <Route path="/drills" component={Drills} />
                 <Route path="/drill/:id" component={DrillPage} />
                 <Route path="/programs" component={Programs} />
+                <Route path="/programs/:id/edit" component={ProgramEditor} />
                 <Route path="/programs/:slug/today" component={ProgramToday} />
                 <Route path="/programs/:slug" component={ProgramDetail} />
                 <Route path="/log" component={TrainingLog} />
@@ -288,6 +291,7 @@ function Router() {
                 <Route path="/trainer/profile">{() => <TrainerGuard><TrainerProfile /></TrainerGuard>}</Route>
                 <Route path="/trainer/schedule">{() => <TrainerGuard><TrainerSchedule /></TrainerGuard>}</Route>
                 <Route path="/trainer/evaluations">{() => <TrainerGuard><TrainerEvaluations /></TrainerGuard>}</Route>
+                <Route path="/trainer/programs">{() => <TrainerGuard><TrainerPrograms /></TrainerGuard>}</Route>
                 <Route path="/teams" component={Finder} />
                 <Route path="/connect" component={FindPeople} />
                 <Route path="/challenge-history" component={ChallengeHistory} />
