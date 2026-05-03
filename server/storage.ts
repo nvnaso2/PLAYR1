@@ -5818,7 +5818,7 @@ export class DatabaseStorage implements IStorage {
     }
 
     // 3) Bump program enrollmentCount only when we actually created a new row.
-    if (createdNewEnrollment) {
+    if (!existingEnrollment) {
       await db
         .update(programs)
         .set({ enrollmentCount: sql`${programs.enrollmentCount} + 1` })
