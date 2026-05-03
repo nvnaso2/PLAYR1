@@ -437,35 +437,76 @@ function ItemCard({
 
               {/* Item-type specific body */}
               {item.itemType === "drill" && item.drillId && (
-                <div className="mt-4">
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <Link href={`/log?startDrills=${item.drillId}`}>
+                    <Button size="sm" className="font-semibold"
+                      style={{ background: accent, color: "white" }}
+                      data-testid={`button-start-workout-${item.id}`}>
+                      <PlayCircle className="w-4 h-4 mr-2" />
+                      Start workout
+                    </Button>
+                  </Link>
                   <Link href={`/drill/${item.drillId}`}>
                     <Button variant="outline" size="sm" data-testid={`button-open-drill-${item.id}`}>
-                      <PlayCircle className="w-4 h-4 mr-2" />
-                      {meta.verb}
+                      View drill
                     </Button>
                   </Link>
                 </div>
               )}
 
-              {item.itemType === "workout" && item.workoutSpec && item.workoutSpec.length > 0 && (
-                <div className="mt-4 rounded-lg border border-border/60 bg-card-overlay/40 p-3 space-y-2">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Workout</p>
-                  {item.workoutSpec.map((w, idx) => (
-                    <div key={idx} className="flex items-center justify-between text-sm gap-3" data-testid={`row-workout-${item.id}-${idx}`}>
-                      <Link href={`/drill/${w.drillId}`} className="font-medium hover:underline truncate">
-                        Drill {idx + 1}
+              {item.itemType === "workout" && (item.workoutSpec?.length || item.drillId) && (() => {
+                const validIds = (item.workoutSpec ?? [])
+                  .map((w) => w.drillId)
+                  .filter((id): id is string => !!id);
+                const launchIds = validIds.length > 0 ? validIds : (item.drillId ? [item.drillId] : []);
+                return (
+                  <div className="mt-4 space-y-3">
+                    {item.workoutSpec && item.workoutSpec.length > 0 && (
+                      <div className="rounded-lg border border-border/60 bg-card-overlay/40 p-3 space-y-2">
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
+                          {item.workoutSpec.length} drill{item.workoutSpec.length === 1 ? "" : "s"} in this workout
+                        </p>
+                        {item.workoutSpec.map((w, idx) => (
+                          <div key={idx} className="flex items-center justify-between text-sm gap-3" data-testid={`row-workout-${item.id}-${idx}`}>
+                            {w.drillId ? (
+                              <Link
+                                href={`/drill/${w.drillId}`}
+                                className="font-medium hover:underline truncate"
+                                data-testid={`link-workout-drill-${item.id}-${idx}`}
+                              >
+                                Drill {idx + 1}
+                              </Link>
+                            ) : (
+                              <span className="font-medium truncate text-muted-foreground italic">
+                                Drill {idx + 1} (missing)
+                              </span>
+                            )}
+                            <span className="text-muted-foreground text-xs whitespace-nowrap">
+                              {[
+                                w.sets ? `${w.sets} sets` : null,
+                                w.reps ? `${w.reps} reps` : null,
+                                w.durationSec ? `${w.durationSec}s` : null,
+                              ].filter(Boolean).join(" · ")}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {launchIds.length > 0 ? (
+                      <Link href={`/log?startDrills=${launchIds.join(",")}`}>
+                        <Button size="sm" className="font-semibold"
+                          style={{ background: accent, color: "white" }}
+                          data-testid={`button-start-workout-${item.id}`}>
+                          <PlayCircle className="w-4 h-4 mr-2" />
+                          Start workout
+                        </Button>
                       </Link>
-                      <span className="text-muted-foreground text-xs whitespace-nowrap">
-                        {[
-                          w.sets ? `${w.sets} sets` : null,
-                          w.reps ? `${w.reps} reps` : null,
-                          w.durationSec ? `${w.durationSec}s` : null,
-                        ].filter(Boolean).join(" · ")}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ) : (
+                      <p className="text-xs text-muted-foreground italic">No drills attached yet.</p>
+                    )}
+                  </div>
+                );
+              })()}
 
               {item.itemType === "challenge" && item.challengeSpec && (
                 <div

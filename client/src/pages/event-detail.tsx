@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowLeft, CalendarRange, Trophy, Users, Play, Award, ListChecks } from "lucide-react";
+import { ArrowLeft, CalendarRange, Trophy, Users, Play, Award, ListChecks, Flame, Sparkles, Clock } from "lucide-react";
 import type { Event, Program, ProgramItem, EventParticipant, EventStatus } from "@shared/schema";
 import { useAuth } from "@/hooks/use-auth";
 import { track } from "@/lib/track";
@@ -121,68 +121,115 @@ export default function EventDetailPage() {
 
   return (
     <div className="pb-12" data-testid="page-event-detail">
-      {/* Hero */}
-      <div className="relative overflow-hidden" style={{
-        background: event.coverImageUrl
-          ? `linear-gradient(180deg, rgba(0,0,0,0.4), rgba(0,0,0,0.85)), url(${event.coverImageUrl}) center/cover no-repeat`
-          : `linear-gradient(135deg, ${accent}, ${accent}22)`,
-      }}>
-        <div className="container max-w-4xl py-10 sm:py-14">
+      {/* ─── Cinematic Hero ─── */}
+      <div className="relative overflow-hidden border-b border-border/40">
+        <div
+          className="absolute inset-0"
+          style={{
+            background: event.coverImageUrl
+              ? `linear-gradient(115deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.55) 45%, rgba(0,0,0,0.2) 100%), url(${event.coverImageUrl}) center/cover no-repeat`
+              : `linear-gradient(135deg, ${accent}cc 0%, ${accent}55 40%, hsl(var(--background)) 100%)`,
+          }}
+        />
+        <div
+          className="absolute inset-0 opacity-50"
+          style={{
+            background: `radial-gradient(circle at 15% 0%, ${accent}aa 0%, transparent 55%), radial-gradient(circle at 85% 100%, ${accent}66 0%, transparent 50%)`,
+          }}
+        />
+        <div
+          className="absolute inset-0 opacity-[0.06]"
+          style={{
+            backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)",
+            backgroundSize: "20px 20px",
+          }}
+        />
+        <div className="relative container max-w-5xl py-10 sm:py-16">
           <Link href="/events">
-            <Button variant="ghost" size="sm" className="text-white hover:bg-white/10 mb-4" data-testid="button-back-events">
+            <Button variant="ghost" size="sm" className="text-white/90 hover:text-white hover:bg-white/10 mb-5" data-testid="button-back-events">
               <ArrowLeft className="w-4 h-4 mr-1" /> All events
             </Button>
           </Link>
-          <div className="space-y-3">
-            <Badge variant="outline" className="bg-white/10 text-white border-white/30">{statusLabel}</Badge>
-            <h1 className="text-3xl sm:text-5xl font-bold text-white" data-testid="text-event-hero-title">{event.title}</h1>
-            {event.tagline && <p className="text-white/85 text-lg max-w-2xl">{event.tagline}</p>}
-            <div className="flex flex-wrap items-center gap-4 text-white/85 text-sm pt-2">
-              <span className="inline-flex items-center gap-1"><CalendarRange className="w-4 h-4" /> {formatRange(event.startsAt, event.endsAt)}</span>
-              <span className="inline-flex items-center gap-1"><Users className="w-4 h-4" /> {event.participantCount ?? 0} players joined</span>
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge
+                variant="outline"
+                className={`backdrop-blur border ${
+                  event.status === "live" ? "bg-green-500/20 text-green-300 border-green-500/40 animate-pulse"
+                  : event.status === "scheduled" ? "bg-blue-500/20 text-blue-200 border-blue-400/40"
+                  : event.status === "finished" ? "bg-zinc-500/20 text-zinc-300 border-zinc-500/40"
+                  : "bg-white/10 text-white border-white/30"
+                }`}
+              >
+                {event.status === "live" && <Flame className="w-3.5 h-3.5 mr-1" />}
+                {event.status === "scheduled" && <Sparkles className="w-3.5 h-3.5 mr-1" />}
+                {statusLabel}
+              </Badge>
+              {event.program && (
+                <Badge variant="outline" className="bg-white/10 text-white/90 border-white/30 backdrop-blur">
+                  {event.program.lengthDays}-day · {event.program.difficulty}
+                </Badge>
+              )}
+            </div>
+            <h1
+              className="text-4xl sm:text-6xl font-bold tracking-tight text-white drop-shadow-md"
+              data-testid="text-event-hero-title"
+            >
+              {event.title}
+            </h1>
+            {event.tagline && <p className="text-white/85 text-lg sm:text-xl max-w-2xl">{event.tagline}</p>}
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-white/85 text-sm pt-1">
+              <span className="inline-flex items-center gap-1.5"><CalendarRange className="w-4 h-4" /> {formatRange(event.startsAt, event.endsAt)}</span>
+              <span className="inline-flex items-center gap-1.5"><Users className="w-4 h-4" /> {event.participantCount ?? 0} players joined</span>
               {event.status === "scheduled" && (
-                <span className="inline-flex items-center gap-1">
+                <span className="inline-flex items-center gap-1.5">
+                  <Clock className="w-4 h-4" />
                   <span className="text-white/70">Starts in</span>
-                  <span className="font-semibold" style={{ color: accent }} data-testid="text-event-countdown">{timeRemaining(event.startsAt)}</span>
+                  <span className="font-semibold" style={{ color: accent === "#f97316" ? "#fff" : accent }} data-testid="text-event-countdown">{timeRemaining(event.startsAt)}</span>
                 </span>
               )}
               {event.status === "live" && (
-                <span className="inline-flex items-center gap-1">
+                <span className="inline-flex items-center gap-1.5">
+                  <Clock className="w-4 h-4" />
                   <span className="text-white/70">Ends in</span>
-                  <span className="font-semibold" style={{ color: accent }} data-testid="text-event-countdown">{timeRemaining(event.endsAt)}</span>
+                  <span className="font-semibold" style={{ color: accent === "#f97316" ? "#fff" : accent }} data-testid="text-event-countdown">{timeRemaining(event.endsAt)}</span>
                 </span>
               )}
             </div>
-            <div className="pt-4 flex items-center gap-3 flex-wrap">
+            <div className="pt-5 flex items-center gap-3 flex-wrap">
               {!user ? (
-                <Link href="/auth"><Button size="lg" style={{ backgroundColor: accent }} data-testid="button-event-signin">Sign in to join</Button></Link>
+                <Link href="/auth"><Button size="lg" className="shadow-xl font-semibold" style={{ backgroundColor: accent, color: "white" }} data-testid="button-event-signin">Sign in to join</Button></Link>
               ) : isJoined ? (
                 <>
-                  <Badge className="bg-green-500/20 text-green-300 border-green-500/40">You're in</Badge>
+                  <Badge className="bg-green-500/25 text-green-200 border-green-500/40 text-sm py-1.5 px-3">
+                    <Award className="w-4 h-4 mr-1" /> You're in
+                  </Badge>
                   {event.program && (
                     <Link href={`/programs/${event.program.slug}/today`}>
-                      <Button size="lg" style={{ backgroundColor: accent }} data-testid="button-event-go-today">
-                        <Play className="w-4 h-4 mr-1" /> Go to today's workout
+                      <Button size="lg" className="shadow-xl font-semibold" style={{ backgroundColor: accent, color: "white" }} data-testid="button-event-go-today">
+                        <Play className="w-5 h-5 mr-2" /> Go to today's workout
                       </Button>
                     </Link>
                   )}
                 </>
               ) : isLive ? (
-                <Button size="lg" style={{ backgroundColor: accent }} onClick={() => joinMut.mutate()}
+                <Button size="lg" className="shadow-xl font-semibold" style={{ backgroundColor: accent, color: "white" }} onClick={() => joinMut.mutate()}
                   disabled={joinMut.isPending} data-testid="button-event-join">
-                  {joinMut.isPending ? "Joining…" : "Join event"}
+                  <Flame className="w-5 h-5 mr-2" /> {joinMut.isPending ? "Joining…" : "Join event"}
                 </Button>
               ) : isFinished ? (
                 <Badge variant="outline" className="bg-white/10 text-white border-white/30">Joining closed</Badge>
               ) : (
-                <Badge variant="outline" className="bg-white/10 text-white border-white/30">Joining opens at start time</Badge>
+                <Badge variant="outline" className="bg-white/10 text-white border-white/30">
+                  <Clock className="w-3.5 h-3.5 mr-1" /> Joining opens at start time
+                </Badge>
               )}
             </div>
           </div>
         </div>
       </div>
 
-      <div className="container max-w-4xl mt-6">
+      <div className="container max-w-5xl mt-6">
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList>
             <TabsTrigger value="overview" data-testid="tab-event-overview"><ListChecks className="w-4 h-4 mr-1" /> Overview</TabsTrigger>
@@ -199,24 +246,41 @@ export default function EventDetailPage() {
               </CardContent></Card>
             )}
             {event.program && (
-              <Card>
-                <CardHeader><CardTitle className="text-base flex items-center gap-2">
-                  <Sparkle accent={accent} /> {event.program.title}
-                </CardTitle></CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-xs text-muted-foreground">{event.program.lengthDays}-day program · {event.program.difficulty}</p>
-                  <div className="space-y-2">
+              <Card className="overflow-hidden border-border/60">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Sparkle accent={accent} /> {event.program.title}
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    {event.program.lengthDays}-day program · {event.program.difficulty}
+                    {event.program.estimatedMinutesPerDay ? ` · ~${event.program.estimatedMinutesPerDay} min/day` : ""}
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {days.map((d) => (
-                      <div key={d} className="border rounded-md p-3" data-testid={`block-day-${d}`}>
-                        <p className="text-sm font-medium mb-2">Day {d}</p>
-                        <ul className="space-y-1 text-sm text-muted-foreground">
-                          {byDay[d].map((it) => (
-                            <li key={it.id} className="flex items-center justify-between gap-2">
-                              <span className="truncate">{it.title}</span>
-                              <Badge variant="outline" className="text-[10px] capitalize">{it.itemType}</Badge>
-                            </li>
-                          ))}
-                        </ul>
+                      <div
+                        key={d}
+                        className="rounded-lg border border-border/60 overflow-hidden bg-card-overlay/30"
+                        data-testid={`block-day-${d}`}
+                      >
+                        <div className="flex items-stretch">
+                          <div className="w-1 shrink-0" style={{ background: accent }} />
+                          <div className="flex-1 p-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="text-sm font-bold">Day {d}</p>
+                              <Badge variant="secondary" className="text-[10px]">{byDay[d].length} item{byDay[d].length === 1 ? "" : "s"}</Badge>
+                            </div>
+                            <ul className="space-y-1.5">
+                              {byDay[d].map((it) => (
+                                <li key={it.id} className="flex items-center justify-between gap-2 text-sm">
+                                  <span className="truncate text-foreground/90">{it.title}</span>
+                                  <Badge variant="outline" className="text-[10px] capitalize shrink-0">{it.itemType}</Badge>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -340,7 +404,7 @@ function FinalChallengePanel({ event, items, participant }: {
         {finalItem ? (
           <div className="rounded-md border p-3 bg-muted/30">
             <p className="text-sm font-medium" data-testid="text-final-item-title">Day {finalItem.dayNumber}: {finalItem.title}</p>
-            {finalItem.description && <p className="text-xs text-muted-foreground mt-1 whitespace-pre-line">{finalItem.description}</p>}
+            {finalItem.notes && <p className="text-xs text-muted-foreground mt-1 whitespace-pre-line">{finalItem.notes}</p>}
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">No final-challenge item set. Use the leaderboard for completions ranking.</p>

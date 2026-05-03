@@ -14,9 +14,10 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ExternalLink, Save, Pencil, Calendar } from "lucide-react";
+import { ArrowLeft, ExternalLink, Save, Pencil, Calendar, Upload, X } from "lucide-react";
 import type { Event, Program, ProgramItem, EventLeaderboardMetric, EventStatus } from "@shared/schema";
 import { EVENT_LEADERBOARD_METRICS } from "@shared/schema";
+import { useUpload } from "@/hooks/use-upload";
 
 type EventWithMeta = Event & { status: EventStatus; program: Program | null };
 
@@ -156,8 +157,11 @@ export default function EventEditorPage() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <Label>Cover image URL</Label>
-              <Input value={form.coverImageUrl} onChange={(e) => setForm({ ...form, coverImageUrl: e.target.value })} placeholder="https://…" data-testid="input-edit-cover" />
+              <Label>Cover image</Label>
+              <CoverImagePicker
+                value={form.coverImageUrl}
+                onChange={(v) => setForm({ ...form, coverImageUrl: v })}
+              />
             </div>
             <div>
               <Label>Accent color</Label>
@@ -266,6 +270,68 @@ export default function EventEditorPage() {
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function CoverImagePicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const { toast } = useToast();
+  const { uploadFile, isUploading, progress } = useUpload({
+    onSuccess: (resp) => {
+      onChange(resp.objectPath);
+      toast({ title: "Cover uploaded — click Save to apply" });
+    },
+    onError: (err) => toast({ title: "Upload failed", description: err.message, variant: "destructive" }),
+  });
+
+  const pickFile = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      if (!file.type.startsWith("image/")) {
+        toast({ title: "Please choose an image file", variant: "destructive" });
+        return;
+      }
+      await uploadFile(file);
+    };
+    input.click();
+  };
+
+  const previewSrc = value
+    ? value.startsWith("/objects/") ? value : value
+    : null;
+
+  return (
+    <div className="space-y-2">
+      {previewSrc ? (
+        <div className="relative rounded-md overflow-hidden border h-28 bg-muted" data-testid="preview-cover-image">
+          <img src={previewSrc} alt="Cover" className="w-full h-full object-cover" />
+          <Button type="button" size="icon" variant="secondary" className="absolute top-1 right-1 h-7 w-7"
+            onClick={() => onChange("")} data-testid="button-clear-cover">
+            <X className="w-3.5 h-3.5" />
+          </Button>
+        </div>
+      ) : (
+        <div className="rounded-md border border-dashed h-28 flex items-center justify-center text-xs text-muted-foreground">
+          No cover yet
+        </div>
+      )}
+      <div className="flex gap-2">
+        <Button type="button" variant="outline" size="sm" onClick={pickFile} disabled={isUploading} data-testid="button-upload-cover">
+          <Upload className="w-3.5 h-3.5 mr-1" />
+          {isUploading ? `Uploading ${progress}%` : "Upload image"}
+        </Button>
+        <Input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="…or paste URL"
+          className="flex-1"
+          data-testid="input-edit-cover"
+        />
+      </div>
     </div>
   );
 }

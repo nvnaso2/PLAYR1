@@ -1032,6 +1032,49 @@ export default function TrainingLogPage() {
     }
   };
 
+  // Auto-start a workout when navigated with ?startDrills=id1,id2,...
+  // (used by Programs "Start workout" deep-link). Idempotent per query value
+  // so revisiting with a fresh list re-launches.
+  const [lastAutoStartKey, setLastAutoStartKey] = useState<string | null>(null);
+  useEffect(() => {
+    if (!allDrills || allDrills.length === 0) return;
+    const params = new URLSearchParams(searchParams);
+    const list = params.get("startDrills");
+    if (!list) return;
+    if (list === lastAutoStartKey) return;
+    const ids = list.split(",").map((s) => s.trim()).filter(Boolean);
+    if (ids.length === 0) {
+      setLastAutoStartKey(list);
+      return;
+    }
+    setLastAutoStartKey(list);
+    (async () => {
+      const entriesArrays = await Promise.all(
+        ids.map((id) => {
+          const drill = allDrills.find((d) => d.id === id);
+          return drill ? buildDrillEntries(id, drill) : Promise.resolve([]);
+        })
+      );
+      const entries = entriesArrays.flat();
+      if (entries.length === 0) {
+        toast({ title: "Couldn't find those drills", variant: "destructive" });
+        return;
+      }
+      setWorkoutEntries(entries);
+      setWorkoutInProgress(true);
+      setActiveView("workout");
+      const now = Date.now();
+      setDrillStartTimes(
+        entries.reduce(
+          (acc, e) => ({ ...acc, [e.drillId]: acc[e.drillId] ?? now }),
+          {} as Record<string, number>
+        )
+      );
+      // Clean the query param so refresh doesn't relaunch
+      try { window.history.replaceState({}, "", "/log"); } catch {}
+    })();
+  }, [allDrills, searchParams, lastAutoStartKey]);
+
   // Update workout entry
   const updateEntry = (index: number, field: keyof WorkoutDrillEntry, value: any) => {
     setWorkoutEntries(prev => {

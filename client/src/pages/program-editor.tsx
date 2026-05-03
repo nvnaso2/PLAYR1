@@ -24,9 +24,10 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  ArrowLeft, ArrowUp, ArrowDown, Plus, Trash2, Pencil, Save, ExternalLink, Eye,
+  ArrowLeft, ArrowUp, ArrowDown, Plus, Trash2, Pencil, Save, ExternalLink, Eye, Upload, X,
 } from "lucide-react";
 import { AssignProgramDialog } from "@/components/assign-program-dialog";
+import { useUpload } from "@/hooks/use-upload";
 import type { Program, ProgramItem, Drill } from "@shared/schema";
 import {
   PROGRAM_CADENCES, PROGRAM_VISIBILITY, PROGRAM_ITEM_TYPES,
@@ -297,10 +298,11 @@ export default function ProgramEditorPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="cover">Cover image URL</Label>
-              <Input id="cover" value={meta.coverImageUrl ?? ""}
-                onChange={(e) => setMeta({ ...meta, coverImageUrl: e.target.value })}
-                data-testid="input-program-cover" />
+              <Label htmlFor="cover">Cover image</Label>
+              <ProgramCoverPicker
+                value={meta.coverImageUrl ?? ""}
+                onChange={(v) => setMeta({ ...meta, coverImageUrl: v })}
+              />
             </div>
             <div>
               <Label htmlFor="tags">Category tags (comma-separated)</Label>
@@ -352,6 +354,111 @@ export default function ProgramEditorPage() {
           ))}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function ProgramCoverPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const { toast } = useToast();
+  const { uploadFile, isUploading, progress } = useUpload({
+    onSuccess: (resp) => {
+      onChange(resp.objectPath);
+      toast({ title: "Cover uploaded — click Save details to apply" });
+    },
+    onError: (err) => toast({ title: "Upload failed", description: err.message, variant: "destructive" }),
+  });
+
+  const pickFile = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      if (!file.type.startsWith("image/")) {
+        toast({ title: "Please choose an image file", variant: "destructive" });
+        return;
+      }
+      await uploadFile(file);
+    };
+    input.click();
+  };
+
+  return (
+    <div className="space-y-2">
+      {value ? (
+        <div className="relative rounded-md overflow-hidden border h-24 bg-muted" data-testid="preview-program-cover">
+          <img src={value} alt="Cover" className="w-full h-full object-cover" />
+          <Button type="button" size="icon" variant="secondary" className="absolute top-1 right-1 h-7 w-7"
+            onClick={() => onChange("")} data-testid="button-clear-program-cover">
+            <X className="w-3.5 h-3.5" />
+          </Button>
+        </div>
+      ) : (
+        <div className="rounded-md border border-dashed h-24 flex items-center justify-center text-xs text-muted-foreground">
+          No cover yet
+        </div>
+      )}
+      <div className="flex gap-2">
+        <Button type="button" variant="outline" size="sm" onClick={pickFile} disabled={isUploading}
+          data-testid="button-upload-program-cover">
+          <Upload className="w-3.5 h-3.5 mr-1" />
+          {isUploading ? `Uploading ${progress}%` : "Upload image"}
+        </Button>
+        <Input id="cover" value={value} onChange={(e) => onChange(e.target.value)}
+          placeholder="…or paste URL" className="flex-1" data-testid="input-program-cover" />
+      </div>
+    </div>
+  );
+}
+
+function WatchVideoPicker({ value, onChange }: { value: string; onChange: (v: string, provider?: string) => void }) {
+  const { toast } = useToast();
+  const { uploadFile, isUploading, progress } = useUpload({
+    onSuccess: (resp) => {
+      onChange(resp.objectPath, "internal");
+      toast({ title: "Video uploaded — click Save to apply" });
+    },
+    onError: (err) => toast({ title: "Upload failed", description: err.message, variant: "destructive" }),
+  });
+
+  const pickFile = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "video/*";
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      if (!file.type.startsWith("video/")) {
+        toast({ title: "Please choose a video file", variant: "destructive" });
+        return;
+      }
+      await uploadFile(file);
+    };
+    input.click();
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex gap-2">
+        <Button type="button" variant="outline" size="sm" onClick={pickFile} disabled={isUploading}
+          data-testid="button-upload-watch-video">
+          <Upload className="w-3.5 h-3.5 mr-1" />
+          {isUploading ? `Uploading ${progress}%` : "Upload video"}
+        </Button>
+        <Input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="…or paste YouTube/Vimeo URL"
+          className="flex-1"
+          data-testid="input-item-watch-url"
+        />
+      </div>
+      {value && (
+        <p className="text-xs text-muted-foreground truncate" data-testid="text-watch-current">
+          Current: <span className="font-mono">{value}</span>
+        </p>
+      )}
     </div>
   );
 }
@@ -590,10 +697,14 @@ function ItemEditorDialog({
           {itemType === "watch" && (
             <>
               <div>
-                <Label>Video URL</Label>
-                <Input value={watchUrl} onChange={(e) => setWatchUrl(e.target.value)}
-                  placeholder="https://youtube.com/..."
-                  data-testid="input-item-watch-url" />
+                <Label>Video</Label>
+                <WatchVideoPicker
+                  value={watchUrl}
+                  onChange={(v, prov) => {
+                    setWatchUrl(v);
+                    if (prov) setWatchProvider(prov);
+                  }}
+                />
               </div>
               <div>
                 <Label>Provider</Label>
@@ -602,7 +713,7 @@ function ItemEditorDialog({
                   <SelectContent>
                     <SelectItem value="youtube">YouTube</SelectItem>
                     <SelectItem value="vimeo">Vimeo</SelectItem>
-                    <SelectItem value="internal">Internal</SelectItem>
+                    <SelectItem value="internal">Internal (uploaded)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
