@@ -50,6 +50,12 @@ export default function ProgramEditorPage() {
   const { toast } = useToast();
   const { isAdmin } = useAdmin();
   const [, setLocation] = useLocation();
+  const fromEventId = useMemo(
+    () => (typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("eventId")
+      : null),
+    [],
+  );
 
   // Edit-mode fetch — server allows author or admin and bypasses the public
   // visibility checks so unpublished/private programs can still be edited.
@@ -151,9 +157,10 @@ export default function ProgramEditorPage() {
       {/* Header */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
-          <Link href={isAdmin ? "/admin" : "/trainer/programs"}>
-            <Button variant="ghost" size="icon" data-testid="button-back-from-editor">
+          <Link href={fromEventId ? `/admin/events/${fromEventId}/edit` : (isAdmin ? "/admin" : "/trainer/programs")}>
+            <Button variant="ghost" size={fromEventId ? "sm" : "icon"} data-testid="button-back-from-editor">
               <ArrowLeft className="w-4 h-4" />
+              {fromEventId && <span className="ml-1">Back to event</span>}
             </Button>
           </Link>
           <div>

@@ -258,8 +258,12 @@ function Router() {
       <Route path="/support" component={Support} />
       <Route path="/finder">{() => <Redirect to="/teams" />}</Route>
       <Route path="/parent-invite/:code" component={ParentInvite} />
-      <Route path="/events">{() => <Suspense fallback={<LoadingScreen />}><Events /></Suspense>}</Route>
-      <Route path="/events/:slug">{() => <Suspense fallback={<LoadingScreen />}><EventDetail /></Suspense>}</Route>
+      <Route path="/events">{() => isAuthenticated
+        ? <AuthenticatedLayout><Events /></AuthenticatedLayout>
+        : <Suspense fallback={<LoadingScreen />}><Events /></Suspense>}</Route>
+      <Route path="/events/:slug">{() => isAuthenticated
+        ? <AuthenticatedLayout><EventDetail /></AuthenticatedLayout>
+        : <Suspense fallback={<LoadingScreen />}><EventDetail /></Suspense>}</Route>
       <Route>
         {() => {
           if (!isAuthenticated) {

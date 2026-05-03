@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ExternalLink, Save } from "lucide-react";
+import { ArrowLeft, ExternalLink, Save, Pencil, Calendar } from "lucide-react";
 import type { Event, Program, ProgramItem, EventLeaderboardMetric, EventStatus } from "@shared/schema";
 import { EVENT_LEADERBOARD_METRICS } from "@shared/schema";
 
@@ -195,6 +195,47 @@ export default function EventEditorPage() {
       </Card>
 
       <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-2">
+          <div>
+            <CardTitle className="flex items-center gap-2"><Calendar className="w-4 h-4" /> Program structure</CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              Build out the daily workouts, drills, and rest days for this event in the program builder.
+            </p>
+          </div>
+          {event.programId && (
+            <Link href={`/programs/${event.programId}/edit?eventId=${event.id}`}>
+              <Button variant="default" size="sm" data-testid="button-open-program-builder">
+                <Pencil className="w-4 h-4 mr-1" /> Open program builder
+              </Button>
+            </Link>
+          )}
+        </CardHeader>
+        <CardContent>
+          {!event.program ? (
+            <p className="text-sm text-muted-foreground" data-testid="text-no-program">No program linked to this event.</p>
+          ) : (programItems ?? []).length === 0 ? (
+            <div className="rounded-md border border-dashed p-6 text-center" data-testid="block-program-empty">
+              <p className="text-sm text-muted-foreground mb-3">
+                <span className="font-medium text-foreground">{event.program.title}</span> has no items yet.
+              </p>
+              <Link href={`/programs/${event.programId}/edit?eventId=${event.id}`}>
+                <Button data-testid="button-build-program-empty">
+                  <Pencil className="w-4 h-4 mr-1" /> Build it out
+                </Button>
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">{event.program.title}</span> · {event.program.lengthDays}-day program · {(programItems ?? []).length} items
+              </p>
+              <ProgramOutline items={programItems ?? []} />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardHeader><CardTitle>Leaderboard & Final Challenge</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div>
@@ -225,6 +266,31 @@ export default function EventEditorPage() {
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function ProgramOutline({ items }: { items: ProgramItem[] }) {
+  const byDay = items.reduce<Record<number, ProgramItem[]>>((acc, it) => {
+    (acc[it.dayNumber] ||= []).push(it);
+    return acc;
+  }, {});
+  const days = Object.keys(byDay).map(Number).sort((a, b) => a - b);
+  return (
+    <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+      {days.map((d) => (
+        <div key={d} className="border rounded-md p-2" data-testid={`outline-day-${d}`}>
+          <p className="text-xs font-medium mb-1">Day {d}</p>
+          <ul className="space-y-1">
+            {byDay[d].map((it) => (
+              <li key={it.id} className="flex items-center justify-between gap-2 text-xs">
+                <span className="truncate">{it.title}</span>
+                <Badge variant="outline" className="text-[10px] capitalize">{it.itemType}</Badge>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
     </div>
   );
 }
