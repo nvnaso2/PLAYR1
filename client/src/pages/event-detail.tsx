@@ -262,7 +262,7 @@ export default function EventDetailPage() {
           <TabsList>
             <TabsTrigger value="overview" data-testid="tab-event-overview"><ListChecks className="w-4 h-4 mr-1" /> Overview</TabsTrigger>
             <TabsTrigger value="leaderboard" data-testid="tab-event-leaderboard"><Trophy className="w-4 h-4 mr-1" /> Leaderboard</TabsTrigger>
-            {event.finalChallengeItemId && (
+            {items.length > 0 && (
               <TabsTrigger value="final" data-testid="tab-event-final"><Award className="w-4 h-4 mr-1" /> Final Challenge</TabsTrigger>
             )}
           </TabsList>
@@ -310,7 +310,7 @@ export default function EventDetailPage() {
             <LeaderboardPanel rows={leaderboard ?? []} isLoading={lbLoading} myUserId={user?.id ?? null} accent={accent} />
           </TabsContent>
 
-          {event.finalChallengeItemId && (
+          {items.length > 0 && (
             <TabsContent value="final">
               <FinalChallengePanel
                 event={event}
@@ -472,7 +472,13 @@ function FinalChallengePanel({ event, items, participant, isJoined, myCompletedC
 }) {
   const accent = event.accentColor || "#f97316";
   const { toast } = useToast();
-  const finalItem = items.find((it) => it.id === event.finalChallengeItemId) || null;
+  // Resolve the final challenge item: explicit pointer → last challenge-type → last item
+  const finalItem = (
+    items.find((it) => it.id === event.finalChallengeItemId) ||
+    [...items].reverse().find((it) => it.itemType === "challenge") ||
+    items[items.length - 1] ||
+    null
+  );
   const embedUrl = toYouTubeEmbed(finalItem?.watchUrl);
   const totalItems = items.length;
   const allDaysComplete = isJoined && totalItems > 0 && myCompletedCount >= totalItems;
@@ -515,17 +521,7 @@ function FinalChallengePanel({ event, items, participant, isJoined, myCompletedC
   const scoreVal = parseFloat(score);
   const canSubmit = isLive && allDaysComplete && !!score && !isNaN(scoreVal) && scoreVal >= 0;
 
-  if (!finalItem) {
-    return (
-      <Card>
-        <CardContent className="py-12 text-center text-muted-foreground">
-          <Award className="w-10 h-10 mx-auto mb-3 opacity-20" />
-          <p className="font-semibold">No final challenge configured</p>
-          <p className="text-sm mt-1">The event admin hasn't set a final challenge yet.</p>
-        </CardContent>
-      </Card>
-    );
-  }
+  if (!finalItem) return null;
 
   return (
     <div className="space-y-5" data-testid="final-challenge-panel">
@@ -552,7 +548,7 @@ function FinalChallengePanel({ event, items, participant, isJoined, myCompletedC
             </h2>
           </div>
           <Badge
-            className="ml-auto"
+            className="ml-auto shrink-0"
             style={{ background: `${accent}33`, color: accent, borderColor: `${accent}55` }}
             variant="outline"
           >
@@ -582,27 +578,31 @@ function FinalChallengePanel({ event, items, participant, isJoined, myCompletedC
           </div>
         )}
 
-        {/* Challenge spec pills */}
-        {finalItem.challengeSpec && (
-          <div className="px-6 pb-4 flex flex-wrap gap-2">
-            {finalItem.challengeSpec.scoringMetric && (
-              <Badge variant="outline" className="text-xs">
-                Metric: {finalItem.challengeSpec.scoringMetric}
-              </Badge>
-            )}
-            {finalItem.challengeSpec.target != null && (
-              <Badge variant="outline" className="text-xs">
-                Target: {finalItem.challengeSpec.target}
-              </Badge>
-            )}
-            {finalItem.challengeSpec.timeLimitSec != null && (
-              <Badge variant="outline" className="text-xs flex items-center gap-1">
-                <Clock className="w-3 h-3" />
-                {Math.floor(finalItem.challengeSpec.timeLimitSec / 60)}:{String(finalItem.challengeSpec.timeLimitSec % 60).padStart(2, "0")} limit
-              </Badge>
-            )}
-          </div>
-        )}
+        {/* Scoring info + spec pills */}
+        <div className="px-6 pb-5 pt-3 flex flex-wrap gap-2 border-t border-border/30">
+          <Badge variant="outline" className="text-xs gap-1">
+            <Trophy className="w-3 h-3" /> Score counts 50% on leaderboard
+          </Badge>
+          <Badge variant="outline" className="text-xs gap-1">
+            <ListChecks className="w-3 h-3" /> Fewer attempts = higher rank (30%)
+          </Badge>
+          {finalItem.challengeSpec?.scoringMetric && (
+            <Badge variant="outline" className="text-xs">
+              Metric: {finalItem.challengeSpec.scoringMetric}
+            </Badge>
+          )}
+          {finalItem.challengeSpec?.target != null && (
+            <Badge variant="outline" className="text-xs">
+              Target: {finalItem.challengeSpec.target}
+            </Badge>
+          )}
+          {finalItem.challengeSpec?.timeLimitSec != null && (
+            <Badge variant="outline" className="text-xs flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              {Math.floor(finalItem.challengeSpec.timeLimitSec / 60)}:{String(finalItem.challengeSpec.timeLimitSec % 60).padStart(2, "0")} limit
+            </Badge>
+          )}
+        </div>
       </div>
 
       {/* ── State: not joined — preview gate ── */}
