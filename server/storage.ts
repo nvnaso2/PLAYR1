@@ -5777,19 +5777,24 @@ export class DatabaseStorage implements IStorage {
           eq(programEnrollments.status, "active"),
         ));
       if (!existing) throw new Error("Failed to enroll in event program");
-      // Strict scoping: never backfill an event onto a pre-existing enrollment.
       if (existing.eventId === eventId) {
+        // Already scoped to this event — all good.
         enrollment = existing;
       } else if (existing.eventId && existing.eventId !== eventId) {
+        // Scoped to a *different* event — still block this case.
         throw new Error(
           "You already have an active enrollment in this program for a different event. " +
           "Pause that enrollment first to join this event.",
         );
       } else {
-        throw new Error(
-          "You already have an active enrollment in this program. " +
-          "Please pause it from the program page before joining this event.",
-        );
+        // Standalone enrollment (no eventId). Tag it with this event so the
+        // user's existing progress is preserved and they join seamlessly.
+        const [updated] = await db
+          .update(programEnrollments)
+          .set({ eventId })
+          .where(eq(programEnrollments.id, existing.id))
+          .returning();
+        enrollment = updated ?? existing;
       }
     }
 

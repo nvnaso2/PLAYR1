@@ -201,8 +201,8 @@ export default function ProgramDetailPage() {
                   <Link href={`/programs/${program.slug}/today`}>
                     <Button
                       size="lg"
-                      className="w-full lg:w-auto shadow-lg"
-                      style={{ background: accent, color: "white" }}
+                      className="w-full lg:w-auto border-0"
+                      style={{ background: accent, color: "white", boxShadow: "0 0 0 2px rgba(255,255,255,0.12), 0 0 0 5px rgba(255,255,255,0.05), 0 6px 20px rgba(0,0,0,0.25)" }}
                       data-testid="button-go-to-today"
                     >
                       <PlayCircle className="w-5 h-5 mr-2" />
@@ -216,8 +216,8 @@ export default function ProgramDetailPage() {
               ) : (
                 <Button
                   size="lg"
-                  className="w-full lg:w-auto shadow-lg"
-                  style={{ background: accent, color: "white" }}
+                  className="w-full lg:w-auto border-0"
+                  style={{ background: accent, color: "white", boxShadow: "0 0 0 2px rgba(255,255,255,0.12), 0 0 0 5px rgba(255,255,255,0.05), 0 6px 20px rgba(0,0,0,0.25)" }}
                   onClick={() => enroll.mutate()}
                   disabled={enroll.isPending}
                   data-testid="button-enroll"

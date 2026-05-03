@@ -217,7 +217,7 @@ function FeaturedEvent({ ev }: { ev: EventWithMeta }) {
               style={{
                 background: accent,
                 color: "white",
-                boxShadow: `0 0 0 3px rgba(255,255,255,0.18), 0 0 0 6px rgba(255,255,255,0.07), 0 8px 24px rgba(0,0,0,0.35)`,
+                boxShadow: `0 0 0 2px rgba(255,255,255,0.12), 0 0 0 5px rgba(255,255,255,0.05), 0 6px 20px rgba(0,0,0,0.25)`,
               }}
               data-testid={`button-featured-cta-${ev.slug}`}
             >

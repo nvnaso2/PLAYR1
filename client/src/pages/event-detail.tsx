@@ -226,7 +226,7 @@ export default function EventDetailPage() {
             </div>
             <div className="pt-5 flex items-center gap-3 flex-wrap">
               {!user ? (
-                <Link href="/auth"><Button size="lg" className="shadow-xl font-semibold" style={{ backgroundColor: accent, color: "white" }} data-testid="button-event-signin">Sign in to join</Button></Link>
+                <Link href="/auth"><Button size="lg" className="font-semibold border-0" style={{ backgroundColor: accent, color: "white", boxShadow: "0 0 0 2px rgba(255,255,255,0.12), 0 0 0 5px rgba(255,255,255,0.05), 0 6px 20px rgba(0,0,0,0.25)" }} data-testid="button-event-signin">Sign in to join</Button></Link>
               ) : isJoined ? (
                 <>
                   <Badge className="bg-green-500/25 text-green-200 border-green-500/40 text-sm py-1.5 px-3">
@@ -234,14 +234,14 @@ export default function EventDetailPage() {
                   </Badge>
                   {event.program && (
                     <Link href={`/programs/${event.program.slug}/today`}>
-                      <Button size="lg" className="shadow-xl font-semibold" style={{ backgroundColor: accent, color: "white" }} data-testid="button-event-go-today">
+                      <Button size="lg" className="font-semibold border-0" style={{ backgroundColor: accent, color: "white", boxShadow: "0 0 0 2px rgba(255,255,255,0.12), 0 0 0 5px rgba(255,255,255,0.05), 0 6px 20px rgba(0,0,0,0.25)" }} data-testid="button-event-go-today">
                         <Play className="w-5 h-5 mr-2" /> Go to today's workout
                       </Button>
                     </Link>
                   )}
                 </>
               ) : isLive ? (
-                <Button size="lg" className="shadow-xl font-semibold" style={{ backgroundColor: accent, color: "white" }} onClick={() => joinMut.mutate()}
+                <Button size="lg" className="font-semibold border-0" style={{ backgroundColor: accent, color: "white", boxShadow: "0 0 0 2px rgba(255,255,255,0.12), 0 0 0 5px rgba(255,255,255,0.05), 0 6px 20px rgba(0,0,0,0.25)" }} onClick={() => joinMut.mutate()}
                   disabled={joinMut.isPending} data-testid="button-event-join">
                   <Flame className="w-5 h-5 mr-2" /> {joinMut.isPending ? "Joining…" : "Join event"}
                 </Button>
