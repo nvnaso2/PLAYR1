@@ -93,11 +93,11 @@ export default function EventDetailPage() {
   });
 
   if (isLoading) {
-    return <div className="container max-w-4xl py-6 space-y-4"><Skeleton className="h-8 w-1/3" /><Skeleton className="h-48" /></div>;
+    return <div className="mx-auto max-w-4xl py-6 px-4 sm:px-6 lg:px-8 space-y-4"><Skeleton className="h-8 w-1/3" /><Skeleton className="h-48" /></div>;
   }
   if (!event) {
     return (
-      <div className="container max-w-3xl py-12 text-center">
+      <div className="mx-auto max-w-3xl py-12 px-4 sm:px-6 lg:px-8 text-center">
         <p className="text-muted-foreground mb-4">Event not found.</p>
         <Link href="/events"><Button>Back to events</Button></Link>
       </div>
@@ -144,7 +144,7 @@ export default function EventDetailPage() {
             backgroundSize: "20px 20px",
           }}
         />
-        <div className="relative container max-w-5xl py-10 sm:py-16">
+        <div className="relative mx-auto max-w-5xl py-10 sm:py-16 px-4 sm:px-6 lg:px-8">
           <Link href="/events">
             <Button variant="ghost" size="sm" className="text-white/90 hover:text-white hover:bg-white/10 mb-5" data-testid="button-back-events">
               <ArrowLeft className="w-4 h-4 mr-1" /> All events
@@ -229,7 +229,7 @@ export default function EventDetailPage() {
         </div>
       </div>
 
-      <div className="container max-w-5xl mt-6">
+      <div className="mx-auto max-w-5xl mt-6 px-4 sm:px-6 lg:px-8">
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList>
             <TabsTrigger value="overview" data-testid="tab-event-overview"><ListChecks className="w-4 h-4 mr-1" /> Overview</TabsTrigger>

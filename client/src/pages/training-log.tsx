@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef, startTransition } from "react";
-import { useLocation, useSearch } from "wouter";
+import { useLocation, useSearch, Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -71,7 +71,8 @@ import {
   Heart,
   Search,
   Loader2,
-  Share2
+  Share2,
+  Info
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Drill, TrainingLog, DrillMetric, MetricTemplate, Workout, WorkoutDrill, ShotLocationDB, Challenge, UserChallenge } from "@shared/schema";
@@ -155,6 +156,7 @@ export default function TrainingLogPage() {
   const [showCreateWorkoutMode, setShowCreateWorkoutMode] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [showChallengeDialog, setShowChallengeDialog] = useState(false);
+  const [drillInfoOpen, setDrillInfoOpen] = useState<Drill | null>(null);
   const [newChallenge, setNewChallenge] = useState({
     name: "",
     description: "",
@@ -2550,8 +2552,10 @@ export default function TrainingLogPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Active Workout View */}
+      {/* Active Workout View — full screen takeover */}
       {activeView === "workout" && workoutInProgress && (
+        <div className="fixed inset-0 z-40 bg-background overflow-y-auto" data-testid="workout-fullscreen">
+          <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between flex-wrap gap-4">
@@ -2768,6 +2772,18 @@ export default function TrainingLogPage() {
                               )}
                             </div>
                           </div>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => setDrillInfoOpen(group.drill)}
+                              data-testid={`button-drill-info-${drillId}`}
+                              title="View drill details"
+                              aria-label={`View details for ${group.drill.title}`}
+                            >
+                              <Info className="w-4 h-4" />
+                            </Button>
                           <Button 
                             variant="outline" 
                             size="sm"
@@ -2778,6 +2794,7 @@ export default function TrainingLogPage() {
                             <Plus className="w-3 h-3" />
                             Add Round
                           </Button>
+                          </div>
                         </div>
                       </CardHeader>
                       <CardContent className="p-0">
@@ -3025,7 +3042,68 @@ export default function TrainingLogPage() {
             </div>
           </CardContent>
         </Card>
+          </div>
+        </div>
       )}
+
+      {/* Drill info dialog (opened from active workout drill rows) */}
+      <Dialog open={!!drillInfoOpen} onOpenChange={(o) => !o && setDrillInfoOpen(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="dialog-drill-info">
+          {drillInfoOpen && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Dumbbell className="w-5 h-5 text-primary" />
+                  {drillInfoOpen.title}
+                </DialogTitle>
+                <DialogDescription className="capitalize">
+                  {drillInfoOpen.category
+                    ? `${formatCategory(drillInfoOpen.category)}${drillInfoOpen.duration ? ` · ~${Math.round(drillInfoOpen.duration / 60)} min` : ""}`
+                    : "Drill details"}
+                </DialogDescription>
+              </DialogHeader>
+              {drillInfoOpen.videoUrl && (
+                <div className="aspect-video w-full bg-black rounded-lg overflow-hidden">
+                  {/youtube\.com|youtu\.be/.test(drillInfoOpen.videoUrl) ? (
+                    <iframe
+                      src={drillInfoOpen.videoUrl
+                        .replace("watch?v=", "embed/")
+                        .replace("youtu.be/", "youtube.com/embed/")}
+                      className="w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      title={`${drillInfoOpen.title} video`}
+                      data-testid="iframe-drill-video"
+                    />
+                  ) : (
+                    <video
+                      src={drillInfoOpen.videoUrl}
+                      controls
+                      className="w-full h-full"
+                      data-testid="video-drill"
+                    />
+                  )}
+                </div>
+              )}
+              {drillInfoOpen.description && (
+                <div className="text-sm whitespace-pre-line text-muted-foreground" data-testid="text-drill-description">
+                  {drillInfoOpen.description}
+                </div>
+              )}
+              <DialogFooter>
+                <Link href={`/drill/${drillInfoOpen.id}`}>
+                  <Button variant="outline" data-testid="button-open-full-drill">
+                    Open full drill page
+                  </Button>
+                </Link>
+                <Button onClick={() => setDrillInfoOpen(null)} data-testid="button-close-drill-info">
+                  Close
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* History View */}
       {activeView === "history" && !workoutInProgress && (

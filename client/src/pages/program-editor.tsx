@@ -30,8 +30,7 @@ import { AssignProgramDialog } from "@/components/assign-program-dialog";
 import { useUpload } from "@/hooks/use-upload";
 import type { Program, ProgramItem, Drill } from "@shared/schema";
 import {
-  PROGRAM_CADENCES, PROGRAM_VISIBILITY, PROGRAM_ITEM_TYPES,
-  type ProgramItemType,
+  PROGRAM_CADENCES, PROGRAM_VISIBILITY,
 } from "@shared/schema";
 
 const VISIBILITY_LABELS: Record<string, string> = {
@@ -512,12 +511,12 @@ function DayBlock({
           <Badge variant="secondary">{items.length} item{items.length === 1 ? "" : "s"}</Badge>
         </div>
         <Button size="sm" variant="outline" onClick={() => setAddOpen(true)} data-testid={`button-add-item-day-${day}`}>
-          <Plus className="w-4 h-4 mr-1" /> Add item
+          <Plus className="w-4 h-4 mr-1" /> {items.length === 0 ? "Build workout" : "Add workout"}
         </Button>
       </div>
 
       {items.length === 0 ? (
-        <p className="text-sm text-muted-foreground italic">Rest day or empty — add an item to schedule something.</p>
+        <p className="text-sm text-muted-foreground italic">Rest day or empty — build a workout to schedule something.</p>
       ) : (
         <ul className="space-y-2">
           {items.map((item, idx) => (
@@ -569,6 +568,8 @@ function DayBlock({
   );
 }
 
+type WorkoutDrillRow = { drillId: string; sets?: number; reps?: number; durationSec?: number };
+
 function ItemEditorDialog({
   open, onClose, programId, day, nextOrder, existingItem, onSaved,
 }: {
@@ -581,188 +582,250 @@ function ItemEditorDialog({
   onSaved: () => void;
 }) {
   const { toast } = useToast();
-  const [itemType, setItemType] = useState<ProgramItemType>(existingItem?.itemType ?? "drill");
   const [title, setTitle] = useState(existingItem?.title ?? "");
   const [notes, setNotes] = useState(existingItem?.notes ?? "");
-  const [drillId, setDrillId] = useState<string | null>(existingItem?.drillId ?? null);
   const [estMin, setEstMin] = useState<number>(existingItem?.estimatedMinutes ?? 15);
-  const [watchUrl, setWatchUrl] = useState(existingItem?.watchUrl ?? "");
-  const [watchProvider, setWatchProvider] = useState(existingItem?.watchProvider ?? "youtube");
-  const [challengeMetric, setChallengeMetric] = useState(existingItem?.challengeSpec?.scoringMetric ?? "points");
-  const [challengeTarget, setChallengeTarget] = useState<number | "">(existingItem?.challengeSpec?.target ?? "");
-  const [challengeDesc, setChallengeDesc] = useState(existingItem?.challengeSpec?.description ?? "");
+  const initialRows = (): WorkoutDrillRow[] => {
+    if (existingItem?.workoutSpec && existingItem.workoutSpec.length > 0) {
+      return existingItem.workoutSpec.map((w) => ({
+        drillId: w.drillId,
+        sets: w.sets,
+        reps: w.reps,
+        durationSec: w.durationSec,
+      }));
+    }
+    if (existingItem?.drillId) {
+      return [{ drillId: existingItem.drillId, sets: undefined, reps: undefined }];
+    }
+    return [];
+  };
+  const [rows, setRows] = useState<WorkoutDrillRow[]>(initialRows);
+  const [drillSearch, setDrillSearch] = useState("");
 
-  // Reset when existingItem flips (editing different items)
   useEffect(() => {
     if (open) {
-      setItemType(existingItem?.itemType ?? "drill");
       setTitle(existingItem?.title ?? "");
       setNotes(existingItem?.notes ?? "");
-      setDrillId(existingItem?.drillId ?? null);
       setEstMin(existingItem?.estimatedMinutes ?? 15);
-      setWatchUrl(existingItem?.watchUrl ?? "");
-      setWatchProvider(existingItem?.watchProvider ?? "youtube");
-      setChallengeMetric(existingItem?.challengeSpec?.scoringMetric ?? "points");
-      setChallengeTarget(existingItem?.challengeSpec?.target ?? "");
-      setChallengeDesc(existingItem?.challengeSpec?.description ?? "");
+      setRows(initialRows());
+      setDrillSearch("");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, existingItem]);
 
   const { data: drills = [] } = useQuery<Drill[]>({
     queryKey: ["/api/drills"],
-    enabled: open && (itemType === "drill" || itemType === "workout"),
+    enabled: open,
   });
+
+  const drillById = useMemo(() => {
+    const map = new Map<string, Drill>();
+    drills.forEach((d) => map.set(d.id, d));
+    return map;
+  }, [drills]);
+
+  const filteredDrills = useMemo(() => {
+    const q = drillSearch.trim().toLowerCase();
+    if (!q) return drills.slice(0, 50);
+    return drills.filter((d) =>
+      d.title.toLowerCase().includes(q) ||
+      (d.category ?? "").toLowerCase().includes(q)
+    ).slice(0, 50);
+  }, [drillSearch, drills]);
+
+  const addDrill = (id: string) => {
+    if (!id) return;
+    setRows((prev) => [...prev, { drillId: id, sets: 3, reps: 10 }]);
+    setDrillSearch("");
+  };
+  const removeRow = (idx: number) => setRows((p) => p.filter((_, i) => i !== idx));
+  const moveRow = (idx: number, dir: -1 | 1) => {
+    setRows((p) => {
+      const next = idx + dir;
+      if (next < 0 || next >= p.length) return p;
+      const cp = [...p];
+      [cp[idx], cp[next]] = [cp[next], cp[idx]];
+      return cp;
+    });
+  };
+  const updateRow = (idx: number, patch: Partial<WorkoutDrillRow>) =>
+    setRows((p) => p.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
 
   const save = useMutation({
     mutationFn: async () => {
+      const cleanRows: WorkoutDrillRow[] = rows
+        .filter((r) => !!r.drillId)
+        .map((r) => ({
+          drillId: r.drillId,
+          sets: r.sets || undefined,
+          reps: r.reps || undefined,
+          durationSec: r.durationSec || undefined,
+        }));
+      if (cleanRows.length === 0) {
+        throw new Error("Add at least one drill to the workout.");
+      }
       const payload: any = {
         dayNumber: day,
         orderInDay: existingItem ? existingItem.orderInDay : nextOrder,
-        itemType,
-        title: title.trim() || (itemType === "rest" ? "Rest day" : "Untitled"),
+        itemType: "workout",
+        title: title.trim() || `Day ${day} workout`,
         notes: notes || null,
         estimatedMinutes: estMin || null,
+        drillId: cleanRows[0].drillId,
+        workoutSpec: cleanRows,
+        // explicitly clear the other polymorphic fields
+        watchUrl: null,
+        watchProvider: null,
+        challengeSpec: null,
       };
-      if (itemType === "drill" || itemType === "workout") payload.drillId = drillId;
-      if (itemType === "watch") {
-        payload.watchUrl = watchUrl;
-        payload.watchProvider = watchProvider;
-      }
-      if (itemType === "challenge") {
-        payload.challengeSpec = {
-          scoringMetric: challengeMetric,
-          target: challengeTarget === "" ? undefined : Number(challengeTarget),
-          description: challengeDesc || undefined,
-        };
-      }
-
       if (existingItem) {
         return apiRequest("PATCH", `/api/programs/items/${existingItem.id}`, payload);
       }
       return apiRequest("POST", `/api/programs/${programId}/items`, payload);
     },
     onSuccess: () => {
-      toast({ title: existingItem ? "Item updated" : "Item added" });
+      toast({ title: existingItem ? "Workout updated" : "Workout added" });
       onSaved();
     },
     onError: (e: any) =>
-      toast({ title: "Couldn't save item", description: e?.message ?? "", variant: "destructive" }),
+      toast({ title: "Couldn't save workout", description: e?.message ?? "", variant: "destructive" }),
   });
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-lg" data-testid="dialog-item-editor">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="dialog-item-editor">
         <DialogHeader>
-          <DialogTitle>{existingItem ? "Edit item" : `Add item to Day ${day}`}</DialogTitle>
+          <DialogTitle>{existingItem ? "Edit workout" : `Build Day ${day} workout`}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div>
-            <Label>Type</Label>
-            <Select value={itemType} onValueChange={(v) => setItemType(v as ProgramItemType)}>
-              <SelectTrigger data-testid="select-item-type"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {PROGRAM_ITEM_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <Label>Workout title</Label>
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder={`Day ${day} workout`}
+              data-testid="input-item-title"
+            />
           </div>
 
           <div>
-            <Label>Title</Label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)}
-              placeholder={itemType === "rest" ? "Rest day" : "Item title"}
-              data-testid="input-item-title" />
-          </div>
-
-          <div>
-            <Label>Notes / coaching cues</Label>
-            <Textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)}
+            <Label>Notes / coaching cues (optional)</Label>
+            <Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)}
               data-testid="input-item-notes" />
           </div>
 
-          {(itemType === "drill" || itemType === "workout") && (
-            <div>
-              <Label>Linked drill</Label>
-              <Select value={drillId ?? ""} onValueChange={(v) => setDrillId(v || null)}>
-                <SelectTrigger data-testid="select-item-drill"><SelectValue placeholder="Pick a drill" /></SelectTrigger>
-                <SelectContent>
-                  {drills.map((d) => (
-                    <SelectItem key={d.id} value={d.id}>{d.title}</SelectItem>
+          <div>
+            <Label>Estimated minutes</Label>
+            <Input type="number" min={0} value={estMin}
+              onChange={(e) => setEstMin(parseInt(e.target.value || "0", 10))}
+              data-testid="input-item-minutes" />
+          </div>
+
+          <div className="border rounded-lg p-3 space-y-3 bg-muted/30">
+            <div className="flex items-center justify-between">
+              <Label className="text-base font-semibold">Drills in this workout</Label>
+              <Badge variant="secondary">{rows.length}</Badge>
+            </div>
+
+            {rows.length === 0 ? (
+              <p className="text-sm text-muted-foreground italic">No drills yet — pick one below.</p>
+            ) : (
+              <ul className="space-y-2">
+                {rows.map((row, idx) => {
+                  const d = drillById.get(row.drillId);
+                  return (
+                    <li
+                      key={`${row.drillId}-${idx}`}
+                      className="flex items-center gap-2 p-2 rounded border bg-background"
+                      data-testid={`row-workout-drill-${idx}`}
+                    >
+                      <Badge variant="outline" className="text-xs">{idx + 1}</Badge>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium truncate text-sm" data-testid={`text-workout-drill-title-${idx}`}>
+                          {d?.title ?? "(drill removed)"}
+                        </div>
+                        {d?.category && (
+                          <div className="text-[11px] text-muted-foreground capitalize">{d.category}</div>
+                        )}
+                      </div>
+                      <Input
+                        type="number" min={0}
+                        value={row.sets ?? ""}
+                        placeholder="sets"
+                        className="w-16 h-8 text-xs"
+                        onChange={(e) => updateRow(idx, { sets: e.target.value === "" ? undefined : Number(e.target.value) })}
+                        data-testid={`input-row-sets-${idx}`}
+                      />
+                      <Input
+                        type="number" min={0}
+                        value={row.reps ?? ""}
+                        placeholder="reps"
+                        className="w-16 h-8 text-xs"
+                        onChange={(e) => updateRow(idx, { reps: e.target.value === "" ? undefined : Number(e.target.value) })}
+                        data-testid={`input-row-reps-${idx}`}
+                      />
+                      <Input
+                        type="number" min={0}
+                        value={row.durationSec ?? ""}
+                        placeholder="sec"
+                        className="w-16 h-8 text-xs"
+                        onChange={(e) => updateRow(idx, { durationSec: e.target.value === "" ? undefined : Number(e.target.value) })}
+                        data-testid={`input-row-dur-${idx}`}
+                      />
+                      <Button size="icon" variant="ghost" onClick={() => moveRow(idx, -1)} disabled={idx === 0}
+                        data-testid={`button-row-up-${idx}`}>
+                        <ArrowUp className="w-4 h-4" />
+                      </Button>
+                      <Button size="icon" variant="ghost" onClick={() => moveRow(idx, 1)} disabled={idx === rows.length - 1}
+                        data-testid={`button-row-down-${idx}`}>
+                        <ArrowDown className="w-4 h-4" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="text-destructive" onClick={() => removeRow(idx)}
+                        data-testid={`button-row-remove-${idx}`}>
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+
+            <div className="space-y-2 pt-2 border-t">
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Add drill from library</Label>
+              <Input
+                value={drillSearch}
+                onChange={(e) => setDrillSearch(e.target.value)}
+                placeholder="Search drill library by name or category…"
+                data-testid="input-drill-search"
+              />
+              {drillSearch && filteredDrills.length === 0 && (
+                <p className="text-xs text-muted-foreground italic">No drills match.</p>
+              )}
+              {(drillSearch || rows.length === 0) && (
+                <div className="max-h-48 overflow-y-auto space-y-1 border rounded bg-background">
+                  {filteredDrills.map((d) => (
+                    <button
+                      key={d.id}
+                      type="button"
+                      onClick={() => addDrill(d.id)}
+                      className="w-full flex items-center justify-between text-left px-2 py-1.5 hover:bg-muted text-sm"
+                      data-testid={`button-add-drill-${d.id}`}
+                    >
+                      <span className="truncate">{d.title}</span>
+                      <span className="text-[11px] text-muted-foreground capitalize ml-2">{d.category}</span>
+                    </button>
                   ))}
-                </SelectContent>
-              </Select>
+                </div>
+              )}
             </div>
-          )}
-
-          {itemType === "watch" && (
-            <>
-              <div>
-                <Label>Video</Label>
-                <WatchVideoPicker
-                  value={watchUrl}
-                  onChange={(v, prov) => {
-                    setWatchUrl(v);
-                    if (prov) setWatchProvider(prov);
-                  }}
-                />
-              </div>
-              <div>
-                <Label>Provider</Label>
-                <Select value={watchProvider} onValueChange={(v) => setWatchProvider(v)}>
-                  <SelectTrigger data-testid="select-item-watch-provider"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="youtube">YouTube</SelectItem>
-                    <SelectItem value="vimeo">Vimeo</SelectItem>
-                    <SelectItem value="internal">Internal (uploaded)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </>
-          )}
-
-          {itemType === "challenge" && (
-            <div className="space-y-3 border rounded p-3 bg-muted/30">
-              <div>
-                <Label>Scoring metric</Label>
-                <Select value={challengeMetric} onValueChange={setChallengeMetric}>
-                  <SelectTrigger data-testid="select-challenge-metric"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="points">Points</SelectItem>
-                    <SelectItem value="madeShots">Made shots</SelectItem>
-                    <SelectItem value="timeSeconds">Time (seconds)</SelectItem>
-                    <SelectItem value="streak">Streak</SelectItem>
-                    <SelectItem value="custom">Custom</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Target (optional)</Label>
-                <Input type="number" value={challengeTarget}
-                  onChange={(e) => setChallengeTarget(e.target.value === "" ? "" : Number(e.target.value))}
-                  data-testid="input-challenge-target" />
-              </div>
-              <div>
-                <Label>Challenge description</Label>
-                <Textarea rows={2} value={challengeDesc} onChange={(e) => setChallengeDesc(e.target.value)}
-                  data-testid="input-challenge-desc" />
-              </div>
-            </div>
-          )}
-
-          {itemType !== "rest" && (
-            <div>
-              <Label>Estimated minutes</Label>
-              <Input type="number" min={0} value={estMin}
-                onChange={(e) => setEstMin(parseInt(e.target.value || "0", 10))}
-                data-testid="input-item-minutes" />
-            </div>
-          )}
+          </div>
         </div>
 
         <DialogFooter>
           <Button variant="ghost" onClick={onClose} data-testid="button-cancel-item">Cancel</Button>
-          <Button onClick={() => save.mutate()} disabled={save.isPending} data-testid="button-save-item">
-            <Save className="w-4 h-4 mr-1" /> Save
+          <Button onClick={() => save.mutate()} disabled={save.isPending || rows.length === 0} data-testid="button-save-item">
+            <Save className="w-4 h-4 mr-1" /> Save workout
           </Button>
         </DialogFooter>
       </DialogContent>
