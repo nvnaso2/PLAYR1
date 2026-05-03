@@ -9,10 +9,12 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   ArrowLeft,
   Calendar,
   CheckCircle2,
+  ChevronDown,
   Circle,
   Clock,
   Coffee,
@@ -25,7 +27,7 @@ import {
   Users,
   Video,
 } from "lucide-react";
-import type { Program, ProgramItem, ProgramEnrollment, ProgramItemCompletion } from "@shared/schema";
+import type { Program, ProgramItem, ProgramEnrollment, ProgramItemCompletion, Drill } from "@shared/schema";
 
 interface ProgramDetailResponse {
   program: Program;
@@ -59,6 +61,13 @@ export default function ProgramDetailPage() {
     queryKey: ["/api/programs", slug],
     enabled: !!slug,
   });
+
+  const { data: allDrills } = useQuery<Drill[]>({ queryKey: ["/api/drills"] });
+  const drillsById = useMemo(() => {
+    const m = new Map<string, Drill>();
+    (allDrills ?? []).forEach((d) => m.set(d.id, d));
+    return m;
+  }, [allDrills]);
 
   useEffect(() => {
     if (data?.program) {
@@ -316,6 +325,7 @@ export default function ProgramDetailPage() {
                               item={it}
                               completed={completedItemIds.has(it.id)}
                               accent={accent}
+                              drillsById={drillsById}
                             />
                           ))
                         )}
@@ -381,41 +391,96 @@ function DayItemRow({
   item,
   completed,
   accent,
+  drillsById,
 }: {
   item: ProgramItem;
   completed: boolean;
   accent: string;
+  drillsById: Map<string, Drill>;
 }) {
   const meta = itemTypeMeta[item.itemType] ?? itemTypeMeta.drill;
   const Icon = meta.Icon;
+  const isWorkout = item.itemType === "workout" && (item.workoutSpec?.length ?? 0) > 0;
   return (
     <div
-      className={`flex items-start gap-3 p-2 -mx-2 rounded-lg transition-colors ${
-        completed ? "opacity-70" : ""
-      }`}
+      className={`p-2 -mx-2 rounded-lg transition-colors ${completed ? "opacity-70" : ""}`}
       data-testid={`row-item-${item.id}`}
     >
-      <div className="mt-0.5 shrink-0">
-        {completed ? (
-          <CheckCircle2 className="w-5 h-5" style={{ color: accent }} />
-        ) : (
-          <Circle className="w-5 h-5 text-muted-foreground/40" />
-        )}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className={`text-xs font-medium uppercase tracking-wide ${meta.color} flex items-center gap-1`}>
-            <Icon className="w-3 h-3" />
-            {meta.label}
-          </span>
-          {item.estimatedMinutes ? (
-            <span className="text-xs text-muted-foreground">· {item.estimatedMinutes} min</span>
-          ) : null}
+      <Collapsible defaultOpen={false}>
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 shrink-0">
+            {completed ? (
+              <CheckCircle2 className="w-5 h-5" style={{ color: accent }} />
+            ) : (
+              <Circle className="w-5 h-5 text-muted-foreground/40" />
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={`text-xs font-medium uppercase tracking-wide ${meta.color} flex items-center gap-1`}>
+                <Icon className="w-3 h-3" />
+                {meta.label}
+              </span>
+              {item.estimatedMinutes ? (
+                <span className="text-xs text-muted-foreground">· {item.estimatedMinutes} min</span>
+              ) : null}
+              {isWorkout && (
+                <span className="text-xs text-muted-foreground">
+                  · {item.workoutSpec!.length} drill{item.workoutSpec!.length === 1 ? "" : "s"}
+                </span>
+              )}
+            </div>
+            {isWorkout ? (
+              <CollapsibleTrigger asChild>
+                <button
+                  type="button"
+                  className="w-full flex items-center justify-between gap-2 group"
+                  data-testid={`trigger-day-item-${item.id}`}
+                >
+                  <p className={`font-medium text-left ${completed ? "line-through text-muted-foreground" : ""}`}>
+                    {item.title}
+                  </p>
+                  <ChevronDown className="w-4 h-4 shrink-0 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
+                </button>
+              </CollapsibleTrigger>
+            ) : (
+              <p className={`font-medium ${completed ? "line-through text-muted-foreground" : ""}`}>
+                {item.title}
+              </p>
+            )}
+          </div>
         </div>
-        <p className={`font-medium ${completed ? "line-through text-muted-foreground" : ""}`}>
-          {item.title}
-        </p>
-      </div>
+        {isWorkout && (
+          <CollapsibleContent>
+            <div className="mt-2 ml-8 rounded-md border border-border/60 bg-card-overlay/40 px-3 py-2 space-y-1.5">
+              {item.workoutSpec!.map((w, idx) => {
+                const d = w.drillId ? drillsById.get(w.drillId) : undefined;
+                const detail = [
+                  w.sets ? `${w.sets} sets` : null,
+                  w.reps ? `${w.reps} reps` : null,
+                  w.durationSec ? `${w.durationSec}s` : null,
+                ].filter(Boolean).join(" · ");
+                return (
+                  <div key={idx} className="flex items-center justify-between gap-3 text-sm" data-testid={`row-day-workout-${item.id}-${idx}`}>
+                    {w.drillId ? (
+                      <Link href={`/drill/${w.drillId}`} className="font-medium hover:underline truncate">
+                        {d?.title ?? `Drill ${idx + 1}`}
+                      </Link>
+                    ) : (
+                      <span className="font-medium truncate text-muted-foreground italic">
+                        Drill {idx + 1} (missing)
+                      </span>
+                    )}
+                    {detail && (
+                      <span className="text-muted-foreground text-xs whitespace-nowrap">{detail}</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </CollapsibleContent>
+        )}
+      </Collapsible>
     </div>
   );
 }

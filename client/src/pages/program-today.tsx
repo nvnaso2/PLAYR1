@@ -40,7 +40,9 @@ import {
   Trophy,
   Video,
 } from "lucide-react";
-import type { Program, ProgramItem, ProgramEnrollment, ProgramItemCompletion, Event, EventStatus } from "@shared/schema";
+import type { Program, ProgramItem, ProgramEnrollment, ProgramItemCompletion, Event, EventStatus, Drill } from "@shared/schema";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronDown } from "lucide-react";
 
 type EventListItem = Event & { status: EventStatus; program: Program | null };
 
@@ -68,6 +70,14 @@ export default function ProgramTodayPage() {
     queryKey: ["/api/programs", slug],
     enabled: !!slug,
   });
+
+  // Drill library — used to resolve titles/categories for workout breakdowns
+  const { data: allDrills } = useQuery<Drill[]>({ queryKey: ["/api/drills"] });
+  const drillsById = useMemo(() => {
+    const m = new Map<string, Drill>();
+    (allDrills ?? []).forEach((d) => m.set(d.id, d));
+    return m;
+  }, [allDrills]);
 
   // If this enrollment is event-scoped, fetch published events to find the
   // matching one and surface a badge + final-challenge CTA in the hero.
@@ -350,6 +360,8 @@ export default function ProgramTodayPage() {
                 accent={accent}
                 onComplete={() => completeMutation.mutate(it.id)}
                 isPending={completeMutation.isPending}
+                drillsById={drillsById}
+                enrollmentId={enrollment.id}
               />
             ))
           )}
@@ -391,15 +403,22 @@ function ItemCard({
   accent,
   onComplete,
   isPending,
+  drillsById,
+  enrollmentId,
 }: {
   item: ProgramItem;
   completed: boolean;
   accent: string;
   onComplete: () => void;
   isPending: boolean;
+  drillsById: Map<string, Drill>;
+  enrollmentId: string;
 }) {
   const meta = itemTypeMeta[item.itemType] ?? itemTypeMeta.drill;
   const Icon = meta.Icon;
+  // Workout completes automatically after the user finishes logging in /log.
+  // Only watch / rest / challenge items still need a manual button.
+  const showManualComplete = item.itemType !== "workout" && item.itemType !== "drill";
 
   return (
     <Card
@@ -438,12 +457,12 @@ function ItemCard({
               {/* Item-type specific body */}
               {item.itemType === "drill" && item.drillId && (
                 <div className="mt-4 flex flex-wrap items-center gap-2">
-                  <Link href={`/log?startDrills=${item.drillId}`}>
+                  <Link href={`/log?startDrills=${item.drillId}&programItemId=${item.id}&enrollmentId=${enrollmentId}`}>
                     <Button size="sm" className="font-semibold"
                       style={{ background: accent, color: "white" }}
                       data-testid={`button-start-workout-${item.id}`}>
                       <PlayCircle className="w-4 h-4 mr-2" />
-                      Start workout
+                      {completed ? "Repeat" : "Start workout"}
                     </Button>
                   </Link>
                   <Link href={`/drill/${item.drillId}`}>
@@ -459,46 +478,75 @@ function ItemCard({
                   .map((w) => w.drillId)
                   .filter((id): id is string => !!id);
                 const launchIds = validIds.length > 0 ? validIds : (item.drillId ? [item.drillId] : []);
+                const launchHref = launchIds.length > 0
+                  ? `/log?startDrills=${launchIds.join(",")}&programItemId=${item.id}&enrollmentId=${enrollmentId}`
+                  : null;
                 return (
                   <div className="mt-4 space-y-3">
                     {item.workoutSpec && item.workoutSpec.length > 0 && (
-                      <div className="rounded-lg border border-border/60 bg-card-overlay/40 p-3 space-y-2">
-                        <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
-                          {item.workoutSpec.length} drill{item.workoutSpec.length === 1 ? "" : "s"} in this workout
-                        </p>
-                        {item.workoutSpec.map((w, idx) => (
-                          <div key={idx} className="flex items-center justify-between text-sm gap-3" data-testid={`row-workout-${item.id}-${idx}`}>
-                            {w.drillId ? (
-                              <Link
-                                href={`/drill/${w.drillId}`}
-                                className="font-medium hover:underline truncate"
-                                data-testid={`link-workout-drill-${item.id}-${idx}`}
-                              >
-                                Drill {idx + 1}
-                              </Link>
-                            ) : (
-                              <span className="font-medium truncate text-muted-foreground italic">
-                                Drill {idx + 1} (missing)
+                      <Collapsible defaultOpen={false}>
+                        <div className="rounded-lg border border-border/60 bg-card-overlay/40 overflow-hidden">
+                          <CollapsibleTrigger asChild>
+                            <button
+                              type="button"
+                              className="w-full flex items-center justify-between gap-2 px-3 py-2 hover-elevate text-left"
+                              data-testid={`trigger-workout-${item.id}`}
+                            >
+                              <span className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
+                                {item.workoutSpec.length} drill{item.workoutSpec.length === 1 ? "" : "s"} — view breakdown
                               </span>
-                            )}
-                            <span className="text-muted-foreground text-xs whitespace-nowrap">
-                              {[
-                                w.sets ? `${w.sets} sets` : null,
-                                w.reps ? `${w.reps} reps` : null,
-                                w.durationSec ? `${w.durationSec}s` : null,
-                              ].filter(Boolean).join(" · ")}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
+                              <ChevronDown className="w-4 h-4 shrink-0 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
+                            </button>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <div className="border-t border-border/60 px-3 py-2 space-y-1.5">
+                              {item.workoutSpec.map((w, idx) => {
+                                const d = w.drillId ? drillsById.get(w.drillId) : undefined;
+                                const detail = [
+                                  w.sets ? `${w.sets} sets` : null,
+                                  w.reps ? `${w.reps} reps` : null,
+                                  w.durationSec ? `${w.durationSec}s` : null,
+                                ].filter(Boolean).join(" · ");
+                                return (
+                                  <div key={idx} className="flex items-center justify-between gap-3 text-sm" data-testid={`row-workout-${item.id}-${idx}`}>
+                                    {w.drillId && d ? (
+                                      <Link
+                                        href={`/drill/${w.drillId}`}
+                                        className="font-medium hover:underline truncate"
+                                        data-testid={`link-workout-drill-${item.id}-${idx}`}
+                                      >
+                                        {d.title}
+                                      </Link>
+                                    ) : w.drillId ? (
+                                      <Link
+                                        href={`/drill/${w.drillId}`}
+                                        className="font-medium hover:underline truncate text-muted-foreground"
+                                      >
+                                        Drill {idx + 1}
+                                      </Link>
+                                    ) : (
+                                      <span className="font-medium truncate text-muted-foreground italic">
+                                        Drill {idx + 1} (missing)
+                                      </span>
+                                    )}
+                                    {detail && (
+                                      <span className="text-muted-foreground text-xs whitespace-nowrap">{detail}</span>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </CollapsibleContent>
+                        </div>
+                      </Collapsible>
                     )}
-                    {launchIds.length > 0 ? (
-                      <Link href={`/log?startDrills=${launchIds.join(",")}`}>
+                    {launchHref ? (
+                      <Link href={launchHref}>
                         <Button size="sm" className="font-semibold"
                           style={{ background: accent, color: "white" }}
                           data-testid={`button-start-workout-${item.id}`}>
                           <PlayCircle className="w-4 h-4 mr-2" />
-                          Start workout
+                          {completed ? "Repeat workout" : "Start workout"}
                         </Button>
                       </Link>
                     ) : (
@@ -552,7 +600,7 @@ function ItemCard({
                   <CheckCircle2 className="w-8 h-8" />
                   <span className="text-xs font-semibold">Done</span>
                 </div>
-              ) : (
+              ) : showManualComplete ? (
                 <Button
                   size="sm"
                   className="font-semibold"
@@ -564,6 +612,10 @@ function ItemCard({
                   <Circle className="w-4 h-4 mr-2" />
                   Mark complete
                 </Button>
+              ) : (
+                <div className="text-xs text-muted-foreground text-right max-w-[120px]" data-testid={`text-auto-complete-hint-${item.id}`}>
+                  Auto-completes when you finish logging
+                </div>
               )}
             </div>
           </div>

@@ -1036,20 +1036,32 @@ export default function TrainingLogPage() {
 
   // Auto-start a workout when navigated with ?startDrills=id1,id2,...
   // (used by Programs "Start workout" deep-link). Idempotent per query value
-  // so revisiting with a fresh list re-launches.
+  // so revisiting with a fresh list re-launches. When `programItemId` and
+  // `enrollmentId` are also present we remember them so the program item can
+  // be auto-completed once the workout is saved.
   const [lastAutoStartKey, setLastAutoStartKey] = useState<string | null>(null);
+  const [pendingProgramCompletion, setPendingProgramCompletion] = useState<{ enrollmentId: string; programItemId: string } | null>(null);
   useEffect(() => {
     if (!allDrills || allDrills.length === 0) return;
     const params = new URLSearchParams(searchParams);
     const list = params.get("startDrills");
     if (!list) return;
-    if (list === lastAutoStartKey) return;
+    const programItemId = params.get("programItemId");
+    const enrollmentId = params.get("enrollmentId");
+    const dedupKey = [list, programItemId, enrollmentId].filter(Boolean).join("|");
+    if (dedupKey === lastAutoStartKey) return;
     const ids = list.split(",").map((s) => s.trim()).filter(Boolean);
     if (ids.length === 0) {
-      setLastAutoStartKey(list);
+      setLastAutoStartKey(dedupKey);
+      setPendingProgramCompletion(null);
       return;
     }
-    setLastAutoStartKey(list);
+    setLastAutoStartKey(dedupKey);
+    if (programItemId && enrollmentId) {
+      setPendingProgramCompletion({ enrollmentId, programItemId });
+    } else {
+      setPendingProgramCompletion(null);
+    }
     (async () => {
       const entriesArrays = await Promise.all(
         ids.map((id) => {
@@ -1059,6 +1071,7 @@ export default function TrainingLogPage() {
       );
       const entries = entriesArrays.flat();
       if (entries.length === 0) {
+        setPendingProgramCompletion(null);
         toast({ title: "Couldn't find those drills", variant: "destructive" });
         return;
       }
@@ -1294,6 +1307,9 @@ export default function TrainingLogPage() {
         };
       });
 
+      // Snapshot pending program completion before we clear state below
+      const programCompletion = pendingProgramCompletion;
+
       // Single bulk request + challenge updates all in parallel
       const challengeRequests = Object.entries(challengeUpdates).map(async ([userChallengeId, addedValue]) => {
         const userChallenge = activeChallenges?.find(uc => uc.id === userChallengeId);
@@ -1336,6 +1352,31 @@ export default function TrainingLogPage() {
       // Show streak celebration if daily challenge was auto-completed
       const bulkData = bulkRes?.ok ? await bulkRes.json().catch(() => null) : null;
       const streakResult = bulkData?.streakResult;
+
+      // Auto-complete the originating program item if this workout was launched
+      // from a program/today deep link. Only fire when the bulk save itself
+      // succeeded so we never mark a program item complete after a failed save.
+      if (programCompletion && bulkRes?.ok) {
+        const firstLogId = Array.isArray(bulkData?.logs) && bulkData.logs[0]?.id ? bulkData.logs[0].id : undefined;
+        try {
+          await apiRequest(
+            "POST",
+            `/api/programs/enrollments/${programCompletion.enrollmentId}/items/${programCompletion.programItemId}/complete`,
+            firstLogId ? { trainingLogId: firstLogId } : {},
+          );
+          queryClient.invalidateQueries({ queryKey: ["/api/programs"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/programs/me"] });
+          toast({ title: "Program day updated", description: "Workout marked complete in your program." });
+        } catch (e) {
+          // Non-fatal — surface gently so the user can still mark it manually
+          toast({
+            title: "Saved your workout",
+            description: "We couldn't auto-mark the program item — open the program and tap complete.",
+          });
+        } finally {
+          setPendingProgramCompletion(null);
+        }
+      }
       if (streakResult?.streak) {
         const newStreak = streakResult.streak.currentStreak;
         const milestone = streakResult.milestoneReached;
@@ -1385,6 +1426,7 @@ export default function TrainingLogPage() {
     setWorkoutEntries([]);
     setWorkoutStartTime(null);
     setDrillStartTimes({});
+    setPendingProgramCompletion(null);
     setActiveView("library");
   };
 
