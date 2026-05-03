@@ -204,7 +204,7 @@ function FeaturedEvent({ ev }: { ev: EventWithMeta }) {
                 <Users className="w-4 h-4" /> {ev.participantCount ?? 0} joined
               </span>
               {cd && (
-                <span className="flex items-center gap-1.5 font-semibold" style={{ color: accent === "#f97316" ? "#fff" : accent }}>
+                <span className="flex items-center gap-1.5 font-semibold text-white">
                   <Clock className="w-4 h-4" /> {cdLabel} {cd}
                 </span>
               )}
@@ -213,8 +213,12 @@ function FeaturedEvent({ ev }: { ev: EventWithMeta }) {
           <div className="flex flex-col items-stretch lg:items-end gap-2">
             <Button
               size="lg"
-              className="shadow-xl font-semibold"
-              style={{ background: accent, color: "white" }}
+              className="shadow-xl font-semibold border-0"
+              style={{
+                background: accent,
+                color: "white",
+                boxShadow: `0 0 0 3px rgba(255,255,255,0.18), 0 0 0 6px rgba(255,255,255,0.07), 0 8px 24px rgba(0,0,0,0.35)`,
+              }}
               data-testid={`button-featured-cta-${ev.slug}`}
             >
               <PlayCircle className="w-5 h-5 mr-2" />
