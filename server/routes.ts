@@ -8483,8 +8483,9 @@ export async function registerRoutes(
       const body = z.object({
         score: z.coerce.number().finite().min(0).max(1_000_000),
         notes: z.string().trim().max(500).optional(),
+        attemptsTaken: z.coerce.number().int().min(1).max(9999).optional(),
       }).parse(req.body ?? {});
-      const updated = await storage.submitFinalChallengeScore(req.params.id, userId, body.score, body.notes);
+      const updated = await storage.submitFinalChallengeScore(req.params.id, userId, body.score, body.notes, body.attemptsTaken);
       res.json(updated);
     } catch (err: any) {
       const msg = err?.message ?? "Failed to submit final challenge";

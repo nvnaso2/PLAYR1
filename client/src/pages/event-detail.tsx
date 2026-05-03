@@ -32,8 +32,34 @@ type LeaderboardRow = {
   lastCompletedAt: string | null;
   finalScore: string | null;
   finalSubmittedAt: string | null;
+  attemptsTaken: number | null;
+  currentDay: number | null;
+  shootingPct: number | null;
+  compositeScore: number;
   rank: number;
 };
+
+/** Convert any YouTube watch/share URL to an embed URL. Returns null if not YouTube. */
+function toYouTubeEmbed(url: string | null | undefined): string | null {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    let videoId: string | null = null;
+    if (u.hostname === "youtu.be") {
+      videoId = u.pathname.replace(/^\//, "");
+    } else if (u.hostname.includes("youtube.com")) {
+      videoId = u.searchParams.get("v");
+      if (!videoId) {
+        const m = u.pathname.match(/\/(?:embed|v|shorts)\/([^/?]+)/);
+        if (m) videoId = m[1];
+      }
+    }
+    if (!videoId) return null;
+    return `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1`;
+  } catch {
+    return null;
+  }
+}
 
 function formatRange(s: Date | string, e: Date | string) {
   const sd = new Date(s); const ed = new Date(e);
@@ -281,7 +307,7 @@ export default function EventDetailPage() {
           </TabsContent>
 
           <TabsContent value="leaderboard">
-            <LeaderboardPanel rows={leaderboard ?? []} isLoading={lbLoading} myUserId={user?.id ?? null} accent={accent} metric={event.leaderboardMetric as any} />
+            <LeaderboardPanel rows={leaderboard ?? []} isLoading={lbLoading} myUserId={user?.id ?? null} accent={accent} />
           </TabsContent>
 
           {(isJoined || isFinished) && (
@@ -295,51 +321,139 @@ export default function EventDetailPage() {
   );
 }
 
-function LeaderboardPanel({ rows, isLoading, myUserId, accent, metric }: {
+function LeaderboardPanel({ rows, isLoading, myUserId, accent }: {
   rows: LeaderboardRow[]; isLoading: boolean; myUserId: string | null; accent: string;
-  metric: "completions" | "finalScore" | "composite";
 }) {
-  if (isLoading) return <div className="space-y-2">{[0,1,2,3].map(i => <Skeleton key={i} className="h-12" />)}</div>;
+  if (isLoading) return (
+    <div className="space-y-2">
+      {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-16 rounded-xl" />)}
+    </div>
+  );
   if (rows.length === 0) {
-    return <Card><CardContent className="py-12 text-center text-muted-foreground" data-testid="text-leaderboard-empty">
-      No one's logged a workout yet. Be the first.
-    </CardContent></Card>;
+    return (
+      <Card>
+        <CardContent className="py-16 text-center" data-testid="text-leaderboard-empty">
+          <Trophy className="w-10 h-10 mx-auto mb-3 opacity-20" />
+          <p className="font-semibold">No one's logged a workout yet.</p>
+          <p className="text-sm text-muted-foreground mt-1">Be the first on the board.</p>
+        </CardContent>
+      </Card>
+    );
   }
-  const showFinal = metric !== "completions";
+
+  const medalColors = ["#FFD700", "#C0C0C0", "#CD7F32"];
+
   return (
-    <Card>
-      <CardContent className="p-0">
-        <div className="divide-y">
-          {rows.map((row) => {
-            const isMe = myUserId && row.userId === myUserId;
-            const name = `${row.user.firstName ?? ""} ${row.user.lastName ?? ""}`.trim() || "Player";
-            return (
-              <div key={row.userId}
-                className={`flex items-center gap-3 p-3 ${isMe ? "bg-primary/5" : ""}`}
-                style={isMe ? { boxShadow: `inset 4px 0 0 0 ${accent}` } : undefined}
-                data-testid={`row-leaderboard-${row.rank}`}>
-                <div className="w-7 text-center font-bold text-sm" data-testid={`text-rank-${row.rank}`}>
-                  {row.rank === 1 ? <Trophy className="w-5 h-5 mx-auto" style={{ color: accent }} /> : row.rank}
-                </div>
-                <Avatar className="w-9 h-9">
-                  {row.user.profileImageUrl && <AvatarImage src={row.user.profileImageUrl} />}
-                  <AvatarFallback>{name.charAt(0)}</AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate" data-testid={`text-name-${row.rank}`}>{name}{isMe && <span className="text-xs text-muted-foreground"> (you)</span>}</p>
-                  <p className="text-xs text-muted-foreground">{row.completedItemCount} items completed</p>
-                </div>
-                {showFinal && row.finalScore != null && (
-                  <Badge variant="outline" className="font-mono" data-testid={`badge-final-${row.rank}`}>
-                    Final {parseFloat(row.finalScore).toLocaleString()}
-                  </Badge>
+    <div className="space-y-2" data-testid="leaderboard-list">
+      {/* Legend */}
+      <div className="grid grid-cols-3 text-[10px] uppercase tracking-widest text-muted-foreground px-3 pb-1">
+        <span>Player · Day</span>
+        <span className="text-center">Shooting %</span>
+        <span className="text-right">Score</span>
+      </div>
+
+      {rows.map((row) => {
+        const isMe = myUserId != null && row.userId === myUserId;
+        const name = `${row.user.firstName ?? ""} ${row.user.lastName ?? ""}`.trim() || "Player";
+        const medalColor = row.rank <= 3 ? medalColors[row.rank - 1] : undefined;
+
+        return (
+          <div
+            key={row.userId}
+            className={`flex items-center gap-3 rounded-xl p-3 border transition-all ${
+              isMe
+                ? "border-primary/40 bg-primary/5"
+                : "border-border/60 bg-card/50"
+            }`}
+            style={isMe ? { boxShadow: `inset 3px 0 0 0 ${accent}` } : undefined}
+            data-testid={`row-leaderboard-${row.rank}`}
+          >
+            {/* Rank */}
+            <div className="w-8 shrink-0 text-center" data-testid={`text-rank-${row.rank}`}>
+              {row.rank <= 3 ? (
+                <Trophy className="w-5 h-5 mx-auto" style={{ color: medalColor }} />
+              ) : (
+                <span className="text-sm font-bold text-muted-foreground">{row.rank}</span>
+              )}
+            </div>
+
+            {/* Avatar */}
+            <Avatar className="w-9 h-9 shrink-0">
+              {row.user.profileImageUrl && <AvatarImage src={row.user.profileImageUrl} />}
+              <AvatarFallback>{name.charAt(0).toUpperCase()}</AvatarFallback>
+            </Avatar>
+
+            {/* Name + day */}
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-sm truncate" data-testid={`text-name-${row.rank}`}>
+                {name}
+                {isMe && <span className="text-xs text-muted-foreground font-normal"> (you)</span>}
+              </p>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>{row.completedItemCount} completed</span>
+                {row.currentDay != null && (
+                  <>
+                    <span>·</span>
+                    <span className="flex items-center gap-0.5">
+                      <Flame className="w-3 h-3" style={{ color: accent }} />
+                      Day {row.currentDay}
+                    </span>
+                  </>
+                )}
+                {row.attemptsTaken != null && (
+                  <>
+                    <span>·</span>
+                    <span>{row.attemptsTaken} attempt{row.attemptsTaken === 1 ? "" : "s"}</span>
+                  </>
                 )}
               </div>
-            );
-          })}
+            </div>
+
+            {/* Shooting % */}
+            <div className="w-14 text-center shrink-0">
+              {row.shootingPct != null ? (
+                <div>
+                  <p className="text-sm font-bold" style={{ color: accent }}>{row.shootingPct}%</p>
+                  <p className="text-[10px] text-muted-foreground">shoot</p>
+                </div>
+              ) : (
+                <span className="text-xs text-muted-foreground">—</span>
+              )}
+            </div>
+
+            {/* Composite score */}
+            <div className="w-14 text-right shrink-0" data-testid={`text-score-${row.rank}`}>
+              <p
+                className="text-lg font-black"
+                style={{ color: row.rank === 1 ? accent : undefined }}
+              >
+                {row.compositeScore.toFixed(1)}
+              </p>
+              <p className="text-[10px] text-muted-foreground">score</p>
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Scoring key */}
+      <div className="mt-4 rounded-xl border border-border/40 bg-muted/20 p-3">
+        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">How scores are calculated</p>
+        <div className="grid grid-cols-3 gap-3 text-xs">
+          <div className="text-center">
+            <p className="font-bold text-base">50%</p>
+            <p className="text-muted-foreground">Completion</p>
+          </div>
+          <div className="text-center">
+            <p className="font-bold text-base">30%</p>
+            <p className="text-muted-foreground">Fewer attempts</p>
+          </div>
+          <div className="text-center">
+            <p className="font-bold text-base">20%</p>
+            <p className="text-muted-foreground">Shooting %</p>
+          </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -348,21 +462,30 @@ function FinalChallengePanel({ event, items, participant }: {
   items: ProgramItem[];
   participant: EventParticipant | null;
 }) {
+  const accent = event.accentColor || "#f97316";
   const { toast } = useToast();
   const finalItem = items.find((it) => it.id === event.finalChallengeItemId) || null;
+  const embedUrl = toYouTubeEmbed(finalItem?.watchUrl);
+
   const [score, setScore] = useState<string>(participant?.finalScore ?? "");
+  const [attempts, setAttempts] = useState<string>(
+    participant?.attemptsTaken != null ? String(participant.attemptsTaken) : ""
+  );
   const [notes, setNotes] = useState<string>(participant?.finalNotes ?? "");
 
   useEffect(() => {
     setScore(participant?.finalScore ?? "");
+    setAttempts(participant?.attemptsTaken != null ? String(participant.attemptsTaken) : "");
     setNotes(participant?.finalNotes ?? "");
-  }, [participant?.finalScore, participant?.finalNotes]);
+  }, [participant?.finalScore, participant?.finalNotes, participant?.attemptsTaken]);
 
   const submitMut = useMutation({
     mutationFn: async () => {
+      const parsedAttempts = parseInt(attempts, 10);
       const res = await apiRequest("POST", `/api/events/${event.id}/submit-final`, {
         score: parseFloat(score),
         notes: notes.trim() || undefined,
+        attemptsTaken: !isNaN(parsedAttempts) && parsedAttempts >= 1 ? parsedAttempts : undefined,
       });
       return res.json();
     },
@@ -378,51 +501,198 @@ function FinalChallengePanel({ event, items, participant }: {
   });
 
   const isLive = event.status === "live";
-  const canSubmit = isLive && !!score && !isNaN(parseFloat(score)) && parseFloat(score) >= 0;
+  const scoreVal = parseFloat(score);
+  const canSubmit = isLive && !!score && !isNaN(scoreVal) && scoreVal >= 0;
+
+  if (!finalItem) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center text-muted-foreground">
+          <Award className="w-10 h-10 mx-auto mb-3 opacity-20" />
+          <p className="font-semibold">No final challenge configured</p>
+          <p className="text-sm mt-1">The event admin hasn't set a final challenge yet.</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base flex items-center gap-2">
-          <Award className="w-5 h-5 text-primary" /> Final Challenge
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {finalItem ? (
-          <div className="rounded-md border p-3 bg-muted/30">
-            <p className="text-sm font-medium" data-testid="text-final-item-title">Day {finalItem.dayNumber}: {finalItem.title}</p>
-            {finalItem.notes && <p className="text-xs text-muted-foreground mt-1 whitespace-pre-line">{finalItem.notes}</p>}
+    <div className="space-y-5" data-testid="final-challenge-panel">
+      {/* ── Challenge showcase card ── */}
+      <div
+        className="rounded-2xl overflow-hidden border border-border/60"
+        style={{ boxShadow: `0 0 0 1px ${accent}33, 0 8px 32px -12px ${accent}55` }}
+      >
+        {/* Header stripe */}
+        <div
+          className="px-6 py-4 flex items-center gap-3"
+          style={{ background: `linear-gradient(90deg, ${accent}44 0%, ${accent}11 100%)` }}
+        >
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: accent }}
+          >
+            <Award className="w-5 h-5 text-white" />
           </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">No final-challenge item set. Use the leaderboard for completions ranking.</p>
-        )}
-        {participant?.finalSubmittedAt && (
-          <div className="text-xs text-muted-foreground" data-testid="text-final-submitted-at">
-            You submitted {parseFloat(participant.finalScore || "0").toLocaleString()} on {new Date(participant.finalSubmittedAt).toLocaleString()}.
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Final Challenge · Day {finalItem.dayNumber}</p>
+            <h2 className="text-lg font-bold leading-tight" data-testid="text-final-item-title">
+              {finalItem.title}
+            </h2>
+          </div>
+          <Badge
+            className="ml-auto"
+            style={{ background: `${accent}33`, color: accent, borderColor: `${accent}55` }}
+            variant="outline"
+          >
+            {isLive ? "Open" : event.status === "finished" ? "Closed" : "Not yet open"}
+          </Badge>
+        </div>
+
+        {/* YouTube embed */}
+        {embedUrl && (
+          <div className="relative w-full" style={{ paddingBottom: "56.25%" }} data-testid="youtube-embed">
+            <iframe
+              src={embedUrl}
+              title={finalItem.title}
+              className="absolute inset-0 w-full h-full"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
           </div>
         )}
-        {finalItem && (
-          <>
-            <div>
-              <Label htmlFor="final-score">Your score</Label>
-              <Input id="final-score" type="number" inputMode="decimal" step="any" min="0"
-                value={score} onChange={(e) => setScore(e.target.value)}
+
+        {/* Description */}
+        {(finalItem.notes || finalItem.challengeSpec?.description) && (
+          <div className="px-6 py-4 border-t border-border/40">
+            <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-line">
+              {finalItem.challengeSpec?.description || finalItem.notes}
+            </p>
+          </div>
+        )}
+
+        {/* Challenge spec pills */}
+        {finalItem.challengeSpec && (
+          <div className="px-6 pb-4 flex flex-wrap gap-2">
+            {finalItem.challengeSpec.scoringMetric && (
+              <Badge variant="outline" className="text-xs">
+                Metric: {finalItem.challengeSpec.scoringMetric}
+              </Badge>
+            )}
+            {finalItem.challengeSpec.target != null && (
+              <Badge variant="outline" className="text-xs">
+                Target: {finalItem.challengeSpec.target}
+              </Badge>
+            )}
+            {finalItem.challengeSpec.timeLimitSec != null && (
+              <Badge variant="outline" className="text-xs flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                {Math.floor(finalItem.challengeSpec.timeLimitSec / 60)}:{String(finalItem.challengeSpec.timeLimitSec % 60).padStart(2, "0")} limit
+              </Badge>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── Prior submission banner ── */}
+      {participant?.finalSubmittedAt && (
+        <div
+          className="flex items-center gap-3 rounded-xl px-4 py-3 border"
+          style={{ background: `${accent}11`, borderColor: `${accent}33` }}
+          data-testid="text-final-submitted-at"
+        >
+          <Trophy className="w-5 h-5 shrink-0" style={{ color: accent }} />
+          <div className="text-sm">
+            <span className="font-semibold">Last submission: </span>
+            {parseFloat(participant.finalScore || "0").toLocaleString()} score
+            {participant.attemptsTaken != null && ` · ${participant.attemptsTaken} attempt${participant.attemptsTaken === 1 ? "" : "s"}`}
+            <span className="text-muted-foreground ml-2">
+              {new Date(participant.finalSubmittedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* ── Submission form ── */}
+      <Card className="border-border/60">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Play className="w-4 h-4" style={{ color: accent }} />
+            {participant?.finalSubmittedAt ? "Update your result" : "Submit your result"}
+          </CardTitle>
+          {!isLive && (
+            <p className="text-xs text-muted-foreground">
+              {event.status === "finished" ? "This event has ended — submissions are closed." : "Submissions open when the event goes live."}
+            </p>
+          )}
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="final-score" className="flex items-center gap-1.5">
+                <Trophy className="w-3.5 h-3.5" style={{ color: accent }} />
+                Your score
+              </Label>
+              <Input
+                id="final-score"
+                type="number"
+                inputMode="decimal"
+                step="any"
+                min="0"
+                value={score}
+                onChange={(e) => setScore(e.target.value)}
                 disabled={!isLive}
-                placeholder="e.g. 47" data-testid="input-final-score" />
+                placeholder="e.g. 47"
+                data-testid="input-final-score"
+              />
             </div>
-            <div>
-              <Label htmlFor="final-notes">Notes (optional)</Label>
-              <Textarea id="final-notes" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)}
-                disabled={!isLive} placeholder="How it went, conditions, etc." data-testid="input-final-notes" />
+            <div className="space-y-1.5">
+              <Label htmlFor="final-attempts" className="flex items-center gap-1.5">
+                <ListChecks className="w-3.5 h-3.5" style={{ color: accent }} />
+                Attempts to complete
+              </Label>
+              <Input
+                id="final-attempts"
+                type="number"
+                inputMode="numeric"
+                step="1"
+                min="1"
+                value={attempts}
+                onChange={(e) => setAttempts(e.target.value)}
+                disabled={!isLive}
+                placeholder="How many tries?"
+                data-testid="input-final-attempts"
+              />
+              <p className="text-[11px] text-muted-foreground">Fewer attempts = higher leaderboard score (30% weight)</p>
             </div>
-            <Button onClick={() => submitMut.mutate()} disabled={!canSubmit || submitMut.isPending}
-              data-testid="button-submit-final">
-              {submitMut.isPending ? "Submitting…" : participant?.finalSubmittedAt ? "Update score" : "Submit final score"}
-            </Button>
-            {!isLive && <p className="text-xs text-muted-foreground">Submissions are open only while the event is live.</p>}
-          </>
-        )}
-      </CardContent>
-    </Card>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="final-notes">Notes (optional)</Label>
+            <Textarea
+              id="final-notes"
+              rows={2}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              disabled={!isLive}
+              placeholder="How it went, conditions, any context…"
+              data-testid="input-final-notes"
+            />
+          </div>
+          <Button
+            onClick={() => submitMut.mutate()}
+            disabled={!canSubmit || submitMut.isPending}
+            className="w-full sm:w-auto"
+            style={canSubmit ? { background: accent, color: "white" } : undefined}
+            data-testid="button-submit-final"
+          >
+            {submitMut.isPending
+              ? "Submitting…"
+              : participant?.finalSubmittedAt
+                ? "Update score"
+                : "Submit final score"}
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

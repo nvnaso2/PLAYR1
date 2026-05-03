@@ -575,7 +575,7 @@ export interface IStorage {
   hasEventParticipants(eventId: string): Promise<boolean>;
   joinEvent(eventId: string, userId: string): Promise<{ participant: EventParticipant; enrollment: ProgramEnrollment }>;
   getEventParticipant(eventId: string, userId: string): Promise<EventParticipant | undefined>;
-  submitFinalChallengeScore(eventId: string, userId: string, score: number, notes?: string): Promise<EventParticipant>;
+  submitFinalChallengeScore(eventId: string, userId: string, score: number, notes?: string, attemptsTaken?: number): Promise<EventParticipant>;
   getEventLeaderboard(eventId: string, limit?: number): Promise<Array<{
     userId: string;
     user: { id: string; firstName: string | null; lastName: string | null; profileImageUrl: string | null };
@@ -584,6 +584,10 @@ export interface IStorage {
     lastCompletedAt: Date | null;
     finalScore: string | null;
     finalSubmittedAt: Date | null;
+    attemptsTaken: number | null;
+    currentDay: number | null;
+    shootingPct: number | null;
+    compositeScore: number;
     rank: number;
   }>>;
 }
@@ -5831,7 +5835,7 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
-  async submitFinalChallengeScore(eventId: string, userId: string, score: number, notes?: string): Promise<EventParticipant> {
+  async submitFinalChallengeScore(eventId: string, userId: string, score: number, notes?: string, attemptsTaken?: number): Promise<EventParticipant> {
     const [event] = await db.select().from(events).where(eq(events.id, eventId));
     if (!event) throw new Error("Event not found");
     const status = this.deriveEventStatus(event);
@@ -5862,6 +5866,7 @@ export class DatabaseStorage implements IStorage {
         finalScore: score.toString(),
         finalSubmittedAt: new Date(),
         finalNotes: notes ?? null,
+        ...(attemptsTaken != null ? { attemptsTaken } : {}),
       })
       .where(eq(eventParticipants.id, participant.id))
       .returning();
@@ -5924,83 +5929,122 @@ export class DatabaseStorage implements IStorage {
     lastCompletedAt: Date | null;
     finalScore: string | null;
     finalSubmittedAt: Date | null;
+    attemptsTaken: number | null;
+    currentDay: number | null;
+    shootingPct: number | null;
+    compositeScore: number;
     rank: number;
   }>> {
     const [event] = await db.select().from(events).where(eq(events.id, eventId));
     if (!event) return [];
 
-    // Per participant: how many program_items have they completed inside the
-    // event-scoped enrollment, and when was the most-recent completion?
+    // Total items in the program — needed for completion % calculation.
+    const [{ totalItems }] = await db
+      .select({ totalItems: sql<number>`COUNT(*)::int` })
+      .from(programItems)
+      .where(eq(programItems.programId, event.programId));
+
     const rows = await db
       .select({
         userId: eventParticipants.userId,
         joinedAt: eventParticipants.joinedAt,
         finalScore: eventParticipants.finalScore,
         finalSubmittedAt: eventParticipants.finalSubmittedAt,
+        attemptsTaken: eventParticipants.attemptsTaken,
         userFirstName: users.firstName,
         userLastName: users.lastName,
         userProfileImageUrl: users.profileImageUrl,
+        // How many program items completed in the event-scoped enrollment
         completedItemCount: sql<number>`COALESCE((
           SELECT COUNT(*)::int FROM ${programItemCompletions} pic
           JOIN ${programEnrollments} pe ON pe.id = pic.enrollment_id
           WHERE pe.event_id = ${eventId} AND pe.user_id = ${eventParticipants.userId}
         ), 0)`,
+        // Most-recent completion timestamp (for tie-breaking)
         lastCompletedAt: sql<Date | null>`(
           SELECT MAX(pic.completed_at) FROM ${programItemCompletions} pic
           JOIN ${programEnrollments} pe ON pe.id = pic.enrollment_id
           WHERE pe.event_id = ${eventId} AND pe.user_id = ${eventParticipants.userId}
         )`,
+        // Current day in the event-scoped enrollment
+        currentDay: sql<number | null>`(
+          SELECT pe.current_day FROM ${programEnrollments} pe
+          WHERE pe.event_id = ${eventId} AND pe.user_id = ${eventParticipants.userId}
+          AND pe.status = 'active'
+          LIMIT 1
+        )`,
+        // Aggregate shooting stats across all drill completions in this event
+        totalShotsMade: sql<number>`COALESCE((
+          SELECT SUM(tl.shots_made) FROM ${programItemCompletions} pic
+          JOIN ${programEnrollments} pe ON pe.id = pic.enrollment_id
+          JOIN ${trainingLogs} tl ON tl.id = pic.training_log_id
+          WHERE pe.event_id = ${eventId} AND pe.user_id = ${eventParticipants.userId}
+          AND tl.shots_attempted > 0
+        ), 0)`,
+        totalShotsAttempted: sql<number>`COALESCE((
+          SELECT SUM(tl.shots_attempted) FROM ${programItemCompletions} pic
+          JOIN ${programEnrollments} pe ON pe.id = pic.enrollment_id
+          JOIN ${trainingLogs} tl ON tl.id = pic.training_log_id
+          WHERE pe.event_id = ${eventId} AND pe.user_id = ${eventParticipants.userId}
+          AND tl.shots_attempted > 0
+        ), 0)`,
       })
       .from(eventParticipants)
       .leftJoin(users, eq(users.id, eventParticipants.userId))
       .where(eq(eventParticipants.eventId, eventId));
 
-    // Rank in JS so we can mix metric types without writing dialect-specific window SQL.
-    const decorated = rows.map(r => ({
-      userId: r.userId,
-      user: {
-        id: r.userId,
-        firstName: r.userFirstName,
-        lastName: r.userLastName,
-        profileImageUrl: r.userProfileImageUrl,
-      },
-      joinedAt: r.joinedAt,
-      completedItemCount: Number(r.completedItemCount ?? 0),
-      lastCompletedAt: r.lastCompletedAt,
-      finalScore: r.finalScore,
-      finalSubmittedAt: r.finalSubmittedAt,
-    }));
+    const total = Number(totalItems ?? 0);
 
-    const compareCompletions = (a: typeof decorated[number], b: typeof decorated[number]) => {
-      if (b.completedItemCount !== a.completedItemCount) return b.completedItemCount - a.completedItemCount;
+    // Build decorated rows with composite score.
+    // Weighted formula:
+    //   50% → completion percentage (completed / total * 100)
+    //   30% → attempt efficiency (100 / attemptsTaken; 0 if not submitted)
+    //   20% → shooting percentage across all drills
+    const decorated = rows.map(r => {
+      const completed = Number(r.completedItemCount ?? 0);
+      const completionPct = total > 0 ? (completed / total) * 100 : 0;
+
+      const attempts = r.attemptsTaken != null ? Number(r.attemptsTaken) : null;
+      const attemptScore = attempts != null && attempts > 0 ? (100 / attempts) : 0;
+
+      const shotsMade = Number(r.totalShotsMade ?? 0);
+      const shotsAttempted = Number(r.totalShotsAttempted ?? 0);
+      const shootingPct = shotsAttempted > 0 ? (shotsMade / shotsAttempted) * 100 : null;
+
+      const compositeScore =
+        completionPct * 0.5 +
+        attemptScore * 0.3 +
+        (shootingPct ?? 0) * 0.2;
+
+      return {
+        userId: r.userId,
+        user: {
+          id: r.userId,
+          firstName: r.userFirstName,
+          lastName: r.userLastName,
+          profileImageUrl: r.userProfileImageUrl,
+        },
+        joinedAt: r.joinedAt,
+        completedItemCount: completed,
+        lastCompletedAt: r.lastCompletedAt,
+        finalScore: r.finalScore,
+        finalSubmittedAt: r.finalSubmittedAt,
+        attemptsTaken: attempts,
+        currentDay: r.currentDay != null ? Number(r.currentDay) : null,
+        shootingPct: shootingPct != null ? Math.round(shootingPct) : null,
+        compositeScore: Math.round(compositeScore * 10) / 10,
+      };
+    });
+
+    // Always rank by compositeScore descending; earlier last-completion
+    // breaks ties (rewards consistency).
+    decorated.sort((a, b) => {
+      if (b.compositeScore !== a.compositeScore) return b.compositeScore - a.compositeScore;
       const aT = a.lastCompletedAt ? a.lastCompletedAt.getTime() : Infinity;
       const bT = b.lastCompletedAt ? b.lastCompletedAt.getTime() : Infinity;
-      return aT - bT; // earlier = better tie-break
-    };
-    const compareFinal = (a: typeof decorated[number], b: typeof decorated[number]) => {
-      const aS = a.finalScore != null ? parseFloat(a.finalScore) : -Infinity;
-      const bS = b.finalScore != null ? parseFloat(b.finalScore) : -Infinity;
-      if (bS !== aS) return bS - aS;
-      const aT = a.finalSubmittedAt ? a.finalSubmittedAt.getTime() : Infinity;
-      const bT = b.finalSubmittedAt ? b.finalSubmittedAt.getTime() : Infinity;
       return aT - bT;
-    };
+    });
 
-    let comparator: (a: typeof decorated[number], b: typeof decorated[number]) => number;
-    if (event.leaderboardMetric === "finalScore") comparator = compareFinal;
-    else if (event.leaderboardMetric === "completions") comparator = compareCompletions;
-    else {
-      // composite: prefer final-score submissions when present, else completions
-      comparator = (a, b) => {
-        const aHasFinal = a.finalScore != null;
-        const bHasFinal = b.finalScore != null;
-        if (aHasFinal !== bHasFinal) return aHasFinal ? -1 : 1;
-        if (aHasFinal && bHasFinal) return compareFinal(a, b);
-        return compareCompletions(a, b);
-      };
-    }
-
-    decorated.sort(comparator);
     return decorated.slice(0, limit).map((d, idx) => ({ ...d, rank: idx + 1 }));
   }
 }

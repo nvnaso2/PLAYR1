@@ -1705,6 +1705,8 @@ export const eventParticipants = pgTable("event_participants", {
   finalScore: decimal("final_score", { precision: 10, scale: 2 }),
   finalSubmittedAt: timestamp("final_submitted_at"),
   finalNotes: text("final_notes"),
+  /** How many attempts the player needed to complete the final challenge. */
+  attemptsTaken: integer("attempts_taken"),
 }, (table) => ({
   byEvent: index("event_participants_event_idx").on(table.eventId),
   byUser: index("event_participants_user_idx").on(table.userId),
