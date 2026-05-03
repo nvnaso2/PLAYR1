@@ -48,7 +48,9 @@ export function ProgramCard({ program, enrolledCount, totalItems, variant = "gri
         <div
           className={`relative overflow-hidden ${isFeatured ? "h-56 md:h-64" : "h-40"}`}
           style={{
-            background: `linear-gradient(135deg, ${accent}cc 0%, ${accent}66 50%, hsl(var(--card)) 100%)`,
+            background: program.coverImageUrl
+              ? `linear-gradient(135deg, ${accent}99 0%, rgba(0,0,0,0.45) 60%, rgba(0,0,0,0.7) 100%), url("${program.coverImageUrl.replace(/["\\\n\r<>]/g, "")}") center/cover no-repeat`
+              : `linear-gradient(135deg, ${accent}cc 0%, ${accent}66 50%, hsl(var(--card)) 100%)`,
           }}
         >
           {/* radial overlay */}

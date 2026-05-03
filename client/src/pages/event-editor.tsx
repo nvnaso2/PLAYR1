@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ExternalLink, Save, Pencil, Calendar, Upload, X } from "lucide-react";
+import { ArrowLeft, ExternalLink, Save, Pencil, Calendar, Upload, X, Wand2 } from "lucide-react";
 import type { Event, Program, ProgramItem, EventLeaderboardMetric, EventStatus } from "@shared/schema";
 import { EVENT_LEADERBOARD_METRICS } from "@shared/schema";
 import { useUpload } from "@/hooks/use-upload";
@@ -141,7 +141,30 @@ export default function EventEditorPage() {
       </div>
 
       <Card>
-        <CardHeader><CardTitle>Hero</CardTitle></CardHeader>
+        <CardHeader className="flex flex-row items-start justify-between gap-3">
+          <div>
+            <CardTitle>Hero</CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              Public-facing copy + cover. Pull from the linked program to keep them aligned.
+            </p>
+          </div>
+          {event.program && (
+            <Button
+              type="button" size="sm" variant="outline"
+              data-testid="button-sync-from-program"
+              onClick={() => setForm((f) => ({
+                ...f,
+                title: event.program!.title,
+                tagline: event.program!.tagline ?? "",
+                description: event.program!.description ?? "",
+                coverImageUrl: event.program!.coverImageUrl ?? f.coverImageUrl,
+                accentColor: event.program!.accentColor ?? f.accentColor,
+              }))}
+            >
+              <Wand2 className="w-3.5 h-3.5 mr-1" /> Sync from program
+            </Button>
+          )}
+        </CardHeader>
         <CardContent className="space-y-4">
           <div>
             <Label>Title</Label>
@@ -287,12 +310,36 @@ function CoverImagePicker({ value, onChange }: { value: string; onChange: (v: st
   const pickFile = () => {
     const input = document.createElement("input");
     input.type = "file";
-    input.accept = "image/*";
+    input.accept = "image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif";
     input.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) return;
+      const original = (e.target as HTMLInputElement).files?.[0];
+      if (!original) return;
+      // Some browsers (mainly iOS Safari w/ HEIC) hand us a File whose `type` is
+      // empty — that triggers a 400 from the upload route. Patch the content type
+      // from the file extension so the request always carries a valid image MIME.
+      const extMap: Record<string, string> = {
+        jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png",
+        gif: "image/gif", webp: "image/webp", heic: "image/heic", heif: "image/heif",
+      };
+      const ext = (original.name.split(".").pop() || "").toLowerCase();
+      const inferred = extMap[ext];
+      const file = (!original.type || !original.type.startsWith("image/")) && inferred
+        ? new File([original], original.name, { type: inferred })
+        : original;
       if (!file.type.startsWith("image/")) {
-        toast({ title: "Please choose an image file", variant: "destructive" });
+        toast({
+          title: "Please choose an image file",
+          description: "JPEG, PNG, GIF, WEBP, or HEIC supported.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        toast({
+          title: "Image too large",
+          description: "Cover images must be under 10MB.",
+          variant: "destructive",
+        });
         return;
       }
       await uploadFile(file);

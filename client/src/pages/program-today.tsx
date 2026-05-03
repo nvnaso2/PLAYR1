@@ -114,6 +114,11 @@ export default function ProgramTodayPage() {
     () => new Set((data?.completions ?? []).map((c) => c.programItemId)),
     [data?.completions],
   );
+  const completionByItem = useMemo(() => {
+    const m = new Map<string, ProgramItemCompletion>();
+    (data?.completions ?? []).forEach((c) => m.set(c.programItemId, c));
+    return m;
+  }, [data?.completions]);
 
   const completeMutation = useMutation({
     mutationFn: async (itemId: string) => {
@@ -204,7 +209,9 @@ export default function ProgramTodayPage() {
       <div
         className="relative overflow-hidden border-b border-border/40"
         style={{
-          background: `linear-gradient(135deg, ${accent}cc 0%, ${accent}55 40%, hsl(var(--background)) 100%)`,
+          background: program.coverImageUrl
+            ? `linear-gradient(115deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.5) 45%, rgba(0,0,0,0.2) 100%), url("${program.coverImageUrl.replace(/["\\\n\r<>]/g, "")}") center/cover no-repeat`
+            : `linear-gradient(135deg, ${accent}cc 0%, ${accent}55 40%, hsl(var(--background)) 100%)`,
         }}
       >
         <div
@@ -357,6 +364,7 @@ export default function ProgramTodayPage() {
                 key={it.id}
                 item={it}
                 completed={completedItemIds.has(it.id)}
+                completion={completionByItem.get(it.id)}
                 accent={accent}
                 onComplete={() => completeMutation.mutate(it.id)}
                 isPending={completeMutation.isPending}
@@ -400,6 +408,7 @@ export default function ProgramTodayPage() {
 function ItemCard({
   item,
   completed,
+  completion,
   accent,
   onComplete,
   isPending,
@@ -408,6 +417,7 @@ function ItemCard({
 }: {
   item: ProgramItem;
   completed: boolean;
+  completion?: ProgramItemCompletion;
   accent: string;
   onComplete: () => void;
   isPending: boolean;
@@ -552,9 +562,25 @@ function ItemCard({
                     ) : (
                       <p className="text-xs text-muted-foreground italic">No drills attached yet.</p>
                     )}
+                    {completed && completion?.trainingLogId && (
+                      <WorkoutStatsBlock
+                        trainingLogId={completion.trainingLogId}
+                        drillsById={drillsById}
+                        accent={accent}
+                        itemId={item.id}
+                      />
+                    )}
                   </div>
                 );
               })()}
+              {item.itemType === "drill" && completed && completion?.trainingLogId && (
+                <WorkoutStatsBlock
+                  trainingLogId={completion.trainingLogId}
+                  drillsById={drillsById}
+                  accent={accent}
+                  itemId={item.id}
+                />
+              )}
 
               {item.itemType === "challenge" && item.challengeSpec && (
                 <div
@@ -622,5 +648,126 @@ function ItemCard({
         </div>
       </div>
     </Card>
+  );
+}
+
+// ─── Completed Workout Stats (expanded inline when an item has trainingLogId) ───
+type SessionLog = {
+  id: string;
+  drillId: string | null;
+  duration: number | null;
+  shotsMade: number | null;
+  shotsAttempted: number | null;
+  shotLocation: string | null;
+  notes: string | null;
+  workoutSessionId: string | null;
+  date: string;
+  metrics: { metricId: string; value: string | number | null; metricName: string | null }[];
+};
+
+function WorkoutStatsBlock({
+  trainingLogId,
+  drillsById,
+  accent,
+  itemId,
+}: {
+  trainingLogId: string;
+  drillsById: Map<string, Drill>;
+  accent: string;
+  itemId: string;
+}) {
+  const { data: logs, isLoading } = useQuery<SessionLog[]>({
+    queryKey: ["/api/training-logs", trainingLogId, "session"],
+  });
+
+  if (isLoading) {
+    return (
+      <div className="rounded-lg border border-border/60 bg-card-overlay/40 p-3" data-testid={`stats-loading-${itemId}`}>
+        <Skeleton className="h-4 w-32 mb-2" />
+        <Skeleton className="h-12 w-full" />
+      </div>
+    );
+  }
+  if (!logs || logs.length === 0) return null;
+
+  const totalShotsMade = logs.reduce((s, l) => s + (l.shotsMade ?? 0), 0);
+  const totalShotsAttempted = logs.reduce((s, l) => s + (l.shotsAttempted ?? 0), 0);
+  const totalMinutes = logs.reduce((s, l) => s + (l.duration ?? 0), 0);
+  const pct = totalShotsAttempted > 0 ? Math.round((totalShotsMade / totalShotsAttempted) * 100) : null;
+
+  return (
+    <Collapsible defaultOpen={false}>
+      <div className="rounded-lg border border-border/60 bg-card-overlay/40 overflow-hidden" data-testid={`stats-block-${itemId}`}>
+        <CollapsibleTrigger asChild>
+          <button
+            type="button"
+            className="w-full flex items-center justify-between gap-2 px-3 py-2 hover-elevate text-left"
+            data-testid={`trigger-stats-${itemId}`}
+          >
+            <span className="text-xs uppercase tracking-wide font-semibold flex items-center gap-1.5" style={{ color: accent }}>
+              <Trophy className="w-3.5 h-3.5" /> Your results
+              {pct != null && (
+                <span className="text-foreground/80 normal-case font-normal">
+                  · {totalShotsMade}/{totalShotsAttempted} shots ({pct}%)
+                </span>
+              )}
+              {totalMinutes > 0 && (
+                <span className="text-muted-foreground normal-case font-normal">· {totalMinutes} min</span>
+              )}
+            </span>
+            <ChevronDown className="w-4 h-4 shrink-0 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="border-t border-border/60 px-3 py-3 space-y-3">
+            {pct != null && (
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="rounded-md bg-muted/40 px-2 py-2">
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Made</div>
+                  <div className="text-lg font-bold">{totalShotsMade}</div>
+                </div>
+                <div className="rounded-md bg-muted/40 px-2 py-2">
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Attempts</div>
+                  <div className="text-lg font-bold">{totalShotsAttempted}</div>
+                </div>
+                <div className="rounded-md px-2 py-2" style={{ background: `${accent}22` }}>
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">FG%</div>
+                  <div className="text-lg font-bold" style={{ color: accent }}>{pct}%</div>
+                </div>
+              </div>
+            )}
+            <div className="space-y-1.5">
+              {logs.map((l, idx) => {
+                const drill = l.drillId ? drillsById.get(l.drillId) : undefined;
+                const lpct = l.shotsAttempted && l.shotsMade != null && l.shotsAttempted > 0
+                  ? Math.round((l.shotsMade / l.shotsAttempted) * 100)
+                  : null;
+                const detail = [
+                  l.shotsAttempted ? `${l.shotsMade ?? 0}/${l.shotsAttempted}` : null,
+                  lpct != null ? `${lpct}%` : null,
+                  l.duration ? `${l.duration}m` : null,
+                  l.shotLocation ? l.shotLocation : null,
+                ].filter(Boolean).join(" · ");
+                return (
+                  <div
+                    key={l.id}
+                    className="flex items-center justify-between gap-3 text-sm"
+                    data-testid={`row-stat-${itemId}-${idx}`}
+                  >
+                    <span className="font-medium truncate">{drill?.title ?? "Drill"}</span>
+                    {detail && <span className="text-xs text-muted-foreground whitespace-nowrap">{detail}</span>}
+                  </div>
+                );
+              })}
+            </div>
+            <Link href={`/log?view=history`}>
+              <Button variant="ghost" size="sm" className="text-xs" data-testid={`link-full-history-${itemId}`}>
+                View in training log →
+              </Button>
+            </Link>
+          </div>
+        </CollapsibleContent>
+      </div>
+    </Collapsible>
   );
 }

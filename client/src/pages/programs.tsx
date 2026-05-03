@@ -351,10 +351,21 @@ function ContinueCard({ enrollment }: { enrollment: EnrollmentRow }) {
   return (
     <Link href={`/programs/${enrollment.program.slug}/today`} data-testid={`link-continue-${enrollment.program.slug}`}>
       <Card className="hover-elevate active-elevate-2 cursor-pointer overflow-hidden border-border/60 h-full">
-        <div
-          className="h-2 w-full"
-          style={{ background: `linear-gradient(90deg, ${accent}, ${accent}66)` }}
-        />
+        {enrollment.program.coverImageUrl ? (
+          <div
+            className="h-20 w-full relative"
+            style={{
+              background: `linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.65) 100%), url("${enrollment.program.coverImageUrl.replace(/["\\\n\r<>]/g, "")}") center/cover no-repeat`,
+            }}
+          >
+            <div className="absolute bottom-0 left-0 right-0 h-1" style={{ background: `linear-gradient(90deg, ${accent}, ${accent}66)` }} />
+          </div>
+        ) : (
+          <div
+            className="h-2 w-full"
+            style={{ background: `linear-gradient(90deg, ${accent}, ${accent}66)` }}
+          />
+        )}
         <CardContent className="p-5">
           <div className="flex items-start justify-between gap-3 mb-2">
             <div>

@@ -141,7 +141,9 @@ export default function ProgramDetailPage() {
       <div
         className="relative overflow-hidden border-b border-border/40"
         style={{
-          background: `linear-gradient(135deg, ${accent}cc 0%, ${accent}55 40%, hsl(var(--background)) 100%)`,
+          background: program.coverImageUrl
+            ? `linear-gradient(115deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.55) 45%, rgba(0,0,0,0.25) 100%), url("${program.coverImageUrl.replace(/["\\\n\r<>]/g, "")}") center/cover no-repeat`
+            : `linear-gradient(135deg, ${accent}cc 0%, ${accent}55 40%, hsl(var(--background)) 100%)`,
         }}
       >
         <div

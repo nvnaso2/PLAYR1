@@ -5,7 +5,7 @@ import path from "path";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated, optionalAuth, getAppBaseUrl, type AuthenticatedRequest } from "./auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
-import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, drills, trainingLogs, feedbackComments, insertProgramSchema, insertProgramItemSchema, insertEventSchema, events } from "@shared/schema";
+import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, drills, trainingLogs, trainingLogMetrics, feedbackComments, insertProgramSchema, insertProgramItemSchema, insertEventSchema, events } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db, pool } from "./db";
 import { eq, and, or, isNull, ilike, sql, inArray, gte } from "drizzle-orm";
@@ -1574,6 +1574,49 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching training log:", error);
       res.status(500).json({ message: "Failed to fetch training log" });
+    }
+  });
+
+  // Get all training logs that share a workout session with the given log id.
+  // Used by program-today to expand a completed workout item into stats.
+  app.get("/api/training-logs/:id/session", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const log = await storage.getTrainingLog(req.params.id);
+      if (!log) return res.status(404).json({ message: "Training log not found" });
+      if (log.userId !== userId) return res.status(403).json({ message: "Access denied" });
+
+      // Targeted query: avoid loading all of the user's logs. Match either by
+      // shared workoutSessionId (multi-drill workout) or just this single log.
+      const sessionLogs = log.workoutSessionId
+        ? await db.select().from(trainingLogs).where(and(
+            eq(trainingLogs.userId, userId),
+            eq(trainingLogs.workoutSessionId, log.workoutSessionId),
+          ))
+        : [log];
+
+      // Single batched metrics query for the whole session, then group client-side.
+      const logIds = sessionLogs.map(l => l.id);
+      const [allMetrics, templates] = await Promise.all([
+        logIds.length > 0
+          ? db.select().from(trainingLogMetrics).where(inArray(trainingLogMetrics.trainingLogId, logIds))
+          : Promise.resolve([] as any[]),
+        storage.getMetricTemplates(),
+      ]);
+      const templateMap = new Map(templates.map(t => [t.id, t.name]));
+      const metricsByLog = new Map<string, any[]>();
+      for (const m of allMetrics) {
+        const arr = metricsByLog.get(m.trainingLogId) ?? [];
+        arr.push({ ...m, metricName: templateMap.get(m.metricId) || null });
+        metricsByLog.set(m.trainingLogId, arr);
+      }
+      const enriched = sessionLogs
+        .map(l => ({ ...l, metrics: metricsByLog.get(l.id) ?? [] }))
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      res.json(enriched);
+    } catch (error) {
+      console.error("Error fetching session logs:", error);
+      res.status(500).json({ message: "Failed to fetch session" });
     }
   });
 
