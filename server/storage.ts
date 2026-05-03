@@ -5748,54 +5748,50 @@ export class DatabaseStorage implements IStorage {
     const status = this.deriveEventStatus(event);
     if (status !== "live") throw new Error(`Event is ${status} — joining is only allowed while live`);
 
-    // 1) Resolve enrollment FIRST so a strict-scoping conflict aborts the join
-    //    BEFORE we ever create a participant row. This keeps the user from
-    //    becoming "joined" without an event-scoped enrollment under failure.
+    // 1) Resolve enrollment — explicit check-then-create to avoid partial-index
+    //    conflict ambiguity with onConflictDoNothing.
     let enrollment: ProgramEnrollment;
-    let createdNewEnrollment = false;
-    const insertedEnrollments = await db
-      .insert(programEnrollments)
-      .values({
-        userId,
-        programId: event.programId,
-        currentDay: 1,
-        status: "active",
-        eventId,
-      })
-      .onConflictDoNothing()
-      .returning();
-    if (insertedEnrollments.length > 0) {
-      enrollment = insertedEnrollments[0];
-      createdNewEnrollment = true;
-    } else {
-      const [existing] = await db
-        .select()
-        .from(programEnrollments)
-        .where(and(
-          eq(programEnrollments.userId, userId),
-          eq(programEnrollments.programId, event.programId),
-          eq(programEnrollments.status, "active"),
-        ));
-      if (!existing) throw new Error("Failed to enroll in event program");
-      if (existing.eventId === eventId) {
-        // Already scoped to this event — all good.
-        enrollment = existing;
-      } else if (existing.eventId && existing.eventId !== eventId) {
-        // Scoped to a *different* event — still block this case.
+    const [existingEnrollment] = await db
+      .select()
+      .from(programEnrollments)
+      .where(and(
+        eq(programEnrollments.userId, userId),
+        eq(programEnrollments.programId, event.programId),
+        eq(programEnrollments.status, "active"),
+      ));
+
+    if (existingEnrollment) {
+      if (existingEnrollment.eventId && existingEnrollment.eventId !== eventId) {
+        // Active enrollment scoped to a DIFFERENT event — still block.
         throw new Error(
           "You already have an active enrollment in this program for a different event. " +
           "Pause that enrollment first to join this event.",
         );
-      } else {
-        // Standalone enrollment (no eventId). Tag it with this event so the
-        // user's existing progress is preserved and they join seamlessly.
+      }
+      // Either already scoped to this event or standalone — tag it and reuse it.
+      if (existingEnrollment.eventId !== eventId) {
         const [updated] = await db
           .update(programEnrollments)
           .set({ eventId })
-          .where(eq(programEnrollments.id, existing.id))
+          .where(eq(programEnrollments.id, existingEnrollment.id))
           .returning();
-        enrollment = updated ?? existing;
+        enrollment = updated ?? existingEnrollment;
+      } else {
+        enrollment = existingEnrollment;
       }
+    } else {
+      // No active enrollment yet — create one scoped to this event.
+      const [newEnrollment] = await db
+        .insert(programEnrollments)
+        .values({
+          userId,
+          programId: event.programId,
+          currentDay: 1,
+          status: "active",
+          eventId,
+        })
+        .returning();
+      enrollment = newEnrollment;
     }
 
     // 2) Now that we have an event-scoped enrollment, create the participant
