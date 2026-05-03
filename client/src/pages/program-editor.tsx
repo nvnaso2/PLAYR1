@@ -585,6 +585,8 @@ function ItemEditorDialog({
   const [title, setTitle] = useState(existingItem?.title ?? "");
   const [notes, setNotes] = useState(existingItem?.notes ?? "");
   const [estMin, setEstMin] = useState<number>(existingItem?.estimatedMinutes ?? 15);
+  const [watchUrl, setWatchUrl] = useState(existingItem?.watchUrl ?? "");
+  const isNonWorkout = !!existingItem && existingItem.itemType !== "workout";
   const initialRows = (): WorkoutDrillRow[] => {
     if (existingItem?.workoutSpec && existingItem.workoutSpec.length > 0) {
       return existingItem.workoutSpec.map((w) => ({
@@ -607,6 +609,7 @@ function ItemEditorDialog({
       setTitle(existingItem?.title ?? "");
       setNotes(existingItem?.notes ?? "");
       setEstMin(existingItem?.estimatedMinutes ?? 15);
+      setWatchUrl(existingItem?.watchUrl ?? "");
       setRows(initialRows());
       setDrillSearch("");
     }
@@ -661,6 +664,18 @@ function ItemEditorDialog({
           reps: r.reps || undefined,
           durationSec: r.durationSec || undefined,
         }));
+
+      // For non-workout items (challenge, watch, rest) — just update title/notes/watchUrl
+      if (isNonWorkout && existingItem) {
+        const payload: any = {
+          title: title.trim() || existingItem.title,
+          notes: notes || null,
+          estimatedMinutes: estMin || null,
+          watchUrl: watchUrl.trim() || null,
+        };
+        return apiRequest("PATCH", `/api/programs/items/${existingItem.id}`, payload);
+      }
+
       if (cleanRows.length === 0) {
         throw new Error("Add at least one drill to the workout.");
       }
@@ -673,8 +688,7 @@ function ItemEditorDialog({
         estimatedMinutes: estMin || null,
         drillId: cleanRows[0].drillId,
         workoutSpec: cleanRows,
-        // explicitly clear the other polymorphic fields
-        watchUrl: null,
+        watchUrl: watchUrl.trim() || null,
         watchProvider: null,
         challengeSpec: null,
       };
@@ -716,13 +730,26 @@ function ItemEditorDialog({
           </div>
 
           <div>
+            <Label>YouTube / Watch URL (optional)</Label>
+            <Input
+              value={watchUrl}
+              onChange={(e) => setWatchUrl(e.target.value)}
+              placeholder="Paste a YouTube or video URL…"
+              data-testid="input-item-watch-url"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Embeds a video on the Final Challenge tab when this item is the event's challenge.
+            </p>
+          </div>
+
+          <div>
             <Label>Estimated minutes</Label>
             <Input type="number" min={0} value={estMin}
               onChange={(e) => setEstMin(parseInt(e.target.value || "0", 10))}
               data-testid="input-item-minutes" />
           </div>
 
-          <div className="border rounded-lg p-3 space-y-3 bg-muted/30">
+          {!isNonWorkout && <div className="border rounded-lg p-3 space-y-3 bg-muted/30">
             <div className="flex items-center justify-between">
               <Label className="text-base font-semibold">Drills in this workout</Label>
               <Badge variant="secondary">{rows.length}</Badge>
@@ -819,13 +846,13 @@ function ItemEditorDialog({
                 </div>
               )}
             </div>
-          </div>
+          </div>}
         </div>
 
         <DialogFooter>
           <Button variant="ghost" onClick={onClose} data-testid="button-cancel-item">Cancel</Button>
-          <Button onClick={() => save.mutate()} disabled={save.isPending || rows.length === 0} data-testid="button-save-item">
-            <Save className="w-4 h-4 mr-1" /> Save workout
+          <Button onClick={() => save.mutate()} disabled={save.isPending || (!isNonWorkout && rows.length === 0)} data-testid="button-save-item">
+            <Save className="w-4 h-4 mr-1" /> {isNonWorkout ? "Save item" : "Save workout"}
           </Button>
         </DialogFooter>
       </DialogContent>
