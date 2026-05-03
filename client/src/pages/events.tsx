@@ -166,8 +166,9 @@ function FeaturedEvent({ ev }: { ev: EventWithMeta }) {
           }}
         />
         <div
-          className="absolute inset-0 opacity-50"
+          className="absolute inset-0"
           style={{
+            opacity: ev.coverImageUrl ? 0.18 : 0.5,
             background: `radial-gradient(circle at 18% 0%, ${accent}aa 0%, transparent 55%), radial-gradient(circle at 88% 100%, ${accent}66 0%, transparent 50%)`,
           }}
         />
@@ -247,7 +248,7 @@ function EventCard({ ev }: { ev: EventWithMeta }) {
               : `linear-gradient(135deg, ${accent}dd, ${accent}44)`,
           }}
         >
-          <div className="absolute inset-0 opacity-30 group-hover:opacity-50 transition-opacity"
+          <div className={`absolute inset-0 transition-opacity ${ev.coverImageUrl ? "opacity-10 group-hover:opacity-25" : "opacity-30 group-hover:opacity-50"}`}
             style={{
               background: `radial-gradient(circle at 80% 100%, ${accent}aa 0%, transparent 60%)`,
             }}

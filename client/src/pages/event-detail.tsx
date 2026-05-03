@@ -12,10 +12,11 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowLeft, CalendarRange, Trophy, Users, Play, Award, ListChecks, Flame, Sparkles, Clock } from "lucide-react";
-import type { Event, Program, ProgramItem, EventParticipant, EventStatus } from "@shared/schema";
+import { ArrowLeft, CalendarRange, Trophy, Users, Play, Award, ListChecks, Flame, Sparkles, Clock, Calendar as CalendarIcon } from "lucide-react";
+import type { Event, Program, ProgramItem, EventParticipant, EventStatus, Drill } from "@shared/schema";
 import { useAuth } from "@/hooks/use-auth";
 import { track } from "@/lib/track";
+import { DayPlanGrid, ProgramStatRibbon } from "@/components/program-day-plan";
 
 type EventDetailResponse = {
   event: Event & { status: EventStatus; program: Program | null };
@@ -68,6 +69,13 @@ export default function EventDetailPage() {
     if (event) track("event_view", { eventId: event.id });
   }, [event?.id]);
 
+  const { data: allDrills } = useQuery<Drill[]>({ queryKey: ["/api/drills"], enabled: !!event });
+  const drillsById = useMemo(() => {
+    const m = new Map<string, Drill>();
+    (allDrills ?? []).forEach((d) => m.set(d.id, d));
+    return m;
+  }, [allDrills]);
+
   const { data: leaderboard, isLoading: lbLoading } = useQuery<LeaderboardRow[]>({
     queryKey: [`/api/events/${event?.id}/leaderboard`],
     enabled: !!event?.id,
@@ -112,13 +120,6 @@ export default function EventDetailPage() {
   const isFinished = event.status === "finished";
   const isJoined = !!participant;
 
-  // Group items by day for the outline
-  const byDay = items.reduce<Record<number, ProgramItem[]>>((acc, it) => {
-    (acc[it.dayNumber] ||= []).push(it);
-    return acc;
-  }, {});
-  const days = Object.keys(byDay).map(Number).sort((a, b) => a - b);
-
   return (
     <div className="pb-12" data-testid="page-event-detail">
       {/* ─── Cinematic Hero ─── */}
@@ -132,8 +133,9 @@ export default function EventDetailPage() {
           }}
         />
         <div
-          className="absolute inset-0 opacity-50"
+          className="absolute inset-0"
           style={{
+            opacity: event.coverImageUrl ? 0.18 : 0.5,
             background: `radial-gradient(circle at 15% 0%, ${accent}aa 0%, transparent 55%), radial-gradient(circle at 85% 100%, ${accent}66 0%, transparent 50%)`,
           }}
         />
@@ -239,53 +241,42 @@ export default function EventDetailPage() {
             )}
           </TabsList>
 
-          <TabsContent value="overview" className="space-y-4">
+          <TabsContent value="overview" className="space-y-6">
             {event.description && (
-              <Card><CardContent className="p-5 prose prose-invert max-w-none" data-testid="text-event-description">
-                <p className="whitespace-pre-line text-sm">{event.description}</p>
+              <Card><CardContent className="p-5" data-testid="text-event-description">
+                <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4" style={{ color: accent }} />
+                  About this event
+                </h2>
+                <p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">{event.description}</p>
               </CardContent></Card>
             )}
+
             {event.program && (
-              <Card className="overflow-hidden border-border/60">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Sparkle accent={accent} /> {event.program.title}
-                  </CardTitle>
-                  <p className="text-xs text-muted-foreground">
-                    {event.program.lengthDays}-day program · {event.program.difficulty}
-                    {event.program.estimatedMinutesPerDay ? ` · ~${event.program.estimatedMinutesPerDay} min/day` : ""}
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {days.map((d) => (
-                      <div
-                        key={d}
-                        className="rounded-lg border border-border/60 overflow-hidden bg-card-overlay/30"
-                        data-testid={`block-day-${d}`}
-                      >
-                        <div className="flex items-stretch">
-                          <div className="w-1 shrink-0" style={{ background: accent }} />
-                          <div className="flex-1 p-3">
-                            <div className="flex items-center justify-between mb-2">
-                              <p className="text-sm font-bold">Day {d}</p>
-                              <Badge variant="secondary" className="text-[10px]">{byDay[d].length} item{byDay[d].length === 1 ? "" : "s"}</Badge>
-                            </div>
-                            <ul className="space-y-1.5">
-                              {byDay[d].map((it) => (
-                                <li key={it.id} className="flex items-center justify-between gap-2 text-sm">
-                                  <span className="truncate text-foreground/90">{it.title}</span>
-                                  <Badge variant="outline" className="text-[10px] capitalize shrink-0">{it.itemType}</Badge>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+              <ProgramStatRibbon
+                accent={accent}
+                lengthDays={event.program.lengthDays}
+                totalItems={items.length}
+                estimatedMinutesPerDay={event.program.estimatedMinutesPerDay ?? null}
+                difficulty={event.program.difficulty}
+                enrollmentCount={event.participantCount ?? null}
+              />
+            )}
+
+            {event.program && (
+              <div>
+                <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+                  <CalendarIcon className="w-5 h-5" style={{ color: accent }} />
+                  Day-by-day plan
+                </h2>
+                <DayPlanGrid
+                  items={items}
+                  totalDays={event.program.lengthDays}
+                  drillsById={drillsById}
+                  accent={accent}
+                  layout="rows"
+                />
+              </div>
             )}
           </TabsContent>
 
@@ -302,10 +293,6 @@ export default function EventDetailPage() {
       </div>
     </div>
   );
-}
-
-function Sparkle({ accent }: { accent: string }) {
-  return <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: accent }} />;
 }
 
 function LeaderboardPanel({ rows, isLoading, myUserId, accent, metric }: {

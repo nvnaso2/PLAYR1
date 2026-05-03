@@ -9,25 +9,17 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   ArrowLeft,
   Calendar,
-  CheckCircle2,
-  ChevronDown,
-  Circle,
   Clock,
-  Coffee,
-  Dumbbell,
   Flame,
   PlayCircle,
   Sparkles,
-  Target,
-  Trophy,
   Users,
-  Video,
 } from "lucide-react";
 import type { Program, ProgramItem, ProgramEnrollment, ProgramItemCompletion, Drill } from "@shared/schema";
+import { DayPlanGrid, ProgramStatRibbon } from "@/components/program-day-plan";
 
 interface ProgramDetailResponse {
   program: Program;
@@ -35,14 +27,6 @@ interface ProgramDetailResponse {
   enrollment: ProgramEnrollment | null;
   completions: ProgramItemCompletion[];
 }
-
-const itemTypeMeta: Record<string, { label: string; Icon: any; color: string }> = {
-  drill: { label: "Drill", Icon: Target, color: "text-blue-400" },
-  workout: { label: "Workout", Icon: Dumbbell, color: "text-orange-400" },
-  challenge: { label: "Challenge", Icon: Trophy, color: "text-yellow-400" },
-  watch: { label: "Watch", Icon: Video, color: "text-purple-400" },
-  rest: { label: "Rest", Icon: Coffee, color: "text-green-400" },
-};
 
 const difficultyColors: Record<string, string> = {
   beginner: "bg-green-500/15 text-green-400 border-green-500/30",
@@ -90,16 +74,6 @@ export default function ProgramDetailPage() {
     onError: () => toast({ title: "Couldn't enroll", description: "Try again in a moment.", variant: "destructive" }),
   });
 
-  const itemsByDay = useMemo(() => {
-    const map = new Map<number, ProgramItem[]>();
-    (data?.items ?? []).forEach((it) => {
-      const arr = map.get(it.dayNumber) ?? [];
-      arr.push(it);
-      map.set(it.dayNumber, arr);
-    });
-    return map;
-  }, [data?.items]);
-
   const completedItemIds = useMemo(
     () => new Set((data?.completions ?? []).map((c) => c.programItemId)),
     [data?.completions],
@@ -133,7 +107,6 @@ export default function ProgramDetailPage() {
   const totalItems = items.length;
   const pct = totalItems > 0 ? Math.round((completedCount / totalItems) * 100) : 0;
   const totalDays = program.lengthDays;
-  const days = Array.from({ length: totalDays }, (_, i) => i + 1);
 
   return (
     <div className="min-h-screen pb-12">
@@ -147,8 +120,9 @@ export default function ProgramDetailPage() {
         }}
       >
         <div
-          className="absolute inset-0 opacity-50"
+          className="absolute inset-0"
           style={{
+            opacity: program.coverImageUrl ? 0.18 : 0.5,
             background: `radial-gradient(circle at 20% 0%, ${accent}aa 0%, transparent 50%), radial-gradient(circle at 90% 100%, ${accent}55 0%, transparent 50%)`,
           }}
         />
@@ -272,71 +246,31 @@ export default function ProgramDetailPage() {
             </Card>
           )}
 
+          {/* Stat ribbon */}
+          <ProgramStatRibbon
+            accent={accent}
+            lengthDays={totalDays}
+            totalItems={totalItems}
+            estimatedMinutesPerDay={program.estimatedMinutesPerDay ?? null}
+            difficulty={program.difficulty}
+            enrollmentCount={program.enrollmentCount ?? null}
+          />
+
           {/* Day-by-day outline */}
           <div>
             <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
               <Calendar className="w-5 h-5" style={{ color: accent }} />
               Day-by-day plan
             </h2>
-
-            <div className="space-y-3">
-              {days.map((day) => {
-                const dayItems = itemsByDay.get(day) ?? [];
-                const dayDone =
-                  dayItems.length > 0 && dayItems.every((it) => completedItemIds.has(it.id));
-                const isCurrent = enrollment?.currentDay === day;
-
-                return (
-                  <Card
-                    key={day}
-                    className={`overflow-hidden transition-all ${
-                      isCurrent ? "ring-2 ring-offset-2 ring-offset-background" : ""
-                    }`}
-                    style={isCurrent ? { boxShadow: `0 0 0 2px ${accent}55` } : undefined}
-                    data-testid={`card-day-${day}`}
-                  >
-                    <div className="flex items-stretch">
-                      <div
-                        className="w-16 md:w-20 flex flex-col items-center justify-center text-center py-4 shrink-0"
-                        style={{
-                          background: dayDone
-                            ? `${accent}33`
-                            : isCurrent
-                            ? `${accent}1a`
-                            : "hsl(var(--muted))",
-                        }}
-                      >
-                        <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Day</span>
-                        <span className="text-2xl font-bold" style={{ color: dayDone || isCurrent ? accent : undefined }}>
-                          {day}
-                        </span>
-                        {dayDone ? (
-                          <CheckCircle2 className="w-4 h-4 mt-1" style={{ color: accent }} />
-                        ) : isCurrent ? (
-                          <Flame className="w-4 h-4 mt-1" style={{ color: accent }} />
-                        ) : null}
-                      </div>
-
-                      <div className="flex-1 p-4 space-y-2">
-                        {dayItems.length === 0 ? (
-                          <p className="text-sm text-muted-foreground italic">No items scheduled</p>
-                        ) : (
-                          dayItems.map((it) => (
-                            <DayItemRow
-                              key={it.id}
-                              item={it}
-                              completed={completedItemIds.has(it.id)}
-                              accent={accent}
-                              drillsById={drillsById}
-                            />
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  </Card>
-                );
-              })}
-            </div>
+            <DayPlanGrid
+              items={items}
+              totalDays={totalDays}
+              completedItemIds={completedItemIds}
+              currentDay={enrollment?.currentDay ?? null}
+              drillsById={drillsById}
+              accent={accent}
+              layout="rows"
+            />
           </div>
         </div>
 
@@ -389,100 +323,3 @@ export default function ProgramDetailPage() {
   );
 }
 
-function DayItemRow({
-  item,
-  completed,
-  accent,
-  drillsById,
-}: {
-  item: ProgramItem;
-  completed: boolean;
-  accent: string;
-  drillsById: Map<string, Drill>;
-}) {
-  const meta = itemTypeMeta[item.itemType] ?? itemTypeMeta.drill;
-  const Icon = meta.Icon;
-  const isWorkout = item.itemType === "workout" && (item.workoutSpec?.length ?? 0) > 0;
-  return (
-    <div
-      className={`p-2 -mx-2 rounded-lg transition-colors ${completed ? "opacity-70" : ""}`}
-      data-testid={`row-item-${item.id}`}
-    >
-      <Collapsible defaultOpen={false}>
-        <div className="flex items-start gap-3">
-          <div className="mt-0.5 shrink-0">
-            {completed ? (
-              <CheckCircle2 className="w-5 h-5" style={{ color: accent }} />
-            ) : (
-              <Circle className="w-5 h-5 text-muted-foreground/40" />
-            )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className={`text-xs font-medium uppercase tracking-wide ${meta.color} flex items-center gap-1`}>
-                <Icon className="w-3 h-3" />
-                {meta.label}
-              </span>
-              {item.estimatedMinutes ? (
-                <span className="text-xs text-muted-foreground">· {item.estimatedMinutes} min</span>
-              ) : null}
-              {isWorkout && (
-                <span className="text-xs text-muted-foreground">
-                  · {item.workoutSpec!.length} drill{item.workoutSpec!.length === 1 ? "" : "s"}
-                </span>
-              )}
-            </div>
-            {isWorkout ? (
-              <CollapsibleTrigger asChild>
-                <button
-                  type="button"
-                  className="w-full flex items-center justify-between gap-2 group"
-                  data-testid={`trigger-day-item-${item.id}`}
-                >
-                  <p className={`font-medium text-left ${completed ? "line-through text-muted-foreground" : ""}`}>
-                    {item.title}
-                  </p>
-                  <ChevronDown className="w-4 h-4 shrink-0 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
-                </button>
-              </CollapsibleTrigger>
-            ) : (
-              <p className={`font-medium ${completed ? "line-through text-muted-foreground" : ""}`}>
-                {item.title}
-              </p>
-            )}
-          </div>
-        </div>
-        {isWorkout && (
-          <CollapsibleContent>
-            <div className="mt-2 ml-8 rounded-md border border-border/60 bg-card-overlay/40 px-3 py-2 space-y-1.5">
-              {item.workoutSpec!.map((w, idx) => {
-                const d = w.drillId ? drillsById.get(w.drillId) : undefined;
-                const detail = [
-                  w.sets ? `${w.sets} sets` : null,
-                  w.reps ? `${w.reps} reps` : null,
-                  w.durationSec ? `${w.durationSec}s` : null,
-                ].filter(Boolean).join(" · ");
-                return (
-                  <div key={idx} className="flex items-center justify-between gap-3 text-sm" data-testid={`row-day-workout-${item.id}-${idx}`}>
-                    {w.drillId ? (
-                      <Link href={`/drill/${w.drillId}`} className="font-medium hover:underline truncate">
-                        {d?.title ?? `Drill ${idx + 1}`}
-                      </Link>
-                    ) : (
-                      <span className="font-medium truncate text-muted-foreground italic">
-                        Drill {idx + 1} (missing)
-                      </span>
-                    )}
-                    {detail && (
-                      <span className="text-muted-foreground text-xs whitespace-nowrap">{detail}</span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </CollapsibleContent>
-        )}
-      </Collapsible>
-    </div>
-  );
-}

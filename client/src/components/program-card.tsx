@@ -53,10 +53,12 @@ export function ProgramCard({ program, enrolledCount, totalItems, variant = "gri
               : `linear-gradient(135deg, ${accent}cc 0%, ${accent}66 50%, hsl(var(--card)) 100%)`,
           }}
         >
-          {/* radial overlay */}
+          {/* radial overlay — much subtler when a cover photo is present
+              so the artwork (not the accent wash) leads the card. */}
           <div
-            className="absolute inset-0 opacity-40"
+            className="absolute inset-0"
             style={{
+              opacity: program.coverImageUrl ? 0.15 : 0.4,
               background: `radial-gradient(circle at 30% 20%, ${accent}66 0%, transparent 60%)`,
             }}
           />

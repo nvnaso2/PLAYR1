@@ -5707,8 +5707,26 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteEvent(id: string): Promise<boolean> {
-    const result = await db.delete(events).where(eq(events.id, id)).returning({ id: events.id });
-    return result.length > 0;
+    // Cascade-clean event-scoped child rows in a single transaction so the
+    // operation is atomic. The FKs were never enforced at the DB level, so
+    // we have to do this manually:
+    //  1. event_participants — remove explicit participant records.
+    //  2. program_enrollments.eventId — null out so the user's enrollment
+    //     itself stays (their training history) but is no longer scoped to
+    //     a now-nonexistent event.
+    //  3. events — finally remove the row itself.
+    return await db.transaction(async (tx) => {
+      await tx.delete(eventParticipants).where(eq(eventParticipants.eventId, id));
+      await tx
+        .update(programEnrollments)
+        .set({ eventId: null })
+        .where(eq(programEnrollments.eventId, id));
+      const result = await tx
+        .delete(events)
+        .where(eq(events.id, id))
+        .returning({ id: events.id });
+      return result.length > 0;
+    });
   }
 
   async hasEventParticipants(eventId: string): Promise<boolean> {

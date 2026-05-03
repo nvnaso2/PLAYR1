@@ -215,8 +215,9 @@ export default function ProgramTodayPage() {
         }}
       >
         <div
-          className="absolute inset-0 opacity-50"
+          className="absolute inset-0"
           style={{
+            opacity: program.coverImageUrl ? 0.18 : 0.5,
             background: `radial-gradient(circle at 15% 0%, ${accent}aa 0%, transparent 55%), radial-gradient(circle at 85% 100%, ${accent}66 0%, transparent 50%)`,
           }}
         />

@@ -8587,11 +8587,9 @@ export async function registerRoutes(
     }
   });
 
-  // Admin: delete event (blocked when participants exist)
+  // Admin: delete event (cascades to event_participants).
   app.delete("/api/admin/events/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
-      const has = await storage.hasEventParticipants(req.params.id);
-      if (has) return res.status(409).json({ message: "Cannot delete an event with participants. Unpublish instead." });
       const ok = await storage.deleteEvent(req.params.id);
       if (!ok) return res.status(404).json({ message: "Event not found" });
       res.json({ ok: true });
