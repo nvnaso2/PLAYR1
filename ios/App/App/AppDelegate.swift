@@ -1,6 +1,5 @@
 import UIKit
 import Capacitor
-import WebKit
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -8,24 +7,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        clearWebCache()
-        return true
-    }
-
-    // Clears WKWebView disk + memory cache on every cold launch so that a
-    // newly-deployed web app is always loaded instead of a stale cached copy.
-    private func clearWebCache() {
-        let dataTypes: Set<String> = [
-            WKWebsiteDataTypeDiskCache,
-            WKWebsiteDataTypeMemoryCache,
-            WKWebsiteDataTypeOfflineWebApplicationCache,
-        ]
-        WKWebsiteDataStore.default().removeData(
-            ofTypes: dataTypes,
-            modifiedSince: Date.distantPast
-        ) {}
-
+        // Clear URLCache so the latest deployed web bundle is always fetched
+        // on a cold launch instead of serving a stale cached copy.
         URLCache.shared.removeAllCachedResponses()
+        return true
     }
 
     func applicationWillResignActive(_ application: UIApplication) {}
