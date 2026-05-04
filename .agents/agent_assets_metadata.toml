@@ -60,3 +60,9 @@ id = "0vQ1gABzVvBdW1uYX7AsU"
 uri = "file://docs/REQUIREMENTS.md"
 type = "text"
 title = "PLAYR1 Requirements Document"
+
+[[outputs]]
+id = "oKz1mjiW1dZDUBSaSziU6"
+uri = "file://playr1-ios-update.zip"
+type = "unspecified"
+title = "PLAYR1 iOS Update Package"
