@@ -1,6 +1,7 @@
 import { db } from "./db";
 import { drills, benchmarks, evaluationAttributes, shotLocations, shotTypes, userProfiles, metricTemplates, drillMetrics, teamClubs, leagues } from "@shared/schema";
-import { seedPrograms } from "./seed-programs";
+// seedPrograms disabled — generic programs removed per user request
+// import { seedPrograms } from "./seed-programs";
 import { users } from "@shared/models/auth";
 import { eq, sql, notInArray, isNull } from "drizzle-orm";
 import { readFileSync } from "fs";
@@ -480,7 +481,7 @@ export async function seedDatabase() {
       console.log("Leagues already exist, skipping seed");
     }
 
-    await seedPrograms();
+    // seedPrograms() removed — generic default programs deleted from DB
 
     console.log("Database seeding complete!");
 
