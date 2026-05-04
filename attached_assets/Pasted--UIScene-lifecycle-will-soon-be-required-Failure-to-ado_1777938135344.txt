@@ -1,0 +1,31 @@
+`UIScene` lifecycle will soon be required. Failure to adopt will result in an assert in the future.
+Failed to resolve host network app id to config: bundleID: com.apple.WebKit.Networking instance ID: Optional([_EXExtensionInstanceIdentifier: 5E189EAB-39E1-41F5-B5F3-E7A188E9334C])
+⚡️  Loading app at https://PLAYR1Basketball.replit.app...
+Failed to send CA Event for app launch measurements for ca_event_type: 0 event_name: com.apple.app_launch_measurement.FirstFramePresentationMetric
+-[RTIInputSystemClient remoteTextInputSessionWithID:performInputOperation:]  Can only perform input operation for an active session. sessionID = A79E95E7-ADD4-4393-8C49-823911E2DDEA
+-[RTIInputSystemClient remoteTextInputSessionWithID:textSuggestionsChanged:]  Can only set suggestions for an active session. sessionID = A79E95E7-ADD4-4393-8C49-823911E2DDEA
+Failed to send CA Event for app launch measurements for ca_event_type: 1 event_name: com.apple.app_launch_measurement.ExtendedLaunchMetrics
+SplashScreen.hideSplash: SplashScreen was automatically hidden after default timeout. You should call `SplashScreen.hide()` as soon as your web app is loaded (or increase the timeout). Read more at https://capacitorjs.com/docs/apis/splash-screen#hiding-the-splash-screen
+-[RTIInputSystemClient remoteTextInputSessionWithID:performInputOperation:]  Can only perform input operation for an active session. sessionID = 10371818-DEEB-4E6F-A7B7-8FA4795E6A52
+-[RTIInputSystemClient remoteTextInputSessionWithID:performInputOperation:]  Can only perform input operation for an active session. sessionID = 10371818-DEEB-4E6F-A7B7-8FA4795E6A52
+-[RTIInputSystemClient remoteTextInputSessionWithID:performInputOperation:]  Can only perform input operation for an active session. sessionID = 10371818-DEEB-4E6F-A7B7-8FA4795E6A52
+-[RTIInputSystemClient remoteTextInputSessionWithID:textSuggestionsChanged:]  Can only set suggestions for an active session. sessionID = 10371818-DEEB-4E6F-A7B7-8FA4795E6A52
+WebContent[85231] 0x102022408 - [webPageID=8] WebPage::runJavaScriptInFrameInScriptWorld: Request to run JavaScript failed with error TypeError: undefined is not an object (evaluating 'window.Capacitor.triggerEvent')
+⚡️  JS Eval error A JavaScript exception occurred
+WebContent[85231] 0x10504c150 - [sessionID=1] WebProcess::updateFreezerStatus: isFreezable=1, error=-1
+-[RTIInputSystemClient remoteTextInputSessionWithID:textSuggestionsChanged:]  Can only set suggestions for an active session. sessionID = 10371818-DEEB-4E6F-A7B7-8FA4795E6A52
+-[RTIInputSystemClient remoteTextInputSessionWithID:performInputOperation:]  Can only perform input operation for an active session. sessionID = 10371818-DEEB-4E6F-A7B7-8FA4795E6A52
+-[RTIInputSystemClient remoteTextInputSessionWithID:performInputOperation:]  Can only perform input operation for an active session. sessionID = 10371818-DEEB-4E6F-A7B7-8FA4795E6A52
+WebContent[85231] 0x102022408 - [webPageID=8] WebPage::runJavaScriptInFrameInScriptWorld: Request to run JavaScript failed with error TypeError: undefined is not an object (evaluating 'window.Capacitor.triggerEvent')
+⚡️  JS Eval error A JavaScript exception occurred
+-[RTIInputSystemClient remoteTextInputSessionWithID:performInputOperation:]  Can only perform input operation for an active session. sessionID = EC065EE5-EE47-4199-9D53-3A32BF3445BD
+-[RTIInputSystemClient remoteTextInputSessionWithID:performInputOperation:]  Can only perform input operation for an active session. sessionID = EC065EE5-EE47-4199-9D53-3A32BF3445BD
+-[RTIInputSystemClient remoteTextInputSessionWithID:performInputOperation:]  Can only perform input operation for an active session. sessionID = EC065EE5-EE47-4199-9D53-3A32BF3445BD
+-[RTIInputSystemClient remoteTextInputSessionWithID:textSuggestionsChanged:]  Can only set suggestions for an active session. sessionID = EC065EE5-EE47-4199-9D53-3A32BF3445BD
+WebContent[85231] 0x102022408 - [webPageID=8] WebPage::runJavaScriptInFrameInScriptWorld: Request to run JavaScript failed with error TypeError: undefined is not an object (evaluating 'window.Capacitor.triggerEvent')
+⚡️  JS Eval error A JavaScript exception occurred
+WebContent[85231] 0x10504c150 - [sessionID=1] WebProcess::updateFreezerStatus: isFreezable=1, error=-1
+[C:3] Error received: Connection interrupted.
+[C:3-3] Error received: Connection interrupted.
+-[RTIInputSystemClient _configureConnection:withMachName:]_block_invoke  Client connection to service was interrupted: <NSXPCConnection: 0x600003328a00> connection to service with pid -1 named (null)
+-[RTIInputSystemClient remoteTextInputSessionWithID:textSuggestionsChanged:]  Can only set suggestions for an active session. sessionID = EC065EE5-EE47-4199-9D53-3A32BF3445BD
