@@ -28,7 +28,9 @@ import {
 } from "lucide-react";
 import { AssignProgramDialog } from "@/components/assign-program-dialog";
 import { useUpload } from "@/hooks/use-upload";
-import type { Program, ProgramItem, Drill } from "@shared/schema";
+import { nativeFetch } from "@/lib/queryClient";
+import type { Program, ProgramItem, Drill, DrillMetric, MetricTemplate } from "@shared/schema";
+type DrillMetricWithTemplate = DrillMetric & { template: MetricTemplate };
 import {
   PROGRAM_CADENCES, PROGRAM_VISIBILITY,
 } from "@shared/schema";
@@ -568,7 +570,7 @@ function DayBlock({
   );
 }
 
-type WorkoutDrillRow = { drillId: string; sets?: number; reps?: number; durationSec?: number };
+type WorkoutDrillRow = { drillId: string; sets?: number; reps?: number; durationSec?: number; metricTargets?: Record<string, number> };
 
 function ItemEditorDialog({
   open, onClose, programId, day, nextOrder, existingItem, onSaved,
@@ -587,6 +589,18 @@ function ItemEditorDialog({
   const [estMin, setEstMin] = useState<number>(existingItem?.estimatedMinutes ?? 15);
   const [watchUrl, setWatchUrl] = useState(existingItem?.watchUrl ?? "");
   const isNonWorkout = !!existingItem && existingItem.itemType !== "workout";
+  const [drillMetricsCache, setDrillMetricsCache] = useState<Record<string, DrillMetricWithTemplate[]>>({});
+
+  const fetchAndCacheDrillMetrics = async (drillId: string) => {
+    if (drillMetricsCache[drillId]) return;
+    try {
+      const res = await nativeFetch(`/api/drills/${drillId}/metrics`);
+      if (res.ok) {
+        const metrics: DrillMetricWithTemplate[] = await res.json();
+        setDrillMetricsCache(prev => ({ ...prev, [drillId]: metrics }));
+      }
+    } catch {}
+  };
   const initialRows = (): WorkoutDrillRow[] => {
     if (existingItem?.workoutSpec && existingItem.workoutSpec.length > 0) {
       return existingItem.workoutSpec.map((w) => ({
@@ -610,8 +624,11 @@ function ItemEditorDialog({
       setNotes(existingItem?.notes ?? "");
       setEstMin(existingItem?.estimatedMinutes ?? 15);
       setWatchUrl(existingItem?.watchUrl ?? "");
-      setRows(initialRows());
+      const initialRowsVal = initialRows();
+      setRows(initialRowsVal);
       setDrillSearch("");
+      // Pre-fetch metrics for all existing drills
+      initialRowsVal.forEach(r => fetchAndCacheDrillMetrics(r.drillId));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, existingItem]);
@@ -638,8 +655,9 @@ function ItemEditorDialog({
 
   const addDrill = (id: string) => {
     if (!id) return;
-    setRows((prev) => [...prev, { drillId: id, sets: 3, reps: 10 }]);
+    setRows((prev) => [...prev, { drillId: id }]);
     setDrillSearch("");
+    fetchAndCacheDrillMetrics(id);
   };
   const removeRow = (idx: number) => setRows((p) => p.filter((_, i) => i !== idx));
   const moveRow = (idx: number, dir: -1 | 1) => {
@@ -764,54 +782,65 @@ function ItemEditorDialog({
                   return (
                     <li
                       key={`${row.drillId}-${idx}`}
-                      className="flex items-center gap-2 p-2 rounded border bg-background"
+                      className="rounded border bg-background p-2 space-y-2"
                       data-testid={`row-workout-drill-${idx}`}
                     >
-                      <Badge variant="outline" className="text-xs">{idx + 1}</Badge>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium truncate text-sm" data-testid={`text-workout-drill-title-${idx}`}>
-                          {d?.title ?? "(drill removed)"}
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs shrink-0">{idx + 1}</Badge>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium truncate text-sm" data-testid={`text-workout-drill-title-${idx}`}>
+                            {d?.title ?? "(drill removed)"}
+                          </div>
+                          {d?.category && (
+                            <div className="text-[11px] text-muted-foreground capitalize">{d.category}</div>
+                          )}
                         </div>
-                        {d?.category && (
-                          <div className="text-[11px] text-muted-foreground capitalize">{d.category}</div>
-                        )}
+                        <Button size="icon" variant="ghost" onClick={() => moveRow(idx, -1)} disabled={idx === 0}
+                          data-testid={`button-row-up-${idx}`}>
+                          <ArrowUp className="w-4 h-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" onClick={() => moveRow(idx, 1)} disabled={idx === rows.length - 1}
+                          data-testid={`button-row-down-${idx}`}>
+                          <ArrowDown className="w-4 h-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="text-destructive" onClick={() => removeRow(idx)}
+                          data-testid={`button-row-remove-${idx}`}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
-                      <Input
-                        type="number" min={0}
-                        value={row.sets ?? ""}
-                        placeholder="sets"
-                        className="w-16 h-8 text-xs"
-                        onChange={(e) => updateRow(idx, { sets: e.target.value === "" ? undefined : Number(e.target.value) })}
-                        data-testid={`input-row-sets-${idx}`}
-                      />
-                      <Input
-                        type="number" min={0}
-                        value={row.reps ?? ""}
-                        placeholder="reps"
-                        className="w-16 h-8 text-xs"
-                        onChange={(e) => updateRow(idx, { reps: e.target.value === "" ? undefined : Number(e.target.value) })}
-                        data-testid={`input-row-reps-${idx}`}
-                      />
-                      <Input
-                        type="number" min={0}
-                        value={row.durationSec ?? ""}
-                        placeholder="sec"
-                        className="w-16 h-8 text-xs"
-                        onChange={(e) => updateRow(idx, { durationSec: e.target.value === "" ? undefined : Number(e.target.value) })}
-                        data-testid={`input-row-dur-${idx}`}
-                      />
-                      <Button size="icon" variant="ghost" onClick={() => moveRow(idx, -1)} disabled={idx === 0}
-                        data-testid={`button-row-up-${idx}`}>
-                        <ArrowUp className="w-4 h-4" />
-                      </Button>
-                      <Button size="icon" variant="ghost" onClick={() => moveRow(idx, 1)} disabled={idx === rows.length - 1}
-                        data-testid={`button-row-down-${idx}`}>
-                        <ArrowDown className="w-4 h-4" />
-                      </Button>
-                      <Button size="icon" variant="ghost" className="text-destructive" onClick={() => removeRow(idx)}
-                        data-testid={`button-row-remove-${idx}`}>
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                      {(() => {
+                        const metrics = (drillMetricsCache[row.drillId] ?? []).filter(m => m.template.type !== 'calculated');
+                        if (metrics.length === 0) return (
+                          <p className="text-[11px] text-muted-foreground italic pl-1">
+                            Metrics will load when you open the training log for this drill.
+                          </p>
+                        );
+                        return (
+                          <div className="flex flex-wrap gap-2 pl-1">
+                            {metrics.map(dm => (
+                              <div key={dm.metricTemplateId} className="flex flex-col gap-0.5">
+                                <span className="text-[10px] text-muted-foreground uppercase tracking-wide">{dm.template.label} (target)</span>
+                                <Input
+                                  type="number" min={0}
+                                  value={row.metricTargets?.[dm.metricTemplateId] ?? ""}
+                                  placeholder="—"
+                                  className="w-20 h-8 text-xs"
+                                  onChange={(e) => {
+                                    const val = e.target.value === "" ? undefined : Number(e.target.value);
+                                    updateRow(idx, {
+                                      metricTargets: {
+                                        ...(row.metricTargets ?? {}),
+                                        [dm.metricTemplateId]: val as number,
+                                      },
+                                    });
+                                  }}
+                                  data-testid={`input-row-metric-${idx}-${dm.metricTemplateId}`}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
                     </li>
                   );
                 })}

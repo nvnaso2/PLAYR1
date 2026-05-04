@@ -1064,8 +1064,14 @@ export default function TrainingLogPage() {
     }
     (async () => {
       const entriesArrays = await Promise.all(
-        ids.map((id) => {
-          const drill = allDrills.find((d) => d.id === id);
+        ids.map(async (id) => {
+          let drill: Drill | undefined = allDrills.find((d) => d.id === id);
+          if (!drill) {
+            try {
+              const res = await nativeFetch(`/api/drills/${id}`);
+              if (res.ok) drill = await res.json();
+            } catch {}
+          }
           return drill ? buildDrillEntries(id, drill) : Promise.resolve([]);
         })
       );
