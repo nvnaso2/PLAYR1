@@ -8,6 +8,7 @@ const config: CapacitorConfig = {
   webDir: 'dist/public',
   server: {
     androidScheme: 'https',
+    iosScheme: 'https',
     url: 'https://PLAYR1Basketball.replit.app',
   },
   plugins: {
