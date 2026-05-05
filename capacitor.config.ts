@@ -1,11 +1,15 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
+const isProd = process.env.NODE_ENV === 'production';
+
 const config: CapacitorConfig = {
   appId: 'com.playr1.training',
   appName: 'PLAYR1 Training',
   webDir: 'dist/public',
   server: {
     androidScheme: 'https',
+    iosScheme: 'https',
+    url: 'https://PLAYR1Basketball.replit.app',
   },
   plugins: {
     SplashScreen: {

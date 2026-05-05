@@ -72,3 +72,9 @@ id = "yvOTdxGgEqt3ZnxqJHr12"
 uri = "file://playr1-config-fix.zip"
 type = "unspecified"
 title = "capacitor.config.json (corrected — no server.url)"
+
+[[outputs]]
+id = "wmk2e0MkGT5drInQFF4yr"
+uri = "file://playr1-ios-original.zip"
+type = "unspecified"
+title = "PLAYR1 iOS — Original Working Config"
