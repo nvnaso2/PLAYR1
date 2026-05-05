@@ -71,7 +71,7 @@ title = "PLAYR1 iOS Update (Local Bundle - No Safari Redirect)"
 id = "yvOTdxGgEqt3ZnxqJHr12"
 uri = "file://playr1-config-fix.zip"
 type = "unspecified"
-title = "capacitor.config.json (corrected — no server.url)"
+title = "capacitor.config.json (iosScheme removed)"
 
 [[outputs]]
 id = "wmk2e0MkGT5drInQFF4yr"
