@@ -90,3 +90,9 @@ id = "c5j9Pi4bvjJE1O1W1AOw3"
 uri = "file://playr1-ios-source.zip"
 type = "unspecified"
 title = "PLAYR1 iOS Source Files (AppDelegate + Config)"
+
+[[outputs]]
+id = "fLeoYjlkkdqyc0lwFeH4O"
+uri = "file://playr1-local-bundle.zip"
+type = "unspecified"
+title = "PLAYR1 Local Bundle (no server.url — fixes Safari redirect)"
