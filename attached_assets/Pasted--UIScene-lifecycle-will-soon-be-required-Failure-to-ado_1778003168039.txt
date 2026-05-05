@@ -1,0 +1,16 @@
+`UIScene` lifecycle will soon be required. Failure to adopt will result in an assert in the future.
+Failed to resolve host network app id to config: bundleID: com.apple.WebKit.Networking instance ID: Optional([_EXExtensionInstanceIdentifier: F7B8EB41-FBC6-45FD-8E29-429882517188])
+⚡️  Loading app at https://PLAYR1Basketball.replit.app...
+-[RTIInputSystemClient remoteTextInputSessionWithID:performInputOperation:]  Can only perform input operation for an active session. sessionID = CD790E9B-F0C5-4928-BE78-05A59686AAE8
+-[RTIInputSystemClient remoteTextInputSessionWithID:textSuggestionsChanged:]  Can only set suggestions for an active session. sessionID = CD790E9B-F0C5-4928-BE78-05A59686AAE8
+Networking process (0x11e064100) took 2.504186 seconds to launch
+-[RTIInputSystemClient remoteTextInputSessionWithID:performInputOperation:]  Can only perform input operation for an active session. sessionID = CD790E9B-F0C5-4928-BE78-05A59686AAE8
+-[RTIInputSystemClient remoteTextInputSessionWithID:textSuggestionsChanged:]  Can only set suggestions for an active session. sessionID = CD790E9B-F0C5-4928-BE78-05A59686AAE8
+SplashScreen.hideSplash: SplashScreen was automatically hidden after default timeout. You should call `SplashScreen.hide()` as soon as your web app is loaded (or increase the timeout). Read more at https://capacitorjs.com/docs/apis/splash-screen#hiding-the-splash-screen
+-[RTIInputSystemClient remoteTextInputSessionWithID:performInputOperation:]  Can only perform input operation for an active session. sessionID = CDBCD237-B777-420E-A7B3-7B8E4F83D7A9
+-[RTIInputSystemClient remoteTextInputSessionWithID:performInputOperation:]  Can only perform input operation for an active session. sessionID = CDBCD237-B777-420E-A7B3-7B8E4F83D7A9
+-[RTIInputSystemClient remoteTextInputSessionWithID:performInputOperation:]  Can only perform input operation for an active session. sessionID = CDBCD237-B777-420E-A7B3-7B8E4F83D7A9
+-[RTIInputSystemClient remoteTextInputSessionWithID:textSuggestionsChanged:]  Can only set suggestions for an active session. sessionID = CDBCD237-B777-420E-A7B3-7B8E4F83D7A9
+WebContent[99411] 0x103819008 - [webPageID=8] WebPage::runJavaScriptInFrameInScriptWorld: Request to run JavaScript failed with error TypeError: undefined is not an object (evaluating 'window.Capacitor.triggerEvent')
+⚡️  JS Eval error A JavaScript exception occurred
+WebContent[99411] 0x10604c150 - [sessionID=1] WebProcess::updateFreezerStatus: isFreezable=1, error=-1
