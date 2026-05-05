@@ -78,3 +78,9 @@ id = "wmk2e0MkGT5drInQFF4yr"
 uri = "file://playr1-ios-original.zip"
 type = "unspecified"
 title = "PLAYR1 iOS — Original Working Config"
+
+[[outputs]]
+id = "SydZUVoFAancGQRnnwCNd"
+uri = "file://playr1-public.zip"
+type = "unspecified"
+title = "PLAYR1 public/ folder"
