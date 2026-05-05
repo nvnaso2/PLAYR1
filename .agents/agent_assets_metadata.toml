@@ -84,3 +84,9 @@ id = "SydZUVoFAancGQRnnwCNd"
 uri = "file://playr1-public.zip"
 type = "unspecified"
 title = "PLAYR1 public/ folder"
+
+[[outputs]]
+id = "c5j9Pi4bvjJE1O1W1AOw3"
+uri = "file://playr1-ios-source.zip"
+type = "unspecified"
+title = "PLAYR1 iOS Source Files (AppDelegate + Config)"
