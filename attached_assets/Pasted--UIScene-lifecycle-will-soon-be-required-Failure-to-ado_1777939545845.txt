@@ -1,0 +1,17 @@
+`UIScene` lifecycle will soon be required. Failure to adopt will result in an assert in the future.
+Failed to resolve host network app id to config: bundleID: com.apple.WebKit.Networking instance ID: Optional([_EXExtensionInstanceIdentifier: 7E4F8FFC-170E-4E40-B101-DBA877FECE7B])
+⚡️  Loading app at https://PLAYR1Basketball.replit.app...
+Failed to send CA Event for app launch measurements for ca_event_type: 0 event_name: com.apple.app_launch_measurement.FirstFramePresentationMetric
+-[RTIInputSystemClient remoteTextInputSessionWithID:performInputOperation:]  Can only perform input operation for an active session. sessionID = D67FE30A-97D2-4D8D-97F2-2FC6FBF3C974
+-[RTIInputSystemClient remoteTextInputSessionWithID:textSuggestionsChanged:]  Can only set suggestions for an active session. sessionID = D67FE30A-97D2-4D8D-97F2-2FC6FBF3C974
+-[RTIInputSystemClient remoteTextInputSessionWithID:performInputOperation:]  Can only perform input operation for an active session. sessionID = D67FE30A-97D2-4D8D-97F2-2FC6FBF3C974
+-[RTIInputSystemClient remoteTextInputSessionWithID:textSuggestionsChanged:]  Can only set suggestions for an active session. sessionID = D67FE30A-97D2-4D8D-97F2-2FC6FBF3C974
+Failed to send CA Event for app launch measurements for ca_event_type: 1 event_name: com.apple.app_launch_measurement.ExtendedLaunchMetrics
+Result accumulator timeout: 0.250000, exceeded.
+SplashScreen.hideSplash: SplashScreen was automatically hidden after default timeout. You should call `SplashScreen.hide()` as soon as your web app is loaded (or increase the timeout). Read more at https://capacitorjs.com/docs/apis/splash-screen#hiding-the-splash-screen
+-[RTIInputSystemClient remoteTextInputSessionWithID:performInputOperation:]  Can only perform input operation for an active session. sessionID = F910A6E2-019D-4475-951E-6CAE5AA00E8E
+-[RTIInputSystemClient remoteTextInputSessionWithID:performInputOperation:]  Can only perform input operation for an active session. sessionID = F910A6E2-019D-4475-951E-6CAE5AA00E8E
+-[RTIInputSystemClient remoteTextInputSessionWithID:textSuggestionsChanged:]  Can only set suggestions for an active session. sessionID = F910A6E2-019D-4475-951E-6CAE5AA00E8E
+WebContent[89345] 0x101012408 - [webPageID=8] WebPage::runJavaScriptInFrameInScriptWorld: Request to run JavaScript failed with error TypeError: undefined is not an object (evaluating 'window.Capacitor.triggerEvent')
+⚡️  JS Eval error A JavaScript exception occurred
+WebContent[89345] 0x10504c150 - [sessionID=1] WebProcess::updateFreezerStatus: isFreezable=1, error=-1
