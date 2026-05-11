@@ -102,3 +102,9 @@ id = "MPPyZhlV4-gFvnxIEGdLt"
 uri = "file://playr1-final-fix.zip"
 type = "unspecified"
 title = "PLAYR1 Final Fix — Safari Redirect Resolved"
+
+[[outputs]]
+id = "YE4NYAgzy65me4PnZZH6s"
+uri = "file://playr1-viewcontroller-fix.zip"
+type = "unspecified"
+title = "PLAYR1 ViewController Fix — Permanent Code-Level Safari Block"
