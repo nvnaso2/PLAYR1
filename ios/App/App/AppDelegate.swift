@@ -7,9 +7,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        window = UIWindow(frame: UIScreen.main.bounds)
-        window?.rootViewController = ViewController()
-        window?.makeKeyAndVisible()
+        // Override point for customization after application launch.
         return true
     }
 
@@ -36,12 +34,4 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return ApplicationDelegateProxy.shared.application(application, continue: userActivity, restorationHandler: restorationHandler)
     }
 
-}
-
-class ViewController: CAPBridgeViewController {
-    override open func instanceDescriptor() -> InstanceDescriptor {
-        let descriptor = super.instanceDescriptor()
-        descriptor.serverURL = nil
-        return descriptor
-    }
 }

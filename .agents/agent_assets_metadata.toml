@@ -126,3 +126,9 @@ id = "gHg5YE3XZIltHIo8-Vnsc"
 uri = "file://playr1-complete-fix.zip"
 type = "unspecified"
 title = "PLAYR1 Complete Fix — ALL Files Included"
+
+[[outputs]]
+id = "mMYFtCwTqUh8HHsnUa2nE"
+uri = "file://playr1-revert-fix.zip"
+type = "unspecified"
+title = "PLAYR1 Reverted — Correct Safari Fix Only"
