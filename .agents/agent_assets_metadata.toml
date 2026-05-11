@@ -114,3 +114,9 @@ id = "WXUSKN7sLJazQEy1x_Yz3"
 uri = "file://playr1-appdelegate-fix.zip"
 type = "unspecified"
 title = "PLAYR1 Fix — AppDelegate with ViewController (no new files needed)"
+
+[[outputs]]
+id = "GbXUGFgP6OwpLJfaUwsCi"
+uri = "file://playr1-programmatic-fix.zip"
+type = "unspecified"
+title = "PLAYR1 Programmatic Fix — No Storyboard Class Issues"
