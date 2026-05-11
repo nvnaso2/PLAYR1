@@ -120,3 +120,9 @@ id = "GbXUGFgP6OwpLJfaUwsCi"
 uri = "file://playr1-programmatic-fix.zip"
 type = "unspecified"
 title = "PLAYR1 Programmatic Fix — No Storyboard Class Issues"
+
+[[outputs]]
+id = "gHg5YE3XZIltHIo8-Vnsc"
+uri = "file://playr1-complete-fix.zip"
+type = "unspecified"
+title = "PLAYR1 Complete Fix — ALL Files Included"
