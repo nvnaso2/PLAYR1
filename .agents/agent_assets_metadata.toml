@@ -108,3 +108,9 @@ id = "YE4NYAgzy65me4PnZZH6s"
 uri = "file://playr1-viewcontroller-fix.zip"
 type = "unspecified"
 title = "PLAYR1 ViewController Fix — Permanent Code-Level Safari Block"
+
+[[outputs]]
+id = "WXUSKN7sLJazQEy1x_Yz3"
+uri = "file://playr1-appdelegate-fix.zip"
+type = "unspecified"
+title = "PLAYR1 Fix — AppDelegate with ViewController (no new files needed)"
