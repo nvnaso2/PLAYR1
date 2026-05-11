@@ -96,3 +96,9 @@ id = "fLeoYjlkkdqyc0lwFeH4O"
 uri = "file://playr1-local-bundle.zip"
 type = "unspecified"
 title = "PLAYR1 Local Bundle (no server.url — fixes Safari redirect)"
+
+[[outputs]]
+id = "MPPyZhlV4-gFvnxIEGdLt"
+uri = "file://playr1-final-fix.zip"
+type = "unspecified"
+title = "PLAYR1 Final Fix — Safari Redirect Resolved"
