@@ -1,0 +1,15 @@
+`UIScene` lifecycle will soon be required. Failure to adopt will result in an assert in the future.
+Failed to resolve host network app id to config: bundleID: com.apple.WebKit.Networking instance ID: Optional([_EXExtensionInstanceIdentifier: 937DAD80-B57D-40FA-A43A-76E58C8C77E2])
+⚡️  Loading app at https://PLAYR1Basketball.replit.app...
+-[RTIInputSystemClient remoteTextInputSessionWithID:performInputOperation:]  Can only perform input operation for an active session. sessionID = 06E2BF9D-DC2E-4003-9C58-C30D9B1DD4C7
+-[RTIInputSystemClient remoteTextInputSessionWithID:textSuggestionsChanged:]  Can only set suggestions for an active session. sessionID = 06E2BF9D-DC2E-4003-9C58-C30D9B1DD4C7
+-[RTIInputSystemClient remoteTextInputSessionWithID:performInputOperation:]  Can only perform input operation for an active session. sessionID = 06E2BF9D-DC2E-4003-9C58-C30D9B1DD4C7
+-[RTIInputSystemClient remoteTextInputSessionWithID:textSuggestionsChanged:]  Can only set suggestions for an active session. sessionID = 06E2BF9D-DC2E-4003-9C58-C30D9B1DD4C7
+Result accumulator timeout: 0.250000, exceeded.
+SplashScreen.hideSplash: SplashScreen was automatically hidden after default timeout. You should call `SplashScreen.hide()` as soon as your web app is loaded (or increase the timeout). Read more at https://capacitorjs.com/docs/apis/splash-screen#hiding-the-splash-screen
+-[RTIInputSystemClient remoteTextInputSessionWithID:performInputOperation:]  Can only perform input operation for an active session. sessionID = 2B9CBEC9-9125-479B-8A64-3AE5448E76C2
+-[RTIInputSystemClient remoteTextInputSessionWithID:performInputOperation:]  Can only perform input operation for an active session. sessionID = 2B9CBEC9-9125-479B-8A64-3AE5448E76C2
+-[RTIInputSystemClient remoteTextInputSessionWithID:textSuggestionsChanged:]  Can only set suggestions for an active session. sessionID = 2B9CBEC9-9125-479B-8A64-3AE5448E76C2
+WebContent[30438] 0x106809808 - [webPageID=8] WebPage::runJavaScriptInFrameInScriptWorld: Request to run JavaScript failed with error TypeError: undefined is not an object (evaluating 'window.Capacitor.triggerEvent')
+⚡️  JS Eval error A JavaScript exception occurred
+WebContent[30438] 0x11904c150 - [sessionID=1] WebProcess::updateFreezerStatus: isFreezable=1, error=-1
