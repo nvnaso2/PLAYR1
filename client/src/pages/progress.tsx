@@ -524,30 +524,33 @@ export default function ProgressPage() {
                   <AreaChart data={chartData} margin={{ left: -10, right: 8, top: 4, bottom: 0 }}>
                     <defs>
                       <linearGradient id="metricGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={activeDef.color} stopOpacity={0.35} />
+                        <stop offset="5%" stopColor={activeDef.color} stopOpacity={0.4} />
                         <stop offset="95%" stopColor={activeDef.color} stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
                     <XAxis
                       dataKey="label"
-                      tick={{ fontSize: 10 }}
-                      className="fill-muted-foreground"
-                      interval="preserveStartEnd"
+                      tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                      axisLine={false}
+                      tickLine={false}
+                      interval={timePeriod === "monthly" ? Math.floor((chartData?.length ?? 1) / 5) : "preserveStartEnd"}
                     />
                     <YAxis
-                      tick={{ fontSize: 10 }}
-                      className="fill-muted-foreground"
+                      tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                      axisLine={false}
+                      tickLine={false}
                       width={activeDef.isPercent ? 36 : 30}
                       tickFormatter={activeDef.isPercent ? (v) => `${v}%` : undefined}
                     />
                     <Tooltip
                       contentStyle={{
                         backgroundColor: "hsl(var(--card))",
-                        borderColor: "hsl(var(--border))",
+                        borderColor: `${activeDef.color}4d`,
                         borderRadius: "8px",
                         fontSize: 12,
                         color: "hsl(var(--foreground))",
+                        boxShadow: `0 4px 20px ${activeDef.color}26`,
                       }}
                       labelStyle={{ color: "hsl(var(--foreground))", fontWeight: 600, marginBottom: 4 }}
                       formatter={(v: number) => [activeDef.formatTooltip(v), activeDef.label]}
@@ -558,8 +561,8 @@ export default function ProgressPage() {
                       stroke={activeDef.color}
                       strokeWidth={2.5}
                       fill="url(#metricGrad)"
-                      dot={{ r: 3, fill: activeDef.color, strokeWidth: 0 }}
-                      activeDot={{ r: 5, fill: activeDef.color }}
+                      dot={timePeriod === "monthly" ? false : { r: 3, fill: activeDef.color, strokeWidth: 0 }}
+                      activeDot={{ r: 5, fill: activeDef.color, strokeWidth: 2, stroke: 'rgba(255,255,255,0.3)' }}
                     />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -588,27 +591,36 @@ export default function ProgressPage() {
                 {weeklyStats && weeklyStats.length > 0 ? (
                   <ResponsiveContainer width="100%" height={200}>
                     <BarChart data={weeklyStats} margin={{ left: -10, right: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                      <defs>
+                        <linearGradient id="activityBarGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#f97316" stopOpacity={0.95} />
+                          <stop offset="100%" stopColor="#f97316" stopOpacity={0.4} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
                       <XAxis
                         dataKey="date"
-                        className="text-xs fill-muted-foreground"
-                        tick={{ fontSize: 12 }}
+                        tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                        axisLine={false}
+                        tickLine={false}
                         tickFormatter={(value) => {
                           const date = new Date(value);
                           return date.toLocaleDateString('en-US', { weekday: 'short' });
                         }}
                       />
-                      <YAxis className="text-xs fill-muted-foreground" tick={{ fontSize: 12 }} width={30} />
+                      <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} width={28} />
                       <Tooltip
                         contentStyle={{
                           backgroundColor: 'hsl(var(--card))',
-                          borderColor: 'hsl(var(--border))',
+                          borderColor: 'rgba(249,115,22,0.3)',
                           borderRadius: '8px',
-                          color: 'hsl(var(--foreground))'
+                          color: 'hsl(var(--foreground))',
+                          boxShadow: '0 4px 20px rgba(249,115,22,0.15)',
                         }}
-                        labelStyle={{ color: 'hsl(var(--foreground))' }}
+                        labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 600 }}
+                        cursor={{ fill: 'rgba(249,115,22,0.06)' }}
                       />
-                      <Bar dataKey="minutes" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Minutes" />
+                      <Bar dataKey="minutes" fill="url(#activityBarGrad)" radius={[5, 5, 0, 0]} name="Minutes" />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
@@ -634,25 +646,35 @@ export default function ProgressPage() {
                 {pieData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={200}>
                     <PieChart>
+                      <defs>
+                        {pieData.map((entry, index) => (
+                          <radialGradient key={index} id={`pieGrad-${index}`} cx="50%" cy="50%" r="50%">
+                            <stop offset="0%" stopColor={entry.color} stopOpacity={1} />
+                            <stop offset="100%" stopColor={entry.color} stopOpacity={0.7} />
+                          </radialGradient>
+                        ))}
+                      </defs>
                       <Pie
                         data={pieData}
                         cx="50%"
                         cy="50%"
-                        innerRadius="40%"
-                        outerRadius="70%"
-                        paddingAngle={2}
+                        innerRadius="42%"
+                        outerRadius="72%"
+                        paddingAngle={3}
                         dataKey="value"
+                        strokeWidth={0}
                       >
                         {pieData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
+                          <Cell key={`cell-${index}`} fill={`url(#pieGrad-${index})`} />
                         ))}
                       </Pie>
                       <Tooltip
                         contentStyle={{
                           backgroundColor: 'hsl(var(--card))',
-                          borderColor: 'hsl(var(--border))',
+                          borderColor: 'rgba(249,115,22,0.3)',
                           borderRadius: '8px',
-                          color: 'hsl(var(--foreground))'
+                          color: 'hsl(var(--foreground))',
+                          boxShadow: '0 4px 20px rgba(249,115,22,0.15)',
                         }}
                         labelStyle={{ color: 'hsl(var(--foreground))' }}
                         formatter={(value: number) => [`${value} min`, '']}
@@ -670,9 +692,9 @@ export default function ProgressPage() {
                       <Badge
                         key={index}
                         variant="outline"
-                        className="flex items-center gap-1.5 text-foreground font-medium"
+                        className="flex items-center gap-1.5 text-foreground font-medium border-white/10"
                       >
-                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
+                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color, boxShadow: `0 0 6px ${entry.color}80` }} />
                         {entry.name}
                       </Badge>
                     ))}

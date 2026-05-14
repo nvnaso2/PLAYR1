@@ -1144,21 +1144,20 @@ export class DatabaseStorage implements IStorage {
         });
       }
     } else if (period === "monthly") {
-      // Current month week-by-week
+      // Current month day-by-day
       const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
       let cursor = new Date(firstDay);
+      cursor.setHours(0, 0, 0, 0);
       while (cursor <= now) {
-        const weekStart = new Date(cursor);
-        const weekEnd = new Date(cursor);
-        weekEnd.setDate(cursor.getDate() + 6);
-        weekEnd.setHours(23, 59, 59, 999);
-        if (weekEnd > now) weekEnd.setTime(now.getTime());
+        const dayStart = new Date(cursor);
+        const dayEnd = new Date(cursor);
+        dayEnd.setHours(23, 59, 59, 999);
         buckets.push({
-          key: weekStart.toISOString().split("T")[0],
-          label: weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-          start: weekStart, end: weekEnd,
+          key: dayStart.toISOString().split("T")[0],
+          label: dayStart.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+          start: dayStart, end: dayEnd,
         });
-        cursor.setDate(cursor.getDate() + 7);
+        cursor.setDate(cursor.getDate() + 1);
       }
     } else {
       // Annual: each month Jan–Dec of current year
@@ -1208,9 +1207,7 @@ export class DatabaseStorage implements IStorage {
       if (period === "weekly" || period === "daily") {
         bucketKey = logDate.toISOString().split("T")[0];
       } else if (period === "monthly") {
-        for (const b of buckets) {
-          if (logDate >= b.start && logDate <= b.end) { bucketKey = b.key; break; }
-        }
+        bucketKey = logDate.toISOString().split("T")[0];
       } else {
         bucketKey = `${logDate.getFullYear()}-${String(logDate.getMonth() + 1).padStart(2, "0")}`;
       }

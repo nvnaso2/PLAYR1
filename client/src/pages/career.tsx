@@ -4684,14 +4684,22 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
             </Button>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex justify-center">
-              <div className="w-24 h-24 rounded-full bg-primary flex items-center justify-center text-4xl font-bold text-primary-foreground">
-                {overallRating != null ? overallRating : "—"}
+            <div className="flex flex-col items-center gap-2">
+              <div className="relative">
+                <div
+                  className="w-28 h-28 rounded-full flex items-center justify-center text-4xl font-bold text-white"
+                  style={{
+                    background: 'linear-gradient(135deg, #f97316 0%, #c2410c 100%)',
+                    boxShadow: '0 0 0 4px rgba(249,115,22,0.2), 0 0 30px rgba(249,115,22,0.35), 0 0 60px rgba(249,115,22,0.1)',
+                  }}
+                >
+                  {overallRating != null ? overallRating : "—"}
+                </div>
               </div>
+              <p className="text-sm text-muted-foreground">
+                {overallRating != null ? "Overall Rating" : "Not yet rated"}
+              </p>
             </div>
-            <p className="text-center text-sm text-muted-foreground">
-              {overallRating != null ? "Overall Rating" : "Not yet rated"}
-            </p>
             
             <div className="space-y-2 pt-4">
               {profile.positions && profile.positions.length > 0 && (
@@ -4788,14 +4796,23 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
               { key: "skillBasketballIQ", label: "Basketball IQ", value: profile.skillBasketballIQ },
               { key: "skillAthletics", label: "Athletics", value: profile.skillAthletics }
             ].map(skill => (
-              <div key={skill.key} className="space-y-1">
+              <div key={skill.key} className="space-y-1.5">
                 <div className="flex justify-between text-sm">
                   <span>{skill.label}</span>
-                  <span className={`font-medium ${skill.value == null ? "text-muted-foreground italic" : ""}`}>
-                    {skill.value != null ? skill.value : "Not rated"}
+                  <span className={`font-semibold tabular-nums ${skill.value == null ? "text-muted-foreground italic" : "text-primary"}`}>
+                    {skill.value != null ? skill.value : "—"}
                   </span>
                 </div>
-                <Progress value={skill.value != null ? skill.value * 10 : 0} className="h-2" />
+                <div className="relative h-2 rounded-full bg-white/10 overflow-hidden">
+                  <div
+                    className="absolute inset-y-0 left-0 rounded-full transition-all duration-500"
+                    style={{
+                      width: `${skill.value != null ? skill.value * 10 : 0}%`,
+                      background: 'linear-gradient(90deg, #c2410c, #f97316, #fb923c)',
+                      boxShadow: skill.value != null && skill.value > 0 ? '0 0 8px rgba(249,115,22,0.55)' : 'none',
+                    }}
+                  />
+                </div>
               </div>
             ))}
             {profile.focusSkill && (
