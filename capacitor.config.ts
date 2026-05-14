@@ -4,11 +4,6 @@ const config: CapacitorConfig = {
   appId: 'com.playr1.training',
   appName: 'PLAYR1 Training',
   webDir: 'dist/public',
-  server: {
-    androidScheme: 'https',
-    url: 'https://PLAYR1Basketball.replit.app',
-    cleartext: true,
-  },
   plugins: {
     SplashScreen: {
       launchShowDuration: 500,
