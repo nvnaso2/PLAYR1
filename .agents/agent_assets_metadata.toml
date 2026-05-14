@@ -144,3 +144,9 @@ id = "ymw2QIqaf5H0Df4GjU51i"
 uri = "file://playr1-ios-fix.zip"
 type = "unspecified"
 title = "PLAYR1 iOS Fix Package"
+
+[[outputs]]
+id = "6Bw0Sf3fwv9jQnEGf4xZO"
+uri = "file://playr1-launch-fix.zip"
+type = "unspecified"
+title = "PLAYR1 Launch Screen Fix"
