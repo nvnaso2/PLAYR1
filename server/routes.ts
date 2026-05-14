@@ -7793,6 +7793,55 @@ export async function registerRoutes(
     }
   });
 
+  // ── AI shooting video frame analysis ─────────────────────────────────────
+  app.post("/api/ai/analyze-shooting-frames", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { frames } = req.body;
+      if (!Array.isArray(frames) || frames.length === 0) {
+        return res.status(400).json({ message: "No frames provided" });
+      }
+      const OpenAI = (await import("openai")).default;
+      const openai = new OpenAI();
+
+      // Sample up to 12 frames to keep token usage manageable
+      const sampled: string[] = frames.length <= 12 ? frames : frames.filter((_: any, i: number) => i % Math.ceil(frames.length / 12) === 0).slice(0, 12);
+
+      const content: any[] = [
+        {
+          type: "text",
+          text: `You are a basketball shot tracker analyzing frames from a shooting workout video.
+Look at these frames and identify all basketball shot attempts you can detect.
+For each shot, determine:
+1. The court zone (use ONLY these names): top-of-key, wing-left, wing-right, corner-left, corner-right, free-throw, elbow-left, elbow-right, mid-range-left, mid-range-right, floater, restricted-area, paint-left, paint-right
+2. Whether the shot was made or missed
+
+Return JSON exactly like this (no markdown):
+{"zones":[{"location":"zone-name","made":0,"missed":0}]}
+Only include zones where you saw actual shots. If you cannot reliably detect shots, return {"zones":[]}.`,
+        },
+        ...sampled.map((f: string) => ({
+          type: "image_url",
+          image_url: { url: `data:image/jpeg;base64,${f}`, detail: "low" },
+        })),
+      ];
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [{ role: "user", content }],
+        max_tokens: 400,
+      });
+
+      const raw = response.choices[0]?.message?.content || '{"zones":[]}';
+      const cleaned = raw.replace(/```json|```/g, "").trim();
+      let parsed: any;
+      try { parsed = JSON.parse(cleaned); } catch { parsed = { zones: [] }; }
+      res.json(parsed);
+    } catch (err) {
+      console.error("Error analyzing shooting frames:", err);
+      res.json({ zones: [] });
+    }
+  });
+
   // Dismiss an insight
   app.delete("/api/admin/analytics/insights/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {

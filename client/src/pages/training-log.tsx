@@ -44,7 +44,6 @@ import {
   Clock, 
   Target, 
   Calendar,
-  Circle,
   ClipboardList,
   Play,
   Save,
@@ -80,6 +79,7 @@ import type { Drill, TrainingLog, DrillMetric, MetricTemplate, Workout, WorkoutD
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, insertDrillSchema, insertWorkoutSchema } from "@shared/schema";
 import { HalfCourtMap, ShotChartButton, type ShotData } from "@/components/half-court-map";
 import { FreeShotMode, LiveShotCounter } from "@/components/free-shoot-mode";
+import { RecordShootingMode } from "@/components/record-shooting-mode";
 import { WorkoutShareDialog } from "@/components/workout-share-dialog";
 import { DrillTimer } from "@/components/drill-timer";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -265,6 +265,7 @@ export default function TrainingLogPage() {
   
   // Free Shoot / Live Record state
   const [showFreeShotMode, setShowFreeShotMode] = useState(false);
+  const [showRecordShootingMode, setShowRecordShootingMode] = useState(false);
   const [recordingEntryIndex, setRecordingEntryIndex] = useState<number | null>(null);
 
   // View/Edit log state
@@ -1939,17 +1940,32 @@ export default function TrainingLogPage() {
                   </CardContent>
                 </Card>
                 <Card
-                  className="cursor-pointer hover-elevate col-span-2 sm:col-span-1 border-orange-500/30"
+                  className="cursor-pointer hover-elevate"
                   onClick={() => setShowFreeShotMode(true)}
                   data-testid="action-free-shoot"
                 >
                   <CardContent className="p-4 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-orange-500/15 flex items-center justify-center shrink-0">
-                      <Circle className="w-5 h-5 text-orange-400" fill="currentColor" />
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                      <Target className="w-5 h-5 text-primary" />
                     </div>
                     <div>
                       <h3 className="font-semibold text-sm">Free Shoot</h3>
                       <p className="text-xs text-muted-foreground">Tap zones to log shots live</p>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card
+                  className="cursor-pointer hover-elevate"
+                  onClick={() => setShowRecordShootingMode(true)}
+                  data-testid="action-record-shooting"
+                >
+                  <CardContent className="p-4 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
+                      <Video className="w-5 h-5 text-blue-400" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-sm">Record Shooting</h3>
+                      <p className="text-xs text-muted-foreground">Film &amp; AI tracks your shots</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -3781,6 +3797,13 @@ export default function TrainingLogPage() {
       {showFreeShotMode && (
         <FreeShotMode
           onClose={() => setShowFreeShotMode(false)}
+        />
+      )}
+
+      {/* Record Shooting Mode — full-screen overlay */}
+      {showRecordShootingMode && (
+        <RecordShootingMode
+          onClose={() => setShowRecordShootingMode(false)}
         />
       )}
 
