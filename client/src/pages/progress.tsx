@@ -669,15 +669,23 @@ export default function ProgressPage() {
                         ))}
                       </Pie>
                       <Tooltip
-                        contentStyle={{
-                          backgroundColor: 'hsl(var(--card))',
-                          borderColor: 'rgba(249,115,22,0.3)',
-                          borderRadius: '8px',
-                          color: 'hsl(var(--foreground))',
-                          boxShadow: '0 4px 20px rgba(249,115,22,0.15)',
+                        content={({ active, payload }) => {
+                          if (!active || !payload?.length) return null;
+                          const entry = payload[0];
+                          const color = (entry.payload as { color: string }).color;
+                          return (
+                            <div style={{
+                              backgroundColor: 'hsl(var(--card))',
+                              border: `1px solid ${color}66`,
+                              borderRadius: '8px',
+                              padding: '8px 12px',
+                              boxShadow: `0 4px 20px ${color}33`,
+                            }}>
+                              <p style={{ color, fontWeight: 700, margin: 0, fontSize: 13 }}>{entry.name}</p>
+                              <p style={{ color, margin: 0, fontSize: 12, opacity: 0.9 }}>{entry.value} min</p>
+                            </div>
+                          );
                         }}
-                        labelStyle={{ color: 'hsl(var(--foreground))' }}
-                        formatter={(value: number) => [`${value} min`, '']}
                       />
                     </PieChart>
                   </ResponsiveContainer>
