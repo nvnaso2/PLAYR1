@@ -138,3 +138,9 @@ id = "SUk0ScC49v0vz0Ck_hCGa"
 uri = "file://playr1-config-only.zip"
 type = "unspecified"
 title = "PLAYR1 — Config Fix Only (1 file)"
+
+[[outputs]]
+id = "ymw2QIqaf5H0Df4GjU51i"
+uri = "file://playr1-ios-fix.zip"
+type = "unspecified"
+title = "PLAYR1 iOS Fix Package"
