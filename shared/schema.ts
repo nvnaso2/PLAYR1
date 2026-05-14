@@ -523,7 +523,7 @@ export const workoutDrills = pgTable("workout_drills", {
 export const trainingLogs = pgTable("training_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull(),
-  drillId: varchar("drill_id").notNull(),
+  drillId: varchar("drill_id"), // nullable for free-shoot sessions
   workoutSessionId: varchar("workout_session_id"), // groups logs from same workout session
   duration: integer("duration").notNull(), // in minutes
   reps: integer("reps"),

@@ -44,6 +44,7 @@ import {
   Clock, 
   Target, 
   Calendar,
+  Circle,
   ClipboardList,
   Play,
   Save,
@@ -78,6 +79,7 @@ import { format } from "date-fns";
 import type { Drill, TrainingLog, DrillMetric, MetricTemplate, Workout, WorkoutDrill, ShotLocationDB, Challenge, UserChallenge } from "@shared/schema";
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, insertDrillSchema, insertWorkoutSchema } from "@shared/schema";
 import { HalfCourtMap, ShotChartButton, type ShotData } from "@/components/half-court-map";
+import { FreeShotMode, LiveShotCounter } from "@/components/free-shoot-mode";
 import { WorkoutShareDialog } from "@/components/workout-share-dialog";
 import { DrillTimer } from "@/components/drill-timer";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -261,6 +263,10 @@ export default function TrainingLogPage() {
     setDrillStartTimes(prev => prev[drillId] ? prev : { ...prev, [drillId]: Date.now() });
   };
   
+  // Free Shoot / Live Record state
+  const [showFreeShotMode, setShowFreeShotMode] = useState(false);
+  const [recordingEntryIndex, setRecordingEntryIndex] = useState<number | null>(null);
+
   // View/Edit log state
   const [viewEditLogId, setViewEditLogId] = useState<string | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -1307,8 +1313,8 @@ export default function TrainingLogPage() {
           notes: entry.notes || undefined,
           workoutSessionId: workoutEntries.length > 1 ? sessionId : undefined,
           shotLocation: isShootingDrill ? entry.shotLocation : undefined,
-          shotsAttempted: derivedAttempted,
-          shotsMade: derivedMade,
+          shotsAttempted: derivedAttempted ?? entry.shotsAttempted,
+          shotsMade: derivedMade ?? entry.shotsMade,
           metrics,
         };
       });
@@ -1929,6 +1935,21 @@ export default function TrainingLogPage() {
                     <div>
                       <h3 className="font-semibold text-sm">Create a Challenge</h3>
                       <p className="text-xs text-muted-foreground">Set goals & track</p>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card
+                  className="cursor-pointer hover-elevate col-span-2 sm:col-span-1 border-orange-500/30"
+                  onClick={() => setShowFreeShotMode(true)}
+                  data-testid="action-free-shoot"
+                >
+                  <CardContent className="p-4 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-orange-500/15 flex items-center justify-center shrink-0">
+                      <Circle className="w-5 h-5 text-orange-400" fill="currentColor" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-sm">Free Shoot</h3>
+                      <p className="text-xs text-muted-foreground">Tap zones to log shots live</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -2832,6 +2853,18 @@ export default function TrainingLogPage() {
                             >
                               <Info className="w-4 h-4" />
                             </Button>
+                            {isShootingDrill && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-1 text-red-400 border-red-500/40 hover:bg-red-500/10 hover:text-red-400"
+                                onClick={() => setRecordingEntryIndex(group.entries[0].index)}
+                                data-testid={`button-record-${drillId}`}
+                              >
+                                <Circle className="w-2.5 h-2.5" fill="currentColor" />
+                                Record
+                              </Button>
+                            )}
                           <Button 
                             variant="outline" 
                             size="sm"
@@ -3743,6 +3776,46 @@ export default function TrainingLogPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Free Shoot Mode — full-screen overlay */}
+      {showFreeShotMode && (
+        <FreeShotMode
+          onClose={() => setShowFreeShotMode(false)}
+        />
+      )}
+
+      {/* Live Shot Counter — for recording shots on a specific drill entry */}
+      {recordingEntryIndex !== null && workoutEntries[recordingEntryIndex] && (
+        <LiveShotCounter
+          location={workoutEntries[recordingEntryIndex].shotLocation || "free-throw"}
+          locationLabel={
+            workoutEntries[recordingEntryIndex].shotLocation
+              ? getLocationLabel(workoutEntries[recordingEntryIndex].shotLocation!)
+              : "Select Location First"
+          }
+          initialMade={workoutEntries[recordingEntryIndex].shotsMade || 0}
+          initialAttempted={workoutEntries[recordingEntryIndex].shotsAttempted || 0}
+          onDone={(made, attempted) => {
+            const idx = recordingEntryIndex;
+            // Update entry fields directly
+            updateEntry(idx, "shotsMade", made);
+            updateEntry(idx, "shotsAttempted", attempted);
+            // Also update metric inputs if drill has matching metrics
+            const entry = workoutEntries[idx];
+            entry.drillMetrics.forEach(dm => {
+              const n = dm.template.name.toLowerCase();
+              const l = dm.template.label.toLowerCase();
+              if (n.includes("attempt") || l.includes("attempt")) {
+                updateMetricValue(idx, dm.metricTemplateId, attempted);
+              } else if ((n.includes("made") || l.includes("made")) && !n.includes("attempt")) {
+                updateMetricValue(idx, dm.metricTemplateId, made);
+              }
+            });
+            setRecordingEntryIndex(null);
+          }}
+          onClose={() => setRecordingEntryIndex(null)}
+        />
+      )}
     </div>
   );
 }
