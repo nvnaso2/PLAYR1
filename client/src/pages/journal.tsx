@@ -35,7 +35,6 @@ import {
   Sparkles,
   Trash2,
   Loader2,
-  Lock,
   MessageSquareQuote,
 } from "lucide-react";
 import type { JournalEntry } from "@shared/schema";
@@ -136,12 +135,10 @@ function EntryFlow({
   type,
   onBack,
   onComplete,
-  isPro,
 }: {
   type: JournalType;
   onBack: () => void;
   onComplete: () => void;
-  isPro: boolean;
 }) {
   const { toast } = useToast();
   const [step, setStep] = useState<"prompts" | "ai-coach">("prompts");
@@ -164,13 +161,8 @@ function EntryFlow({
     onSuccess: async (data: JournalEntry) => {
       queryClient.invalidateQueries({ queryKey: ["/api/journal"] });
       setCreatedEntryId(data.id);
-      if (isPro) {
-        setStep("ai-coach");
-        aiCoachMutation.mutate(data.id);
-      } else {
-        toast({ title: "Reflection saved", description: "Keep showing up." });
-        onComplete();
-      }
+      setStep("ai-coach");
+      aiCoachMutation.mutate(data.id);
     },
     onError: () => toast({ title: "Failed to save", variant: "destructive" }),
   });
@@ -262,20 +254,12 @@ function EntryFlow({
               {createMutation.isPending ? (
                 <><Loader2 className="w-4 h-4 animate-spin mr-2" />Saving...</>
               ) : (
-                isPro ? "Save & Get Coaching" : "Save Reflection"
+                "Save & Get Coaching"
               )}
             </Button>
           )}
         </div>
 
-        {!isPro && (
-          <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border border-border">
-            <Lock className="w-4 h-4 text-muted-foreground shrink-0" />
-            <p className="text-xs text-muted-foreground">
-              <strong className="text-foreground">AI Coach</strong> — personalized feedback after each reflection — is a Pro feature.
-            </p>
-          </div>
-        )}
       </div>
     );
   }
@@ -538,12 +522,6 @@ export default function JournalPage() {
     queryKey: ["/api/journal"],
   });
 
-  const { data: profile } = useQuery<any>({
-    queryKey: ["/api/profile"],
-  });
-
-  const isPro = profile?.subscriptionPlan === "pro";
-
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => apiRequest("DELETE", `/api/journal/${id}`),
     onSuccess: () => {
@@ -582,20 +560,6 @@ export default function JournalPage() {
         </Button>
       </div>
 
-      {/* Pro banner for free users */}
-      {!isPro && (
-        <Card className="border-primary/30 bg-primary/5">
-          <CardContent className="p-4 flex items-start gap-3">
-            <Sparkles className="w-5 h-5 text-primary mt-0.5 shrink-0" />
-            <div>
-              <p className="text-sm font-medium">Upgrade to Pro for AI Coach feedback</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                After each reflection, your AI coach analyzes your answers alongside your training data and gives personalized coaching. You're currently on the free tier.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Entries */}
       {isLoading ? (
@@ -648,7 +612,6 @@ export default function JournalPage() {
               type={selectedType}
               onBack={() => setSelectedType(null)}
               onComplete={handleComplete}
-              isPro={isPro}
             />
           )}
         </DialogContent>

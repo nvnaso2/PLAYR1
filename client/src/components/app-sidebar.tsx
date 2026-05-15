@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useAdmin } from "@/hooks/use-admin";
 import { useRole } from "@/hooks/use-role";
-import { useFeatureFlag } from "@/hooks/use-feature-flag";
+
 import { preloadRoute, preloadCommonPages } from "@/lib/pageLoaders";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -146,9 +146,7 @@ export function AppSidebar() {
 
   const isTrainerView = activeView === "trainer";
   const navItems = isTrainerView ? trainerNavItems : playerNavItems;
-  const journalFlagEnabled = useFeatureFlag("reflection-journal");
-  const isPro = profile?.subscriptionPlan === "pro";
-  const journalEnabled = journalFlagEnabled || isPro;
+  const journalEnabled = true;
 
   // Warm up the most common page chunks in the background after the sidebar
   // mounts, so the first tap on a tab feels instant.

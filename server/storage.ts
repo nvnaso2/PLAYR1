@@ -73,7 +73,7 @@ import {
   journalEntries, type JournalEntry, type InsertJournalEntry,
 } from "@shared/schema";
 import { users, type User } from "@shared/models/auth";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { eq, desc, asc, and, or, sql, gte, isNotNull, isNull, inArray } from "drizzle-orm";
 import { generateAiDrill } from "./ai-drill-generator";
 
@@ -6117,42 +6117,104 @@ export class DatabaseStorage implements IStorage {
   }
 
   // ===== JOURNAL =====
+
+  private mapJournalRow(row: any): JournalEntry {
+    return {
+      id: row.id,
+      userId: row.user_id,
+      type: row.type,
+      trainingLogId: row.training_log_id ?? null,
+      mood: row.mood ?? null,
+      responses: row.responses ?? [],
+      aiCoachFeedback: row.ai_coach_feedback ?? null,
+      aiFollowUpQuestion: row.ai_follow_up_question ?? null,
+      aiFollowUpAnswer: row.ai_follow_up_answer ?? null,
+      createdAt: row.created_at ?? null,
+    };
+  }
+
   async getJournalEntries(userId: string): Promise<JournalEntry[]> {
-    return db
-      .select()
-      .from(journalEntries)
-      .where(eq(journalEntries.userId, userId))
-      .orderBy(desc(journalEntries.createdAt));
+    const result = await pool.query(
+      `SELECT * FROM journal_entries WHERE user_id = $1 ORDER BY created_at DESC`,
+      [String(userId)]
+    );
+    console.log("[storage.getJournalEntries] userId:", userId, "rows:", result.rowCount);
+    return result.rows.map((r) => this.mapJournalRow(r));
   }
 
   async getJournalEntry(id: string, userId: string): Promise<JournalEntry | undefined> {
-    const [entry] = await db
-      .select()
-      .from(journalEntries)
-      .where(and(eq(journalEntries.id, id), eq(journalEntries.userId, userId)));
-    return entry;
+    const result = await pool.query(
+      `SELECT * FROM journal_entries WHERE id = $1 AND user_id = $2 LIMIT 1`,
+      [id, String(userId)]
+    );
+    console.log("[storage.getJournalEntry] id:", id, "userId:", userId, "found:", result.rowCount);
+    return result.rows[0] ? this.mapJournalRow(result.rows[0]) : undefined;
   }
 
   async createJournalEntry(entry: InsertJournalEntry): Promise<JournalEntry> {
-    const [created] = await db.insert(journalEntries).values(entry).returning();
-    return created;
+    const result = await pool.query(
+      `INSERT INTO journal_entries (user_id, type, training_log_id, mood, responses, ai_coach_feedback, ai_follow_up_question, ai_follow_up_answer)
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8)
+       RETURNING *`,
+      [
+        String(entry.userId),
+        entry.type ?? "open",
+        entry.trainingLogId ?? null,
+        entry.mood ?? null,
+        JSON.stringify(entry.responses ?? []),
+        entry.aiCoachFeedback ?? null,
+        entry.aiFollowUpQuestion ?? null,
+        entry.aiFollowUpAnswer ?? null,
+      ]
+    );
+    console.log("[storage.createJournalEntry] created id:", result.rows[0]?.id);
+    return this.mapJournalRow(result.rows[0]);
   }
 
   async updateJournalEntry(id: string, userId: string, updates: Partial<JournalEntry>): Promise<JournalEntry | undefined> {
-    const [updated] = await db
-      .update(journalEntries)
-      .set(updates)
-      .where(and(eq(journalEntries.id, id), eq(journalEntries.userId, userId)))
-      .returning();
-    return updated;
+    const setParts: string[] = [];
+    const values: any[] = [];
+    let idx = 1;
+
+    if (updates.aiCoachFeedback !== undefined) {
+      setParts.push(`ai_coach_feedback = $${idx++}`);
+      values.push(updates.aiCoachFeedback);
+    }
+    if (updates.aiFollowUpQuestion !== undefined) {
+      setParts.push(`ai_follow_up_question = $${idx++}`);
+      values.push(updates.aiFollowUpQuestion);
+    }
+    if (updates.aiFollowUpAnswer !== undefined) {
+      setParts.push(`ai_follow_up_answer = $${idx++}`);
+      values.push(updates.aiFollowUpAnswer);
+    }
+    if (updates.mood !== undefined) {
+      setParts.push(`mood = $${idx++}`);
+      values.push(updates.mood);
+    }
+    if (updates.responses !== undefined) {
+      setParts.push(`responses = $${idx++}::jsonb`);
+      values.push(JSON.stringify(updates.responses));
+    }
+
+    if (setParts.length === 0) {
+      return this.getJournalEntry(id, userId);
+    }
+
+    values.push(id, String(userId));
+    const result = await pool.query(
+      `UPDATE journal_entries SET ${setParts.join(", ")} WHERE id = $${idx} AND user_id = $${idx + 1} RETURNING *`,
+      values
+    );
+    return result.rows[0] ? this.mapJournalRow(result.rows[0]) : undefined;
   }
 
   async deleteJournalEntry(id: string, userId: string): Promise<boolean> {
-    const result = await db
-      .delete(journalEntries)
-      .where(and(eq(journalEntries.id, id), eq(journalEntries.userId, userId)))
-      .returning();
-    return result.length > 0;
+    const result = await pool.query(
+      `DELETE FROM journal_entries WHERE id = $1 AND user_id = $2 RETURNING id`,
+      [id, String(userId)]
+    );
+    return (result.rowCount ?? 0) > 0;
   }
 }
 

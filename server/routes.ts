@@ -8745,7 +8745,10 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
   // List user's journal entries
   app.get("/api/journal", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const entries = await storage.getJournalEntries(req.user.claims.sub);
+      const uid = req.user.claims.sub;
+      console.log("[journal] GET /api/journal userId:", uid);
+      const entries = await storage.getJournalEntries(uid);
+      console.log("[journal] entries found:", entries.length);
       res.json(entries);
     } catch (err) {
       console.error("Error fetching journal entries:", err);
@@ -8829,14 +8832,10 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
   app.post("/api/journal/:id/ai-coach", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
+      console.log("[ai-coach] userId:", userId, "entryId:", req.params.id);
       const entry = await storage.getJournalEntry(req.params.id, userId);
+      console.log("[ai-coach] entry found:", !!entry);
       if (!entry) return res.status(404).json({ message: "Entry not found" });
-
-      // Check pro subscription
-      const profile = await storage.getUserProfile(userId);
-      if (profile?.subscriptionPlan !== "pro") {
-        return res.status(403).json({ message: "AI Coach is a Pro feature" });
-      }
 
       // Pull recent training data for context
       const recentLogs = await storage.getTrainingLogs(userId);
