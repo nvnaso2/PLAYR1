@@ -154,23 +154,43 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider style={style as React.CSSProperties}>
-      <div className="flex h-screen w-full safe-area-inset">
-        <AppSidebar />
-        <SidebarInset className="flex-1 flex flex-col overflow-hidden">
-          <header className={`relative flex items-center justify-between border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40 safe-area-top overflow-hidden ${isNative ? 'px-3 py-1' : 'p-3'}`}>
-            <SidebarTrigger data-testid="button-sidebar-toggle" />
-            <div className="absolute inset-x-0 bottom-0 top-[env(safe-area-inset-top)] flex items-center justify-center pointer-events-none">
-              <Playr1Logo className={isNative ? 'h-8 w-auto' : 'h-32 w-auto'} />
+      {/* Desktop: dark backdrop + centered phone frame. Native/Mobile: full screen. */}
+      <div className={`phone-app flex h-screen w-full ${isNative ? '' : 'md:bg-zinc-950 md:items-center md:justify-center'}`}>
+
+        {/* Phone frame shell — full screen on native/mobile, iPhone mockup on desktop */}
+        <div className={`
+          relative flex flex-col bg-background overflow-hidden
+          h-screen w-full
+          ${isNative ? '' : 'md:h-[852px] md:w-[393px] md:rounded-[47px] md:border-[9px] md:border-zinc-800 md:shadow-[0_50px_120px_-20px_rgba(0,0,0,0.95)]'}
+        `}>
+          {/* Dynamic island (desktop phone frame only) */}
+          {!isNative && (
+            <div className="hidden md:flex absolute top-3 left-1/2 -translate-x-1/2 z-50 w-[120px] h-[34px] bg-zinc-950 rounded-full items-center justify-center pointer-events-none" />
+          )}
+
+          {/* AppSidebar — always mounted so useSidebar()/sheet works, hidden inline via .phone-app CSS */}
+          <AppSidebar />
+
+          {/* Header */}
+          <header className={`relative flex items-center justify-between border-b border-zinc-800/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40 overflow-hidden ${isNative ? 'px-3 py-1 safe-area-top' : 'md:pt-12 px-4 py-3'}`}>
+            {/* Sidebar trigger — only for desktop non-phone mode (never shown in phone frame, but kept for useSidebar context) */}
+            <SidebarTrigger data-testid="button-sidebar-toggle" className="opacity-0 pointer-events-none absolute" />
+            <div className="flex-1 flex items-center justify-center">
+              <Playr1Logo className="h-8 w-auto" />
             </div>
             <ThemeToggle />
           </header>
-          <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
+
+          {/* Main scrollable content */}
+          <main className="flex-1 overflow-y-auto pb-20">
             <Suspense fallback={<PageLoader />}>
               {children}
             </Suspense>
           </main>
+
+          {/* Bottom tab bar */}
           <BottomTabBar />
-        </SidebarInset>
+        </div>
       </div>
     </SidebarProvider>
   );

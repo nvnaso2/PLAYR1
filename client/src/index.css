@@ -298,3 +298,12 @@ html.plt-capacitor textarea {
     font-size: 16px !important;
   }
 }
+
+/* Phone app shell — hide inline sidebar panel, always use sheet drawer */
+.phone-app [data-sidebar="sidebar"] {
+  display: none !important;
+}
+.phone-app [data-slot="sidebar-inset"] {
+  margin-left: 0 !important;
+  width: 100% !important;
+}

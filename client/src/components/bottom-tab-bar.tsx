@@ -57,7 +57,7 @@ export function BottomTabBar() {
   return (
     <nav
       data-testid="bottom-tab-bar"
-      className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-end justify-around bg-zinc-950/95 backdrop-blur-xl border-t border-zinc-800/80"
+      className="fixed bottom-0 left-0 right-0 z-50 flex items-end justify-around bg-zinc-950/98 backdrop-blur-xl border-t border-zinc-800/80"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 8px)" }}
     >
       {tabs.map((tab) => {
