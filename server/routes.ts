@@ -8783,7 +8783,7 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
       });
       const parsed = schema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: "Invalid input", errors: parsed.error.flatten() });
-      const entry = await storage.createJournalEntry({ ...parsed.data, userId: req.userId! });
+      const entry = await storage.createJournalEntry({ ...parsed.data, userId: req.user.claims.sub });
       res.json(entry);
     } catch (err) {
       console.error("Error creating journal entry:", err);

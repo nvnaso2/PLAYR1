@@ -144,8 +144,7 @@ function EntryFlow({
   isPro: boolean;
 }) {
   const { toast } = useToast();
-  const [step, setStep] = useState<"mood" | "prompts" | "ai-coach">("mood");
-  const [mood, setMood] = useState<number | null>(null);
+  const [step, setStep] = useState<"prompts" | "ai-coach">("prompts");
   const [prompts] = useState(() => selectPrompts(type));
   const [currentPrompt, setCurrentPrompt] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -159,7 +158,7 @@ function EntryFlow({
         question: p.question,
         answer: answers[p.id] || "",
       }));
-      return await apiRequest("POST", "/api/journal", { type, mood, responses });
+      return await apiRequest("POST", "/api/journal", { type, responses });
     },
     onSuccess: async (data: JournalEntry) => {
       queryClient.invalidateQueries({ queryKey: ["/api/journal"] });
@@ -232,7 +231,7 @@ function EntryFlow({
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <button
-            onClick={() => currentPrompt === 0 ? setStep("mood") : setCurrentPrompt((p) => p - 1)}
+            onClick={() => currentPrompt === 0 ? onBack() : setCurrentPrompt((p) => p - 1)}
             className="text-muted-foreground hover:text-foreground transition-colors"
           >
             <ChevronLeft className="w-5 h-5" />
