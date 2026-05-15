@@ -7,16 +7,11 @@ import { getObjectUrl } from "@/lib/queryClient";
 import { preloadRoute } from "@/lib/pageLoaders";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import {
-  Sheet,
-  SheetContent,
-} from "@/components/ui/sheet";
-import {
-  Play, ClipboardList, BarChart3, Video, User, LogOut,
-  Dumbbell, Shield, Sparkles, Trophy, Users, FileText,
-  MessageCircle, Mail, UserPlus, CalendarDays, ClipboardCheck,
-  Eye, Megaphone, BookOpen, Zap, Fingerprint, Star,
-  BotMessageSquare, Settings, UserCircle, ChevronRight,
+  Play, Video, LogOut, Megaphone, Settings, ChevronRight,
+  BarChart3, Users, Dumbbell, MessageCircle, CalendarDays,
+  ClipboardCheck, UserCircle, Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -25,53 +20,22 @@ interface MoreDrawerProps {
   onClose: () => void;
 }
 
-const playerSections = [
-  {
-    label: "Training",
-    items: [
-      { title: "Training Log", url: "/log", icon: ClipboardList },
-      { title: "Programs", url: "/programs", icon: Sparkles },
-      { title: "Drill Library", url: "/drills", icon: Play },
-      { title: "Events", url: "/events", icon: Trophy },
-      { title: "Game Day", url: "/game-day", icon: Zap },
-    ],
-  },
-  {
-    label: "My Career",
-    items: [
-      { title: "Career Stats", url: "/career", icon: BarChart3 },
-      { title: "My Identity", url: "/my-archetype", icon: Star },
-      { title: "Archetypes", url: "/archetypes", icon: Fingerprint },
-      { title: "My Goal", url: "/my-goal", icon: BotMessageSquare },
-      { title: "Journal", url: "/journal", icon: BookOpen },
-    ],
-  },
-  {
-    label: "Connect",
-    items: [
-      { title: "My Trainer", url: "/my-trainer", icon: UserPlus },
-      { title: "Teams & Leagues", url: "/teams", icon: Shield },
-      { title: "My Film Room", url: "/videos", icon: Video },
-      { title: "Feedback", url: "/feedback", icon: Megaphone },
-    ],
-  },
+const playerMenuItems = [
+  { title: "Dashboard", url: "/dashboard", icon: BarChart3 },
+  { title: "Drill Library", url: "/drills", icon: Play },
+  { title: "My Film Room", url: "/videos", icon: Video },
+  { title: "Feedback", url: "/feedback", icon: Megaphone },
 ];
 
-const trainerSections = [
-  {
-    label: "Trainer",
-    items: [
-      { title: "Dashboard", url: "/trainer", icon: BarChart3 },
-      { title: "Player Management", url: "/trainer/roster", icon: Users },
-      { title: "Drills & Workouts", url: "/trainer/drills", icon: Dumbbell },
-      { title: "Chat", url: "/trainer/chat", icon: MessageCircle },
-      { title: "Schedule", url: "/trainer/schedule", icon: CalendarDays },
-      { title: "Programs", url: "/trainer/programs", icon: Sparkles },
-      { title: "Evaluations", url: "/trainer/evaluations", icon: ClipboardCheck },
-      { title: "Trainer Profile", url: "/trainer/profile", icon: UserCircle },
-      { title: "Feedback", url: "/feedback", icon: Megaphone },
-    ],
-  },
+const trainerMenuItems = [
+  { title: "Dashboard", url: "/trainer", icon: BarChart3 },
+  { title: "Player Management", url: "/trainer/roster", icon: Users },
+  { title: "Drills & Workouts", url: "/trainer/drills", icon: Dumbbell },
+  { title: "Chat", url: "/trainer/chat", icon: MessageCircle },
+  { title: "Schedule", url: "/trainer/schedule", icon: CalendarDays },
+  { title: "Evaluations", url: "/trainer/evaluations", icon: ClipboardCheck },
+  { title: "Trainer Profile", url: "/trainer/profile", icon: UserCircle },
+  { title: "Feedback", url: "/feedback", icon: Megaphone },
 ];
 
 export function MoreDrawer({ open, onClose }: MoreDrawerProps) {
@@ -99,13 +63,15 @@ export function MoreDrawer({ open, onClose }: MoreDrawerProps) {
     return "U";
   };
 
-  const displayName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.email || "User";
-  const avatarSrc = (profile?.profileImageUrl || user?.profileImageUrl)
-    ? getObjectUrl(profile?.profileImageUrl || user?.profileImageUrl!)
-    : undefined;
+  const displayName =
+    [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.email || "User";
+  const avatarSrc =
+    profile?.profileImageUrl || user?.profileImageUrl
+      ? getObjectUrl(profile?.profileImageUrl || user?.profileImageUrl!)
+      : undefined;
 
   const isTrainer = activeView === "trainer";
-  const sections = isTrainer ? trainerSections : playerSections;
+  const menuItems = isTrainer ? trainerMenuItems : playerMenuItems;
 
   const isActive = (url: string) => {
     if (url === "/trainer" && location === "/trainer") return true;
@@ -122,7 +88,7 @@ export function MoreDrawer({ open, onClose }: MoreDrawerProps) {
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
       <SheetContent
         side="bottom"
-        className="h-[88%] p-0 rounded-t-[28px] bg-zinc-950 border-zinc-800 flex flex-col"
+        className="h-[80%] p-0 rounded-t-[28px] bg-zinc-950 border-zinc-800 flex flex-col"
         data-testid="more-drawer"
       >
         {/* Drag handle */}
@@ -181,57 +147,60 @@ export function MoreDrawer({ open, onClose }: MoreDrawerProps) {
 
         <div className="h-px bg-zinc-800 shrink-0 mx-5" />
 
-        {/* Nav sections */}
-        <div className="flex-1 overflow-y-auto px-5 py-3 space-y-5">
-          {sections.map((section) => (
-            <div key={section.label}>
-              <p className="text-zinc-600 text-xs font-semibold uppercase tracking-wider mb-2">
-                {section.label}
-              </p>
-              <div className="space-y-0.5">
-                {section.items.map((item) => {
-                  const active = isActive(item.url);
-                  const Icon = item.icon;
-                  return (
-                    <button
-                      key={item.url}
-                      data-testid={`link-more-${item.title.toLowerCase().replace(/\s/g, "-")}`}
-                      onClick={() => go(item.url)}
-                      onMouseEnter={() => preloadRoute(item.url)}
-                      className={cn(
-                        "flex items-center gap-3 w-full px-3 py-2.5 rounded-xl transition-colors text-left",
-                        active
-                          ? "bg-orange-500/10 text-orange-400"
-                          : "text-zinc-300 hover:bg-zinc-900 hover:text-white"
-                      )}
-                    >
-                      <Icon className={cn("w-4 h-4 shrink-0", active ? "text-orange-400" : "text-zinc-500")} />
-                      <span className="text-sm font-medium flex-1">{item.title}</span>
-                      {item.title === "Player Management" && pendingCount > 0 && (
-                        <Badge variant="destructive" className="text-[10px] h-4 px-1.5">
-                          {pendingCount}
-                        </Badge>
-                      )}
-                      {active && <div className="w-1.5 h-1.5 rounded-full bg-orange-400" />}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
+        {/* Nav items */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-1">
+          <p className="text-zinc-600 text-xs font-semibold uppercase tracking-wider mb-3">
+            {isTrainer ? "Trainer" : "Menu"}
+          </p>
+          {menuItems.map((item) => {
+            const active = isActive(item.url);
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.url}
+                data-testid={`link-more-${item.title.toLowerCase().replace(/\s/g, "-")}`}
+                onClick={() => go(item.url)}
+                onMouseEnter={() => preloadRoute(item.url)}
+                className={cn(
+                  "flex items-center gap-3 w-full px-3 py-3 rounded-xl transition-colors text-left",
+                  active
+                    ? "bg-orange-500/10 text-orange-400"
+                    : "text-zinc-300 hover:bg-zinc-900 hover:text-white"
+                )}
+              >
+                <Icon
+                  className={cn(
+                    "w-4 h-4 shrink-0",
+                    active ? "text-orange-400" : "text-zinc-500"
+                  )}
+                />
+                <span className="text-sm font-medium flex-1">{item.title}</span>
+                {item.title === "Player Management" && pendingCount > 0 && (
+                  <Badge variant="destructive" className="text-[10px] h-4 px-1.5">
+                    {pendingCount}
+                  </Badge>
+                )}
+                {active && <div className="w-1.5 h-1.5 rounded-full bg-orange-400" />}
+              </button>
+            );
+          })}
 
+          {/* Admin section */}
           {isAdmin && (
-            <div>
-              <p className="text-zinc-600 text-xs font-semibold uppercase tracking-wider mb-2">Admin</p>
+            <>
+              <div className="h-px bg-zinc-800 my-3" />
+              <p className="text-zinc-600 text-xs font-semibold uppercase tracking-wider mb-3">
+                Admin
+              </p>
               <button
                 data-testid="link-more-admin"
                 onClick={() => go("/admin")}
-                className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-zinc-300 hover:bg-zinc-900 hover:text-white transition-colors"
+                className="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-zinc-300 hover:bg-zinc-900 hover:text-white transition-colors"
               >
                 <Settings className="w-4 h-4 text-zinc-500" />
                 <span className="text-sm font-medium">Admin Dashboard</span>
               </button>
-            </div>
+            </>
           )}
         </div>
 
