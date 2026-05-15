@@ -118,6 +118,13 @@ export function AppSidebar() {
     enabled: !!user,
   });
 
+  const { data: profile } = useQuery<any>({
+    queryKey: ["/api/profile"],
+    retry: false,
+    enabled: !!user,
+    staleTime: 30 * 1000,
+  });
+
   const getInitials = () => {
     if (!user) return "U";
     if (user.firstName && user.lastName) {
@@ -139,7 +146,9 @@ export function AppSidebar() {
 
   const isTrainerView = activeView === "trainer";
   const navItems = isTrainerView ? trainerNavItems : playerNavItems;
-  const journalEnabled = useFeatureFlag("reflection-journal");
+  const journalFlagEnabled = useFeatureFlag("reflection-journal");
+  const isPro = profile?.subscriptionPlan === "pro";
+  const journalEnabled = journalFlagEnabled || isPro;
 
   // Warm up the most common page chunks in the background after the sidebar
   // mounts, so the first tap on a tab feels instant.
