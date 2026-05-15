@@ -9,6 +9,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/hooks/use-auth";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
+import { BottomTabBar } from "@/components/bottom-tab-bar";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { Playr1Logo } from "@/components/playr1-logo";
@@ -72,6 +73,8 @@ const GameDay = lazy(pageLoaders.gameDay);
 const Archetypes = lazy(pageLoaders.archetypes);
 const MyArchetype = lazy(pageLoaders.myArchetype);
 const MyGoal = lazy(pageLoaders.myGoal);
+const Hub = lazy(pageLoaders.hub);
+const Journey = lazy(pageLoaders.journey);
 
 function PageLoader() {
   return (
@@ -161,11 +164,12 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
             </div>
             <ThemeToggle />
           </header>
-          <main className="flex-1 overflow-y-auto">
+          <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
             <Suspense fallback={<PageLoader />}>
               {children}
             </Suspense>
           </main>
+          <BottomTabBar />
         </SidebarInset>
       </div>
     </SidebarProvider>
@@ -201,7 +205,7 @@ function HomeRedirect() {
     return <Redirect to="/career" />;
   }
   if (activeView === "trainer") return <Redirect to="/trainer" />;
-  return <Dashboard />;
+  return <Redirect to="/hub" />;
 }
 
 function AdminRoute() {
@@ -312,6 +316,8 @@ function Router() {
                 <Route path="/challenge-history" component={ChallengeHistory} />
                 <Route path="/journal" component={Journal} />
                 <Route path="/game-day" component={GameDay} />
+                <Route path="/hub" component={Hub} />
+                <Route path="/journey" component={Journey} />
                 <Route path="/archetypes" component={Archetypes} />
                 <Route path="/my-archetype" component={MyArchetype} />
                 <Route path="/my-goal" component={MyGoal} />
