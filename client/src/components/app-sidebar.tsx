@@ -60,6 +60,7 @@ import {
   Megaphone,
   Sparkles,
   BookOpen,
+  Zap,
 } from "lucide-react";
 import { Playr1Logo } from "@/components/playr1-logo";
 import { getObjectUrl } from "@/lib/queryClient";
@@ -74,6 +75,7 @@ const playerNavItems = [
   { title: "Drill Library", url: "/drills", icon: Play },
   { title: "My Film Room", url: "/videos", icon: Video },
   { title: "Teams & Leagues", url: "/teams", icon: Shield },
+  { title: "Game Day", url: "/game-day", icon: Zap },
   { title: "Feedback", url: "/feedback", icon: Megaphone },
 ];
 

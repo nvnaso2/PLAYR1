@@ -1758,6 +1758,36 @@ export const insertFeatureFlagSchema = createInsertSchema(featureFlags).omit({ i
 export type FeatureFlag = typeof featureFlags.$inferSelect;
 export type InsertFeatureFlag = z.infer<typeof insertFeatureFlagSchema>;
 
+// ===== GAME DAY WEEKLY =====
+export type GameDayWeeklyStats = {
+  totalSessions: number;
+  totalMinutes: number;
+  shotsMade: number;
+  shotsAttempted: number;
+  shootingPct: number;
+  activeDays: number;
+  avgScore: number | null;
+};
+
+export const weeklyGameDays = pgTable("weekly_game_days", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  weekStart: varchar("week_start").notNull(),
+  weekEnd: varchar("week_end").notNull(),
+  scoutingReport: text("scouting_report"),
+  weeklyStats: jsonb("weekly_stats").$type<GameDayWeeklyStats>(),
+  challengeDrillId: varchar("challenge_drill_id"),
+  challengeDrillTitle: varchar("challenge_drill_title"),
+  challengeDrillDescription: text("challenge_drill_description"),
+  challengeDrillCategory: varchar("challenge_drill_category"),
+  reflectionPrompt: text("reflection_prompt"),
+  generatedAt: timestamp("generated_at").defaultNow(),
+});
+
+export const insertWeeklyGameDaySchema = createInsertSchema(weeklyGameDays).omit({ id: true, generatedAt: true });
+export type WeeklyGameDay = typeof weeklyGameDays.$inferSelect;
+export type InsertWeeklyGameDay = z.infer<typeof insertWeeklyGameDaySchema>;
+
 // ===== REFLECTION JOURNAL =====
 export const JOURNAL_TYPES = ["post-workout", "post-game", "open"] as const;
 export type JournalType = typeof JOURNAL_TYPES[number];

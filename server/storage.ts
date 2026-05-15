@@ -71,6 +71,7 @@ import {
   type EventStatus,
   featureFlags, type FeatureFlag, type InsertFeatureFlag,
   journalEntries, type JournalEntry, type InsertJournalEntry,
+  weeklyGameDays, type WeeklyGameDay, type InsertWeeklyGameDay,
 } from "@shared/schema";
 import { users, type User } from "@shared/models/auth";
 import { db, pool } from "./db";
@@ -608,6 +609,11 @@ export interface IStorage {
   createJournalEntry(entry: InsertJournalEntry): Promise<JournalEntry>;
   updateJournalEntry(id: string, userId: string, updates: Partial<JournalEntry>): Promise<JournalEntry | undefined>;
   deleteJournalEntry(id: string, userId: string): Promise<boolean>;
+
+  // Game Day
+  getWeeklyGameDay(userId: string, weekStart: string): Promise<WeeklyGameDay | undefined>;
+  createWeeklyGameDay(data: InsertWeeklyGameDay): Promise<WeeklyGameDay>;
+  deleteWeeklyGameDay(userId: string, weekStart: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -6215,6 +6221,25 @@ export class DatabaseStorage implements IStorage {
       [id, String(userId)]
     );
     return (result.rowCount ?? 0) > 0;
+  }
+
+  // ===== Game Day =====
+  async getWeeklyGameDay(userId: string, weekStart: string): Promise<WeeklyGameDay | undefined> {
+    const [row] = await db.select().from(weeklyGameDays)
+      .where(and(eq(weeklyGameDays.userId, userId), eq(weeklyGameDays.weekStart, weekStart)));
+    return row;
+  }
+
+  async createWeeklyGameDay(data: InsertWeeklyGameDay): Promise<WeeklyGameDay> {
+    const [row] = await db.insert(weeklyGameDays).values(data).returning();
+    return row;
+  }
+
+  async deleteWeeklyGameDay(userId: string, weekStart: string): Promise<boolean> {
+    const result = await db.delete(weeklyGameDays)
+      .where(and(eq(weeklyGameDays.userId, userId), eq(weeklyGameDays.weekStart, weekStart)))
+      .returning();
+    return result.length > 0;
   }
 }
 
