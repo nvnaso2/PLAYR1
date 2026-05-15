@@ -174,10 +174,8 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
             </Suspense>
           </main>
 
-          {/* Bottom tab bar — mobile only */}
-          <div className="md:hidden shrink-0">
-            <BottomTabBar />
-          </div>
+          {/* Bottom tab bar */}
+          <BottomTabBar />
         </SidebarInset>
       </div>
     </SidebarProvider>
