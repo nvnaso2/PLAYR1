@@ -9265,7 +9265,7 @@ Rules:
 
   app.post("/api/goals", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user!.claims.sub;
       const { goalText } = z.object({ goalText: z.string().min(10) }).parse(req.body);
 
       const existing = await storage.getActiveGoal(userId);
@@ -9284,7 +9284,7 @@ Rules:
 
   app.get("/api/goals/active", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user!.claims.sub;
       const goal = await storage.getActiveGoal(userId);
       if (!goal) return res.json(null);
 
@@ -9303,7 +9303,7 @@ Rules:
 
   app.post("/api/goals/:id/answer", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user!.claims.sub;
       const goalId = req.params.id;
       const { clarificationId, answer } = z.object({
         clarificationId: z.string(),
@@ -9357,7 +9357,7 @@ Rules:
 
   app.post("/api/goals/:id/checkin", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user!.claims.sub;
       const goalId = req.params.id;
       const { userInput, weekNumber } = z.object({
         userInput: z.string().min(1),
@@ -9412,7 +9412,7 @@ Rules:
 
   app.get("/api/goals/:id/checkins", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user!.claims.sub;
       const goal = await storage.getGoalById(req.params.id);
       if (!goal || goal.userId !== userId) return res.status(404).json({ message: "Goal not found" });
       const checkIns = await storage.getCheckIns(req.params.id);
@@ -9424,7 +9424,7 @@ Rules:
 
   app.post("/api/goals/:id/milestones/:milestoneId/complete", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user!.claims.sub;
       const goal = await storage.getGoalById(req.params.id);
       if (!goal || goal.userId !== userId) return res.status(404).json({ message: "Goal not found" });
 
@@ -9442,7 +9442,7 @@ Rules:
 
   app.delete("/api/goals/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user!.claims.sub;
       const goal = await storage.getGoalById(req.params.id);
       if (!goal || goal.userId !== userId) return res.status(404).json({ message: "Goal not found" });
       await storage.abandonGoal(req.params.id);
