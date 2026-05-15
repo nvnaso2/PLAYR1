@@ -204,31 +204,6 @@ function EntryFlow({
   const currentQ = prompts[currentPrompt];
   const allAnswered = prompts.every((p) => (answers[p.id] || "").trim().length > 0);
 
-  if (step === "mood") {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-2">
-          <button onClick={onBack} className="text-muted-foreground hover:text-foreground transition-colors">
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <h2 className="text-lg font-semibold capitalize">{type.replace("-", " ")} Reflection</h2>
-            <p className="text-sm text-muted-foreground">Let's start with how you're feeling</p>
-          </div>
-        </div>
-        <MoodSelector value={mood} onChange={setMood} />
-        <Button
-          className="w-full"
-          disabled={!mood}
-          onClick={() => setStep("prompts")}
-          data-testid="button-mood-continue"
-        >
-          Continue
-        </Button>
-      </div>
-    );
-  }
-
   if (step === "prompts") {
     return (
       <div className="space-y-6">
@@ -538,7 +513,7 @@ function EntryDetail({ entry, onClose }: { entry: JournalEntry; onClose: () => v
                 <Button
                   size="sm"
                   disabled={!followUpAnswer.trim() || followUpMutation.isPending}
-                  onClick={() => followUpMutation.mutate(followUpAnswer)}
+                  onClick={() => followUpMutation.mutate({ id: createdEntryId!, answer: followUpAnswer })}
                 >
                   {followUpMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Save"}
                 </Button>
