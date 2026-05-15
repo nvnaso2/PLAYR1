@@ -69,6 +69,8 @@ const EventEditor = lazy(pageLoaders.eventEditor);
 const TrainerPrograms = lazy(pageLoaders.trainerPrograms);
 const Journal = lazy(pageLoaders.journal);
 const GameDay = lazy(pageLoaders.gameDay);
+const Archetypes = lazy(pageLoaders.archetypes);
+const MyArchetype = lazy(pageLoaders.myArchetype);
 
 function PageLoader() {
   return (
@@ -309,6 +311,8 @@ function Router() {
                 <Route path="/challenge-history" component={ChallengeHistory} />
                 <Route path="/journal" component={Journal} />
                 <Route path="/game-day" component={GameDay} />
+                <Route path="/archetypes" component={Archetypes} />
+                <Route path="/my-archetype" component={MyArchetype} />
                 <Route path="/feedback" component={FeedbackPage} />
                 <Route path="/my-trainer" component={MyTrainer} />
                 <Route path="/parent" component={ParentDashboard} />

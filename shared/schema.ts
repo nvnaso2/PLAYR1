@@ -1826,6 +1826,59 @@ export const gameDayChallengeAttempts = pgTable("game_day_challenge_attempts", {
 export type GameDayChallengeAttempt = typeof gameDayChallengeAttempts.$inferSelect;
 export type InsertGameDayChallengeAttempt = typeof gameDayChallengeAttempts.$inferInsert;
 
+// ===== ARCHETYPES =====
+export const ARCHETYPE_TIERS = ["prospect", "rising", "starter", "star", "elite", "playr1"] as const;
+export type ArchetypeTier = typeof ARCHETYPE_TIERS[number];
+
+export const ARCHETYPE_TIER_XP: Record<ArchetypeTier, number> = {
+  prospect: 0,
+  rising: 500,
+  starter: 1500,
+  star: 3500,
+  elite: 7000,
+  playr1: 12000,
+};
+
+export const archetypes = pgTable("archetypes", {
+  id: varchar("id").primaryKey(),
+  name: varchar("name").notNull(),
+  tagline: text("tagline").notNull(),
+  description: text("description").notNull(),
+  traits: text("traits").array().notNull().default([]),
+  colorTheme: varchar("color_theme").notNull(),
+  primaryHex: varchar("primary_hex").notNull(),
+  drillCategories: text("drill_categories").array().notNull().default([]),
+  displayOrder: integer("display_order").notNull().default(0),
+});
+
+export const userArchetypes = pgTable("user_archetypes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  archetypeId: varchar("archetype_id").notNull(),
+  role: varchar("role").notNull(),
+  totalXp: integer("total_xp").notNull().default(0),
+  tier: varchar("tier").notNull().default("prospect"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const archetypeXpLog = pgTable("archetype_xp_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  userArchetypeId: varchar("user_archetype_id").notNull(),
+  sourceType: varchar("source_type").notNull(),
+  sourceId: varchar("source_id"),
+  xpEarned: integer("xp_earned").notNull(),
+  note: text("note"),
+  earnedAt: timestamp("earned_at").defaultNow(),
+});
+
+export type Archetype = typeof archetypes.$inferSelect;
+export type UserArchetype = typeof userArchetypes.$inferSelect;
+export type ArchetypeXpLog = typeof archetypeXpLog.$inferSelect;
+export type InsertUserArchetype = typeof userArchetypes.$inferInsert;
+export type InsertArchetypeXpLog = typeof archetypeXpLog.$inferInsert;
+
 // ===== REFLECTION JOURNAL =====
 export const JOURNAL_TYPES = ["post-workout", "post-game", "open"] as const;
 export type JournalType = typeof JOURNAL_TYPES[number];

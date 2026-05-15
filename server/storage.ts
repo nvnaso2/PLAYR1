@@ -73,6 +73,9 @@ import {
   journalEntries, type JournalEntry, type InsertJournalEntry,
   weeklyGameDays, type WeeklyGameDay, type InsertWeeklyGameDay,
   gameDayChallengeAttempts, type GameDayChallengeAttempt, type InsertGameDayChallengeAttempt,
+  archetypes, userArchetypes, archetypeXpLog,
+  type Archetype, type UserArchetype, type ArchetypeXpLog, type InsertArchetypeXpLog,
+  ARCHETYPE_TIER_XP, type ArchetypeTier,
 } from "@shared/schema";
 import { users, type User } from "@shared/models/auth";
 import { db, pool } from "./db";
@@ -619,6 +622,15 @@ export interface IStorage {
   // Challenge Attempts
   getChallengeAttempt(userId: string, weekGameDayId: string): Promise<GameDayChallengeAttempt | undefined>;
   createChallengeAttempt(data: Omit<InsertGameDayChallengeAttempt, "id" | "completedAt">): Promise<GameDayChallengeAttempt>;
+
+  // Archetypes
+  getArchetypes(): Promise<Archetype[]>;
+  getArchetype(id: string): Promise<Archetype | undefined>;
+  getUserArchetypes(userId: string): Promise<(UserArchetype & { archetype: Archetype })[]>;
+  selectArchetype(userId: string, archetypeId: string, role: "main" | "secondary"): Promise<UserArchetype>;
+  deselectArchetype(userId: string, role: "main" | "secondary"): Promise<boolean>;
+  addArchetypeXp(userId: string, userArchetypeId: string, xpEarned: number, sourceType: string, sourceId?: string, note?: string): Promise<void>;
+  getArchetypeXpLog(userId: string, limit?: number): Promise<ArchetypeXpLog[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -6257,6 +6269,107 @@ export class DatabaseStorage implements IStorage {
     const [row] = await db.insert(gameDayChallengeAttempts).values(data as InsertGameDayChallengeAttempt).returning();
     return row;
   }
+
+  // ===== ARCHETYPES =====
+  async getArchetypes(): Promise<Archetype[]> {
+    return db.select().from(archetypes).orderBy(archetypes.displayOrder);
+  }
+
+  async getArchetype(id: string): Promise<Archetype | undefined> {
+    const [row] = await db.select().from(archetypes).where(eq(archetypes.id, id));
+    return row;
+  }
+
+  async getUserArchetypes(userId: string): Promise<(UserArchetype & { archetype: Archetype })[]> {
+    const rows = await db
+      .select({ ua: userArchetypes, a: archetypes })
+      .from(userArchetypes)
+      .innerJoin(archetypes, eq(userArchetypes.archetypeId, archetypes.id))
+      .where(eq(userArchetypes.userId, userId));
+    return rows.map((r) => ({ ...r.ua, archetype: r.a }));
+  }
+
+  async selectArchetype(userId: string, archetypeId: string, role: "main" | "secondary"): Promise<UserArchetype> {
+    // Remove any existing selection for this role
+    await db
+      .delete(userArchetypes)
+      .where(and(eq(userArchetypes.userId, userId), eq(userArchetypes.role, role)));
+
+    // If this archetype is already the other role, remove that too (can't have same archetype twice)
+    const otherRole = role === "main" ? "secondary" : "main";
+    await db
+      .delete(userArchetypes)
+      .where(
+        and(
+          eq(userArchetypes.userId, userId),
+          eq(userArchetypes.archetypeId, archetypeId),
+          eq(userArchetypes.role, otherRole),
+        ),
+      );
+
+    const [row] = await db
+      .insert(userArchetypes)
+      .values({ userId, archetypeId, role, totalXp: 0, tier: "prospect" })
+      .returning();
+    return row;
+  }
+
+  async deselectArchetype(userId: string, role: "main" | "secondary"): Promise<boolean> {
+    const result = await db
+      .delete(userArchetypes)
+      .where(and(eq(userArchetypes.userId, userId), eq(userArchetypes.role, role)))
+      .returning();
+    return result.length > 0;
+  }
+
+  async addArchetypeXp(
+    userId: string,
+    userArchetypeId: string,
+    xpEarned: number,
+    sourceType: string,
+    sourceId?: string,
+    note?: string,
+  ): Promise<void> {
+    await db.insert(archetypeXpLog).values({
+      userId,
+      userArchetypeId,
+      sourceType,
+      sourceId: sourceId ?? null,
+      xpEarned,
+      note: note ?? null,
+    });
+
+    const [ua] = await db
+      .select()
+      .from(userArchetypes)
+      .where(eq(userArchetypes.id, userArchetypeId));
+    if (!ua) return;
+
+    const newTotal = ua.totalXp + xpEarned;
+    const newTier = calcArchetypeTier(newTotal);
+    await db
+      .update(userArchetypes)
+      .set({ totalXp: newTotal, tier: newTier, updatedAt: new Date() })
+      .where(eq(userArchetypes.id, userArchetypeId));
+  }
+
+  async getArchetypeXpLog(userId: string, limit = 25): Promise<ArchetypeXpLog[]> {
+    return db
+      .select()
+      .from(archetypeXpLog)
+      .where(eq(archetypeXpLog.userId, userId))
+      .orderBy(desc(archetypeXpLog.earnedAt))
+      .limit(limit);
+  }
+}
+
+function calcArchetypeTier(totalXp: number): string {
+  if (totalXp >= 12000) return "playr1";
+  if (totalXp >= 7000) return "elite";
+  if (totalXp >= 3500) return "star";
+  if (totalXp >= 1500) return "starter";
+  if (totalXp >= 500) return "rising";
+  return "prospect";
 }
 
 export const storage = new DatabaseStorage();

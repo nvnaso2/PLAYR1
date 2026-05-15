@@ -61,6 +61,8 @@ import {
   Sparkles,
   BookOpen,
   Zap,
+  Fingerprint,
+  Star,
 } from "lucide-react";
 import { Playr1Logo } from "@/components/playr1-logo";
 import { getObjectUrl } from "@/lib/queryClient";
@@ -76,6 +78,8 @@ const playerNavItems = [
   { title: "My Film Room", url: "/videos", icon: Video },
   { title: "Teams & Leagues", url: "/teams", icon: Shield },
   { title: "Game Day", url: "/game-day", icon: Zap },
+  { title: "Archetypes", url: "/archetypes", icon: Fingerprint },
+  { title: "My Identity", url: "/my-archetype", icon: Star },
   { title: "Feedback", url: "/feedback", icon: Megaphone },
 ];
 

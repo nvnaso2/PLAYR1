@@ -1461,7 +1461,24 @@ export async function registerRoutes(
           }
         } catch (e) { console.error("Auto-complete assignment error:", e); }
       }
-      
+
+      // Award archetype XP (fire-and-forget)
+      if (log.drillId) {
+        (async () => {
+          try {
+            const drill = await storage.getDrillById(log.drillId!);
+            if (!drill?.category) return;
+            const userArchs = await storage.getUserArchetypes(userId);
+            for (const ua of userArchs) {
+              if (ua.archetype.drillCategories.includes(drill.category)) {
+                const xp = ua.role === "main" ? 30 : 20;
+                await storage.addArchetypeXp(userId, ua.id, xp, "training_log", log.id, `${drill.category} session`);
+              }
+            }
+          } catch (e) { console.error("[ArchetypeXP] training_log:", e); }
+        })();
+      }
+
       res.status(201).json(log);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -8083,6 +8100,16 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
           score: body.score,
           notes: body.notes,
         });
+        // Award archetype XP for program item (fire-and-forget)
+        (async () => {
+          try {
+            const userArchs = await storage.getUserArchetypes(userId);
+            for (const ua of userArchs) {
+              const xp = ua.role === "main" ? 15 : 10;
+              await storage.addArchetypeXp(userId, ua.id, xp, "program", req.params.itemId, "Program item completed");
+            }
+          } catch (e) { console.error("[ArchetypeXP] program:", e); }
+        })();
         res.json(result);
       } catch (err: any) {
         if (err instanceof z.ZodError) return res.status(400).json({ message: "Invalid body", errors: err.errors });
@@ -9085,6 +9112,84 @@ Rules:
     } catch (err) {
       console.error("[game-day] Error saving attempt:", err);
       res.status(500).json({ message: "Failed to save attempt" });
+    }
+  });
+
+  // ===== ARCHETYPE ROUTES =====
+  app.get("/api/archetypes", isAuthenticated, async (_req, res) => {
+    try {
+      const defs = await storage.getArchetypes();
+      res.json(defs);
+    } catch (err) {
+      console.error("[archetypes] getArchetypes:", err);
+      res.status(500).json({ message: "Failed to fetch archetypes" });
+    }
+  });
+
+  app.get("/api/archetypes/user", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const userArchs = await storage.getUserArchetypes(userId);
+      const TIER_ORDER = ["prospect", "rising", "starter", "star", "elite", "playr1"];
+      const TIER_XP: Record<string, number> = { prospect: 0, rising: 500, starter: 1500, star: 3500, elite: 7000, playr1: 12000 };
+      const enriched = userArchs.map((ua) => {
+        const tierIdx = TIER_ORDER.indexOf(ua.tier);
+        const nextTier = TIER_ORDER[tierIdx + 1];
+        return {
+          ...ua,
+          currentTierXp: TIER_XP[ua.tier] ?? 0,
+          nextTierXp: nextTier ? TIER_XP[nextTier] : null,
+        };
+      });
+      res.json(enriched);
+    } catch (err) {
+      console.error("[archetypes] getUserArchetypes:", err);
+      res.status(500).json({ message: "Failed to fetch user archetypes" });
+    }
+  });
+
+  app.post("/api/archetypes/user", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const { archetypeId, role } = z.object({
+        archetypeId: z.string(),
+        role: z.enum(["main", "secondary"]),
+      }).parse(req.body);
+      const archDef = await storage.getArchetype(archetypeId);
+      if (!archDef) return res.status(404).json({ message: "Archetype not found" });
+      const ua = await storage.selectArchetype(userId, archetypeId, role);
+      res.json(ua);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: "Invalid data", errors: err.errors });
+      console.error("[archetypes] selectArchetype:", err);
+      res.status(500).json({ message: "Failed to select archetype" });
+    }
+  });
+
+  app.delete("/api/archetypes/user/:role", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const role = req.params.role as "main" | "secondary";
+      if (role !== "main" && role !== "secondary") {
+        return res.status(400).json({ message: "Role must be main or secondary" });
+      }
+      const removed = await storage.deselectArchetype(userId, role);
+      if (!removed) return res.status(404).json({ message: "No archetype selected for that role" });
+      res.json({ success: true });
+    } catch (err) {
+      console.error("[archetypes] deselectArchetype:", err);
+      res.status(500).json({ message: "Failed to remove archetype" });
+    }
+  });
+
+  app.get("/api/archetypes/xp-log", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const log = await storage.getArchetypeXpLog(userId, 30);
+      res.json(log);
+    } catch (err) {
+      console.error("[archetypes] getXpLog:", err);
+      res.status(500).json({ message: "Failed to fetch XP log" });
     }
   });
 
