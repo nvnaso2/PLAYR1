@@ -760,6 +760,7 @@ export class DatabaseStorage implements IStorage {
         lastName: user.lastName,
         isAdmin: isEnvAdmin || (profile?.isAdmin === true),
         staffRole: career?.staffRole ?? null,
+        subscriptionPlan: profile?.subscriptionPlan ?? "free",
       };
     });
   }

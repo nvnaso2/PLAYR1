@@ -6,6 +6,7 @@ import { z } from "zod";
 import { queryClient, apiRequest, getObjectUrl, nativeFetch } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAdmin } from "@/hooks/use-admin";
+import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -77,6 +78,8 @@ type AdminUser = {
   firstName: string | null;
   lastName: string | null;
   isAdmin: boolean;
+  staffRole?: string | null;
+  subscriptionPlan?: string | null;
 };
 
 const drillFormSchema = z.object({
@@ -2643,6 +2646,19 @@ export default function AdminPage() {
     },
   });
 
+  const setSubscriptionMutation = useMutation({
+    mutationFn: async ({ userId, subscriptionPlan }: { userId: string; subscriptionPlan: string }) => {
+      return await apiRequest("PUT", `/api/admin/users/${userId}/subscription`, { subscriptionPlan });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      toast({ title: "Subscription plan updated" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to update plan", description: error.message, variant: "destructive" });
+    },
+  });
+
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
       return await apiRequest("DELETE", `/api/admin/users/${userId}`);
@@ -3993,6 +4009,7 @@ export default function AdminPage() {
                         <TableHead>User</TableHead>
                         <TableHead>Email</TableHead>
                         <TableHead>App Role</TableHead>
+                        <TableHead>Plan</TableHead>
                         <TableHead className="text-right">Admin Access</TableHead>
                         <TableHead></TableHead>
                       </TableRow>
@@ -4026,6 +4043,21 @@ export default function AdminPage() {
                                 <SelectItem value="player">Player</SelectItem>
                                 <SelectItem value="trainer">Trainer</SelectItem>
                                 <SelectItem value="both">Both</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <Select
+                              value={user.subscriptionPlan || "free"}
+                              onValueChange={(val) => setSubscriptionMutation.mutate({ userId: user.id, subscriptionPlan: val })}
+                              disabled={setSubscriptionMutation.isPending}
+                            >
+                              <SelectTrigger className="h-8 w-[90px] text-xs" data-testid={`select-plan-${user.id}`}>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="free">Free</SelectItem>
+                                <SelectItem value="pro">Pro</SelectItem>
                               </SelectContent>
                             </Select>
                           </TableCell>
@@ -4284,10 +4316,9 @@ type FeatureFlag = {
 };
 
 function FeatureFlagsTab() {
+  const { user } = useAuth();
   const { toast } = useToast();
   const [createOpen, setCreateOpen] = useState(false);
-  const [editingFlag, setEditingFlag] = useState<FeatureFlag | null>(null);
-  const [newBetaUserId, setNewBetaUserId] = useState("");
 
   const { data: flags = [], isLoading } = useQuery<FeatureFlag[]>({
     queryKey: ["/api/admin/feature-flags"],
@@ -4331,10 +4362,9 @@ function FeatureFlagsTab() {
   const updateBetaMutation = useMutation({
     mutationFn: async ({ key, betaUserIds }: { key: string; betaUserIds: string[] }) =>
       await apiRequest("PUT", `/api/admin/feature-flags/${key}`, { betaUserIds }),
-    onSuccess: (data: FeatureFlag) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/feature-flags"] });
       queryClient.invalidateQueries({ queryKey: ["/api/feature-flags"] });
-      setEditingFlag(data);
       toast({ title: "Beta users updated" });
     },
     onError: (e: any) => toast({ title: "Failed to update", description: e.message, variant: "destructive" }),
@@ -4350,11 +4380,9 @@ function FeatureFlagsTab() {
     onError: (e: any) => toast({ title: "Failed to delete", description: e.message, variant: "destructive" }),
   });
 
-  const addBetaUser = (flag: FeatureFlag) => {
-    const uid = newBetaUserId.trim();
+  const addBetaUser = (flag: FeatureFlag, uid: string) => {
     if (!uid || flag.betaUserIds.includes(uid)) return;
     updateBetaMutation.mutate({ key: flag.key, betaUserIds: [...flag.betaUserIds, uid] });
-    setNewBetaUserId("");
   };
 
   const removeBetaUser = (flag: FeatureFlag, uid: string) => {
@@ -4540,17 +4568,26 @@ function FeatureFlagsTab() {
                     </div>
                   )}
 
-                  {/* Add beta user — searchable by user */}
+                  {/* Add beta user */}
                   <div className="flex gap-2">
+                    {user && !flag.betaUserIds.includes(user.id) && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs px-3 shrink-0"
+                        onClick={() => addBetaUser(flag, user.id)}
+                        disabled={updateBetaMutation.isPending}
+                        data-testid={`button-add-me-${flag.key}`}
+                      >
+                        + Add Me
+                      </Button>
+                    )}
                     <Select
-                      value={editingFlag?.key === flag.key ? newBetaUserId : ""}
-                      onValueChange={(v) => {
-                        setEditingFlag(flag);
-                        setNewBetaUserId(v);
-                      }}
+                      value=""
+                      onValueChange={(v) => addBetaUser(flag, v)}
                     >
                       <SelectTrigger className="flex-1 h-8 text-xs" data-testid={`select-beta-user-${flag.key}`}>
-                        <SelectValue placeholder="Add user to beta..." />
+                        <SelectValue placeholder="Add another user..." />
                       </SelectTrigger>
                       <SelectContent>
                         {allUsers
@@ -4564,19 +4601,6 @@ function FeatureFlagsTab() {
                           ))}
                       </SelectContent>
                     </Select>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 text-xs px-3"
-                      disabled={!newBetaUserId || editingFlag?.key !== flag.key || updateBetaMutation.isPending}
-                      onClick={() => addBetaUser(flag)}
-                      data-testid={`button-add-beta-${flag.key}`}
-                    >
-                      {updateBetaMutation.isPending && editingFlag?.key === flag.key
-                        ? <Loader2 className="w-3 h-3 animate-spin" />
-                        : "Add"
-                      }
-                    </Button>
                   </div>
                 </div>
               </CardContent>
