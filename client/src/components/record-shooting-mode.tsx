@@ -11,50 +11,71 @@ type RecordShootingModeProps = {
   onClose: () => void;
 };
 
-// Extract a set of frames from a video blob as base64 JPEG strings
-async function extractFrames(blob: Blob, numFrames = 16): Promise<string[]> {
-  return new Promise((resolve, reject) => {
-    const video = document.createElement("video");
-    video.muted = true;
-    video.playsInline = true;
-    const url = URL.createObjectURL(blob);
-    video.src = url;
-
-    video.addEventListener("error", () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("Could not load recorded video for analysis"));
-    });
-
-    video.addEventListener("loadedmetadata", async () => {
-      const duration = video.duration;
-      if (!duration || !isFinite(duration) || duration <= 0) {
-        URL.revokeObjectURL(url);
-        resolve([]);
-        return;
-      }
-
-      const canvas = document.createElement("canvas");
-      canvas.width = 320;
-      canvas.height = 240;
-      const ctx = canvas.getContext("2d")!;
-      const frames: string[] = [];
-
-      for (let i = 0; i < numFrames; i++) {
-        const t = (i / Math.max(numFrames - 1, 1)) * duration;
-        video.currentTime = Math.min(t, duration - 0.01);
-        await new Promise<void>(r => {
-          const onSeeked = () => { video.removeEventListener("seeked", onSeeked); r(); };
-          video.addEventListener("seeked", onSeeked);
-        });
-        ctx.drawImage(video, 0, 0, 320, 240);
-        const dataUrl = canvas.toDataURL("image/jpeg", 0.65);
-        frames.push(dataUrl.split(",")[1]);
-      }
-
-      URL.revokeObjectURL(url);
-      resolve(frames);
-    });
+// Wait for a video event with a timeout fallback
+function waitForEvent(el: HTMLVideoElement, event: string, timeoutMs = 5000): Promise<void> {
+  return new Promise(resolve => {
+    const timer = setTimeout(resolve, timeoutMs);
+    const handler = () => { clearTimeout(timer); el.removeEventListener(event, handler); resolve(); };
+    el.addEventListener(event, handler);
   });
+}
+
+// Extract a set of frames from a video blob as base64 JPEG strings.
+// MediaRecorder blobs ship without duration metadata — the fix is to seek to
+// a huge timestamp first, which forces the browser to scan the file and
+// populate video.duration before we start extracting frames.
+async function extractFrames(blob: Blob, numFrames = 16): Promise<string[]> {
+  const url = URL.createObjectURL(blob);
+  const video = document.createElement("video");
+  video.muted = true;
+  video.playsInline = true;
+  video.preload = "auto";
+  video.src = url;
+
+  try {
+    // Step 1 — wait for metadata (may have NaN duration at this point)
+    await waitForEvent(video, "loadedmetadata", 8000);
+
+    // Step 2 — if duration is still unknown, seek to a huge value to force scan
+    if (!isFinite(video.duration) || video.duration <= 0) {
+      video.currentTime = 1e101;
+      await waitForEvent(video, "durationchange", 8000);
+      // Seek back to start before extracting
+      video.currentTime = 0;
+      await waitForEvent(video, "seeked", 3000);
+    }
+
+    const duration = video.duration;
+    if (!isFinite(duration) || duration <= 0) {
+      // Still can't get duration — capture whatever frame is visible right now
+      const canvas = document.createElement("canvas");
+      canvas.width = 320; canvas.height = 240;
+      canvas.getContext("2d")!.drawImage(video, 0, 0, 320, 240);
+      const frame = canvas.toDataURL("image/jpeg", 0.65).split(",")[1];
+      return frame ? [frame] : [];
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 320;
+    canvas.height = 240;
+    const ctx = canvas.getContext("2d")!;
+    const frames: string[] = [];
+
+    for (let i = 0; i < numFrames; i++) {
+      // Spread timestamps evenly, staying slightly inside the clip boundaries
+      const t = 0.05 * duration + (i / Math.max(numFrames - 1, 1)) * duration * 0.9;
+      video.currentTime = Math.min(t, duration - 0.05);
+      await waitForEvent(video, "seeked", 3000);
+      ctx.drawImage(video, 0, 0, 320, 240);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.65);
+      const b64 = dataUrl.split(",")[1];
+      if (b64) frames.push(b64);
+    }
+
+    return frames;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
 export function RecordShootingMode({ onClose }: RecordShootingModeProps) {
