@@ -8904,16 +8904,46 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
     return { weekStart, weekEnd, monday, sunday };
   }
 
-  const GAME_DAY_REFLECTIONS = [
-    "Before you take the court this week — what's the one thing you refuse to leave behind?",
-    "Your game is built rep by rep. What rep are you not willing to skip?",
-    "Pressure is a privilege. Where will you choose to embrace it this week?",
-    "The best players don't wait to feel ready. When will you show up regardless?",
-    "What does the best version of you on the court look like this week? Be specific.",
-    "One thing that will separate your performance this week from last week.",
-    "You've been putting in the work. Now — what will you do with it?",
-    "What do the players you want to be like do differently on days they don't feel it?",
-  ];
+  const GAME_DAY_SYSTEM_PROMPT = `You are an elite basketball development analyst for PLAYR1. Given a player's full week of training data, return a JSON object with two fields: a scouting report and a game-day challenge.
+
+SCOUTING REPORT: One cohesive paragraph (3-4 sentences) in the voice of a professional NBA scout. Direct, analytical, specific. Reference real numbers from training, journal mood, and game data where available. End with one specific area to focus on next week. No fluff, no encouragement — just honest professional evaluation.
+
+GAME DAY CHALLENGE: A game-simulation "final exam" challenge that puts this week's work to the ultimate test. It should feel like a real high-pressure game moment — the culmination of everything they worked on.
+
+Return ONLY valid JSON matching this exact structure:
+{
+  "scoutingReport": "...",
+  "challenge": {
+    "title": "Short dramatic challenge name (4-6 words)",
+    "scenario": "2-3 sentences. A vivid, urgent game scenario with real stakes (4th quarter, championship, scouts watching, etc.)",
+    "briefing": "Your assignment:",
+    "intensity": "ROOKIE|PRO|ELITE",
+    "tasks": [
+      {
+        "id": "t1",
+        "title": "Task name (3-5 words)",
+        "description": "Specific measurable task tied to what the player actually worked on this week",
+        "target": 7,
+        "total": 10,
+        "unit": "makes"
+      }
+    ],
+    "verdicts": {
+      "S": "1 terse sentence for 90%+ performance. Legendary.",
+      "A": "1 sentence for 80-89%. Strong showing.",
+      "B": "1 sentence for 65-79%. You competed.",
+      "C": "1 sentence for 50-64%. You showed up.",
+      "F": "1 sentence for under 50%. The moment got to you. Use it."
+    }
+  }
+}
+
+Rules:
+- Exactly 2-3 tasks. Each task must be SPECIFIC to the player's actual training data.
+- If no sessions or minimal data: ROOKIE intensity, broad foundational tasks.
+- 3-4 sessions: PRO intensity. 5+ sessions: ELITE intensity.
+- Targets ambitious but achievable (never 10/10 perfect, never trivially easy).
+- The scenario must name the exact situation with urgency.`;
 
   app.get("/api/game-day/current", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
@@ -8921,8 +8951,12 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
       const { weekStart, weekEnd, monday, sunday } = getWeekBounds();
 
       const existing = await storage.getWeeklyGameDay(userId, weekStart);
-      if (existing) return res.json(existing);
+      if (existing) {
+        const attempt = await storage.getChallengeAttempt(userId, existing.id);
+        return res.json({ ...existing, existingAttempt: attempt ?? null });
+      }
 
+      // Aggregate training logs for this week
       const allLogs = await storage.getTrainingLogs(userId);
       const weekLogs = allLogs.filter((l: any) => {
         if (!l.completedAt) return false;
@@ -8938,17 +8972,37 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
       const scores = weekLogs.filter((l: any) => l.score && l.score > 0).map((l: any) => l.score as number);
       const avgScore = scores.length > 0 ? Math.round(scores.reduce((a: number, b: number) => a + b, 0) / scores.length * 10) / 10 : null;
       const activeDays = new Set(weekLogs.map((l: any) => new Date(l.completedAt).toDateString())).size;
-
       const weeklyStats = { totalSessions, totalMinutes, shotsMade, shotsAttempted, shootingPct, activeDays, avgScore };
 
-      const allDrills = await storage.getDrills();
-      const eligibleDrills = allDrills.filter((d: any) => d.category !== "film-session" && d.description && d.description.length > 20);
-      const challengeDrill = eligibleDrills.length > 0
-        ? eligibleDrills[Math.floor(Math.random() * eligibleDrills.length)]
-        : null;
+      // Pull journal entries for this week for richer context
+      const allJournal = await storage.getJournalEntries(userId);
+      const weekJournal = allJournal.filter((e: any) => {
+        if (!e.createdAt) return false;
+        const d = new Date(e.createdAt);
+        return d >= monday && d <= sunday;
+      });
+      const journalContext = weekJournal.length > 0
+        ? `Journal entries: ${weekJournal.map((e: any) => `mood ${e.mood ?? "?"}/5${e.responses?.[0]?.answer ? `, note: "${String(e.responses[0].answer).slice(0, 60)}"` : ""}`).join("; ")}.`
+        : "";
 
-      const weekNum = Math.floor(monday.getTime() / (7 * 24 * 60 * 60 * 1000));
-      const reflectionPrompt = GAME_DAY_REFLECTIONS[weekNum % GAME_DAY_REFLECTIONS.length];
+      // Drill categories worked on this week
+      const drillIds = weekLogs.map((l: any) => l.drillId).filter(Boolean);
+      let categoryContext = "";
+      if (drillIds.length > 0) {
+        const allDrills = await storage.getDrills();
+        const workedDrills = allDrills.filter((d: any) => drillIds.includes(d.id));
+        const cats = [...new Set(workedDrills.map((d: any) => d.category).filter(Boolean))];
+        if (cats.length > 0) categoryContext = `Drill categories practiced: ${cats.join(", ")}.`;
+      }
+
+      const intensity = totalSessions >= 5 ? "ELITE" : totalSessions >= 3 ? "PRO" : "ROOKIE";
+      const userContext = [
+        `Week: ${weekStart} to ${weekEnd}.`,
+        `Sessions: ${totalSessions}. Minutes: ${totalMinutes}. Shots: ${shotsMade}/${shotsAttempted} (${shootingPct}%). Active days: ${activeDays}/7.${avgScore ? ` Avg score: ${avgScore}/10.` : ""}`,
+        categoryContext,
+        journalContext,
+        `Suggested intensity: ${intensity}.`,
+      ].filter(Boolean).join(" ");
 
       const OpenAILib = (await import("openai")).default;
       const openai = new OpenAILib({
@@ -8956,25 +9010,25 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
         baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
       });
 
-      const statsContext = `Sessions this week: ${totalSessions}. Total minutes logged: ${totalMinutes}. Shots made: ${shotsMade} of ${shotsAttempted} attempted (${shootingPct}%). Active training days: ${activeDays} out of 7.${avgScore ? ` Average session score: ${avgScore}/10.` : ""}`;
+      let scoutingReport = "Log at least one training session this week to unlock your AI scouting report.";
+      let challengeStructure: any = null;
 
-      let scoutingReport = "Training data logged. Full report requires at least one session this week.";
-      if (totalSessions > 0) {
-        const completion = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: "You are an elite basketball scout writing a weekly player evaluation based on training data. Write exactly 3 sentences in the style of a professional NBA scout report — direct, analytical, no fluff. Reference the actual numbers. End with one specific area they must focus on this coming week. Plain text only, no bullet points or headers.",
-            },
-            {
-              role: "user",
-              content: `Evaluate this player's training week: ${statsContext}`,
-            },
-          ],
-          max_tokens: 280,
-        });
-        scoutingReport = completion.choices[0]?.message?.content?.trim() || scoutingReport;
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: GAME_DAY_SYSTEM_PROMPT },
+          { role: "user", content: userContext },
+        ],
+        max_tokens: 900,
+      });
+
+      try {
+        const parsed = JSON.parse(completion.choices[0]?.message?.content || "{}");
+        if (parsed.scoutingReport) scoutingReport = parsed.scoutingReport;
+        if (parsed.challenge?.tasks?.length > 0) challengeStructure = parsed.challenge;
+      } catch {
+        console.error("[game-day] Failed to parse OpenAI JSON response");
       }
 
       const gameDay = await storage.createWeeklyGameDay({
@@ -8983,14 +9037,15 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
         weekEnd,
         scoutingReport,
         weeklyStats,
-        challengeDrillId: challengeDrill?.id ?? null,
-        challengeDrillTitle: challengeDrill?.title ?? null,
-        challengeDrillDescription: challengeDrill?.description ? challengeDrill.description.slice(0, 300) : null,
-        challengeDrillCategory: challengeDrill?.category ?? null,
-        reflectionPrompt,
+        challengeStructure,
+        challengeDrillId: null,
+        challengeDrillTitle: null,
+        challengeDrillDescription: null,
+        challengeDrillCategory: null,
+        reflectionPrompt: null,
       });
 
-      res.json(gameDay);
+      res.json({ ...gameDay, existingAttempt: null });
     } catch (err) {
       console.error("[game-day] Error generating:", err);
       res.status(500).json({ message: "Failed to generate Game Day" });
@@ -9006,6 +9061,30 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
     } catch (err) {
       console.error("[game-day] Error resetting:", err);
       res.status(500).json({ message: "Failed to reset Game Day" });
+    }
+  });
+
+  app.post("/api/game-day/attempt", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = String(req.user?.claims?.sub ?? "");
+      const { weekGameDayId, taskResults, overallScore, verdict, verdictText } = req.body;
+      if (!weekGameDayId) return res.status(400).json({ message: "weekGameDayId required" });
+
+      const existing = await storage.getChallengeAttempt(userId, weekGameDayId);
+      if (existing) return res.json(existing);
+
+      const attempt = await storage.createChallengeAttempt({
+        userId,
+        weekGameDayId,
+        taskResults: taskResults ?? [],
+        overallScore: overallScore ?? null,
+        verdict: verdict ?? null,
+        verdictText: verdictText ?? null,
+      });
+      res.json(attempt);
+    } catch (err) {
+      console.error("[game-day] Error saving attempt:", err);
+      res.status(500).json({ message: "Failed to save attempt" });
     }
   });
 

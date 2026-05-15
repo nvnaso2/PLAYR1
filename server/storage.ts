@@ -72,6 +72,7 @@ import {
   featureFlags, type FeatureFlag, type InsertFeatureFlag,
   journalEntries, type JournalEntry, type InsertJournalEntry,
   weeklyGameDays, type WeeklyGameDay, type InsertWeeklyGameDay,
+  gameDayChallengeAttempts, type GameDayChallengeAttempt, type InsertGameDayChallengeAttempt,
 } from "@shared/schema";
 import { users, type User } from "@shared/models/auth";
 import { db, pool } from "./db";
@@ -614,6 +615,10 @@ export interface IStorage {
   getWeeklyGameDay(userId: string, weekStart: string): Promise<WeeklyGameDay | undefined>;
   createWeeklyGameDay(data: InsertWeeklyGameDay): Promise<WeeklyGameDay>;
   deleteWeeklyGameDay(userId: string, weekStart: string): Promise<boolean>;
+
+  // Challenge Attempts
+  getChallengeAttempt(userId: string, weekGameDayId: string): Promise<GameDayChallengeAttempt | undefined>;
+  createChallengeAttempt(data: Omit<InsertGameDayChallengeAttempt, "id" | "completedAt">): Promise<GameDayChallengeAttempt>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -6240,6 +6245,17 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(weeklyGameDays.userId, userId), eq(weeklyGameDays.weekStart, weekStart)))
       .returning();
     return result.length > 0;
+  }
+
+  async getChallengeAttempt(userId: string, weekGameDayId: string): Promise<GameDayChallengeAttempt | undefined> {
+    const [row] = await db.select().from(gameDayChallengeAttempts)
+      .where(and(eq(gameDayChallengeAttempts.userId, userId), eq(gameDayChallengeAttempts.weekGameDayId, weekGameDayId)));
+    return row;
+  }
+
+  async createChallengeAttempt(data: Omit<InsertGameDayChallengeAttempt, "id" | "completedAt">): Promise<GameDayChallengeAttempt> {
+    const [row] = await db.insert(gameDayChallengeAttempts).values(data as InsertGameDayChallengeAttempt).returning();
+    return row;
   }
 }
 

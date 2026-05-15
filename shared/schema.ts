@@ -1769,6 +1769,30 @@ export type GameDayWeeklyStats = {
   avgScore: number | null;
 };
 
+export type ChallengeTask = {
+  id: string;
+  title: string;
+  description: string;
+  target: number;
+  total: number;
+  unit: string;
+};
+
+export type ChallengeStructure = {
+  title: string;
+  scenario: string;
+  briefing: string;
+  intensity: "ROOKIE" | "PRO" | "ELITE";
+  tasks: ChallengeTask[];
+  verdicts: { S: string; A: string; B: string; C: string; F: string };
+};
+
+export type ChallengeAttemptResult = {
+  taskId: string;
+  achieved: number;
+  total: number;
+};
+
 export const weeklyGameDays = pgTable("weekly_game_days", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull(),
@@ -1780,6 +1804,7 @@ export const weeklyGameDays = pgTable("weekly_game_days", {
   challengeDrillTitle: varchar("challenge_drill_title"),
   challengeDrillDescription: text("challenge_drill_description"),
   challengeDrillCategory: varchar("challenge_drill_category"),
+  challengeStructure: jsonb("challenge_structure").$type<ChallengeStructure>(),
   reflectionPrompt: text("reflection_prompt"),
   generatedAt: timestamp("generated_at").defaultNow(),
 });
@@ -1787,6 +1812,19 @@ export const weeklyGameDays = pgTable("weekly_game_days", {
 export const insertWeeklyGameDaySchema = createInsertSchema(weeklyGameDays).omit({ id: true, generatedAt: true });
 export type WeeklyGameDay = typeof weeklyGameDays.$inferSelect;
 export type InsertWeeklyGameDay = z.infer<typeof insertWeeklyGameDaySchema>;
+
+export const gameDayChallengeAttempts = pgTable("game_day_challenge_attempts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  weekGameDayId: varchar("week_game_day_id").notNull(),
+  taskResults: jsonb("task_results").$type<ChallengeAttemptResult[]>().default([]),
+  overallScore: integer("overall_score"),
+  verdict: varchar("verdict", { length: 1 }),
+  verdictText: text("verdict_text"),
+  completedAt: timestamp("completed_at").defaultNow(),
+});
+export type GameDayChallengeAttempt = typeof gameDayChallengeAttempts.$inferSelect;
+export type InsertGameDayChallengeAttempt = typeof gameDayChallengeAttempts.$inferInsert;
 
 // ===== REFLECTION JOURNAL =====
 export const JOURNAL_TYPES = ["post-workout", "post-game", "open"] as const;
