@@ -63,6 +63,7 @@ import {
   Zap,
   Fingerprint,
   Star,
+  BotMessageSquare,
 } from "lucide-react";
 import { Playr1Logo } from "@/components/playr1-logo";
 import { getObjectUrl } from "@/lib/queryClient";
@@ -80,6 +81,7 @@ const playerNavItems = [
   { title: "Game Day", url: "/game-day", icon: Zap },
   { title: "Archetypes", url: "/archetypes", icon: Fingerprint },
   { title: "My Identity", url: "/my-archetype", icon: Star },
+  { title: "My Goal", url: "/my-goal", icon: BotMessageSquare },
   { title: "Feedback", url: "/feedback", icon: Megaphone },
 ];
 

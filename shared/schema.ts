@@ -1899,3 +1899,85 @@ export const journalEntries = pgTable("journal_entries", {
 export const insertJournalEntrySchema = createInsertSchema(journalEntries).omit({ id: true, createdAt: true });
 export type JournalEntry = typeof journalEntries.$inferSelect;
 export type InsertJournalEntry = z.infer<typeof insertJournalEntrySchema>;
+
+// ===== AI GOAL COACH =====
+export interface GoalDaySchedule {
+  day: string;
+  activity: string;
+  duration: string;
+  drillCategories: string[];
+  details: string;
+}
+
+export interface GoalWeeklyFocus {
+  week: number;
+  theme: string;
+  focus: string;
+  dailySchedule: GoalDaySchedule[];
+}
+
+export interface GoalProgram {
+  programTitle: string;
+  programSummary: string;
+  coachNote: string;
+  totalWeeks: number;
+  weeklyFocus: GoalWeeklyFocus[];
+  milestones: { week: number; title: string; description: string }[];
+}
+
+export const playerGoals = pgTable("player_goals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  goalText: text("goal_text").notNull(),
+  status: varchar("status").notNull().default("clarifying"),
+  aiProgram: jsonb("ai_program").$type<GoalProgram>(),
+  currentWeek: integer("current_week").notNull().default(1),
+  totalWeeks: integer("total_weeks").notNull().default(8),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const goalClarifications = pgTable("goal_clarifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  goalId: varchar("goal_id").notNull(),
+  questionIndex: integer("question_index").notNull(),
+  question: text("question").notNull(),
+  answer: text("answer"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const goalMilestones = pgTable("goal_milestones", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  goalId: varchar("goal_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  weekNumber: integer("week_number").notNull(),
+  title: varchar("title").notNull(),
+  description: text("description"),
+  completed: boolean("completed").notNull().default(false),
+  completedAt: timestamp("completed_at"),
+});
+
+export const goalCheckIns = pgTable("goal_check_ins", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  goalId: varchar("goal_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  weekNumber: integer("week_number").notNull(),
+  userInput: text("user_input").notNull(),
+  aiResponse: text("ai_response"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPlayerGoalSchema = createInsertSchema(playerGoals).omit({ id: true, createdAt: true });
+export type PlayerGoal = typeof playerGoals.$inferSelect;
+export type InsertPlayerGoal = typeof playerGoals.$inferInsert;
+
+export const insertGoalClarificationSchema = createInsertSchema(goalClarifications).omit({ id: true, createdAt: true });
+export type GoalClarification = typeof goalClarifications.$inferSelect;
+export type InsertGoalClarification = typeof goalClarifications.$inferInsert;
+
+export const insertGoalMilestoneSchema = createInsertSchema(goalMilestones).omit({ id: true });
+export type GoalMilestone = typeof goalMilestones.$inferSelect;
+export type InsertGoalMilestone = typeof goalMilestones.$inferInsert;
+
+export const insertGoalCheckInSchema = createInsertSchema(goalCheckIns).omit({ id: true, createdAt: true });
+export type GoalCheckIn = typeof goalCheckIns.$inferSelect;
+export type InsertGoalCheckIn = typeof goalCheckIns.$inferInsert;

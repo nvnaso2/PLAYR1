@@ -71,6 +71,7 @@ const Journal = lazy(pageLoaders.journal);
 const GameDay = lazy(pageLoaders.gameDay);
 const Archetypes = lazy(pageLoaders.archetypes);
 const MyArchetype = lazy(pageLoaders.myArchetype);
+const MyGoal = lazy(pageLoaders.myGoal);
 
 function PageLoader() {
   return (
@@ -313,6 +314,7 @@ function Router() {
                 <Route path="/game-day" component={GameDay} />
                 <Route path="/archetypes" component={Archetypes} />
                 <Route path="/my-archetype" component={MyArchetype} />
+                <Route path="/my-goal" component={MyGoal} />
                 <Route path="/feedback" component={FeedbackPage} />
                 <Route path="/my-trainer" component={MyTrainer} />
                 <Route path="/parent" component={ParentDashboard} />

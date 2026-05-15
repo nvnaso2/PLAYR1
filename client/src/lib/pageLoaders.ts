@@ -44,6 +44,7 @@ export const pageLoaders = {
   gameDay: () => import("@/pages/game-day"),
   archetypes: () => import("@/pages/archetypes"),
   myArchetype: () => import("@/pages/my-archetype"),
+  myGoal: () => import("@/pages/my-goal"),
 } as const;
 
 // Map URL path → loader key. Used by the sidebar to preload on hover/touch.
@@ -63,6 +64,7 @@ const routeToLoader: Record<string, keyof typeof pageLoaders> = {
   "/game-day": "gameDay",
   "/archetypes": "archetypes",
   "/my-archetype": "myArchetype",
+  "/my-goal": "myGoal",
   "/programs": "programs",
   "/events": "events",
   "/my-trainer": "myTrainer",

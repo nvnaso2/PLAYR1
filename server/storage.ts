@@ -76,6 +76,11 @@ import {
   archetypes, userArchetypes, archetypeXpLog,
   type Archetype, type UserArchetype, type ArchetypeXpLog, type InsertArchetypeXpLog,
   ARCHETYPE_TIER_XP, type ArchetypeTier,
+  playerGoals, goalClarifications, goalMilestones, goalCheckIns,
+  type PlayerGoal, type InsertPlayerGoal,
+  type GoalClarification,
+  type GoalMilestone, type InsertGoalMilestone,
+  type GoalCheckIn, type InsertGoalCheckIn,
 } from "@shared/schema";
 import { users, type User } from "@shared/models/auth";
 import { db, pool } from "./db";
@@ -631,6 +636,21 @@ export interface IStorage {
   deselectArchetype(userId: string, role: "main" | "secondary"): Promise<boolean>;
   addArchetypeXp(userId: string, userArchetypeId: string, xpEarned: number, sourceType: string, sourceId?: string, note?: string): Promise<void>;
   getArchetypeXpLog(userId: string, limit?: number): Promise<ArchetypeXpLog[]>;
+
+  // Goal Coach
+  createGoal(userId: string, goalText: string): Promise<PlayerGoal>;
+  getActiveGoal(userId: string): Promise<PlayerGoal | null>;
+  getGoalById(goalId: string): Promise<PlayerGoal | null>;
+  updateGoal(goalId: string, data: Partial<InsertPlayerGoal>): Promise<PlayerGoal>;
+  abandonGoal(goalId: string): Promise<void>;
+  addClarification(goalId: string, questionIndex: number, question: string): Promise<GoalClarification>;
+  answerClarification(clarificationId: string, answer: string): Promise<GoalClarification>;
+  getClarifications(goalId: string): Promise<GoalClarification[]>;
+  createMilestone(data: InsertGoalMilestone): Promise<GoalMilestone>;
+  getGoalMilestones(goalId: string): Promise<GoalMilestone[]>;
+  completeMilestone(milestoneId: string): Promise<GoalMilestone>;
+  createCheckIn(data: InsertGoalCheckIn): Promise<GoalCheckIn>;
+  getCheckIns(goalId: string): Promise<GoalCheckIn[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -6371,5 +6391,105 @@ function calcArchetypeTier(totalXp: number): string {
   if (totalXp >= 500) return "rising";
   return "prospect";
 }
+
+// ===== GOAL COACH IMPLEMENTATION =====
+Object.assign(DatabaseStorage.prototype, {
+  async createGoal(userId: string, goalText: string): Promise<PlayerGoal> {
+    const [goal] = await db
+      .insert(playerGoals)
+      .values({ userId, goalText, status: "clarifying", currentWeek: 1, totalWeeks: 8 })
+      .returning();
+    return goal;
+  },
+
+  async getActiveGoal(userId: string): Promise<PlayerGoal | null> {
+    const [goal] = await db
+      .select()
+      .from(playerGoals)
+      .where(
+        and(
+          eq(playerGoals.userId, userId),
+          or(eq(playerGoals.status, "clarifying"), eq(playerGoals.status, "active"))
+        )
+      )
+      .orderBy(desc(playerGoals.createdAt))
+      .limit(1);
+    return goal ?? null;
+  },
+
+  async getGoalById(goalId: string): Promise<PlayerGoal | null> {
+    const [goal] = await db.select().from(playerGoals).where(eq(playerGoals.id, goalId));
+    return goal ?? null;
+  },
+
+  async updateGoal(goalId: string, data: Partial<InsertPlayerGoal>): Promise<PlayerGoal> {
+    const [goal] = await db.update(playerGoals).set(data).where(eq(playerGoals.id, goalId)).returning();
+    return goal;
+  },
+
+  async abandonGoal(goalId: string): Promise<void> {
+    await db.update(playerGoals).set({ status: "abandoned" }).where(eq(playerGoals.id, goalId));
+  },
+
+  async addClarification(goalId: string, questionIndex: number, question: string): Promise<GoalClarification> {
+    const [row] = await db
+      .insert(goalClarifications)
+      .values({ goalId, questionIndex, question })
+      .returning();
+    return row;
+  },
+
+  async answerClarification(clarificationId: string, answer: string): Promise<GoalClarification> {
+    const [row] = await db
+      .update(goalClarifications)
+      .set({ answer })
+      .where(eq(goalClarifications.id, clarificationId))
+      .returning();
+    return row;
+  },
+
+  async getClarifications(goalId: string): Promise<GoalClarification[]> {
+    return db
+      .select()
+      .from(goalClarifications)
+      .where(eq(goalClarifications.goalId, goalId))
+      .orderBy(goalClarifications.questionIndex);
+  },
+
+  async createMilestone(data: InsertGoalMilestone): Promise<GoalMilestone> {
+    const [row] = await db.insert(goalMilestones).values(data).returning();
+    return row;
+  },
+
+  async getGoalMilestones(goalId: string): Promise<GoalMilestone[]> {
+    return db
+      .select()
+      .from(goalMilestones)
+      .where(eq(goalMilestones.goalId, goalId))
+      .orderBy(goalMilestones.weekNumber);
+  },
+
+  async completeMilestone(milestoneId: string): Promise<GoalMilestone> {
+    const [row] = await db
+      .update(goalMilestones)
+      .set({ completed: true, completedAt: new Date() })
+      .where(eq(goalMilestones.id, milestoneId))
+      .returning();
+    return row;
+  },
+
+  async createCheckIn(data: InsertGoalCheckIn): Promise<GoalCheckIn> {
+    const [row] = await db.insert(goalCheckIns).values(data).returning();
+    return row;
+  },
+
+  async getCheckIns(goalId: string): Promise<GoalCheckIn[]> {
+    return db
+      .select()
+      .from(goalCheckIns)
+      .where(eq(goalCheckIns.goalId, goalId))
+      .orderBy(goalCheckIns.weekNumber);
+  },
+});
 
 export const storage = new DatabaseStorage();
