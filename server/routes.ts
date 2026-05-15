@@ -8745,7 +8745,7 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
   // List user's journal entries
   app.get("/api/journal", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const entries = await storage.getJournalEntries(req.userId!);
+      const entries = await storage.getJournalEntries(req.user.claims.sub);
       res.json(entries);
     } catch (err) {
       console.error("Error fetching journal entries:", err);
@@ -8756,7 +8756,7 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
   // Get single entry
   app.get("/api/journal/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const entry = await storage.getJournalEntry(req.params.id, req.userId!);
+      const entry = await storage.getJournalEntry(req.params.id, req.user.claims.sub);
       if (!entry) return res.status(404).json({ message: "Entry not found" });
       res.json(entry);
     } catch (err) {
@@ -8806,7 +8806,7 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
       });
       const parsed = schema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: "Invalid input" });
-      const entry = await storage.updateJournalEntry(req.params.id, req.userId!, parsed.data);
+      const entry = await storage.updateJournalEntry(req.params.id, req.user.claims.sub, parsed.data);
       if (!entry) return res.status(404).json({ message: "Entry not found" });
       res.json(entry);
     } catch (err) {
@@ -8817,7 +8817,7 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
   // Delete entry
   app.delete("/api/journal/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const ok = await storage.deleteJournalEntry(req.params.id, req.userId!);
+      const ok = await storage.deleteJournalEntry(req.params.id, req.user.claims.sub);
       if (!ok) return res.status(404).json({ message: "Entry not found" });
       res.json({ ok: true });
     } catch (err) {
@@ -8828,7 +8828,7 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
   // AI Coach feedback (pro users only)
   app.post("/api/journal/:id/ai-coach", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.userId!;
+      const userId = req.user.claims.sub;
       const entry = await storage.getJournalEntry(req.params.id, userId);
       if (!entry) return res.status(404).json({ message: "Entry not found" });
 
