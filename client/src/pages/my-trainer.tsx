@@ -2292,6 +2292,9 @@ export default function MyTrainerPage() {
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-6 overflow-y-auto h-full">
       <div>
+        <button onClick={() => window.history.back()} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3" data-testid="button-back">
+          <ChevronLeft className="w-4 h-4" /> Back
+        </button>
         <h1 className="text-2xl font-bold flex items-center gap-2" data-testid="text-my-trainer-title">
           <UserPlus className="w-6 h-6" />
           My Trainer

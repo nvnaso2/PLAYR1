@@ -312,6 +312,9 @@ export default function GameDayPage() {
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="relative overflow-hidden border-b border-border bg-gradient-to-b from-primary/10 via-primary/4 to-transparent px-4 pt-8 pb-7">
         <div className="max-w-xl mx-auto">
+          <button onClick={() => window.history.back()} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4" data-testid="button-back">
+            <ArrowLeft className="w-4 h-4" /> Back
+          </button>
           <Badge className="bg-primary text-primary-foreground text-[10px] font-bold tracking-widest px-2.5 py-0.5 mb-3" data-testid="badge-game-day">
             <Zap className="w-2.5 h-2.5 mr-1" /> GAME DAY WEEKLY
           </Badge>

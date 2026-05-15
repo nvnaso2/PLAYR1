@@ -6,7 +6,7 @@ import { ArchetypeRingChart, type RingSegment } from "@/components/archetype-rin
 import { useAuth } from "@/hooks/use-auth";
 import type { Archetype, UserArchetype, ArchetypeXpLog, ArchetypeTier } from "@shared/schema";
 import { ARCHETYPE_TIER_XP } from "@shared/schema";
-import { Crown, Sparkles, Zap, ClipboardList, Star, Fingerprint } from "lucide-react";
+import { Crown, Sparkles, Zap, ClipboardList, Star, Fingerprint, ChevronLeft } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 type UserArchetypeEnriched = UserArchetype & {
@@ -120,6 +120,9 @@ export default function MyArchetypePage() {
       <div className="relative overflow-hidden border-b border-zinc-800/60">
         <div className="absolute inset-0 bg-gradient-to-br from-orange-950/30 via-transparent to-transparent" />
         <div className="relative px-4 sm:px-6 py-8 max-w-2xl mx-auto">
+          <button onClick={() => window.history.back()} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4" data-testid="button-back">
+            <ChevronLeft className="w-4 h-4" /> Back
+          </button>
           <div className="flex items-center gap-2 mb-1">
             <Star className="w-5 h-5 text-orange-400" />
             <span className="text-xs font-bold text-orange-400 tracking-widest uppercase">

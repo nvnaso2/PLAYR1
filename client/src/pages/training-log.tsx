@@ -44,6 +44,7 @@ import {
   Clock, 
   Target, 
   Calendar,
+  ArrowRight,
   ClipboardList,
   Play,
   Save,
@@ -170,6 +171,7 @@ export default function TrainingLogPage() {
   });
   
   const [challengesSectionOpen, setChallengesSectionOpen] = useState(false);
+  const [programsSectionOpen, setProgramsSectionOpen] = useState(false);
   const [isSavingWorkout, setIsSavingWorkout] = useState(false);
   
   // Single workout-level timer state
@@ -1893,51 +1895,6 @@ export default function TrainingLogPage() {
         </div>
       </div>
 
-      {/* Programs Section */}
-      {programEnrollments && programEnrollments.length > 0 && (
-        <div data-testid="section-programs">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-orange-400" />
-              <h2 className="font-semibold text-sm">Active Programs</h2>
-            </div>
-            <Link href="/programs" className="flex items-center gap-1 text-xs text-orange-400 hover:text-orange-300 transition-colors" data-testid="link-see-all-programs">
-              See all <ChevronRight className="w-3 h-3" />
-            </Link>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {programEnrollments.slice(0, 2).map((enrollment: any) => {
-              const pct = enrollment.totalItemCount > 0
-                ? Math.round((enrollment.completedItemCount / enrollment.totalItemCount) * 100)
-                : 0;
-              return (
-                <Link key={enrollment.id} href={`/programs/${enrollment.programId}`} data-testid={`card-program-${enrollment.programId}`}>
-                  <Card className="cursor-pointer hover-elevate border-zinc-800/60 bg-zinc-900/40">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between gap-2 mb-3">
-                        <div className="min-w-0">
-                          <h3 className="font-semibold text-sm truncate">{enrollment.program?.title ?? "Program"}</h3>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {enrollment.completedItemCount ?? 0} / {enrollment.totalItemCount ?? 0} completed
-                          </p>
-                        </div>
-                        <Badge variant="secondary" className="shrink-0 text-[10px]">{pct}%</Badge>
-                      </div>
-                      <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-orange-500 to-orange-400 rounded-full transition-all"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
       {/* Main Content Area */}
       {activeView === "library" && !workoutInProgress && (
         <div className="space-y-6">
@@ -2211,6 +2168,69 @@ export default function TrainingLogPage() {
                           </CardContent>
                         </Card>
                       ))}
+                    </CollapsibleContent>
+                  </Collapsible>
+                );
+              })()}
+
+              {/* Active Programs Section */}
+              {(() => {
+                const activePrograms = (programEnrollments ?? []).filter((e: any) => e.status === "active");
+                if (activePrograms.length === 0) return null;
+                return (
+                  <Collapsible open={programsSectionOpen} onOpenChange={setProgramsSectionOpen}>
+                    <CollapsibleTrigger asChild>
+                      <div className="flex items-center gap-2 cursor-pointer select-none" data-testid="section-active-programs">
+                        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-orange-500" />
+                          Active Programs
+                          <Badge className="text-xs bg-orange-500/20 text-orange-400 border-orange-500/30">{activePrograms.length} Active</Badge>
+                        </h3>
+                        <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${programsSectionOpen ? 'rotate-90' : ''}`} />
+                      </div>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="pt-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {activePrograms.map((e: any) => {
+                          const accent = e.program?.accentColor || "#f97316";
+                          const pct = e.totalItemCount > 0
+                            ? Math.round((e.completedItemCount / e.totalItemCount) * 100)
+                            : 0;
+                          const slug = e.program?.slug;
+                          const href = slug ? `/programs/${slug}/today` : `/programs`;
+                          return (
+                            <Link key={e.id} href={href} data-testid={`link-program-${e.programId}`}>
+                              <Card className="hover-elevate active-elevate-2 cursor-pointer overflow-hidden border-border/60 h-full">
+                                <div className="h-1.5" style={{ background: `linear-gradient(90deg, ${accent}, ${accent}66)` }} />
+                                <CardContent className="p-4">
+                                  <div className="flex items-start justify-between gap-2 mb-2">
+                                    <Badge variant="outline" className="text-xs">
+                                      <Calendar className="w-3 h-3 mr-1" />
+                                      Day {e.currentDay} of {e.program?.lengthDays}
+                                    </Badge>
+                                    <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                                  </div>
+                                  <h3 className="text-sm font-semibold leading-tight line-clamp-2">
+                                    {e.program?.title ?? "Program"}
+                                  </h3>
+                                  <div className="flex items-center justify-between text-[11px] text-muted-foreground mt-3 mb-1">
+                                    <span>{e.completedItemCount}/{e.totalItemCount} items</span>
+                                    <span className="font-medium text-foreground">{pct}%</span>
+                                  </div>
+                                  <div className="h-1 bg-muted rounded-full overflow-hidden">
+                                    <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: accent }} />
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                      <Link href="/programs">
+                        <button className="mt-3 w-full flex items-center justify-center gap-1.5 text-xs text-orange-400 hover:text-orange-300 transition-colors py-2" data-testid="link-all-programs">
+                          All programs <ArrowRight className="w-3 h-3" />
+                        </button>
+                      </Link>
                     </CollapsibleContent>
                   </Collapsible>
                 );

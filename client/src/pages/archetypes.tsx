@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Target, Zap, Shuffle, Shield, Eye, ArrowUpDown, Wind, Dumbbell, Check, Crown } from "lucide-react";
+import { Target, Zap, Shuffle, Shield, Eye, ArrowUpDown, Wind, Dumbbell, Check, Crown, ChevronLeft } from "lucide-react";
 import type { Archetype, UserArchetype } from "@shared/schema";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -79,6 +79,9 @@ export default function ArchetypesPage() {
       <div className="relative overflow-hidden border-b border-zinc-800/60">
         <div className="absolute inset-0 bg-gradient-to-br from-orange-950/30 via-transparent to-transparent" />
         <div className="relative px-4 sm:px-6 py-8 max-w-4xl mx-auto">
+          <button onClick={() => window.history.back()} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4" data-testid="button-back">
+            <ChevronLeft className="w-4 h-4" /> Back
+          </button>
           <div className="flex items-center gap-2 mb-1">
             <Crown className="w-5 h-5 text-orange-400" />
             <span className="text-xs font-bold text-orange-400 tracking-widest uppercase">
