@@ -158,7 +158,8 @@ function EntryFlow({
         question: p.question,
         answer: answers[p.id] || "",
       }));
-      return await apiRequest("POST", "/api/journal", { type, responses });
+      const res = await apiRequest("POST", "/api/journal", { type, responses });
+      return res.json();
     },
     onSuccess: async (data: JournalEntry) => {
       queryClient.invalidateQueries({ queryKey: ["/api/journal"] });
@@ -176,7 +177,8 @@ function EntryFlow({
 
   const aiCoachMutation = useMutation({
     mutationFn: async (entryId: string) => {
-      return await apiRequest("POST", `/api/journal/${entryId}/ai-coach`, {});
+      const res = await apiRequest("POST", `/api/journal/${entryId}/ai-coach`, {});
+      return res.json();
     },
     onSuccess: (data: JournalEntry) => {
       queryClient.invalidateQueries({ queryKey: ["/api/journal"] });
@@ -187,7 +189,8 @@ function EntryFlow({
 
   const followUpMutation = useMutation({
     mutationFn: async ({ id, answer }: { id: string; answer: string }) => {
-      return await apiRequest("PUT", `/api/journal/${id}`, { aiFollowUpAnswer: answer });
+      const res = await apiRequest("PUT", `/api/journal/${id}`, { aiFollowUpAnswer: answer });
+      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/journal"] });
