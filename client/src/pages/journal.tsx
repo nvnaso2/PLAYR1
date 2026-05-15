@@ -497,7 +497,7 @@ function EntryDetail({ entry, onClose }: { entry: JournalEntry; onClose: () => v
                 <Button
                   size="sm"
                   disabled={!followUpAnswer.trim() || followUpMutation.isPending}
-                  onClick={() => followUpMutation.mutate({ id: createdEntryId!, answer: followUpAnswer })}
+                  onClick={() => followUpMutation.mutate(followUpAnswer)}
                 >
                   {followUpMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Save"}
                 </Button>
@@ -601,31 +601,35 @@ export default function JournalPage() {
 
       {/* New Entry Dialog */}
       <Dialog open={newEntryOpen} onOpenChange={(o) => { setNewEntryOpen(o); if (!o) setSelectedType(null); }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md flex flex-col max-h-[88vh] p-0 gap-0">
           <DialogHeader className="sr-only">
             <DialogTitle>New Journal Entry</DialogTitle>
           </DialogHeader>
-          {!selectedType ? (
-            <TypeSelect onSelect={(t) => setSelectedType(t)} />
-          ) : (
-            <EntryFlow
-              type={selectedType}
-              onBack={() => setSelectedType(null)}
-              onComplete={handleComplete}
-            />
-          )}
+          <div className="overflow-y-auto flex-1 min-h-0 p-6">
+            {!selectedType ? (
+              <TypeSelect onSelect={(t) => setSelectedType(t)} />
+            ) : (
+              <EntryFlow
+                type={selectedType}
+                onBack={() => setSelectedType(null)}
+                onComplete={handleComplete}
+              />
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 
       {/* View Entry Dialog */}
       <Dialog open={!!viewingEntry} onOpenChange={(o) => { if (!o) setViewingEntry(null); }}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg flex flex-col max-h-[88vh] p-0 gap-0">
           <DialogHeader className="sr-only">
             <DialogTitle>Journal Entry</DialogTitle>
           </DialogHeader>
-          {viewingEntry && (
-            <EntryDetail entry={viewingEntry} onClose={() => setViewingEntry(null)} />
-          )}
+          <div className="overflow-y-auto flex-1 min-h-0 p-6">
+            {viewingEntry && (
+              <EntryDetail entry={viewingEntry} onClose={() => setViewingEntry(null)} />
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 
