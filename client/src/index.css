@@ -299,11 +299,18 @@ html.plt-capacitor textarea {
   }
 }
 
-/* Phone app shell — hide inline sidebar panel, always use sheet drawer */
-.phone-app [data-sidebar="sidebar"] {
-  display: none !important;
-}
-.phone-app [data-slot="sidebar-inset"] {
-  margin-left: 0 !important;
-  width: 100% !important;
+/* iPhone 17 phone frame shell — real proportions, scales to viewport */
+@media (min-width: 768px) {
+  .iphone-frame-shell {
+    height: min(852px, calc(100vh - 24px));
+    width: calc(min(852px, calc(100vh - 24px)) * 393 / 852);
+    border-radius: 47px;
+    border: 10px solid #3f3f46;
+    box-shadow:
+      0 60px 120px -20px rgba(0,0,0,0.95),
+      0 0 0 1px rgba(255,255,255,0.06) inset,
+      0 1px 0 rgba(255,255,255,0.1) inset;
+    flex-shrink: 0;
+    position: relative;
+  }
 }
