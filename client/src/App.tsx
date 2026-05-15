@@ -7,11 +7,12 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/hooks/use-auth";
+import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/app-sidebar";
 import { BottomTabBar } from "@/components/bottom-tab-bar";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { Playr1Logo } from "@/components/playr1-logo";
-import { Wifi, BatteryMedium, Signal } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRole } from "@/hooks/use-role";
 import { pageLoaders, preloadCommonPages } from "@/lib/pageLoaders";
@@ -143,122 +144,43 @@ function SplashScreen({ isAuthLoading, isAuthenticated, onComplete }: {
   );
 }
 
-function useClockTime() {
-  const fmt = () => {
-    const d = new Date();
-    const h = d.getHours();
-    const m = String(d.getMinutes()).padStart(2, "0");
-    return `${h}:${m}`;
-  };
-  const [time, setTime] = useState(fmt);
-  useEffect(() => {
-    const t = setInterval(() => setTime(fmt()), 15_000);
-    return () => clearInterval(t);
-  }, []);
-  return time;
-}
-
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const isNative = Capacitor.isNativePlatform();
-  const time = useClockTime();
   usePageViewTracking();
 
+  const sidebarStyle = {
+    "--sidebar-width": "16rem",
+    "--sidebar-width-icon": "3rem",
+  } as React.CSSProperties;
+
   return (
-    /* ── Outer backdrop: dark on desktop, transparent on native ── */
-    <div
-      className="flex h-screen w-full items-center justify-center overflow-hidden"
-      style={isNative ? {} : {
-        background: "radial-gradient(ellipse at 50% 40%, #1c1c1e 0%, #080808 100%)",
-      }}
-    >
-      {/* Ambient orange glow — desktop only */}
-      {!isNative && (
-        <div
-          className="hidden md:block absolute pointer-events-none"
-          style={{ width: 600, height: 600, borderRadius: "50%", background: "radial-gradient(circle, rgba(249,115,22,0.06) 0%, transparent 70%)" }}
-        />
-      )}
-
-      {/* ── Device shell wrapper (positions side buttons outside screen) ── */}
-      <div className={`relative flex-shrink-0 ${isNative ? "h-screen w-full" : ""}`}
-        style={isNative ? {} : undefined}
-      >
-        {/* Volume up */}
-        <div className="hidden md:block absolute bg-zinc-600 rounded-l-[3px]"
-          style={{ left: -5, top: "17%", width: 4, height: "4.5%" }} />
-        {/* Volume down */}
-        <div className="hidden md:block absolute bg-zinc-600 rounded-l-[3px]"
-          style={{ left: -5, top: "24%", width: 4, height: "7%" }} />
-        {/* Mute/silent switch */}
-        <div className="hidden md:block absolute bg-zinc-600 rounded-l-[3px]"
-          style={{ left: -5, top: "13%", width: 4, height: "2.5%" }} />
-        {/* Power button */}
-        <div className="hidden md:block absolute bg-zinc-600 rounded-r-[3px]"
-          style={{ right: -5, top: "26%", width: 4, height: "9%" }} />
-
-        {/* ── Phone screen ── */}
-        <div
-          className={`iphone-frame-shell relative flex flex-col bg-background overflow-hidden ${isNative ? "h-screen w-full !rounded-none !border-0 !shadow-none" : ""}`}
-        >
-          {/* Dynamic island */}
-          {!isNative && (
-            <div
-              className="hidden md:block absolute z-50 pointer-events-none"
-              style={{
-                top: 10, left: "50%", transform: "translateX(-50%)",
-                width: 126, height: 37, background: "#000", borderRadius: 20,
-              }}
-            />
-          )}
-
-          {/* iOS status bar (desktop phone frame only) */}
-          {!isNative && (
-            <div
-              className="hidden md:flex items-center justify-between shrink-0 px-8"
-              style={{ paddingTop: 54, paddingBottom: 2 }}
-            >
-              <span className="text-white text-[13px] font-semibold tracking-tight">{time}</span>
-              <div className="flex items-center gap-1.5">
-                <Signal className="w-3 h-3 text-white" />
-                <Wifi className="w-3.5 h-3.5 text-white" />
-                <BatteryMedium className="w-5 h-4 text-white" />
-              </div>
-            </div>
-          )}
-
-          {/* App header */}
-          <header
-            className={`relative flex items-center border-b border-zinc-800/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40 overflow-hidden ${
-              isNative ? "px-4 py-2 safe-area-top" : "px-4 py-3"
-            }`}
-          >
+    <SidebarProvider style={sidebarStyle}>
+      <div className="flex h-screen w-full overflow-hidden">
+        <AppSidebar />
+        <SidebarInset className="flex flex-col min-h-0 flex-1 overflow-hidden">
+          {/* Header */}
+          <header className="shrink-0 flex items-center gap-2 border-b border-zinc-800/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40 px-4 h-14">
+            <SidebarTrigger data-testid="button-sidebar-toggle" className="-ml-1" />
             <div className="flex-1 flex items-center justify-center">
               <Playr1Logo className="h-8 w-auto" />
             </div>
-            <div className="absolute right-4">
-              <ThemeToggle />
-            </div>
+            <ThemeToggle />
           </header>
 
           {/* Scrollable page content */}
-          <main className="flex-1 overflow-y-auto">
+          <main className="flex-1 overflow-y-auto min-h-0">
             <Suspense fallback={<PageLoader />}>
               {children}
             </Suspense>
           </main>
 
-          {/* Bottom tab bar — stays pinned inside the frame */}
-          <BottomTabBar />
-
-          {/* iOS home indicator */}
-          {!isNative && (
-            <div className="hidden md:flex justify-center items-center shrink-0 bg-background" style={{ paddingBottom: 6, paddingTop: 4 }}>
-              <div style={{ width: 134, height: 5, background: "rgba(255,255,255,0.18)", borderRadius: 3 }} />
-            </div>
-          )}
-        </div>
+          {/* Bottom tab bar — mobile only */}
+          <div className="md:hidden shrink-0">
+            <BottomTabBar />
+          </div>
+        </SidebarInset>
       </div>
-    </div>
+    </SidebarProvider>
   );
 }
 
