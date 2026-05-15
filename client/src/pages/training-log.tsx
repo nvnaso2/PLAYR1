@@ -407,6 +407,11 @@ export default function TrainingLogPage() {
     queryKey: ['/api/user/favorite-drills'],
   });
 
+  const { data: programEnrollments } = useQuery<any[]>({
+    queryKey: ["/api/programs/me"],
+    staleTime: 30_000,
+  });
+
   // Group drills by category
   const groupByCategory = (drills: Drill[]) => {
     const grouped: Record<string, Drill[]> = {};
@@ -1887,6 +1892,51 @@ export default function TrainingLogPage() {
           </Dialog>
         </div>
       </div>
+
+      {/* Programs Section */}
+      {programEnrollments && programEnrollments.length > 0 && (
+        <div data-testid="section-programs">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-orange-400" />
+              <h2 className="font-semibold text-sm">Active Programs</h2>
+            </div>
+            <Link href="/programs" className="flex items-center gap-1 text-xs text-orange-400 hover:text-orange-300 transition-colors" data-testid="link-see-all-programs">
+              See all <ChevronRight className="w-3 h-3" />
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {programEnrollments.slice(0, 2).map((enrollment: any) => {
+              const pct = enrollment.totalItemCount > 0
+                ? Math.round((enrollment.completedItemCount / enrollment.totalItemCount) * 100)
+                : 0;
+              return (
+                <Link key={enrollment.id} href={`/programs/${enrollment.programId}`} data-testid={`card-program-${enrollment.programId}`}>
+                  <Card className="cursor-pointer hover-elevate border-zinc-800/60 bg-zinc-900/40">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <div className="min-w-0">
+                          <h3 className="font-semibold text-sm truncate">{enrollment.program?.title ?? "Program"}</h3>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {enrollment.completedItemCount ?? 0} / {enrollment.totalItemCount ?? 0} completed
+                          </p>
+                        </div>
+                        <Badge variant="secondary" className="shrink-0 text-[10px]">{pct}%</Badge>
+                      </div>
+                      <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-orange-500 to-orange-400 rounded-full transition-all"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Main Content Area */}
       {activeView === "library" && !workoutInProgress && (

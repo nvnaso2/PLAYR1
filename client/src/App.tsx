@@ -75,6 +75,8 @@ const MyArchetype = lazy(pageLoaders.myArchetype);
 const MyGoal = lazy(pageLoaders.myGoal);
 const Hub = lazy(pageLoaders.hub);
 const Journey = lazy(pageLoaders.journey);
+const CommunityPage = lazy(() => import("@/pages/community"));
+const ProfileHubPage = lazy(() => import("@/pages/profile-hub"));
 
 function PageLoader() {
   return (
@@ -324,6 +326,8 @@ function Router() {
                 <Route path="/game-day" component={GameDay} />
                 <Route path="/hub" component={Hub} />
                 <Route path="/journey" component={Journey} />
+                <Route path="/community" component={CommunityPage} />
+                <Route path="/profile-hub" component={ProfileHubPage} />
                 <Route path="/archetypes" component={Archetypes} />
                 <Route path="/my-archetype" component={MyArchetype} />
                 <Route path="/my-goal" component={MyGoal} />
