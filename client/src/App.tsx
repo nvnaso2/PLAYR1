@@ -67,6 +67,7 @@ const Events = lazy(pageLoaders.events);
 const EventDetail = lazy(pageLoaders.eventDetail);
 const EventEditor = lazy(pageLoaders.eventEditor);
 const TrainerPrograms = lazy(pageLoaders.trainerPrograms);
+const Journal = lazy(pageLoaders.journal);
 
 function PageLoader() {
   return (
@@ -305,6 +306,7 @@ function Router() {
                 <Route path="/teams" component={Finder} />
                 <Route path="/connect" component={FindPeople} />
                 <Route path="/challenge-history" component={ChallengeHistory} />
+                <Route path="/journal" component={Journal} />
                 <Route path="/feedback" component={FeedbackPage} />
                 <Route path="/my-trainer" component={MyTrainer} />
                 <Route path="/parent" component={ParentDashboard} />

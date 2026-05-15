@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useAdmin } from "@/hooks/use-admin";
 import { useRole } from "@/hooks/use-role";
+import { useFeatureFlag } from "@/hooks/use-feature-flag";
 import { preloadRoute, preloadCommonPages } from "@/lib/pageLoaders";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -58,6 +59,7 @@ import {
   Eye,
   Megaphone,
   Sparkles,
+  BookOpen,
 } from "lucide-react";
 import { Playr1Logo } from "@/components/playr1-logo";
 import { getObjectUrl } from "@/lib/queryClient";
@@ -137,6 +139,7 @@ export function AppSidebar() {
 
   const isTrainerView = activeView === "trainer";
   const navItems = isTrainerView ? trainerNavItems : playerNavItems;
+  const journalEnabled = useFeatureFlag("reflection-journal");
 
   // Warm up the most common page chunks in the background after the sidebar
   // mounts, so the first tap on a tab feels instant.
@@ -258,6 +261,23 @@ export function AppSidebar() {
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   ))}
+                  {!isTrainerView && journalEnabled && (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActiveLink("/journal")}
+                        data-testid="link-nav-journal"
+                        onMouseEnter={() => preloadRoute("/journal")}
+                        onTouchStart={() => preloadRoute("/journal")}
+                        onFocus={() => preloadRoute("/journal")}
+                      >
+                        <Link href="/journal" onClick={closeSidebar}>
+                          <BookOpen className="w-4 h-4" />
+                          <span>Journal</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>

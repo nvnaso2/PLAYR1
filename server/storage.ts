@@ -69,6 +69,8 @@ import {
   events, type Event, type InsertEvent,
   eventParticipants, type EventParticipant,
   type EventStatus,
+  featureFlags, type FeatureFlag, type InsertFeatureFlag,
+  journalEntries, type JournalEntry, type InsertJournalEntry,
 } from "@shared/schema";
 import { users, type User } from "@shared/models/auth";
 import { db } from "./db";
@@ -112,6 +114,7 @@ export interface IStorage {
   // User Profiles
   getUserProfile(userId: string): Promise<UserProfile | undefined>;
   upsertUserProfile(profile: InsertUserProfile): Promise<UserProfile>;
+  updateUserProfile(userId: string, updates: Partial<UserProfile>): Promise<UserProfile | undefined>;
 
   // User Videos
   getUserVideos(userId: string): Promise<UserVideo[]>;
@@ -590,6 +593,21 @@ export interface IStorage {
     compositeScore: number;
     rank: number;
   }>>;
+
+  // Feature Flags
+  listFeatureFlags(): Promise<FeatureFlag[]>;
+  getFeatureFlag(key: string): Promise<FeatureFlag | undefined>;
+  upsertFeatureFlag(data: InsertFeatureFlag): Promise<FeatureFlag>;
+  updateFeatureFlag(key: string, updates: Partial<FeatureFlag>): Promise<FeatureFlag | undefined>;
+  deleteFeatureFlag(key: string): Promise<boolean>;
+  getUserFeatureFlags(userId: string): Promise<Record<string, boolean>>;
+
+  // Journal
+  getJournalEntries(userId: string): Promise<JournalEntry[]>;
+  getJournalEntry(id: string, userId: string): Promise<JournalEntry | undefined>;
+  createJournalEntry(entry: InsertJournalEntry): Promise<JournalEntry>;
+  updateJournalEntry(id: string, userId: string, updates: Partial<JournalEntry>): Promise<JournalEntry | undefined>;
+  deleteJournalEntry(id: string, userId: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -842,6 +860,15 @@ export class DatabaseStorage implements IStorage {
       .from(userProfiles)
       .where(eq(userProfiles.userId, userId));
     return profile;
+  }
+
+  async updateUserProfile(userId: string, updates: Partial<UserProfile>): Promise<UserProfile | undefined> {
+    const [result] = await db
+      .update(userProfiles)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(userProfiles.userId, userId))
+      .returning();
+    return result;
   }
 
   async upsertUserProfile(profile: InsertUserProfile): Promise<UserProfile> {
@@ -6044,6 +6071,87 @@ export class DatabaseStorage implements IStorage {
     });
 
     return decorated.slice(0, limit).map((d, idx) => ({ ...d, rank: idx + 1 }));
+  }
+
+  // ===== FEATURE FLAGS =====
+  async listFeatureFlags(): Promise<FeatureFlag[]> {
+    return db.select().from(featureFlags).orderBy(asc(featureFlags.createdAt));
+  }
+
+  async getFeatureFlag(key: string): Promise<FeatureFlag | undefined> {
+    const [flag] = await db.select().from(featureFlags).where(eq(featureFlags.key, key));
+    return flag;
+  }
+
+  async upsertFeatureFlag(data: InsertFeatureFlag): Promise<FeatureFlag> {
+    const [flag] = await db
+      .insert(featureFlags)
+      .values(data)
+      .onConflictDoUpdate({ target: featureFlags.key, set: { ...data, updatedAt: new Date() } })
+      .returning();
+    return flag;
+  }
+
+  async updateFeatureFlag(key: string, updates: Partial<FeatureFlag>): Promise<FeatureFlag | undefined> {
+    const [flag] = await db
+      .update(featureFlags)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(featureFlags.key, key))
+      .returning();
+    return flag;
+  }
+
+  async deleteFeatureFlag(key: string): Promise<boolean> {
+    const result = await db.delete(featureFlags).where(eq(featureFlags.key, key)).returning();
+    return result.length > 0;
+  }
+
+  async getUserFeatureFlags(userId: string): Promise<Record<string, boolean>> {
+    const flags = await db.select().from(featureFlags);
+    const result: Record<string, boolean> = {};
+    for (const flag of flags) {
+      result[flag.key] = flag.isEnabled || (flag.betaUserIds ?? []).includes(userId);
+    }
+    return result;
+  }
+
+  // ===== JOURNAL =====
+  async getJournalEntries(userId: string): Promise<JournalEntry[]> {
+    return db
+      .select()
+      .from(journalEntries)
+      .where(eq(journalEntries.userId, userId))
+      .orderBy(desc(journalEntries.createdAt));
+  }
+
+  async getJournalEntry(id: string, userId: string): Promise<JournalEntry | undefined> {
+    const [entry] = await db
+      .select()
+      .from(journalEntries)
+      .where(and(eq(journalEntries.id, id), eq(journalEntries.userId, userId)));
+    return entry;
+  }
+
+  async createJournalEntry(entry: InsertJournalEntry): Promise<JournalEntry> {
+    const [created] = await db.insert(journalEntries).values(entry).returning();
+    return created;
+  }
+
+  async updateJournalEntry(id: string, userId: string, updates: Partial<JournalEntry>): Promise<JournalEntry | undefined> {
+    const [updated] = await db
+      .update(journalEntries)
+      .set(updates)
+      .where(and(eq(journalEntries.id, id), eq(journalEntries.userId, userId)))
+      .returning();
+    return updated;
+  }
+
+  async deleteJournalEntry(id: string, userId: string): Promise<boolean> {
+    const result = await db
+      .delete(journalEntries)
+      .where(and(eq(journalEntries.id, id), eq(journalEntries.userId, userId)))
+      .returning();
+    return result.length > 0;
   }
 }
 

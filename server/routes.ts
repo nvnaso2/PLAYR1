@@ -8649,6 +8649,243 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
     }
   });
 
+  // ===== FEATURE FLAGS =====
+
+  // User-facing: returns {[key]: boolean} for current user
+  app.get("/api/feature-flags", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.userId!;
+      const flags = await storage.getUserFeatureFlags(userId);
+      res.json(flags);
+    } catch (err) {
+      console.error("Error fetching feature flags:", err);
+      res.status(500).json({ message: "Failed to fetch feature flags" });
+    }
+  });
+
+  // Admin: list all flags
+  app.get("/api/admin/feature-flags", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const flags = await storage.listFeatureFlags();
+      res.json(flags);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to fetch feature flags" });
+    }
+  });
+
+  // Admin: create flag
+  app.post("/api/admin/feature-flags", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { z } = await import("zod");
+      const schema = z.object({
+        key: z.string().min(1).regex(/^[a-z0-9-]+$/, "Key must be lowercase alphanumeric with hyphens"),
+        name: z.string().min(1),
+        description: z.string().optional(),
+        isEnabled: z.boolean().default(false),
+        betaUserIds: z.array(z.string()).default([]),
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid input", errors: parsed.error.flatten() });
+      const flag = await storage.upsertFeatureFlag(parsed.data);
+      res.json(flag);
+    } catch (err) {
+      console.error("Error creating feature flag:", err);
+      res.status(500).json({ message: "Failed to create feature flag" });
+    }
+  });
+
+  // Admin: update flag (toggle, beta users, etc.)
+  app.put("/api/admin/feature-flags/:key", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { z } = await import("zod");
+      const schema = z.object({
+        name: z.string().min(1).optional(),
+        description: z.string().optional(),
+        isEnabled: z.boolean().optional(),
+        betaUserIds: z.array(z.string()).optional(),
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid input", errors: parsed.error.flatten() });
+      const flag = await storage.updateFeatureFlag(req.params.key, parsed.data);
+      if (!flag) return res.status(404).json({ message: "Flag not found" });
+      res.json(flag);
+    } catch (err) {
+      console.error("Error updating feature flag:", err);
+      res.status(500).json({ message: "Failed to update feature flag" });
+    }
+  });
+
+  // Admin: delete flag
+  app.delete("/api/admin/feature-flags/:key", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const ok = await storage.deleteFeatureFlag(req.params.key);
+      if (!ok) return res.status(404).json({ message: "Flag not found" });
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to delete feature flag" });
+    }
+  });
+
+  // Admin: set subscription plan for a user
+  app.put("/api/admin/users/:id/subscription", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { z } = await import("zod");
+      const schema = z.object({ subscriptionPlan: z.enum(["free", "pro"]) });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid input" });
+      const updated = await storage.updateUserProfile(req.params.id, { subscriptionPlan: parsed.data.subscriptionPlan });
+      res.json(updated);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to update subscription" });
+    }
+  });
+
+  // ===== REFLECTION JOURNAL =====
+
+  // List user's journal entries
+  app.get("/api/journal", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const entries = await storage.getJournalEntries(req.userId!);
+      res.json(entries);
+    } catch (err) {
+      console.error("Error fetching journal entries:", err);
+      res.status(500).json({ message: "Failed to fetch journal entries" });
+    }
+  });
+
+  // Get single entry
+  app.get("/api/journal/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const entry = await storage.getJournalEntry(req.params.id, req.userId!);
+      if (!entry) return res.status(404).json({ message: "Entry not found" });
+      res.json(entry);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to fetch journal entry" });
+    }
+  });
+
+  // Create entry
+  app.post("/api/journal", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { z } = await import("zod");
+      const schema = z.object({
+        type: z.enum(["post-workout", "post-game", "open"]).default("open"),
+        trainingLogId: z.string().optional(),
+        mood: z.number().int().min(1).max(5).optional(),
+        responses: z.array(z.object({
+          promptId: z.string(),
+          question: z.string(),
+          answer: z.string(),
+        })).default([]),
+        aiCoachFeedback: z.string().optional(),
+        aiFollowUpQuestion: z.string().optional(),
+        aiFollowUpAnswer: z.string().optional(),
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid input", errors: parsed.error.flatten() });
+      const entry = await storage.createJournalEntry({ ...parsed.data, userId: req.userId! });
+      res.json(entry);
+    } catch (err) {
+      console.error("Error creating journal entry:", err);
+      res.status(500).json({ message: "Failed to create journal entry" });
+    }
+  });
+
+  // Update entry (e.g., add follow-up answer)
+  app.put("/api/journal/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { z } = await import("zod");
+      const schema = z.object({
+        mood: z.number().int().min(1).max(5).optional(),
+        responses: z.array(z.object({
+          promptId: z.string(),
+          question: z.string(),
+          answer: z.string(),
+        })).optional(),
+        aiFollowUpAnswer: z.string().optional(),
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid input" });
+      const entry = await storage.updateJournalEntry(req.params.id, req.userId!, parsed.data);
+      if (!entry) return res.status(404).json({ message: "Entry not found" });
+      res.json(entry);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to update journal entry" });
+    }
+  });
+
+  // Delete entry
+  app.delete("/api/journal/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const ok = await storage.deleteJournalEntry(req.params.id, req.userId!);
+      if (!ok) return res.status(404).json({ message: "Entry not found" });
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to delete journal entry" });
+    }
+  });
+
+  // AI Coach feedback (pro users only)
+  app.post("/api/journal/:id/ai-coach", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.userId!;
+      const entry = await storage.getJournalEntry(req.params.id, userId);
+      if (!entry) return res.status(404).json({ message: "Entry not found" });
+
+      // Check pro subscription
+      const profile = await storage.getUserProfile(userId);
+      if (profile?.subscriptionPlan !== "pro") {
+        return res.status(403).json({ message: "AI Coach is a Pro feature" });
+      }
+
+      // Pull recent training data for context
+      const recentLogs = await storage.getTrainingLogs(userId);
+      const last7Logs = recentLogs.slice(0, 7);
+      const trainingContext = last7Logs.length > 0
+        ? `Recent training activity (last ${last7Logs.length} sessions): ${last7Logs.map(l =>
+            `${l.drillTitle || "drill"} on ${l.date ? new Date(l.date).toLocaleDateString() : "unknown date"}`
+          ).join(", ")}`
+        : "No recent training data available.";
+
+      const responsesText = (entry.responses || [])
+        .map((r: { question: string; answer: string }) => `Q: ${r.question}\nA: ${r.answer}`)
+        .join("\n\n");
+
+      const OpenAI = (await import("openai")).default;
+      const openai = new OpenAI();
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: `You are an elite basketball coach and performance mentor. You specialize in mental performance, skill development, and player accountability. Your job is to give honest, specific, insightful coaching feedback based on a player's reflection journal entry. Be direct but supportive. Reference specific things they wrote. End with ONE powerful follow-up question that goes deeper. Format your response as JSON: { "feedback": "your coaching response here", "followUpQuestion": "your one follow-up question here" }`,
+          },
+          {
+            role: "user",
+            content: `Journal type: ${entry.type}\n${trainingContext}\n\nPlayer's reflection:\n${responsesText}`,
+          },
+        ],
+        response_format: { type: "json_object" },
+        max_tokens: 600,
+      });
+
+      const content = completion.choices[0]?.message?.content;
+      if (!content) return res.status(500).json({ message: "AI returned no content" });
+
+      const parsed = JSON.parse(content);
+      const updated = await storage.updateJournalEntry(req.params.id, userId, {
+        aiCoachFeedback: parsed.feedback,
+        aiFollowUpQuestion: parsed.followUpQuestion,
+      });
+
+      res.json(updated);
+    } catch (err) {
+      console.error("Error generating AI coach feedback:", err);
+      res.status(500).json({ message: "Failed to generate AI feedback" });
+    }
+  });
+
   return httpServer;
 }
 

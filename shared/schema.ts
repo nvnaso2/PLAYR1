@@ -307,6 +307,7 @@ export const userProfiles = pgTable("user_profiles", {
   skillLevel: varchar("skill_level").$type<DifficultyLevel>().default("beginner"),
   profilePhotoUrl: varchar("profile_photo_url"),
   isAdmin: boolean("is_admin").default(false),
+  subscriptionPlan: varchar("subscription_plan").default("free"), // 'free' | 'pro'
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow()
 });
@@ -1740,3 +1741,40 @@ export type Event = typeof events.$inferSelect;
 export type InsertEvent = z.infer<typeof insertEventSchema>;
 export type EventParticipant = typeof eventParticipants.$inferSelect;
 export type InsertEventParticipant = z.infer<typeof insertEventParticipantSchema>;
+
+// ===== FEATURE FLAGS =====
+export const featureFlags = pgTable("feature_flags", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: varchar("key").notNull().unique(),
+  name: varchar("name").notNull(),
+  description: text("description"),
+  isEnabled: boolean("is_enabled").default(false).notNull(),
+  betaUserIds: text("beta_user_ids").array().default([]).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertFeatureFlagSchema = createInsertSchema(featureFlags).omit({ id: true, createdAt: true, updatedAt: true });
+export type FeatureFlag = typeof featureFlags.$inferSelect;
+export type InsertFeatureFlag = z.infer<typeof insertFeatureFlagSchema>;
+
+// ===== REFLECTION JOURNAL =====
+export const JOURNAL_TYPES = ["post-workout", "post-game", "open"] as const;
+export type JournalType = typeof JOURNAL_TYPES[number];
+
+export const journalEntries = pgTable("journal_entries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  type: varchar("type").$type<JournalType>().notNull().default("open"),
+  trainingLogId: varchar("training_log_id"),
+  mood: integer("mood"), // 1–5
+  responses: jsonb("responses").$type<Array<{ promptId: string; question: string; answer: string }>>().default([]),
+  aiCoachFeedback: text("ai_coach_feedback"),
+  aiFollowUpQuestion: text("ai_follow_up_question"),
+  aiFollowUpAnswer: text("ai_follow_up_answer"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertJournalEntrySchema = createInsertSchema(journalEntries).omit({ id: true, createdAt: true });
+export type JournalEntry = typeof journalEntries.$inferSelect;
+export type InsertJournalEntry = z.infer<typeof insertJournalEntrySchema>;
