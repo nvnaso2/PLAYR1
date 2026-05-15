@@ -1954,6 +1954,8 @@ export default function TrainingLogPage() {
                     </div>
                   </CardContent>
                 </Card>
+                {/* RECORD_SHOOTING_FEATURE: hidden pending Roboflow CV integration — re-enable by removing the {false && ...} wrapper */}
+                {false && (
                 <Card
                   className="cursor-pointer hover-elevate"
                   onClick={() => setShowRecordShootingMode(true)}
@@ -1969,6 +1971,7 @@ export default function TrainingLogPage() {
                     </div>
                   </CardContent>
                 </Card>
+                )}
               </div>
 
               {/* Favorite Workouts Section */}
@@ -2877,7 +2880,7 @@ export default function TrainingLogPage() {
                                 onClick={() => setRecordingEntryIndex(group.entries[0].index)}
                                 data-testid={`button-record-${drillId}`}
                               >
-                                <Circle className="w-2.5 h-2.5" fill="currentColor" />
+                                <Video className="w-3 h-3" />
                                 Record
                               </Button>
                             )}
