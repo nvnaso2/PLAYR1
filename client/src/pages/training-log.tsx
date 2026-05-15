@@ -2872,18 +2872,6 @@ export default function TrainingLogPage() {
                             >
                               <Info className="w-4 h-4" />
                             </Button>
-                            {isShootingDrill && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="gap-1 text-red-400 border-red-500/40 hover:bg-red-500/10 hover:text-red-400"
-                                onClick={() => setRecordingEntryIndex(group.entries[0].index)}
-                                data-testid={`button-record-${drillId}`}
-                              >
-                                <Video className="w-3 h-3" />
-                                Record
-                              </Button>
-                            )}
                           <Button 
                             variant="outline" 
                             size="sm"
