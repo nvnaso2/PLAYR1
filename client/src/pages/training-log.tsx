@@ -171,7 +171,7 @@ export default function TrainingLogPage() {
   });
   
   const [challengesSectionOpen, setChallengesSectionOpen] = useState(false);
-  const [programsSectionOpen, setProgramsSectionOpen] = useState(false);
+  const [programsSectionOpen, setProgramsSectionOpen] = useState(true);
   const [isSavingWorkout, setIsSavingWorkout] = useState(false);
   
   // Single workout-level timer state
@@ -2179,16 +2179,23 @@ export default function TrainingLogPage() {
                 if (activePrograms.length === 0) return null;
                 return (
                   <Collapsible open={programsSectionOpen} onOpenChange={setProgramsSectionOpen}>
-                    <CollapsibleTrigger asChild>
-                      <div className="flex items-center gap-2 cursor-pointer select-none" data-testid="section-active-programs">
-                        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                          <Sparkles className="w-4 h-4 text-orange-500" />
-                          Active Programs
-                          <Badge className="text-xs bg-orange-500/20 text-orange-400 border-orange-500/30">{activePrograms.length} Active</Badge>
-                        </h3>
-                        <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${programsSectionOpen ? 'rotate-90' : ''}`} />
-                      </div>
-                    </CollapsibleTrigger>
+                    <div className="flex items-center justify-between">
+                      <CollapsibleTrigger asChild>
+                        <button className="flex items-center gap-2 cursor-pointer select-none" data-testid="section-active-programs">
+                          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                            <Sparkles className="w-4 h-4 text-orange-500" />
+                            Active Programs
+                            <Badge className="text-xs bg-orange-500/20 text-orange-400 border-orange-500/30">{activePrograms.length} Active</Badge>
+                          </h3>
+                          <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${programsSectionOpen ? 'rotate-90' : ''}`} />
+                        </button>
+                      </CollapsibleTrigger>
+                      <Link href="/programs" onClick={(e) => e.stopPropagation()}>
+                        <span className="text-xs text-orange-400 hover:text-orange-300 transition-colors flex items-center gap-1" data-testid="link-all-programs">
+                          All programs <ArrowRight className="w-3 h-3" />
+                        </span>
+                      </Link>
+                    </div>
                     <CollapsibleContent className="pt-3">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {activePrograms.map((e: any) => {

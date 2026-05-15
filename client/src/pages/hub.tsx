@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { DailyChallengeCard } from "@/components/daily-challenge-card";
 import { ContinueProgramsWidget } from "@/components/continue-programs-widget";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -118,12 +117,25 @@ export default function HubPage() {
               {greetText} {emoji}
             </h1>
           </div>
-          {streak > 0 && (
-            <div className="flex items-center gap-1.5 bg-orange-500/10 border border-orange-500/20 rounded-2xl px-3 py-2 mt-1">
-              <Flame className="w-4 h-4 text-orange-400" />
-              <span className="text-orange-400 font-bold text-sm">{streak}</span>
-            </div>
-          )}
+          {streak > 0 && (() => {
+              const sa = streak >= 30 ? { bg: "bg-red-500/20", border: "border-red-400/40", color: "text-red-300", flames: 3, pulse: true }
+                       : streak >= 14 ? { bg: "bg-orange-500/20", border: "border-orange-400/40", color: "text-orange-300", flames: 3, pulse: true }
+                       : streak >= 7  ? { bg: "bg-orange-500/15", border: "border-orange-400/30", color: "text-orange-400", flames: 2, pulse: false }
+                       : streak >= 3  ? { bg: "bg-orange-500/10", border: "border-orange-500/25", color: "text-orange-400", flames: 1, pulse: false }
+                       :                { bg: "bg-orange-500/10", border: "border-orange-500/20", color: "text-orange-400", flames: 1, pulse: false };
+              return (
+                <button
+                  onClick={() => navigate("/streaks")}
+                  data-testid="button-streak"
+                  className={`flex items-center gap-1.5 rounded-2xl px-3 py-2 mt-1 border active:scale-95 transition-all ${sa.bg} ${sa.border}`}
+                >
+                  <Flame className={`w-4 h-4 ${sa.color} ${sa.pulse ? "animate-pulse" : ""}`} />
+                  {sa.flames >= 2 && <Flame className={`w-3 h-3 ${sa.color} -ml-2.5 opacity-70`} />}
+                  {sa.flames >= 3 && <Flame className={`w-3 h-3 ${sa.color} -ml-2.5 opacity-50`} />}
+                  <span className={`${sa.color} font-bold text-sm`}>{streak}</span>
+                </button>
+              );
+            })()}
         </div>
       </div>
 
@@ -307,11 +319,6 @@ export default function HubPage() {
             </div>
           </button>
         )}
-
-        {/* Daily Challenge */}
-        <div data-testid="section-daily-challenge">
-          <DailyChallengeCard />
-        </div>
 
         {/* Programs */}
         <div data-testid="section-continue-programs">

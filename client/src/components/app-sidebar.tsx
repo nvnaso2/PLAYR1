@@ -70,18 +70,8 @@ import { getObjectUrl } from "@/lib/queryClient";
 
 const playerNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: BarChart3 },
-  { title: "My Career", url: "/career", icon: Trophy },
-  { title: "Training Log", url: "/log", icon: ClipboardList },
-  { title: "My Trainer", url: "/my-trainer", icon: UserPlus },
-  { title: "Programs", url: "/programs", icon: Sparkles },
-  { title: "Events", url: "/events", icon: Trophy },
   { title: "Drill Library", url: "/drills", icon: Play },
   { title: "My Film Room", url: "/videos", icon: Video },
-  { title: "Teams & Leagues", url: "/teams", icon: Shield },
-  { title: "Game Day", url: "/game-day", icon: Zap },
-  { title: "Archetypes", url: "/archetypes", icon: Fingerprint },
-  { title: "My Identity", url: "/my-archetype", icon: Star },
-  { title: "My Goal", url: "/my-goal", icon: BotMessageSquare },
   { title: "Feedback", url: "/feedback", icon: Megaphone },
 ];
 
@@ -154,7 +144,6 @@ export function AppSidebar() {
 
   const isTrainerView = activeView === "trainer";
   const navItems = isTrainerView ? trainerNavItems : playerNavItems;
-  const journalEnabled = true;
 
   // Warm up the most common page chunks in the background after the sidebar
   // mounts, so the first tap on a tab feels instant.
@@ -276,23 +265,6 @@ export function AppSidebar() {
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   ))}
-                  {!isTrainerView && journalEnabled && (
-                    <SidebarMenuItem>
-                      <SidebarMenuButton
-                        asChild
-                        isActive={isActiveLink("/journal")}
-                        data-testid="link-nav-journal"
-                        onMouseEnter={() => preloadRoute("/journal")}
-                        onTouchStart={() => preloadRoute("/journal")}
-                        onFocus={() => preloadRoute("/journal")}
-                      >
-                        <Link href="/journal" onClick={closeSidebar}>
-                          <BookOpen className="w-4 h-4" />
-                          <span>Journal</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  )}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>

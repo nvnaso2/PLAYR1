@@ -77,6 +77,7 @@ const Hub = lazy(pageLoaders.hub);
 const Journey = lazy(pageLoaders.journey);
 const CommunityPage = lazy(() => import("@/pages/community"));
 const ProfileHubPage = lazy(() => import("@/pages/profile-hub"));
+const StreaksPage = lazy(() => import("@/pages/streaks"));
 
 function PageLoader() {
   return (
@@ -328,6 +329,7 @@ function Router() {
                 <Route path="/journey" component={Journey} />
                 <Route path="/community" component={CommunityPage} />
                 <Route path="/profile-hub" component={ProfileHubPage} />
+                <Route path="/streaks" component={StreaksPage} />
                 <Route path="/archetypes" component={Archetypes} />
                 <Route path="/my-archetype" component={MyArchetype} />
                 <Route path="/my-goal" component={MyGoal} />
