@@ -95,7 +95,7 @@ export default function JourneyPage() {
   const totalSessions = overview?.totalSessions ?? 0;
 
   return (
-    <div className="min-h-screen bg-background pb-28 md:pb-8">
+    <div className="min-h-full bg-background pb-6">
       {/* Header */}
       <div className="px-5 pt-6 pb-4">
         <p className="text-zinc-400 text-sm uppercase tracking-widest text-xs">My Journey</p>

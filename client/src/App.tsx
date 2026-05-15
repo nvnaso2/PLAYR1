@@ -161,7 +161,7 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
         <div className={`
           relative flex flex-col bg-background overflow-hidden
           h-screen w-full
-          ${isNative ? '' : 'md:h-[852px] md:w-[393px] md:rounded-[47px] md:border-[9px] md:border-zinc-800 md:shadow-[0_50px_120px_-20px_rgba(0,0,0,0.95)]'}
+          ${isNative ? '' : 'md:h-[calc(100vh-32px)] md:max-h-[852px] md:w-[390px] md:rounded-[47px] md:border-[9px] md:border-zinc-800 md:shadow-[0_50px_120px_-20px_rgba(0,0,0,0.95)]'}
         `}>
           {/* Dynamic island (desktop phone frame only) */}
           {!isNative && (
@@ -182,7 +182,7 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
           </header>
 
           {/* Main scrollable content */}
-          <main className="flex-1 overflow-y-auto pb-20">
+          <main className="flex-1 overflow-y-auto">
             <Suspense fallback={<PageLoader />}>
               {children}
             </Suspense>
