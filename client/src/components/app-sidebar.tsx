@@ -291,6 +291,18 @@ export function AppSidebar() {
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={location === "/admin/onboarding-preview"}
+                          data-testid="link-nav-onboarding-preview"
+                        >
+                          <Link href="/admin/onboarding-preview" onClick={closeSidebar}>
+                            <Eye className="w-4 h-4" />
+                            <span>Onboarding Preview</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
                     </SidebarMenu>
                   </SidebarGroupContent>
                 </SidebarGroup>

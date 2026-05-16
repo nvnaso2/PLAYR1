@@ -2964,10 +2964,6 @@ export default function AdminPage() {
             <Flag className="w-4 h-4 shrink-0" />
             <span>Flags</span>
           </TabsTrigger>
-          <TabsTrigger value="onboarding" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-onboarding">
-            <UserPlus className="w-4 h-4 shrink-0" />
-            <span>Onboarding</span>
-          </TabsTrigger>
         </TabsList>
 
         {/* Video Library Tab */}
@@ -4314,148 +4310,8 @@ export default function AdminPage() {
           <FeatureFlagsTab />
         </TabsContent>
 
-        <TabsContent value="onboarding" className="space-y-6">
-          <OnboardingTestTab />
-        </TabsContent>
       </Tabs>
 
-    </div>
-  );
-}
-
-// ─── Onboarding Test Tab ───────────────────────────────────────────────────────
-
-function OnboardingTestTab() {
-  const { toast } = useToast();
-  const { data: allUsers = [] } = useQuery<AdminUser[]>({ queryKey: ["/api/admin/users"] });
-  const [selectedUserId, setSelectedUserId] = useState<string>("");
-
-  const resetMyMutation = useMutation({
-    mutationFn: () => apiRequest("POST", "/api/admin/reset-onboarding"),
-    onSuccess: () => {
-      toast({ title: "Onboarding reset", description: "Navigating to /career to preview the flow…" });
-      setTimeout(() => { window.location.href = "/career"; }, 800);
-    },
-    onError: (e: any) => toast({ title: "Reset failed", description: e.message, variant: "destructive" }),
-  });
-
-  const resetUserMutation = useMutation({
-    mutationFn: (userId: string) => apiRequest("POST", `/api/admin/reset-onboarding/${userId}`),
-    onSuccess: () => {
-      toast({ title: "Onboarding reset for user", description: "They'll see the wizard on next visit to /career." });
-      setSelectedUserId("");
-    },
-    onError: (e: any) => toast({ title: "Reset failed", description: e.message, variant: "destructive" }),
-  });
-
-  const steps = [
-    { num: 1, label: "Role Selection", desc: "Player, Trainer, or Staff?" },
-    { num: 2, label: "Profile Setup", desc: "Name, age, photo, position" },
-    { num: 3, label: "Team History", desc: "Past teams and experience" },
-    { num: 4, label: "Season Start", desc: "Current season setup" },
-    { num: 5, label: "Goal Setting", desc: "What do you want to achieve?" },
-  ];
-
-  return (
-    <div className="space-y-8 max-w-3xl">
-      <div>
-        <h2 className="text-xl font-semibold">Onboarding Test Lab</h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Reset onboarding state so you or any user will see the full wizard the next time they visit their Career page.
-        </p>
-      </div>
-
-      {/* Flow overview */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Onboarding Flow Overview</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {steps.map((step, i) => (
-              <div key={step.num} className="flex items-center gap-4">
-                <div className="w-8 h-8 rounded-full bg-orange-500/15 border border-orange-500/30 flex items-center justify-center flex-shrink-0">
-                  <span className="text-xs font-bold text-orange-400">{step.num}</span>
-                </div>
-                {i < steps.length - 1 && (
-                  <div className="absolute ml-4 mt-8 w-px h-3 bg-zinc-700" />
-                )}
-                <div>
-                  <p className="text-sm font-medium text-white">{step.label}</p>
-                  <p className="text-xs text-zinc-500">{step.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Reset my own onboarding */}
-      <Card className="border-orange-500/20">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <UserPlus className="w-4 h-4 text-orange-400" />
-            Reset My Onboarding
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-zinc-400">
-            Resets your own onboarding status. After clicking, you'll be redirected to <code className="text-orange-400 text-xs">/career</code> where
-            the wizard will appear exactly as a brand-new user would see it. Complete or skip it to return to normal.
-          </p>
-          <Button
-            data-testid="button-reset-my-onboarding"
-            onClick={() => resetMyMutation.mutate()}
-            disabled={resetMyMutation.isPending}
-            className="bg-orange-500 hover:bg-orange-600 text-black font-semibold"
-          >
-            {resetMyMutation.isPending ? (
-              <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Resetting…</>
-            ) : (
-              <><RotateCcw className="w-4 h-4 mr-2" />Reset & Preview Onboarding</>
-            )}
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Reset another user's onboarding */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Users className="w-4 h-4 text-zinc-400" />
-            Reset Onboarding for a Specific User
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-zinc-400">
-            Select any user to reset their onboarding. They'll see the wizard the next time they open the app.
-          </p>
-          <div className="flex gap-3">
-            <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-              <SelectTrigger className="flex-1" data-testid="select-reset-user">
-                <SelectValue placeholder="Select a user…" />
-              </SelectTrigger>
-              <SelectContent>
-                {allUsers.map((u) => (
-                  <SelectItem key={u.id} value={u.id}>
-                    {[u.firstName, u.lastName].filter(Boolean).join(" ") || u.email || u.id}
-                    {u.email ? ` — ${u.email}` : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              data-testid="button-reset-user-onboarding"
-              variant="outline"
-              disabled={!selectedUserId || resetUserMutation.isPending}
-              onClick={() => selectedUserId && resetUserMutation.mutate(selectedUserId)}
-              className="border-zinc-700 hover:bg-zinc-800"
-            >
-              {resetUserMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

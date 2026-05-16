@@ -75,6 +75,7 @@ const MyArchetype = lazy(pageLoaders.myArchetype);
 const MyGoal = lazy(pageLoaders.myGoal);
 const Hub = lazy(pageLoaders.hub);
 const Journey = lazy(pageLoaders.journey);
+const OnboardingPreview = lazy(() => import("@/pages/onboarding-preview"));
 const CommunityPage = lazy(() => import("@/pages/community"));
 const ProfileHubPage = lazy(() => import("@/pages/profile-hub"));
 const StreaksPage = lazy(() => import("@/pages/streaks"));
@@ -218,12 +219,13 @@ function HomeRedirect() {
   return <Redirect to="/hub" />;
 }
 
-function AdminRoute() {
+function AdminRoute({ children }: { children?: React.ReactNode } = {}) {
   const { data, isLoading } = useQuery<{ isAdmin: boolean }>({
     queryKey: ["/api/admin/check"],
   });
   if (isLoading) return <LoadingScreen />;
   if (!data?.isAdmin) return <Redirect to="/" />;
+  if (children) return <>{children}</>;
   return <Admin />;
 }
 
@@ -310,6 +312,7 @@ function Router() {
                 <Route path="/videos" component={Videos} />
                 <Route path="/career" component={Career} />
                 <Route path="/profile" component={Profile} />
+                <Route path="/admin/onboarding-preview">{() => <AdminRoute><OnboardingPreview /></AdminRoute>}</Route>
                 <Route path="/admin">{() => <AdminRoute />}</Route>
                 <Route path="/coach" component={CoachRedirect} />
                 <Route path="/trainer">{() => <TrainerGuard><TrainerDashboard /></TrainerGuard>}</Route>

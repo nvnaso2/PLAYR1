@@ -47,6 +47,7 @@ export const pageLoaders = {
   myGoal: () => import("@/pages/my-goal"),
   hub: () => import("@/pages/hub"),
   journey: () => import("@/pages/journey"),
+  onboardingPreview: () => import("@/pages/onboarding-preview"),
 } as const;
 
 // Map URL path → loader key. Used by the sidebar to preload on hover/touch.
@@ -59,6 +60,7 @@ const routeToLoader: Record<string, keyof typeof pageLoaders> = {
   "/profile": "profile",
   "/career": "career",
   "/admin": "admin",
+  "/admin/onboarding-preview": "onboardingPreview",
   "/teams": "finder",
   "/connect": "findPeople",
   "/feedback": "feedback",

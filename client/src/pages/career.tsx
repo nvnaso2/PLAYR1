@@ -499,7 +499,7 @@ function TutorialVideoStep({
   );
 }
 
-function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
+export function OnboardingWizard({ onComplete, previewMode = false }: { onComplete: () => void; previewMode?: boolean }) {
   const { toast } = useToast();
   const { user } = useAuth();
   const [step, setStep] = useState<"role" | "profile" | "parent-email" | "reason" | "select-teams" | "log-game" | "no-season" | "season-start" | "dev-priority" | "dev-log-next" | "dev-create-next" | "tutorial-log" | "tutorial-create" | "trainer-profile" | "trainer-specialties" | "trainer-begin">("role");
@@ -664,6 +664,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   };
 
   const saveProfile = async () => {
+    if (previewMode) return;
     setIsSaving(true);
     try {
       await apiRequest("PUT", "/api/user/name", { firstName, lastName });
@@ -780,6 +781,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   };
 
   const completeOnboarding = async () => {
+    if (previewMode) { onComplete(); return; }
     try {
       await apiRequest("POST", "/api/career/complete-onboarding");
       queryClient.invalidateQueries({ queryKey: ['/api/career'] });
@@ -900,14 +902,17 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   };
 
   const handleTrainerSpecialtiesNext = async () => {
-    const rankedJson = JSON.stringify(trainerSpecialties);
-    await apiRequest("PUT", "/api/career", { trainerSpecialties: rankedJson });
-    queryClient.invalidateQueries({ queryKey: ['/api/career'] });
+    if (!previewMode) {
+      const rankedJson = JSON.stringify(trainerSpecialties);
+      await apiRequest("PUT", "/api/career", { trainerSpecialties: rankedJson });
+      queryClient.invalidateQueries({ queryKey: ['/api/career'] });
+    }
     setStep("trainer-begin");
   };
 
   const handleTrainerBeginChoice = async (choice: "create-drill" | "invite-players" | "upload-content") => {
     await completeOnboarding();
+    if (previewMode) return;
     if (choice === "create-drill") {
       window.location.href = "/trainer/drills";
     } else if (choice === "invite-players") {
@@ -919,9 +924,11 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
 
   const handleInterestRankingNext = async () => {
     const topInterest = rankedInterests[0];
-    const rankedJson = JSON.stringify(rankedInterests);
-    await apiRequest("PUT", "/api/career", { primaryReason: rankedJson });
-    queryClient.invalidateQueries({ queryKey: ['/api/career'] });
+    if (!previewMode) {
+      const rankedJson = JSON.stringify(rankedInterests);
+      await apiRequest("PUT", "/api/career", { primaryReason: rankedJson });
+      queryClient.invalidateQueries({ queryKey: ['/api/career'] });
+    }
 
     if (topInterest === "game-stats") {
       setStep("select-teams");
@@ -941,7 +948,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
       setStep("dev-log-next");
     } else if (devPriority === "drill-library") {
       await completeOnboarding();
-      window.location.href = "/drills";
+      if (!previewMode) window.location.href = "/drills";
     } else if (devPriority === "create-drills") {
       setStep("dev-create-next");
     }
@@ -982,11 +989,13 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   };
 
   const handleSeasonStartDone = async () => {
-    const teamsWithMonths = teams.map(t => {
-      const month = seasonStartMonths[t.name];
-      return month ? { ...t, seasonStartMonth: month } : t;
-    });
-    await apiRequest("PUT", "/api/career", { onboardingTeams: JSON.stringify(teamsWithMonths) });
+    if (!previewMode) {
+      const teamsWithMonths = teams.map(t => {
+        const month = seasonStartMonths[t.name];
+        return month ? { ...t, seasonStartMonth: month } : t;
+      });
+      await apiRequest("PUT", "/api/career", { onboardingTeams: JSON.stringify(teamsWithMonths) });
+    }
     await completeOnboarding();
   };
 
@@ -1672,7 +1681,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
       description="Watch this quick walkthrough to learn how to find drills, log your sessions, view your history, and track your progress."
       onBack={() => setStep("dev-log-next")}
       onDone={async () => { await completeOnboarding(); }}
-      onGoToDrills={async () => { await completeOnboarding(); window.location.href = "/drills"; }}
+      onGoToDrills={async () => { await completeOnboarding(); if (!previewMode) window.location.href = "/drills"; }}
     />;
   }
 
@@ -1683,7 +1692,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
       description="Watch this quick walkthrough to learn how to build custom drills with your own videos, metrics, and pro tips."
       onBack={() => setStep("dev-create-next")}
       onDone={async () => { await completeOnboarding(); }}
-      onGoToDrills={async () => { await completeOnboarding(); window.location.href = "/drills"; }}
+      onGoToDrills={async () => { await completeOnboarding(); if (!previewMode) window.location.href = "/drills"; }}
     />;
   }
 
@@ -1996,7 +2005,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
                 {teams.length === 0 ? "Add Teams" : "Back"}
               </Button>
               {teams.length === 0 ? (
-                <Button type="button" onClick={async () => { await completeOnboarding(); window.location.href = "/log"; }} data-testid="button-skip-teams">
+                <Button type="button" onClick={async () => { await completeOnboarding(); if (!previewMode) window.location.href = "/log"; }} data-testid="button-skip-teams">
                   Skip for Now
                   <ChevronRight className="w-4 h-4 ml-1" />
                 </Button>
