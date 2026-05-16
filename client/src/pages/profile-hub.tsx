@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getObjectUrl } from "@/lib/queryClient";
 import {
-  BarChart3, Fingerprint, Star, BotMessageSquare, Zap,
+  BarChart3, Fingerprint, BotMessageSquare, Zap,
   ChevronRight, Settings,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
@@ -29,15 +29,6 @@ const sections = [
     bg: "bg-purple-500/10",
     path: "/archetypes",
     testId: "card-profile-archetypes",
-  },
-  {
-    title: "My Identity",
-    description: "Your current archetype and player identity",
-    icon: Star,
-    color: "text-yellow-400",
-    bg: "bg-yellow-500/10",
-    path: "/my-archetype",
-    testId: "card-profile-identity",
   },
   {
     title: "My Goal",

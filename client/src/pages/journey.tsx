@@ -204,7 +204,7 @@ export default function JourneyPage() {
           <SectionHeader
             label="My Archetype"
             action="View Identity"
-            onAction={() => navigate("/my-archetype")}
+            onAction={() => navigate("/archetypes?tab=identity")}
           />
           {archLoading ? (
             <Skeleton className="h-32 rounded-2xl" />
@@ -224,7 +224,7 @@ export default function JourneyPage() {
                   <button
                     key={arch.id}
                     data-testid={`card-archetype-${arch.role}`}
-                    onClick={() => navigate("/my-archetype")}
+                    onClick={() => navigate("/archetypes?tab=identity")}
                     className="w-full text-left rounded-2xl bg-zinc-900 border border-zinc-800 p-4 active:scale-[0.98] transition-transform"
                   >
                     <div className="flex items-center justify-between mb-3">

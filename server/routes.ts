@@ -9851,6 +9851,28 @@ Return ONLY valid JSON array, no markdown.`;
     }
   });
 
+  // ── Admin: Reset onboarding for current user (test tool) ──────────────────
+  app.post("/api/admin/reset-onboarding", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      await storage.updateCareerProfile(userId, { onboardingCompleted: false });
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to reset onboarding" });
+    }
+  });
+
+  // ── Admin: Reset onboarding for a specific user ──────────────────────────
+  app.post("/api/admin/reset-onboarding/:userId", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { userId } = req.params;
+      await storage.updateCareerProfile(userId, { onboardingCompleted: false });
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to reset onboarding" });
+    }
+  });
+
   return httpServer;
 }
 
