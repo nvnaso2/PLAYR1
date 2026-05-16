@@ -1853,6 +1853,22 @@ export const ARCHETYPE_TIER_XP: Record<ArchetypeTier, number> = {
 export const ARCHETYPE_ROADMAP_ITEM_TYPES = ["workout", "drill", "challenge", "watch", "rest"] as const;
 export type ArchetypeRoadmapItemType = typeof ARCHETYPE_ROADMAP_ITEM_TYPES[number];
 
+// Links programs to archetype tiers — archetypes are groups of programs
+export const archetypeTierPrograms = pgTable("archetype_tier_programs", {
+  id:              varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  archetypeId:     varchar("archetype_id").notNull(),
+  tier:            varchar("tier").$type<ArchetypeTier>().notNull(),
+  programId:       varchar("program_id").notNull(),
+  sortOrder:       integer("sort_order").notNull().default(0),
+  isGateChallenge: boolean("is_gate_challenge").default(false),
+}, (t) => ({
+  byArchetypeTier: index("atp_archetype_tier_idx").on(t.archetypeId, t.tier),
+  uqLink: uniqueIndex("atp_unique_link").on(t.archetypeId, t.programId),
+}));
+
+export type ArchetypeTierProgram = typeof archetypeTierPrograms.$inferSelect;
+export type InsertArchetypeTierProgram = typeof archetypeTierPrograms.$inferInsert;
+
 export const archetypes = pgTable("archetypes", {
   id: varchar("id").primaryKey(),
   name: varchar("name").notNull(),

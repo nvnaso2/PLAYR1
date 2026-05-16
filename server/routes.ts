@@ -9237,6 +9237,62 @@ Rules:
     }
   });
 
+  // ─── Archetype tier ↔ program link routes ────────────────────────────────
+  app.get("/api/archetypes/:archetypeId/tier-programs", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      res.json(await storage.getArchetypeTierPrograms(req.params.archetypeId));
+    } catch (err) {
+      res.status(500).json({ message: "Failed to fetch tier programs" });
+    }
+  });
+
+  app.get("/api/archetypes/:archetypeId/tier-status", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      res.json(await storage.getUserArchetypeTierStatus(userId, req.params.archetypeId));
+    } catch (err) {
+      res.status(500).json({ message: "Failed to fetch tier status" });
+    }
+  });
+
+  app.post("/api/admin/archetypes/:archetypeId/tier-programs", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { tier, programId, sortOrder, isGateChallenge } = z.object({
+        tier: z.enum(["prospect", "rising", "starter", "star", "elite", "playr1"]),
+        programId: z.string(),
+        sortOrder: z.number().optional().default(0),
+        isGateChallenge: z.boolean().optional().default(false),
+      }).parse(req.body);
+      const link = await storage.linkProgramToTier({ archetypeId: req.params.archetypeId, tier, programId, sortOrder, isGateChallenge });
+      res.status(201).json(link);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: "Invalid data", errors: err.errors });
+      res.status(500).json({ message: "Failed to link program" });
+    }
+  });
+
+  app.put("/api/admin/tier-programs/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { sortOrder, isGateChallenge } = z.object({
+        sortOrder: z.number(),
+        isGateChallenge: z.boolean(),
+      }).parse(req.body);
+      await storage.updateTierProgramOrder(req.params.id, sortOrder, isGateChallenge);
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to update" });
+    }
+  });
+
+  app.delete("/api/admin/tier-programs/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      await storage.unlinkProgramFromTier(req.params.id);
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to unlink" });
+    }
+  });
+
   // ─── Seed AI roadmap for an archetype (admin) ────────────────────────────
   app.post("/api/admin/archetypes/:archetypeId/seed-roadmap", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {

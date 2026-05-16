@@ -74,8 +74,10 @@ import {
   weeklyGameDays, type WeeklyGameDay, type InsertWeeklyGameDay,
   gameDayChallengeAttempts, type GameDayChallengeAttempt, type InsertGameDayChallengeAttempt,
   archetypes, userArchetypes, archetypeXpLog, archetypeRoadmapItems, archetypeItemCompletions,
+  archetypeTierPrograms,
   type Archetype, type UserArchetype, type ArchetypeXpLog, type InsertArchetypeXpLog,
   type ArchetypeRoadmapItem, type InsertArchetypeRoadmapItem, type ArchetypeItemCompletion,
+  type ArchetypeTierProgram, type InsertArchetypeTierProgram,
   ARCHETYPE_TIER_XP, ARCHETYPE_TIER_ITEM_COUNTS, ARCHETYPE_TIERS, type ArchetypeTier,
   playerGoals, goalClarifications, goalMilestones, goalCheckIns,
   type PlayerGoal, type InsertPlayerGoal,
@@ -523,7 +525,7 @@ export interface IStorage {
   getUserStreak(userId: string): Promise<UserStreak>;
   getStreakLeaderboard(): Promise<Array<{ userId: string; displayName: string; currentStreak: number; profilePhotoUrl: string | null }>>;
 
-  // Archetype Roadmap
+  // Archetype Roadmap (legacy custom items — kept for backward compat)
   getArchetypeRoadmap(archetypeId: string): Promise<ArchetypeRoadmapItem[]>;
   getRoadmapItem(id: string): Promise<ArchetypeRoadmapItem | undefined>;
   upsertRoadmapItem(data: InsertArchetypeRoadmapItem & { id?: string }): Promise<ArchetypeRoadmapItem>;
@@ -531,6 +533,14 @@ export interface IStorage {
   getUserItemCompletions(userId: string, userArchetypeId: string): Promise<ArchetypeItemCompletion[]>;
   completeRoadmapItem(userId: string, userArchetypeId: string, roadmapItemId: string, notes?: string): Promise<{ completion: ArchetypeItemCompletion; tierPct: number; tierGateDone: boolean; newTier: string | null }>;
   uncompleteRoadmapItem(userId: string, roadmapItemId: string): Promise<void>;
+  // Archetype ↔ Program tier assignments
+  getArchetypeTierPrograms(archetypeId: string): Promise<(ArchetypeTierProgram & { program: { id: string; title: string; slug: string; tagline: string | null; description: string | null; lengthDays: number; difficulty: string; isPublished: boolean | null; coverImageUrl: string | null; accentColor: string | null } })[]>;
+  linkProgramToTier(data: InsertArchetypeTierProgram): Promise<ArchetypeTierProgram>;
+  unlinkProgramFromTier(id: string): Promise<void>;
+  updateTierProgramOrder(id: string, sortOrder: number, isGateChallenge: boolean): Promise<void>;
+  // User tier status (programs-based)
+  getUserArchetypeTierStatus(userId: string, archetypeId: string): Promise<Record<string, { pct: number; gateDone: boolean; unlocked: boolean; programs: Array<{ programId: string; completed: boolean; isGate: boolean }> }>>;
+  recalcUserArchetypeTier(userId: string, archetypeId: string): Promise<void>;
   // Admin Archetypes
   upsertArchetype(data: Archetype): Promise<Archetype>;
   deleteArchetype(id: string): Promise<void>;
@@ -6411,6 +6421,116 @@ export class DatabaseStorage implements IStorage {
   }
 
   // ===== ARCHETYPES =====
+  // ─── Archetype ↔ Program tier assignments ────────────────────────────────
+  async getArchetypeTierPrograms(archetypeId: string) {
+    const rows = await db
+      .select({
+        link: archetypeTierPrograms,
+        program: {
+          id: programs.id,
+          title: programs.title,
+          slug: programs.slug,
+          tagline: programs.tagline,
+          description: programs.description,
+          lengthDays: programs.lengthDays,
+          difficulty: programs.difficulty,
+          isPublished: programs.isPublished,
+          coverImageUrl: programs.coverImageUrl,
+          accentColor: programs.accentColor,
+        },
+      })
+      .from(archetypeTierPrograms)
+      .innerJoin(programs, eq(archetypeTierPrograms.programId, programs.id))
+      .where(eq(archetypeTierPrograms.archetypeId, archetypeId))
+      .orderBy(archetypeTierPrograms.tier, archetypeTierPrograms.sortOrder);
+    return rows.map(r => ({ ...r.link, program: r.program }));
+  }
+
+  async linkProgramToTier(data: InsertArchetypeTierProgram): Promise<ArchetypeTierProgram> {
+    const [row] = await db.insert(archetypeTierPrograms).values(data).returning();
+    return row;
+  }
+
+  async unlinkProgramFromTier(id: string): Promise<void> {
+    await db.delete(archetypeTierPrograms).where(eq(archetypeTierPrograms.id, id));
+  }
+
+  async updateTierProgramOrder(id: string, sortOrder: number, isGateChallenge: boolean): Promise<void> {
+    await db.update(archetypeTierPrograms).set({ sortOrder, isGateChallenge }).where(eq(archetypeTierPrograms.id, id));
+  }
+
+  async getUserArchetypeTierStatus(userId: string, archetypeId: string) {
+    const tierLinks = await this.getArchetypeTierPrograms(archetypeId);
+    // Get user's completed enrollments
+    const userEnrollments = await db
+      .select()
+      .from(programEnrollments)
+      .where(and(eq(programEnrollments.userId, userId), eq(programEnrollments.status, "completed")));
+    const completedProgramIds = new Set(userEnrollments.map(e => e.programId));
+
+    const result: Record<string, { pct: number; gateDone: boolean; unlocked: boolean; programs: Array<{ programId: string; completed: boolean; isGate: boolean; linkId: string }> }> = {};
+
+    for (const tier of ARCHETYPE_TIERS) {
+      const tierPrograms = tierLinks.filter(l => l.tier === tier);
+      const regularPrograms = tierPrograms.filter(l => !l.isGateChallenge);
+      const gatePrograms = tierPrograms.filter(l => l.isGateChallenge);
+
+      const completedRegular = regularPrograms.filter(l => completedProgramIds.has(l.programId)).length;
+      const totalRegular = regularPrograms.length;
+      const pct = totalRegular > 0 ? Math.min(Math.round((completedRegular / totalRegular) * 100), 100) : 0;
+      const gateDone = gatePrograms.length === 0 ? pct >= 100 : gatePrograms.every(l => completedProgramIds.has(l.programId));
+
+      result[tier] = {
+        pct: tierPrograms.length === 0 ? 0 : pct,
+        gateDone,
+        unlocked: false,
+        programs: tierPrograms.map(l => ({
+          programId: l.programId,
+          completed: completedProgramIds.has(l.programId),
+          isGate: l.isGateChallenge ?? false,
+          linkId: l.id,
+        })),
+      };
+    }
+
+    // Determine unlock status — prospect always unlocked
+    result["prospect"].unlocked = true;
+    for (let i = 1; i < ARCHETYPE_TIERS.length; i++) {
+      const prevTier = ARCHETYPE_TIERS[i - 1];
+      const prev = result[prevTier];
+      result[ARCHETYPE_TIERS[i]].unlocked = prev.pct >= 100 && prev.gateDone;
+    }
+
+    return result;
+  }
+
+  async recalcUserArchetypeTier(userId: string, archetypeId: string): Promise<void> {
+    const [ua] = await db
+      .select()
+      .from(userArchetypes)
+      .where(and(eq(userArchetypes.userId, userId), eq(userArchetypes.archetypeId, archetypeId)));
+    if (!ua) return;
+
+    const status = await this.getUserArchetypeTierStatus(userId, archetypeId);
+    const currentTierStatus = status[ua.tier];
+
+    // Find highest unlocked & completed tier to advance to
+    let newTier = ua.tier;
+    for (let i = ARCHETYPE_TIERS.indexOf(ua.tier as ArchetypeTier); i < ARCHETYPE_TIERS.length; i++) {
+      const t = ARCHETYPE_TIERS[i];
+      if (status[t].unlocked && status[t].pct >= 100 && status[t].gateDone && i < ARCHETYPE_TIERS.length - 1) {
+        newTier = ARCHETYPE_TIERS[i + 1];
+      } else break;
+    }
+
+    await db.update(userArchetypes).set({
+      tier: newTier,
+      tierPct: status[newTier]?.pct ?? currentTierStatus.pct,
+      tierGateDone: status[newTier]?.gateDone ?? currentTierStatus.gateDone,
+      updatedAt: new Date(),
+    }).where(eq(userArchetypes.id, ua.id));
+  }
+
   // ─── Admin archetype CRUD ────────────────────────────────────────────────
   async upsertArchetype(data: Archetype): Promise<Archetype> {
     const [row] = await db
