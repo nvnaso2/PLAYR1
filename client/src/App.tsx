@@ -335,7 +335,7 @@ function Router() {
                 <Route path="/profile-hub" component={ProfileHubPage} />
                 <Route path="/streaks" component={StreaksPage} />
                 <Route path="/archetypes" component={Archetypes} />
-                <Route path="/my-archetype" component={MyArchetype} />
+                <Route path="/my-archetype"><Redirect to="/archetypes?tab=identity" /></Route>
                 <Route path="/my-goal" component={MyGoal} />
                 <Route path="/feedback" component={FeedbackPage} />
                 <Route path="/my-trainer" component={MyTrainer} />

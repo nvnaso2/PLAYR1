@@ -1854,6 +1854,58 @@ export const ARCHETYPE_ROADMAP_ITEM_TYPES = ["workout", "drill", "challenge", "w
 export type ArchetypeRoadmapItemType = typeof ARCHETYPE_ROADMAP_ITEM_TYPES[number];
 
 // Links programs to archetype tiers — archetypes are groups of programs
+// ─── Archetype tier challenges (built-in, no time window) ────────────────────
+export const ARCHETYPE_CHALLENGE_METRICS = [
+  "shots_made",
+  "shots_attempted",
+  "sessions",
+  "total_minutes",
+  "streak_days",
+] as const;
+export type ArchetypeChallengeMetric = typeof ARCHETYPE_CHALLENGE_METRICS[number];
+
+export const ARCHETYPE_CHALLENGE_METRIC_LABELS: Record<ArchetypeChallengeMetric, string> = {
+  shots_made: "Shots Made",
+  shots_attempted: "Shots Attempted",
+  sessions: "Training Sessions Logged",
+  total_minutes: "Total Minutes Trained",
+  streak_days: "Day Streak",
+};
+
+export const archetypeTierChallenges = pgTable("archetype_tier_challenges", {
+  id:              varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  archetypeId:     varchar("archetype_id").notNull(),
+  tier:            varchar("tier").$type<ArchetypeTier>().notNull(),
+  title:           varchar("title").notNull(),
+  description:     text("description"),
+  metric:          varchar("metric").$type<ArchetypeChallengeMetric>().notNull(),
+  target:          integer("target").notNull(),
+  shotLocationFilter: varchar("shot_location_filter"),
+  isGateChallenge: boolean("is_gate_challenge").default(false),
+  sortOrder:       integer("sort_order").notNull().default(0),
+  createdAt:       timestamp("created_at").defaultNow(),
+}, (t) => ({
+  byArchetypeTier: index("atc_archetype_tier_idx").on(t.archetypeId, t.tier),
+}));
+
+export type ArchetypeTierChallenge = typeof archetypeTierChallenges.$inferSelect;
+export type InsertArchetypeTierChallenge = typeof archetypeTierChallenges.$inferInsert;
+
+// ─── User completions for archetype tier challenges ───────────────────────────
+export const archetypeChallengeCompletions = pgTable("archetype_challenge_completions", {
+  id:          varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId:      varchar("user_id").notNull(),
+  challengeId: varchar("challenge_id").notNull(),
+  completedAt: timestamp("completed_at").defaultNow(),
+  score:       integer("score"),
+}, (t) => ({
+  byUser: index("acc_user_idx").on(t.userId),
+  byChallenge: index("acc_challenge_idx").on(t.challengeId),
+  uqUserChallenge: uniqueIndex("acc_unique").on(t.userId, t.challengeId),
+}));
+
+export type ArchetypeChallengeCompletion = typeof archetypeChallengeCompletions.$inferSelect;
+
 export const archetypeTierPrograms = pgTable("archetype_tier_programs", {
   id:              varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   archetypeId:     varchar("archetype_id").notNull(),

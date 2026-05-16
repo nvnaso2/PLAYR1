@@ -9293,6 +9293,84 @@ Rules:
     }
   });
 
+  // ─── Archetype tier challenge routes ─────────────────────────────────────
+  app.get("/api/archetypes/:archetypeId/tier-challenges", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      res.json(await storage.getArchetypeTierChallenges(req.params.archetypeId));
+    } catch {
+      res.status(500).json({ message: "Failed to fetch tier challenges" });
+    }
+  });
+
+  app.post("/api/admin/archetypes/:archetypeId/tier-challenges", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const data = z.object({
+        tier: z.enum(["prospect", "rising", "starter", "star", "elite", "playr1"]),
+        title: z.string().min(1),
+        description: z.string().optional(),
+        metric: z.enum(["shots_made", "shots_attempted", "sessions", "total_minutes", "streak_days"]),
+        target: z.number().int().min(1),
+        shotLocationFilter: z.string().optional(),
+        isGateChallenge: z.boolean().optional().default(false),
+        sortOrder: z.number().optional().default(0),
+      }).parse(req.body);
+      const row = await storage.createArchetypeTierChallenge({ ...data, archetypeId: req.params.archetypeId });
+      res.status(201).json(row);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: "Invalid data", errors: err.errors });
+      res.status(500).json({ message: "Failed to create challenge" });
+    }
+  });
+
+  app.put("/api/admin/tier-challenges/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const data = z.object({
+        title: z.string().min(1).optional(),
+        description: z.string().optional(),
+        metric: z.enum(["shots_made", "shots_attempted", "sessions", "total_minutes", "streak_days"]).optional(),
+        target: z.number().int().min(1).optional(),
+        shotLocationFilter: z.string().optional().nullable(),
+        isGateChallenge: z.boolean().optional(),
+        sortOrder: z.number().optional(),
+      }).parse(req.body);
+      const row = await storage.updateArchetypeTierChallenge(req.params.id, data);
+      res.json(row);
+    } catch {
+      res.status(500).json({ message: "Failed to update challenge" });
+    }
+  });
+
+  app.delete("/api/admin/tier-challenges/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      await storage.deleteArchetypeTierChallenge(req.params.id);
+      res.json({ success: true });
+    } catch {
+      res.status(500).json({ message: "Failed to delete challenge" });
+    }
+  });
+
+  // User challenge completion
+  app.post("/api/archetypes/:archetypeId/challenges/:challengeId/complete", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const { score } = z.object({ score: z.number().optional() }).parse(req.body);
+      const row = await storage.completeArchetypeChallenge(userId, req.params.challengeId, score);
+      res.json(row);
+    } catch {
+      res.status(500).json({ message: "Failed to complete challenge" });
+    }
+  });
+
+  app.delete("/api/archetypes/:archetypeId/challenges/:challengeId/complete", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      await storage.uncompleteArchetypeChallenge(userId, req.params.challengeId);
+      res.json({ success: true });
+    } catch {
+      res.status(500).json({ message: "Failed to uncomplete challenge" });
+    }
+  });
+
   // ─── Seed AI roadmap for an archetype (admin) ────────────────────────────
   app.post("/api/admin/archetypes/:archetypeId/seed-roadmap", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {

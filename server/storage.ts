@@ -74,10 +74,12 @@ import {
   weeklyGameDays, type WeeklyGameDay, type InsertWeeklyGameDay,
   gameDayChallengeAttempts, type GameDayChallengeAttempt, type InsertGameDayChallengeAttempt,
   archetypes, userArchetypes, archetypeXpLog, archetypeRoadmapItems, archetypeItemCompletions,
-  archetypeTierPrograms,
+  archetypeTierPrograms, archetypeTierChallenges, archetypeChallengeCompletions,
   type Archetype, type UserArchetype, type ArchetypeXpLog, type InsertArchetypeXpLog,
   type ArchetypeRoadmapItem, type InsertArchetypeRoadmapItem, type ArchetypeItemCompletion,
   type ArchetypeTierProgram, type InsertArchetypeTierProgram,
+  type ArchetypeTierChallenge, type InsertArchetypeTierChallenge,
+  type ArchetypeChallengeCompletion,
   ARCHETYPE_TIER_XP, ARCHETYPE_TIER_ITEM_COUNTS, ARCHETYPE_TIERS, type ArchetypeTier,
   playerGoals, goalClarifications, goalMilestones, goalCheckIns,
   type PlayerGoal, type InsertPlayerGoal,
@@ -538,8 +540,16 @@ export interface IStorage {
   linkProgramToTier(data: InsertArchetypeTierProgram): Promise<ArchetypeTierProgram>;
   unlinkProgramFromTier(id: string): Promise<void>;
   updateTierProgramOrder(id: string, sortOrder: number, isGateChallenge: boolean): Promise<void>;
+  // Archetype tier challenges
+  getArchetypeTierChallenges(archetypeId: string): Promise<ArchetypeTierChallenge[]>;
+  createArchetypeTierChallenge(data: InsertArchetypeTierChallenge): Promise<ArchetypeTierChallenge>;
+  updateArchetypeTierChallenge(id: string, data: Partial<InsertArchetypeTierChallenge>): Promise<ArchetypeTierChallenge>;
+  deleteArchetypeTierChallenge(id: string): Promise<void>;
+  getUserChallengeCompletions(userId: string, archetypeId: string): Promise<ArchetypeChallengeCompletion[]>;
+  completeArchetypeChallenge(userId: string, challengeId: string, score?: number): Promise<ArchetypeChallengeCompletion>;
+  uncompleteArchetypeChallenge(userId: string, challengeId: string): Promise<void>;
   // User tier status (programs-based)
-  getUserArchetypeTierStatus(userId: string, archetypeId: string): Promise<Record<string, { pct: number; gateDone: boolean; unlocked: boolean; programs: Array<{ programId: string; completed: boolean; isGate: boolean }> }>>;
+  getUserArchetypeTierStatus(userId: string, archetypeId: string): Promise<Record<string, { pct: number; gateDone: boolean; unlocked: boolean; programs: Array<{ programId: string; completed: boolean; isGate: boolean }>; challenges: Array<{ challengeId: string; completed: boolean; isGate: boolean; title: string; metric: string; target: number; description: string | null; shotLocationFilter: string | null }> }>>;
   recalcUserArchetypeTier(userId: string, archetypeId: string): Promise<void>;
   // Admin Archetypes
   upsertArchetype(data: Archetype): Promise<Archetype>;
@@ -6459,45 +6469,109 @@ export class DatabaseStorage implements IStorage {
     await db.update(archetypeTierPrograms).set({ sortOrder, isGateChallenge }).where(eq(archetypeTierPrograms.id, id));
   }
 
-  async getUserArchetypeTierStatus(userId: string, archetypeId: string) {
-    const tierLinks = await this.getArchetypeTierPrograms(archetypeId);
-    // Get user's completed enrollments
-    const userEnrollments = await db
-      .select()
-      .from(programEnrollments)
-      .where(and(eq(programEnrollments.userId, userId), eq(programEnrollments.status, "completed")));
-    const completedProgramIds = new Set(userEnrollments.map(e => e.programId));
+  // ─── Archetype tier challenges ───────────────────────────────────────────────
+  async getArchetypeTierChallenges(archetypeId: string): Promise<ArchetypeTierChallenge[]> {
+    return db.select().from(archetypeTierChallenges)
+      .where(eq(archetypeTierChallenges.archetypeId, archetypeId))
+      .orderBy(archetypeTierChallenges.tier, archetypeTierChallenges.sortOrder);
+  }
 
-    const result: Record<string, { pct: number; gateDone: boolean; unlocked: boolean; programs: Array<{ programId: string; completed: boolean; isGate: boolean; linkId: string }> }> = {};
+  async createArchetypeTierChallenge(data: InsertArchetypeTierChallenge): Promise<ArchetypeTierChallenge> {
+    const [row] = await db.insert(archetypeTierChallenges).values(data).returning();
+    return row;
+  }
+
+  async updateArchetypeTierChallenge(id: string, data: Partial<InsertArchetypeTierChallenge>): Promise<ArchetypeTierChallenge> {
+    const [row] = await db.update(archetypeTierChallenges).set(data).where(eq(archetypeTierChallenges.id, id)).returning();
+    return row;
+  }
+
+  async deleteArchetypeTierChallenge(id: string): Promise<void> {
+    await db.delete(archetypeTierChallenges).where(eq(archetypeTierChallenges.id, id));
+    await db.delete(archetypeChallengeCompletions).where(eq(archetypeChallengeCompletions.challengeId, id));
+  }
+
+  async getUserChallengeCompletions(userId: string, archetypeId: string): Promise<ArchetypeChallengeCompletion[]> {
+    const challenges = await this.getArchetypeTierChallenges(archetypeId);
+    const challengeIds = challenges.map(c => c.id);
+    if (challengeIds.length === 0) return [];
+    return db.select().from(archetypeChallengeCompletions)
+      .where(and(eq(archetypeChallengeCompletions.userId, userId), inArray(archetypeChallengeCompletions.challengeId, challengeIds)));
+  }
+
+  async completeArchetypeChallenge(userId: string, challengeId: string, score?: number): Promise<ArchetypeChallengeCompletion> {
+    const [row] = await db.insert(archetypeChallengeCompletions)
+      .values({ userId, challengeId, score: score ?? null })
+      .onConflictDoUpdate({ target: [archetypeChallengeCompletions.userId, archetypeChallengeCompletions.challengeId], set: { score: score ?? null, completedAt: new Date() } })
+      .returning();
+    return row;
+  }
+
+  async uncompleteArchetypeChallenge(userId: string, challengeId: string): Promise<void> {
+    await db.delete(archetypeChallengeCompletions)
+      .where(and(eq(archetypeChallengeCompletions.userId, userId), eq(archetypeChallengeCompletions.challengeId, challengeId)));
+  }
+
+  async getUserArchetypeTierStatus(userId: string, archetypeId: string) {
+    const [tierLinks, tierChallenges, userEnrollments, completions] = await Promise.all([
+      this.getArchetypeTierPrograms(archetypeId),
+      this.getArchetypeTierChallenges(archetypeId),
+      db.select().from(programEnrollments).where(and(eq(programEnrollments.userId, userId), eq(programEnrollments.status, "completed"))),
+      this.getUserChallengeCompletions(userId, archetypeId),
+    ]);
+
+    const completedProgramIds = new Set(userEnrollments.map(e => e.programId));
+    const completedChallengeIds = new Set(completions.map(c => c.challengeId));
+
+    const result: Record<string, {
+      pct: number; gateDone: boolean; unlocked: boolean;
+      programs: Array<{ programId: string; completed: boolean; isGate: boolean; linkId: string }>;
+      challenges: Array<{ challengeId: string; completed: boolean; isGate: boolean; title: string; metric: string; target: number; description: string | null; shotLocationFilter: string | null }>;
+    }> = {};
 
     for (const tier of ARCHETYPE_TIERS) {
       const tierPrograms = tierLinks.filter(l => l.tier === tier);
-      const regularPrograms = tierPrograms.filter(l => !l.isGateChallenge);
-      const gatePrograms = tierPrograms.filter(l => l.isGateChallenge);
+      const tierChalls = tierChallenges.filter(c => c.tier === tier);
 
-      const completedRegular = regularPrograms.filter(l => completedProgramIds.has(l.programId)).length;
-      const totalRegular = regularPrograms.length;
+      const regularPrograms = tierPrograms.filter(l => !l.isGateChallenge);
+      const gateProgramItems = tierPrograms.filter(l => l.isGateChallenge);
+      const regularChallenges = tierChalls.filter(c => !c.isGateChallenge);
+      const gateChallengeItems = tierChalls.filter(c => c.isGateChallenge);
+
+      // Progress = (completed regular programs + completed regular challenges) / (total regular programs + total regular challenges)
+      const totalRegular = regularPrograms.length + regularChallenges.length;
+      const completedRegular =
+        regularPrograms.filter(l => completedProgramIds.has(l.programId)).length +
+        regularChallenges.filter(c => completedChallengeIds.has(c.id)).length;
+
       const pct = totalRegular > 0 ? Math.min(Math.round((completedRegular / totalRegular) * 100), 100) : 0;
-      const gateDone = gatePrograms.length === 0 ? pct >= 100 : gatePrograms.every(l => completedProgramIds.has(l.programId));
+
+      const gateItemsDone =
+        gateProgramItems.every(l => completedProgramIds.has(l.programId)) &&
+        gateChallengeItems.every(c => completedChallengeIds.has(c.id));
+      const hasGateItems = gateProgramItems.length + gateChallengeItems.length > 0;
+      const gateDone = hasGateItems ? gateItemsDone : pct >= 100;
 
       result[tier] = {
-        pct: tierPrograms.length === 0 ? 0 : pct,
+        pct: (tierPrograms.length + tierChalls.length) === 0 ? 0 : pct,
         gateDone,
         unlocked: false,
         programs: tierPrograms.map(l => ({
-          programId: l.programId,
-          completed: completedProgramIds.has(l.programId),
-          isGate: l.isGateChallenge ?? false,
-          linkId: l.id,
+          programId: l.programId, completed: completedProgramIds.has(l.programId),
+          isGate: l.isGateChallenge ?? false, linkId: l.id,
+        })),
+        challenges: tierChalls.map(c => ({
+          challengeId: c.id, completed: completedChallengeIds.has(c.id),
+          isGate: c.isGateChallenge ?? false, title: c.title,
+          metric: c.metric, target: c.target,
+          description: c.description ?? null, shotLocationFilter: c.shotLocationFilter ?? null,
         })),
       };
     }
 
-    // Determine unlock status — prospect always unlocked
     result["prospect"].unlocked = true;
     for (let i = 1; i < ARCHETYPE_TIERS.length; i++) {
-      const prevTier = ARCHETYPE_TIERS[i - 1];
-      const prev = result[prevTier];
+      const prev = result[ARCHETYPE_TIERS[i - 1]];
       result[ARCHETYPE_TIERS[i]].unlocked = prev.pct >= 100 && prev.gateDone;
     }
 
