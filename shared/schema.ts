@@ -2019,7 +2019,7 @@ export type StatChallenge = typeof statChallenges.$inferSelect;
 export type InsertStatChallenge = z.infer<typeof insertStatChallengeSchema>;
 
 export const insertStatChallengeSchema = createInsertSchema(statChallenges).omit({
-  id: true, createdAt: true, updatedAt: true,
+  id: true, createdAt: true, updatedAt: true, slug: true,
 }).extend({
   startsAt: z.coerce.date(),
   endsAt:   z.coerce.date(),
