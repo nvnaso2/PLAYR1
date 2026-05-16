@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { nativeFetch, statsUrl } from "@/lib/queryClient";
 import { QueryError } from "@/components/query-error";
+import { DailyChallengeCard } from "@/components/daily-challenge-card";
+import { ContinueProgramsWidget } from "@/components/continue-programs-widget";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -332,6 +334,10 @@ export default function ProgressPage() {
           ))}
         </div>
       </div>
+
+      <ContinueProgramsWidget />
+
+      <DailyChallengeCard />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         {overviewLoading ? (
