@@ -6,7 +6,6 @@ import { z } from "zod";
 import { queryClient, apiRequest, getObjectUrl, nativeFetch } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAdmin } from "@/hooks/use-admin";
-import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -59,7 +58,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText, Play, ChevronDown, GraduationCap, MapPin, ListFilter, X, BarChart2, TrendingUp, TrendingDown, Activity, UserCheck, Wrench, Flame, Lightbulb, Zap, Globe, AlertTriangle, Trophy, Target, GitBranch, Clock, ArrowDown, Flag, ToggleLeft, ToggleRight, UserPlus, Copy } from "lucide-react";
+import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText, Play, ChevronDown, GraduationCap, MapPin, ListFilter, X, BarChart2, TrendingUp, TrendingDown, Activity, UserCheck, Wrench, Flame, Lightbulb, Zap, Globe, AlertTriangle, Trophy, Target, GitBranch, Clock, ArrowDown } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
 import type { Drill, DrillCategory, DifficultyLevel, DrillMetric, VideoLibrary, PdfLibrary, MetricTemplate, Workout, WorkoutDrill, TrainingLocation, ShotLocationDB, ShotTypeDB } from "@shared/schema";
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, METRIC_TYPES, US_STATES } from "@shared/schema";
@@ -78,8 +77,6 @@ type AdminUser = {
   firstName: string | null;
   lastName: string | null;
   isAdmin: boolean;
-  staffRole?: string | null;
-  subscriptionPlan?: string | null;
 };
 
 const drillFormSchema = z.object({
@@ -2646,19 +2643,6 @@ export default function AdminPage() {
     },
   });
 
-  const setSubscriptionMutation = useMutation({
-    mutationFn: async ({ userId, subscriptionPlan }: { userId: string; subscriptionPlan: string }) => {
-      return await apiRequest("PUT", `/api/admin/users/${userId}/subscription`, { subscriptionPlan });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
-      toast({ title: "Subscription plan updated" });
-    },
-    onError: (error: any) => {
-      toast({ title: "Failed to update plan", description: error.message, variant: "destructive" });
-    },
-  });
-
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
       return await apiRequest("DELETE", `/api/admin/users/${userId}`);
@@ -2953,10 +2937,6 @@ export default function AdminPage() {
           <TabsTrigger value="analytics" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-analytics">
             <BarChart2 className="w-4 h-4 shrink-0" />
             <span>Analytics</span>
-          </TabsTrigger>
-          <TabsTrigger value="flags" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-flags">
-            <Flag className="w-4 h-4 shrink-0" />
-            <span>Flags</span>
           </TabsTrigger>
         </TabsList>
 
@@ -4009,7 +3989,6 @@ export default function AdminPage() {
                         <TableHead>User</TableHead>
                         <TableHead>Email</TableHead>
                         <TableHead>App Role</TableHead>
-                        <TableHead>Plan</TableHead>
                         <TableHead className="text-right">Admin Access</TableHead>
                         <TableHead></TableHead>
                       </TableRow>
@@ -4043,21 +4022,6 @@ export default function AdminPage() {
                                 <SelectItem value="player">Player</SelectItem>
                                 <SelectItem value="trainer">Trainer</SelectItem>
                                 <SelectItem value="both">Both</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                          <TableCell>
-                            <Select
-                              value={user.subscriptionPlan || "free"}
-                              onValueChange={(val) => setSubscriptionMutation.mutate({ userId: user.id, subscriptionPlan: val })}
-                              disabled={setSubscriptionMutation.isPending}
-                            >
-                              <SelectTrigger className="h-8 w-[90px] text-xs" data-testid={`select-plan-${user.id}`}>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="free">Free</SelectItem>
-                                <SelectItem value="pro">Pro</SelectItem>
                               </SelectContent>
                             </Select>
                           </TableCell>
@@ -4292,322 +4256,8 @@ export default function AdminPage() {
         <TabsContent value="analytics" className="space-y-6">
           <AdminAnalyticsTab />
         </TabsContent>
-
-        <TabsContent value="flags" className="space-y-6">
-          <FeatureFlagsTab />
-        </TabsContent>
       </Tabs>
 
-    </div>
-  );
-}
-
-// ─── Feature Flags Tab Component ──────────────────────────────────────────────
-
-type FeatureFlag = {
-  id: string;
-  key: string;
-  name: string;
-  description: string | null;
-  isEnabled: boolean;
-  betaUserIds: string[];
-  createdAt: string | null;
-  updatedAt: string | null;
-};
-
-function FeatureFlagsTab() {
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const [createOpen, setCreateOpen] = useState(false);
-
-  const { data: flags = [], isLoading } = useQuery<FeatureFlag[]>({
-    queryKey: ["/api/admin/feature-flags"],
-  });
-
-  const { data: allUsers = [] } = useQuery<AdminUser[]>({
-    queryKey: ["/api/admin/users"],
-  });
-
-  const createForm = useForm<{ key: string; name: string; description: string }>({
-    defaultValues: { key: "", name: "", description: "" },
-  });
-
-  const createMutation = useMutation({
-    mutationFn: async (data: { key: string; name: string; description: string }) =>
-      await apiRequest("POST", "/api/admin/feature-flags", {
-        ...data,
-        isEnabled: false,
-        betaUserIds: [],
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/feature-flags"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/feature-flags"] });
-      toast({ title: "Feature flag created" });
-      setCreateOpen(false);
-      createForm.reset();
-    },
-    onError: (e: any) => toast({ title: "Failed to create flag", description: e.message, variant: "destructive" }),
-  });
-
-  const toggleMutation = useMutation({
-    mutationFn: async ({ key, isEnabled }: { key: string; isEnabled: boolean }) =>
-      await apiRequest("PUT", `/api/admin/feature-flags/${key}`, { isEnabled }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/feature-flags"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/feature-flags"] });
-    },
-    onError: (e: any) => toast({ title: "Failed to update flag", description: e.message, variant: "destructive" }),
-  });
-
-  const updateBetaMutation = useMutation({
-    mutationFn: async ({ key, betaUserIds }: { key: string; betaUserIds: string[] }) =>
-      await apiRequest("PUT", `/api/admin/feature-flags/${key}`, { betaUserIds }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/feature-flags"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/feature-flags"] });
-      toast({ title: "Beta users updated" });
-    },
-    onError: (e: any) => toast({ title: "Failed to update", description: e.message, variant: "destructive" }),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async (key: string) => await apiRequest("DELETE", `/api/admin/feature-flags/${key}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/feature-flags"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/feature-flags"] });
-      toast({ title: "Flag deleted" });
-    },
-    onError: (e: any) => toast({ title: "Failed to delete", description: e.message, variant: "destructive" }),
-  });
-
-  const addBetaUser = (flag: FeatureFlag, uid: string) => {
-    if (!uid || flag.betaUserIds.includes(uid)) return;
-    updateBetaMutation.mutate({ key: flag.key, betaUserIds: [...flag.betaUserIds, uid] });
-  };
-
-  const removeBetaUser = (flag: FeatureFlag, uid: string) => {
-    updateBetaMutation.mutate({ key: flag.key, betaUserIds: flag.betaUserIds.filter((id) => id !== uid) });
-  };
-
-  const getUserLabel = (uid: string) => {
-    const u = allUsers.find((u) => u.id === uid);
-    if (!u) return uid.slice(0, 12) + "...";
-    return u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : u.email || uid.slice(0, 12);
-  };
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h2 className="text-xl font-semibold">Feature Flags</h2>
-          <p className="text-sm text-muted-foreground">
-            Control which features are visible to users. Enable globally or grant access to specific beta testers.
-          </p>
-        </div>
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-create-flag">
-              <Plus className="w-4 h-4 mr-2" />
-              New Flag
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Create Feature Flag</DialogTitle>
-            </DialogHeader>
-            <form
-              onSubmit={createForm.handleSubmit((d) => createMutation.mutate(d))}
-              className="space-y-4"
-            >
-              <div className="space-y-2">
-                <Label htmlFor="flag-key">Key</Label>
-                <Input
-                  id="flag-key"
-                  placeholder="e.g. reflection-journal"
-                  {...createForm.register("key", { required: true, pattern: /^[a-z0-9-]+$/ })}
-                  data-testid="input-flag-key"
-                />
-                <p className="text-xs text-muted-foreground">Lowercase letters, numbers, and hyphens only.</p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="flag-name">Name</Label>
-                <Input
-                  id="flag-name"
-                  placeholder="e.g. Reflection Journal"
-                  {...createForm.register("name", { required: true })}
-                  data-testid="input-flag-name"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="flag-desc">Description</Label>
-                <Textarea
-                  id="flag-desc"
-                  placeholder="What does this feature do?"
-                  {...createForm.register("description")}
-                  className="resize-none min-h-[80px]"
-                  data-testid="input-flag-description"
-                />
-              </div>
-              <DialogFooter>
-                <Button type="submit" disabled={createMutation.isPending} data-testid="button-save-flag">
-                  {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create Flag"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => <div key={i} className="h-24 rounded-lg bg-muted animate-pulse" />)}
-        </div>
-      ) : flags.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center gap-3 py-12">
-            <Flag className="w-10 h-10 text-muted-foreground" />
-            <div className="text-center">
-              <p className="font-medium">No feature flags yet</p>
-              <p className="text-sm text-muted-foreground">Create your first flag to control feature visibility.</p>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-4">
-          {flags.map((flag) => (
-            <Card key={flag.key} data-testid={`card-flag-${flag.key}`}>
-              <CardContent className="p-5 space-y-4">
-                {/* Header row */}
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold">{flag.name}</span>
-                      <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono text-muted-foreground">
-                        {flag.key}
-                      </code>
-                      {flag.isEnabled ? (
-                        <Badge className="bg-green-500/10 text-green-500 border-green-500/20 text-xs">
-                          Global ON
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary" className="text-xs">
-                          Global OFF
-                        </Badge>
-                      )}
-                    </div>
-                    {flag.description && (
-                      <p className="text-sm text-muted-foreground mt-1">{flag.description}</p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">
-                        {flag.isEnabled ? "On" : "Off"}
-                      </span>
-                      <Switch
-                        checked={flag.isEnabled}
-                        onCheckedChange={(checked) => toggleMutation.mutate({ key: flag.key, isEnabled: checked })}
-                        data-testid={`switch-flag-${flag.key}`}
-                      />
-                    </div>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" data-testid={`button-delete-flag-${flag.key}`}>
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Delete flag "{flag.name}"?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This will permanently delete the flag. Features gated behind it will be hidden for all users.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => deleteMutation.mutate(flag.key)}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          >
-                            Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                </div>
-
-                {/* Beta users */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                      Beta Access
-                    </p>
-                    <span className="text-xs text-muted-foreground">
-                      ({flag.betaUserIds.length} {flag.betaUserIds.length === 1 ? "user" : "users"})
-                    </span>
-                  </div>
-
-                  {flag.betaUserIds.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {flag.betaUserIds.map((uid) => (
-                        <div
-                          key={uid}
-                          className="flex items-center gap-1.5 bg-muted px-2.5 py-1 rounded-full text-xs"
-                        >
-                          <span>{getUserLabel(uid)}</span>
-                          <button
-                            onClick={() => removeBetaUser(flag, uid)}
-                            className="text-muted-foreground hover:text-foreground transition-colors"
-                            data-testid={`button-remove-beta-${flag.key}-${uid}`}
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Add beta user */}
-                  <div className="flex gap-2">
-                    {user && !flag.betaUserIds.includes(user.id) && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-8 text-xs px-3 shrink-0"
-                        onClick={() => addBetaUser(flag, user.id)}
-                        disabled={updateBetaMutation.isPending}
-                        data-testid={`button-add-me-${flag.key}`}
-                      >
-                        + Add Me
-                      </Button>
-                    )}
-                    <Select
-                      value=""
-                      onValueChange={(v) => addBetaUser(flag, v)}
-                    >
-                      <SelectTrigger className="flex-1 h-8 text-xs" data-testid={`select-beta-user-${flag.key}`}>
-                        <SelectValue placeholder="Add another user..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {allUsers
-                          .filter((u) => !flag.betaUserIds.includes(u.id))
-                          .map((u) => (
-                            <SelectItem key={u.id} value={u.id}>
-                              {u.firstName && u.lastName
-                                ? `${u.firstName} ${u.lastName}`
-                                : u.email || u.id}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

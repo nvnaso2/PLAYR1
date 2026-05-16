@@ -9,7 +9,6 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/hooks/use-auth";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
-import { BottomTabBar } from "@/components/bottom-tab-bar";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { Playr1Logo } from "@/components/playr1-logo";
@@ -68,16 +67,6 @@ const Events = lazy(pageLoaders.events);
 const EventDetail = lazy(pageLoaders.eventDetail);
 const EventEditor = lazy(pageLoaders.eventEditor);
 const TrainerPrograms = lazy(pageLoaders.trainerPrograms);
-const Journal = lazy(pageLoaders.journal);
-const GameDay = lazy(pageLoaders.gameDay);
-const Archetypes = lazy(pageLoaders.archetypes);
-const MyArchetype = lazy(pageLoaders.myArchetype);
-const MyGoal = lazy(pageLoaders.myGoal);
-const Hub = lazy(pageLoaders.hub);
-const Journey = lazy(pageLoaders.journey);
-const CommunityPage = lazy(() => import("@/pages/community"));
-const ProfileHubPage = lazy(() => import("@/pages/profile-hub"));
-const StreaksPage = lazy(() => import("@/pages/streaks"));
 
 function PageLoader() {
   return (
@@ -150,35 +139,28 @@ function SplashScreen({ isAuthLoading, isAuthenticated, onComplete }: {
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const isNative = Capacitor.isNativePlatform();
   usePageViewTracking();
-
-  const sidebarStyle = {
+  const style = {
     "--sidebar-width": "16rem",
     "--sidebar-width-icon": "3rem",
-  } as React.CSSProperties;
+  };
 
   return (
-    <SidebarProvider style={sidebarStyle}>
-      <div className="flex h-screen w-full overflow-hidden">
+    <SidebarProvider style={style as React.CSSProperties}>
+      <div className="flex h-screen w-full safe-area-inset">
         <AppSidebar />
-        <SidebarInset className="flex flex-col min-h-0 flex-1 overflow-hidden">
-          {/* Header */}
-          <header className="shrink-0 flex items-center gap-2 border-b border-zinc-800/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40 px-4 h-14">
-            <SidebarTrigger data-testid="button-sidebar-toggle" className="-ml-1" />
-            <div className="flex-1 flex items-center justify-center">
-              <Playr1Logo className="h-8 w-auto" />
+        <SidebarInset className="flex-1 flex flex-col overflow-hidden">
+          <header className={`relative flex items-center justify-between border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40 safe-area-top overflow-hidden ${isNative ? 'px-3 py-1' : 'p-3'}`}>
+            <SidebarTrigger data-testid="button-sidebar-toggle" />
+            <div className="absolute inset-x-0 bottom-0 top-[env(safe-area-inset-top)] flex items-center justify-center pointer-events-none">
+              <Playr1Logo className={isNative ? 'h-8 w-auto' : 'h-32 w-auto'} />
             </div>
             <ThemeToggle />
           </header>
-
-          {/* Scrollable page content */}
-          <main className="flex-1 overflow-y-auto min-h-0">
+          <main className="flex-1 overflow-y-auto">
             <Suspense fallback={<PageLoader />}>
               {children}
             </Suspense>
           </main>
-
-          {/* Bottom tab bar */}
-          <BottomTabBar />
         </SidebarInset>
       </div>
     </SidebarProvider>
@@ -214,7 +196,7 @@ function HomeRedirect() {
     return <Redirect to="/career" />;
   }
   if (activeView === "trainer") return <Redirect to="/trainer" />;
-  return <Redirect to="/hub" />;
+  return <Dashboard />;
 }
 
 function AdminRoute() {
@@ -323,16 +305,6 @@ function Router() {
                 <Route path="/teams" component={Finder} />
                 <Route path="/connect" component={FindPeople} />
                 <Route path="/challenge-history" component={ChallengeHistory} />
-                <Route path="/journal" component={Journal} />
-                <Route path="/game-day" component={GameDay} />
-                <Route path="/hub" component={Hub} />
-                <Route path="/journey" component={Journey} />
-                <Route path="/community" component={CommunityPage} />
-                <Route path="/profile-hub" component={ProfileHubPage} />
-                <Route path="/streaks" component={StreaksPage} />
-                <Route path="/archetypes" component={Archetypes} />
-                <Route path="/my-archetype" component={MyArchetype} />
-                <Route path="/my-goal" component={MyGoal} />
                 <Route path="/feedback" component={FeedbackPage} />
                 <Route path="/my-trainer" component={MyTrainer} />
                 <Route path="/parent" component={ParentDashboard} />
