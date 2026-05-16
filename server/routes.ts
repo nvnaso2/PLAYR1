@@ -9116,6 +9116,196 @@ Rules:
   });
 
   // ===== ARCHETYPE ROUTES =====
+  // ─── Archetype Roadmap routes ────────────────────────────────────────────
+  app.get("/api/archetypes/:archetypeId/roadmap", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const items = await storage.getArchetypeRoadmap(req.params.archetypeId);
+      res.json(items);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to fetch roadmap" });
+    }
+  });
+
+  app.get("/api/archetypes/user/completions/:userArchetypeId", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const completions = await storage.getUserItemCompletions(userId, req.params.userArchetypeId);
+      res.json(completions);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to fetch completions" });
+    }
+  });
+
+  app.post("/api/archetypes/user/completions", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const { userArchetypeId, roadmapItemId, notes } = z.object({
+        userArchetypeId: z.string(),
+        roadmapItemId: z.string(),
+        notes: z.string().optional(),
+      }).parse(req.body);
+      const result = await storage.completeRoadmapItem(userId, userArchetypeId, roadmapItemId, notes);
+      res.json(result);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: "Invalid data", errors: err.errors });
+      res.status(500).json({ message: "Failed to complete item" });
+    }
+  });
+
+  app.delete("/api/archetypes/user/completions/:roadmapItemId", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      await storage.uncompleteRoadmapItem(userId, req.params.roadmapItemId);
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to uncomplete item" });
+    }
+  });
+
+  // ─── Admin archetype + roadmap CRUD ──────────────────────────────────────
+  app.get("/api/admin/archetypes", isAuthenticated, isAdmin, async (_req, res) => {
+    try {
+      res.json(await storage.getArchetypes());
+    } catch (err) {
+      res.status(500).json({ message: "Failed" });
+    }
+  });
+
+  app.post("/api/admin/archetypes", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const data = req.body as typeof import("@shared/schema").archetypes.$inferInsert;
+      const result = await storage.upsertArchetype(data);
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to save archetype" });
+    }
+  });
+
+  app.put("/api/admin/archetypes/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const result = await storage.upsertArchetype({ ...req.body, id: req.params.id });
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to update archetype" });
+    }
+  });
+
+  app.delete("/api/admin/archetypes/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      await storage.deleteArchetype(req.params.id);
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to delete archetype" });
+    }
+  });
+
+  app.get("/api/admin/archetypes/:archetypeId/roadmap", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      res.json(await storage.getArchetypeRoadmap(req.params.archetypeId));
+    } catch (err) {
+      res.status(500).json({ message: "Failed" });
+    }
+  });
+
+  app.post("/api/admin/archetypes/:archetypeId/roadmap", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { insertArchetypeRoadmapItemSchema } = await import("@shared/schema");
+      const data = insertArchetypeRoadmapItemSchema.parse({ ...req.body, archetypeId: req.params.archetypeId });
+      const item = await storage.upsertRoadmapItem(data);
+      res.status(201).json(item);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: "Invalid data", errors: err.errors });
+      res.status(500).json({ message: "Failed to create roadmap item" });
+    }
+  });
+
+  app.put("/api/admin/roadmap-items/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const item = await storage.upsertRoadmapItem({ ...req.body, id: req.params.id });
+      res.json(item);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to update roadmap item" });
+    }
+  });
+
+  app.delete("/api/admin/roadmap-items/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      await storage.deleteRoadmapItem(req.params.id);
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to delete roadmap item" });
+    }
+  });
+
+  // ─── Seed AI roadmap for an archetype (admin) ────────────────────────────
+  app.post("/api/admin/archetypes/:archetypeId/seed-roadmap", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const archetype = await storage.getArchetype(req.params.archetypeId);
+      if (!archetype) return res.status(404).json({ message: "Archetype not found" });
+
+      const OpenAI = (await import("openai")).default;
+      const openai = new OpenAI();
+      const TIERS = ["prospect", "rising", "starter", "star", "elite", "playr1"];
+
+      const prompt = `You are designing a basketball training roadmap for the "${archetype.name}" archetype (${archetype.tagline}).
+Description: ${archetype.description}
+Traits: ${archetype.traits.join(", ")}
+
+Generate a JSON array of roadmap items across 6 tiers: prospect, rising, starter, star, elite, playr1.
+Each tier should have training items (workouts, drills, challenges) and exactly ONE gate challenge (isGateChallenge: true) as the final item.
+Item counts per tier: prospect=5 items + gate, rising=8 + gate, starter=10 + gate, star=12 + gate, elite=15 + gate, playr1=20 + gate.
+
+Each item must have:
+- tier: one of ${TIERS.join(", ")}
+- sortOrder: number within tier (gate is always highest)
+- itemType: "workout" | "drill" | "challenge" | "watch"
+- title: string (specific, action-oriented)
+- description: string (1-2 sentences, what to do and why)
+- durationMins: number (15-90)
+- repsOrSets: string like "3x20" or "100 makes" or null for challenges
+- isGateChallenge: boolean
+
+Make items feel like a real progressive training program for a ${archetype.name}. The PLAYR1 gate challenge should be legendary and demanding (like "Make 50 consecutive 3-pointers in a session").
+
+Return ONLY valid JSON array, no markdown.`;
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [{ role: "user", content: prompt }],
+        response_format: { type: "json_object" },
+        max_tokens: 4000,
+      });
+
+      let items: any[];
+      try {
+        const parsed = JSON.parse(completion.choices[0].message.content ?? "{}");
+        items = Array.isArray(parsed) ? parsed : (parsed.items ?? parsed.roadmap ?? []);
+      } catch {
+        return res.status(500).json({ message: "AI returned invalid JSON" });
+      }
+
+      // Clear existing items for this archetype if requested
+      if (req.body.replace) {
+        const existing = await storage.getArchetypeRoadmap(req.params.archetypeId);
+        for (const item of existing) await storage.deleteRoadmapItem(item.id);
+      }
+
+      const { insertArchetypeRoadmapItemSchema } = await import("@shared/schema");
+      const saved = [];
+      for (const item of items) {
+        try {
+          const validated = insertArchetypeRoadmapItemSchema.parse({ ...item, archetypeId: req.params.archetypeId });
+          saved.push(await storage.upsertRoadmapItem(validated));
+        } catch { /* skip invalid items */ }
+      }
+
+      res.json({ seeded: saved.length, items: saved });
+    } catch (err) {
+      console.error("[archetypes] seed-roadmap:", err);
+      res.status(500).json({ message: "Failed to seed roadmap" });
+    }
+  });
+
   app.get("/api/archetypes", isAuthenticated, async (_req, res) => {
     try {
       const defs = await storage.getArchetypes();

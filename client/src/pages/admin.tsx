@@ -63,9 +63,10 @@ import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield,
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
 import type { Drill, DrillCategory, DifficultyLevel, DrillMetric, VideoLibrary, PdfLibrary, MetricTemplate, Workout, WorkoutDrill, TrainingLocation, ShotLocationDB, ShotTypeDB } from "@shared/schema";
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, METRIC_TYPES, US_STATES } from "@shared/schema";
-import { Layers, GripVertical, Calendar, CalendarRange } from "lucide-react";
+import { Layers, GripVertical, Calendar, CalendarRange, Fingerprint } from "lucide-react";
 import { AdminEventsSection } from "@/components/admin-events-section";
 import { AdminStatChallengesSection } from "@/components/admin-stat-challenges-section";
+import { AdminArchetypesSection } from "@/components/admin-archetypes-section";
 import { ProgramListSection } from "@/components/program-list-section";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useUpload } from "@/hooks/use-upload";
@@ -2947,6 +2948,10 @@ export default function AdminPage() {
             <Calendar className="w-4 h-4 shrink-0" />
             <span>Programs</span>
           </TabsTrigger>
+          <TabsTrigger value="archetypes" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-archetypes">
+            <Fingerprint className="w-4 h-4 shrink-0" />
+            <span>Archetypes</span>
+          </TabsTrigger>
           <TabsTrigger value="events" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-events">
             <CalendarRange className="w-4 h-4 shrink-0" />
             <span>Events</span>
@@ -4284,6 +4289,10 @@ export default function AdminPage() {
         {/* Analytics Tab */}
         <TabsContent value="programs" className="space-y-6">
           <ProgramListSection mode="admin" />
+        </TabsContent>
+
+        <TabsContent value="archetypes" className="space-y-6">
+          <AdminArchetypesSection />
         </TabsContent>
 
         <TabsContent value="events" className="space-y-10">

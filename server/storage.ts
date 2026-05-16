@@ -73,9 +73,10 @@ import {
   journalEntries, type JournalEntry, type InsertJournalEntry,
   weeklyGameDays, type WeeklyGameDay, type InsertWeeklyGameDay,
   gameDayChallengeAttempts, type GameDayChallengeAttempt, type InsertGameDayChallengeAttempt,
-  archetypes, userArchetypes, archetypeXpLog,
+  archetypes, userArchetypes, archetypeXpLog, archetypeRoadmapItems, archetypeItemCompletions,
   type Archetype, type UserArchetype, type ArchetypeXpLog, type InsertArchetypeXpLog,
-  ARCHETYPE_TIER_XP, type ArchetypeTier,
+  type ArchetypeRoadmapItem, type InsertArchetypeRoadmapItem, type ArchetypeItemCompletion,
+  ARCHETYPE_TIER_XP, ARCHETYPE_TIER_ITEM_COUNTS, ARCHETYPE_TIERS, type ArchetypeTier,
   playerGoals, goalClarifications, goalMilestones, goalCheckIns,
   type PlayerGoal, type InsertPlayerGoal,
   type GoalClarification,
@@ -521,6 +522,18 @@ export interface IStorage {
   completeDailyChallenge(userId: string, drillId: string, dateStr: string, trainingLogId?: string): Promise<{ completion: DailyCompletion; streak: UserStreak; milestoneReached: number | null }>;
   getUserStreak(userId: string): Promise<UserStreak>;
   getStreakLeaderboard(): Promise<Array<{ userId: string; displayName: string; currentStreak: number; profilePhotoUrl: string | null }>>;
+
+  // Archetype Roadmap
+  getArchetypeRoadmap(archetypeId: string): Promise<ArchetypeRoadmapItem[]>;
+  getRoadmapItem(id: string): Promise<ArchetypeRoadmapItem | undefined>;
+  upsertRoadmapItem(data: InsertArchetypeRoadmapItem & { id?: string }): Promise<ArchetypeRoadmapItem>;
+  deleteRoadmapItem(id: string): Promise<void>;
+  getUserItemCompletions(userId: string, userArchetypeId: string): Promise<ArchetypeItemCompletion[]>;
+  completeRoadmapItem(userId: string, userArchetypeId: string, roadmapItemId: string, notes?: string): Promise<{ completion: ArchetypeItemCompletion; tierPct: number; tierGateDone: boolean; newTier: string | null }>;
+  uncompleteRoadmapItem(userId: string, roadmapItemId: string): Promise<void>;
+  // Admin Archetypes
+  upsertArchetype(data: Archetype): Promise<Archetype>;
+  deleteArchetype(id: string): Promise<void>;
 
   // Stat Challenges
   getPublishedStatChallenges(): Promise<StatChallenge[]>;
@@ -6398,6 +6411,151 @@ export class DatabaseStorage implements IStorage {
   }
 
   // ===== ARCHETYPES =====
+  // ─── Admin archetype CRUD ────────────────────────────────────────────────
+  async upsertArchetype(data: Archetype): Promise<Archetype> {
+    const [row] = await db
+      .insert(archetypes)
+      .values(data)
+      .onConflictDoUpdate({ target: archetypes.id, set: { ...data } })
+      .returning();
+    return row;
+  }
+
+  async deleteArchetype(id: string): Promise<void> {
+    await db.delete(archetypeRoadmapItems).where(eq(archetypeRoadmapItems.archetypeId, id));
+    await db.delete(archetypes).where(eq(archetypes.id, id));
+  }
+
+  // ─── Archetype Roadmap ───────────────────────────────────────────────────
+  async getArchetypeRoadmap(archetypeId: string): Promise<ArchetypeRoadmapItem[]> {
+    return db
+      .select()
+      .from(archetypeRoadmapItems)
+      .where(eq(archetypeRoadmapItems.archetypeId, archetypeId))
+      .orderBy(archetypeRoadmapItems.tier, archetypeRoadmapItems.sortOrder);
+  }
+
+  async getRoadmapItem(id: string): Promise<ArchetypeRoadmapItem | undefined> {
+    const [row] = await db.select().from(archetypeRoadmapItems).where(eq(archetypeRoadmapItems.id, id));
+    return row;
+  }
+
+  async upsertRoadmapItem(data: InsertArchetypeRoadmapItem & { id?: string }): Promise<ArchetypeRoadmapItem> {
+    if (data.id) {
+      const [row] = await db
+        .update(archetypeRoadmapItems)
+        .set(data)
+        .where(eq(archetypeRoadmapItems.id, data.id))
+        .returning();
+      return row;
+    }
+    const [row] = await db.insert(archetypeRoadmapItems).values(data).returning();
+    return row;
+  }
+
+  async deleteRoadmapItem(id: string): Promise<void> {
+    await db.delete(archetypeItemCompletions).where(eq(archetypeItemCompletions.roadmapItemId, id));
+    await db.delete(archetypeRoadmapItems).where(eq(archetypeRoadmapItems.id, id));
+  }
+
+  async getUserItemCompletions(userId: string, userArchetypeId: string): Promise<ArchetypeItemCompletion[]> {
+    return db
+      .select()
+      .from(archetypeItemCompletions)
+      .where(and(eq(archetypeItemCompletions.userId, userId), eq(archetypeItemCompletions.userArchetypeId, userArchetypeId)));
+  }
+
+  async completeRoadmapItem(
+    userId: string,
+    userArchetypeId: string,
+    roadmapItemId: string,
+    notes?: string,
+  ): Promise<{ completion: ArchetypeItemCompletion; tierPct: number; tierGateDone: boolean; newTier: string | null }> {
+    // Upsert completion
+    const [completion] = await db
+      .insert(archetypeItemCompletions)
+      .values({ userId, userArchetypeId, roadmapItemId, notes: notes ?? null })
+      .onConflictDoUpdate({
+        target: [archetypeItemCompletions.userId, archetypeItemCompletions.roadmapItemId],
+        set: { completedAt: new Date(), notes: notes ?? null },
+      })
+      .returning();
+
+    // Recalculate tier progress
+    const [ua] = await db.select().from(userArchetypes).where(eq(userArchetypes.id, userArchetypeId));
+    if (!ua) return { completion, tierPct: 0, tierGateDone: false, newTier: null };
+
+    const currentTier = ua.tier as ArchetypeTier;
+    const allItems = await db
+      .select()
+      .from(archetypeRoadmapItems)
+      .where(and(eq(archetypeRoadmapItems.archetypeId, ua.archetypeId), eq(archetypeRoadmapItems.tier, currentTier)));
+
+    const regularItems = allItems.filter((i) => !i.isGateChallenge);
+    const gateItem = allItems.find((i) => i.isGateChallenge);
+
+    const allCompletions = await db
+      .select()
+      .from(archetypeItemCompletions)
+      .where(eq(archetypeItemCompletions.userArchetypeId, userArchetypeId));
+
+    const completedIds = new Set(allCompletions.map((c) => c.roadmapItemId));
+    const completedRegular = regularItems.filter((i) => completedIds.has(i.id)).length;
+    const totalRegular = Math.max(regularItems.length, ARCHETYPE_TIER_ITEM_COUNTS[currentTier]);
+    const tierPct = Math.min(Math.round((completedRegular / totalRegular) * 100), 100);
+
+    const tierGateDone = gateItem ? completedIds.has(gateItem.id) : tierPct >= 100;
+
+    // Check if can advance tier
+    let newTier: string | null = null;
+    const tierIdx = ARCHETYPE_TIERS.indexOf(currentTier);
+    const nextTier = ARCHETYPE_TIERS[tierIdx + 1] as ArchetypeTier | undefined;
+    if (tierPct >= 100 && tierGateDone && nextTier) {
+      newTier = nextTier;
+    }
+
+    await db
+      .update(userArchetypes)
+      .set({
+        tierPct,
+        tierGateDone,
+        ...(newTier ? { tier: newTier, tierPct: 0, tierGateDone: false } : {}),
+        updatedAt: new Date(),
+      })
+      .where(eq(userArchetypes.id, userArchetypeId));
+
+    return { completion, tierPct, tierGateDone, newTier };
+  }
+
+  async uncompleteRoadmapItem(userId: string, roadmapItemId: string): Promise<void> {
+    const [completion] = await db
+      .select()
+      .from(archetypeItemCompletions)
+      .where(and(eq(archetypeItemCompletions.userId, userId), eq(archetypeItemCompletions.roadmapItemId, roadmapItemId)));
+    if (!completion) return;
+
+    await db
+      .delete(archetypeItemCompletions)
+      .where(and(eq(archetypeItemCompletions.userId, userId), eq(archetypeItemCompletions.roadmapItemId, roadmapItemId)));
+
+    // Recalculate pct for the user archetype
+    const [ua] = await db.select().from(userArchetypes).where(eq(userArchetypes.id, completion.userArchetypeId));
+    if (!ua) return;
+    const currentTier = ua.tier as ArchetypeTier;
+    const allItems = await db.select().from(archetypeRoadmapItems)
+      .where(and(eq(archetypeRoadmapItems.archetypeId, ua.archetypeId), eq(archetypeRoadmapItems.tier, currentTier)));
+    const regularItems = allItems.filter((i) => !i.isGateChallenge);
+    const gateItem = allItems.find((i) => i.isGateChallenge);
+    const allCompletions = await db.select().from(archetypeItemCompletions)
+      .where(eq(archetypeItemCompletions.userArchetypeId, ua.id));
+    const completedIds = new Set(allCompletions.map((c) => c.roadmapItemId));
+    const completedRegular = regularItems.filter((i) => completedIds.has(i.id)).length;
+    const totalRegular = Math.max(regularItems.length, ARCHETYPE_TIER_ITEM_COUNTS[currentTier]);
+    const tierPct = Math.min(Math.round((completedRegular / totalRegular) * 100), 100);
+    const tierGateDone = gateItem ? completedIds.has(gateItem.id) : false;
+    await db.update(userArchetypes).set({ tierPct, tierGateDone, updatedAt: new Date() }).where(eq(userArchetypes.id, ua.id));
+  }
+
   async getArchetypes(): Promise<Archetype[]> {
     return db.select().from(archetypes).orderBy(archetypes.displayOrder);
   }

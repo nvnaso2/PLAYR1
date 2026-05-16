@@ -1830,6 +1830,17 @@ export type InsertGameDayChallengeAttempt = typeof gameDayChallengeAttempts.$inf
 export const ARCHETYPE_TIERS = ["prospect", "rising", "starter", "star", "elite", "playr1"] as const;
 export type ArchetypeTier = typeof ARCHETYPE_TIERS[number];
 
+// Items per tier needed to reach 100% (gate challenge doesn't count toward %)
+export const ARCHETYPE_TIER_ITEM_COUNTS: Record<ArchetypeTier, number> = {
+  prospect: 5,
+  rising:   8,
+  starter:  10,
+  star:     12,
+  elite:    15,
+  playr1:   20,
+};
+
+// Keep XP for backward compat but tier is now driven by roadmap completion
 export const ARCHETYPE_TIER_XP: Record<ArchetypeTier, number> = {
   prospect: 0,
   rising: 500,
@@ -1838,6 +1849,9 @@ export const ARCHETYPE_TIER_XP: Record<ArchetypeTier, number> = {
   elite: 7000,
   playr1: 12000,
 };
+
+export const ARCHETYPE_ROADMAP_ITEM_TYPES = ["workout", "drill", "challenge", "watch", "rest"] as const;
+export type ArchetypeRoadmapItemType = typeof ARCHETYPE_ROADMAP_ITEM_TYPES[number];
 
 export const archetypes = pgTable("archetypes", {
   id: varchar("id").primaryKey(),
@@ -1851,6 +1865,37 @@ export const archetypes = pgTable("archetypes", {
   displayOrder: integer("display_order").notNull().default(0),
 });
 
+// Roadmap items: workouts/drills/challenges per archetype per tier
+export const archetypeRoadmapItems = pgTable("archetype_roadmap_items", {
+  id:            varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  archetypeId:   varchar("archetype_id").notNull(),
+  tier:          varchar("tier").$type<ArchetypeTier>().notNull(),
+  sortOrder:     integer("sort_order").notNull().default(0),
+  itemType:      varchar("item_type").$type<ArchetypeRoadmapItemType>().notNull().default("workout"),
+  title:         varchar("title").notNull(),
+  description:   text("description"),
+  durationMins:  integer("duration_mins"),
+  repsOrSets:    varchar("reps_or_sets"),       // e.g. "3x20" or "100 makes"
+  isGateChallenge: boolean("is_gate_challenge").default(false), // final unlock per tier
+  createdAt:     timestamp("created_at").defaultNow(),
+}, (t) => ({
+  byArchetypeTier: index("roadmap_archetype_tier_idx").on(t.archetypeId, t.tier),
+}));
+
+// Tracks which roadmap items a user has completed
+export const archetypeItemCompletions = pgTable("archetype_item_completions", {
+  id:               varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId:           varchar("user_id").notNull(),
+  userArchetypeId:  varchar("user_archetype_id").notNull(),
+  roadmapItemId:    varchar("roadmap_item_id").notNull(),
+  completedAt:      timestamp("completed_at").defaultNow(),
+  notes:            text("notes"),
+}, (t) => ({
+  byUser:  index("aic_user_idx").on(t.userId),
+  byItem:  index("aic_item_idx").on(t.roadmapItemId),
+  uqUserItem: uniqueIndex("aic_user_item_uq").on(t.userId, t.roadmapItemId),
+}));
+
 export const userArchetypes = pgTable("user_archetypes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull(),
@@ -1858,6 +1903,8 @@ export const userArchetypes = pgTable("user_archetypes", {
   role: varchar("role").notNull(),
   totalXp: integer("total_xp").notNull().default(0),
   tier: varchar("tier").notNull().default("prospect"),
+  tierPct: integer("tier_pct").notNull().default(0),    // 0-100 within current tier
+  tierGateDone: boolean("tier_gate_done").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -1874,10 +1921,22 @@ export const archetypeXpLog = pgTable("archetype_xp_log", {
 });
 
 export type Archetype = typeof archetypes.$inferSelect;
+export type ArchetypeRoadmapItem = typeof archetypeRoadmapItems.$inferSelect;
+export type ArchetypeItemCompletion = typeof archetypeItemCompletions.$inferSelect;
 export type UserArchetype = typeof userArchetypes.$inferSelect;
 export type ArchetypeXpLog = typeof archetypeXpLog.$inferSelect;
 export type InsertUserArchetype = typeof userArchetypes.$inferInsert;
 export type InsertArchetypeXpLog = typeof archetypeXpLog.$inferInsert;
+export type InsertArchetypeRoadmapItem = z.infer<typeof insertArchetypeRoadmapItemSchema>;
+
+export const insertArchetypeRoadmapItemSchema = createInsertSchema(archetypeRoadmapItems).omit({
+  id: true, createdAt: true,
+}).extend({
+  tier: z.enum(ARCHETYPE_TIERS),
+  itemType: z.enum(ARCHETYPE_ROADMAP_ITEM_TYPES).default("workout"),
+});
+
+export const insertArchetypeSchema = createInsertSchema(archetypes);
 
 // ===== REFLECTION JOURNAL =====
 export const JOURNAL_TYPES = ["post-workout", "post-game", "open"] as const;
