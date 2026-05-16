@@ -103,7 +103,9 @@ import {
   SEASON_TYPES,
   CHALLENGE_CATEGORIES,
   CHALLENGE_METRICS,
-  CHALLENGE_GOAL_TYPES
+  CHALLENGE_GOAL_TYPES,
+  COUNTRIES,
+  CANADIAN_PROVINCES,
 } from "@shared/schema";
 import { ShareCardDialog } from "@/components/share-card";
 import { WorkoutShareDialog } from "@/components/workout-share-dialog";
@@ -519,6 +521,7 @@ export function OnboardingWizard({ onComplete, previewMode = false }: { onComple
   const [positions, setPositions] = useState<string[]>([]);
   const [jerseyNumber, setJerseyNumber] = useState<number | undefined>();
   const [aspiration, setAspiration] = useState("");
+  const [country, setCountry] = useState("USA");
   const [city, setCity] = useState("");
   const [stateName, setStateName] = useState("");
   const [zipCode, setZipCode] = useState("");
@@ -713,11 +716,12 @@ export function OnboardingWizard({ onComplete, previewMode = false }: { onComple
       };
       if (cardPhotoUrl) profileData.cardPhotoUrl = cardPhotoUrl;
 
-      if (city || stateName || zipCode) {
+      if (city || stateName || zipCode || country) {
         await apiRequest("PUT", "/api/profile", {
           city: city || undefined,
           state: stateName || undefined,
           zipCode: zipCode || undefined,
+          country: country || "USA",
         });
       }
 
@@ -824,15 +828,23 @@ export function OnboardingWizard({ onComplete, previewMode = false }: { onComple
       toast({ title: "Please enter your first name", variant: "destructive" });
       return;
     }
+    if (!country.trim()) {
+      toast({ title: "Please select your country", variant: "destructive" });
+      return;
+    }
     if (!city.trim()) {
       toast({ title: "Please enter your city", variant: "destructive" });
       return;
     }
-    if (!stateName.trim()) {
+    if (country === "USA" && !stateName.trim()) {
       toast({ title: "Please select your state", variant: "destructive" });
       return;
     }
-    if (!zipCode.trim()) {
+    if (country === "CAN" && !stateName.trim()) {
+      toast({ title: "Please select your province", variant: "destructive" });
+      return;
+    }
+    if (country === "USA" && !zipCode.trim()) {
       toast({ title: "Please enter your zip code", variant: "destructive" });
       return;
     }
@@ -858,15 +870,23 @@ export function OnboardingWizard({ onComplete, previewMode = false }: { onComple
       toast({ title: "Please enter your first name", variant: "destructive" });
       return;
     }
+    if (!country.trim()) {
+      toast({ title: "Please select your country", variant: "destructive" });
+      return;
+    }
     if (!city.trim()) {
       toast({ title: "Please enter your city", variant: "destructive" });
       return;
     }
-    if (!stateName.trim()) {
+    if (country === "USA" && !stateName.trim()) {
       toast({ title: "Please select your state", variant: "destructive" });
       return;
     }
-    if (!zipCode.trim()) {
+    if (country === "CAN" && !stateName.trim()) {
+      toast({ title: "Please select your province", variant: "destructive" });
+      return;
+    }
+    if (country === "USA" && !zipCode.trim()) {
       toast({ title: "Please enter your zip code", variant: "destructive" });
       return;
     }
@@ -1242,6 +1262,20 @@ export function OnboardingWizard({ onComplete, previewMode = false }: { onComple
               </Select>
             </div>
 
+            <div>
+              <Label className="text-sm font-medium">Country *</Label>
+              <Select onValueChange={v => { setCountry(v); setStateName(""); }} value={country}>
+                <SelectTrigger data-testid="select-country" className="mt-1.5">
+                  <SelectValue placeholder="Select country" />
+                </SelectTrigger>
+                <SelectContent>
+                  {COUNTRIES.map(c => (
+                    <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <Label className="text-sm font-medium">City *</Label>
@@ -1254,25 +1288,48 @@ export function OnboardingWizard({ onComplete, previewMode = false }: { onComple
                 />
               </div>
               <div>
-                <Label className="text-sm font-medium">State *</Label>
-                <Select onValueChange={setStateName} value={stateName}>
-                  <SelectTrigger data-testid="select-state" className="mt-1.5">
-                    <SelectValue placeholder="State" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {US_STATES.map(s => (
-                      <SelectItem key={s} value={s}>{s}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label className="text-sm font-medium">
+                  {country === "USA" ? "State *" : country === "CAN" ? "Province *" : "Region"}
+                </Label>
+                {country === "USA" ? (
+                  <Select onValueChange={setStateName} value={stateName}>
+                    <SelectTrigger data-testid="select-state" className="mt-1.5">
+                      <SelectValue placeholder="State" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {US_STATES.map(s => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : country === "CAN" ? (
+                  <Select onValueChange={setStateName} value={stateName}>
+                    <SelectTrigger data-testid="select-province" className="mt-1.5">
+                      <SelectValue placeholder="Province" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CANADIAN_PROVINCES.map(p => (
+                        <SelectItem key={p.code} value={p.code}>{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    value={stateName}
+                    onChange={e => setStateName(e.target.value)}
+                    placeholder="Region / Province"
+                    data-testid="input-region"
+                    className="mt-1.5"
+                  />
+                )}
               </div>
               <div>
-                <Label className="text-sm font-medium">Zip *</Label>
+                <Label className="text-sm font-medium">{country === "USA" ? "Zip *" : "Postal"}</Label>
                 <Input
                   value={zipCode}
-                  onChange={e => setZipCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 5))}
-                  placeholder="Zip"
-                  inputMode="numeric"
+                  onChange={e => setZipCode(country === "USA" ? e.target.value.replace(/[^0-9]/g, '').slice(0, 5) : e.target.value)}
+                  placeholder={country === "USA" ? "Zip" : "Postal code"}
+                  inputMode={country === "USA" ? "numeric" : "text"}
                   data-testid="input-zip"
                   className="mt-1.5"
                 />
@@ -1916,6 +1973,20 @@ export function OnboardingWizard({ onComplete, previewMode = false }: { onComple
               </div>
             </div>
 
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Country *</Label>
+              <Select onValueChange={v => { setCountry(v); setStateName(""); }} value={country}>
+                <SelectTrigger data-testid="select-trainer-country">
+                  <SelectValue placeholder="Select country" />
+                </SelectTrigger>
+                <SelectContent>
+                  {COUNTRIES.map(c => (
+                    <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium">City *</Label>
@@ -1927,25 +1998,47 @@ export function OnboardingWizard({ onComplete, previewMode = false }: { onComple
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-sm font-medium">State *</Label>
-                <Select onValueChange={setStateName} value={stateName}>
-                  <SelectTrigger data-testid="select-trainer-state">
-                    <SelectValue placeholder="State" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {US_STATES.map(s => (
-                      <SelectItem key={s} value={s}>{s}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label className="text-sm font-medium">
+                  {country === "USA" ? "State *" : country === "CAN" ? "Province *" : "Region"}
+                </Label>
+                {country === "USA" ? (
+                  <Select onValueChange={setStateName} value={stateName}>
+                    <SelectTrigger data-testid="select-trainer-state">
+                      <SelectValue placeholder="State" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {US_STATES.map(s => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : country === "CAN" ? (
+                  <Select onValueChange={setStateName} value={stateName}>
+                    <SelectTrigger data-testid="select-trainer-province">
+                      <SelectValue placeholder="Province" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CANADIAN_PROVINCES.map(p => (
+                        <SelectItem key={p.code} value={p.code}>{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    value={stateName}
+                    onChange={e => setStateName(e.target.value)}
+                    placeholder="Region / Province"
+                    data-testid="input-trainer-region"
+                  />
+                )}
               </div>
               <div className="space-y-1.5">
-                <Label className="text-sm font-medium">Zip *</Label>
+                <Label className="text-sm font-medium">{country === "USA" ? "Zip *" : "Postal"}</Label>
                 <Input
                   value={zipCode}
-                  onChange={e => setZipCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 5))}
-                  placeholder="Zip"
-                  inputMode="numeric"
+                  onChange={e => setZipCode(country === "USA" ? e.target.value.replace(/[^0-9]/g, '').slice(0, 5) : e.target.value)}
+                  placeholder={country === "USA" ? "Zip" : "Postal code"}
+                  inputMode={country === "USA" ? "numeric" : "text"}
                   data-testid="input-trainer-zip"
                 />
               </div>

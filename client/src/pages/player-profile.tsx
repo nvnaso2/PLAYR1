@@ -49,7 +49,7 @@ import {
   Camera,
   MapPin,
 } from "lucide-react";
-import { US_STATES } from "@shared/schema";
+import { US_STATES, COUNTRIES, CANADIAN_PROVINCES } from "@shared/schema";
 import type { PlayerProfile, Season } from "@shared/schema";
 
 interface UserProfile {
@@ -57,6 +57,7 @@ interface UserProfile {
   city: string | null;
   state: string | null;
   zipCode: string | null;
+  country: string | null;
   displayName: string | null;
 }
 
@@ -67,9 +68,10 @@ const playerProfileFormSchema = z.object({
     .regex(/^[a-z0-9-]+$/, "Only lowercase letters, numbers, and hyphens allowed"),
   headline: z.string().max(120, "Headline must be under 120 characters").optional().or(z.literal("")),
   bio: z.string().max(1000, "Bio must be under 1000 characters").optional().or(z.literal("")),
+  country: z.string().max(10).optional().or(z.literal("")),
   city: z.string().max(100).optional().or(z.literal("")),
-  state: z.string().max(2).optional().or(z.literal("")),
-  zipCode: z.string().max(10).optional().or(z.literal("")),
+  state: z.string().max(100).optional().or(z.literal("")),
+  zipCode: z.string().max(20).optional().or(z.literal("")),
   heightFeet: z.coerce.number().min(3).max(8).optional().or(z.literal(0)),
   heightInches: z.coerce.number().min(0).max(11).optional().or(z.literal(0)),
   weight: z.coerce.number().min(50).max(400).optional().or(z.literal(0)),
@@ -134,6 +136,7 @@ export function PlayerProfileSection() {
       slug: "",
       headline: "",
       bio: "",
+      country: "USA",
       city: "",
       state: "",
       zipCode: "",
@@ -163,6 +166,7 @@ export function PlayerProfileSection() {
         slug: profile.slug || "",
         headline: profile.headline || "",
         bio: profile.bio || "",
+        country: userProfile?.country || "USA",
         city: userProfile?.city || "",
         state: userProfile?.state || "",
         zipCode: (userProfile as any)?.zipCode || "",
@@ -189,7 +193,7 @@ export function PlayerProfileSection() {
 
   const saveMutation = useMutation({
     mutationFn: async (data: PlayerProfileFormData) => {
-      const { city, state, zipCode, ...playerFields } = data;
+      const { city, state, zipCode, country, ...playerFields } = data;
       const payload: any = { ...playerFields };
       if (payload.heightFeet === 0) payload.heightFeet = null;
       if (payload.heightInches === 0) payload.heightInches = null;
@@ -206,6 +210,7 @@ export function PlayerProfileSection() {
       if (payload.socialYoutube === "") payload.socialYoutube = null;
       await apiRequest("PUT", "/api/profile", {
         ...(userProfile || {}),
+        country: country || "USA",
         city: city || "",
         state: state || "",
         zipCode: zipCode || "",
@@ -461,6 +466,28 @@ export function PlayerProfileSection() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              <FormField
+                control={form.control}
+                name="country"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Country</FormLabel>
+                    <Select onValueChange={v => { field.onChange(v); form.setValue("state", ""); }} value={field.value || "USA"}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-country">
+                          <SelectValue placeholder="Select country" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {COUNTRIES.map(c => (
+                          <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -478,39 +505,66 @@ export function PlayerProfileSection() {
                 <FormField
                   control={form.control}
                   name="state"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>State</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-state">
-                            <SelectValue placeholder="Select state" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {US_STATES.map(st => (
-                            <SelectItem key={st} value={st}>{st}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  render={({ field }) => {
+                    const countryVal = form.watch("country") || "USA";
+                    return (
+                      <FormItem>
+                        <FormLabel>
+                          {countryVal === "USA" ? "State" : countryVal === "CAN" ? "Province" : "Region / Province"}
+                        </FormLabel>
+                        {countryVal === "USA" ? (
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-state">
+                                <SelectValue placeholder="Select state" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {US_STATES.map(st => (
+                                <SelectItem key={st} value={st}>{st}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : countryVal === "CAN" ? (
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-province">
+                                <SelectValue placeholder="Select province" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {CANADIAN_PROVINCES.map(p => (
+                                <SelectItem key={p.code} value={p.code}>{p.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <FormControl>
+                            <Input placeholder="Region / Province (optional)" data-testid="input-region" {...field} />
+                          </FormControl>
+                        )}
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
               </div>
               <FormField
                 control={form.control}
                 name="zipCode"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Zip Code</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g. 30009" data-testid="input-zip-code" {...field} />
-                    </FormControl>
-                    <FormDescription>Used for finding nearby teams, leagues, and trainers</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                render={({ field }) => {
+                  const countryVal = form.watch("country") || "USA";
+                  return (
+                    <FormItem>
+                      <FormLabel>{countryVal === "USA" ? "Zip Code" : "Postal Code"}</FormLabel>
+                      <FormControl>
+                        <Input placeholder={countryVal === "USA" ? "e.g. 30009" : "Postal code"} data-testid="input-zip-code" {...field} />
+                      </FormControl>
+                      <FormDescription>Used for finding nearby teams, leagues, and trainers</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
               />
             </CardContent>
           </Card>
