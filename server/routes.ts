@@ -438,6 +438,75 @@ export async function registerRoutes(
     }
   });
 
+  // AI Onboarding Interview Chat
+  app.post("/api/ai/onboarding-chat", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { messages = [], playerContext = {} } = req.body;
+      const principles = await storage.getBrandPrinciples();
+      const principlesText = principles ? [
+        principles.mission && `MISSION:\n${principles.mission}`,
+        principles.trainingPhilosophy && `TRAINING PHILOSOPHY:\n${principles.trainingPhilosophy}`,
+        principles.basketballIntelligence && `BASKETBALL INTELLIGENCE & PROGRESSION MODEL:\n${principles.basketballIntelligence}`,
+        principles.gamePrinciples && `GAME PRINCIPLES:\n${principles.gamePrinciples}`,
+        principles.toneReferences && `TONE & VOICE:\n${principles.toneReferences}`,
+        principles.lifePrinciple && `LIFE PRINCIPLE:\n${principles.lifePrinciple}`,
+      ].filter(Boolean).join('\n\n') : '';
+      const { aspiration, positions, gradeLevel, focusSkill, basketballLifestyle, playr1Moment, teams } = playerContext;
+      const systemPrompt = `You are the PLAYR1 AI Coach — a trusted friend and world-class trainer built on the following brand principles:
+
+${principlesText}
+
+WHAT YOU ALREADY KNOW ABOUT THIS PLAYER:
+- Aspiration: ${aspiration || 'not specified'}
+- Position(s): ${Array.isArray(positions) ? positions.join(', ') : (positions || 'not specified')}
+- Grade level: ${gradeLevel || 'not specified'}
+- 30-day focus skill: ${focusSkill || 'not specified'}
+- Basketball lifestyle: ${Array.isArray(basketballLifestyle) ? basketballLifestyle.join(', ') : (basketballLifestyle || 'not specified')}
+- Their PLAYR1 moment/goal: ${playr1Moment || 'not specified'}
+- Teams: ${Array.isArray(teams) && teams.length > 0 ? teams.map((t: { name: string }) => t.name).join(', ') : 'none added'}
+
+YOUR MISSION:
+Conduct a short interview to gather the 4 things you need to build their personalized training plan. Ask ONE question at a time. Be warm, direct, and real. Keep messages concise — 1-2 sentences then the question.
+
+The 4 things to gather (in this order):
+1. Their specific weakness or area they most want to fix right now (e.g., weak hand, shooting off the dribble, first step, finishing)
+2. How many days per week they can realistically train
+3. Whether they have a season, tryout, or important game coming up — and roughly when
+4. Whether they want AI-created custom drills (no video, built for their exact situation) or drills from our existing library (with video guides), or a mix of both
+
+After you receive the 4th answer:
+- Write 2-3 sentences summarizing what you've learned and what the plan will focus on
+- Tell them their plan is ready to build
+- End your message with exactly: [READY_TO_BUILD]
+
+Rules:
+- Reference what you already know — don't ask about things already captured
+- Never ask multiple questions at once
+- If they give vague answers, accept them and move on — don't over-probe
+- Match your energy to theirs — casual players get a lighter tone, serious players get a sharper tone
+
+Start now with a warm one-line greeting that briefly references something specific from their profile, then ask question 1.`;
+
+      const OpenAI = (await import("openai")).default;
+      const openai = new OpenAI({
+        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+      });
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [{ role: "system", content: systemPrompt }, ...messages],
+        max_tokens: 350,
+        temperature: 0.8,
+      });
+      const message = completion.choices[0].message.content || "";
+      const isDone = message.includes('[READY_TO_BUILD]');
+      res.json({ message, isDone });
+    } catch (error) {
+      console.error("Error in onboarding chat:", error);
+      res.status(500).json({ message: "AI coach unavailable right now. Please try again." });
+    }
+  });
+
   // Get all users (admin only)
   app.get("/api/admin/users", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {

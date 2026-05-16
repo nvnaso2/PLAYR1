@@ -131,6 +131,10 @@ export const careerProfiles = pgTable("career_profiles", {
   basketballLifestyle: text("basketball_lifestyle").array(),
   playr1Moment: varchar("playr1_moment"),
 
+  // AI Coach Interview — captured during onboarding conversation
+  aiInterviewData: jsonb("ai_interview_data"),
+  drillPreference: varchar("drill_preference"), // "ai" | "library" | "mixed"
+
   // Onboarding status
   onboardingCompleted: boolean("onboarding_completed").default(false),
   

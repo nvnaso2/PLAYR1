@@ -507,7 +507,7 @@ function TutorialVideoStep({
 export function OnboardingWizard({ onComplete, previewMode = false }: { onComplete: () => void; previewMode?: boolean }) {
   const { toast } = useToast();
   const { user } = useAuth();
-  const [step, setStep] = useState<"manifesto" | "role" | "profile" | "parent-email" | "basketball-life" | "playr1-moment" | "thirty-day-focus" | "select-teams" | "meet-coach" | "trainer-profile" | "trainer-specialties" | "trainer-begin">("manifesto");
+  const [step, setStep] = useState<"manifesto" | "role" | "profile" | "parent-email" | "basketball-life" | "playr1-moment" | "thirty-day-focus" | "select-teams" | "ai-interview" | "meet-coach" | "trainer-profile" | "trainer-specialties" | "trainer-begin">("manifesto");
   const [selectedRole, setSelectedRole] = useState<"player" | "trainer" | "player_trainer" | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -545,10 +545,17 @@ export function OnboardingWizard({ onComplete, previewMode = false }: { onComple
   const [showCustomMoment, setShowCustomMoment] = useState(false);
   const [focusSkill, setFocusSkill] = useState("");
 
+  // AI Interview state
+  const [interviewMessages, setInterviewMessages] = useState<{role: 'user' | 'assistant', content: string}[]>([]);
+  const [interviewInput, setInterviewInput] = useState("");
+  const [interviewDone, setInterviewDone] = useState(false);
+  const [isAiThinking, setIsAiThinking] = useState(false);
+
   const [trainerSpecialties, setTrainerSpecialties] = useState(TRAINER_SPECIALTIES.map(s => s.value));
   const [draggedSpecIdx, setDraggedSpecIdx] = useState<number | null>(null);
   const [overSpecIdx, setOverSpecIdx] = useState<number | null>(null);
   const specDragging = useRef(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const [trainerAlsoCoaches, setTrainerAlsoCoaches] = useState(false);
   const [trainerTeamName, setTrainerTeamName] = useState("");
 
@@ -964,12 +971,71 @@ export function OnboardingWizard({ onComplete, previewMode = false }: { onComple
       });
       queryClient.invalidateQueries({ queryKey: ['/api/career'] });
     }
-    setStep("meet-coach");
+    setStep("select-teams");
   };
 
   const handleTeamsSelected = () => {
-    setStep("meet-coach");
+    setStep("ai-interview");
   };
+
+  const sendInterviewMessage = async (userMessage?: string) => {
+    if (isAiThinking) return;
+    setIsAiThinking(true);
+    const newMessages: {role: 'user' | 'assistant', content: string}[] = userMessage
+      ? [...interviewMessages, { role: 'user', content: userMessage }]
+      : interviewMessages;
+    if (userMessage) {
+      setInterviewMessages(newMessages);
+      setInterviewInput("");
+    }
+    try {
+      const res = await apiRequest("POST", "/api/ai/onboarding-chat", {
+        messages: newMessages,
+        playerContext: {
+          aspiration, positions, gradeLevel, focusSkill,
+          basketballLifestyle,
+          playr1Moment: showCustomMoment ? customPlayr1Moment : playr1Moment,
+          teams,
+        },
+      });
+      const data = await res.json();
+      const cleanMessage = (data.message as string).replace('[READY_TO_BUILD]', '').trim();
+      setInterviewMessages(prev => [...prev, { role: 'assistant', content: cleanMessage }]);
+      if (data.isDone) setInterviewDone(true);
+    } catch {
+      toast({ title: "Couldn't reach the AI coach right now. Try again.", variant: "destructive" });
+    } finally {
+      setIsAiThinking(false);
+    }
+  };
+
+  const completeInterview = async () => {
+    setIsSaving(true);
+    try {
+      if (!previewMode) {
+        await apiRequest("PUT", "/api/career", {
+          aiInterviewData: { messages: interviewMessages, completedAt: new Date().toISOString() },
+        });
+        queryClient.invalidateQueries({ queryKey: ['/api/career'] });
+      }
+      setStep("meet-coach");
+    } catch {
+      toast({ title: "Error saving interview", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    if (step === "ai-interview" && interviewMessages.length === 0 && !isAiThinking) {
+      sendInterviewMessage();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [interviewMessages, isAiThinking]);
 
   if (step === "manifesto") {
     return (
@@ -1607,6 +1673,105 @@ export function OnboardingWizard({ onComplete, previewMode = false }: { onComple
             </Button>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (step === "ai-interview") {
+    return (
+      <div className="min-h-screen flex flex-col bg-zinc-950" data-testid="ai-interview-step">
+        {/* Header */}
+        <div className="shrink-0 px-4 py-3 border-b border-zinc-800/60 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-orange-500/15 border border-orange-500/20 flex items-center justify-center shrink-0">
+            <span className="text-orange-400 text-base font-bold">P1</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-white font-semibold text-sm leading-tight">PLAYR1 Coach</p>
+            <p className="text-zinc-500 text-xs">Building your personalized plan</p>
+          </div>
+          <div className="text-xs text-zinc-600 shrink-0">Step 5 of 5</div>
+        </div>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto px-4 py-5 space-y-4">
+          {interviewMessages.length === 0 && isAiThinking && (
+            <div className="flex justify-start">
+              <div className="bg-zinc-800 rounded-2xl rounded-bl-sm px-4 py-3">
+                <div className="flex gap-1 items-center h-4">
+                  <div className="w-2 h-2 rounded-full bg-zinc-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-2 h-2 rounded-full bg-zinc-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-2 h-2 rounded-full bg-zinc-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+              </div>
+            </div>
+          )}
+          {interviewMessages.map((msg, i) => (
+            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`} data-testid={`interview-message-${i}`}>
+              <div className={`max-w-[82%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
+                msg.role === 'user'
+                  ? 'bg-orange-500 text-black font-medium rounded-br-sm'
+                  : 'bg-zinc-800 text-zinc-100 rounded-bl-sm'
+              }`}>
+                {msg.content}
+              </div>
+            </div>
+          ))}
+          {interviewMessages.length > 0 && isAiThinking && (
+            <div className="flex justify-start">
+              <div className="bg-zinc-800 rounded-2xl rounded-bl-sm px-4 py-3">
+                <div className="flex gap-1 items-center h-4">
+                  <div className="w-2 h-2 rounded-full bg-zinc-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-2 h-2 rounded-full bg-zinc-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-2 h-2 rounded-full bg-zinc-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+              </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Input or CTA */}
+        {interviewDone ? (
+          <div className="shrink-0 px-4 py-4 border-t border-zinc-800/60 space-y-2">
+            <Button
+              onClick={completeInterview}
+              disabled={isSaving}
+              className="w-full bg-orange-500 hover:bg-orange-600 text-black font-bold h-14 text-base rounded-xl"
+              data-testid="button-build-plan"
+            >
+              {isSaving && <Loader2 className="w-5 h-5 animate-spin mr-2" />}
+              Let's Build My Plan
+              <ChevronRight className="w-5 h-5 ml-1" />
+            </Button>
+          </div>
+        ) : (
+          <div className="shrink-0 px-4 py-4 border-t border-zinc-800/60">
+            <div className="flex gap-2">
+              <input
+                value={interviewInput}
+                onChange={e => setInterviewInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !e.shiftKey && interviewInput.trim() && !isAiThinking) {
+                    e.preventDefault();
+                    sendInterviewMessage(interviewInput.trim());
+                  }
+                }}
+                placeholder={isAiThinking ? "Coach is thinking..." : "Type your response..."}
+                disabled={isAiThinking}
+                className="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-orange-500/60 disabled:opacity-50"
+                data-testid="input-interview-message"
+              />
+              <Button
+                onClick={() => { if (interviewInput.trim() && !isAiThinking) sendInterviewMessage(interviewInput.trim()); }}
+                disabled={isAiThinking || !interviewInput.trim()}
+                className="bg-orange-500 hover:bg-orange-600 text-black rounded-xl px-4 shrink-0"
+                data-testid="button-send-interview"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
