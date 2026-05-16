@@ -81,6 +81,8 @@ import {
   type GoalClarification,
   type GoalMilestone, type InsertGoalMilestone,
   type GoalCheckIn, type InsertGoalCheckIn,
+  statChallenges, type StatChallenge, type InsertStatChallenge,
+  type StatChallengeMetric,
 } from "@shared/schema";
 import { users, type User } from "@shared/models/auth";
 import { db, pool } from "./db";
@@ -519,6 +521,16 @@ export interface IStorage {
   completeDailyChallenge(userId: string, drillId: string, dateStr: string, trainingLogId?: string): Promise<{ completion: DailyCompletion; streak: UserStreak; milestoneReached: number | null }>;
   getUserStreak(userId: string): Promise<UserStreak>;
   getStreakLeaderboard(): Promise<Array<{ userId: string; displayName: string; currentStreak: number; profilePhotoUrl: string | null }>>;
+
+  // Stat Challenges
+  getPublishedStatChallenges(): Promise<StatChallenge[]>;
+  getAllStatChallenges(): Promise<StatChallenge[]>;
+  getStatChallengeBySlug(slug: string): Promise<StatChallenge | undefined>;
+  createStatChallenge(data: InsertStatChallenge): Promise<StatChallenge>;
+  updateStatChallenge(id: string, data: Partial<InsertStatChallenge>): Promise<StatChallenge>;
+  deleteStatChallenge(id: string): Promise<void>;
+  getStatChallengeLeaderboard(challengeId: string, limit?: number): Promise<Array<{ userId: string; displayName: string; profilePhotoUrl: string | null; score: number }>>;
+
   setAdminDailyChallenge(dateStr: string, drillId: string): Promise<DailyChallenge>;
   getAdminDailyChallenges(from: string, to: string): Promise<Array<DailyChallenge & { drill: Drill }>>;
 
@@ -5199,6 +5211,101 @@ export class DatabaseStorage implements IStorage {
         || "Player",
       currentStreak: r.currentStreak ?? 0,
       profilePhotoUrl: r.profilePhotoUrl ?? null,
+    }));
+  }
+
+  async getPublishedStatChallenges(): Promise<StatChallenge[]> {
+    return await db
+      .select()
+      .from(statChallenges)
+      .where(eq(statChallenges.isPublished, true))
+      .orderBy(desc(statChallenges.startsAt));
+  }
+
+  async getAllStatChallenges(): Promise<StatChallenge[]> {
+    return await db
+      .select()
+      .from(statChallenges)
+      .orderBy(desc(statChallenges.createdAt));
+  }
+
+  async getStatChallengeBySlug(slug: string): Promise<StatChallenge | undefined> {
+    const [row] = await db
+      .select()
+      .from(statChallenges)
+      .where(eq(statChallenges.slug, slug));
+    return row;
+  }
+
+  async createStatChallenge(data: InsertStatChallenge): Promise<StatChallenge> {
+    const slugBase = data.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").substring(0, 60);
+    const slug = (data as any).slug || `${slugBase}-${Math.random().toString(36).substring(2, 6)}`;
+    const [row] = await db
+      .insert(statChallenges)
+      .values({ ...data, slug })
+      .returning();
+    return row;
+  }
+
+  async updateStatChallenge(id: string, data: Partial<InsertStatChallenge>): Promise<StatChallenge> {
+    const [row] = await db
+      .update(statChallenges)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(statChallenges.id, id))
+      .returning();
+    return row;
+  }
+
+  async deleteStatChallenge(id: string): Promise<void> {
+    await db.delete(statChallenges).where(eq(statChallenges.id, id));
+  }
+
+  async getStatChallengeLeaderboard(
+    challengeId: string,
+    limit = 50,
+  ): Promise<Array<{ userId: string; displayName: string; profilePhotoUrl: string | null; score: number }>> {
+    const [challenge] = await db.select().from(statChallenges).where(eq(statChallenges.id, challengeId));
+    if (!challenge) return [];
+
+    const metric = challenge.metric as StatChallengeMetric;
+
+    let scoreExpr: string;
+    if (metric === "sessions")       scoreExpr = "COUNT(tl.id)::bigint";
+    else if (metric === "total_minutes") scoreExpr = "COALESCE(SUM(tl.duration), 0)::bigint";
+    else if (metric === "shots_made")    scoreExpr = "COALESCE(SUM(tl.shots_made), 0)::bigint";
+    else                                 scoreExpr = "COALESCE(SUM(tl.shots_attempted), 0)::bigint";
+
+    const safeLocation = challenge.shotLocationFilter
+      ? challenge.shotLocationFilter.replace(/'/g, "''")
+      : null;
+    const locationClause =
+      safeLocation && (metric === "shots_made" || metric === "shots_attempted")
+        ? `AND tl.shot_location = '${safeLocation}'`
+        : "";
+
+    const result = await pool.query(
+      `SELECT
+         tl.user_id,
+         COALESCE(up.display_name, NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), ''), u.email) AS display_name,
+         up.profile_photo_url,
+         ${scoreExpr} AS score
+       FROM training_logs tl
+       JOIN users u ON u.id = tl.user_id
+       LEFT JOIN user_profiles up ON up.user_id = tl.user_id
+       WHERE tl.completed_at >= $1
+         AND tl.completed_at <= $2
+         ${locationClause}
+       GROUP BY tl.user_id, up.display_name, u.first_name, u.last_name, u.email, up.profile_photo_url
+       ORDER BY score DESC
+       LIMIT $3`,
+      [challenge.startsAt, challenge.endsAt, limit],
+    );
+
+    return result.rows.map((r: any) => ({
+      userId:         r.user_id,
+      displayName:    r.display_name || "Player",
+      profilePhotoUrl: r.profile_photo_url ?? null,
+      score:          Number(r.score),
     }));
   }
 

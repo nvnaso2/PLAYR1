@@ -1981,3 +1981,47 @@ export type InsertGoalMilestone = typeof goalMilestones.$inferInsert;
 export const insertGoalCheckInSchema = createInsertSchema(goalCheckIns).omit({ id: true, createdAt: true });
 export type GoalCheckIn = typeof goalCheckIns.$inferSelect;
 export type InsertGoalCheckIn = typeof goalCheckIns.$inferInsert;
+
+// ─── Stat Challenges ────────────────────────────────────────────────────────
+export const STAT_CHALLENGE_METRICS = [
+  "shots_made",
+  "shots_attempted",
+  "sessions",
+  "total_minutes",
+] as const;
+export type StatChallengeMetric = typeof STAT_CHALLENGE_METRICS[number];
+
+export const STAT_CHALLENGE_METRIC_LABELS: Record<StatChallengeMetric, string> = {
+  shots_made:      "Shots Made",
+  shots_attempted: "Shots Attempted",
+  sessions:        "Training Sessions Logged",
+  total_minutes:   "Total Minutes Trained",
+};
+
+export const statChallenges = pgTable("stat_challenges", {
+  id:                varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  slug:              varchar("slug").notNull().unique(),
+  title:             varchar("title").notNull(),
+  description:       text("description"),
+  coverImageUrl:     varchar("cover_image_url"),
+  accentColor:       varchar("accent_color").default("#f97316"),
+  metric:            varchar("metric").$type<StatChallengeMetric>().notNull(),
+  shotLocationFilter: varchar("shot_location_filter"), // optional: only count logs from this location
+  startsAt:          timestamp("starts_at").notNull(),
+  endsAt:            timestamp("ends_at").notNull(),
+  isPublished:       boolean("is_published").default(false),
+  createdBy:         varchar("created_by"),
+  createdAt:         timestamp("created_at").defaultNow(),
+  updatedAt:         timestamp("updated_at").defaultNow(),
+});
+
+export type StatChallenge = typeof statChallenges.$inferSelect;
+export type InsertStatChallenge = z.infer<typeof insertStatChallengeSchema>;
+
+export const insertStatChallengeSchema = createInsertSchema(statChallenges).omit({
+  id: true, createdAt: true, updatedAt: true,
+}).extend({
+  startsAt: z.coerce.date(),
+  endsAt:   z.coerce.date(),
+  metric:   z.enum(STAT_CHALLENGE_METRICS),
+});

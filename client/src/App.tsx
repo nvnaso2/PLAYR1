@@ -78,6 +78,7 @@ const Journey = lazy(pageLoaders.journey);
 const CommunityPage = lazy(() => import("@/pages/community"));
 const ProfileHubPage = lazy(() => import("@/pages/profile-hub"));
 const StreaksPage = lazy(() => import("@/pages/streaks"));
+const StatChallengePage = lazy(() => import("@/pages/stat-challenge"));
 
 function PageLoader() {
   return (
@@ -282,6 +283,9 @@ function Router() {
       <Route path="/events/:slug">{() => isAuthenticated
         ? <AuthenticatedLayout><EventDetail /></AuthenticatedLayout>
         : <Suspense fallback={<LoadingScreen />}><EventDetail /></Suspense>}</Route>
+      <Route path="/compete/challenges/:slug">{() => isAuthenticated
+        ? <AuthenticatedLayout><StatChallengePage /></AuthenticatedLayout>
+        : <Suspense fallback={<LoadingScreen />}><StatChallengePage /></Suspense>}</Route>
       <Route>
         {() => {
           if (!isAuthenticated) {

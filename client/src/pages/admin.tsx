@@ -65,6 +65,7 @@ import type { Drill, DrillCategory, DifficultyLevel, DrillMetric, VideoLibrary, 
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, METRIC_TYPES, US_STATES } from "@shared/schema";
 import { Layers, GripVertical, Calendar, CalendarRange } from "lucide-react";
 import { AdminEventsSection } from "@/components/admin-events-section";
+import { AdminStatChallengesSection } from "@/components/admin-stat-challenges-section";
 import { ProgramListSection } from "@/components/program-list-section";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useUpload } from "@/hooks/use-upload";
@@ -4285,8 +4286,11 @@ export default function AdminPage() {
           <ProgramListSection mode="admin" />
         </TabsContent>
 
-        <TabsContent value="events" className="space-y-6">
+        <TabsContent value="events" className="space-y-10">
           <AdminEventsSection />
+          <div className="border-t border-border/40 pt-8">
+            <AdminStatChallengesSection />
+          </div>
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-6">

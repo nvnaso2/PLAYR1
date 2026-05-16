@@ -5,7 +5,7 @@ import path from "path";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated, optionalAuth, getAppBaseUrl, type AuthenticatedRequest } from "./auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
-import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, drills, trainingLogs, trainingLogMetrics, feedbackComments, insertProgramSchema, insertProgramItemSchema, insertEventSchema, events } from "@shared/schema";
+import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, drills, trainingLogs, trainingLogMetrics, feedbackComments, insertProgramSchema, insertProgramItemSchema, insertEventSchema, events, insertStatChallengeSchema } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db, pool } from "./db";
 import { eq, and, or, isNull, ilike, sql, inArray, gte } from "drizzle-orm";
@@ -9449,6 +9449,81 @@ Rules:
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ message: "Failed to abandon goal" });
+    }
+  });
+
+  // ─── Stat Challenges (public) ────────────────────────────────────────────
+  app.get("/api/stat-challenges", async (_req, res) => {
+    try {
+      const challenges = await storage.getPublishedStatChallenges();
+      res.json(challenges);
+    } catch (err) {
+      console.error("[stat-challenges] list:", err);
+      res.status(500).json({ message: "Failed to fetch stat challenges" });
+    }
+  });
+
+  app.get("/api/stat-challenges/:slug", optionalAuth, async (req, res) => {
+    try {
+      const challenge = await storage.getStatChallengeBySlug(req.params.slug);
+      if (!challenge) return res.status(404).json({ message: "Challenge not found" });
+      res.json(challenge);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to fetch stat challenge" });
+    }
+  });
+
+  app.get("/api/stat-challenges/:slug/leaderboard", optionalAuth, async (req, res) => {
+    try {
+      const challenge = await storage.getStatChallengeBySlug(req.params.slug);
+      if (!challenge) return res.status(404).json({ message: "Challenge not found" });
+      const leaderboard = await storage.getStatChallengeLeaderboard(challenge.id);
+      res.json(leaderboard);
+    } catch (err) {
+      console.error("[stat-challenges] leaderboard:", err);
+      res.status(500).json({ message: "Failed to fetch leaderboard" });
+    }
+  });
+
+  // ─── Stat Challenges (admin) ─────────────────────────────────────────────
+  app.get("/api/admin/stat-challenges", isAuthenticated, isAdmin, async (_req: AuthenticatedRequest, res) => {
+    try {
+      const challenges = await storage.getAllStatChallenges();
+      res.json(challenges);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to fetch stat challenges" });
+    }
+  });
+
+  app.post("/api/admin/stat-challenges", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const data = insertStatChallengeSchema.parse(req.body);
+      const challenge = await storage.createStatChallenge({ ...data, createdBy: req.user!.claims.sub });
+      res.status(201).json(challenge);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: "Invalid data", errors: err.errors });
+      console.error("[stat-challenges] create:", err);
+      res.status(500).json({ message: "Failed to create stat challenge" });
+    }
+  });
+
+  app.patch("/api/admin/stat-challenges/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const data = insertStatChallengeSchema.partial().parse(req.body);
+      const challenge = await storage.updateStatChallenge(req.params.id, data);
+      res.json(challenge);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: "Invalid data", errors: err.errors });
+      res.status(500).json({ message: "Failed to update stat challenge" });
+    }
+  });
+
+  app.delete("/api/admin/stat-challenges/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      await storage.deleteStatChallenge(req.params.id);
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to delete stat challenge" });
     }
   });
 
