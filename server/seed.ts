@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { drills, benchmarks, evaluationAttributes, shotLocations, shotTypes, userProfiles, metricTemplates, drillMetrics, teamClubs, leagues } from "@shared/schema";
+import { drills, benchmarks, evaluationAttributes, shotLocations, shotTypes, userProfiles, metricTemplates, drillMetrics, teamClubs, leagues, archetypes } from "@shared/schema";
 // seedPrograms disabled — generic programs removed per user request
 // import { seedPrograms } from "./seed-programs";
 import { users } from "@shared/models/auth";
@@ -264,6 +264,97 @@ const sampleBenchmarks = [
   { category: "defense" as const, ageGroup: "15-17", averageScore: "6.5", averageMinutesPerWeek: 40, topPercentileScore: "8.5", sampleSize: 2100 },
 ];
 
+const ARCHETYPE_DEFINITIONS = [
+  {
+    id: "sharpshooter",
+    name: "Sharpshooter",
+    tagline: "Lives beyond the arc. Their shot opens up everything.",
+    description: "The Sharpshooter is a player whose scoring threat from range forces defenses to make impossible choices. Their dedication to shot mechanics, off-ball movement, and repetition is what separates them from average scorers.",
+    traits: ["Elite shooting range", "Catch-and-shoot mastery", "Shot creation off the dribble"],
+    colorTheme: "blue",
+    primaryHex: "#3b82f6",
+    drillCategories: ["shooting", "workouts"],
+    displayOrder: 1,
+  },
+  {
+    id: "slasher",
+    name: "Slasher",
+    tagline: "Attacks the rim relentlessly. Contact is the point.",
+    description: "The Slasher is an explosive, physical threat who sees the lane and takes it. They've built the finishing package and athleticism to convert in traffic, and they don't shy away from contact — they seek it.",
+    traits: ["Explosive first step", "Finishing through contact", "Paint presence"],
+    colorTheme: "red",
+    primaryHex: "#ef4444",
+    drillCategories: ["finishing", "ball-handling", "workouts"],
+    displayOrder: 2,
+  },
+  {
+    id: "playmaker",
+    name: "Playmaker",
+    tagline: "Makes everyone better. The table setter.",
+    description: "The Playmaker sees the game before it happens. They build their game around finding the right play, elevating teammates, and making the smart decision under pressure. Assists are their currency.",
+    traits: ["Court vision", "Precision passing", "Pick-and-roll mastery"],
+    colorTheme: "green",
+    primaryHex: "#22c55e",
+    drillCategories: ["passing", "ball-handling"],
+    displayOrder: 3,
+  },
+  {
+    id: "two-way-lockdown",
+    name: "Two-Way Lockdown",
+    tagline: "Dominant on both ends. The hardest player to face.",
+    description: "The Two-Way Lockdown is the rarest player on the court. They've put in the defensive reps to neutralize opponents while maintaining offensive value. They understand that winning starts with stops.",
+    traits: ["Perimeter defense", "Defensive IQ", "Physicality without fouling"],
+    colorTheme: "purple",
+    primaryHex: "#a855f7",
+    drillCategories: ["defense", "workouts"],
+    displayOrder: 4,
+  },
+  {
+    id: "floor-general",
+    name: "Floor General",
+    tagline: "Runs the team. Sees the game three steps ahead.",
+    description: "The Floor General is the engine of every team they play on. They combine elite ball handling with an encyclopedic knowledge of the game, dictating tempo and reading defenses to put teammates in the best positions.",
+    traits: ["Tempo control", "Defensive reads", "Leadership under pressure"],
+    colorTheme: "teal",
+    primaryHex: "#14b8a6",
+    drillCategories: ["ball-handling", "passing", "film-session"],
+    displayOrder: 5,
+  },
+  {
+    id: "stretch-big",
+    name: "Stretch Big",
+    tagline: "Size with range. Defends the paint, spaces the floor.",
+    description: "The Stretch Big has broken the mold of what a big player looks like. They've developed a reliable outside shot to pull opposing bigs off the floor while anchoring their team's defense inside.",
+    traits: ["Mid-range and 3pt shooting", "Post footwork", "Rim protection"],
+    colorTheme: "orange",
+    primaryHex: "#f97316",
+    drillCategories: ["shooting", "defense", "workouts"],
+    displayOrder: 6,
+  },
+  {
+    id: "versatile-wing",
+    name: "Versatile Wing",
+    tagline: "Does everything. The Swiss Army knife of the roster.",
+    description: "The Versatile Wing is the modern game's most valuable archetype. They can guard multiple positions, score in multiple ways, and adapt to whatever their team needs in any given moment.",
+    traits: ["Multi-position defense", "Scoring variety", "Basketball IQ"],
+    colorTheme: "indigo",
+    primaryHex: "#6366f1",
+    drillCategories: ["shooting", "defense", "finishing", "ball-handling"],
+    displayOrder: 7,
+  },
+  {
+    id: "glass-cleaner",
+    name: "Glass Cleaner",
+    tagline: "Outworks everyone for every board. Every time.",
+    description: "The Glass Cleaner lives where other players don't want to be. They've built the physicality, anticipation, and relentless motor to dominate the boards on both ends — turning missed shots into second chances.",
+    traits: ["Offensive rebounding", "Box out technique", "Motor and hustle"],
+    colorTheme: "amber",
+    primaryHex: "#f59e0b",
+    drillCategories: ["workouts", "defense"],
+    displayOrder: 8,
+  },
+];
+
 export async function seedDatabase() {
   console.log("Seeding database...");
   
@@ -482,6 +573,24 @@ export async function seedDatabase() {
     }
 
     // seedPrograms() removed — generic default programs deleted from DB
+
+    // Seed archetypes (upsert so changes to definitions are applied on restart)
+    for (const def of ARCHETYPE_DEFINITIONS) {
+      await db.insert(archetypes).values(def).onConflictDoUpdate({
+        target: archetypes.id,
+        set: {
+          name: def.name,
+          tagline: def.tagline,
+          description: def.description,
+          traits: def.traits,
+          colorTheme: def.colorTheme,
+          primaryHex: def.primaryHex,
+          drillCategories: def.drillCategories,
+          displayOrder: def.displayOrder,
+        },
+      });
+    }
+    console.log(`Archetypes synced (${ARCHETYPE_DEFINITIONS.length})`);
 
     console.log("Database seeding complete!");
 

@@ -69,9 +69,21 @@ import {
   events, type Event, type InsertEvent,
   eventParticipants, type EventParticipant,
   type EventStatus,
+  featureFlags, type FeatureFlag, type InsertFeatureFlag,
+  journalEntries, type JournalEntry, type InsertJournalEntry,
+  weeklyGameDays, type WeeklyGameDay, type InsertWeeklyGameDay,
+  gameDayChallengeAttempts, type GameDayChallengeAttempt, type InsertGameDayChallengeAttempt,
+  archetypes, userArchetypes, archetypeXpLog,
+  type Archetype, type UserArchetype, type ArchetypeXpLog, type InsertArchetypeXpLog,
+  ARCHETYPE_TIER_XP, type ArchetypeTier,
+  playerGoals, goalClarifications, goalMilestones, goalCheckIns,
+  type PlayerGoal, type InsertPlayerGoal,
+  type GoalClarification,
+  type GoalMilestone, type InsertGoalMilestone,
+  type GoalCheckIn, type InsertGoalCheckIn,
 } from "@shared/schema";
 import { users, type User } from "@shared/models/auth";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { eq, desc, asc, and, or, sql, gte, isNotNull, isNull, inArray } from "drizzle-orm";
 import { generateAiDrill } from "./ai-drill-generator";
 
@@ -112,6 +124,7 @@ export interface IStorage {
   // User Profiles
   getUserProfile(userId: string): Promise<UserProfile | undefined>;
   upsertUserProfile(profile: InsertUserProfile): Promise<UserProfile>;
+  updateUserProfile(userId: string, updates: Partial<UserProfile>): Promise<UserProfile | undefined>;
 
   // User Videos
   getUserVideos(userId: string): Promise<UserVideo[]>;
@@ -590,6 +603,54 @@ export interface IStorage {
     compositeScore: number;
     rank: number;
   }>>;
+
+  // Feature Flags
+  listFeatureFlags(): Promise<FeatureFlag[]>;
+  getFeatureFlag(key: string): Promise<FeatureFlag | undefined>;
+  upsertFeatureFlag(data: InsertFeatureFlag): Promise<FeatureFlag>;
+  updateFeatureFlag(key: string, updates: Partial<FeatureFlag>): Promise<FeatureFlag | undefined>;
+  deleteFeatureFlag(key: string): Promise<boolean>;
+  getUserFeatureFlags(userId: string): Promise<Record<string, boolean>>;
+
+  // Journal
+  getJournalEntries(userId: string): Promise<JournalEntry[]>;
+  getJournalEntry(id: string, userId: string): Promise<JournalEntry | undefined>;
+  createJournalEntry(entry: InsertJournalEntry): Promise<JournalEntry>;
+  updateJournalEntry(id: string, userId: string, updates: Partial<JournalEntry>): Promise<JournalEntry | undefined>;
+  deleteJournalEntry(id: string, userId: string): Promise<boolean>;
+
+  // Game Day
+  getWeeklyGameDay(userId: string, weekStart: string): Promise<WeeklyGameDay | undefined>;
+  createWeeklyGameDay(data: InsertWeeklyGameDay): Promise<WeeklyGameDay>;
+  deleteWeeklyGameDay(userId: string, weekStart: string): Promise<boolean>;
+
+  // Challenge Attempts
+  getChallengeAttempt(userId: string, weekGameDayId: string): Promise<GameDayChallengeAttempt | undefined>;
+  createChallengeAttempt(data: Omit<InsertGameDayChallengeAttempt, "id" | "completedAt">): Promise<GameDayChallengeAttempt>;
+
+  // Archetypes
+  getArchetypes(): Promise<Archetype[]>;
+  getArchetype(id: string): Promise<Archetype | undefined>;
+  getUserArchetypes(userId: string): Promise<(UserArchetype & { archetype: Archetype })[]>;
+  selectArchetype(userId: string, archetypeId: string, role: "main" | "secondary"): Promise<UserArchetype>;
+  deselectArchetype(userId: string, role: "main" | "secondary"): Promise<boolean>;
+  addArchetypeXp(userId: string, userArchetypeId: string, xpEarned: number, sourceType: string, sourceId?: string, note?: string): Promise<void>;
+  getArchetypeXpLog(userId: string, limit?: number): Promise<ArchetypeXpLog[]>;
+
+  // Goal Coach
+  createGoal(userId: string, goalText: string): Promise<PlayerGoal>;
+  getActiveGoal(userId: string): Promise<PlayerGoal | null>;
+  getGoalById(goalId: string): Promise<PlayerGoal | null>;
+  updateGoal(goalId: string, data: Partial<InsertPlayerGoal>): Promise<PlayerGoal>;
+  abandonGoal(goalId: string): Promise<void>;
+  addClarification(goalId: string, questionIndex: number, question: string): Promise<GoalClarification>;
+  answerClarification(clarificationId: string, answer: string): Promise<GoalClarification>;
+  getClarifications(goalId: string): Promise<GoalClarification[]>;
+  createMilestone(data: InsertGoalMilestone): Promise<GoalMilestone>;
+  getGoalMilestones(goalId: string): Promise<GoalMilestone[]>;
+  completeMilestone(milestoneId: string): Promise<GoalMilestone>;
+  createCheckIn(data: InsertGoalCheckIn): Promise<GoalCheckIn>;
+  getCheckIns(goalId: string): Promise<GoalCheckIn[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -742,6 +803,7 @@ export class DatabaseStorage implements IStorage {
         lastName: user.lastName,
         isAdmin: isEnvAdmin || (profile?.isAdmin === true),
         staffRole: career?.staffRole ?? null,
+        subscriptionPlan: profile?.subscriptionPlan ?? "free",
       };
     });
   }
@@ -842,6 +904,15 @@ export class DatabaseStorage implements IStorage {
       .from(userProfiles)
       .where(eq(userProfiles.userId, userId));
     return profile;
+  }
+
+  async updateUserProfile(userId: string, updates: Partial<UserProfile>): Promise<UserProfile | undefined> {
+    const [result] = await db
+      .update(userProfiles)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(userProfiles.userId, userId))
+      .returning();
+    return result;
   }
 
   async upsertUserProfile(profile: InsertUserProfile): Promise<UserProfile> {
@@ -6045,6 +6116,380 @@ export class DatabaseStorage implements IStorage {
 
     return decorated.slice(0, limit).map((d, idx) => ({ ...d, rank: idx + 1 }));
   }
+
+  // ===== FEATURE FLAGS =====
+  async listFeatureFlags(): Promise<FeatureFlag[]> {
+    return db.select().from(featureFlags).orderBy(asc(featureFlags.createdAt));
+  }
+
+  async getFeatureFlag(key: string): Promise<FeatureFlag | undefined> {
+    const [flag] = await db.select().from(featureFlags).where(eq(featureFlags.key, key));
+    return flag;
+  }
+
+  async upsertFeatureFlag(data: InsertFeatureFlag): Promise<FeatureFlag> {
+    const [flag] = await db
+      .insert(featureFlags)
+      .values(data)
+      .onConflictDoUpdate({ target: featureFlags.key, set: { ...data, updatedAt: new Date() } })
+      .returning();
+    return flag;
+  }
+
+  async updateFeatureFlag(key: string, updates: Partial<FeatureFlag>): Promise<FeatureFlag | undefined> {
+    const [flag] = await db
+      .update(featureFlags)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(featureFlags.key, key))
+      .returning();
+    return flag;
+  }
+
+  async deleteFeatureFlag(key: string): Promise<boolean> {
+    const result = await db.delete(featureFlags).where(eq(featureFlags.key, key)).returning();
+    return result.length > 0;
+  }
+
+  async getUserFeatureFlags(userId: string): Promise<Record<string, boolean>> {
+    const flags = await db.select().from(featureFlags);
+    const result: Record<string, boolean> = {};
+    for (const flag of flags) {
+      result[flag.key] = flag.isEnabled || (flag.betaUserIds ?? []).includes(userId);
+    }
+    return result;
+  }
+
+  // ===== JOURNAL =====
+
+  private mapJournalRow(row: any): JournalEntry {
+    return {
+      id: row.id,
+      userId: row.user_id,
+      type: row.type,
+      trainingLogId: row.training_log_id ?? null,
+      mood: row.mood ?? null,
+      responses: row.responses ?? [],
+      aiCoachFeedback: row.ai_coach_feedback ?? null,
+      aiFollowUpQuestion: row.ai_follow_up_question ?? null,
+      aiFollowUpAnswer: row.ai_follow_up_answer ?? null,
+      createdAt: row.created_at ?? null,
+    };
+  }
+
+  async getJournalEntries(userId: string): Promise<JournalEntry[]> {
+    const result = await pool.query(
+      `SELECT * FROM journal_entries WHERE user_id = $1 ORDER BY created_at DESC`,
+      [String(userId)]
+    );
+    console.log("[storage.getJournalEntries] userId:", userId, "rows:", result.rowCount);
+    return result.rows.map((r) => this.mapJournalRow(r));
+  }
+
+  async getJournalEntry(id: string, userId: string): Promise<JournalEntry | undefined> {
+    const result = await pool.query(
+      `SELECT * FROM journal_entries WHERE id = $1 AND user_id = $2 LIMIT 1`,
+      [id, String(userId)]
+    );
+    console.log("[storage.getJournalEntry] id:", id, "userId:", userId, "found:", result.rowCount);
+    return result.rows[0] ? this.mapJournalRow(result.rows[0]) : undefined;
+  }
+
+  async createJournalEntry(entry: InsertJournalEntry): Promise<JournalEntry> {
+    const result = await pool.query(
+      `INSERT INTO journal_entries (user_id, type, training_log_id, mood, responses, ai_coach_feedback, ai_follow_up_question, ai_follow_up_answer)
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8)
+       RETURNING *`,
+      [
+        String(entry.userId),
+        entry.type ?? "open",
+        entry.trainingLogId ?? null,
+        entry.mood ?? null,
+        JSON.stringify(entry.responses ?? []),
+        entry.aiCoachFeedback ?? null,
+        entry.aiFollowUpQuestion ?? null,
+        entry.aiFollowUpAnswer ?? null,
+      ]
+    );
+    console.log("[storage.createJournalEntry] created id:", result.rows[0]?.id);
+    return this.mapJournalRow(result.rows[0]);
+  }
+
+  async updateJournalEntry(id: string, userId: string, updates: Partial<JournalEntry>): Promise<JournalEntry | undefined> {
+    const setParts: string[] = [];
+    const values: any[] = [];
+    let idx = 1;
+
+    if (updates.aiCoachFeedback !== undefined) {
+      setParts.push(`ai_coach_feedback = $${idx++}`);
+      values.push(updates.aiCoachFeedback);
+    }
+    if (updates.aiFollowUpQuestion !== undefined) {
+      setParts.push(`ai_follow_up_question = $${idx++}`);
+      values.push(updates.aiFollowUpQuestion);
+    }
+    if (updates.aiFollowUpAnswer !== undefined) {
+      setParts.push(`ai_follow_up_answer = $${idx++}`);
+      values.push(updates.aiFollowUpAnswer);
+    }
+    if (updates.mood !== undefined) {
+      setParts.push(`mood = $${idx++}`);
+      values.push(updates.mood);
+    }
+    if (updates.responses !== undefined) {
+      setParts.push(`responses = $${idx++}::jsonb`);
+      values.push(JSON.stringify(updates.responses));
+    }
+
+    if (setParts.length === 0) {
+      return this.getJournalEntry(id, userId);
+    }
+
+    values.push(id, String(userId));
+    const result = await pool.query(
+      `UPDATE journal_entries SET ${setParts.join(", ")} WHERE id = $${idx} AND user_id = $${idx + 1} RETURNING *`,
+      values
+    );
+    return result.rows[0] ? this.mapJournalRow(result.rows[0]) : undefined;
+  }
+
+  async deleteJournalEntry(id: string, userId: string): Promise<boolean> {
+    const result = await pool.query(
+      `DELETE FROM journal_entries WHERE id = $1 AND user_id = $2 RETURNING id`,
+      [id, String(userId)]
+    );
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // ===== Game Day =====
+  async getWeeklyGameDay(userId: string, weekStart: string): Promise<WeeklyGameDay | undefined> {
+    const [row] = await db.select().from(weeklyGameDays)
+      .where(and(eq(weeklyGameDays.userId, userId), eq(weeklyGameDays.weekStart, weekStart)));
+    return row;
+  }
+
+  async createWeeklyGameDay(data: InsertWeeklyGameDay): Promise<WeeklyGameDay> {
+    const [row] = await db.insert(weeklyGameDays).values(data).returning();
+    return row;
+  }
+
+  async deleteWeeklyGameDay(userId: string, weekStart: string): Promise<boolean> {
+    const result = await db.delete(weeklyGameDays)
+      .where(and(eq(weeklyGameDays.userId, userId), eq(weeklyGameDays.weekStart, weekStart)))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getChallengeAttempt(userId: string, weekGameDayId: string): Promise<GameDayChallengeAttempt | undefined> {
+    const [row] = await db.select().from(gameDayChallengeAttempts)
+      .where(and(eq(gameDayChallengeAttempts.userId, userId), eq(gameDayChallengeAttempts.weekGameDayId, weekGameDayId)));
+    return row;
+  }
+
+  async createChallengeAttempt(data: Omit<InsertGameDayChallengeAttempt, "id" | "completedAt">): Promise<GameDayChallengeAttempt> {
+    const [row] = await db.insert(gameDayChallengeAttempts).values(data as InsertGameDayChallengeAttempt).returning();
+    return row;
+  }
+
+  // ===== ARCHETYPES =====
+  async getArchetypes(): Promise<Archetype[]> {
+    return db.select().from(archetypes).orderBy(archetypes.displayOrder);
+  }
+
+  async getArchetype(id: string): Promise<Archetype | undefined> {
+    const [row] = await db.select().from(archetypes).where(eq(archetypes.id, id));
+    return row;
+  }
+
+  async getUserArchetypes(userId: string): Promise<(UserArchetype & { archetype: Archetype })[]> {
+    const rows = await db
+      .select({ ua: userArchetypes, a: archetypes })
+      .from(userArchetypes)
+      .innerJoin(archetypes, eq(userArchetypes.archetypeId, archetypes.id))
+      .where(eq(userArchetypes.userId, userId));
+    return rows.map((r) => ({ ...r.ua, archetype: r.a }));
+  }
+
+  async selectArchetype(userId: string, archetypeId: string, role: "main" | "secondary"): Promise<UserArchetype> {
+    // Remove any existing selection for this role
+    await db
+      .delete(userArchetypes)
+      .where(and(eq(userArchetypes.userId, userId), eq(userArchetypes.role, role)));
+
+    // If this archetype is already the other role, remove that too (can't have same archetype twice)
+    const otherRole = role === "main" ? "secondary" : "main";
+    await db
+      .delete(userArchetypes)
+      .where(
+        and(
+          eq(userArchetypes.userId, userId),
+          eq(userArchetypes.archetypeId, archetypeId),
+          eq(userArchetypes.role, otherRole),
+        ),
+      );
+
+    const [row] = await db
+      .insert(userArchetypes)
+      .values({ userId, archetypeId, role, totalXp: 0, tier: "prospect" })
+      .returning();
+    return row;
+  }
+
+  async deselectArchetype(userId: string, role: "main" | "secondary"): Promise<boolean> {
+    const result = await db
+      .delete(userArchetypes)
+      .where(and(eq(userArchetypes.userId, userId), eq(userArchetypes.role, role)))
+      .returning();
+    return result.length > 0;
+  }
+
+  async addArchetypeXp(
+    userId: string,
+    userArchetypeId: string,
+    xpEarned: number,
+    sourceType: string,
+    sourceId?: string,
+    note?: string,
+  ): Promise<void> {
+    await db.insert(archetypeXpLog).values({
+      userId,
+      userArchetypeId,
+      sourceType,
+      sourceId: sourceId ?? null,
+      xpEarned,
+      note: note ?? null,
+    });
+
+    const [ua] = await db
+      .select()
+      .from(userArchetypes)
+      .where(eq(userArchetypes.id, userArchetypeId));
+    if (!ua) return;
+
+    const newTotal = ua.totalXp + xpEarned;
+    const newTier = calcArchetypeTier(newTotal);
+    await db
+      .update(userArchetypes)
+      .set({ totalXp: newTotal, tier: newTier, updatedAt: new Date() })
+      .where(eq(userArchetypes.id, userArchetypeId));
+  }
+
+  async getArchetypeXpLog(userId: string, limit = 25): Promise<ArchetypeXpLog[]> {
+    return db
+      .select()
+      .from(archetypeXpLog)
+      .where(eq(archetypeXpLog.userId, userId))
+      .orderBy(desc(archetypeXpLog.earnedAt))
+      .limit(limit);
+  }
 }
+
+function calcArchetypeTier(totalXp: number): string {
+  if (totalXp >= 12000) return "playr1";
+  if (totalXp >= 7000) return "elite";
+  if (totalXp >= 3500) return "star";
+  if (totalXp >= 1500) return "starter";
+  if (totalXp >= 500) return "rising";
+  return "prospect";
+}
+
+// ===== GOAL COACH IMPLEMENTATION =====
+Object.assign(DatabaseStorage.prototype, {
+  async createGoal(userId: string, goalText: string): Promise<PlayerGoal> {
+    const [goal] = await db
+      .insert(playerGoals)
+      .values({ userId, goalText, status: "clarifying", currentWeek: 1, totalWeeks: 8 })
+      .returning();
+    return goal;
+  },
+
+  async getActiveGoal(userId: string): Promise<PlayerGoal | null> {
+    const [goal] = await db
+      .select()
+      .from(playerGoals)
+      .where(
+        and(
+          eq(playerGoals.userId, userId),
+          or(eq(playerGoals.status, "clarifying"), eq(playerGoals.status, "active"))
+        )
+      )
+      .orderBy(desc(playerGoals.createdAt))
+      .limit(1);
+    return goal ?? null;
+  },
+
+  async getGoalById(goalId: string): Promise<PlayerGoal | null> {
+    const [goal] = await db.select().from(playerGoals).where(eq(playerGoals.id, goalId));
+    return goal ?? null;
+  },
+
+  async updateGoal(goalId: string, data: Partial<InsertPlayerGoal>): Promise<PlayerGoal> {
+    const [goal] = await db.update(playerGoals).set(data).where(eq(playerGoals.id, goalId)).returning();
+    return goal;
+  },
+
+  async abandonGoal(goalId: string): Promise<void> {
+    await db.update(playerGoals).set({ status: "abandoned" }).where(eq(playerGoals.id, goalId));
+  },
+
+  async addClarification(goalId: string, questionIndex: number, question: string): Promise<GoalClarification> {
+    const [row] = await db
+      .insert(goalClarifications)
+      .values({ goalId, questionIndex, question })
+      .returning();
+    return row;
+  },
+
+  async answerClarification(clarificationId: string, answer: string): Promise<GoalClarification> {
+    const [row] = await db
+      .update(goalClarifications)
+      .set({ answer })
+      .where(eq(goalClarifications.id, clarificationId))
+      .returning();
+    return row;
+  },
+
+  async getClarifications(goalId: string): Promise<GoalClarification[]> {
+    return db
+      .select()
+      .from(goalClarifications)
+      .where(eq(goalClarifications.goalId, goalId))
+      .orderBy(goalClarifications.questionIndex);
+  },
+
+  async createMilestone(data: InsertGoalMilestone): Promise<GoalMilestone> {
+    const [row] = await db.insert(goalMilestones).values(data).returning();
+    return row;
+  },
+
+  async getGoalMilestones(goalId: string): Promise<GoalMilestone[]> {
+    return db
+      .select()
+      .from(goalMilestones)
+      .where(eq(goalMilestones.goalId, goalId))
+      .orderBy(goalMilestones.weekNumber);
+  },
+
+  async completeMilestone(milestoneId: string): Promise<GoalMilestone> {
+    const [row] = await db
+      .update(goalMilestones)
+      .set({ completed: true, completedAt: new Date() })
+      .where(eq(goalMilestones.id, milestoneId))
+      .returning();
+    return row;
+  },
+
+  async createCheckIn(data: InsertGoalCheckIn): Promise<GoalCheckIn> {
+    const [row] = await db.insert(goalCheckIns).values(data).returning();
+    return row;
+  },
+
+  async getCheckIns(goalId: string): Promise<GoalCheckIn[]> {
+    return db
+      .select()
+      .from(goalCheckIns)
+      .where(eq(goalCheckIns.goalId, goalId))
+      .orderBy(goalCheckIns.weekNumber);
+  },
+});
 
 export const storage = new DatabaseStorage();
