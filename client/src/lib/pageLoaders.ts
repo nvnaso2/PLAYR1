@@ -40,6 +40,13 @@ export const pageLoaders = {
   events: () => import("@/pages/events"),
   eventDetail: () => import("@/pages/event-detail"),
   eventEditor: () => import("@/pages/event-editor"),
+  journal: () => import("@/pages/journal"),
+  gameDay: () => import("@/pages/game-day"),
+  archetypes: () => import("@/pages/archetypes"),
+  myArchetype: () => import("@/pages/my-archetype"),
+  myGoal: () => import("@/pages/my-goal"),
+  hub: () => import("@/pages/hub"),
+  journey: () => import("@/pages/journey"),
 } as const;
 
 // Map URL path → loader key. Used by the sidebar to preload on hover/touch.
@@ -55,6 +62,13 @@ const routeToLoader: Record<string, keyof typeof pageLoaders> = {
   "/teams": "finder",
   "/connect": "findPeople",
   "/feedback": "feedback",
+  "/journal": "journal",
+  "/game-day": "gameDay",
+  "/archetypes": "archetypes",
+  "/my-archetype": "myArchetype",
+  "/my-goal": "myGoal",
+  "/hub": "hub",
+  "/journey": "journey",
   "/programs": "programs",
   "/events": "events",
   "/my-trainer": "myTrainer",

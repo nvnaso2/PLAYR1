@@ -1,0 +1,47 @@
+1. Reflection Journal
+
+The main thing that kills journaling features is the blank page. The key is making it feel like a conversation, not homework. A few directions that could make this one people actually use:
+
+Two modes — Post-Workout and Post-Game, with different question sets for each. The workout version is about execution and focus, the game version is about competition and pressure.
+Question philosophy — avoid generic stuff like "what did you do well?" Go harder. Things like: "What shot kept getting you tonight — and why did you keep taking it?" or "If your coach rewatched the last 5 minutes, what would they say?" or "Rate how mentally present you were 1-10. What was pulling you out of it?" The goal is to make players slightly uncomfortable because that's where real reflection happens.
+AI follow-up — after they answer, the AI asks one personalized follow-up based on their response. Keeps it alive without overwhelming them.
+Pattern surfacing — over time the app notices themes and surfaces them: "You've mentioned losing focus in the 4th quarter 3 times this month. Want to work on that?"
+Toggleable — off by default, users turn it on. They can also set when it triggers: after every session, only after games, weekly only.
+2. Progressive Archetypes
+
+This is actually two features that complement each other well:
+
+Goal-Based AI Track — The app becomes a personal AI coach working toward a specific goal. User sets a target (your intramural season, a tryout, a tournament), the app analyzes their training history, shooting zones, weak areas, and builds a schedule around that goal. Weekly check-ins adjust it. This is the "PLAYR1" identity — the app that actually knows what you're trying to do and builds everything around it.
+
+Archetype System — Video game-style character builds that give identity to training:
+
+Sharpshooter — catch-and-shoot, FT%, 3PT zone mastery
+Shifty Scorer — handles, pull-ups, finishing through contact
+Lockdown Defender — lateral quickness, closeouts, positioning
+Floor General — reads, passing, pick-and-roll decisions
+Limitless Range — deep ball, off-dribble 3s, logo shots
+3 and D — combination archetype
+Rim Wrecker — post work, contact finishing
+Each has a level system (Bronze → Silver → Gold → Elite → PLAYR1), specific milestone requirements to advance, a curated drill library, and a community leaderboard. Archetypes show on player profiles as a badge — that's the social hook. The two tracks connect naturally: your goal might point you toward an archetype, or picking an archetype becomes the goal itself.
+
+This is the highest-complexity feature of the three but also the one that makes PLAYR1 actually different from any other training app. It's the core identity.
+
+3. End of Game / "Game Day" Weekly Feature
+
+This one has the most viral potential and fits your content strategy perfectly. The Trevor Bauer inspiration is the right reference — it's about creating a moment, not just showing data.
+
+How I'd build it: every week (Friday or Saturday evening), a "GAME DAY" moment unlocks. It's a dramatically presented recap of your week — not a boring stats screen but a cinematic reveal. Think:
+
+AI-generated scouting report on yourself — your week analyzed as if by a scout evaluating your film
+Animated stats reveal (most-improved zone, streak, shot volume)
+A challenge of the week — a specific timed drill that tests what you've been working on, scored and tracked week-over-week
+A reflection prompt: "Before you take the court this week..."
+A shareable card formatted for Instagram Stories and YouTube thumbnails — designed to drop straight into a vlog
+The vlog angle is huge. The shareable card could basically be a pre-formatted vlog asset every week. For your audience, watching your GAME DAY reveal each week becomes part of the content format — same way Trevor's start day videos built anticipation.
+
+Build order suggestion:
+
+Reflection Journal — fastest to ship, immediately valuable, low risk
+Game Day Weekly — high viral and content potential, medium complexity, perfect for your vlogs
+Progressive Archetypes — biggest feature, most transformative, do it when the other two are working
+Which of these do you want to dig deeper on before starting?
