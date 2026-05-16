@@ -127,6 +127,10 @@ export const careerProfiles = pgTable("career_profiles", {
   parentEmail: varchar("parent_email"),
   parentInviteCode: varchar("parent_invite_code"),
 
+  // PLAYR1 Identity — captured during new onboarding
+  basketballLifestyle: text("basketball_lifestyle").array(),
+  playr1Moment: varchar("playr1_moment"),
+
   // Onboarding status
   onboardingCompleted: boolean("onboarding_completed").default(false),
   

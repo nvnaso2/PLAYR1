@@ -127,7 +127,7 @@ export default function JourneyPage() {
         {/* MY GOAL */}
         <section data-testid="section-my-goal">
           <SectionHeader
-            label="My Goal"
+            label="My Career"
             action={activeGoal || clarifyingGoal ? "View Program" : "Set a Goal"}
             onAction={() => navigate("/my-goal")}
           />
@@ -296,7 +296,7 @@ export default function JourneyPage() {
 
         {/* CAREER STATS */}
         <section data-testid="section-career">
-          <SectionHeader label="Career Stats" action="Full Stats" onAction={() => navigate("/career")} />
+          <SectionHeader label="PLAYR1" action="Full Stats" onAction={() => navigate("/career")} />
           {careerLoading ? (
             <Skeleton className="h-24 rounded-2xl" />
           ) : (

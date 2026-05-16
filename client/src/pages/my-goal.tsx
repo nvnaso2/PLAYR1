@@ -89,7 +89,7 @@ function GoalInputForm({ onCreated }: { onCreated: () => void }) {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-orange-500/15 border border-orange-500/30 mb-2">
             <Target className="w-8 h-8 text-orange-400" />
           </div>
-          <h1 className="text-3xl font-bold text-white">Set Your Goal</h1>
+          <h1 className="text-3xl font-bold text-white">My Career</h1>
           <p className="text-zinc-400 text-base leading-relaxed">
             Tell your AI coach what you want to achieve. It'll ask a few quick questions, then build you a personalized 8-week program.
           </p>
