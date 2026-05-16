@@ -417,6 +417,27 @@ export async function registerRoutes(
 
   // ===== USER MANAGEMENT (Admin only) =====
 
+  // Brand Principles (admin only)
+  app.get("/api/admin/brand-principles", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const data = await storage.getBrandPrinciples();
+      res.json(data ?? {});
+    } catch (error) {
+      console.error("Error fetching brand principles:", error);
+      res.status(500).json({ message: "Failed to fetch brand principles" });
+    }
+  });
+
+  app.put("/api/admin/brand-principles", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const data = await storage.upsertBrandPrinciples(req.body);
+      res.json(data);
+    } catch (error) {
+      console.error("Error saving brand principles:", error);
+      res.status(500).json({ message: "Failed to save brand principles" });
+    }
+  });
+
   // Get all users (admin only)
   app.get("/api/admin/users", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {

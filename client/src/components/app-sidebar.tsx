@@ -296,10 +296,26 @@ export function AppSidebar() {
                           asChild
                           isActive={location === "/admin/onboarding-preview"}
                           data-testid="link-nav-onboarding-preview"
+                          onMouseEnter={() => preloadRoute("/admin/onboarding-preview")}
+                          onTouchStart={() => preloadRoute("/admin/onboarding-preview")}
                         >
                           <Link href="/admin/onboarding-preview" onClick={closeSidebar}>
                             <Eye className="w-4 h-4" />
                             <span>Onboarding Preview</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={location === "/admin/brand-principles"}
+                          data-testid="link-nav-brand-principles"
+                          onMouseEnter={() => preloadRoute("/admin/brand-principles")}
+                          onTouchStart={() => preloadRoute("/admin/brand-principles")}
+                        >
+                          <Link href="/admin/brand-principles" onClick={closeSidebar}>
+                            <Brain className="w-4 h-4" />
+                            <span>Brand Principles</span>
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>

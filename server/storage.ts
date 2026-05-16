@@ -88,6 +88,7 @@ import {
   type GoalCheckIn, type InsertGoalCheckIn,
   statChallenges, type StatChallenge, type InsertStatChallenge,
   type StatChallengeMetric,
+  brandPrinciples, type BrandPrinciples,
 } from "@shared/schema";
 import { users, type User } from "@shared/models/auth";
 import { db, pool } from "./db";
@@ -115,6 +116,10 @@ export interface IStorage {
   // Admin
   isUserAdmin(userId: string): Promise<boolean>;
   setUserAdmin(userId: string, isAdmin: boolean): Promise<boolean>;
+
+  // Brand Principles
+  getBrandPrinciples(): Promise<BrandPrinciples | null>;
+  upsertBrandPrinciples(data: Partial<Omit<BrandPrinciples, 'id' | 'updatedAt'>>): Promise<BrandPrinciples>;
   getAllUsers(): Promise<Array<{ id: string; email: string | null; firstName: string | null; lastName: string | null; isAdmin: boolean; staffRole: string | null }>>;
   createUser(userData: { email: string; firstName?: string; lastName?: string; isAdmin?: boolean }): Promise<{ id: string; email: string | null; firstName: string | null; lastName: string | null; isAdmin: boolean }>;
   deleteUser(userId: string): Promise<boolean>;
@@ -828,6 +833,23 @@ export class DatabaseStorage implements IStorage {
         .values({ userId, isAdmin });
     }
     return true;
+  }
+
+  async getBrandPrinciples(): Promise<BrandPrinciples | null> {
+    const [row] = await db.select().from(brandPrinciples).where(eq(brandPrinciples.id, 1));
+    return row ?? null;
+  }
+
+  async upsertBrandPrinciples(data: Partial<Omit<BrandPrinciples, 'id' | 'updatedAt'>>): Promise<BrandPrinciples> {
+    const [row] = await db
+      .insert(brandPrinciples)
+      .values({ id: 1, ...data, updatedAt: new Date() })
+      .onConflictDoUpdate({
+        target: brandPrinciples.id,
+        set: { ...data, updatedAt: new Date() },
+      })
+      .returning();
+    return row;
   }
 
   // User management

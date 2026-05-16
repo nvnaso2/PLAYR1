@@ -42,6 +42,7 @@ const Career = lazy(pageLoaders.career);
 const PlayerPublic = lazy(pageLoaders.playerPublic);
 const TrainerPublic = lazy(pageLoaders.trainerPublic);
 const Admin = lazy(pageLoaders.admin);
+const AdminBrandPrinciples = lazy(pageLoaders.adminBrandPrinciples);
 const TrainerDashboard = lazy(pageLoaders.trainerDashboard);
 const TrainerRoster = lazy(pageLoaders.trainerRoster);
 const TrainerDrills = lazy(pageLoaders.trainerDrills);
@@ -313,6 +314,7 @@ function Router() {
                 <Route path="/career" component={Career} />
                 <Route path="/profile" component={Profile} />
                 <Route path="/admin/onboarding-preview">{() => <AdminRoute><OnboardingPreview /></AdminRoute>}</Route>
+                <Route path="/admin/brand-principles">{() => <AdminRoute><AdminBrandPrinciples /></AdminRoute>}</Route>
                 <Route path="/admin">{() => <AdminRoute />}</Route>
                 <Route path="/coach" component={CoachRedirect} />
                 <Route path="/trainer">{() => <TrainerGuard><TrainerDashboard /></TrainerGuard>}</Route>

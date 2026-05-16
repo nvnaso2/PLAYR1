@@ -2156,3 +2156,19 @@ export const insertStatChallengeSchema = createInsertSchema(statChallenges).omit
   endsAt:   z.coerce.date(),
   metric:   z.enum(STAT_CHALLENGE_METRICS),
 });
+
+// ─── Brand Principles ─────────────────────────────────────────────────────────
+export const brandPrinciples = pgTable("brand_principles", {
+  id:                     integer("id").primaryKey().default(1),
+  mission:                text("mission"),
+  brandBeliefs:           text("brand_beliefs"),
+  coreValues:             text("core_values"),
+  trainingPhilosophy:     text("training_philosophy"),
+  basketballIntelligence: text("basketball_intelligence"),
+  gamePrinciples:         text("game_principles"),
+  toneReferences:         text("tone_references"),
+  lifePrinciple:          text("life_principle"),
+  updatedAt:              timestamp("updated_at").defaultNow(),
+});
+
+export type BrandPrinciples = typeof brandPrinciples.$inferSelect;
