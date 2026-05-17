@@ -37,37 +37,143 @@ const CAT_COLORS: Record<string, string> = {
   "general": "#94a3b8",
 };
 
-// ─── Shot Zone Definitions ────────────────────────────────────────────────────
-const ZONE_DEFS: Record<string, { cx: number; cy: number; rx: number; ry: number; label: string; is3pt?: boolean }> = {
-  "top-of-key":           { cx: 250, cy: 40,  rx: 80, ry: 26, label: "Top of Key",       is3pt: true },
-  "wing-left":            { cx: 52,  cy: 130, rx: 28, ry: 42, label: "Wing Left",        is3pt: true },
-  "wing-right":           { cx: 448, cy: 130, rx: 28, ry: 42, label: "Wing Right",       is3pt: true },
-  "corner-left":          { cx: 17,  cy: 375, rx: 12, ry: 52, label: "Corner Left",      is3pt: true },
-  "corner-right":         { cx: 483, cy: 375, rx: 12, ry: 52, label: "Corner Right",     is3pt: true },
-  "free-throw":           { cx: 250, cy: 208, rx: 52, ry: 38, label: "Free Throw"                    },
-  "elbow-left":           { cx: 168, cy: 247, rx: 26, ry: 16, label: "Elbow Left"                    },
-  "elbow-right":          { cx: 332, cy: 247, rx: 26, ry: 16, label: "Elbow Right"                   },
-  "mid-range-left":       { cx: 102, cy: 228, rx: 52, ry: 28, label: "Mid-range Left"                },
-  "mid-range-right":      { cx: 398, cy: 228, rx: 52, ry: 28, label: "Mid-range Right"               },
-  "3rd-hash-left":        { cx: 80,  cy: 188, rx: 38, ry: 24, label: "3rd Hash Left"                 },
-  "3rd-hash-right":       { cx: 420, cy: 188, rx: 38, ry: 24, label: "3rd Hash Right"                },
-  "2nd-hash-left":        { cx: 96,  cy: 270, rx: 40, ry: 24, label: "2nd Hash Left"                 },
-  "2nd-hash-right":       { cx: 404, cy: 270, rx: 40, ry: 24, label: "2nd Hash Right"                },
-  "1st-hash-left":        { cx: 126, cy: 325, rx: 42, ry: 24, label: "1st Hash Left"                 },
-  "1st-hash-right":       { cx: 374, cy: 325, rx: 42, ry: 24, label: "1st Hash Right"                },
-  "block-left":           { cx: 163, cy: 382, rx: 30, ry: 20, label: "Block Left"                    },
-  "block-right":          { cx: 337, cy: 382, rx: 30, ry: 20, label: "Block Right"                   },
-  "floaters":             { cx: 250, cy: 293, rx: 80, ry: 48, label: "Floaters"                      },
-  "form-shots-front":     { cx: 250, cy: 293, rx: 80, ry: 48, label: "Form Shots"                    },
-  "post-shots":           { cx: 250, cy: 388, rx: 40, ry: 48, label: "Post Shots"                    },
-  "left-corner-mid-range":  { cx: 102, cy: 340, rx: 44, ry: 24, label: "Short Corner L"             },
-  "right-corner-mid-range": { cx: 398, cy: 340, rx: 44, ry: 24, label: "Short Corner R"             },
-  "wing-left-mid-range":  { cx: 96,  cy: 210, rx: 38, ry: 22, label: "Wing Left Mid"               },
-  "wing-right-mid-range": { cx: 404, cy: 210, rx: 38, ry: 22, label: "Wing Right Mid"              },
-  "top-of-key-3-point":   { cx: 250, cy: 120, rx: 68, ry: 28, label: "Top Key 2PT"                 },
-  "left-hand-layup":      { cx: 195, cy: 415, rx: 26, ry: 18, label: "Left Layup"                  },
-  "right-hand-layup":     { cx: 305, cy: 415, rx: 26, ry: 18, label: "Right Layup"                 },
+// ─── Shot Zone Definitions (polygon, exact match to dashboard heatmap) ────────
+const COURT_ZONES: Record<string, {
+  points: { x: number; y: number }[];
+  label: string;
+  center: { x: number; y: number };
+  noStroke?: boolean;
+}> = {
+  "restricted-area": {
+    points: [{ x:210,y:435 },{ x:290,y:435 },{ x:290,y:340 },{ x:210,y:340 }],
+    label: "Post", center: { x:250, y:358 },
+  },
+  "paint-left": {
+    points: [{ x:170,y:435 },{ x:210,y:435 },{ x:210,y:340 },{ x:170,y:340 }],
+    label: "Paint L", center: { x:190, y:390 },
+  },
+  "paint-right": {
+    points: [{ x:290,y:435 },{ x:330,y:435 },{ x:330,y:340 },{ x:290,y:340 }],
+    label: "Paint R", center: { x:310, y:390 },
+  },
+  "floater": {
+    points: [{ x:170,y:245 },{ x:330,y:245 },{ x:330,y:340 },{ x:170,y:340 }],
+    label: "Floater", center: { x:250, y:293 },
+  },
+  "free-throw": {
+    points: [{ x:170,y:245 },{ x:330,y:245 },{ x:330,y:165 },{ x:170,y:165 }],
+    label: "Free Throw", center: { x:250, y:208 }, noStroke: true,
+  },
+  "mid-range-left": {
+    points: [{ x:30,y:435 },{ x:170,y:435 },{ x:170,y:285 },{ x:30,y:285 }],
+    label: "Mid Left", center: { x:100, y:365 },
+  },
+  "mid-range-right": {
+    points: [{ x:330,y:435 },{ x:470,y:435 },{ x:470,y:285 },{ x:330,y:285 }],
+    label: "Mid Right", center: { x:400, y:365 },
+  },
+  "elbow-left": {
+    points: [
+      { x:30,y:285 },{ x:170,y:285 },{ x:170,y:245 },{ x:170,y:165 },
+      { x:171,y:88 },{ x:138,y:102 },{ x:109,y:119 },{ x:85,y:139 },
+      { x:65,y:162 },{ x:50,y:188 },{ x:39,y:217 },{ x:32,y:250 },
+    ],
+    label: "Elbow L", center: { x:95, y:210 },
+  },
+  "elbow-right": {
+    points: [
+      { x:330,y:285 },{ x:470,y:285 },{ x:468,y:250 },{ x:461,y:217 },
+      { x:450,y:188 },{ x:435,y:162 },{ x:415,y:139 },{ x:391,y:119 },
+      { x:362,y:102 },{ x:329,y:88 },{ x:330,y:165 },{ x:330,y:245 },
+    ],
+    label: "Elbow R", center: { x:405, y:210 },
+  },
+  "corner-left": {
+    points: [{ x:5,y:435 },{ x:30,y:435 },{ x:30,y:285 },{ x:5,y:285 }],
+    label: "Corner L", center: { x:17, y:360 },
+  },
+  "corner-right": {
+    points: [{ x:470,y:435 },{ x:495,y:435 },{ x:495,y:285 },{ x:470,y:285 }],
+    label: "Corner R", center: { x:483, y:360 },
+  },
+  "wing-left": {
+    points: [
+      { x:5,y:285 },{ x:30,y:285 },{ x:32,y:250 },{ x:39,y:217 },
+      { x:50,y:188 },{ x:65,y:162 },{ x:85,y:139 },{ x:109,y:119 },
+      { x:138,y:102 },{ x:138,y:5 },{ x:5,y:5 },
+    ],
+    label: "Wing L", center: { x:55, y:145 },
+  },
+  "wing-right": {
+    points: [
+      { x:362,y:102 },{ x:391,y:119 },{ x:415,y:139 },{ x:435,y:162 },
+      { x:450,y:188 },{ x:461,y:217 },{ x:468,y:250 },{ x:470,y:285 },
+      { x:495,y:285 },{ x:495,y:5 },{ x:362,y:5 },
+    ],
+    label: "Wing R", center: { x:445, y:145 },
+  },
+  "top-key-mid": {
+    points: [
+      { x:170,y:165 },{ x:171,y:88 },{ x:250,y:70 },{ x:329,y:88 },{ x:330,y:165 },
+    ],
+    label: "Top Key 2PT", center: { x:250, y:120 },
+  },
+  "top-of-key": {
+    points: [
+      { x:138,y:5 },{ x:362,y:5 },{ x:362,y:102 },{ x:329,y:88 },
+      { x:250,y:70 },{ x:171,y:88 },{ x:138,y:102 },
+    ],
+    label: "Top of Key", center: { x:250, y:55 },
+  },
+  "deep-left": {
+    points: [{ x:5,y:100 },{ x:120,y:100 },{ x:100,y:5 },{ x:5,y:5 }],
+    label: "Deep L", center: { x:58, y:55 },
+  },
+  "deep-center": {
+    points: [{ x:100,y:5 },{ x:120,y:100 },{ x:250,y:70 },{ x:380,y:100 },{ x:400,y:5 }],
+    label: "Deep C", center: { x:250, y:45 },
+  },
+  "deep-right": {
+    points: [{ x:380,y:100 },{ x:495,y:100 },{ x:495,y:5 },{ x:400,y:5 }],
+    label: "Deep R", center: { x:440, y:55 },
+  },
 };
+
+// Map raw DB shot location slugs → zone keys
+const LOCATION_TO_ZONE: Record<string, string> = {
+  "free-throw":             "free-throw",
+  "corner-left":            "corner-left",
+  "corner-right":           "corner-right",
+  "top-of-key":             "top-of-key",
+  "wing-left":              "wing-left",
+  "wing-right":             "wing-right",
+  "1st-hash-left":          "paint-left",
+  "1st-hash-right":         "paint-right",
+  "2nd-hash-left":          "elbow-left",
+  "2nd-hash-right":         "elbow-right",
+  "3rd-hash-left":          "elbow-left",
+  "3rd-hash-right":         "elbow-right",
+  "block-left":             "paint-left",
+  "block-right":            "paint-right",
+  "mid-range-left":         "mid-range-left",
+  "mid-range-right":        "mid-range-right",
+  "floaters":               "floater",
+  "post-shots":             "restricted-area",
+  "left-corner-mid-range":  "mid-range-left",
+  "right-corner-mid-range": "mid-range-right",
+  "wing-left-mid-range":    "elbow-left",
+  "wing-right-mid-range":   "elbow-right",
+  "top-of-key-3-point":     "top-key-mid",
+  "form-shot-left":         "paint-left",
+  "form-shots-right":       "paint-right",
+  "form-shots-front":       "floater",
+  "left-hand-layup":        "paint-left",
+  "right-hand-layup":       "paint-right",
+};
+
+function toSvgPoints(pts: { x: number; y: number }[]): string {
+  return pts.map(p => `${p.x},${p.y}`).join(" ");
+}
 
 function zoneColor(pct: number): string {
   if (pct <= 30) return "#6B0E0E";
@@ -90,64 +196,94 @@ function fmtMin(mins: number): string {
   return `${mins}m`;
 }
 
-// ─── Exact CourtSVG replica (pure data → SVG) ─────────────────────────────────
+// ─── CourtSVG — polygon zones identical to dashboard heatmap ──────────────────
 function CourtSVG({ shotData, width, height }: {
   shotData: Array<{ location: string; made: number; attempted: number }>;
   width: number; height: number;
 }) {
-  const processed: Record<string, { made: number; missed: number }> = {};
+  // Aggregate raw location shots → zone buckets
+  const zoneData: Record<string, { made: number; missed: number }> = {};
   shotData.forEach(s => {
-    if (!processed[s.location]) processed[s.location] = { made: 0, missed: 0 };
-    processed[s.location].made   += s.made;
-    processed[s.location].missed += Math.max(0, s.attempted - s.made);
+    const key = LOCATION_TO_ZONE[s.location] || s.location;
+    if (!zoneData[key]) zoneData[key] = { made: 0, missed: 0 };
+    zoneData[key].made   += s.made;
+    zoneData[key].missed += Math.max(0, s.attempted - s.made);
   });
-  const maxTotal = Math.max(1, ...Object.values(processed).map(d => d.made + d.missed));
+  const maxTotal = Math.max(1, ...Object.values(zoneData).map(d => d.made + d.missed));
 
   return (
     <svg viewBox="0 0 500 470" width={width} height={height} style={{ display: "block" }}>
+      {/* Court surface */}
       <rect x="0" y="0" width="500" height="435" fill="#000000" />
+
+      {/* Footer strip below baseline */}
       <rect x="0" y="435" width="500" height="35" fill="#0a0a0a" />
-      {Object.entries(ZONE_DEFS).map(([name, z]) => (
-        <ellipse key={`base-${name}`} cx={z.cx} cy={z.cy} rx={z.rx} ry={z.ry}
-          fill="#1a1a1a" opacity={0.85} stroke="white" strokeWidth="0.6" strokeOpacity="0.18" />
+
+      {/* Base zone tints — always visible so zones are clear even with no data */}
+      {Object.entries(COURT_ZONES).map(([name, zone]) => (
+        <polygon key={`base-${name}`}
+          points={toSvgPoints(zone.points)}
+          fill="#1a1a2e" opacity={0.85}
+          stroke={zone.noStroke ? "none" : "white"}
+          strokeWidth={zone.noStroke ? "0" : "0.8"}
+          strokeOpacity={zone.noStroke ? "0" : "0.25"} />
       ))}
-      {Object.entries(processed).map(([loc, d]) => {
-        const z = ZONE_DEFS[loc];
-        if (!z) return null;
+
+      {/* Coloured zone fills (drawn before court lines) */}
+      {Object.entries(COURT_ZONES).map(([name, zone]) => {
+        const d = zoneData[name];
+        if (!d || d.made + d.missed === 0) return null;
         const total = d.made + d.missed;
-        const pct   = total > 0 ? Math.round((d.made / total) * 100) : 0;
-        const fill  = zoneColor(pct);
+        const pct   = Math.round((d.made / total) * 100);
+        const color = zoneColor(pct);
         const alpha = zoneOpacity(total, maxTotal);
-        const showPct  = z.rx >= 24 && z.ry >= 22;
-        const showText = z.rx >= 24 && z.ry >= 16;
+        const cx = zone.center.x;
+        const cy = zone.center.y;
+        const pts   = zone.points;
+        const zoneW = Math.max(...pts.map(p => p.x)) - Math.min(...pts.map(p => p.x));
+        const zoneH = Math.max(...pts.map(p => p.y)) - Math.min(...pts.map(p => p.y));
+        const showPct   = zoneW >= 28 && zoneH >= 28;
+        const showCount = zoneW >= 45 && zoneH >= 50;
         return (
-          <g key={loc}>
-            <ellipse cx={z.cx} cy={z.cy} rx={z.rx} ry={z.ry}
-              fill={fill} opacity={alpha} stroke={fill} strokeWidth="1.5" strokeOpacity="0.4" />
+          <g key={name}>
+            <polygon points={toSvgPoints(zone.points)}
+              fill={color} opacity={alpha}
+              stroke={zone.noStroke ? "none" : "white"}
+              strokeWidth={zone.noStroke ? "0" : "1"}
+              strokeOpacity={zone.noStroke ? "0" : "0.5"} />
             {showPct && (
-              <text x={z.cx} y={z.cy + 4} textAnchor="middle" dominantBaseline="middle"
-                fill="white" fontSize={z.rx < 36 ? "9" : "11"} fontWeight="700"
-                stroke="rgba(0,0,0,0.4)" strokeWidth="2.5" paintOrder="stroke">{pct}%</text>
+              <text x={cx} y={cy + (showCount ? -6 : 5)}
+                textAnchor="middle" dominantBaseline="middle"
+                fill="white" fontSize={zoneW < 55 ? "9" : "12"} fontWeight="700"
+                stroke="rgba(0,0,0,0.6)" strokeWidth="3" paintOrder="stroke">
+                {pct}%
+              </text>
             )}
-            {showText && (
-              <text x={z.cx} y={z.cy + (showPct ? 14 : 4)} textAnchor="middle" dominantBaseline="middle"
-                fill="white" fontSize="8" fontWeight="500"
-                stroke="rgba(0,0,0,0.4)" strokeWidth="2" paintOrder="stroke">{d.made}/{total}</text>
+            {showCount && (
+              <text x={cx} y={cy + 9}
+                textAnchor="middle" dominantBaseline="middle"
+                fill="rgba(255,255,255,0.85)" fontSize="8" fontWeight="500"
+                stroke="rgba(0,0,0,0.6)" strokeWidth="2" paintOrder="stroke">
+                {d.made}/{total}
+              </text>
             )}
           </g>
         );
       })}
-      {/* Court lines */}
+
+      {/* White court lines on top */}
       <rect x="5" y="5" width="490" height="460" fill="none" stroke="white" strokeWidth="2.5" />
       <line x1="5" y1="5" x2="495" y2="5" stroke="white" strokeWidth="2" />
       <line x1="5" y1="435" x2="495" y2="435" stroke="white" strokeWidth="2" />
-      <path d="M 30 435 L 30 285 Q 30 100, 250 70 Q 470 100, 470 285 L 470 435" fill="none" stroke="white" strokeWidth="2" />
+      <path d="M 30 435 L 30 285 Q 30 100, 250 70 Q 470 100, 470 285 L 470 435"
+        fill="none" stroke="white" strokeWidth="2" />
       <rect x="170" y="245" width="160" height="190" fill="none" stroke="white" strokeWidth="2" />
       <path d="M 170 245 A 80 80 0 0 1 330 245" fill="none" stroke="white" strokeWidth="2" />
-      <path d="M 330 245 A 80 80 0 0 1 170 245" fill="none" stroke="white" strokeWidth="1.5" strokeDasharray="8,6" />
+      <path d="M 330 245 A 80 80 0 0 1 170 245"
+        fill="none" stroke="white" strokeWidth="1.5" strokeDasharray="8,6" />
       <path d="M 210 435 A 40 40 0 0 1 290 435" fill="none" stroke="white" strokeWidth="1.5" />
-      <rect x="220" y="420" width="60" height="4" fill="white" />
-      <circle cx="250" cy="405" r="9" fill="none" stroke="#E55039" strokeWidth="2.5" />
+      <rect x="215" y="418" width="70" height="5" fill="white" />
+      <circle cx="250" cy="405" r="10" fill="none" stroke="#E55039" strokeWidth="2.5" />
       <rect x="151" y="311" width="19" height="8" fill="white" />
       <rect x="330" y="311" width="19" height="8" fill="white" />
       <rect x="151" y="343" width="19" height="8" fill="white" />
@@ -160,7 +296,8 @@ function CourtSVG({ shotData, width, height }: {
       <line x1="330" y1="350" x2="349" y2="350" stroke="white" strokeWidth="1.5" />
       <line x1="170" y1="380" x2="151" y2="380" stroke="white" strokeWidth="1.5" />
       <line x1="330" y1="380" x2="349" y2="380" stroke="white" strokeWidth="1.5" />
-      {/* Legend */}
+
+      {/* Colour-scale legend */}
       <g transform="translate(28,450)">
         <text x="0" y="9" fill="rgba(255,255,255,0.35)" fontSize="8" fontFamily="Arial,sans-serif">Cold</text>
         {["#6B0E0E","#9B1F0A","#C03410","#C86020","#9B7820","#6B7A20","#3D7A2A","#2E8E2E","#1AA81A","#0DC80D"].map((c,i) => (
@@ -356,14 +493,23 @@ function CardFtr({ pad, streak, showBest = false }: {
   );
 }
 
-// ─── Shot breakdown table (zone rows) ────────────────────────────────────────
+// ─── Shot breakdown table (aggregated by zone, matching dashboard) ────────────
 function ZoneTable({ shotData, fs, maxRows = 6 }: {
   shotData: Array<{ location: string; made: number; attempted: number }>;
   fs: number; maxRows?: number;
 }) {
-  const rows = shotData
-    .filter(d => d.attempted > 0)
-    .map(d => ({ ...d, pct: Math.round((d.made / d.attempted) * 100), label: ZONE_DEFS[d.location]?.label || d.location }))
+  const agg: Record<string, { made: number; attempted: number; label: string }> = {};
+  shotData.forEach(d => {
+    if (d.attempted === 0) return;
+    const key   = LOCATION_TO_ZONE[d.location] || d.location;
+    const zone  = COURT_ZONES[key];
+    const label = zone?.label || key.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+    if (!agg[key]) agg[key] = { made: 0, attempted: 0, label };
+    agg[key].made      += d.made;
+    agg[key].attempted += d.attempted;
+  });
+  const rows = Object.values(agg)
+    .map(z => ({ ...z, pct: Math.round((z.made / z.attempted) * 100) }))
     .sort((a, b) => b.attempted - a.attempted)
     .slice(0, maxRows);
   if (rows.length === 0) return null;
@@ -995,10 +1141,15 @@ export function WorkoutShareDialog({ open, onOpenChange, workoutSessionId, defau
   };
 
   const handleShare = async (p: Platform) => {
+    // Switch preview to the target platform's aspect ratio, then capture at that size
+    setPlatform(p);
     setIsBusy(true);
     try {
-      const c = await getCanvas(); if (!c) return;
-      await shareToSocialPlatform(p, c, buildCaption(activeTab, currentData), `${activeTab}-${platform}`, toast);
+      // Allow React to re-render the card at the new platform size before capture
+      await new Promise(resolve => setTimeout(resolve, 180));
+      const c = await captureCard(cardRef, p);
+      if (!c) { toast({ title: "Could not capture card — try again", variant: "destructive" }); return; }
+      await shareToSocialPlatform(p, c, buildCaption(activeTab, currentData), `${activeTab}-${p}`, toast);
     } finally { setIsBusy(false); }
   };
 
