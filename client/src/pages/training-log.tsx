@@ -72,15 +72,12 @@ import {
   Search,
   Loader2,
   Share2,
-  Info,
-  Circle
+  Info
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Drill, TrainingLog, DrillMetric, MetricTemplate, Workout, WorkoutDrill, ShotLocationDB, Challenge, UserChallenge } from "@shared/schema";
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, insertDrillSchema, insertWorkoutSchema } from "@shared/schema";
-import { HalfCourtMap, ShotChartButton, type ShotData } from "@/components/half-court-map";
-import { FreeShotMode, LiveShotCounter } from "@/components/free-shoot-mode";
-import { RecordShootingMode } from "@/components/record-shooting-mode";
+import { FreeShotMode } from "@/components/free-shoot-mode";
 import { WorkoutShareDialog } from "@/components/workout-share-dialog";
 import { DrillTimer } from "@/components/drill-timer";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -266,9 +263,6 @@ export default function TrainingLogPage() {
   
   // Free Shoot / Live Record state
   const [showFreeShotMode, setShowFreeShotMode] = useState(false);
-  const [showRecordShootingMode, setShowRecordShootingMode] = useState(false);
-  const [recordingEntryIndex, setRecordingEntryIndex] = useState<number | null>(null);
-
   // View/Edit log state
   const [viewEditLogId, setViewEditLogId] = useState<string | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -837,47 +831,6 @@ export default function TrainingLogPage() {
     }
     
     return null;
-  };
-
-  // Extract shot data for half-court map from a training log
-  const getShotMapData = (log: TrainingLogWithMetrics | null): ShotData[] => {
-    if (!log) return [];
-    
-    // First, try new per-round shot location fields from training log
-    if (log.shotLocation && log.shotsAttempted) {
-      return [{
-        location: log.shotLocation,
-        made: log.shotsMade || 0,
-        attempted: log.shotsAttempted || 0
-      }];
-    }
-    
-    // Legacy logs without shot location data cannot display meaningful shot charts
-    // since we don't know where the shots were taken
-    return [];
-  };
-
-  // Aggregate shot data from multiple logs (for workout sessions)
-  const aggregateShotData = (logs: TrainingLogWithMetricsResponse[]): ShotData[] => {
-    const locationData: Record<string, { made: number; attempted: number }> = {};
-    
-    logs.forEach(log => {
-      // Only aggregate logs that have proper shot location data
-      if (log.shotLocation && log.shotsAttempted) {
-        if (!locationData[log.shotLocation]) {
-          locationData[log.shotLocation] = { made: 0, attempted: 0 };
-        }
-        locationData[log.shotLocation].made += log.shotsMade || 0;
-        locationData[log.shotLocation].attempted += log.shotsAttempted || 0;
-      }
-      // Legacy logs without shot location are excluded from shot chart aggregation
-    });
-    
-    return Object.entries(locationData).map(([location, data]) => ({
-      location,
-      made: data.made,
-      attempted: data.attempted
-    }));
   };
 
   // Toggle drill selection
@@ -1955,21 +1908,6 @@ export default function TrainingLogPage() {
                     </div>
                   </CardContent>
                 </Card>
-                <Card
-                  className="cursor-pointer hover-elevate"
-                  onClick={() => setShowRecordShootingMode(true)}
-                  data-testid="action-record-shooting"
-                >
-                  <CardContent className="p-4 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
-                      <Video className="w-5 h-5 text-blue-400" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-sm">Record Shooting</h3>
-                      <p className="text-xs text-muted-foreground">Film &amp; AI tracks your shots</p>
-                    </div>
-                  </CardContent>
-                </Card>
               </div>
 
               {/* Favorite Workouts Section */}
@@ -2870,18 +2808,6 @@ export default function TrainingLogPage() {
                             >
                               <Info className="w-4 h-4" />
                             </Button>
-                            {isShootingDrill && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="gap-1 text-red-400 border-red-500/40 hover:bg-red-500/10 hover:text-red-400"
-                                onClick={() => setRecordingEntryIndex(group.entries[0].index)}
-                                data-testid={`button-record-${drillId}`}
-                              >
-                                <Circle className="w-2.5 h-2.5" fill="currentColor" />
-                                Record
-                              </Button>
-                            )}
                           <Button 
                             variant="outline" 
                             size="sm"
@@ -3267,8 +3193,6 @@ export default function TrainingLogPage() {
                               ? Math.round((sessionTotalMade / sessionTotalAttempts) * 100) 
                               : null;
                             
-                            const sessionShotData = aggregateShotData(group.logs);
-                            
                             // Group logs by drillId to create Drills > Rounds hierarchy
                             const drillGroups: Record<string, TrainingLogWithMetricsResponse[]> = {};
                             group.logs.forEach(log => {
@@ -3314,11 +3238,6 @@ export default function TrainingLogPage() {
                                           <span>
                                             {formatDuration(group.logs.reduce((sum, l) => sum + l.duration, 0))}
                                           </span>
-                                          {sessionShotData.length > 0 && (
-                                            <span className="shrink-0" onClick={(e) => e.stopPropagation()}>
-                                              <ShotChartButton shotData={sessionShotData} title="Workout Shot Chart" testId={`button-shot-chart-workout-${group.sessionId}`} />
-                                            </span>
-                                          )}
                                         </div>
                                       </div>
                                     </CollapsibleTrigger>
@@ -3360,7 +3279,6 @@ export default function TrainingLogPage() {
                                     {/* Drills within this workout */}
                                     {Object.entries(drillGroups).map(([drillId, drillLogs]) => {
                                       // Calculate drill-level stats
-                                      const drillShotData = aggregateShotData(drillLogs);
                                       let drillTotalAttempts = 0;
                                       let drillTotalMade = 0;
                                       drillLogs.forEach(log => {
@@ -3403,11 +3321,6 @@ export default function TrainingLogPage() {
                                                             {drillPercentage}%
                                                           </Badge>
                                                         </>
-                                                      )}
-                                                      {drillShotData.length > 0 && (
-                                                        <span className="shrink-0" onClick={(e) => e.stopPropagation()}>
-                                                          <ShotChartButton shotData={drillShotData} title={`${getDrillTitle(drillId)} Shot Chart`} testId={`button-shot-chart-drill-${drillId}`} />
-                                                        </span>
                                                       )}
                                                     </div>
                                                   </div>
@@ -3717,18 +3630,6 @@ export default function TrainingLogPage() {
                 </div>
               )}
 
-              {/* Shot Chart Button - only show if there's shot location data */}
-              {(() => {
-                const shotData = getShotMapData(viewEditLog);
-                if (shotData.length > 0 && !isEditMode) {
-                  return (
-                    <div className="border-t pt-4">
-                      <ShotChartButton shotData={shotData} title={`${getDrillTitle(viewEditLog.drillId)} Shot Chart`} testId={`button-shot-chart-log-${viewEditLog.id}`} />
-                    </div>
-                  );
-                }
-                return null;
-              })()}
 
               <div className="text-xs text-muted-foreground border-t pt-4">
                 Completed: {viewEditLog.completedAt ? format(new Date(viewEditLog.completedAt), 'PPpp') : 'Unknown'}
@@ -3801,45 +3702,6 @@ export default function TrainingLogPage() {
         />
       )}
 
-      {/* Record Shooting Mode — full-screen overlay */}
-      {showRecordShootingMode && (
-        <RecordShootingMode
-          onClose={() => setShowRecordShootingMode(false)}
-        />
-      )}
-
-      {/* Live Shot Counter — for recording shots on a specific drill entry */}
-      {recordingEntryIndex !== null && workoutEntries[recordingEntryIndex] && (
-        <LiveShotCounter
-          location={workoutEntries[recordingEntryIndex].shotLocation || "free-throw"}
-          locationLabel={
-            workoutEntries[recordingEntryIndex].shotLocation
-              ? getLocationLabel(workoutEntries[recordingEntryIndex].shotLocation!)
-              : "Select Location First"
-          }
-          initialMade={workoutEntries[recordingEntryIndex].shotsMade || 0}
-          initialAttempted={workoutEntries[recordingEntryIndex].shotsAttempted || 0}
-          onDone={(made, attempted) => {
-            const idx = recordingEntryIndex;
-            // Update entry fields directly
-            updateEntry(idx, "shotsMade", made);
-            updateEntry(idx, "shotsAttempted", attempted);
-            // Also update metric inputs if drill has matching metrics
-            const entry = workoutEntries[idx];
-            entry.drillMetrics.forEach(dm => {
-              const n = dm.template.name.toLowerCase();
-              const l = dm.template.label.toLowerCase();
-              if (n.includes("attempt") || l.includes("attempt")) {
-                updateMetricValue(idx, dm.metricTemplateId, attempted);
-              } else if ((n.includes("made") || l.includes("made")) && !n.includes("attempt")) {
-                updateMetricValue(idx, dm.metricTemplateId, made);
-              }
-            });
-            setRecordingEntryIndex(null);
-          }}
-          onClose={() => setRecordingEntryIndex(null)}
-        />
-      )}
     </div>
   );
 }
