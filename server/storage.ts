@@ -1975,7 +1975,7 @@ export class DatabaseStorage implements IStorage {
       cnt: sql<number>`cast(count(*) as int)`,
     }).from(lcParticipants).groupBy(lcParticipants.challengeId);
     const cntMap: Record<string, number> = {};
-    counts.forEach(c => { cntMap[c.challengeId] = c.cnt; });
+    counts.forEach(c => { cntMap[c.challengeId] = Number(c.cnt ?? 0); });
 
     return rows
       .filter(ch => includeUnpublished || ch.isPublished)
@@ -1985,13 +1985,14 @@ export class DatabaseStorage implements IStorage {
   async getLeaderboardChallengeBySlug(slug: string, userId?: string) {
     const [ch] = await db.select().from(leaderboardChallenges).where(eq(leaderboardChallenges.slug, slug));
     if (!ch) return undefined;
-    const [{ cnt }] = await db.select({ cnt: sql<number>`cast(count(*) as int)` }).from(lcParticipants).where(eq(lcParticipants.challengeId, ch.id));
+    const cntRows = await db.select({ cnt: sql<number>`cast(count(*) as int)` }).from(lcParticipants).where(eq(lcParticipants.challengeId, ch.id));
+    const participantCount = Number(cntRows[0]?.cnt ?? 0);
     let isJoined = false;
     if (userId) {
       const [p] = await db.select().from(lcParticipants).where(and(eq(lcParticipants.challengeId, ch.id), eq(lcParticipants.userId, userId)));
       isJoined = !!p;
     }
-    return { ...ch, status: this.lcStatus(ch), participantCount: cnt ?? 0, isJoined };
+    return { ...ch, status: this.lcStatus(ch), participantCount, isJoined };
   }
 
   async getLeaderboardChallengeById(id: string) {
@@ -2032,7 +2033,7 @@ export class DatabaseStorage implements IStorage {
       ? sql`AND (tl.shot_location = ${ch.shotLocation})`
       : sql``;
 
-    const rows = await db.execute(sql`
+    const result = await db.execute(sql`
       SELECT
         u.id         AS "userId",
         u.first_name AS "firstName",
@@ -2053,12 +2054,13 @@ export class DatabaseStorage implements IStorage {
       LIMIT ${limit}
     `);
 
-    return (rows as any[]).map((r, i) => ({
+    const rows: any[] = (result as any).rows ?? (result as any) ?? [];
+    return rows.map((r, i) => ({
       rank: i + 1,
-      userId: r.userId,
-      firstName: r.firstName ?? null,
-      lastName: r.lastName ?? null,
-      profileImageUrl: r.profileImageUrl ?? null,
+      userId: r.userId ?? r.userid,
+      firstName: r.firstName ?? r.firstname ?? null,
+      lastName: r.lastName ?? r.lastname ?? null,
+      profileImageUrl: r.profileImageUrl ?? r.profile_image_url ?? null,
       username: r.username ?? null,
       score: Number(r.score ?? 0),
     }));

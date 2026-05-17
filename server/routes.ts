@@ -8709,7 +8709,14 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
     try {
       const userId = req.user!.claims.sub;
       const slug = generateSlug(req.body.title || "challenge");
-      const ch = await storage.createLeaderboardChallenge({ ...req.body, slug, createdBy: userId });
+      const data = {
+        ...req.body,
+        slug,
+        createdBy: userId,
+        startsAt: new Date(req.body.startsAt),
+        endsAt: new Date(req.body.endsAt),
+      };
+      const ch = await storage.createLeaderboardChallenge(data);
       res.status(201).json(ch);
     } catch (err) {
       console.error(err);
@@ -8719,7 +8726,10 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
 
   app.patch("/api/admin/leaderboard-challenges/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
-      const ch = await storage.updateLeaderboardChallenge(req.params.id, req.body);
+      const patch: any = { ...req.body };
+      if (patch.startsAt) patch.startsAt = new Date(patch.startsAt);
+      if (patch.endsAt) patch.endsAt = new Date(patch.endsAt);
+      const ch = await storage.updateLeaderboardChallenge(req.params.id, patch);
       if (!ch) return res.status(404).json({ message: "Not found" });
       res.json(ch);
     } catch (err) {
