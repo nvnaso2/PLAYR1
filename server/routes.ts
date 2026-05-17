@@ -4029,7 +4029,7 @@ export async function registerRoutes(
   app.post("/api/trainer/drills", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { title, description, category, difficulty, duration, equipment, tips, trackShots } = req.body;
+      const { title, description, category, difficulty, duration, equipment, tips, trackShots, comboComponents } = req.body;
       if (!title || !category) {
         return res.status(400).json({ message: "Title and category are required" });
       }
@@ -4050,6 +4050,7 @@ export async function registerRoutes(
         pdfUrl: null,
         videoLibraryId: null,
         pdfLibraryId: null,
+        comboComponents: comboComponents || null,
       });
       res.status(201).json(drill);
     } catch (error) {

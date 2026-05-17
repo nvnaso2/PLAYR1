@@ -332,6 +332,7 @@ export const drills = pgTable("drills", {
   isAiGenerated: boolean("is_ai_generated").default(false), // true = AI-generated daily challenge drill
   userId: varchar("user_id"), // null = admin drill, set = user-created drill
   presetRounds: jsonb("preset_rounds").$type<Array<{ shotLocation?: string; metricValues: Record<string, number> }>>(), // Preset round configs for auto-loading when drill is started
+  comboComponents: jsonb("combo_components").$type<Array<{ drillId: string; order: number }>>(), // Ordered sub-drills for combo drills
   createdAt: timestamp("created_at").defaultNow()
 });
 
