@@ -4,7 +4,6 @@ import { useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useAdmin } from "@/hooks/use-admin";
 import { useRole } from "@/hooks/use-role";
-
 import { preloadRoute, preloadCommonPages } from "@/lib/pageLoaders";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -59,19 +58,20 @@ import {
   Eye,
   Megaphone,
   Sparkles,
-  BookOpen,
-  Zap,
-  Fingerprint,
-  Star,
-  BotMessageSquare,
 } from "lucide-react";
 import { Playr1Logo } from "@/components/playr1-logo";
 import { getObjectUrl } from "@/lib/queryClient";
 
 const playerNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: BarChart3 },
+  { title: "My Career", url: "/career", icon: Trophy },
+  { title: "Training Log", url: "/log", icon: ClipboardList },
+  { title: "My Trainer", url: "/my-trainer", icon: UserPlus },
+  { title: "Programs", url: "/programs", icon: Sparkles },
+  { title: "Events", url: "/events", icon: Trophy },
   { title: "Drill Library", url: "/drills", icon: Play },
   { title: "My Film Room", url: "/videos", icon: Video },
+  { title: "Teams & Leagues", url: "/teams", icon: Shield },
   { title: "Feedback", url: "/feedback", icon: Megaphone },
 ];
 
@@ -114,13 +114,6 @@ export function AppSidebar() {
     queryKey: ["/api/career"],
     retry: false,
     enabled: !!user,
-  });
-
-  const { data: profile } = useQuery<any>({
-    queryKey: ["/api/profile"],
-    retry: false,
-    enabled: !!user,
-    staleTime: 30 * 1000,
   });
 
   const getInitials = () => {
@@ -288,34 +281,6 @@ export function AppSidebar() {
                           <Link href="/admin" onClick={closeSidebar}>
                             <Settings className="w-4 h-4" />
                             <span>Admin Dashboard</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                      <SidebarMenuItem>
-                        <SidebarMenuButton
-                          asChild
-                          isActive={location === "/admin/onboarding-preview"}
-                          data-testid="link-nav-onboarding-preview"
-                          onMouseEnter={() => preloadRoute("/admin/onboarding-preview")}
-                          onTouchStart={() => preloadRoute("/admin/onboarding-preview")}
-                        >
-                          <Link href="/admin/onboarding-preview" onClick={closeSidebar}>
-                            <Eye className="w-4 h-4" />
-                            <span>Onboarding Preview</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                      <SidebarMenuItem>
-                        <SidebarMenuButton
-                          asChild
-                          isActive={location === "/admin/brand-principles"}
-                          data-testid="link-nav-brand-principles"
-                          onMouseEnter={() => preloadRoute("/admin/brand-principles")}
-                          onTouchStart={() => preloadRoute("/admin/brand-principles")}
-                        >
-                          <Link href="/admin/brand-principles" onClick={closeSidebar}>
-                            <Brain className="w-4 h-4" />
-                            <span>Brand Principles</span>
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>

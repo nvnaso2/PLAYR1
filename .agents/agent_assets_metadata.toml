@@ -150,9 +150,3 @@ id = "6Bw0Sf3fwv9jQnEGf4xZO"
 uri = "file://playr1-launch-fix.zip"
 type = "unspecified"
 title = "PLAYR1 Launch Screen Fix"
-
-[[outputs]]
-id = "p3c7_IyNAZnl23tBfNeru"
-uri = "file://playr1-ios-bundle.zip"
-type = "unspecified"
-title = "PLAYR1 iOS Bundle — Frame Fix"

@@ -44,7 +44,6 @@ import {
   Clock, 
   Target, 
   Calendar,
-  ArrowRight,
   ClipboardList,
   Play,
   Save,
@@ -171,7 +170,6 @@ export default function TrainingLogPage() {
   });
   
   const [challengesSectionOpen, setChallengesSectionOpen] = useState(false);
-  const [programsSectionOpen, setProgramsSectionOpen] = useState(true);
   const [isSavingWorkout, setIsSavingWorkout] = useState(false);
   
   // Single workout-level timer state
@@ -407,11 +405,6 @@ export default function TrainingLogPage() {
 
   const { data: favoriteDrillIds } = useQuery<string[]>({
     queryKey: ['/api/user/favorite-drills'],
-  });
-
-  const { data: programEnrollments } = useQuery<any[]>({
-    queryKey: ["/api/programs/me"],
-    staleTime: 30_000,
   });
 
   // Group drills by category
@@ -1961,8 +1954,6 @@ export default function TrainingLogPage() {
                     </div>
                   </CardContent>
                 </Card>
-                {/* RECORD_SHOOTING_FEATURE: hidden pending Roboflow CV integration — re-enable by removing the {false && ...} wrapper */}
-                {false && (
                 <Card
                   className="cursor-pointer hover-elevate"
                   onClick={() => setShowRecordShootingMode(true)}
@@ -1978,7 +1969,6 @@ export default function TrainingLogPage() {
                     </div>
                   </CardContent>
                 </Card>
-                )}
               </div>
 
               {/* Favorite Workouts Section */}
@@ -2168,76 +2158,6 @@ export default function TrainingLogPage() {
                           </CardContent>
                         </Card>
                       ))}
-                    </CollapsibleContent>
-                  </Collapsible>
-                );
-              })()}
-
-              {/* Active Programs Section */}
-              {(() => {
-                const activePrograms = (programEnrollments ?? []).filter((e: any) => e.status === "active");
-                if (activePrograms.length === 0) return null;
-                return (
-                  <Collapsible open={programsSectionOpen} onOpenChange={setProgramsSectionOpen}>
-                    <div className="flex items-center justify-between">
-                      <CollapsibleTrigger asChild>
-                        <button className="flex items-center gap-2 cursor-pointer select-none" data-testid="section-active-programs">
-                          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                            <Sparkles className="w-4 h-4 text-orange-500" />
-                            Active Programs
-                            <Badge className="text-xs bg-orange-500/20 text-orange-400 border-orange-500/30">{activePrograms.length} Active</Badge>
-                          </h3>
-                          <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${programsSectionOpen ? 'rotate-90' : ''}`} />
-                        </button>
-                      </CollapsibleTrigger>
-                      <Link href="/programs" onClick={(e) => e.stopPropagation()}>
-                        <span className="text-xs text-orange-400 hover:text-orange-300 transition-colors flex items-center gap-1" data-testid="link-all-programs">
-                          All programs <ArrowRight className="w-3 h-3" />
-                        </span>
-                      </Link>
-                    </div>
-                    <CollapsibleContent className="pt-3">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {activePrograms.map((e: any) => {
-                          const accent = e.program?.accentColor || "#f97316";
-                          const pct = e.totalItemCount > 0
-                            ? Math.round((e.completedItemCount / e.totalItemCount) * 100)
-                            : 0;
-                          const slug = e.program?.slug;
-                          const href = slug ? `/programs/${slug}/today` : `/programs`;
-                          return (
-                            <Link key={e.id} href={href} data-testid={`link-program-${e.programId}`}>
-                              <Card className="hover-elevate active-elevate-2 cursor-pointer overflow-hidden border-border/60 h-full">
-                                <div className="h-1.5" style={{ background: `linear-gradient(90deg, ${accent}, ${accent}66)` }} />
-                                <CardContent className="p-4">
-                                  <div className="flex items-start justify-between gap-2 mb-2">
-                                    <Badge variant="outline" className="text-xs">
-                                      <Calendar className="w-3 h-3 mr-1" />
-                                      Day {e.currentDay} of {e.program?.lengthDays}
-                                    </Badge>
-                                    <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-                                  </div>
-                                  <h3 className="text-sm font-semibold leading-tight line-clamp-2">
-                                    {e.program?.title ?? "Program"}
-                                  </h3>
-                                  <div className="flex items-center justify-between text-[11px] text-muted-foreground mt-3 mb-1">
-                                    <span>{e.completedItemCount}/{e.totalItemCount} items</span>
-                                    <span className="font-medium text-foreground">{pct}%</span>
-                                  </div>
-                                  <div className="h-1 bg-muted rounded-full overflow-hidden">
-                                    <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: accent }} />
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            </Link>
-                          );
-                        })}
-                      </div>
-                      <Link href="/programs">
-                        <button className="mt-3 w-full flex items-center justify-center gap-1.5 text-xs text-orange-400 hover:text-orange-300 transition-colors py-2" data-testid="link-all-programs">
-                          All programs <ArrowRight className="w-3 h-3" />
-                        </button>
-                      </Link>
                     </CollapsibleContent>
                   </Collapsible>
                 );
@@ -2949,6 +2869,18 @@ export default function TrainingLogPage() {
                             >
                               <Info className="w-4 h-4" />
                             </Button>
+                            {isShootingDrill && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-1 text-red-400 border-red-500/40 hover:bg-red-500/10 hover:text-red-400"
+                                onClick={() => setRecordingEntryIndex(group.entries[0].index)}
+                                data-testid={`button-record-${drillId}`}
+                              >
+                                <Circle className="w-2.5 h-2.5" fill="currentColor" />
+                                Record
+                              </Button>
+                            )}
                           <Button 
                             variant="outline" 
                             size="sm"

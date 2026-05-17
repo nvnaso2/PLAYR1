@@ -6,10 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
-  ArrowRight, BarChart2, CalendarRange, Clock, Flame, PlayCircle, Sparkles, Target, Trophy, Users,
+  ArrowRight, CalendarRange, Clock, Flame, PlayCircle, Sparkles, Trophy, Users,
 } from "lucide-react";
-import type { Event, Program, EventStatus, StatChallenge } from "@shared/schema";
-import { STAT_CHALLENGE_METRIC_LABELS } from "@shared/schema";
+import type { Event, Program, EventStatus } from "@shared/schema";
 import { track } from "@/lib/track";
 
 type EventWithMeta = Event & { status: EventStatus; program: Program | null };
@@ -19,19 +18,6 @@ const STATUS_BADGE: Record<EventStatus, { label: string; cls: string }> = {
   scheduled: { label: "Coming soon", cls: "bg-blue-500/15 text-blue-300 border-blue-500/40" },
   live:      { label: "Live now",    cls: "bg-green-500/20 text-green-300 border-green-500/40 animate-pulse" },
   finished:  { label: "Finished",    cls: "bg-zinc-500/15 text-zinc-400 border-zinc-500/40" },
-};
-
-const SHOT_LOCATION_LABELS: Record<string, string> = {
-  "free-throw":    "Free Throw",
-  "corner-left":   "Corner Left (3pt)",
-  "corner-right":  "Corner Right (3pt)",
-  "top-of-key":    "Top of Key (3pt)",
-  "wing-left":     "Wing Left (3pt)",
-  "wing-right":    "Wing Right (3pt)",
-  "block-left":    "Block Left",
-  "block-right":   "Block Right",
-  "mid-range-left":"Mid-Range Left",
-  "mid-range-right":"Mid-Range Right",
 };
 
 function formatRange(s: Date | string, e: Date | string) {
@@ -50,32 +36,15 @@ function countdown(target: Date | string) {
   return `${hours}h ${mins}m`;
 }
 
-function getChallengeStatus(c: StatChallenge): { label: string; cls: string; key: "live" | "scheduled" | "finished" } {
-  const now = Date.now();
-  const start = new Date(c.startsAt).getTime();
-  const end   = new Date(c.endsAt).getTime();
-  if (now < start) return { label: "Coming soon", cls: "bg-blue-500/15 text-blue-300 border-blue-500/40",              key: "scheduled" };
-  if (now > end)   return { label: "Finished",    cls: "bg-zinc-500/15 text-zinc-400 border-zinc-500/40",             key: "finished"  };
-  return              { label: "Live now",    cls: "bg-green-500/20 text-green-300 border-green-500/40 animate-pulse", key: "live"      };
-}
-
 export default function EventsPage() {
-  const { data: events,     isLoading: evLoading }  = useQuery<EventWithMeta[]>({ queryKey: ["/api/events"] });
-  const { data: challenges, isLoading: chLoading }  = useQuery<StatChallenge[]>({ queryKey: ["/api/stat-challenges"] });
+  const { data: events, isLoading } = useQuery<EventWithMeta[]>({ queryKey: ["/api/events"] });
 
   useEffect(() => { track("events_browse_view"); }, []);
 
   const live      = useMemo(() => (events ?? []).filter((e) => e.status === "live"),      [events]);
   const scheduled = useMemo(() => (events ?? []).filter((e) => e.status === "scheduled"), [events]);
   const finished  = useMemo(() => (events ?? []).filter((e) => e.status === "finished"),  [events]);
-  const featured  = live[0] ?? scheduled[0] ?? null;
-
-  const liveChallenges      = useMemo(() => (challenges ?? []).filter((c) => getChallengeStatus(c).key === "live"),      [challenges]);
-  const scheduledChallenges = useMemo(() => (challenges ?? []).filter((c) => getChallengeStatus(c).key === "scheduled"), [challenges]);
-  const finishedChallenges  = useMemo(() => (challenges ?? []).filter((c) => getChallengeStatus(c).key === "finished"),  [challenges]);
-
-  const isLoading = evLoading || chLoading;
-  const hasContent = (events ?? []).length + (challenges ?? []).length > 0;
+  const featured = live[0] ?? scheduled[0] ?? null;
 
   return (
     <div className="min-h-screen pb-12" data-testid="page-events">
@@ -98,13 +67,13 @@ export default function EventsPage() {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-14">
           <div className="flex items-center gap-2 text-primary text-sm font-medium mb-3">
             <Trophy className="w-4 h-4" />
-            <span className="uppercase tracking-widest text-xs">Time-Limited Competitions</span>
+            <span className="uppercase tracking-widest text-xs">Time-Limited Challenges</span>
           </div>
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight" data-testid="text-page-title">
             Events & Challenges
           </h1>
           <p className="text-lg text-muted-foreground mt-3 max-w-2xl">
-            Show up. Stack the reps. Climb the leaderboard.
+            Show up. Stack the days. Climb the leaderboard. Real programs, on the clock.
           </p>
         </div>
       </div>
@@ -117,45 +86,31 @@ export default function EventsPage() {
               {[0, 1, 2].map((i) => <Skeleton key={i} className="h-56 rounded-xl" />)}
             </div>
           </div>
-        ) : !hasContent ? (
+        ) : (events ?? []).length === 0 ? (
           <Card>
             <CardContent className="py-16 text-center" data-testid="text-events-empty">
               <Trophy className="w-12 h-12 mx-auto text-muted-foreground mb-3 opacity-40" />
-              <p className="text-lg font-semibold">No events or challenges right now</p>
-              <p className="text-sm text-muted-foreground mt-1">Check back soon — fresh competitions drop often.</p>
+              <p className="text-lg font-semibold">No events live or scheduled right now</p>
+              <p className="text-sm text-muted-foreground mt-1">Check back soon — fresh challenges drop often.</p>
             </CardContent>
           </Card>
         ) : (
           <>
             {featured && <FeaturedEvent ev={featured} />}
 
-            {/* Live section — events + challenges */}
-            {(live.filter((e) => e.id !== featured?.id).length > 0 || liveChallenges.length > 0) && (
-              <Section title="Live now" icon={<Flame className="w-5 h-5 text-green-400" />} subtitle="Jump in — clocks are ticking." variant="live">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {live.filter((e) => e.id !== featured?.id).map((ev) => <EventCard key={ev.id} ev={ev} />)}
-                  {liveChallenges.map((c) => <ChallengeCard key={c.id} c={c} />)}
-                </div>
+            {live.filter((e) => e.id !== featured?.id).length > 0 && (
+              <Section title="Live now" icon={<Flame className="w-5 h-5 text-green-400" />} subtitle="Jump in and start stacking days." variant="live">
+                <Grid items={live.filter((e) => e.id !== featured?.id)} />
               </Section>
             )}
-
-            {/* Coming soon */}
-            {(scheduled.filter((e) => e.id !== featured?.id).length > 0 || scheduledChallenges.length > 0) && (
+            {scheduled.filter((e) => e.id !== featured?.id).length > 0 && (
               <Section title="Coming soon" icon={<Sparkles className="w-5 h-5 text-blue-400" />} subtitle="On deck — get ready." variant="scheduled">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {scheduled.filter((e) => e.id !== featured?.id).map((ev) => <EventCard key={ev.id} ev={ev} />)}
-                  {scheduledChallenges.map((c) => <ChallengeCard key={c.id} c={c} />)}
-                </div>
+                <Grid items={scheduled.filter((e) => e.id !== featured?.id)} />
               </Section>
             )}
-
-            {/* Past */}
-            {(finished.length > 0 || finishedChallenges.length > 0) && (
+            {finished.length > 0 && (
               <Section title="Past events" icon={<Trophy className="w-5 h-5 text-zinc-400" />} subtitle="Final standings." variant="finished">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {finished.map((ev) => <EventCard key={ev.id} ev={ev} />)}
-                  {finishedChallenges.map((c) => <ChallengeCard key={c.id} c={c} />)}
-                </div>
+                <Grid items={finished} />
               </Section>
             )}
           </>
@@ -177,6 +132,15 @@ function Section({ title, subtitle, icon, variant, children }: {
       </div>
       {children}
     </section>
+  );
+}
+
+function Grid({ items }: { items: EventWithMeta[] }) {
+  if (items.length === 0) return null;
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {items.map((ev) => <EventCard key={ev.id} ev={ev} />)}
+    </div>
   );
 }
 
@@ -289,7 +253,9 @@ function EventCard({ ev }: { ev: EventWithMeta }) {
           }}
         >
           <div className={`absolute inset-0 transition-opacity ${ev.coverImageUrl ? "opacity-10 group-hover:opacity-25" : "opacity-30 group-hover:opacity-50"}`}
-            style={{ background: `radial-gradient(circle at 80% 100%, ${accent}aa 0%, transparent 60%)` }}
+            style={{
+              background: `radial-gradient(circle at 80% 100%, ${accent}aa 0%, transparent 60%)`,
+            }}
           />
           <div className="absolute top-3 left-3">
             <Badge variant="outline" className={`backdrop-blur-md ${sb.cls}`}>{sb.label}</Badge>
@@ -317,71 +283,6 @@ function EventCard({ ev }: { ev: EventWithMeta }) {
               <Clock className="w-3 h-3 text-muted-foreground" />
               <span className="text-muted-foreground">{cdLabel}: </span>
               <span className="font-semibold" style={{ color: accent }} data-testid={`text-countdown-${ev.slug}`}>{cd}</span>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </Link>
-  );
-}
-
-function ChallengeCard({ c }: { c: StatChallenge }) {
-  const status = getChallengeStatus(c);
-  const accent = c.accentColor || "#f97316";
-  const metricLabel = STAT_CHALLENGE_METRIC_LABELS[c.metric as keyof typeof STAT_CHALLENGE_METRIC_LABELS] ?? c.metric;
-  const locationLabel = c.shotLocationFilter ? (SHOT_LOCATION_LABELS[c.shotLocationFilter] ?? c.shotLocationFilter) : null;
-  const cd = status.key === "scheduled" ? countdown(c.startsAt)
-    : status.key === "live" ? countdown(c.endsAt) : null;
-  const cdLabel = status.key === "scheduled" ? "Starts in" : status.key === "live" ? "Ends in" : null;
-
-  return (
-    <Link href={`/compete/challenges/${c.slug}`}>
-      <Card
-        className="overflow-hidden hover-elevate active-elevate-2 cursor-pointer h-full border-border/60 group"
-        data-testid={`card-challenge-${c.slug}`}
-      >
-        {/* Header band */}
-        <div
-          className="h-36 relative overflow-hidden flex items-center justify-center"
-          style={{ background: `linear-gradient(135deg, ${accent}ee, ${accent}55)` }}
-        >
-          <div className="absolute inset-0 opacity-[0.08]"
-            style={{
-              backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)",
-              backgroundSize: "16px 16px",
-            }}
-          />
-          <BarChart2 className="w-14 h-14 text-white/20 absolute" />
-          <div className="absolute top-3 left-3 flex gap-1.5 flex-wrap">
-            <Badge variant="outline" className={`backdrop-blur-md ${status.cls}`}>{status.label}</Badge>
-            <Badge variant="outline" className="backdrop-blur-md bg-black/30 text-white/80 border-white/20 text-xs">
-              <Target className="w-2.5 h-2.5 mr-1" /> Stat Challenge
-            </Badge>
-          </div>
-        </div>
-
-        <CardContent className="p-4 space-y-2">
-          <h3
-            className="font-semibold leading-snug text-base group-hover:text-primary transition-colors"
-            data-testid={`text-challenge-title-${c.slug}`}
-          >
-            {c.title}
-          </h3>
-          <p className="text-xs text-muted-foreground flex items-center gap-1">
-            <Target className="w-3.5 h-3.5 shrink-0" />
-            {metricLabel}{locationLabel ? ` @ ${locationLabel}` : ""}
-          </p>
-          <div className="flex items-center justify-between text-xs text-muted-foreground pt-2">
-            <span className="inline-flex items-center gap-1">
-              <CalendarRange className="w-3.5 h-3.5" /> {formatRange(c.startsAt, c.endsAt)}
-            </span>
-            <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
-          </div>
-          {cd && (
-            <div className="text-xs flex items-center gap-1 pt-1">
-              <Clock className="w-3 h-3 text-muted-foreground" />
-              <span className="text-muted-foreground">{cdLabel}: </span>
-              <span className="font-semibold" style={{ color: accent }}>{cd}</span>
             </div>
           )}
         </CardContent>
