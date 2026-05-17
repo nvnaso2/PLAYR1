@@ -150,3 +150,9 @@ id = "6Bw0Sf3fwv9jQnEGf4xZO"
 uri = "file://playr1-launch-fix.zip"
 type = "unspecified"
 title = "PLAYR1 Launch Screen Fix"
+
+[[outputs]]
+id = "ukc-xDtUD45hOkxNto5tl"
+uri = "file://playr1-ios.zip"
+type = "unspecified"
+title = "PLAYR1 iOS Xcode Project"
