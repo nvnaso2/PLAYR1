@@ -69,10 +69,12 @@ import {
   events, type Event, type InsertEvent,
   eventParticipants, type EventParticipant,
   type EventStatus,
+  leaderboardChallenges, lcParticipants,
+  type LeaderboardChallenge, type InsertLC, type LCStatus,
 } from "@shared/schema";
 import { users, type User } from "@shared/models/auth";
 import { db } from "./db";
-import { eq, desc, asc, and, or, sql, gte, isNotNull, isNull, inArray } from "drizzle-orm";
+import { eq, desc, asc, and, or, sql, gte, lte, isNotNull, isNull, inArray } from "drizzle-orm";
 import { generateAiDrill } from "./ai-drill-generator";
 
 export interface IStorage {
@@ -589,6 +591,19 @@ export interface IStorage {
     shootingPct: number | null;
     compositeScore: number;
     rank: number;
+  }>>;
+
+  // Leaderboard Challenges
+  listLeaderboardChallenges(opts?: { includeUnpublished?: boolean }): Promise<Array<LeaderboardChallenge & { status: LCStatus; participantCount: number }>>;
+  getLeaderboardChallengeBySlug(slug: string, userId?: string): Promise<(LeaderboardChallenge & { status: LCStatus; participantCount: number; isJoined: boolean }) | undefined>;
+  getLeaderboardChallengeById(id: string): Promise<LeaderboardChallenge | undefined>;
+  createLeaderboardChallenge(data: InsertLC): Promise<LeaderboardChallenge>;
+  updateLeaderboardChallenge(id: string, patch: Partial<InsertLC>): Promise<LeaderboardChallenge | undefined>;
+  deleteLeaderboardChallenge(id: string): Promise<boolean>;
+  joinLeaderboardChallenge(challengeId: string, userId: string): Promise<void>;
+  getLeaderboardChallengeLeaderboard(challengeId: string, limit?: number): Promise<Array<{
+    rank: number; userId: string; firstName: string | null; lastName: string | null;
+    profileImageUrl: string | null; username: string | null; score: number;
   }>>;
 }
 
@@ -1939,6 +1954,113 @@ export class DatabaseStorage implements IStorage {
     return results.map(r => ({
       ...r.user_challenges,
       challenge: r.challenges
+    }));
+  }
+
+  // ── Leaderboard Challenges ────────────────────────────────────────────────
+  private lcStatus(ch: LeaderboardChallenge): LCStatus {
+    if (!ch.isPublished) return "draft";
+    const now = Date.now();
+    const s = new Date(ch.startsAt).getTime();
+    const e = new Date(ch.endsAt).getTime();
+    if (now < s) return "scheduled";
+    if (now > e) return "finished";
+    return "live";
+  }
+
+  async listLeaderboardChallenges({ includeUnpublished = false } = {}) {
+    const rows = await db.select().from(leaderboardChallenges).orderBy(desc(leaderboardChallenges.startsAt));
+    const counts = await db.select({
+      challengeId: lcParticipants.challengeId,
+      cnt: sql<number>`cast(count(*) as int)`,
+    }).from(lcParticipants).groupBy(lcParticipants.challengeId);
+    const cntMap: Record<string, number> = {};
+    counts.forEach(c => { cntMap[c.challengeId] = c.cnt; });
+
+    return rows
+      .filter(ch => includeUnpublished || ch.isPublished)
+      .map(ch => ({ ...ch, status: this.lcStatus(ch), participantCount: cntMap[ch.id] ?? 0 }));
+  }
+
+  async getLeaderboardChallengeBySlug(slug: string, userId?: string) {
+    const [ch] = await db.select().from(leaderboardChallenges).where(eq(leaderboardChallenges.slug, slug));
+    if (!ch) return undefined;
+    const [{ cnt }] = await db.select({ cnt: sql<number>`cast(count(*) as int)` }).from(lcParticipants).where(eq(lcParticipants.challengeId, ch.id));
+    let isJoined = false;
+    if (userId) {
+      const [p] = await db.select().from(lcParticipants).where(and(eq(lcParticipants.challengeId, ch.id), eq(lcParticipants.userId, userId)));
+      isJoined = !!p;
+    }
+    return { ...ch, status: this.lcStatus(ch), participantCount: cnt ?? 0, isJoined };
+  }
+
+  async getLeaderboardChallengeById(id: string) {
+    const [ch] = await db.select().from(leaderboardChallenges).where(eq(leaderboardChallenges.id, id));
+    return ch;
+  }
+
+  async createLeaderboardChallenge(data: InsertLC) {
+    const [ch] = await db.insert(leaderboardChallenges).values(data).returning();
+    return ch;
+  }
+
+  async updateLeaderboardChallenge(id: string, patch: Partial<InsertLC>) {
+    const [ch] = await db.update(leaderboardChallenges).set(patch).where(eq(leaderboardChallenges.id, id)).returning();
+    return ch;
+  }
+
+  async deleteLeaderboardChallenge(id: string) {
+    await db.delete(lcParticipants).where(eq(lcParticipants.challengeId, id));
+    await db.delete(leaderboardChallenges).where(eq(leaderboardChallenges.id, id));
+    return true;
+  }
+
+  async joinLeaderboardChallenge(challengeId: string, userId: string) {
+    await db.insert(lcParticipants).values({ challengeId, userId }).onConflictDoNothing();
+  }
+
+  async getLeaderboardChallengeLeaderboard(challengeId: string, limit = 100) {
+    const [ch] = await db.select().from(leaderboardChallenges).where(eq(leaderboardChallenges.id, challengeId));
+    if (!ch) return [];
+
+    const metricCol = ch.metric === "shots_made"       ? sql`COALESCE(SUM(tl.shots_made), 0)`
+                    : ch.metric === "shots_attempted"   ? sql`COALESCE(SUM(tl.shots_attempted), 0)`
+                    : ch.metric === "sessions"          ? sql`COALESCE(COUNT(DISTINCT DATE(tl.created_at)), 0)`
+                    :                                     sql`COALESCE(SUM(tl.duration), 0)`;
+
+    const locationFilter = ch.shotLocation
+      ? sql`AND (tl.shot_location = ${ch.shotLocation})`
+      : sql``;
+
+    const rows = await db.execute(sql`
+      SELECT
+        u.id         AS "userId",
+        u.first_name AS "firstName",
+        u.last_name  AS "lastName",
+        u.profile_image_url AS "profileImageUrl",
+        u.username   AS "username",
+        ${metricCol} AS score
+      FROM lc_participants p
+      JOIN users u ON u.id = p.user_id
+      LEFT JOIN training_logs tl
+        ON tl.user_id = p.user_id
+       AND tl.created_at >= ${ch.startsAt}
+       AND tl.created_at <= ${ch.endsAt}
+       ${locationFilter}
+      WHERE p.challenge_id = ${challengeId}
+      GROUP BY u.id, u.first_name, u.last_name, u.profile_image_url, u.username
+      ORDER BY score DESC
+      LIMIT ${limit}
+    `);
+
+    return (rows as any[]).map((r, i) => ({
+      rank: i + 1,
+      userId: r.userId,
+      firstName: r.firstName ?? null,
+      lastName: r.lastName ?? null,
+      profileImageUrl: r.profileImageUrl ?? null,
+      username: r.username ?? null,
+      score: Number(r.score ?? 0),
     }));
   }
 

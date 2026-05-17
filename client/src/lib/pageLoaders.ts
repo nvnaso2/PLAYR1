@@ -40,6 +40,7 @@ export const pageLoaders = {
   events: () => import("@/pages/events"),
   eventDetail: () => import("@/pages/event-detail"),
   eventEditor: () => import("@/pages/event-editor"),
+  challengeDetail: () => import("@/pages/challenge-detail"),
 } as const;
 
 // Map URL path → loader key. Used by the sidebar to preload on hover/touch.

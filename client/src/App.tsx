@@ -66,6 +66,7 @@ const ProgramEditor = lazy(pageLoaders.programEditor);
 const Events = lazy(pageLoaders.events);
 const EventDetail = lazy(pageLoaders.eventDetail);
 const EventEditor = lazy(pageLoaders.eventEditor);
+const ChallengeDetail = lazy(pageLoaders.challengeDetail);
 const TrainerPrograms = lazy(pageLoaders.trainerPrograms);
 
 function PageLoader() {
@@ -264,6 +265,9 @@ function Router() {
       <Route path="/events/:slug">{() => isAuthenticated
         ? <AuthenticatedLayout><EventDetail /></AuthenticatedLayout>
         : <Suspense fallback={<LoadingScreen />}><EventDetail /></Suspense>}</Route>
+      <Route path="/challenges/:slug">{() => isAuthenticated
+        ? <AuthenticatedLayout><ChallengeDetail /></AuthenticatedLayout>
+        : <Suspense fallback={<LoadingScreen />}><ChallengeDetail /></Suspense>}</Route>
       <Route>
         {() => {
           if (!isAuthenticated) {

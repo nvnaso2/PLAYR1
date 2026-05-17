@@ -1661,6 +1661,50 @@ export type ProgramItemCompletion = typeof programItemCompletions.$inferSelect;
 export type InsertProgramItemCompletion = z.infer<typeof insertProgramItemCompletionSchema>;
 
 // ─── Events (Program Wrapper w/ Time Window + Leaderboard) ───────────────
+// ── Leaderboard Challenges ────────────────────────────────────────────────────
+// Standalone competitive challenges: track a metric (shots made, sessions, etc.)
+// over a time window, rank all participants on a live leaderboard.
+export const LC_METRICS = ["shots_made", "shots_attempted", "sessions", "duration_minutes"] as const;
+export type LCMetric = typeof LC_METRICS[number];
+
+export const LC_STATUSES = ["draft", "scheduled", "live", "finished"] as const;
+export type LCStatus = typeof LC_STATUSES[number];
+
+export const leaderboardChallenges = pgTable("leaderboard_challenges", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  slug: varchar("slug").notNull().unique(),
+  title: varchar("title").notNull(),
+  tagline: varchar("tagline"),
+  description: text("description"),
+  coverImageUrl: varchar("cover_image_url"),
+  accentColor: varchar("accent_color").default("#f97316"),
+  startsAt: timestamp("starts_at").notNull(),
+  endsAt: timestamp("ends_at").notNull(),
+  isPublished: boolean("is_published").default(false),
+  metric: varchar("metric").$type<LCMetric>().notNull().default("shots_made"),
+  shotLocation: varchar("shot_location"), // null = any location
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const lcParticipants = pgTable("lc_participants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  challengeId: varchar("challenge_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  joinedAt: timestamp("joined_at").defaultNow(),
+}, (t) => ({
+  uq: uniqueIndex("lc_participants_uq").on(t.challengeId, t.userId),
+}));
+
+export const insertLCSchema = createInsertSchema(leaderboardChallenges).omit({ id: true, createdAt: true }).extend({
+  startsAt: z.coerce.date(),
+  endsAt: z.coerce.date(),
+  metric: z.enum(LC_METRICS).default("shots_made"),
+});
+export type LeaderboardChallenge = typeof leaderboardChallenges.$inferSelect;
+export type InsertLC = z.infer<typeof insertLCSchema>;
+export type LCParticipant = typeof lcParticipants.$inferSelect;
+
 // An Event wraps a Program with a strict start/end window and a leaderboard.
 // During the window players join → auto-enrolls them in the wrapped program
 // with `programEnrollments.eventId` set so all completions are scoped. The

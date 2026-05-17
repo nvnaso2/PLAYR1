@@ -64,6 +64,7 @@ import type { Drill, DrillCategory, DifficultyLevel, DrillMetric, VideoLibrary, 
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, METRIC_TYPES, US_STATES } from "@shared/schema";
 import { Layers, GripVertical, Calendar, CalendarRange } from "lucide-react";
 import { AdminEventsSection } from "@/components/admin-events-section";
+import { AdminChallengesSection } from "@/components/admin-challenges-section";
 import { ProgramListSection } from "@/components/program-list-section";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useUpload } from "@/hooks/use-upload";
@@ -2934,6 +2935,10 @@ export default function AdminPage() {
             <CalendarRange className="w-4 h-4 shrink-0" />
             <span>Events</span>
           </TabsTrigger>
+          <TabsTrigger value="challenges" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-challenges">
+            <Trophy className="w-4 h-4 shrink-0" />
+            <span>Challenges</span>
+          </TabsTrigger>
           <TabsTrigger value="analytics" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-analytics">
             <BarChart2 className="w-4 h-4 shrink-0" />
             <span>Analytics</span>
@@ -4251,6 +4256,10 @@ export default function AdminPage() {
 
         <TabsContent value="events" className="space-y-6">
           <AdminEventsSection />
+        </TabsContent>
+
+        <TabsContent value="challenges" className="space-y-6">
+          <AdminChallengesSection />
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-6">

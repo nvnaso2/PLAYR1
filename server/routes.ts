@@ -8649,6 +8649,95 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
     }
   });
 
+  // ── Leaderboard Challenges ─────────────────────────────────────────────────
+
+  app.get("/api/leaderboard-challenges", async (_req, res) => {
+    try {
+      res.json(await storage.listLeaderboardChallenges({ includeUnpublished: false }));
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: "Failed to list challenges" });
+    }
+  });
+
+  app.get("/api/leaderboard-challenges/:slug", optionalAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const ch = await storage.getLeaderboardChallengeBySlug(req.params.slug, userId);
+      if (!ch) return res.status(404).json({ message: "Challenge not found" });
+      res.json(ch);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: "Failed to get challenge" });
+    }
+  });
+
+  app.post("/api/leaderboard-challenges/:id/join", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      await storage.joinLeaderboardChallenge(req.params.id, userId);
+      res.json({ ok: true });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: "Failed to join challenge" });
+    }
+  });
+
+  app.get("/api/leaderboard-challenges/:id/leaderboard", optionalAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const rows = await storage.getLeaderboardChallengeLeaderboard(req.params.id, 100);
+      const annotated = rows.map(r => ({ ...r, isCurrentUser: r.userId === userId }));
+      res.json(annotated);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: "Failed to get leaderboard" });
+    }
+  });
+
+  // Admin CRUD
+  app.get("/api/admin/leaderboard-challenges", isAuthenticated, isAdmin, async (_req, res) => {
+    try {
+      res.json(await storage.listLeaderboardChallenges({ includeUnpublished: true }));
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: "Failed" });
+    }
+  });
+
+  app.post("/api/admin/leaderboard-challenges", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const slug = generateSlug(req.body.title || "challenge");
+      const ch = await storage.createLeaderboardChallenge({ ...req.body, slug, createdBy: userId });
+      res.status(201).json(ch);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: "Failed to create challenge" });
+    }
+  });
+
+  app.patch("/api/admin/leaderboard-challenges/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const ch = await storage.updateLeaderboardChallenge(req.params.id, req.body);
+      if (!ch) return res.status(404).json({ message: "Not found" });
+      res.json(ch);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: "Failed to update challenge" });
+    }
+  });
+
+  app.delete("/api/admin/leaderboard-challenges/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      await storage.deleteLeaderboardChallenge(req.params.id);
+      res.json({ ok: true });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: "Failed to delete challenge" });
+    }
+  });
+
   return httpServer;
 }
 

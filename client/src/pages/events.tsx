@@ -6,10 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
-  ArrowRight, CalendarRange, Clock, Flame, PlayCircle, Sparkles, Trophy, Users,
+  ArrowRight, CalendarRange, Clock, Flame, PlayCircle, Sparkles, Trophy, Users, Target,
 } from "lucide-react";
-import type { Event, Program, EventStatus } from "@shared/schema";
+import type { Event, Program, EventStatus, LeaderboardChallenge, LCStatus } from "@shared/schema";
 import { track } from "@/lib/track";
+
+type LCWithMeta = LeaderboardChallenge & { status: LCStatus; participantCount: number };
 
 type EventWithMeta = Event & { status: EventStatus; program: Program | null };
 
@@ -38,6 +40,7 @@ function countdown(target: Date | string) {
 
 export default function EventsPage() {
   const { data: events, isLoading } = useQuery<EventWithMeta[]>({ queryKey: ["/api/events"] });
+  const { data: challenges, isLoading: chLoading } = useQuery<LCWithMeta[]>({ queryKey: ["/api/leaderboard-challenges"] });
 
   useEffect(() => { track("events_browse_view"); }, []);
 
@@ -113,7 +116,42 @@ export default function EventsPage() {
                 <Grid items={finished} />
               </Section>
             )}
+
+            {/* Leaderboard Challenges */}
+            {(challenges ?? []).length > 0 && (
+              <section data-testid="section-challenges">
+                <div className="mb-4">
+                  <h2 className="text-2xl font-bold flex items-center gap-2">
+                    <Target className="w-5 h-5 text-primary" /> Challenges
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-1">Track a metric, climb the leaderboard.</p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {(challenges ?? []).map(ch => <ChallengeCard key={ch.id} ch={ch} />)}
+                </div>
+              </section>
+            )}
           </>
+        )}
+
+        {/* Show challenges even when no events */}
+        {!(events ?? []).length && (challenges ?? []).length > 0 && (
+          <section data-testid="section-challenges-only">
+            <div className="mb-4">
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                <Target className="w-5 h-5 text-primary" /> Challenges
+              </h2>
+            </div>
+            {chLoading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[0,1,2].map(i => <Skeleton key={i} className="h-48 rounded-xl" />)}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {(challenges ?? []).map(ch => <ChallengeCard key={ch.id} ch={ch} />)}
+              </div>
+            )}
+          </section>
         )}
       </div>
     </div>
@@ -226,6 +264,75 @@ function FeaturedEvent({ ev }: { ev: EventWithMeta }) {
             </Button>
           </div>
         </div>
+      </Card>
+    </Link>
+  );
+}
+
+const LC_STATUS_BADGE: Record<LCStatus, { label: string; cls: string }> = {
+  draft:     { label: "Draft",       cls: "bg-muted text-muted-foreground" },
+  scheduled: { label: "Coming soon", cls: "bg-blue-500/15 text-blue-300 border-blue-500/40" },
+  live:      { label: "Live now",    cls: "bg-green-500/20 text-green-300 border-green-500/40 animate-pulse" },
+  finished:  { label: "Finished",    cls: "bg-zinc-500/15 text-zinc-400 border-zinc-500/40" },
+};
+
+const METRIC_LABELS: Record<string, string> = {
+  shots_made: "Most shots made",
+  shots_attempted: "Most shots attempted",
+  sessions: "Most sessions",
+  duration_minutes: "Most practice minutes",
+};
+
+function ChallengeCard({ ch }: { ch: LCWithMeta }) {
+  const sb = LC_STATUS_BADGE[ch.status];
+  const accent = ch.accentColor || "#f97316";
+  const cd = ch.status === "scheduled" ? countdown(ch.startsAt)
+    : ch.status === "live" ? countdown(ch.endsAt) : null;
+  const cdLabel = ch.status === "scheduled" ? "Starts in" : "Ends in";
+
+  return (
+    <Link href={`/challenges/${ch.slug}`}>
+      <Card
+        className="overflow-hidden hover-elevate active-elevate-2 cursor-pointer h-full border-border/60 group"
+        data-testid={`card-challenge-${ch.slug}`}
+      >
+        <div
+          className="h-28 relative overflow-hidden flex items-center justify-center"
+          style={{ background: `linear-gradient(135deg, ${accent}dd, ${accent}44)` }}
+        >
+          <Target className="w-12 h-12 text-white/20 absolute" />
+          <div className="absolute top-3 left-3">
+            <Badge variant="outline" className={`backdrop-blur-md ${sb.cls}`}>{sb.label}</Badge>
+          </div>
+          <div className="absolute bottom-3 right-3 text-white/90 text-xs flex items-center gap-1.5 backdrop-blur bg-black/30 rounded-full px-2.5 py-1">
+            <Users className="w-3 h-3" /> {ch.participantCount ?? 0}
+          </div>
+        </div>
+        <CardContent className="p-4 space-y-2">
+          <h3
+            className="font-semibold leading-snug text-base group-hover:text-primary transition-colors"
+            data-testid={`text-challenge-title-${ch.slug}`}
+          >{ch.title}</h3>
+          {ch.tagline && <p className="text-sm text-muted-foreground line-clamp-1">{ch.tagline}</p>}
+          <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+            <Trophy className="w-3 h-3" />
+            <span>{METRIC_LABELS[ch.metric] || ch.metric}</span>
+            {ch.shotLocation && <span>· {ch.shotLocation.replace(/-/g, " ")}</span>}
+          </div>
+          <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
+            <span className="inline-flex items-center gap-1">
+              <CalendarRange className="w-3.5 h-3.5" /> {formatRange(ch.startsAt, ch.endsAt)}
+            </span>
+            <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
+          {cd && (
+            <div className="text-xs flex items-center gap-1">
+              <Clock className="w-3 h-3 text-muted-foreground" />
+              <span className="text-muted-foreground">{cdLabel}: </span>
+              <span className="font-semibold" style={{ color: accent }}>{cd}</span>
+            </div>
+          )}
+        </CardContent>
       </Card>
     </Link>
   );
