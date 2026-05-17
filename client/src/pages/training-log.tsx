@@ -72,7 +72,8 @@ import {
   Search,
   Loader2,
   Share2,
-  Info
+  Info,
+  Circle
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Drill, TrainingLog, DrillMetric, MetricTemplate, Workout, WorkoutDrill, ShotLocationDB, Challenge, UserChallenge } from "@shared/schema";
