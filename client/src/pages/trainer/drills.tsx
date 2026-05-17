@@ -65,9 +65,7 @@ import {
   Upload,
   Video,
   X,
-  Layers2,
 } from "lucide-react";
-import { ComboDrillBuilder, ComboBadge } from "@/components/combo-drill-builder";
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS } from "@shared/schema";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -129,7 +127,6 @@ interface TrainerDrill {
   trackShots: boolean | null;
   videoUrl: string | null;
   userId: string | null;
-  comboComponents?: Array<{ drillId: string; order: number }> | null;
   createdAt: string;
 }
 
@@ -549,7 +546,6 @@ function AllDrillsSection() {
 function MyDrillsSection() {
   const { toast } = useToast();
   const [createOpen, setCreateOpen] = useState(false);
-  const [comboDrillOpen, setComboDrillOpen] = useState(false);
   const [editDrillId, setEditDrillId] = useState<string | null>(null);
   const [deleteDrillId, setDeleteDrillId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
@@ -680,14 +676,9 @@ function MyDrillsSection() {
     <div className="space-y-4 pt-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">Your custom drills</p>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setComboDrillOpen(true)} data-testid="button-combo-drill">
-            <Layers2 className="w-4 h-4 mr-1" /> Combine Drills
-          </Button>
-          <Button onClick={() => { resetForm(); setCreateOpen(true); }} data-testid="button-create-drill">
-            <Plus className="w-4 h-4 mr-1" /> Create Drill
-          </Button>
-        </div>
+        <Button onClick={() => { resetForm(); setCreateOpen(true); }} data-testid="button-create-drill">
+          <Plus className="w-4 h-4 mr-1" /> Create Drill
+        </Button>
       </div>
 
       {isLoading ? (
@@ -706,10 +697,7 @@ function MyDrillsSection() {
               data-testid={`row-my-drill-${drill.id}`}
             >
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium truncate">{drill.title}</p>
-                  {drill.comboComponents && drill.comboComponents.length > 0 && <ComboBadge />}
-                </div>
+                <p className="text-sm font-medium truncate">{drill.title}</p>
                 <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                   <Badge variant="outline" className="no-default-hover-elevate text-[10px]">
                     {drill.category.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
@@ -719,9 +707,6 @@ function MyDrillsSection() {
                     <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
                       <Clock className="w-3 h-3" />{drill.duration}s
                     </span>
-                  )}
-                  {drill.comboComponents && drill.comboComponents.length > 0 && (
-                    <span className="text-[10px] text-muted-foreground">{drill.comboComponents.length} drills</span>
                   )}
                 </div>
               </div>
@@ -842,14 +827,6 @@ function MyDrillsSection() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <ComboDrillBuilder
-        open={comboDrillOpen}
-        onClose={() => setComboDrillOpen(false)}
-        onCreated={() => {
-          queryClient.invalidateQueries({ queryKey: ["/api/trainer/drills"] });
-          queryClient.invalidateQueries({ queryKey: ["/api/user/my-drills"] });
-        }}
-      />
     </div>
   );
 }

@@ -72,15 +72,13 @@ import {
   Search,
   Loader2,
   Share2,
-  Info,
-  Layers2,
+  Info
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Drill, TrainingLog, DrillMetric, MetricTemplate, Workout, WorkoutDrill, ShotLocationDB, Challenge, UserChallenge } from "@shared/schema";
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, insertDrillSchema, insertWorkoutSchema } from "@shared/schema";
 import { FreeShotMode } from "@/components/free-shoot-mode";
 import { WorkoutShareDialog } from "@/components/workout-share-dialog";
-import { ComboDrillBuilder, ComboBadge } from "@/components/combo-drill-builder";
 import { DrillTimer } from "@/components/drill-timer";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Label } from "@/components/ui/label";
@@ -158,7 +156,6 @@ export default function TrainingLogPage() {
   const [showCreateWorkoutMode, setShowCreateWorkoutMode] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [showChallengeDialog, setShowChallengeDialog] = useState(false);
-  const [showComboDrillBuilder, setShowComboDrillBuilder] = useState(false);
   const [drillInfoOpen, setDrillInfoOpen] = useState<Drill | null>(null);
   const [newChallenge, setNewChallenge] = useState({
     name: "",
@@ -1896,17 +1893,6 @@ export default function TrainingLogPage() {
                     </div>
                   </CardContent>
                 </Card>
-                <Card className="cursor-pointer hover-elevate" onClick={() => setShowComboDrillBuilder(true)} data-testid="action-combo-drill">
-                  <CardContent className="p-4 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center shrink-0">
-                      <Layers2 className="w-5 h-5 text-purple-500" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-sm">Combine Drills</h3>
-                      <p className="text-xs text-muted-foreground">Build a combo drill</p>
-                    </div>
-                  </CardContent>
-                </Card>
                 <Card
                   className="cursor-pointer hover-elevate"
                   onClick={() => setShowFreeShotMode(true)}
@@ -2116,12 +2102,6 @@ export default function TrainingLogPage() {
                 );
               })()}
 
-              {/* Combo Drill Builder */}
-              <ComboDrillBuilder
-                open={showComboDrillBuilder}
-                onClose={() => setShowComboDrillBuilder(false)}
-              />
-
               {/* Create Challenge Dialog */}
               <Dialog open={showChallengeDialog} onOpenChange={setShowChallengeDialog}>
                 <DialogContent>
@@ -2299,11 +2279,8 @@ export default function TrainingLogPage() {
                             onClick={() => toggleDrillSelection(drill.id)}
                             data-testid={`start-drill-option-${drill.id}`}
                           >
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <h4 className="font-medium text-sm uppercase truncate">{drill.title}</h4>
-                                {(drill as any).comboComponents?.length > 0 && <ComboBadge />}
-                              </div>
+                            <div>
+                              <h4 className="font-medium text-sm uppercase">{drill.title}</h4>
                               <p className="text-xs text-muted-foreground">
                                 {formatCategory(drill.category)} - {drill.difficulty}
                               </p>
@@ -3073,16 +3050,13 @@ export default function TrainingLogPage() {
                           onClick={() => { addDrillToWorkout(drill.id); setDrillSearchQuery(""); }}
                           data-testid={`add-drill-option-${drill.id}`}
                         >
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <h4 className="font-medium text-sm uppercase truncate">{drill.title}</h4>
-                              {(drill as any).comboComponents?.length > 0 && <ComboBadge />}
-                            </div>
+                          <div>
+                            <h4 className="font-medium text-sm uppercase">{drill.title}</h4>
                             <p className="text-xs text-muted-foreground">
                               {formatCategory(drill.category)} - {drill.difficulty}
                             </p>
                           </div>
-                          <Plus className="w-4 h-4 text-muted-foreground shrink-0" />
+                          <Plus className="w-4 h-4 text-muted-foreground" />
                         </div>
                       ));
                     })()}
