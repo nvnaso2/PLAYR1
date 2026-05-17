@@ -1027,15 +1027,55 @@ function SeasonCard({ data, platform }: { data: SeasonData; platform: Platform }
 }
 
 // ─── Capture helpers ──────────────────────────────────────────────────────────
+
+// Pre-convert the logo PNG to a data URL so html2canvas never sees a URL path
+// (url paths resolve to a 0-dimension intermediate canvas and crash html2canvas).
+let _logoDataUrl: string | null = null;
+let _logoPromise: Promise<string> | null = null;
+function ensureLogoDataUrl(): Promise<string> {
+  if (_logoDataUrl) return Promise.resolve(_logoDataUrl);
+  if (_logoPromise) return _logoPromise;
+  _logoPromise = new Promise<string>((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      try {
+        const c = document.createElement("canvas");
+        c.width = img.naturalWidth; c.height = img.naturalHeight;
+        const ctx = c.getContext("2d");
+        if (!ctx) { resolve(playr1Logo); return; }
+        ctx.drawImage(img, 0, 0);
+        _logoDataUrl = c.toDataURL("image/png");
+        resolve(_logoDataUrl);
+      } catch { resolve(playr1Logo); }
+    };
+    img.onerror = () => resolve(playr1Logo);
+    img.src = playr1Logo;
+  });
+  return _logoPromise;
+}
+
 async function captureCard(ref: React.RefObject<HTMLDivElement>, platform: Platform): Promise<HTMLCanvasElement | null> {
   if (!ref.current) return null;
   const el = ref.current.querySelector("[data-share-card]") as HTMLElement;
   if (!el) return null;
   const cfg = PLATFORMS.find(p => p.id === platform)!;
-  return html2canvas(el, {
-    width: cfg.w, height: cfg.h, scale: 1,
-    backgroundColor: null, logging: false, useCORS: true, allowTaint: true,
-  });
+
+  // Swap all logo <img> srcs to the cached data URL before capture,
+  // then restore them afterwards so the preview still works.
+  const logoDataUrl = await ensureLogoDataUrl();
+  const imgs = Array.from(el.querySelectorAll<HTMLImageElement>("img"));
+  const origSrcs = imgs.map(i => i.src);
+  imgs.forEach(i => { i.src = logoDataUrl; });
+
+  try {
+    return await html2canvas(el, {
+      width: cfg.w, height: cfg.h, scale: 1,
+      backgroundColor: null, logging: false, useCORS: true, allowTaint: true,
+    });
+  } finally {
+    imgs.forEach((i, idx) => { i.src = origSrcs[idx]; });
+  }
 }
 
 function buildCaption(type: CardType, data: WorkoutData | PeriodData | SeasonData | undefined): string {
