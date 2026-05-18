@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Calendar, Clock, Flame, Sparkles, Users } from "lucide-react";
 import type { Program } from "@shared/schema";
+import { getObjectUrl } from "@/lib/queryClient";
 
 const difficultyColors: Record<string, string> = {
   beginner: "bg-green-500/15 text-green-400 border-green-500/30",
@@ -49,7 +50,7 @@ export function ProgramCard({ program, enrolledCount, totalItems, variant = "gri
           className={`relative overflow-hidden ${isFeatured ? "h-56 md:h-64" : "h-40"}`}
           style={{
             background: program.coverImageUrl
-              ? `linear-gradient(135deg, ${accent}99 0%, rgba(0,0,0,0.45) 60%, rgba(0,0,0,0.7) 100%), url("${program.coverImageUrl.replace(/["\\\n\r<>]/g, "")}") center/cover no-repeat`
+              ? `linear-gradient(135deg, ${accent}99 0%, rgba(0,0,0,0.45) 60%, rgba(0,0,0,0.7) 100%), url("${getObjectUrl(program.coverImageUrl)}") center/cover no-repeat`
               : `linear-gradient(135deg, ${accent}cc 0%, ${accent}66 50%, hsl(var(--card)) 100%)`,
           }}
         >

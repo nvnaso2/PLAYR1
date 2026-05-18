@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import type { Event, Program, EventStatus, LeaderboardChallenge, LCStatus } from "@shared/schema";
 import { track } from "@/lib/track";
+import { getObjectUrl } from "@/lib/queryClient";
 
 type LCWithMeta = LeaderboardChallenge & { status: LCStatus; participantCount: number };
 
@@ -199,7 +200,7 @@ function FeaturedEvent({ ev }: { ev: EventWithMeta }) {
           className="absolute inset-0"
           style={{
             background: ev.coverImageUrl
-              ? `linear-gradient(115deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.55) 45%, rgba(0,0,0,0.15) 100%), url("${ev.coverImageUrl}") center/cover no-repeat`
+              ? `linear-gradient(115deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.55) 45%, rgba(0,0,0,0.15) 100%), url("${getObjectUrl(ev.coverImageUrl)}") center/cover no-repeat`
               : `linear-gradient(135deg, ${accent}cc 0%, ${accent}55 45%, ${accent}11 100%)`,
           }}
         />
@@ -355,7 +356,7 @@ function EventCard({ ev }: { ev: EventWithMeta }) {
           className="h-36 relative overflow-hidden"
           style={{
             background: ev.coverImageUrl
-              ? `linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.75) 100%), url("${ev.coverImageUrl}") center/cover no-repeat`
+              ? `linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.75) 100%), url("${getObjectUrl(ev.coverImageUrl)}") center/cover no-repeat`
               : `linear-gradient(135deg, ${accent}dd, ${accent}44)`,
           }}
         >

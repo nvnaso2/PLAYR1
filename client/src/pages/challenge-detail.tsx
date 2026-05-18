@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/use-auth";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient, getObjectUrl } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { CalendarRange, Clock, Users, Trophy, Medal, Target, Flame } from "lucide-react";
 import type { LeaderboardChallenge, LCStatus } from "@shared/schema";
@@ -132,7 +132,7 @@ export default function ChallengeDetailPage() {
         className="relative overflow-hidden border-b border-border/40"
         style={{
           background: challenge.coverImageUrl
-            ? `linear-gradient(115deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.55) 45%, rgba(0,0,0,0.15) 100%), url("${challenge.coverImageUrl}") center/cover no-repeat`
+            ? `linear-gradient(115deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.55) 45%, rgba(0,0,0,0.15) 100%), url("${getObjectUrl(challenge.coverImageUrl)}") center/cover no-repeat`
             : `linear-gradient(135deg, ${accent}cc 0%, ${accent}44 60%, transparent 100%)`,
         }}
       >

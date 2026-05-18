@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { useParams, Link, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient, getObjectUrl } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { track } from "@/lib/track";
 import { Button } from "@/components/ui/button";
@@ -115,7 +115,7 @@ export default function ProgramDetailPage() {
         className="relative overflow-hidden border-b border-border/40"
         style={{
           background: program.coverImageUrl
-            ? `linear-gradient(115deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.55) 45%, rgba(0,0,0,0.25) 100%), url("${program.coverImageUrl.replace(/["\\\n\r<>]/g, "")}") center/cover no-repeat`
+            ? `linear-gradient(115deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.55) 45%, rgba(0,0,0,0.25) 100%), url("${getObjectUrl(program.coverImageUrl)}") center/cover no-repeat`
             : `linear-gradient(135deg, ${accent}cc 0%, ${accent}55 40%, hsl(var(--background)) 100%)`,
         }}
       >
