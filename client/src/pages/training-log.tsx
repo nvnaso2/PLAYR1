@@ -2895,6 +2895,7 @@ export default function TrainingLogPage() {
                             <input
                               type="file"
                               accept="video/*"
+                              capture="environment"
                               ref={(el) => { if (el) recordInputRefs.current[drillId] = el; }}
                               className="hidden"
                               onChange={async (e) => {
@@ -2916,9 +2917,9 @@ export default function TrainingLogPage() {
                               <Info className="w-4 h-4" />
                             </Button>
                             <Button
-                              variant="outline"
+                              variant="ghost"
                               size="icon"
-                              className={`h-8 w-8 ${drillRecordings[drillId] ? 'border-green-500 text-green-500' : ''}`}
+                              className={`h-8 w-8 ${drillRecordings[drillId] ? 'bg-green-500/10 text-green-500 hover:bg-green-500/20 hover:text-green-500' : 'bg-red-500/10 text-red-500 hover:bg-red-500/20 hover:text-red-500'}`}
                               onClick={() => recordInputRefs.current[drillId]?.click()}
                               disabled={drillRecordingUploading === drillId}
                               title={drillRecordings[drillId] ? 'Recording saved to Film Room' : 'Record this drill'}

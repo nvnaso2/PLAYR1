@@ -4806,7 +4806,7 @@ export class DatabaseStorage implements IStorage {
       SELECT
         COUNT(DISTINCT CONCAT(COALESCE(workout_session_id, id), '-', drill_id)) AS total_drills,
         COUNT(DISTINCT workout_session_id) AS total_workouts,
-        COALESCE(SUM(duration_minutes), 0)::int AS total_minutes,
+        COALESCE(SUM(duration), 0)::int AS total_minutes,
         COUNT(DISTINCT drill_id) AS unique_drill_types,
         MIN(completed_at) AS first_log,
         MAX(completed_at) AS last_log
