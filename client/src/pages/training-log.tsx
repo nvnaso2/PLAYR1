@@ -878,6 +878,7 @@ export default function TrainingLogPage() {
       queryClient.invalidateQueries({ queryKey: ['/api/training-logs'] });
       queryClient.invalidateQueries({ queryKey: ['/api/stats/overview'] });
       queryClient.invalidateQueries({ queryKey: ['/api/assigned-drills'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/leaderboard-challenges'] });
       track("drill_log_completed", { drillId: variables?.drillId, duration: variables?.duration });
     },
   });
@@ -914,6 +915,7 @@ export default function TrainingLogPage() {
       queryClient.invalidateQueries({ queryKey: ['/api/training-logs', viewEditLogId] });
       queryClient.invalidateQueries({ queryKey: ['/api/stats/overview'] });
       queryClient.invalidateQueries({ queryKey: ['/api/stats/weekly'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/leaderboard-challenges'] });
       toast({ title: "Training log updated" });
       setViewEditLogId(null);
       setIsEditMode(false);
@@ -1529,6 +1531,7 @@ export default function TrainingLogPage() {
       // Immediately invalidate only what the user sees next
       queryClient.invalidateQueries({ queryKey: ['/api/training-logs'] });
       queryClient.invalidateQueries({ queryKey: ['/api/assigned-drills'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/leaderboard-challenges'] });
 
       // Compute summary before state is cleared
       const challengeCount = Object.keys(challengeUpdates).length;

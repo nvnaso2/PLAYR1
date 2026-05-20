@@ -76,9 +76,8 @@ export default function ChallengeDetailPage() {
   });
 
   const { data: leaderboard, isLoading: lbLoading } = useQuery<LeaderboardEntry[]>({
-    queryKey: [`/api/leaderboard-challenges/${challenge?.id}/leaderboard`],
+    queryKey: ['/api/leaderboard-challenges', challenge?.id, 'leaderboard'],
     enabled: !!challenge?.id,
-    refetchInterval: challenge?.status === "live" ? 30_000 : false,
   });
 
   useEffect(() => {
@@ -92,7 +91,7 @@ export default function ChallengeDetailPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/leaderboard-challenges/${slug}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/leaderboard-challenges/${challenge!.id}/leaderboard`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/leaderboard-challenges', challenge!.id, 'leaderboard'] });
       queryClient.invalidateQueries({ queryKey: ["/api/leaderboard-challenges/my-active"] });
       toast({ title: "You're in!", description: "Your training logs will count toward the leaderboard." });
     },
@@ -107,7 +106,7 @@ export default function ChallengeDetailPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/leaderboard-challenges/${slug}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/leaderboard-challenges/${challenge!.id}/leaderboard`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/leaderboard-challenges', challenge!.id, 'leaderboard'] });
       queryClient.invalidateQueries({ queryKey: ["/api/leaderboard-challenges/my-active"] });
       toast({ title: "Left challenge", description: "You've been removed from the leaderboard." });
     },

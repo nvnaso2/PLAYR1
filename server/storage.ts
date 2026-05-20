@@ -604,7 +604,7 @@ export interface IStorage {
   leaveLeaderboardChallenge(challengeId: string, userId: string): Promise<void>;
   getLeaderboardChallengeLeaderboard(challengeId: string, limit?: number): Promise<Array<{
     rank: number; userId: string; firstName: string | null; lastName: string | null;
-    profileImageUrl: string | null; username: string | null; score: number;
+    profileImageUrl: string | null; username: string | null; email?: string | null; score: number;
   }>>;
 }
 
@@ -2069,7 +2069,7 @@ export class DatabaseStorage implements IStorage {
         u.first_name AS "firstName",
         u.last_name  AS "lastName",
         u.profile_image_url AS "profileImageUrl",
-        u.username   AS "username",
+        u.email      AS "email",
         ${metricCol} AS score
       FROM lc_participants p
       JOIN users u ON u.id = p.user_id
@@ -2079,7 +2079,7 @@ export class DatabaseStorage implements IStorage {
        AND tl.completed_at <= ${ch.endsAt}
        ${locationFilter}
       WHERE p.challenge_id = ${challengeId}
-      GROUP BY u.id, u.first_name, u.last_name, u.profile_image_url, u.username
+      GROUP BY u.id, u.first_name, u.last_name, u.profile_image_url, u.email
       ORDER BY score DESC
       LIMIT ${limit}
     `);
@@ -2091,7 +2091,7 @@ export class DatabaseStorage implements IStorage {
       firstName: r.firstName ?? r.firstname ?? null,
       lastName: r.lastName ?? r.lastname ?? null,
       profileImageUrl: r.profileImageUrl ?? r.profile_image_url ?? null,
-      username: r.username ?? null,
+      username: r.email ? r.email.split("@")[0] : null,
       score: Number(r.score ?? 0),
     }));
   }
