@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient, getObjectUrl } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { CalendarRange, Clock, Users, Trophy, Medal, Target, Flame } from "lucide-react";
+import { ArrowLeft, CalendarRange, Clock, Users, Trophy, Medal, Target, Flame } from "lucide-react";
 import type { LeaderboardChallenge, LCStatus } from "@shared/schema";
 import { track } from "@/lib/track";
 
@@ -139,6 +139,13 @@ export default function ChallengeDetailPage() {
         <div className="absolute inset-0 opacity-[0.06]"
           style={{ backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)", backgroundSize: "20px 20px" }} />
         <div className="relative max-w-3xl mx-auto px-4 py-10 md:py-14">
+          <button
+            onClick={() => window.history.back()}
+            className="flex items-center gap-1.5 text-sm text-white/70 hover:text-white mb-5 transition-colors"
+            data-testid="button-back-challenge"
+          >
+            <ArrowLeft className="w-4 h-4" /> Back
+          </button>
           <div className="flex flex-wrap items-center gap-2 mb-4">
             <Badge variant="outline" className={`backdrop-blur-md ${sb.cls}`}>{sb.label}</Badge>
             {challenge.shotLocation && (

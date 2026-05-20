@@ -72,7 +72,9 @@ import {
   Search,
   Loader2,
   Share2,
-  Info
+  Info,
+  Camera,
+  CheckCircle2,
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Drill, TrainingLog, DrillMetric, MetricTemplate, Workout, WorkoutDrill, ShotLocationDB, Challenge, UserChallenge } from "@shared/schema";
@@ -157,6 +159,9 @@ export default function TrainingLogPage() {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [showChallengeDialog, setShowChallengeDialog] = useState(false);
   const [drillInfoOpen, setDrillInfoOpen] = useState<Drill | null>(null);
+  const [drillRecordings, setDrillRecordings] = useState<Record<string, string>>({});
+  const [drillRecordingUploading, setDrillRecordingUploading] = useState<string | null>(null);
+  const recordInputRefs = useRef<Record<string, HTMLInputElement>>({});
   const [newChallenge, setNewChallenge] = useState({
     name: "",
     description: "",
@@ -394,6 +399,11 @@ export default function TrainingLogPage() {
     queryKey: ['/api/challenges/my-challenges'],
   });
 
+  // Fetch user's active leaderboard challenge participations for shot highlighting
+  const { data: activeLCChallenges } = useQuery<Array<{ id: string; title: string; metric: string; shotLocation: string | null; accentColor: string | null }>>({
+    queryKey: ['/api/leaderboard-challenges/my-active'],
+  });
+
   const { data: allChallenges } = useQuery<Challenge[]>({
     queryKey: ['/api/challenges']
   });
@@ -419,20 +429,105 @@ export default function TrainingLogPage() {
   // Get active challenges that match a drill's category
   const getMatchingChallenges = (drillCategory: string) => {
     if (!activeChallenges) return [];
-    // Map drill categories to challenge categories
     const categoryMap: Record<string, string> = {
       'shooting': 'shooting',
       'ball-handling': 'ball-handling',
       'passing': 'passing',
-      'finishing': 'shooting', // Finishing drills can track to shooting challenges
+      'finishing': 'shooting',
       'workouts': 'workout',
       'defense': 'workout',
       'film-session': 'workout',
     };
     const challengeCategory = categoryMap[drillCategory] || drillCategory;
-    return activeChallenges.filter(uc => 
+    return activeChallenges.filter(uc =>
       !uc.isCompleted && uc.challenge.category === challengeCategory
     );
+  };
+
+  // Get active leaderboard challenges matching a shot location
+  const getMatchingLCChallenges = (shotLocation: string) => {
+    if (!activeLCChallenges?.length) return [];
+    return activeLCChallenges.filter(c =>
+      c.metric === 'shots_made' &&
+      (c.shotLocation === null || c.shotLocation === shotLocation)
+    );
+  };
+
+  // Upload a drill recording to Film Room
+  const uploadDrillRecording = async (drillId: string, drillTitle: string, file: File) => {
+    setDrillRecordingUploading(drillId);
+    try {
+      // Generate thumbnail from video
+      const thumbnailBlob = await new Promise<Blob | null>((resolve) => {
+        const video = document.createElement("video");
+        const url = URL.createObjectURL(file);
+        video.src = url; video.muted = true; video.playsInline = true; video.preload = "metadata";
+        const capture = () => {
+          try {
+            const MAX = 640;
+            const scale = Math.min(MAX / video.videoWidth, MAX / video.videoHeight, 1);
+            const canvas = document.createElement("canvas");
+            canvas.width = Math.round(video.videoWidth * scale);
+            canvas.height = Math.round(video.videoHeight * scale);
+            canvas.getContext("2d")!.drawImage(video, 0, 0, canvas.width, canvas.height);
+            canvas.toBlob((b) => { URL.revokeObjectURL(url); resolve(b); }, "image/jpeg", 0.82);
+          } catch { URL.revokeObjectURL(url); resolve(null); }
+        };
+        video.addEventListener("loadedmetadata", () => { video.currentTime = video.duration > 1 ? 1 : 0; });
+        video.addEventListener("seeked", capture);
+        video.addEventListener("error", () => { URL.revokeObjectURL(url); resolve(null); });
+      });
+
+      // Request presigned URL
+      const urlRes = await nativeFetch("/api/user/uploads/request-url", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type || "video/mp4" }),
+      });
+      if (!urlRes.ok) throw new Error("Failed to get upload URL");
+      const { uploadURL, objectPath } = await urlRes.json();
+
+      // Upload video
+      const uploadRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type || "video/mp4" } });
+      if (!uploadRes.ok) throw new Error("Upload failed");
+
+      // Finalize (non-fatal)
+      try { await nativeFetch("/api/uploads/finalize-video", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ objectPath }) }); } catch {}
+
+      // Upload thumbnail
+      let thumbPath: string | null = null;
+      if (thumbnailBlob) {
+        try {
+          const thumbFile = new File([thumbnailBlob], "thumbnail.jpg", { type: "image/jpeg" });
+          const tr = await nativeFetch("/api/user/uploads/photo-url", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: "thumbnail.jpg", size: thumbFile.size, contentType: "image/jpeg" }),
+          });
+          if (tr.ok) {
+            const { uploadURL: tURL, objectPath: tPath } = await tr.json();
+            await fetch(tURL, { method: "PUT", body: thumbFile, headers: { "Content-Type": "image/jpeg" } });
+            thumbPath = tPath;
+          }
+        } catch {}
+      }
+
+      // Save to Film Room
+      await apiRequest("POST", "/api/videos", {
+        title: `${drillTitle} — Training Recording`,
+        videoUrl: objectPath,
+        thumbnailUrl: thumbPath,
+        drillId,
+        isPublic: false,
+        description: "Recorded during a training session",
+      });
+      setDrillRecordings(prev => ({ ...prev, [drillId]: objectPath }));
+      queryClient.invalidateQueries({ queryKey: ['/api/videos'] });
+      toast({ title: "Recording saved to Film Room", description: "View it any time in your Film Room." });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Upload failed";
+      toast({ title: "Recording Failed", description: msg, variant: "destructive" });
+    } finally {
+      setDrillRecordingUploading(null);
+    }
   };
 
   // Create drill form
@@ -2797,6 +2892,18 @@ export default function TrainingLogPage() {
                             </div>
                           </div>
                           <div className="flex items-center gap-1">
+                            <input
+                              type="file"
+                              accept="video/*"
+                              ref={(el) => { if (el) recordInputRefs.current[drillId] = el; }}
+                              className="hidden"
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (file) await uploadDrillRecording(drillId, group.drill.title, file);
+                                e.target.value = '';
+                              }}
+                              data-testid={`input-record-${drillId}`}
+                            />
                             <Button
                               variant="outline"
                               size="icon"
@@ -2807,6 +2914,21 @@ export default function TrainingLogPage() {
                               aria-label={`View details for ${group.drill.title}`}
                             >
                               <Info className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className={`h-8 w-8 ${drillRecordings[drillId] ? 'border-green-500 text-green-500' : ''}`}
+                              onClick={() => recordInputRefs.current[drillId]?.click()}
+                              disabled={drillRecordingUploading === drillId}
+                              title={drillRecordings[drillId] ? 'Recording saved to Film Room' : 'Record this drill'}
+                              data-testid={`button-record-${drillId}`}
+                            >
+                              {drillRecordingUploading === drillId
+                                ? <Loader2 className="w-4 h-4 animate-spin" />
+                                : drillRecordings[drillId]
+                                ? <CheckCircle2 className="w-4 h-4" />
+                                : <Camera className="w-4 h-4" />}
                             </Button>
                           <Button 
                             variant="outline" 
@@ -2874,7 +2996,7 @@ export default function TrainingLogPage() {
                             </thead>
                             <tbody>
                               {group.entries.map(({ entry, index }, roundIdx) => (
-                                <tr key={index} className="border-b last:border-0 hover:bg-muted/20" data-testid={`workout-row-${index}`}>
+                                <tr key={index} className={`border-b last:border-0 hover:bg-muted/20 ${isShootingDrill && entry.shotLocation && getMatchingLCChallenges(entry.shotLocation).length > 0 ? 'bg-primary/5 ring-1 ring-inset ring-primary/20' : ''}`} data-testid={`workout-row-${index}`}>
                                   <td className="p-2 sm:p-3">
                                     <Badge variant="secondary" className="text-xs font-semibold">
                                       {roundIdx + 1}
@@ -2903,6 +3025,12 @@ export default function TrainingLogPage() {
                                           ))}
                                         </SelectContent>
                                       </Select>
+                                      {entry.shotLocation && getMatchingLCChallenges(entry.shotLocation).map(c => (
+                                        <div key={c.id} className="flex items-center gap-1 mt-1" data-testid={`badge-lc-${c.id}-${index}`}>
+                                          <Trophy className="w-3 h-3 text-primary shrink-0" />
+                                          <span className="text-[10px] text-primary font-medium truncate max-w-[120px]">{c.title}</span>
+                                        </div>
+                                      ))}
                                     </td>
                                   )}
                                   {metricColumns.map(dm => (
@@ -3114,12 +3242,36 @@ export default function TrainingLogPage() {
                   {drillInfoOpen.description}
                 </div>
               )}
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="secondary" className="capitalize" data-testid="badge-drill-difficulty">{drillInfoOpen.difficulty}</Badge>
+                {drillInfoOpen.category && <Badge variant="outline" className="capitalize">{formatCategory(drillInfoOpen.category)}</Badge>}
+                {drillInfoOpen.duration && <Badge variant="outline">~{Math.round(drillInfoOpen.duration / 60)} min</Badge>}
+                {drillInfoOpen.trackShots && <Badge variant="outline" className="text-primary border-primary/40">Shot Tracking</Badge>}
+              </div>
+              {drillInfoOpen.equipment && drillInfoOpen.equipment.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Equipment</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {drillInfoOpen.equipment.map((eq, i) => (
+                      <Badge key={i} variant="outline" className="text-xs">{eq}</Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {drillInfoOpen.tips && drillInfoOpen.tips.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Tips</p>
+                  <ul className="space-y-2">
+                    {drillInfoOpen.tips.map((tip, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+                        {tip}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               <DialogFooter>
-                <Link href={`/drill/${drillInfoOpen.id}`}>
-                  <Button variant="outline" data-testid="button-open-full-drill">
-                    Open full drill page
-                  </Button>
-                </Link>
                 <Button onClick={() => setDrillInfoOpen(null)} data-testid="button-close-drill-info">
                   Close
                 </Button>

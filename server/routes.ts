@@ -8661,6 +8661,16 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
     }
   });
 
+  app.get("/api/leaderboard-challenges/my-active", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      res.json(await storage.getMyActiveLeaderboardChallenges(userId));
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: "Failed" });
+    }
+  });
+
   app.get("/api/leaderboard-challenges/:slug", optionalAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user?.claims?.sub;

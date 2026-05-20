@@ -2020,6 +2020,29 @@ export class DatabaseStorage implements IStorage {
     await db.insert(lcParticipants).values({ challengeId, userId }).onConflictDoNothing();
   }
 
+  async getMyActiveLeaderboardChallenges(userId: string) {
+    const now = new Date();
+    const rows = await db
+      .select({
+        id: leaderboardChallenges.id,
+        title: leaderboardChallenges.title,
+        metric: leaderboardChallenges.metric,
+        shotLocation: leaderboardChallenges.shotLocation,
+        accentColor: leaderboardChallenges.accentColor,
+      })
+      .from(lcParticipants)
+      .innerJoin(leaderboardChallenges, eq(lcParticipants.challengeId, leaderboardChallenges.id))
+      .where(
+        and(
+          eq(lcParticipants.userId, userId),
+          lte(leaderboardChallenges.startsAt, now),
+          gte(leaderboardChallenges.endsAt, now),
+          eq(leaderboardChallenges.isPublished, true)
+        )
+      );
+    return rows;
+  }
+
   async getLeaderboardChallengeLeaderboard(challengeId: string, limit = 100) {
     const [ch] = await db.select().from(leaderboardChallenges).where(eq(leaderboardChallenges.id, challengeId));
     if (!ch) return [];
