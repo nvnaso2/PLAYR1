@@ -162,3 +162,9 @@ id = "Nu29Y6GToCN5NOQSMnuHg"
 uri = "file://PLAYR1-ios.tar.gz"
 type = "unspecified"
 title = "PLAYR1 iOS Xcode Project"
+
+[[outputs]]
+id = "KuhTypfuk2orCD-k9jUW6"
+uri = "file://PLAYR1-public.tar.gz"
+type = "unspecified"
+title = "PLAYR1 public folder (7 items)"
