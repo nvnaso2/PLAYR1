@@ -8694,6 +8694,17 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
     }
   });
 
+  app.delete("/api/leaderboard-challenges/:id/leave", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      await storage.leaveLeaderboardChallenge(req.params.id, userId);
+      res.json({ ok: true });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: "Failed to leave challenge" });
+    }
+  });
+
   app.get("/api/leaderboard-challenges/:id/leaderboard", optionalAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user?.claims?.sub;

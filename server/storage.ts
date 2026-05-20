@@ -601,6 +601,7 @@ export interface IStorage {
   updateLeaderboardChallenge(id: string, patch: Partial<InsertLC>): Promise<LeaderboardChallenge | undefined>;
   deleteLeaderboardChallenge(id: string): Promise<boolean>;
   joinLeaderboardChallenge(challengeId: string, userId: string): Promise<void>;
+  leaveLeaderboardChallenge(challengeId: string, userId: string): Promise<void>;
   getLeaderboardChallengeLeaderboard(challengeId: string, limit?: number): Promise<Array<{
     rank: number; userId: string; firstName: string | null; lastName: string | null;
     profileImageUrl: string | null; username: string | null; score: number;
@@ -2018,6 +2019,12 @@ export class DatabaseStorage implements IStorage {
 
   async joinLeaderboardChallenge(challengeId: string, userId: string) {
     await db.insert(lcParticipants).values({ challengeId, userId }).onConflictDoNothing();
+  }
+
+  async leaveLeaderboardChallenge(challengeId: string, userId: string) {
+    await db.delete(lcParticipants).where(
+      and(eq(lcParticipants.challengeId, challengeId), eq(lcParticipants.userId, userId))
+    );
   }
 
   async getMyActiveLeaderboardChallenges(userId: string) {

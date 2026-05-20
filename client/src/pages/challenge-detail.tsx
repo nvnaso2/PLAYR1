@@ -93,10 +93,27 @@ export default function ChallengeDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/leaderboard-challenges/${slug}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/leaderboard-challenges/${challenge!.id}/leaderboard`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leaderboard-challenges/my-active"] });
       toast({ title: "You're in!", description: "Your training logs will count toward the leaderboard." });
     },
     onError: (err: any) => {
       toast({ title: "Couldn't join", description: err?.message, variant: "destructive" });
+    },
+  });
+
+  const leaveMut = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("DELETE", `/api/leaderboard-challenges/${challenge!.id}/leave`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/leaderboard-challenges/${slug}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/leaderboard-challenges/${challenge!.id}/leaderboard`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leaderboard-challenges/my-active"] });
+      toast({ title: "Left challenge", description: "You've been removed from the leaderboard." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Couldn't leave", description: err?.message, variant: "destructive" });
     },
   });
 
@@ -198,9 +215,21 @@ export default function ChallengeDetailPage() {
             </Button>
           )}
           {challenge.isJoined && (
-            <div className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 text-white/90 text-sm font-medium border border-white/20">
-              <Trophy className="w-4 h-4" />
-              You're competing · {myEntry ? `#${myEntry.rank} · ${myEntry.score} pts` : "Keep training!"}
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 text-white/90 text-sm font-medium border border-white/20">
+                <Trophy className="w-4 h-4" />
+                You're competing · {myEntry ? `#${myEntry.rank} · ${myEntry.score.toLocaleString()} pts` : "Keep training!"}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-white/20 text-white/70 hover:bg-white/10 hover:text-white"
+                onClick={() => leaveMut.mutate()}
+                disabled={leaveMut.isPending}
+                data-testid="button-leave-challenge"
+              >
+                {leaveMut.isPending ? "Leaving…" : "Leave"}
+              </Button>
             </div>
           )}
         </div>
