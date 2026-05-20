@@ -2056,7 +2056,7 @@ export class DatabaseStorage implements IStorage {
 
     const metricCol = ch.metric === "shots_made"       ? sql`COALESCE(SUM(tl.shots_made), 0)`
                     : ch.metric === "shots_attempted"   ? sql`COALESCE(SUM(tl.shots_attempted), 0)`
-                    : ch.metric === "sessions"          ? sql`COALESCE(COUNT(DISTINCT DATE(tl.created_at)), 0)`
+                    : ch.metric === "sessions"          ? sql`COALESCE(COUNT(DISTINCT DATE(tl.completed_at)), 0)`
                     :                                     sql`COALESCE(SUM(tl.duration), 0)`;
 
     const locationFilter = ch.shotLocation
@@ -2075,8 +2075,8 @@ export class DatabaseStorage implements IStorage {
       JOIN users u ON u.id = p.user_id
       LEFT JOIN training_logs tl
         ON tl.user_id = p.user_id
-       AND tl.created_at >= ${ch.startsAt}
-       AND tl.created_at <= ${ch.endsAt}
+       AND tl.completed_at >= ${ch.startsAt}
+       AND tl.completed_at <= ${ch.endsAt}
        ${locationFilter}
       WHERE p.challenge_id = ${challengeId}
       GROUP BY u.id, u.first_name, u.last_name, u.profile_image_url, u.username

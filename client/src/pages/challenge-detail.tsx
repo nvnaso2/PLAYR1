@@ -103,8 +103,7 @@ export default function ChallengeDetailPage() {
 
   const leaveMut = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("DELETE", `/api/leaderboard-challenges/${challenge!.id}/leave`);
-      return res.json();
+      await apiRequest("DELETE", `/api/leaderboard-challenges/${challenge!.id}/leave`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/leaderboard-challenges/${slug}`] });
