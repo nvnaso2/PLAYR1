@@ -4829,7 +4829,7 @@ export class DatabaseStorage implements IStorage {
         tl.workout_session_id,
         MIN(tl.completed_at) AS completed_at,
         COUNT(DISTINCT tl.drill_id) AS drill_count,
-        SUM(tl.duration_minutes) AS duration_minutes
+        SUM(tl.duration) AS total_duration
       FROM training_logs tl
       WHERE tl.user_id = ${userId} AND tl.workout_session_id IS NOT NULL
       GROUP BY tl.workout_session_id
@@ -4873,7 +4873,7 @@ export class DatabaseStorage implements IStorage {
         videoCount: Number(videoCount.count || 0),
       },
       topDrills: topDrills.map((x: any) => ({ id: String(x.id), title: String(x.title), category: String(x.category || '—'), completions: Number(x.completions) })),
-      recentWorkouts: recentWorkouts.map((x: any) => ({ sessionId: String(x.workout_session_id), completedAt: x.completed_at, drillCount: Number(x.drill_count), durationMinutes: Number(x.duration_minutes || 0) })),
+      recentWorkouts: recentWorkouts.map((x: any) => ({ sessionId: String(x.workout_session_id), completedAt: x.completed_at, drillCount: Number(x.drill_count), durationMinutes: Number(x.total_duration || 0) })),
       byWeek: byWeek.map((x: any) => ({ week: x.week, drills: Number(x.drills) })),
     };
   }

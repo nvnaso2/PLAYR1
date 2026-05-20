@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, startTransition } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback, startTransition } from "react";
 import { useLocation, useSearch, Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -88,6 +88,141 @@ import { Progress } from "@/components/ui/progress";
 
 type DrillMetricWithTemplate = DrillMetric & { template: MetricTemplate };
 
+// ─── Camera Record Modal ──────────────────────────────────────────────────
+function CameraRecordModal({
+  drillTitle,
+  onClose,
+  onFile,
+}: {
+  drillTitle: string;
+  onClose: () => void;
+  onFile: (file: File) => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [recording, setRecording] = useState(false);
+  const [seconds, setSeconds] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    navigator.mediaDevices
+      .getUserMedia({ video: { facingMode: "environment" }, audio: true })
+      .then((stream) => {
+        if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
+        streamRef.current = stream;
+        if (videoRef.current) { videoRef.current.srcObject = stream; }
+        setReady(true);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(err.name === "NotAllowedError" ? "Camera permission denied. Please allow camera access and try again." : `Camera error: ${err.message}`);
+      });
+    return () => {
+      cancelled = true;
+      streamRef.current?.getTracks().forEach(t => t.stop());
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, []);
+
+  const startRecording = useCallback(() => {
+    if (!streamRef.current) return;
+    chunksRef.current = [];
+    const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")
+      ? "video/webm;codecs=vp9,opus"
+      : MediaRecorder.isTypeSupported("video/webm")
+      ? "video/webm"
+      : "";
+    const mr = new MediaRecorder(streamRef.current, mimeType ? { mimeType } : undefined);
+    mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+    mr.onstop = () => {
+      const blob = new Blob(chunksRef.current, { type: mimeType || "video/webm" });
+      const ext = mimeType.includes("mp4") ? "mp4" : "webm";
+      const file = new File([blob], `drill-${Date.now()}.${ext}`, { type: blob.type });
+      onFile(file);
+      onClose();
+    };
+    mr.start(250);
+    mediaRecorderRef.current = mr;
+    setRecording(true);
+    setSeconds(0);
+    timerRef.current = setInterval(() => setSeconds(s => s + 1), 1000);
+  }, [onFile, onClose]);
+
+  const stopRecording = useCallback(() => {
+    mediaRecorderRef.current?.stop();
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    setRecording(false);
+  }, []);
+
+  const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+
+  return (
+    <Dialog open onOpenChange={() => { if (!recording) onClose(); }}>
+      <DialogContent className="max-w-lg p-0 overflow-hidden">
+        <DialogHeader className="px-4 pt-4 pb-2">
+          <DialogTitle className="flex items-center gap-2 text-sm font-semibold">
+            <Camera className="w-4 h-4 text-red-500" />
+            Record — {drillTitle}
+          </DialogTitle>
+        </DialogHeader>
+
+        {error ? (
+          <div className="px-4 pb-6 text-center space-y-2">
+            <p className="text-sm text-red-400">{error}</p>
+            <Button size="sm" variant="outline" onClick={onClose}>Close</Button>
+          </div>
+        ) : (
+          <div className="relative bg-black">
+            <video
+              ref={videoRef}
+              autoPlay
+              muted
+              playsInline
+              className="w-full aspect-video object-cover"
+            />
+            {recording && (
+              <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-black/60 rounded-full px-2 py-1">
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                <span className="text-white text-xs font-mono">{fmt(seconds)}</span>
+              </div>
+            )}
+            <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-4">
+              {!recording ? (
+                <Button
+                  onClick={startRecording}
+                  disabled={!ready}
+                  className="rounded-full w-16 h-16 bg-red-500 hover:bg-red-600 border-4 border-white shadow-lg"
+                  data-testid="btn-start-recording"
+                >
+                  <Camera className="w-6 h-6" />
+                </Button>
+              ) : (
+                <Button
+                  onClick={stopRecording}
+                  className="rounded-full w-16 h-16 bg-white hover:bg-gray-100 border-4 border-red-500 shadow-lg"
+                  data-testid="btn-stop-recording"
+                >
+                  <span className="w-5 h-5 rounded-sm bg-red-500 block" />
+                </Button>
+              )}
+              {!recording && (
+                <Button variant="outline" size="sm" onClick={onClose} className="self-center" data-testid="btn-cancel-recording">
+                  Cancel
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 type WorkoutWithDrills = {
   workout: Workout;
   drills: Array<WorkoutDrill & { drill: Drill }>;
@@ -161,6 +296,7 @@ export default function TrainingLogPage() {
   const [drillInfoOpen, setDrillInfoOpen] = useState<Drill | null>(null);
   const [drillRecordings, setDrillRecordings] = useState<Record<string, string>>({});
   const [drillRecordingUploading, setDrillRecordingUploading] = useState<string | null>(null);
+  const [cameraRecordTarget, setCameraRecordTarget] = useState<{ drillId: string; drillTitle: string } | null>(null);
   const recordInputRefs = useRef<Record<string, HTMLInputElement>>({});
   const [newChallenge, setNewChallenge] = useState({
     name: "",
@@ -2892,19 +3028,6 @@ export default function TrainingLogPage() {
                             </div>
                           </div>
                           <div className="flex items-center gap-1">
-                            <input
-                              type="file"
-                              accept="video/*"
-                              capture="environment"
-                              ref={(el) => { if (el) recordInputRefs.current[drillId] = el; }}
-                              className="hidden"
-                              onChange={async (e) => {
-                                const file = e.target.files?.[0];
-                                if (file) await uploadDrillRecording(drillId, group.drill.title, file);
-                                e.target.value = '';
-                              }}
-                              data-testid={`input-record-${drillId}`}
-                            />
                             <Button
                               variant="outline"
                               size="icon"
@@ -2920,7 +3043,7 @@ export default function TrainingLogPage() {
                               variant="ghost"
                               size="icon"
                               className={`h-8 w-8 ${drillRecordings[drillId] ? 'bg-green-500/10 text-green-500 hover:bg-green-500/20 hover:text-green-500' : 'bg-red-500/10 text-red-500 hover:bg-red-500/20 hover:text-red-500'}`}
-                              onClick={() => recordInputRefs.current[drillId]?.click()}
+                              onClick={() => setCameraRecordTarget({ drillId, drillTitle: group.drill.title })}
                               disabled={drillRecordingUploading === drillId}
                               title={drillRecordings[drillId] ? 'Recording saved to Film Room' : 'Record this drill'}
                               data-testid={`button-record-${drillId}`}
@@ -3197,6 +3320,19 @@ export default function TrainingLogPage() {
         </Card>
           </div>
         </div>
+      )}
+
+      {/* Camera record modal */}
+      {cameraRecordTarget && (
+        <CameraRecordModal
+          drillTitle={cameraRecordTarget.drillTitle}
+          onClose={() => setCameraRecordTarget(null)}
+          onFile={async (file) => {
+            const { drillId, drillTitle } = cameraRecordTarget;
+            setCameraRecordTarget(null);
+            await uploadDrillRecording(drillId, drillTitle, file);
+          }}
+        />
       )}
 
       {/* Drill info dialog (opened from active workout drill rows) */}
