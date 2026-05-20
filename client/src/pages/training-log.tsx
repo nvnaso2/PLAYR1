@@ -614,16 +614,17 @@ export default function TrainingLogPage() {
         video.addEventListener("error", () => { URL.revokeObjectURL(url); resolve(null); });
       });
 
-      // Request presigned URL
+      // Request presigned URL (strip codec suffix so "video/webm;codecs=vp9,opus" → "video/webm")
+      const baseContentType = (file.type || "video/mp4").split(";")[0].trim();
       const urlRes = await nativeFetch("/api/user/uploads/request-url", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type || "video/mp4" }),
+        body: JSON.stringify({ name: file.name, size: file.size, contentType: baseContentType }),
       });
       if (!urlRes.ok) throw new Error("Failed to get upload URL");
       const { uploadURL, objectPath } = await urlRes.json();
 
       // Upload video
-      const uploadRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type || "video/mp4" } });
+      const uploadRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": baseContentType } });
       if (!uploadRes.ok) throw new Error("Upload failed");
 
       // Finalize (non-fatal)
