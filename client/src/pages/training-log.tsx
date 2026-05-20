@@ -37,7 +37,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient, apiRequest, nativeFetch } from "@/lib/queryClient";
+import { queryClient, apiRequest, nativeFetch, getObjectUrl } from "@/lib/queryClient";
 import { track } from "@/lib/track";
 import { 
   Plus, 
@@ -3355,29 +3355,74 @@ export default function TrainingLogPage() {
                     : "Drill details"}
                 </DialogDescription>
               </DialogHeader>
-              {drillInfoOpen.videoUrl && (
-                <div className="aspect-video w-full bg-black rounded-lg overflow-hidden">
-                  {/youtube\.com|youtu\.be/.test(drillInfoOpen.videoUrl) ? (
-                    <iframe
-                      src={drillInfoOpen.videoUrl
-                        .replace("watch?v=", "embed/")
-                        .replace("youtu.be/", "youtube.com/embed/")}
-                      className="w-full h-full"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                      title={`${drillInfoOpen.title} video`}
-                      data-testid="iframe-drill-video"
-                    />
-                  ) : (
+              {drillInfoOpen.videoUrl && (() => {
+                const rawUrl = drillInfoOpen.videoUrl;
+                const ytMatch = rawUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+                const vimeoMatch = rawUrl.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+                if (ytMatch) {
+                  return (
+                    <div className="aspect-video w-full bg-black rounded-xl overflow-hidden" data-testid="iframe-drill-video">
+                      <iframe
+                        src={`https://www.youtube.com/embed/${ytMatch[1]}?playsinline=1&rel=0`}
+                        className="w-full h-full"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowFullScreen
+                        title={`${drillInfoOpen.title} video`}
+                      />
+                    </div>
+                  );
+                }
+                if (vimeoMatch) {
+                  return (
+                    <div className="aspect-video w-full bg-black rounded-xl overflow-hidden" data-testid="iframe-drill-video">
+                      <iframe
+                        src={`https://player.vimeo.com/video/${vimeoMatch[1]}?playsinline=1`}
+                        className="w-full h-full"
+                        allow="autoplay; fullscreen; picture-in-picture"
+                        allowFullScreen
+                        title={`${drillInfoOpen.title} video`}
+                      />
+                    </div>
+                  );
+                }
+                const resolvedSrc = getObjectUrl(rawUrl) ?? rawUrl;
+                return (
+                  <div className="aspect-video w-full bg-black rounded-xl overflow-hidden" data-testid="video-drill-wrapper">
                     <video
-                      src={drillInfoOpen.videoUrl}
+                      key={resolvedSrc}
+                      src={resolvedSrc}
                       controls
+                      playsInline
+                      preload="metadata"
                       className="w-full h-full"
                       data-testid="video-drill"
+                      onError={(e) => {
+                        const code = (e.currentTarget as HTMLVideoElement).error?.code;
+                        if (code === 4 || code === 3) {
+                          e.currentTarget.style.display = "none";
+                          const fallback = e.currentTarget.nextElementSibling as HTMLElement | null;
+                          if (fallback) fallback.style.display = "flex";
+                        }
+                      }}
                     />
-                  )}
-                </div>
-              )}
+                    <div
+                      className="hidden w-full h-full flex-col items-center justify-center gap-2 text-white/60 text-sm p-4 text-center"
+                      aria-hidden="true"
+                    >
+                      <Play className="w-10 h-10 opacity-40" />
+                      <span>Video unavailable on this device</span>
+                      <a
+                        href={resolvedSrc}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary underline text-xs"
+                      >
+                        Open video directly
+                      </a>
+                    </div>
+                  </div>
+                );
+              })()}
               {drillInfoOpen.description && (
                 <div className="text-sm whitespace-pre-line text-muted-foreground" data-testid="text-drill-description">
                   {drillInfoOpen.description}
