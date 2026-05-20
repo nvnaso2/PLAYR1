@@ -4050,7 +4050,7 @@ export class DatabaseStorage implements IStorage {
     const r1 = (res: any): any => r(res)[0] ?? {};
 
     const totalUsersRow    = r1(await db.execute(sql`SELECT COUNT(*) as count FROM users`));
-    const totalLogsRow     = r1(await db.execute(sql`SELECT COUNT(*) as count FROM training_logs`));
+    const totalLogsRow     = r1(await db.execute(sql`SELECT COUNT(DISTINCT CONCAT(COALESCE(workout_session_id, id), '-', drill_id)) as count FROM training_logs`));
     const totalSessionsRow = r1(await db.execute(sql`SELECT COUNT(*) as count FROM training_sessions`));
     const totalConnRow     = r1(await db.execute(sql`SELECT COUNT(*) as count FROM player_trainer_connections WHERE status = 'accepted'`));
     const totalFbRow       = r1(await db.execute(sql`SELECT COUNT(*) as count FROM feedback_posts`));
@@ -4058,13 +4058,13 @@ export class DatabaseStorage implements IStorage {
     const active30Row      = r1(await db.execute(sql`SELECT COUNT(DISTINCT user_id) as count FROM training_logs WHERE completed_at >= NOW() - INTERVAL '30 days'`));
 
     const usersByWeek      = r(await db.execute(sql`SELECT DATE_TRUNC('week', created_at) as week, COUNT(*) as count FROM users WHERE created_at >= NOW() - INTERVAL '12 weeks' GROUP BY week ORDER BY week ASC`));
-    const logsByWeek       = r(await db.execute(sql`SELECT DATE_TRUNC('week', completed_at) as week, COUNT(*) as count FROM training_logs WHERE completed_at >= NOW() - INTERVAL '12 weeks' GROUP BY week ORDER BY week ASC`));
-    const popularDrills    = r(await db.execute(sql`SELECT d.title, COUNT(tl.id) as log_count FROM training_logs tl JOIN drills d ON d.id = tl.drill_id GROUP BY d.id, d.title ORDER BY log_count DESC LIMIT 10`));
+    const logsByWeek       = r(await db.execute(sql`SELECT DATE_TRUNC('week', completed_at) as week, COUNT(DISTINCT CONCAT(COALESCE(workout_session_id, id), '-', drill_id)) as count FROM training_logs WHERE completed_at >= NOW() - INTERVAL '12 weeks' GROUP BY week ORDER BY week ASC`));
+    const popularDrills    = r(await db.execute(sql`SELECT d.title, COUNT(DISTINCT CONCAT(COALESCE(tl.workout_session_id, tl.id), '-', tl.drill_id)) as log_count FROM training_logs tl JOIN drills d ON d.id = tl.drill_id GROUP BY d.id, d.title ORDER BY log_count DESC LIMIT 10`));
     const usersByRole      = r(await db.execute(sql`SELECT role, COUNT(*) as count FROM users GROUP BY role`));
-    const topActiveUsers   = r(await db.execute(sql`SELECT u.first_name, u.last_name, u.email, COUNT(tl.id) as log_count FROM users u JOIN training_logs tl ON tl.user_id = u.id GROUP BY u.id, u.first_name, u.last_name, u.email ORDER BY log_count DESC LIMIT 10`));
-    const recentSignups    = r(await db.execute(sql`SELECT u.first_name, u.last_name, u.email, u.role, u.created_at FROM users u ORDER BY u.created_at DESC LIMIT 10`));
+    const topActiveUsers   = r(await db.execute(sql`SELECT u.first_name, u.last_name, u.email, u.id as user_id, COUNT(DISTINCT CONCAT(COALESCE(tl.workout_session_id, tl.id), '-', tl.drill_id)) as log_count FROM users u JOIN training_logs tl ON tl.user_id = u.id GROUP BY u.id, u.first_name, u.last_name, u.email ORDER BY log_count DESC LIMIT 10`));
+    const recentSignups    = r(await db.execute(sql`SELECT u.first_name, u.last_name, u.email, u.role, u.created_at, u.id as user_id FROM users u ORDER BY u.created_at DESC LIMIT 10`));
     const sessionsByStatus = r(await db.execute(sql`SELECT status, COUNT(*) as count FROM training_sessions GROUP BY status`));
-    const categoryBrkdn    = r(await db.execute(sql`SELECT d.category, COUNT(tl.id) as count FROM training_logs tl JOIN drills d ON d.id = tl.drill_id GROUP BY d.category ORDER BY count DESC`));
+    const categoryBrkdn    = r(await db.execute(sql`SELECT d.category, COUNT(DISTINCT CONCAT(COALESCE(tl.workout_session_id, tl.id), '-', tl.drill_id)) as count FROM training_logs tl JOIN drills d ON d.id = tl.drill_id GROUP BY d.category ORDER BY count DESC`));
     const analyticsEvents  = r(await db.execute(sql`SELECT event, COUNT(*) as count FROM analytics_events GROUP BY event ORDER BY count DESC LIMIT 20`));
     const pageViews        = r(await db.execute(sql`SELECT page, COUNT(*) as count FROM analytics_events WHERE event = 'page_view' AND page IS NOT NULL GROUP BY page ORDER BY count DESC LIMIT 15`));
 
@@ -4082,8 +4082,8 @@ export class DatabaseStorage implements IStorage {
       logsByWeek:       logsByWeek.map((x: any) => ({ week: x.week, count: Number(x.count) })),
       popularDrills:    popularDrills.map((x: any) => ({ title: x.title, count: Number(x.log_count) })),
       usersByRole:      usersByRole.map((x: any) => ({ role: x.role || 'unknown', count: Number(x.count) })),
-      topActiveUsers:   topActiveUsers.map((x: any) => ({ name: `${x.first_name || ''} ${x.last_name || ''}`.trim(), email: x.email, logs: Number(x.log_count) })),
-      recentSignups:    recentSignups.map((x: any) => ({ name: `${x.first_name || ''} ${x.last_name || ''}`.trim(), email: x.email, role: x.role, createdAt: x.created_at })),
+      topActiveUsers:   topActiveUsers.map((x: any) => ({ userId: String(x.user_id), name: `${x.first_name || ''} ${x.last_name || ''}`.trim(), email: x.email, logs: Number(x.log_count) })),
+      recentSignups:    recentSignups.map((x: any) => ({ userId: String(x.user_id), name: `${x.first_name || ''} ${x.last_name || ''}`.trim(), email: x.email, role: x.role, createdAt: x.created_at })),
       sessionsByStatus: sessionsByStatus.map((x: any) => ({ status: x.status, count: Number(x.count) })),
       categoryBreakdown: categoryBrkdn.map((x: any) => ({ category: x.category || 'unknown', count: Number(x.count) })),
       topEvents:        analyticsEvents.map((x: any) => ({ event: x.event, count: Number(x.count) })),
@@ -4686,16 +4686,16 @@ export class DatabaseStorage implements IStorage {
     const r = <T = any>(res: any): T[] => (res.rows ?? res) as T[];
     const r1 = (res: any): any => r(res)[0] ?? {};
 
-    // Top 20 most-logged drills in 28d
+    // Top 20 most-logged drills in 28d (count distinct drill completions, not rounds)
     const topRows = r(await db.execute(sql`
       SELECT
         d.id,
         d.title,
         d.category,
         d.difficulty,
-        COUNT(tl.id) FILTER (WHERE tl.completed_at >= NOW() - INTERVAL '28 days')::int AS logs_28d,
+        COUNT(DISTINCT CONCAT(COALESCE(tl.workout_session_id, tl.id), '-', tl.drill_id)) FILTER (WHERE tl.completed_at >= NOW() - INTERVAL '28 days')::int AS logs_28d,
         COUNT(DISTINCT tl.user_id) FILTER (WHERE tl.completed_at >= NOW() - INTERVAL '28 days')::int AS users_28d,
-        COUNT(tl.id)::int AS logs_all_time
+        COUNT(DISTINCT CONCAT(COALESCE(tl.workout_session_id, tl.id), '-', tl.drill_id))::int AS logs_all_time
       FROM drills d
       LEFT JOIN training_logs tl ON tl.drill_id = d.id
       GROUP BY d.id, d.title, d.category, d.difficulty
@@ -4724,12 +4724,12 @@ export class DatabaseStorage implements IStorage {
       LIMIT 20
     `));
 
-    // Category aggregates
+    // Category aggregates (distinct drill completions, not rounds)
     const catRows = r(await db.execute(sql`
       SELECT
         d.category,
         COUNT(DISTINCT d.id)::int AS drill_count,
-        COUNT(tl.id) FILTER (WHERE tl.completed_at >= NOW() - INTERVAL '28 days')::int AS logs_28d,
+        COUNT(DISTINCT CONCAT(COALESCE(tl.workout_session_id, tl.id), '-', tl.drill_id)) FILTER (WHERE tl.completed_at >= NOW() - INTERVAL '28 days')::int AS logs_28d,
         COUNT(DISTINCT tl.user_id) FILTER (WHERE tl.completed_at >= NOW() - INTERVAL '28 days')::int AS users_28d
       FROM drills d
       LEFT JOIN training_logs tl ON tl.drill_id = d.id
@@ -4791,6 +4791,111 @@ export class DatabaseStorage implements IStorage {
     };
 
     return { topDrills, underperformers, categoryStats, dailyChallenge };
+  }
+
+  async getAdminUserAnalytics(userId: string): Promise<any> {
+    const r = <T = any>(res: any): T[] => (res.rows ?? res) as T[];
+    const r1 = (res: any): any => r(res)[0] ?? {};
+
+    const userRow = r1(await db.execute(sql`
+      SELECT id, first_name, last_name, email, role, created_at FROM users WHERE id = ${userId}
+    `));
+    if (!userRow.id) return null;
+
+    const statsRow = r1(await db.execute(sql`
+      SELECT
+        COUNT(DISTINCT CONCAT(COALESCE(workout_session_id, id), '-', drill_id)) AS total_drills,
+        COUNT(DISTINCT workout_session_id) AS total_workouts,
+        COALESCE(SUM(duration_minutes), 0)::int AS total_minutes,
+        COUNT(DISTINCT drill_id) AS unique_drill_types,
+        MIN(completed_at) AS first_log,
+        MAX(completed_at) AS last_log
+      FROM training_logs WHERE user_id = ${userId}
+    `));
+
+    const topDrills = r(await db.execute(sql`
+      SELECT d.id, d.title, d.category,
+        COUNT(DISTINCT CONCAT(COALESCE(tl.workout_session_id, tl.id), '-', tl.drill_id)) AS completions
+      FROM training_logs tl
+      JOIN drills d ON d.id = tl.drill_id
+      WHERE tl.user_id = ${userId}
+      GROUP BY d.id, d.title, d.category
+      ORDER BY completions DESC
+      LIMIT 8
+    `));
+
+    const recentWorkouts = r(await db.execute(sql`
+      SELECT
+        tl.workout_session_id,
+        MIN(tl.completed_at) AS completed_at,
+        COUNT(DISTINCT tl.drill_id) AS drill_count,
+        SUM(tl.duration_minutes) AS duration_minutes
+      FROM training_logs tl
+      WHERE tl.user_id = ${userId} AND tl.workout_session_id IS NOT NULL
+      GROUP BY tl.workout_session_id
+      ORDER BY completed_at DESC
+      LIMIT 10
+    `));
+
+    const byWeek = r(await db.execute(sql`
+      SELECT DATE_TRUNC('week', completed_at) AS week,
+        COUNT(DISTINCT CONCAT(COALESCE(workout_session_id, id), '-', drill_id)) AS drills
+      FROM training_logs
+      WHERE user_id = ${userId} AND completed_at >= NOW() - INTERVAL '12 weeks'
+      GROUP BY week ORDER BY week ASC
+    `));
+
+    const streakRow = r1(await db.execute(sql`
+      SELECT current_streak, longest_streak FROM user_streaks WHERE user_id = ${userId}
+    `));
+
+    const videoCount = r1(await db.execute(sql`
+      SELECT COUNT(*) as count FROM user_videos WHERE user_id = ${userId}
+    `));
+
+    return {
+      user: {
+        id: String(userRow.id),
+        name: `${userRow.first_name || ''} ${userRow.last_name || ''}`.trim(),
+        email: userRow.email,
+        role: userRow.role,
+        createdAt: userRow.created_at,
+      },
+      stats: {
+        totalDrills: Number(statsRow.total_drills || 0),
+        totalWorkouts: Number(statsRow.total_workouts || 0),
+        totalMinutes: Number(statsRow.total_minutes || 0),
+        uniqueDrillTypes: Number(statsRow.unique_drill_types || 0),
+        firstLog: statsRow.first_log,
+        lastLog: statsRow.last_log,
+        currentStreak: Number(streakRow.current_streak || 0),
+        longestStreak: Number(streakRow.longest_streak || 0),
+        videoCount: Number(videoCount.count || 0),
+      },
+      topDrills: topDrills.map((x: any) => ({ id: String(x.id), title: String(x.title), category: String(x.category || '—'), completions: Number(x.completions) })),
+      recentWorkouts: recentWorkouts.map((x: any) => ({ sessionId: String(x.workout_session_id), completedAt: x.completed_at, drillCount: Number(x.drill_count), durationMinutes: Number(x.duration_minutes || 0) })),
+      byWeek: byWeek.map((x: any) => ({ week: x.week, drills: Number(x.drills) })),
+    };
+  }
+
+  async getChallengeSubmissions(challengeId: string): Promise<any[]> {
+    const r = <T = any>(res: any): T[] => (res.rows ?? res) as T[];
+    return r(await db.execute(sql`
+      SELECT
+        uv.id, uv.title, uv.video_url, uv.thumbnail_url, uv.created_at, uv.is_public,
+        u.id AS user_id, u.first_name, u.last_name, u.email,
+        d.title AS drill_title, d.category AS drill_category
+      FROM lc_participants lcp
+      JOIN user_videos uv ON uv.user_id = lcp.user_id
+      JOIN users u ON u.id = uv.user_id
+      LEFT JOIN drills d ON d.id = uv.drill_id
+      JOIN leaderboard_challenges lc ON lc.id = lcp.challenge_id
+      WHERE lcp.challenge_id = ${challengeId}
+        AND uv.created_at >= lc.starts_at
+        AND (lc.ends_at IS NULL OR uv.created_at <= lc.ends_at + INTERVAL '1 day')
+      ORDER BY uv.created_at DESC
+      LIMIT 200
+    `));
   }
 
   /**

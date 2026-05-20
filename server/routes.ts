@@ -8759,6 +8759,27 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
     }
   });
 
+  app.get("/api/admin/leaderboard-challenges/:id/submissions", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const submissions = await storage.getChallengeSubmissions(req.params.id);
+      res.json(submissions);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: "Failed to load submissions" });
+    }
+  });
+
+  app.get("/api/admin/users/:userId/analytics", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const data = await storage.getAdminUserAnalytics(req.params.userId);
+      if (!data) return res.status(404).json({ message: "User not found" });
+      res.json(data);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: "Failed to load user analytics" });
+    }
+  });
+
   return httpServer;
 }
 
