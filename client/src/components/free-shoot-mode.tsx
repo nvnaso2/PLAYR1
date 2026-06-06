@@ -352,8 +352,6 @@ export function FreeShotMode({
       if (!onSaveOverride) {
         queryClient.invalidateQueries({ queryKey: ["/api/training-logs"] });
         queryClient.invalidateQueries({ queryKey: ["/api/stats/overview"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/leaderboard-challenges"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/leaderboard-challenges/my-active"] });
         toast({ title: "Session saved!", description: `${totalMade}/${totalAttempted} (${totalPct}%)` });
         onClose();
       }

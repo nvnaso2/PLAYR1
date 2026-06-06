@@ -24,9 +24,8 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  ArrowLeft, ArrowUp, ArrowDown, Plus, Trash2, Pencil, Save, ExternalLink, Eye, Upload, X, Layers2,
+  ArrowLeft, ArrowUp, ArrowDown, Plus, Trash2, Pencil, Save, ExternalLink, Eye, Upload, X,
 } from "lucide-react";
-import { ComboDrillBuilder, ComboBadge } from "@/components/combo-drill-builder";
 import { AssignProgramDialog } from "@/components/assign-program-dialog";
 import { useUpload } from "@/hooks/use-upload";
 import { nativeFetch } from "@/lib/queryClient";
@@ -618,7 +617,6 @@ function ItemEditorDialog({
   };
   const [rows, setRows] = useState<WorkoutDrillRow[]>(initialRows);
   const [drillSearch, setDrillSearch] = useState("");
-  const [showComboBuilder, setShowComboBuilder] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -790,11 +788,8 @@ function ItemEditorDialog({
                       <div className="flex items-center gap-2">
                         <Badge variant="outline" className="text-xs shrink-0">{idx + 1}</Badge>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-medium truncate text-sm" data-testid={`text-workout-drill-title-${idx}`}>
-                              {d?.title ?? "(drill removed)"}
-                            </span>
-                            {(d as any)?.comboComponents?.length > 0 && <ComboBadge />}
+                          <div className="font-medium truncate text-sm" data-testid={`text-workout-drill-title-${idx}`}>
+                            {d?.title ?? "(drill removed)"}
                           </div>
                           {d?.category && (
                             <div className="text-[11px] text-muted-foreground capitalize">{d.category}</div>
@@ -853,19 +848,7 @@ function ItemEditorDialog({
             )}
 
             <div className="space-y-2 pt-2 border-t">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs uppercase tracking-wide text-muted-foreground">Add drill from library</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs"
-                  onClick={() => setShowComboBuilder(true)}
-                  data-testid="button-combo-drill-in-editor"
-                >
-                  <Layers2 className="w-3.5 h-3.5 mr-1" /> Combine Drills
-                </Button>
-              </div>
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Add drill from library</Label>
               <Input
                 value={drillSearch}
                 onChange={(e) => setDrillSearch(e.target.value)}
@@ -902,14 +885,6 @@ function ItemEditorDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
-
-      <ComboDrillBuilder
-        open={showComboBuilder}
-        onClose={() => setShowComboBuilder(false)}
-        onCreated={(drill) => {
-          setRows(prev => [...prev, { drillId: drill.id }]);
-        }}
-      />
     </Dialog>
   );
 }

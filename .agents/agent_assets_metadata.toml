@@ -83,7 +83,7 @@ title = "PLAYR1 iOS — Original Working Config"
 id = "SydZUVoFAancGQRnnwCNd"
 uri = "file://playr1-public.zip"
 type = "unspecified"
-title = "PLAYR1 Public Folder (images fixed)"
+title = "PLAYR1 public/ folder"
 
 [[outputs]]
 id = "c5j9Pi4bvjJE1O1W1AOw3"
@@ -152,19 +152,7 @@ type = "unspecified"
 title = "PLAYR1 Launch Screen Fix"
 
 [[outputs]]
-id = "ukc-xDtUD45hOkxNto5tl"
-uri = "file://playr1-ios.zip"
+id = "p3c7_IyNAZnl23tBfNeru"
+uri = "file://playr1-ios-bundle.zip"
 type = "unspecified"
-title = "PLAYR1 iOS Xcode Project"
-
-[[outputs]]
-id = "Nu29Y6GToCN5NOQSMnuHg"
-uri = "file://PLAYR1-ios.tar.gz"
-type = "unspecified"
-title = "PLAYR1 iOS Xcode Project"
-
-[[outputs]]
-id = "KuhTypfuk2orCD-k9jUW6"
-uri = "file://PLAYR1-public.tar.gz"
-type = "unspecified"
-title = "PLAYR1 public folder (7 items) — updated"
+title = "PLAYR1 iOS Bundle — Frame Fix"

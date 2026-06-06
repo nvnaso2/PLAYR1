@@ -6,6 +6,7 @@ import { z } from "zod";
 import { queryClient, apiRequest, getObjectUrl, nativeFetch } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAdmin } from "@/hooks/use-admin";
+import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -58,13 +59,14 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText, Play, ChevronDown, GraduationCap, MapPin, ListFilter, X, BarChart2, TrendingUp, TrendingDown, Activity, UserCheck, Wrench, Flame, Lightbulb, Zap, Globe, AlertTriangle, Trophy, Target, GitBranch, Clock, ArrowDown, User, ExternalLink, ChevronRight } from "lucide-react";
+import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText, Play, ChevronDown, GraduationCap, MapPin, ListFilter, X, BarChart2, TrendingUp, TrendingDown, Activity, UserCheck, Wrench, Flame, Lightbulb, Zap, Globe, AlertTriangle, Trophy, Target, GitBranch, Clock, ArrowDown, Flag, ToggleLeft, ToggleRight, UserPlus, Copy, RotateCcw } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
 import type { Drill, DrillCategory, DifficultyLevel, DrillMetric, VideoLibrary, PdfLibrary, MetricTemplate, Workout, WorkoutDrill, TrainingLocation, ShotLocationDB, ShotTypeDB } from "@shared/schema";
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, METRIC_TYPES, US_STATES } from "@shared/schema";
-import { Layers, GripVertical, Calendar, CalendarRange } from "lucide-react";
+import { Layers, GripVertical, Calendar, CalendarRange, Fingerprint } from "lucide-react";
 import { AdminEventsSection } from "@/components/admin-events-section";
-import { AdminChallengesSection } from "@/components/admin-challenges-section";
+import { AdminStatChallengesSection } from "@/components/admin-stat-challenges-section";
+import { AdminArchetypesSection } from "@/components/admin-archetypes-section";
 import { ProgramListSection } from "@/components/program-list-section";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useUpload } from "@/hooks/use-upload";
@@ -78,6 +80,8 @@ type AdminUser = {
   firstName: string | null;
   lastName: string | null;
   isAdmin: boolean;
+  staffRole?: string | null;
+  subscriptionPlan?: string | null;
 };
 
 const drillFormSchema = z.object({
@@ -2644,6 +2648,19 @@ export default function AdminPage() {
     },
   });
 
+  const setSubscriptionMutation = useMutation({
+    mutationFn: async ({ userId, subscriptionPlan }: { userId: string; subscriptionPlan: string }) => {
+      return await apiRequest("PUT", `/api/admin/users/${userId}/subscription`, { subscriptionPlan });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      toast({ title: "Subscription plan updated" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to update plan", description: error.message, variant: "destructive" });
+    },
+  });
+
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
       return await apiRequest("DELETE", `/api/admin/users/${userId}`);
@@ -2931,17 +2948,21 @@ export default function AdminPage() {
             <Calendar className="w-4 h-4 shrink-0" />
             <span>Programs</span>
           </TabsTrigger>
+          <TabsTrigger value="archetypes" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-archetypes">
+            <Fingerprint className="w-4 h-4 shrink-0" />
+            <span>Archetypes</span>
+          </TabsTrigger>
           <TabsTrigger value="events" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-events">
             <CalendarRange className="w-4 h-4 shrink-0" />
             <span>Events</span>
           </TabsTrigger>
-          <TabsTrigger value="challenges" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-challenges">
-            <Trophy className="w-4 h-4 shrink-0" />
-            <span>Challenges</span>
-          </TabsTrigger>
           <TabsTrigger value="analytics" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-analytics">
             <BarChart2 className="w-4 h-4 shrink-0" />
             <span>Analytics</span>
+          </TabsTrigger>
+          <TabsTrigger value="flags" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-flags">
+            <Flag className="w-4 h-4 shrink-0" />
+            <span>Flags</span>
           </TabsTrigger>
         </TabsList>
 
@@ -3994,6 +4015,7 @@ export default function AdminPage() {
                         <TableHead>User</TableHead>
                         <TableHead>Email</TableHead>
                         <TableHead>App Role</TableHead>
+                        <TableHead>Plan</TableHead>
                         <TableHead className="text-right">Admin Access</TableHead>
                         <TableHead></TableHead>
                       </TableRow>
@@ -4027,6 +4049,21 @@ export default function AdminPage() {
                                 <SelectItem value="player">Player</SelectItem>
                                 <SelectItem value="trainer">Trainer</SelectItem>
                                 <SelectItem value="both">Both</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <Select
+                              value={user.subscriptionPlan || "free"}
+                              onValueChange={(val) => setSubscriptionMutation.mutate({ userId: user.id, subscriptionPlan: val })}
+                              disabled={setSubscriptionMutation.isPending}
+                            >
+                              <SelectTrigger className="h-8 w-[90px] text-xs" data-testid={`select-plan-${user.id}`}>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="free">Free</SelectItem>
+                                <SelectItem value="pro">Pro</SelectItem>
                               </SelectContent>
                             </Select>
                           </TableCell>
@@ -4254,19 +4291,337 @@ export default function AdminPage() {
           <ProgramListSection mode="admin" />
         </TabsContent>
 
-        <TabsContent value="events" className="space-y-6">
-          <AdminEventsSection />
+        <TabsContent value="archetypes" className="space-y-6">
+          <AdminArchetypesSection />
         </TabsContent>
 
-        <TabsContent value="challenges" className="space-y-6">
-          <AdminChallengesSection />
+        <TabsContent value="events" className="space-y-10">
+          <AdminEventsSection />
+          <div className="border-t border-border/40 pt-8">
+            <AdminStatChallengesSection />
+          </div>
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-6">
           <AdminAnalyticsTab />
         </TabsContent>
+
+        <TabsContent value="flags" className="space-y-6">
+          <FeatureFlagsTab />
+        </TabsContent>
+
       </Tabs>
 
+    </div>
+  );
+}
+
+// ─── Feature Flags Tab Component ──────────────────────────────────────────────
+
+type FeatureFlag = {
+  id: string;
+  key: string;
+  name: string;
+  description: string | null;
+  isEnabled: boolean;
+  betaUserIds: string[];
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+function FeatureFlagsTab() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [createOpen, setCreateOpen] = useState(false);
+
+  const { data: flags = [], isLoading } = useQuery<FeatureFlag[]>({
+    queryKey: ["/api/admin/feature-flags"],
+  });
+
+  const { data: allUsers = [] } = useQuery<AdminUser[]>({
+    queryKey: ["/api/admin/users"],
+  });
+
+  const createForm = useForm<{ key: string; name: string; description: string }>({
+    defaultValues: { key: "", name: "", description: "" },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (data: { key: string; name: string; description: string }) =>
+      await apiRequest("POST", "/api/admin/feature-flags", {
+        ...data,
+        isEnabled: false,
+        betaUserIds: [],
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/feature-flags"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/feature-flags"] });
+      toast({ title: "Feature flag created" });
+      setCreateOpen(false);
+      createForm.reset();
+    },
+    onError: (e: any) => toast({ title: "Failed to create flag", description: e.message, variant: "destructive" }),
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: async ({ key, isEnabled }: { key: string; isEnabled: boolean }) =>
+      await apiRequest("PUT", `/api/admin/feature-flags/${key}`, { isEnabled }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/feature-flags"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/feature-flags"] });
+    },
+    onError: (e: any) => toast({ title: "Failed to update flag", description: e.message, variant: "destructive" }),
+  });
+
+  const updateBetaMutation = useMutation({
+    mutationFn: async ({ key, betaUserIds }: { key: string; betaUserIds: string[] }) =>
+      await apiRequest("PUT", `/api/admin/feature-flags/${key}`, { betaUserIds }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/feature-flags"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/feature-flags"] });
+      toast({ title: "Beta users updated" });
+    },
+    onError: (e: any) => toast({ title: "Failed to update", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (key: string) => await apiRequest("DELETE", `/api/admin/feature-flags/${key}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/feature-flags"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/feature-flags"] });
+      toast({ title: "Flag deleted" });
+    },
+    onError: (e: any) => toast({ title: "Failed to delete", description: e.message, variant: "destructive" }),
+  });
+
+  const addBetaUser = (flag: FeatureFlag, uid: string) => {
+    if (!uid || flag.betaUserIds.includes(uid)) return;
+    updateBetaMutation.mutate({ key: flag.key, betaUserIds: [...flag.betaUserIds, uid] });
+  };
+
+  const removeBetaUser = (flag: FeatureFlag, uid: string) => {
+    updateBetaMutation.mutate({ key: flag.key, betaUserIds: flag.betaUserIds.filter((id) => id !== uid) });
+  };
+
+  const getUserLabel = (uid: string) => {
+    const u = allUsers.find((u) => u.id === uid);
+    if (!u) return uid.slice(0, 12) + "...";
+    return u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : u.email || uid.slice(0, 12);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h2 className="text-xl font-semibold">Feature Flags</h2>
+          <p className="text-sm text-muted-foreground">
+            Control which features are visible to users. Enable globally or grant access to specific beta testers.
+          </p>
+        </div>
+        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+          <DialogTrigger asChild>
+            <Button data-testid="button-create-flag">
+              <Plus className="w-4 h-4 mr-2" />
+              New Flag
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Create Feature Flag</DialogTitle>
+            </DialogHeader>
+            <form
+              onSubmit={createForm.handleSubmit((d) => createMutation.mutate(d))}
+              className="space-y-4"
+            >
+              <div className="space-y-2">
+                <Label htmlFor="flag-key">Key</Label>
+                <Input
+                  id="flag-key"
+                  placeholder="e.g. reflection-journal"
+                  {...createForm.register("key", { required: true, pattern: /^[a-z0-9-]+$/ })}
+                  data-testid="input-flag-key"
+                />
+                <p className="text-xs text-muted-foreground">Lowercase letters, numbers, and hyphens only.</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="flag-name">Name</Label>
+                <Input
+                  id="flag-name"
+                  placeholder="e.g. Reflection Journal"
+                  {...createForm.register("name", { required: true })}
+                  data-testid="input-flag-name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="flag-desc">Description</Label>
+                <Textarea
+                  id="flag-desc"
+                  placeholder="What does this feature do?"
+                  {...createForm.register("description")}
+                  className="resize-none min-h-[80px]"
+                  data-testid="input-flag-description"
+                />
+              </div>
+              <DialogFooter>
+                <Button type="submit" disabled={createMutation.isPending} data-testid="button-save-flag">
+                  {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create Flag"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {isLoading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => <div key={i} className="h-24 rounded-lg bg-muted animate-pulse" />)}
+        </div>
+      ) : flags.length === 0 ? (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center gap-3 py-12">
+            <Flag className="w-10 h-10 text-muted-foreground" />
+            <div className="text-center">
+              <p className="font-medium">No feature flags yet</p>
+              <p className="text-sm text-muted-foreground">Create your first flag to control feature visibility.</p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {flags.map((flag) => (
+            <Card key={flag.key} data-testid={`card-flag-${flag.key}`}>
+              <CardContent className="p-5 space-y-4">
+                {/* Header row */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold">{flag.name}</span>
+                      <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono text-muted-foreground">
+                        {flag.key}
+                      </code>
+                      {flag.isEnabled ? (
+                        <Badge className="bg-green-500/10 text-green-500 border-green-500/20 text-xs">
+                          Global ON
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="text-xs">
+                          Global OFF
+                        </Badge>
+                      )}
+                    </div>
+                    {flag.description && (
+                      <p className="text-sm text-muted-foreground mt-1">{flag.description}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        {flag.isEnabled ? "On" : "Off"}
+                      </span>
+                      <Switch
+                        checked={flag.isEnabled}
+                        onCheckedChange={(checked) => toggleMutation.mutate({ key: flag.key, isEnabled: checked })}
+                        data-testid={`switch-flag-${flag.key}`}
+                      />
+                    </div>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" data-testid={`button-delete-flag-${flag.key}`}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete flag "{flag.name}"?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently delete the flag. Features gated behind it will be hidden for all users.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => deleteMutation.mutate(flag.key)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </div>
+
+                {/* Beta users */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      Beta Access
+                    </p>
+                    <span className="text-xs text-muted-foreground">
+                      ({flag.betaUserIds.length} {flag.betaUserIds.length === 1 ? "user" : "users"})
+                    </span>
+                  </div>
+
+                  {flag.betaUserIds.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {flag.betaUserIds.map((uid) => (
+                        <div
+                          key={uid}
+                          className="flex items-center gap-1.5 bg-muted px-2.5 py-1 rounded-full text-xs"
+                        >
+                          <span>{getUserLabel(uid)}</span>
+                          <button
+                            onClick={() => removeBetaUser(flag, uid)}
+                            className="text-muted-foreground hover:text-foreground transition-colors"
+                            data-testid={`button-remove-beta-${flag.key}-${uid}`}
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Add beta user */}
+                  <div className="flex gap-2">
+                    {user && !flag.betaUserIds.includes(user.id) && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs px-3 shrink-0"
+                        onClick={() => addBetaUser(flag, user.id)}
+                        disabled={updateBetaMutation.isPending}
+                        data-testid={`button-add-me-${flag.key}`}
+                      >
+                        + Add Me
+                      </Button>
+                    )}
+                    <Select
+                      value=""
+                      onValueChange={(v) => addBetaUser(flag, v)}
+                    >
+                      <SelectTrigger className="flex-1 h-8 text-xs" data-testid={`select-beta-user-${flag.key}`}>
+                        <SelectValue placeholder="Add another user..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {allUsers
+                          .filter((u) => !flag.betaUserIds.includes(u.id))
+                          .map((u) => (
+                            <SelectItem key={u.id} value={u.id}>
+                              {u.firstName && u.lastName
+                                ? `${u.firstName} ${u.lastName}`
+                                : u.email || u.id}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -4335,8 +4690,6 @@ function AdminAnalyticsTab() {
 // ─── Overview Sub-Tab (existing widgets + Top Movers) ──────────────────────
 
 function OverviewSubTab() {
-  const [overviewInspectedUserId, setOverviewInspectedUserId] = useState<string | null>(null);
-
   const { data, isLoading } = useQuery<any>({
     queryKey: ["/api/admin/analytics"],
     queryFn: async () => {
@@ -4530,9 +4883,9 @@ function OverviewSubTab() {
               </TableHeader>
               <TableBody>
                 {topActiveUsers.map((u: any, i: number) => (
-                  <TableRow key={u.email} data-testid={`row-user-${i}`} className="cursor-pointer hover:bg-muted/50" onClick={() => setOverviewInspectedUserId(u.userId)}>
+                  <TableRow key={u.email} data-testid={`row-user-${i}`}>
                     <TableCell className="pl-4 text-muted-foreground">{i + 1}</TableCell>
-                    <TableCell className="font-medium flex items-center gap-1">{u.name || "—"} <ChevronRight className="w-3 h-3 text-muted-foreground opacity-50" /></TableCell>
+                    <TableCell className="font-medium">{u.name || "—"}</TableCell>
                     <TableCell className="text-muted-foreground text-sm">{u.email}</TableCell>
                     <TableCell className="text-right pr-4">{u.logs.toLocaleString()}</TableCell>
                   </TableRow>
@@ -4562,8 +4915,8 @@ function OverviewSubTab() {
               </TableHeader>
               <TableBody>
                 {recentSignups.map((u: any, i: number) => (
-                  <TableRow key={u.email + i} data-testid={`row-signup-${i}`} className="cursor-pointer hover:bg-muted/50" onClick={() => setOverviewInspectedUserId(u.userId)}>
-                    <TableCell className="pl-4 font-medium flex items-center gap-1">{u.name || "—"} <ChevronRight className="w-3 h-3 text-muted-foreground opacity-50" /></TableCell>
+                  <TableRow key={u.email + i} data-testid={`row-signup-${i}`}>
+                    <TableCell className="pl-4 font-medium">{u.name || "—"}</TableCell>
                     <TableCell className="text-muted-foreground text-sm">{u.email}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className="capitalize text-xs">{u.role}</Badge>
@@ -4578,8 +4931,6 @@ function OverviewSubTab() {
           </CardContent>
         </Card>
       </div>
-
-      {overviewInspectedUserId && <UserDetailDialog userId={overviewInspectedUserId} onClose={() => setOverviewInspectedUserId(null)} />}
     </div>
   );
 }
@@ -5127,241 +5478,6 @@ function humanizeSeconds(sec: number): string {
   return `${Math.round((sec / 86400) * 10) / 10}d`;
 }
 
-// ─── User Detail Dialog ───────────────────────────────────────────────────
-
-function UserDetailDialog({ userId, onClose }: { userId: string; onClose: () => void }) {
-  const { data, isLoading, isError } = useQuery<any>({
-    queryKey: ["/api/admin/users", userId, "analytics"],
-    queryFn: async () => {
-      const res = await apiRequest("GET", `/api/admin/users/${userId}/analytics`);
-      return res.json();
-    },
-    enabled: !!userId,
-  });
-
-  return (
-    <Dialog open onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <User className="w-4 h-4 text-primary" />
-            User Analytics
-          </DialogTitle>
-        </DialogHeader>
-
-        {isLoading && (
-          <div className="space-y-3 py-4">
-            {[1,2,3,4].map(i => <Skeleton key={i} className="h-16 rounded-xl" />)}
-          </div>
-        )}
-
-        {isError && (
-          <div className="py-8 text-center text-muted-foreground text-sm">Failed to load analytics.</div>
-        )}
-
-        {data && (
-          <div className="space-y-5">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="font-semibold text-base">{data.user.name || data.user.email}</p>
-                <p className="text-sm text-muted-foreground">{data.user.email}</p>
-                <Badge variant="outline" className="capitalize text-xs mt-1">{data.user.role}</Badge>
-              </div>
-              <div className="text-right">
-                <p className="text-xs text-muted-foreground">Joined</p>
-                <p className="text-sm font-medium">{new Date(data.user.createdAt).toLocaleDateString()}</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {[
-                { label: "Drills Done", value: data.stats.totalDrills.toLocaleString(), icon: Target },
-                { label: "Workouts", value: data.stats.totalWorkouts.toLocaleString(), icon: Activity },
-                { label: "Minutes", value: data.stats.totalMinutes.toLocaleString(), icon: Clock },
-                { label: "Curr. Streak", value: `${data.stats.currentStreak}d`, icon: Flame },
-              ].map(s => (
-                <Card key={s.label}>
-                  <CardContent className="p-3 flex items-start gap-2">
-                    <div className="p-1.5 rounded-md bg-primary/10 mt-0.5">
-                      <s.icon className="w-3.5 h-3.5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-lg font-bold leading-tight">{s.value}</p>
-                      <p className="text-[11px] text-muted-foreground">{s.label}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            {data.byWeek.length > 0 && (
-              <div>
-                <p className="text-sm font-medium mb-2">Weekly Drill Activity (12 weeks)</p>
-                <ResponsiveContainer width="100%" height={100}>
-                  <BarChart data={data.byWeek} margin={{ top: 0, right: 0, bottom: 0, left: -30 }}>
-                    <XAxis dataKey="week" hide />
-                    <YAxis />
-                    <Tooltip formatter={(v: any) => [v, "Drills"]} labelFormatter={(l: any) => new Date(l).toLocaleDateString()} />
-                    <Bar dataKey="drills" fill="#f97316" radius={[3, 3, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-
-            {data.topDrills.length > 0 && (
-              <div>
-                <p className="text-sm font-medium mb-2">Most Practiced Drills</p>
-                <div className="space-y-1.5">
-                  {data.topDrills.map((d: any, i: number) => (
-                    <div key={d.id} className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-muted/40">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-xs text-muted-foreground w-4 shrink-0">{i + 1}</span>
-                        <span className="text-sm font-medium truncate">{d.title}</span>
-                        <Badge variant="outline" className="text-[10px] capitalize shrink-0">{d.category}</Badge>
-                      </div>
-                      <span className="text-sm font-bold text-primary shrink-0 ml-2">{d.completions}×</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {data.recentWorkouts.length > 0 && (
-              <div>
-                <p className="text-sm font-medium mb-2">Recent Workouts</p>
-                <div className="space-y-1.5">
-                  {data.recentWorkouts.map((w: any) => (
-                    <div key={w.sessionId} className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-muted/40">
-                      <span className="text-sm">{new Date(w.completedAt).toLocaleDateString()}</span>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        <span>{w.drillCount} drills</span>
-                        {w.durationMinutes > 0 && <span>{w.durationMinutes} min</span>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t">
-              <span>{data.stats.uniqueDrillTypes} unique drill types · {data.stats.videoCount} film clips</span>
-              {data.stats.longestStreak > 0 && <span>Longest streak: {data.stats.longestStreak}d</span>}
-            </div>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ─── Challenge Submissions Panel ──────────────────────────────────────────
-
-function ChallengeSubmissionsPanel() {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-
-  const { data: challenges, isLoading: loadingChallenges } = useQuery<any[]>({
-    queryKey: ["/api/admin/leaderboard-challenges"],
-    queryFn: async () => {
-      const res = await apiRequest("GET", "/api/admin/leaderboard-challenges");
-      return res.json();
-    },
-  });
-
-  const { data: submissions, isLoading: loadingSubs } = useQuery<any[]>({
-    queryKey: ["/api/admin/leaderboard-challenges", selectedId, "submissions"],
-    queryFn: async () => {
-      const res = await apiRequest("GET", `/api/admin/leaderboard-challenges/${selectedId}/submissions`);
-      return res.json();
-    },
-    enabled: !!selectedId,
-  });
-
-  if (loadingChallenges) return <Skeleton className="h-24 rounded-xl" />;
-  if (!challenges || challenges.length === 0) return (
-    <p className="text-sm text-muted-foreground italic">No leaderboard challenges yet.</p>
-  );
-
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap gap-2">
-        {challenges.map((c: any) => (
-          <button
-            key={c.id}
-            type="button"
-            onClick={() => setSelectedId(c.id === selectedId ? null : c.id)}
-            className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-all ${
-              selectedId === c.id ? "border-primary bg-primary/10 text-primary" : "border-border hover:border-primary/50"
-            }`}
-            data-testid={`btn-challenge-select-${c.id}`}
-          >
-            {c.title}
-          </button>
-        ))}
-      </div>
-
-      {selectedId && (() => {
-        const selectedChallenge = challenges.find((c: any) => c.id === selectedId);
-        return (
-          <div>
-            {selectedChallenge && (
-              <div className="flex items-baseline justify-between mb-3">
-                <div>
-                  <p className="text-sm font-medium">{selectedChallenge.title}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(selectedChallenge.startsAt).toLocaleDateString()} – {new Date(selectedChallenge.endsAt).toLocaleDateString()}
-                  </p>
-                </div>
-                {submissions && <p className="text-xs text-muted-foreground">{submissions.length} clip{submissions.length !== 1 ? "s" : ""}</p>}
-              </div>
-            )}
-
-            {loadingSubs && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                {[1,2,3,4].map(i => <Skeleton key={i} className="aspect-video rounded-xl" />)}
-              </div>
-            )}
-
-            {submissions && submissions.length === 0 && (
-              <div className="py-10 text-center text-muted-foreground text-sm border border-dashed rounded-xl">
-                No clips submitted by participants during this challenge window.
-              </div>
-            )}
-
-            {submissions && submissions.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {submissions.map((s: any) => (
-                  <Card key={s.id} className="overflow-hidden" data-testid={`submission-card-${s.id}`}>
-                    <div className="relative aspect-video bg-black">
-                      {s.video_url ? (
-                        <video
-                          src={getObjectUrl(s.video_url)}
-                          className="w-full h-full object-cover"
-                          controls
-                          preload="metadata"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Film className="w-8 h-8 text-muted-foreground" />
-                        </div>
-                      )}
-                    </div>
-                    <CardContent className="p-3 space-y-0.5">
-                      <p className="text-sm font-medium truncate">{s.title || "Untitled clip"}</p>
-                      <p className="text-xs text-muted-foreground">{s.first_name || ""} {s.last_name || ""} · {s.email}</p>
-                      {s.drill_title && <p className="text-xs text-muted-foreground capitalize">{s.drill_category}: {s.drill_title}</p>}
-                      <p className="text-[10px] text-muted-foreground">{new Date(s.created_at).toLocaleDateString()}</p>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
-        );
-      })()}
-    </div>
-  );
-}
-
 // ─── Users (Segmentation) sub-tab ──────────────────────────────────────────
 
 type Segment = { key: string; label: string; description: string; color: string; count: number; pct: number };
@@ -5372,7 +5488,6 @@ type SegmentUser = {
 
 function UsersSubTab() {
   const [selected, setSelected] = useState<string | null>(null);
-  const [inspectedUserId, setInspectedUserId] = useState<string | null>(null);
 
   const { data, isLoading, isError, error, refetch } = useQuery<{
     segments: Segment[];
@@ -5453,8 +5568,6 @@ function UsersSubTab() {
       </div>
 
       {/* Selected segment user list */}
-      {inspectedUserId && <UserDetailDialog userId={inspectedUserId} onClose={() => setInspectedUserId(null)} />}
-
       {activeSegment && (
         <Card data-testid={`segment-detail-${activeSegment.key}`}>
           <CardContent className="p-0">
@@ -5486,9 +5599,9 @@ function UsersSubTab() {
                   <TableRow><TableCell colSpan={6} className="text-center py-6 text-muted-foreground text-sm">No users in this segment.</TableCell></TableRow>
                 )}
                 {activeUsers.map(u => (
-                  <TableRow key={u.userId} data-testid={`segment-user-${u.userId}`} className="cursor-pointer hover:bg-muted/50" onClick={() => setInspectedUserId(u.userId)}>
+                  <TableRow key={u.userId} data-testid={`segment-user-${u.userId}`}>
                     <TableCell className="pl-4">
-                      <div className="font-medium text-sm flex items-center gap-1">{u.name || u.email} <ChevronRight className="w-3 h-3 text-muted-foreground opacity-50" /></div>
+                      <div className="font-medium text-sm">{u.name || u.email}</div>
                       <div className="text-xs text-muted-foreground">{u.email}</div>
                     </TableCell>
                     <TableCell><Badge variant="outline" className="text-xs capitalize">{u.role}</Badge></TableCell>
@@ -5681,18 +5794,6 @@ function ContentSubTab() {
             </CardContent>
           </Card>
         </div>
-      </div>
-
-      {/* Challenge Film Review */}
-      <div>
-        <h2 className="text-lg font-semibold mb-1 flex items-center gap-2">
-          <Film className="w-4 h-4 text-primary" />
-          Challenge Film Review
-        </h2>
-        <p className="text-sm text-muted-foreground mb-3">
-          Watch clips uploaded by participants during each leaderboard challenge. Select a challenge below to review their submissions.
-        </p>
-        <ChallengeSubmissionsPanel />
       </div>
     </div>
   );

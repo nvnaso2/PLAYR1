@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, useCallback, startTransition } from "react";
+import { useState, useMemo, useEffect, useRef, startTransition } from "react";
 import { useLocation, useSearch, Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -37,13 +37,14 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient, apiRequest, nativeFetch, getObjectUrl } from "@/lib/queryClient";
+import { queryClient, apiRequest, nativeFetch } from "@/lib/queryClient";
 import { track } from "@/lib/track";
 import { 
   Plus, 
   Clock, 
   Target, 
   Calendar,
+  ArrowRight,
   ClipboardList,
   Play,
   Save,
@@ -72,14 +73,14 @@ import {
   Search,
   Loader2,
   Share2,
-  Info,
-  Camera,
-  CheckCircle2,
+  Info
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Drill, TrainingLog, DrillMetric, MetricTemplate, Workout, WorkoutDrill, ShotLocationDB, Challenge, UserChallenge } from "@shared/schema";
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, insertDrillSchema, insertWorkoutSchema } from "@shared/schema";
-import { FreeShotMode } from "@/components/free-shoot-mode";
+import { HalfCourtMap, ShotChartButton, type ShotData } from "@/components/half-court-map";
+import { FreeShotMode, LiveShotCounter } from "@/components/free-shoot-mode";
+import { RecordShootingMode } from "@/components/record-shooting-mode";
 import { WorkoutShareDialog } from "@/components/workout-share-dialog";
 import { DrillTimer } from "@/components/drill-timer";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -87,141 +88,6 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 
 type DrillMetricWithTemplate = DrillMetric & { template: MetricTemplate };
-
-// ─── Camera Record Modal ──────────────────────────────────────────────────
-function CameraRecordModal({
-  drillTitle,
-  onClose,
-  onFile,
-}: {
-  drillTitle: string;
-  onClose: () => void;
-  onFile: (file: File) => void;
-}) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const streamRef = useRef<MediaStream | null>(null);
-  const [recording, setRecording] = useState(false);
-  const [seconds, setSeconds] = useState(0);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    navigator.mediaDevices
-      .getUserMedia({ video: { facingMode: "environment" }, audio: true })
-      .then((stream) => {
-        if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
-        streamRef.current = stream;
-        if (videoRef.current) { videoRef.current.srcObject = stream; }
-        setReady(true);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setError(err.name === "NotAllowedError" ? "Camera permission denied. Please allow camera access and try again." : `Camera error: ${err.message}`);
-      });
-    return () => {
-      cancelled = true;
-      streamRef.current?.getTracks().forEach(t => t.stop());
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, []);
-
-  const startRecording = useCallback(() => {
-    if (!streamRef.current) return;
-    chunksRef.current = [];
-    const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")
-      ? "video/webm;codecs=vp9,opus"
-      : MediaRecorder.isTypeSupported("video/webm")
-      ? "video/webm"
-      : "";
-    const mr = new MediaRecorder(streamRef.current, mimeType ? { mimeType } : undefined);
-    mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-    mr.onstop = () => {
-      const blob = new Blob(chunksRef.current, { type: mimeType || "video/webm" });
-      const ext = mimeType.includes("mp4") ? "mp4" : "webm";
-      const file = new File([blob], `drill-${Date.now()}.${ext}`, { type: blob.type });
-      onFile(file);
-      onClose();
-    };
-    mr.start(250);
-    mediaRecorderRef.current = mr;
-    setRecording(true);
-    setSeconds(0);
-    timerRef.current = setInterval(() => setSeconds(s => s + 1), 1000);
-  }, [onFile, onClose]);
-
-  const stopRecording = useCallback(() => {
-    mediaRecorderRef.current?.stop();
-    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
-    setRecording(false);
-  }, []);
-
-  const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
-
-  return (
-    <Dialog open onOpenChange={() => { if (!recording) onClose(); }}>
-      <DialogContent className="max-w-lg p-0 overflow-hidden">
-        <DialogHeader className="px-4 pt-4 pb-2">
-          <DialogTitle className="flex items-center gap-2 text-sm font-semibold">
-            <Camera className="w-4 h-4 text-red-500" />
-            Record — {drillTitle}
-          </DialogTitle>
-        </DialogHeader>
-
-        {error ? (
-          <div className="px-4 pb-6 text-center space-y-2">
-            <p className="text-sm text-red-400">{error}</p>
-            <Button size="sm" variant="outline" onClick={onClose}>Close</Button>
-          </div>
-        ) : (
-          <div className="relative bg-black">
-            <video
-              ref={videoRef}
-              autoPlay
-              muted
-              playsInline
-              className="w-full aspect-video object-cover"
-            />
-            {recording && (
-              <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-black/60 rounded-full px-2 py-1">
-                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                <span className="text-white text-xs font-mono">{fmt(seconds)}</span>
-              </div>
-            )}
-            <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-4">
-              {!recording ? (
-                <Button
-                  onClick={startRecording}
-                  disabled={!ready}
-                  className="rounded-full w-16 h-16 bg-red-500 hover:bg-red-600 border-4 border-white shadow-lg"
-                  data-testid="btn-start-recording"
-                >
-                  <Camera className="w-6 h-6" />
-                </Button>
-              ) : (
-                <Button
-                  onClick={stopRecording}
-                  className="rounded-full w-16 h-16 bg-white hover:bg-gray-100 border-4 border-red-500 shadow-lg"
-                  data-testid="btn-stop-recording"
-                >
-                  <span className="w-5 h-5 rounded-sm bg-red-500 block" />
-                </Button>
-              )}
-              {!recording && (
-                <Button variant="outline" size="sm" onClick={onClose} className="self-center" data-testid="btn-cancel-recording">
-                  Cancel
-                </Button>
-              )}
-            </div>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 type WorkoutWithDrills = {
   workout: Workout;
@@ -294,10 +160,6 @@ export default function TrainingLogPage() {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [showChallengeDialog, setShowChallengeDialog] = useState(false);
   const [drillInfoOpen, setDrillInfoOpen] = useState<Drill | null>(null);
-  const [drillRecordings, setDrillRecordings] = useState<Record<string, string>>({});
-  const [drillRecordingUploading, setDrillRecordingUploading] = useState<string | null>(null);
-  const [cameraRecordTarget, setCameraRecordTarget] = useState<{ drillId: string; drillTitle: string } | null>(null);
-  const recordInputRefs = useRef<Record<string, HTMLInputElement>>({});
   const [newChallenge, setNewChallenge] = useState({
     name: "",
     description: "",
@@ -309,6 +171,7 @@ export default function TrainingLogPage() {
   });
   
   const [challengesSectionOpen, setChallengesSectionOpen] = useState(false);
+  const [programsSectionOpen, setProgramsSectionOpen] = useState(true);
   const [isSavingWorkout, setIsSavingWorkout] = useState(false);
   
   // Single workout-level timer state
@@ -404,6 +267,9 @@ export default function TrainingLogPage() {
   
   // Free Shoot / Live Record state
   const [showFreeShotMode, setShowFreeShotMode] = useState(false);
+  const [showRecordShootingMode, setShowRecordShootingMode] = useState(false);
+  const [recordingEntryIndex, setRecordingEntryIndex] = useState<number | null>(null);
+
   // View/Edit log state
   const [viewEditLogId, setViewEditLogId] = useState<string | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -535,17 +401,17 @@ export default function TrainingLogPage() {
     queryKey: ['/api/challenges/my-challenges'],
   });
 
-  // Fetch user's active leaderboard challenge participations for shot highlighting
-  const { data: activeLCChallenges } = useQuery<Array<{ id: string; title: string; metric: string; shotLocation: string | null; accentColor: string | null }>>({
-    queryKey: ['/api/leaderboard-challenges/my-active'],
-  });
-
   const { data: allChallenges } = useQuery<Challenge[]>({
     queryKey: ['/api/challenges']
   });
 
   const { data: favoriteDrillIds } = useQuery<string[]>({
     queryKey: ['/api/user/favorite-drills'],
+  });
+
+  const { data: programEnrollments } = useQuery<any[]>({
+    queryKey: ["/api/programs/me"],
+    staleTime: 30_000,
   });
 
   // Group drills by category
@@ -565,106 +431,20 @@ export default function TrainingLogPage() {
   // Get active challenges that match a drill's category
   const getMatchingChallenges = (drillCategory: string) => {
     if (!activeChallenges) return [];
+    // Map drill categories to challenge categories
     const categoryMap: Record<string, string> = {
       'shooting': 'shooting',
       'ball-handling': 'ball-handling',
       'passing': 'passing',
-      'finishing': 'shooting',
+      'finishing': 'shooting', // Finishing drills can track to shooting challenges
       'workouts': 'workout',
       'defense': 'workout',
       'film-session': 'workout',
     };
     const challengeCategory = categoryMap[drillCategory] || drillCategory;
-    return activeChallenges.filter(uc =>
+    return activeChallenges.filter(uc => 
       !uc.isCompleted && uc.challenge.category === challengeCategory
     );
-  };
-
-  // Get active leaderboard challenges matching a shot location
-  const getMatchingLCChallenges = (shotLocation: string) => {
-    if (!activeLCChallenges?.length) return [];
-    return activeLCChallenges.filter(c =>
-      c.metric === 'shots_made' &&
-      (c.shotLocation === null || c.shotLocation === shotLocation)
-    );
-  };
-
-  // Upload a drill recording to Film Room
-  const uploadDrillRecording = async (drillId: string, drillTitle: string, file: File) => {
-    setDrillRecordingUploading(drillId);
-    try {
-      // Generate thumbnail from video
-      const thumbnailBlob = await new Promise<Blob | null>((resolve) => {
-        const video = document.createElement("video");
-        const url = URL.createObjectURL(file);
-        video.src = url; video.muted = true; video.playsInline = true; video.preload = "metadata";
-        const capture = () => {
-          try {
-            const MAX = 640;
-            const scale = Math.min(MAX / video.videoWidth, MAX / video.videoHeight, 1);
-            const canvas = document.createElement("canvas");
-            canvas.width = Math.round(video.videoWidth * scale);
-            canvas.height = Math.round(video.videoHeight * scale);
-            canvas.getContext("2d")!.drawImage(video, 0, 0, canvas.width, canvas.height);
-            canvas.toBlob((b) => { URL.revokeObjectURL(url); resolve(b); }, "image/jpeg", 0.82);
-          } catch { URL.revokeObjectURL(url); resolve(null); }
-        };
-        video.addEventListener("loadedmetadata", () => { video.currentTime = video.duration > 1 ? 1 : 0; });
-        video.addEventListener("seeked", capture);
-        video.addEventListener("error", () => { URL.revokeObjectURL(url); resolve(null); });
-      });
-
-      // Request presigned URL (strip codec suffix so "video/webm;codecs=vp9,opus" → "video/webm")
-      const baseContentType = (file.type || "video/mp4").split(";")[0].trim();
-      const urlRes = await nativeFetch("/api/user/uploads/request-url", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: file.name, size: file.size, contentType: baseContentType }),
-      });
-      if (!urlRes.ok) throw new Error("Failed to get upload URL");
-      const { uploadURL, objectPath } = await urlRes.json();
-
-      // Upload video
-      const uploadRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": baseContentType } });
-      if (!uploadRes.ok) throw new Error("Upload failed");
-
-      // Finalize (non-fatal)
-      try { await nativeFetch("/api/uploads/finalize-video", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ objectPath }) }); } catch {}
-
-      // Upload thumbnail
-      let thumbPath: string | null = null;
-      if (thumbnailBlob) {
-        try {
-          const thumbFile = new File([thumbnailBlob], "thumbnail.jpg", { type: "image/jpeg" });
-          const tr = await nativeFetch("/api/user/uploads/photo-url", {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: "thumbnail.jpg", size: thumbFile.size, contentType: "image/jpeg" }),
-          });
-          if (tr.ok) {
-            const { uploadURL: tURL, objectPath: tPath } = await tr.json();
-            await fetch(tURL, { method: "PUT", body: thumbFile, headers: { "Content-Type": "image/jpeg" } });
-            thumbPath = tPath;
-          }
-        } catch {}
-      }
-
-      // Save to Film Room
-      await apiRequest("POST", "/api/videos", {
-        title: `${drillTitle} — Training Recording`,
-        videoUrl: objectPath,
-        thumbnailUrl: thumbPath,
-        drillId,
-        isPublic: false,
-        description: "Recorded during a training session",
-      });
-      setDrillRecordings(prev => ({ ...prev, [drillId]: objectPath }));
-      queryClient.invalidateQueries({ queryKey: ['/api/videos'] });
-      toast({ title: "Recording saved to Film Room", description: "View it any time in your Film Room." });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Upload failed";
-      toast({ title: "Recording Failed", description: msg, variant: "destructive" });
-    } finally {
-      setDrillRecordingUploading(null);
-    }
   };
 
   // Create drill form
@@ -878,7 +658,6 @@ export default function TrainingLogPage() {
       queryClient.invalidateQueries({ queryKey: ['/api/training-logs'] });
       queryClient.invalidateQueries({ queryKey: ['/api/stats/overview'] });
       queryClient.invalidateQueries({ queryKey: ['/api/assigned-drills'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/leaderboard-challenges'] });
       track("drill_log_completed", { drillId: variables?.drillId, duration: variables?.duration });
     },
   });
@@ -915,7 +694,6 @@ export default function TrainingLogPage() {
       queryClient.invalidateQueries({ queryKey: ['/api/training-logs', viewEditLogId] });
       queryClient.invalidateQueries({ queryKey: ['/api/stats/overview'] });
       queryClient.invalidateQueries({ queryKey: ['/api/stats/weekly'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/leaderboard-challenges'] });
       toast({ title: "Training log updated" });
       setViewEditLogId(null);
       setIsEditMode(false);
@@ -1065,6 +843,47 @@ export default function TrainingLogPage() {
     }
     
     return null;
+  };
+
+  // Extract shot data for half-court map from a training log
+  const getShotMapData = (log: TrainingLogWithMetrics | null): ShotData[] => {
+    if (!log) return [];
+    
+    // First, try new per-round shot location fields from training log
+    if (log.shotLocation && log.shotsAttempted) {
+      return [{
+        location: log.shotLocation,
+        made: log.shotsMade || 0,
+        attempted: log.shotsAttempted || 0
+      }];
+    }
+    
+    // Legacy logs without shot location data cannot display meaningful shot charts
+    // since we don't know where the shots were taken
+    return [];
+  };
+
+  // Aggregate shot data from multiple logs (for workout sessions)
+  const aggregateShotData = (logs: TrainingLogWithMetricsResponse[]): ShotData[] => {
+    const locationData: Record<string, { made: number; attempted: number }> = {};
+    
+    logs.forEach(log => {
+      // Only aggregate logs that have proper shot location data
+      if (log.shotLocation && log.shotsAttempted) {
+        if (!locationData[log.shotLocation]) {
+          locationData[log.shotLocation] = { made: 0, attempted: 0 };
+        }
+        locationData[log.shotLocation].made += log.shotsMade || 0;
+        locationData[log.shotLocation].attempted += log.shotsAttempted || 0;
+      }
+      // Legacy logs without shot location are excluded from shot chart aggregation
+    });
+    
+    return Object.entries(locationData).map(([location, data]) => ({
+      location,
+      made: data.made,
+      attempted: data.attempted
+    }));
   };
 
   // Toggle drill selection
@@ -1531,7 +1350,6 @@ export default function TrainingLogPage() {
       // Immediately invalidate only what the user sees next
       queryClient.invalidateQueries({ queryKey: ['/api/training-logs'] });
       queryClient.invalidateQueries({ queryKey: ['/api/assigned-drills'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/leaderboard-challenges'] });
 
       // Compute summary before state is cleared
       const challengeCount = Object.keys(challengeUpdates).length;
@@ -2143,6 +1961,24 @@ export default function TrainingLogPage() {
                     </div>
                   </CardContent>
                 </Card>
+                {/* RECORD_SHOOTING_FEATURE: hidden pending Roboflow CV integration — re-enable by removing the {false && ...} wrapper */}
+                {false && (
+                <Card
+                  className="cursor-pointer hover-elevate"
+                  onClick={() => setShowRecordShootingMode(true)}
+                  data-testid="action-record-shooting"
+                >
+                  <CardContent className="p-4 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
+                      <Video className="w-5 h-5 text-blue-400" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-sm">Record Shooting</h3>
+                      <p className="text-xs text-muted-foreground">Film &amp; AI tracks your shots</p>
+                    </div>
+                  </CardContent>
+                </Card>
+                )}
               </div>
 
               {/* Favorite Workouts Section */}
@@ -2332,6 +2168,76 @@ export default function TrainingLogPage() {
                           </CardContent>
                         </Card>
                       ))}
+                    </CollapsibleContent>
+                  </Collapsible>
+                );
+              })()}
+
+              {/* Active Programs Section */}
+              {(() => {
+                const activePrograms = (programEnrollments ?? []).filter((e: any) => e.status === "active");
+                if (activePrograms.length === 0) return null;
+                return (
+                  <Collapsible open={programsSectionOpen} onOpenChange={setProgramsSectionOpen}>
+                    <div className="flex items-center justify-between">
+                      <CollapsibleTrigger asChild>
+                        <button className="flex items-center gap-2 cursor-pointer select-none" data-testid="section-active-programs">
+                          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                            <Sparkles className="w-4 h-4 text-orange-500" />
+                            Active Programs
+                            <Badge className="text-xs bg-orange-500/20 text-orange-400 border-orange-500/30">{activePrograms.length} Active</Badge>
+                          </h3>
+                          <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${programsSectionOpen ? 'rotate-90' : ''}`} />
+                        </button>
+                      </CollapsibleTrigger>
+                      <Link href="/programs" onClick={(e) => e.stopPropagation()}>
+                        <span className="text-xs text-orange-400 hover:text-orange-300 transition-colors flex items-center gap-1" data-testid="link-all-programs">
+                          All programs <ArrowRight className="w-3 h-3" />
+                        </span>
+                      </Link>
+                    </div>
+                    <CollapsibleContent className="pt-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {activePrograms.map((e: any) => {
+                          const accent = e.program?.accentColor || "#f97316";
+                          const pct = e.totalItemCount > 0
+                            ? Math.round((e.completedItemCount / e.totalItemCount) * 100)
+                            : 0;
+                          const slug = e.program?.slug;
+                          const href = slug ? `/programs/${slug}/today` : `/programs`;
+                          return (
+                            <Link key={e.id} href={href} data-testid={`link-program-${e.programId}`}>
+                              <Card className="hover-elevate active-elevate-2 cursor-pointer overflow-hidden border-border/60 h-full">
+                                <div className="h-1.5" style={{ background: `linear-gradient(90deg, ${accent}, ${accent}66)` }} />
+                                <CardContent className="p-4">
+                                  <div className="flex items-start justify-between gap-2 mb-2">
+                                    <Badge variant="outline" className="text-xs">
+                                      <Calendar className="w-3 h-3 mr-1" />
+                                      Day {e.currentDay} of {e.program?.lengthDays}
+                                    </Badge>
+                                    <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                                  </div>
+                                  <h3 className="text-sm font-semibold leading-tight line-clamp-2">
+                                    {e.program?.title ?? "Program"}
+                                  </h3>
+                                  <div className="flex items-center justify-between text-[11px] text-muted-foreground mt-3 mb-1">
+                                    <span>{e.completedItemCount}/{e.totalItemCount} items</span>
+                                    <span className="font-medium text-foreground">{pct}%</span>
+                                  </div>
+                                  <div className="h-1 bg-muted rounded-full overflow-hidden">
+                                    <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: accent }} />
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                      <Link href="/programs">
+                        <button className="mt-3 w-full flex items-center justify-center gap-1.5 text-xs text-orange-400 hover:text-orange-300 transition-colors py-2" data-testid="link-all-programs">
+                          All programs <ArrowRight className="w-3 h-3" />
+                        </button>
+                      </Link>
                     </CollapsibleContent>
                   </Collapsible>
                 );
@@ -3043,21 +2949,6 @@ export default function TrainingLogPage() {
                             >
                               <Info className="w-4 h-4" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className={`h-8 w-8 ${drillRecordings[drillId] ? 'bg-green-500/10 text-green-500 hover:bg-green-500/20 hover:text-green-500' : 'bg-red-500/10 text-red-500 hover:bg-red-500/20 hover:text-red-500'}`}
-                              onClick={() => setCameraRecordTarget({ drillId, drillTitle: group.drill.title })}
-                              disabled={drillRecordingUploading === drillId}
-                              title={drillRecordings[drillId] ? 'Recording saved to Film Room' : 'Record this drill'}
-                              data-testid={`button-record-${drillId}`}
-                            >
-                              {drillRecordingUploading === drillId
-                                ? <Loader2 className="w-4 h-4 animate-spin" />
-                                : drillRecordings[drillId]
-                                ? <CheckCircle2 className="w-4 h-4" />
-                                : <Camera className="w-4 h-4" />}
-                            </Button>
                           <Button 
                             variant="outline" 
                             size="sm"
@@ -3124,7 +3015,7 @@ export default function TrainingLogPage() {
                             </thead>
                             <tbody>
                               {group.entries.map(({ entry, index }, roundIdx) => (
-                                <tr key={index} className={`border-b last:border-0 hover:bg-muted/20 ${isShootingDrill && entry.shotLocation && getMatchingLCChallenges(entry.shotLocation).length > 0 ? 'bg-primary/5 ring-1 ring-inset ring-primary/20' : ''}`} data-testid={`workout-row-${index}`}>
+                                <tr key={index} className="border-b last:border-0 hover:bg-muted/20" data-testid={`workout-row-${index}`}>
                                   <td className="p-2 sm:p-3">
                                     <Badge variant="secondary" className="text-xs font-semibold">
                                       {roundIdx + 1}
@@ -3153,12 +3044,6 @@ export default function TrainingLogPage() {
                                           ))}
                                         </SelectContent>
                                       </Select>
-                                      {entry.shotLocation && getMatchingLCChallenges(entry.shotLocation).map(c => (
-                                        <div key={c.id} className="flex items-center gap-1 mt-1" data-testid={`badge-lc-${c.id}-${index}`}>
-                                          <Trophy className="w-3 h-3 text-primary shrink-0" />
-                                          <span className="text-[10px] text-primary font-medium truncate max-w-[120px]">{c.title}</span>
-                                        </div>
-                                      ))}
                                     </td>
                                   )}
                                   {metricColumns.map(dm => (
@@ -3326,19 +3211,6 @@ export default function TrainingLogPage() {
         </div>
       )}
 
-      {/* Camera record modal */}
-      {cameraRecordTarget && (
-        <CameraRecordModal
-          drillTitle={cameraRecordTarget.drillTitle}
-          onClose={() => setCameraRecordTarget(null)}
-          onFile={async (file) => {
-            const { drillId, drillTitle } = cameraRecordTarget;
-            setCameraRecordTarget(null);
-            await uploadDrillRecording(drillId, drillTitle, file);
-          }}
-        />
-      )}
-
       {/* Drill info dialog (opened from active workout drill rows) */}
       <Dialog open={!!drillInfoOpen} onOpenChange={(o) => !o && setDrillInfoOpen(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="dialog-drill-info">
@@ -3355,109 +3227,40 @@ export default function TrainingLogPage() {
                     : "Drill details"}
                 </DialogDescription>
               </DialogHeader>
-              {drillInfoOpen.videoUrl && (() => {
-                const rawUrl = drillInfoOpen.videoUrl;
-                const ytMatch = rawUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-                const vimeoMatch = rawUrl.match(/vimeo\.com\/(?:video\/)?(\d+)/);
-                if (ytMatch) {
-                  return (
-                    <div className="aspect-video w-full bg-black rounded-xl overflow-hidden" data-testid="iframe-drill-video">
-                      <iframe
-                        src={`https://www.youtube.com/embed/${ytMatch[1]}?playsinline=1&rel=0`}
-                        className="w-full h-full"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                        allowFullScreen
-                        title={`${drillInfoOpen.title} video`}
-                      />
-                    </div>
-                  );
-                }
-                if (vimeoMatch) {
-                  return (
-                    <div className="aspect-video w-full bg-black rounded-xl overflow-hidden" data-testid="iframe-drill-video">
-                      <iframe
-                        src={`https://player.vimeo.com/video/${vimeoMatch[1]}?playsinline=1`}
-                        className="w-full h-full"
-                        allow="autoplay; fullscreen; picture-in-picture"
-                        allowFullScreen
-                        title={`${drillInfoOpen.title} video`}
-                      />
-                    </div>
-                  );
-                }
-                const resolvedSrc = getObjectUrl(rawUrl) ?? rawUrl;
-                return (
-                  <div className="aspect-video w-full bg-black rounded-xl overflow-hidden" data-testid="video-drill-wrapper">
+              {drillInfoOpen.videoUrl && (
+                <div className="aspect-video w-full bg-black rounded-lg overflow-hidden">
+                  {/youtube\.com|youtu\.be/.test(drillInfoOpen.videoUrl) ? (
+                    <iframe
+                      src={drillInfoOpen.videoUrl
+                        .replace("watch?v=", "embed/")
+                        .replace("youtu.be/", "youtube.com/embed/")}
+                      className="w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      title={`${drillInfoOpen.title} video`}
+                      data-testid="iframe-drill-video"
+                    />
+                  ) : (
                     <video
-                      key={resolvedSrc}
-                      src={resolvedSrc}
+                      src={drillInfoOpen.videoUrl}
                       controls
-                      playsInline
-                      preload="metadata"
                       className="w-full h-full"
                       data-testid="video-drill"
-                      onError={(e) => {
-                        const code = (e.currentTarget as HTMLVideoElement).error?.code;
-                        if (code === 4 || code === 3) {
-                          e.currentTarget.style.display = "none";
-                          const fallback = e.currentTarget.nextElementSibling as HTMLElement | null;
-                          if (fallback) fallback.style.display = "flex";
-                        }
-                      }}
                     />
-                    <div
-                      className="hidden w-full h-full flex-col items-center justify-center gap-2 text-white/60 text-sm p-4 text-center"
-                      aria-hidden="true"
-                    >
-                      <Play className="w-10 h-10 opacity-40" />
-                      <span>Video unavailable on this device</span>
-                      <a
-                        href={resolvedSrc}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary underline text-xs"
-                      >
-                        Open video directly
-                      </a>
-                    </div>
-                  </div>
-                );
-              })()}
+                  )}
+                </div>
+              )}
               {drillInfoOpen.description && (
                 <div className="text-sm whitespace-pre-line text-muted-foreground" data-testid="text-drill-description">
                   {drillInfoOpen.description}
                 </div>
               )}
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="secondary" className="capitalize" data-testid="badge-drill-difficulty">{drillInfoOpen.difficulty}</Badge>
-                {drillInfoOpen.category && <Badge variant="outline" className="capitalize">{formatCategory(drillInfoOpen.category)}</Badge>}
-                {drillInfoOpen.duration && <Badge variant="outline">~{Math.round(drillInfoOpen.duration / 60)} min</Badge>}
-                {drillInfoOpen.trackShots && <Badge variant="outline" className="text-primary border-primary/40">Shot Tracking</Badge>}
-              </div>
-              {drillInfoOpen.equipment && drillInfoOpen.equipment.length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Equipment</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {drillInfoOpen.equipment.map((eq, i) => (
-                      <Badge key={i} variant="outline" className="text-xs">{eq}</Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {drillInfoOpen.tips && drillInfoOpen.tips.length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Tips</p>
-                  <ul className="space-y-2">
-                    {drillInfoOpen.tips.map((tip, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
-                        {tip}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
               <DialogFooter>
+                <Link href={`/drill/${drillInfoOpen.id}`}>
+                  <Button variant="outline" data-testid="button-open-full-drill">
+                    Open full drill page
+                  </Button>
+                </Link>
                 <Button onClick={() => setDrillInfoOpen(null)} data-testid="button-close-drill-info">
                   Close
                 </Button>
@@ -3531,6 +3334,8 @@ export default function TrainingLogPage() {
                               ? Math.round((sessionTotalMade / sessionTotalAttempts) * 100) 
                               : null;
                             
+                            const sessionShotData = aggregateShotData(group.logs);
+                            
                             // Group logs by drillId to create Drills > Rounds hierarchy
                             const drillGroups: Record<string, TrainingLogWithMetricsResponse[]> = {};
                             group.logs.forEach(log => {
@@ -3576,6 +3381,11 @@ export default function TrainingLogPage() {
                                           <span>
                                             {formatDuration(group.logs.reduce((sum, l) => sum + l.duration, 0))}
                                           </span>
+                                          {sessionShotData.length > 0 && (
+                                            <span className="shrink-0" onClick={(e) => e.stopPropagation()}>
+                                              <ShotChartButton shotData={sessionShotData} title="Workout Shot Chart" testId={`button-shot-chart-workout-${group.sessionId}`} />
+                                            </span>
+                                          )}
                                         </div>
                                       </div>
                                     </CollapsibleTrigger>
@@ -3617,6 +3427,7 @@ export default function TrainingLogPage() {
                                     {/* Drills within this workout */}
                                     {Object.entries(drillGroups).map(([drillId, drillLogs]) => {
                                       // Calculate drill-level stats
+                                      const drillShotData = aggregateShotData(drillLogs);
                                       let drillTotalAttempts = 0;
                                       let drillTotalMade = 0;
                                       drillLogs.forEach(log => {
@@ -3659,6 +3470,11 @@ export default function TrainingLogPage() {
                                                             {drillPercentage}%
                                                           </Badge>
                                                         </>
+                                                      )}
+                                                      {drillShotData.length > 0 && (
+                                                        <span className="shrink-0" onClick={(e) => e.stopPropagation()}>
+                                                          <ShotChartButton shotData={drillShotData} title={`${getDrillTitle(drillId)} Shot Chart`} testId={`button-shot-chart-drill-${drillId}`} />
+                                                        </span>
                                                       )}
                                                     </div>
                                                   </div>
@@ -3968,6 +3784,18 @@ export default function TrainingLogPage() {
                 </div>
               )}
 
+              {/* Shot Chart Button - only show if there's shot location data */}
+              {(() => {
+                const shotData = getShotMapData(viewEditLog);
+                if (shotData.length > 0 && !isEditMode) {
+                  return (
+                    <div className="border-t pt-4">
+                      <ShotChartButton shotData={shotData} title={`${getDrillTitle(viewEditLog.drillId)} Shot Chart`} testId={`button-shot-chart-log-${viewEditLog.id}`} />
+                    </div>
+                  );
+                }
+                return null;
+              })()}
 
               <div className="text-xs text-muted-foreground border-t pt-4">
                 Completed: {viewEditLog.completedAt ? format(new Date(viewEditLog.completedAt), 'PPpp') : 'Unknown'}
@@ -4040,6 +3868,45 @@ export default function TrainingLogPage() {
         />
       )}
 
+      {/* Record Shooting Mode — full-screen overlay */}
+      {showRecordShootingMode && (
+        <RecordShootingMode
+          onClose={() => setShowRecordShootingMode(false)}
+        />
+      )}
+
+      {/* Live Shot Counter — for recording shots on a specific drill entry */}
+      {recordingEntryIndex !== null && workoutEntries[recordingEntryIndex] && (
+        <LiveShotCounter
+          location={workoutEntries[recordingEntryIndex].shotLocation || "free-throw"}
+          locationLabel={
+            workoutEntries[recordingEntryIndex].shotLocation
+              ? getLocationLabel(workoutEntries[recordingEntryIndex].shotLocation!)
+              : "Select Location First"
+          }
+          initialMade={workoutEntries[recordingEntryIndex].shotsMade || 0}
+          initialAttempted={workoutEntries[recordingEntryIndex].shotsAttempted || 0}
+          onDone={(made, attempted) => {
+            const idx = recordingEntryIndex;
+            // Update entry fields directly
+            updateEntry(idx, "shotsMade", made);
+            updateEntry(idx, "shotsAttempted", attempted);
+            // Also update metric inputs if drill has matching metrics
+            const entry = workoutEntries[idx];
+            entry.drillMetrics.forEach(dm => {
+              const n = dm.template.name.toLowerCase();
+              const l = dm.template.label.toLowerCase();
+              if (n.includes("attempt") || l.includes("attempt")) {
+                updateMetricValue(idx, dm.metricTemplateId, attempted);
+              } else if ((n.includes("made") || l.includes("made")) && !n.includes("attempt")) {
+                updateMetricValue(idx, dm.metricTemplateId, made);
+              }
+            });
+            setRecordingEntryIndex(null);
+          }}
+          onClose={() => setRecordingEntryIndex(null)}
+        />
+      )}
     </div>
   );
 }

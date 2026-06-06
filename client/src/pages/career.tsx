@@ -86,6 +86,11 @@ import {
   Upload,
   MapPin,
   ArrowLeftRight,
+  Video,
+  CheckCircle2,
+  Pen,
+  Sparkles,
+  MessageSquare,
 } from "lucide-react";
 import type { CareerProfile, UserAchievement, CareerAchievement, Challenge, UserChallenge, PersonalRecord, TeamAward, Season, Game, InsertTeamAward, InsertChallenge } from "@shared/schema";
 import { insertTeamAwardSchema, insertChallengeSchema } from "@shared/schema";
@@ -98,7 +103,9 @@ import {
   SEASON_TYPES,
   CHALLENGE_CATEGORIES,
   CHALLENGE_METRICS,
-  CHALLENGE_GOAL_TYPES
+  CHALLENGE_GOAL_TYPES,
+  COUNTRIES,
+  CANADIAN_PROVINCES,
 } from "@shared/schema";
 import { ShareCardDialog } from "@/components/share-card";
 import { WorkoutShareDialog } from "@/components/workout-share-dialog";
@@ -499,10 +506,10 @@ function TutorialVideoStep({
   );
 }
 
-function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
+export function OnboardingWizard({ onComplete, previewMode = false }: { onComplete: () => void; previewMode?: boolean }) {
   const { toast } = useToast();
   const { user } = useAuth();
-  const [step, setStep] = useState<"role" | "profile" | "parent-email" | "reason" | "select-teams" | "log-game" | "no-season" | "season-start" | "dev-priority" | "dev-log-next" | "dev-create-next" | "tutorial-log" | "tutorial-create" | "trainer-profile" | "trainer-specialties" | "trainer-begin">("role");
+  const [step, setStep] = useState<"manifesto" | "role" | "profile" | "parent-email" | "basketball-life" | "playr1-moment" | "thirty-day-focus" | "select-teams" | "ai-interview" | "meet-coach" | "trainer-profile" | "trainer-specialties" | "trainer-begin">("manifesto");
   const [selectedRole, setSelectedRole] = useState<"player" | "trainer" | "player_trainer" | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -514,6 +521,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   const [positions, setPositions] = useState<string[]>([]);
   const [jerseyNumber, setJerseyNumber] = useState<number | undefined>();
   const [aspiration, setAspiration] = useState("");
+  const [country, setCountry] = useState("USA");
   const [city, setCity] = useState("");
   const [stateName, setStateName] = useState("");
   const [zipCode, setZipCode] = useState("");
@@ -534,11 +542,23 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   const [devPriority, setDevPriority] = useState<"log-training" | "drill-library" | "create-drills" | null>(null);
   const [wantAiSuggestions, setWantAiSuggestions] = useState<boolean | null>(null);
   const [tutorialSlide, setTutorialSlide] = useState(0);
+  const [basketballLifestyle, setBasketballLifestyle] = useState<string[]>([]);
+  const [playr1Moment, setPlayr1Moment] = useState("");
+  const [customPlayr1Moment, setCustomPlayr1Moment] = useState("");
+  const [showCustomMoment, setShowCustomMoment] = useState(false);
+  const [focusSkill, setFocusSkill] = useState("");
+
+  // AI Interview state
+  const [interviewMessages, setInterviewMessages] = useState<{role: 'user' | 'assistant', content: string}[]>([]);
+  const [interviewInput, setInterviewInput] = useState("");
+  const [interviewDone, setInterviewDone] = useState(false);
+  const [isAiThinking, setIsAiThinking] = useState(false);
 
   const [trainerSpecialties, setTrainerSpecialties] = useState(TRAINER_SPECIALTIES.map(s => s.value));
   const [draggedSpecIdx, setDraggedSpecIdx] = useState<number | null>(null);
   const [overSpecIdx, setOverSpecIdx] = useState<number | null>(null);
   const specDragging = useRef(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const [trainerAlsoCoaches, setTrainerAlsoCoaches] = useState(false);
   const [trainerTeamName, setTrainerTeamName] = useState("");
 
@@ -664,6 +684,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   };
 
   const saveProfile = async () => {
+    if (previewMode) return;
     setIsSaving(true);
     try {
       await apiRequest("PUT", "/api/user/name", { firstName, lastName });
@@ -695,11 +716,12 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
       };
       if (cardPhotoUrl) profileData.cardPhotoUrl = cardPhotoUrl;
 
-      if (city || stateName || zipCode) {
+      if (city || stateName || zipCode || country) {
         await apiRequest("PUT", "/api/profile", {
           city: city || undefined,
           state: stateName || undefined,
           zipCode: zipCode || undefined,
+          country: country || "USA",
         });
       }
 
@@ -780,6 +802,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   };
 
   const completeOnboarding = async () => {
+    if (previewMode) { onComplete(); return; }
     try {
       await apiRequest("POST", "/api/career/complete-onboarding");
       queryClient.invalidateQueries({ queryKey: ['/api/career'] });
@@ -805,15 +828,23 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
       toast({ title: "Please enter your first name", variant: "destructive" });
       return;
     }
+    if (!country.trim()) {
+      toast({ title: "Please select your country", variant: "destructive" });
+      return;
+    }
     if (!city.trim()) {
       toast({ title: "Please enter your city", variant: "destructive" });
       return;
     }
-    if (!stateName.trim()) {
+    if (country === "USA" && !stateName.trim()) {
       toast({ title: "Please select your state", variant: "destructive" });
       return;
     }
-    if (!zipCode.trim()) {
+    if (country === "CAN" && !stateName.trim()) {
+      toast({ title: "Please select your province", variant: "destructive" });
+      return;
+    }
+    if (country === "USA" && !zipCode.trim()) {
       toast({ title: "Please enter your zip code", variant: "destructive" });
       return;
     }
@@ -822,7 +853,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
     const currentYear = new Date().getFullYear();
     const currentMonth = new Date().getMonth() + 1;
     const playerIsMinor = birthYear ? (currentYear - birthYear < 18 || (currentYear - birthYear === 18 && birthMonth !== undefined && birthMonth > currentMonth)) : false;
-    setStep("reason");
+    setStep("basketball-life");
   };
 
   const commitSpecReorder = (from: number, to: number) => {
@@ -839,15 +870,23 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
       toast({ title: "Please enter your first name", variant: "destructive" });
       return;
     }
+    if (!country.trim()) {
+      toast({ title: "Please select your country", variant: "destructive" });
+      return;
+    }
     if (!city.trim()) {
       toast({ title: "Please enter your city", variant: "destructive" });
       return;
     }
-    if (!stateName.trim()) {
+    if (country === "USA" && !stateName.trim()) {
       toast({ title: "Please select your state", variant: "destructive" });
       return;
     }
-    if (!zipCode.trim()) {
+    if (country === "CAN" && !stateName.trim()) {
+      toast({ title: "Please select your province", variant: "destructive" });
+      return;
+    }
+    if (country === "USA" && !zipCode.trim()) {
       toast({ title: "Please enter your zip code", variant: "destructive" });
       return;
     }
@@ -900,14 +939,17 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   };
 
   const handleTrainerSpecialtiesNext = async () => {
-    const rankedJson = JSON.stringify(trainerSpecialties);
-    await apiRequest("PUT", "/api/career", { trainerSpecialties: rankedJson });
-    queryClient.invalidateQueries({ queryKey: ['/api/career'] });
+    if (!previewMode) {
+      const rankedJson = JSON.stringify(trainerSpecialties);
+      await apiRequest("PUT", "/api/career", { trainerSpecialties: rankedJson });
+      queryClient.invalidateQueries({ queryKey: ['/api/career'] });
+    }
     setStep("trainer-begin");
   };
 
   const handleTrainerBeginChoice = async (choice: "create-drill" | "invite-players" | "upload-content") => {
     await completeOnboarding();
+    if (previewMode) return;
     if (choice === "create-drill") {
       window.location.href = "/trainer/drills";
     } else if (choice === "invite-players") {
@@ -917,123 +959,186 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
     }
   };
 
-  const handleInterestRankingNext = async () => {
-    const topInterest = rankedInterests[0];
-    const rankedJson = JSON.stringify(rankedInterests);
-    await apiRequest("PUT", "/api/career", { primaryReason: rankedJson });
-    queryClient.invalidateQueries({ queryKey: ['/api/career'] });
-
-    if (topInterest === "game-stats") {
-      setStep("select-teams");
-    } else if (topInterest === "skill-development") {
-      setStep("dev-priority");
-    } else {
-      await completeOnboarding();
-    }
-  };
-
-  const handleDevPriorityNext = async () => {
-    if (!devPriority) {
-      toast({ title: "Please select an option", variant: "destructive" });
+  const handleBasketballLifeNext = () => {
+    if (basketballLifestyle.length === 0) {
+      toast({ title: "Pick at least one that fits you", variant: "destructive" });
       return;
     }
-    if (devPriority === "log-training") {
-      setStep("dev-log-next");
-    } else if (devPriority === "drill-library") {
-      await completeOnboarding();
-      window.location.href = "/drills";
-    } else if (devPriority === "create-drills") {
-      setStep("dev-create-next");
-    }
+    setStep("playr1-moment");
   };
 
-  const commitInterestReorder = (fromIdx: number, toIdx: number) => {
-    setRankedInterests(prev => {
-      const newOrder = [...prev];
-      const [moved] = newOrder.splice(fromIdx, 1);
-      newOrder.splice(toIdx, 0, moved);
-      return newOrder;
-    });
+  const handlePlayr1MomentNext = () => {
+    const finalMoment = showCustomMoment ? customPlayr1Moment.trim() : playr1Moment;
+    if (!finalMoment) {
+      toast({ title: "Tell us your PLAYR1 moment", variant: "destructive" });
+      return;
+    }
+    if (showCustomMoment) setPlayr1Moment(finalMoment);
+    setStep("thirty-day-focus");
+  };
+
+  const handleThirtyDayFocusNext = async () => {
+    if (!focusSkill) {
+      toast({ title: "Pick a skill to focus on", variant: "destructive" });
+      return;
+    }
+    if (!previewMode) {
+      const finalMoment = showCustomMoment ? customPlayr1Moment.trim() : playr1Moment;
+      await apiRequest("PUT", "/api/career", {
+        focusSkill: focusSkill || undefined,
+        basketballLifestyle: basketballLifestyle.length > 0 ? basketballLifestyle : undefined,
+        playr1Moment: finalMoment || undefined,
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/career'] });
+    }
+    setStep("select-teams");
   };
 
   const handleTeamsSelected = () => {
-    if (gameStatsTeams.length === 0) {
-      toast({ title: "Select at least one team", variant: "destructive" });
-      return;
+    setStep("ai-interview");
+  };
+
+  const sendInterviewMessage = async (userMessage?: string) => {
+    if (isAiThinking) return;
+    setIsAiThinking(true);
+    const newMessages: {role: 'user' | 'assistant', content: string}[] = userMessage
+      ? [...interviewMessages, { role: 'user', content: userMessage }]
+      : interviewMessages;
+    if (userMessage) {
+      setInterviewMessages(newMessages);
+      setInterviewInput("");
     }
-    const selectedTeamObjects = teams.filter(t => gameStatsTeams.includes(t.name));
-    const anyInSeason = selectedTeamObjects.some(t => t.inSeason);
-    if (anyInSeason) {
-      setCurrentGameTeamIdx(0);
-      setStep("log-game");
-    } else {
-      setStep("no-season");
+    try {
+      const res = await apiRequest("POST", "/api/ai/onboarding-chat", {
+        messages: newMessages,
+        playerContext: {
+          aspiration, positions, gradeLevel, focusSkill,
+          basketballLifestyle,
+          playr1Moment: showCustomMoment ? customPlayr1Moment : playr1Moment,
+          teams,
+        },
+      });
+      const data = await res.json();
+      const cleanMessage = (data.message as string).replace('[READY_TO_BUILD]', '').trim();
+      setInterviewMessages(prev => [...prev, { role: 'assistant', content: cleanMessage }]);
+      if (data.isDone) setInterviewDone(true);
+    } catch {
+      toast({ title: "Couldn't reach the AI coach right now. Try again.", variant: "destructive" });
+    } finally {
+      setIsAiThinking(false);
     }
   };
 
-  const handleNoSeasonResponse = (wantToPast: boolean) => {
-    setLogPastGames(wantToPast);
-    if (wantToPast) {
-      setCurrentGameTeamIdx(0);
-      setStep("log-game");
-    } else {
-      setStep("season-start");
+  const completeInterview = async () => {
+    setIsSaving(true);
+    try {
+      if (!previewMode) {
+        await apiRequest("PUT", "/api/career", {
+          aiInterviewData: { messages: interviewMessages, completedAt: new Date().toISOString() },
+        });
+        queryClient.invalidateQueries({ queryKey: ['/api/career'] });
+      }
+      setStep("meet-coach");
+    } catch {
+      toast({ title: "Error saving interview", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const handleSeasonStartDone = async () => {
-    const teamsWithMonths = teams.map(t => {
-      const month = seasonStartMonths[t.name];
-      return month ? { ...t, seasonStartMonth: month } : t;
-    });
-    await apiRequest("PUT", "/api/career", { onboardingTeams: JSON.stringify(teamsWithMonths) });
-    await completeOnboarding();
-  };
+  useEffect(() => {
+    if (step === "ai-interview" && interviewMessages.length === 0 && !isAiThinking) {
+      sendInterviewMessage();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [interviewMessages, isAiThinking]);
+
+  if (step === "manifesto") {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-black relative overflow-hidden">
+        {/* Background texture */}
+        <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(circle at 30% 20%, #f97316 0%, transparent 50%), radial-gradient(circle at 70% 80%, #f97316 0%, transparent 50%)' }} />
+        <div className="relative z-10 w-full max-w-md px-6 py-12 text-center flex flex-col items-center gap-8">
+          {/* Logo */}
+          <img
+            src={logoLandscape}
+            alt="PLAYR1"
+            className="h-12 w-[180px] object-contain dark:invert-0 dark:hue-rotate-0 invert hue-rotate-180"
+          />
+          {/* Main statement */}
+          <div className="space-y-4">
+            <p className="text-orange-400 text-xs font-bold tracking-[0.2em] uppercase">Your journey starts here</p>
+            <h1 className="text-4xl font-black text-white leading-tight tracking-tight">
+              Every player has a<br />
+              <span className="text-orange-400">PLAYR1 version</span><br />
+              of themselves.
+            </h1>
+            <div className="w-12 h-0.5 bg-orange-500 mx-auto" />
+            <p className="text-zinc-400 text-lg leading-relaxed">
+              This is how you get there.
+            </p>
+          </div>
+          {/* CTA */}
+          <Button
+            onClick={() => setStep("role")}
+            className="w-full bg-orange-500 hover:bg-orange-600 text-black font-bold h-14 text-lg rounded-xl mt-4"
+            data-testid="button-begin-journey"
+          >
+            Begin Your Journey
+            <ChevronRight className="w-5 h-5 ml-1" />
+          </Button>
+          <p className="text-zinc-600 text-xs">Takes about 2 minutes</p>
+        </div>
+      </div>
+    );
+  }
 
   if (step === "role") {
     return (
-      <div className="min-h-screen flex items-start justify-center p-3 pt-6 bg-gradient-to-b from-background to-muted/20">
-        <div className="w-full max-w-md space-y-3">
-          <div className="flex justify-center">
-            <img
-              src={logoLandscape}
-              alt="PLAYR1"
-              className="h-16 w-[220px] max-w-full object-contain invert hue-rotate-180 dark:invert-0 dark:hue-rotate-0"
-            />
+      <div className="min-h-screen flex items-center justify-center p-4 bg-zinc-950">
+        <div className="w-full max-w-md space-y-6">
+          <div className="text-center space-y-2">
+            <p className="text-orange-400 text-xs font-bold tracking-[0.2em] uppercase">Step 1</p>
+            <h2 className="text-2xl font-black text-white">How are you showing up?</h2>
+            <p className="text-zinc-400 text-sm">This shapes your entire PLAYR1 experience.</p>
           </div>
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center pb-2 pt-4">
-            <CardTitle className="text-2xl font-bold">Welcome to PLAYR1</CardTitle>
-            <CardDescription>How will you be using the app?</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
+          <div className="space-y-3">
             {[
-              { value: "player" as const, label: "Player", desc: "Track your development and stats", icon: User },
-              { value: "trainer" as const, label: "Trainer", desc: "Manage and develop players", icon: Dumbbell },
-              { value: "player_trainer" as const, label: "Player & Trainer", desc: "Train players and track your own game", icon: ArrowLeftRight },
+              { value: "player" as const, label: "I'm a Player", desc: "Track my development, skills, and stats", icon: User },
+              { value: "trainer" as const, label: "I'm a Trainer / Coach", desc: "Develop players and manage my program", icon: Dumbbell },
+              { value: "player_trainer" as const, label: "Both — Player & Trainer", desc: "I coach and compete at the same time", icon: ArrowLeftRight },
             ].map(role => {
               const Icon = role.icon;
               return (
                 <div
                   key={role.value}
                   onClick={() => handleRoleSelect(role.value)}
-                  className={`cursor-pointer p-4 rounded-lg border-2 flex items-center gap-4 transition-all hover:bg-muted/30 ${
-                    selectedRole === role.value ? 'border-primary bg-primary/5' : 'border-border hover:border-border'
+                  className={`cursor-pointer p-5 rounded-xl border-2 flex items-center gap-4 transition-all ${
+                    selectedRole === role.value
+                      ? 'border-orange-500 bg-orange-500/10'
+                      : 'border-zinc-800 hover:border-zinc-600 bg-zinc-900/50'
                   }`}
                   data-testid={`role-${role.value}`}
                 >
-                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <Icon className="w-6 h-6 text-primary" />
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${selectedRole === role.value ? 'bg-orange-500/20' : 'bg-zinc-800'}`}>
+                    <Icon className={`w-6 h-6 ${selectedRole === role.value ? 'text-orange-400' : 'text-zinc-400'}`} />
                   </div>
-                  <div>
-                    <p className="font-semibold text-lg">{role.label}</p>
-                    <p className="text-sm text-muted-foreground">{role.desc}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className={`font-bold text-base ${selectedRole === role.value ? 'text-white' : 'text-zinc-200'}`}>{role.label}</p>
+                    <p className="text-sm text-zinc-500">{role.desc}</p>
                   </div>
+                  {selectedRole === role.value && <CheckCircle2 className="w-5 h-5 text-orange-400 shrink-0" />}
                 </div>
               );
             })}
-          </CardContent>
-        </Card>
+          </div>
+          <button onClick={() => setStep("manifesto")} className="text-zinc-600 text-sm w-full text-center hover:text-zinc-400 transition-colors" data-testid="button-back-manifesto">
+            ← Back
+          </button>
         </div>
       </div>
     );
@@ -1157,6 +1262,20 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
               </Select>
             </div>
 
+            <div>
+              <Label className="text-sm font-medium">Country *</Label>
+              <Select onValueChange={v => { setCountry(v); setStateName(""); }} value={country}>
+                <SelectTrigger data-testid="select-country" className="mt-1.5">
+                  <SelectValue placeholder="Select country" />
+                </SelectTrigger>
+                <SelectContent>
+                  {COUNTRIES.map(c => (
+                    <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <Label className="text-sm font-medium">City *</Label>
@@ -1169,25 +1288,48 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
                 />
               </div>
               <div>
-                <Label className="text-sm font-medium">State *</Label>
-                <Select onValueChange={setStateName} value={stateName}>
-                  <SelectTrigger data-testid="select-state" className="mt-1.5">
-                    <SelectValue placeholder="State" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {US_STATES.map(s => (
-                      <SelectItem key={s} value={s}>{s}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label className="text-sm font-medium">
+                  {country === "USA" ? "State *" : country === "CAN" ? "Province *" : "Region"}
+                </Label>
+                {country === "USA" ? (
+                  <Select onValueChange={setStateName} value={stateName}>
+                    <SelectTrigger data-testid="select-state" className="mt-1.5">
+                      <SelectValue placeholder="State" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {US_STATES.map(s => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : country === "CAN" ? (
+                  <Select onValueChange={setStateName} value={stateName}>
+                    <SelectTrigger data-testid="select-province" className="mt-1.5">
+                      <SelectValue placeholder="Province" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CANADIAN_PROVINCES.map(p => (
+                        <SelectItem key={p.code} value={p.code}>{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    value={stateName}
+                    onChange={e => setStateName(e.target.value)}
+                    placeholder="Region / Province"
+                    data-testid="input-region"
+                    className="mt-1.5"
+                  />
+                )}
               </div>
               <div>
-                <Label className="text-sm font-medium">Zip *</Label>
+                <Label className="text-sm font-medium">{country === "USA" ? "Zip *" : "Postal"}</Label>
                 <Input
                   value={zipCode}
-                  onChange={e => setZipCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 5))}
-                  placeholder="Zip"
-                  inputMode="numeric"
+                  onChange={e => setZipCode(country === "USA" ? e.target.value.replace(/[^0-9]/g, '').slice(0, 5) : e.target.value)}
+                  placeholder={country === "USA" ? "Zip" : "Postal code"}
+                  inputMode={country === "USA" ? "numeric" : "text"}
                   data-testid="input-zip"
                   className="mt-1.5"
                 />
@@ -1309,7 +1451,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
                 <ChevronLeft className="w-4 h-4 mr-1" />
                 Back
               </Button>
-              <Button type="button" onClick={handleProfileNext} disabled={isSaving} data-testid="button-next-reason">
+              <Button type="button" onClick={handleProfileNext} disabled={isSaving} data-testid="button-next-profile">
                 {isSaving ? "Saving..." : "Next"}
                 {!isSaving && <ChevronRight className="w-4 h-4 ml-1" />}
               </Button>
@@ -1334,7 +1476,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
           parentEmail: parentEmail.trim() || undefined,
         });
         queryClient.invalidateQueries({ queryKey: ['/api/career'] });
-        setStep("reason");
+        setStep("basketball-life");
       } catch {
         toast({ title: "Failed to save", variant: "destructive" });
       } finally {
@@ -1347,7 +1489,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
       try {
         await apiRequest("PUT", "/api/career", { isMinor: true });
         queryClient.invalidateQueries({ queryKey: ['/api/career'] });
-        setStep("reason");
+        setStep("basketball-life");
       } catch {
         toast({ title: "Failed to save", variant: "destructive" });
       } finally {
@@ -1398,293 +1540,379 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
     );
   }
 
-  if (step === "reason") {
+  if (step === "basketball-life") {
+    const lifestyleOptions = [
+      { value: "solo-grinder", label: "Solo Grinder", desc: "I train alone, focused on skill work", icon: Dumbbell },
+      { value: "team-player", label: "Team Player", desc: "I'm on an organized team, games are my focus", icon: Users },
+      { value: "content-creator", label: "Content Creator", desc: "I film, post, and inspire through my game", icon: Video },
+      { value: "trainer-led", label: "Working with a Trainer", desc: "A coach is guiding my development", icon: GraduationCap },
+      { value: "tournament-pickup", label: "Tournament & Pickup", desc: "AAU circuits and pickup courts are my scene", icon: Zap },
+      { value: "just-starting", label: "Just Getting Started", desc: "New to serious training, here to learn", icon: Star },
+    ];
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-background to-muted/20">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <CardTitle className="text-xl font-bold">Rank Your Interests</CardTitle>
-            <CardDescription>Drag to rank from most to least important</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="space-y-2">
-              {rankedInterests.map((interestValue, index) => {
-                const option = INTEREST_OPTIONS.find(o => o.value === interestValue)!;
-                const Icon = option.icon;
-                return (
-                  <div
-                    key={option.value}
-                    data-interest-idx={index}
-                    className={`p-4 rounded-lg border-2 flex items-center gap-3 select-none transition-all ${
-                      draggedInterestIdx === index ? 'opacity-50 scale-[0.98] border-primary' : ''
-                    } ${
-                      overInterestIdx === index && draggedInterestIdx !== null && draggedInterestIdx !== index
-                        ? 'border-primary/50 bg-primary/5' : 'border-border'
-                    }`}
-                    data-testid={`interest-${option.value}`}
-                  >
-                    <div className="flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary text-sm font-bold shrink-0">
-                      {index + 1}
-                    </div>
-                    <div
-                      className="cursor-grab active:cursor-grabbing touch-none p-1"
-                      onPointerDown={(e) => {
-                        e.preventDefault();
-                        (e.target as HTMLElement).setPointerCapture(e.pointerId);
-                        setDraggedInterestIdx(index);
-                        interestDragging.current = true;
-                      }}
-                      onPointerMove={(e) => {
-                        if (!interestDragging.current || draggedInterestIdx === null) return;
-                        const elements = document.elementsFromPoint(e.clientX, e.clientY);
-                        const target = elements.find(el => el.getAttribute('data-interest-idx') !== null);
-                        if (target) {
-                          const idx = parseInt(target.getAttribute('data-interest-idx')!);
-                          setOverInterestIdx(idx);
-                        }
-                      }}
-                      onPointerUp={() => {
-                        if (draggedInterestIdx !== null && overInterestIdx !== null && draggedInterestIdx !== overInterestIdx) {
-                          commitInterestReorder(draggedInterestIdx, overInterestIdx);
-                        }
-                        setDraggedInterestIdx(null);
-                        setOverInterestIdx(null);
-                        interestDragging.current = false;
-                      }}
-                      onPointerCancel={() => {
-                        setDraggedInterestIdx(null);
-                        setOverInterestIdx(null);
-                        interestDragging.current = false;
-                      }}
-                    >
-                      <GripVertical className="w-5 h-5 text-muted-foreground" />
-                    </div>
-                    <div className="w-9 h-9 rounded-full bg-muted/50 flex items-center justify-center shrink-0">
-                      <Icon className="w-4 h-4 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm">{option.label}</p>
-                      <p className="text-xs text-muted-foreground">{option.description}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="flex justify-between pt-4">
-              <Button type="button" variant="outline" onClick={() => setStep("profile")} data-testid="button-back-profile">
-                <ChevronLeft className="w-4 h-4 mr-1" />
-                Back
-              </Button>
-              <Button type="button" onClick={handleInterestRankingNext} data-testid="button-next-interests">
-                Next
-                <ChevronRight className="w-4 h-4 ml-1" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (step === "dev-priority") {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-background to-muted/20">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <CardTitle className="text-xl font-bold">Skill Development</CardTitle>
-            <CardDescription>What would you like to do first?</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {[
-              { value: "log-training" as const, label: "Log Training Activity", desc: "Track your drills and workouts", icon: Flame },
-              { value: "drill-library" as const, label: "Access Drill Library", desc: "Browse drills from PLAYR1 and the community", icon: Target },
-              { value: "create-drills" as const, label: "Create Your Own", desc: "Build custom drills and workouts", icon: Plus },
-            ].map(opt => {
+      <div className="min-h-screen flex items-center justify-center p-4 bg-zinc-950">
+        <div className="w-full max-w-md space-y-5">
+          <div className="text-center space-y-2">
+            <p className="text-orange-400 text-xs font-bold tracking-[0.2em] uppercase">Step 2 of 4</p>
+            <h2 className="text-2xl font-black text-white">Your Basketball Life</h2>
+            <p className="text-zinc-400 text-sm">How do you show up to the game? Select all that apply.</p>
+          </div>
+          <div className="space-y-2">
+            {lifestyleOptions.map(opt => {
               const Icon = opt.icon;
+              const selected = basketballLifestyle.includes(opt.value);
               return (
                 <div
                   key={opt.value}
-                  onClick={() => setDevPriority(opt.value)}
-                  className={`cursor-pointer p-4 rounded-lg border-2 flex items-center gap-4 transition-all ${
-                    devPriority === opt.value ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-muted/30'
+                  onClick={() => setBasketballLifestyle(prev => selected ? prev.filter(v => v !== opt.value) : [...prev, opt.value])}
+                  className={`cursor-pointer p-4 rounded-xl border-2 flex items-center gap-3 transition-all ${
+                    selected ? 'border-orange-500 bg-orange-500/10' : 'border-zinc-800 hover:border-zinc-600 bg-zinc-900/50'
                   }`}
-                  data-testid={`dev-priority-${opt.value}`}
+                  data-testid={`lifestyle-${opt.value}`}
                 >
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <Icon className="w-5 h-5 text-primary" />
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${selected ? 'bg-orange-500/20' : 'bg-zinc-800'}`}>
+                    <Icon className={`w-5 h-5 ${selected ? 'text-orange-400' : 'text-zinc-400'}`} />
                   </div>
-                  <div>
-                    <p className="font-semibold">{opt.label}</p>
-                    <p className="text-sm text-muted-foreground">{opt.desc}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className={`font-bold text-sm ${selected ? 'text-white' : 'text-zinc-300'}`}>{opt.label}</p>
+                    <p className="text-xs text-zinc-500">{opt.desc}</p>
                   </div>
+                  {selected && <CheckCircle2 className="w-5 h-5 text-orange-400 shrink-0" />}
                 </div>
               );
             })}
-
-            <div className="pt-3 border-t">
-              <p className="text-sm font-medium mb-3">Would you like PLAYR1 to suggest custom Drills and Workouts based on your goals, skill level, and age?</p>
-              <div className="grid grid-cols-2 gap-3">
-                <Button
-                  type="button"
-                  variant={wantAiSuggestions === true ? "default" : "outline"}
-                  onClick={() => setWantAiSuggestions(true)}
-                  className="h-auto py-3"
-                  data-testid="button-ai-suggestions-yes"
-                >
-                  <CheckCircle className={`w-4 h-4 mr-2 ${wantAiSuggestions === true ? '' : 'text-green-500'}`} />
-                  Yes, please
-                </Button>
-                <Button
-                  type="button"
-                  variant={wantAiSuggestions === false ? "default" : "outline"}
-                  onClick={() => setWantAiSuggestions(false)}
-                  className="h-auto py-3"
-                  data-testid="button-ai-suggestions-no"
-                >
-                  <X className={`w-4 h-4 mr-2 ${wantAiSuggestions === false ? '' : 'text-muted-foreground'}`} />
-                  No thanks
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex justify-between pt-4">
-              <Button type="button" variant="outline" onClick={() => setStep("reason")} data-testid="button-back-reason">
-                <ChevronLeft className="w-4 h-4 mr-1" />
-                Back
-              </Button>
-              <Button type="button" onClick={handleDevPriorityNext} data-testid="button-next-dev-priority">
-                Next
-                <ChevronRight className="w-4 h-4 ml-1" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="flex justify-between pt-2">
+            <button onClick={() => setStep("profile")} className="text-zinc-600 text-sm hover:text-zinc-400 transition-colors px-2" data-testid="button-back-profile">
+              ← Back
+            </button>
+            <Button onClick={handleBasketballLifeNext} className="bg-orange-500 hover:bg-orange-600 text-black font-bold px-6" data-testid="button-next-basketball-life">
+              Next <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+          </div>
+        </div>
       </div>
     );
   }
 
-  if (step === "dev-log-next") {
+  if (step === "playr1-moment") {
+    const momentPresets = [
+      "Making the varsity roster",
+      "Earning a scholarship offer",
+      "Being the best player in my gym",
+      "Going viral for my skills",
+      "Playing at the next level",
+      "Dominating my league",
+      "Inspiring others through my game",
+      "Becoming my team's best player",
+    ];
+    const selectedMoment = showCustomMoment ? customPlayr1Moment : playr1Moment;
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-background to-muted/20">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <CardTitle className="text-xl font-bold">Log Training</CardTitle>
-            <CardDescription>How would you like to get started?</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
+      <div className="min-h-screen flex items-center justify-center p-4 bg-zinc-950">
+        <div className="w-full max-w-md space-y-5">
+          <div className="text-center space-y-2">
+            <p className="text-orange-400 text-xs font-bold tracking-[0.2em] uppercase">Step 3 of 4</p>
+            <h2 className="text-2xl font-black text-white">Your PLAYR1 Moment</h2>
+            <p className="text-zinc-400 text-sm">What does it look like when you become your best PLAYR1 self?</p>
+          </div>
+          <div className="space-y-2">
+            {momentPresets.map(preset => {
+              const selected = !showCustomMoment && playr1Moment === preset;
+              return (
+                <div
+                  key={preset}
+                  onClick={() => { setShowCustomMoment(false); setPlayr1Moment(preset); }}
+                  className={`cursor-pointer p-4 rounded-xl border-2 flex items-center gap-3 transition-all ${
+                    selected ? 'border-orange-500 bg-orange-500/10' : 'border-zinc-800 hover:border-zinc-600 bg-zinc-900/50'
+                  }`}
+                  data-testid={`moment-preset-${preset.slice(0, 10).replace(/\s/g, '-').toLowerCase()}`}
+                >
+                  <div className={`w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center ${selected ? 'border-orange-500 bg-orange-500' : 'border-zinc-600'}`}>
+                    {selected && <div className="w-2 h-2 rounded-full bg-white" />}
+                  </div>
+                  <p className={`text-sm font-medium ${selected ? 'text-white' : 'text-zinc-300'}`}>{preset}</p>
+                </div>
+              );
+            })}
+            {/* Write your own */}
             <div
-              onClick={() => { setTutorialSlide(0); setStep("tutorial-log"); }}
-              className="cursor-pointer p-5 rounded-lg border-2 border-border flex items-center gap-4 transition-all hover:border-primary/50 hover:bg-muted/30"
-              data-testid="dev-log-tutorial"
+              onClick={() => { setShowCustomMoment(true); setPlayr1Moment(""); }}
+              className={`cursor-pointer p-4 rounded-xl border-2 flex items-start gap-3 transition-all ${
+                showCustomMoment ? 'border-orange-500 bg-orange-500/10' : 'border-zinc-800 hover:border-zinc-600 bg-zinc-900/50'
+              }`}
+              data-testid="moment-custom"
             >
-              <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0">
-                <GraduationCap className="w-5 h-5 text-blue-500" />
+              <div className={`w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center mt-0.5 ${showCustomMoment ? 'border-orange-500 bg-orange-500' : 'border-zinc-600'}`}>
+                {showCustomMoment && <div className="w-2 h-2 rounded-full bg-white" />}
               </div>
-              <div>
-                <p className="font-semibold">View Tutorial</p>
-                <p className="text-sm text-muted-foreground">Learn how to log drills and workouts</p>
-              </div>
-            </div>
-            <div
-              onClick={async () => {
-                await completeOnboarding();
-                window.location.href = "/log";
-              }}
-              className="cursor-pointer p-5 rounded-lg border-2 border-border flex items-center gap-4 transition-all hover:border-primary/50 hover:bg-muted/30"
-              data-testid="dev-log-now"
-            >
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                <Flame className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <p className="font-semibold">Log a Drill Now</p>
-                <p className="text-sm text-muted-foreground">Jump in and log a recent or active drill</p>
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-medium mb-2 ${showCustomMoment ? 'text-white' : 'text-zinc-300'}`}>
+                  <Pen className="w-3.5 h-3.5 inline mr-1.5 opacity-70" />
+                  Write your own...
+                </p>
+                {showCustomMoment && (
+                  <Textarea
+                    value={customPlayr1Moment}
+                    onChange={e => setCustomPlayr1Moment(e.target.value)}
+                    placeholder="Describe your PLAYR1 moment in your own words..."
+                    className="bg-zinc-800 border-zinc-700 text-white text-sm resize-none min-h-[80px]"
+                    onClick={e => e.stopPropagation()}
+                    data-testid="input-custom-moment"
+                    autoFocus
+                  />
+                )}
               </div>
             </div>
-
-            <div className="pt-2">
-              <Button type="button" variant="outline" onClick={() => setStep("dev-priority")} data-testid="button-back-dev-priority">
-                <ChevronLeft className="w-4 h-4 mr-1" />
-                Back
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="flex justify-between pt-2">
+            <button onClick={() => setStep("basketball-life")} className="text-zinc-600 text-sm hover:text-zinc-400 transition-colors px-2" data-testid="button-back-basketball-life">
+              ← Back
+            </button>
+            <Button onClick={handlePlayr1MomentNext} className="bg-orange-500 hover:bg-orange-600 text-black font-bold px-6" data-testid="button-next-playr1-moment">
+              Next <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+          </div>
+        </div>
       </div>
     );
   }
 
-  if (step === "dev-create-next") {
+  if (step === "thirty-day-focus") {
+    const skillOptions = [
+      { value: "ball-handling", label: "Ball Handling", desc: "Dribbling, handles, and ball control", icon: HandMetal },
+      { value: "shooting", label: "Shooting", desc: "Catch-and-shoot, pull-up, three-point range", icon: Target },
+      { value: "passing", label: "Passing", desc: "Vision, delivery, and court awareness", icon: Crosshair },
+      { value: "finishing", label: "Finishing", desc: "Layups, contact, and rim attacks", icon: Flame },
+      { value: "defense", label: "Defense", desc: "On-ball, off-ball, rotations, and IQ", icon: Shield },
+      { value: "workouts", label: "Athleticism", desc: "Speed, strength, conditioning, and agility", icon: Zap },
+      { value: "film-session", label: "Film & IQ", desc: "Study the game and sharpen your basketball mind", icon: Brain },
+    ];
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-background to-muted/20">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <CardTitle className="text-xl font-bold">Create Your Own</CardTitle>
-            <CardDescription>How would you like to get started?</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div
-              onClick={() => setStep("tutorial-create")}
-              className="cursor-pointer p-5 rounded-lg border-2 border-border flex items-center gap-4 transition-all hover:border-primary/50 hover:bg-muted/30"
-              data-testid="dev-create-tutorial"
-            >
-              <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0">
-                <GraduationCap className="w-5 h-5 text-blue-500" />
-              </div>
-              <div>
-                <p className="font-semibold">View Tutorial</p>
-                <p className="text-sm text-muted-foreground">Learn how to create custom drills</p>
-              </div>
-            </div>
-            <div
-              onClick={async () => {
-                await completeOnboarding();
-                window.location.href = "/drills";
-              }}
-              className="cursor-pointer p-5 rounded-lg border-2 border-border flex items-center gap-4 transition-all hover:border-primary/50 hover:bg-muted/30"
-              data-testid="dev-create-now"
-            >
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                <Plus className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <p className="font-semibold">Create a Drill</p>
-                <p className="text-sm text-muted-foreground">Start building your own drill now</p>
-              </div>
-            </div>
-
-            <div className="pt-2">
-              <Button type="button" variant="outline" onClick={() => setStep("dev-priority")} data-testid="button-back-dev-priority">
-                <ChevronLeft className="w-4 h-4 mr-1" />
-                Back
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen flex items-center justify-center p-4 bg-zinc-950">
+        <div className="w-full max-w-md space-y-5">
+          <div className="text-center space-y-2">
+            <p className="text-orange-400 text-xs font-bold tracking-[0.2em] uppercase">Step 4 of 4</p>
+            <h2 className="text-2xl font-black text-white">Your 30-Day Focus</h2>
+            <p className="text-zinc-400 text-sm">What do you want to be noticeably better at in 30 days?</p>
+          </div>
+          <div className="space-y-2">
+            {skillOptions.map(opt => {
+              const Icon = opt.icon;
+              const selected = focusSkill === opt.value;
+              return (
+                <div
+                  key={opt.value}
+                  onClick={() => setFocusSkill(opt.value)}
+                  className={`cursor-pointer p-4 rounded-xl border-2 flex items-center gap-3 transition-all ${
+                    selected ? 'border-orange-500 bg-orange-500/10' : 'border-zinc-800 hover:border-zinc-600 bg-zinc-900/50'
+                  }`}
+                  data-testid={`skill-${opt.value}`}
+                >
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${selected ? 'bg-orange-500/20' : 'bg-zinc-800'}`}>
+                    <Icon className={`w-5 h-5 ${selected ? 'text-orange-400' : 'text-zinc-400'}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`font-bold text-sm ${selected ? 'text-white' : 'text-zinc-300'}`}>{opt.label}</p>
+                    <p className="text-xs text-zinc-500">{opt.desc}</p>
+                  </div>
+                  {selected && <CheckCircle2 className="w-5 h-5 text-orange-400 shrink-0" />}
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex justify-between pt-2">
+            <button onClick={() => setStep("playr1-moment")} className="text-zinc-600 text-sm hover:text-zinc-400 transition-colors px-2" data-testid="button-back-playr1-moment">
+              ← Back
+            </button>
+            <Button onClick={handleThirtyDayFocusNext} disabled={isSaving} className="bg-orange-500 hover:bg-orange-600 text-black font-bold px-6" data-testid="button-next-thirty-day-focus">
+              {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+              Next <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+          </div>
+        </div>
       </div>
     );
   }
 
-  if (step === "tutorial-log") {
-    return <TutorialVideoStep
-      tutorialKey="log-training"
-      title="How to Log Training"
-      description="Watch this quick walkthrough to learn how to find drills, log your sessions, view your history, and track your progress."
-      onBack={() => setStep("dev-log-next")}
-      onDone={async () => { await completeOnboarding(); }}
-      onGoToDrills={async () => { await completeOnboarding(); window.location.href = "/drills"; }}
-    />;
+  if (step === "ai-interview") {
+    return (
+      <div className="min-h-screen flex flex-col bg-zinc-950" data-testid="ai-interview-step">
+        {/* Header */}
+        <div className="shrink-0 px-4 py-3 border-b border-zinc-800/60 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-orange-500/15 border border-orange-500/20 flex items-center justify-center shrink-0">
+            <span className="text-orange-400 text-base font-bold">P1</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-white font-semibold text-sm leading-tight">PLAYR1 Coach</p>
+            <p className="text-zinc-500 text-xs">Building your personalized plan</p>
+          </div>
+          <div className="text-xs text-zinc-600 shrink-0">Step 5 of 5</div>
+        </div>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto px-4 py-5 space-y-4">
+          {interviewMessages.length === 0 && isAiThinking && (
+            <div className="flex justify-start">
+              <div className="bg-zinc-800 rounded-2xl rounded-bl-sm px-4 py-3">
+                <div className="flex gap-1 items-center h-4">
+                  <div className="w-2 h-2 rounded-full bg-zinc-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-2 h-2 rounded-full bg-zinc-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-2 h-2 rounded-full bg-zinc-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+              </div>
+            </div>
+          )}
+          {interviewMessages.map((msg, i) => (
+            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`} data-testid={`interview-message-${i}`}>
+              <div className={`max-w-[82%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
+                msg.role === 'user'
+                  ? 'bg-orange-500 text-black font-medium rounded-br-sm'
+                  : 'bg-zinc-800 text-zinc-100 rounded-bl-sm'
+              }`}>
+                {msg.content}
+              </div>
+            </div>
+          ))}
+          {interviewMessages.length > 0 && isAiThinking && (
+            <div className="flex justify-start">
+              <div className="bg-zinc-800 rounded-2xl rounded-bl-sm px-4 py-3">
+                <div className="flex gap-1 items-center h-4">
+                  <div className="w-2 h-2 rounded-full bg-zinc-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-2 h-2 rounded-full bg-zinc-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-2 h-2 rounded-full bg-zinc-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+              </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Input or CTA */}
+        {interviewDone ? (
+          <div className="shrink-0 px-4 py-4 border-t border-zinc-800/60 space-y-2">
+            <Button
+              onClick={completeInterview}
+              disabled={isSaving}
+              className="w-full bg-orange-500 hover:bg-orange-600 text-black font-bold h-14 text-base rounded-xl"
+              data-testid="button-build-plan"
+            >
+              {isSaving && <Loader2 className="w-5 h-5 animate-spin mr-2" />}
+              Let's Build My Plan
+              <ChevronRight className="w-5 h-5 ml-1" />
+            </Button>
+          </div>
+        ) : (
+          <div className="shrink-0 px-4 py-4 border-t border-zinc-800/60">
+            <div className="flex gap-2">
+              <input
+                value={interviewInput}
+                onChange={e => setInterviewInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !e.shiftKey && interviewInput.trim() && !isAiThinking) {
+                    e.preventDefault();
+                    sendInterviewMessage(interviewInput.trim());
+                  }
+                }}
+                placeholder={isAiThinking ? "Coach is thinking..." : "Type your response..."}
+                disabled={isAiThinking}
+                className="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-orange-500/60 disabled:opacity-50"
+                data-testid="input-interview-message"
+              />
+              <Button
+                onClick={() => { if (interviewInput.trim() && !isAiThinking) sendInterviewMessage(interviewInput.trim()); }}
+                disabled={isAiThinking || !interviewInput.trim()}
+                className="bg-orange-500 hover:bg-orange-600 text-black rounded-xl px-4 shrink-0"
+                data-testid="button-send-interview"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
   }
 
-  if (step === "tutorial-create") {
-    return <TutorialVideoStep
-      tutorialKey="create-drill"
-      title="How to Create Your Own Drill"
-      description="Watch this quick walkthrough to learn how to build custom drills with your own videos, metrics, and pro tips."
-      onBack={() => setStep("dev-create-next")}
-      onDone={async () => { await completeOnboarding(); }}
-      onGoToDrills={async () => { await completeOnboarding(); window.location.href = "/drills"; }}
-    />;
+  if (step === "meet-coach") {
+    const lifestyleLabels: Record<string, string> = {
+      "solo-grinder": "Solo Grinder", "team-player": "Team Player",
+      "content-creator": "Content Creator", "trainer-led": "working with a trainer",
+      "tournament-pickup": "tournament & pickup player", "just-starting": "player just getting started",
+    };
+    const skillLabels: Record<string, string> = {
+      "ball-handling": "ball handling", "shooting": "shooting", "passing": "passing",
+      "finishing": "finishing at the rim", "defense": "defense", "workouts": "athleticism", "film-session": "film & IQ",
+    };
+    const finalMoment = showCustomMoment ? customPlayr1Moment : playr1Moment;
+    const lifestyleText = basketballLifestyle.length > 0
+      ? basketballLifestyle.slice(0, 2).map(v => lifestyleLabels[v] || v).join(" and ")
+      : "dedicated player";
+    const skillText = skillLabels[focusSkill] || focusSkill;
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-950 p-6">
+        <div className="w-full max-w-md space-y-8">
+          {/* Coach intro card */}
+          <div className="text-center space-y-3">
+            <div className="w-20 h-20 rounded-2xl bg-orange-500/15 border border-orange-500/30 flex items-center justify-center mx-auto">
+              <Sparkles className="w-10 h-10 text-orange-400" />
+            </div>
+            <div>
+              <p className="text-orange-400 text-xs font-bold tracking-[0.2em] uppercase mb-1">Meet Your AI Coach</p>
+              <h2 className="text-2xl font-black text-white">Your PLAYR1 journey is set.</h2>
+            </div>
+          </div>
+          {/* Personalized message */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-orange-500/20 flex items-center justify-center shrink-0">
+                <MessageSquare className="w-4 h-4 text-orange-400" />
+              </div>
+              <div>
+                <p className="text-white font-semibold text-sm">PLAYR1 Coach</p>
+                <p className="text-zinc-500 text-xs">AI-powered, built for your game</p>
+              </div>
+            </div>
+            <div className="space-y-3 text-zinc-300 text-sm leading-relaxed">
+              <p>
+                I see you — a {lifestyleText} with your eyes locked on{" "}
+                <span className="text-orange-400 font-semibold">"{finalMoment || "your PLAYR1 self"}"</span>.
+              </p>
+              <p>
+                Your first focus is{" "}
+                <span className="text-white font-semibold">{skillText}</span>.
+                {" "}We're going to build that into everything — drills, challenges, and your daily routine.
+              </p>
+              <p>
+                Every rep you log brings you closer. Let's get to work.
+              </p>
+            </div>
+          </div>
+          {/* Summary chips */}
+          <div className="flex flex-wrap gap-2">
+            {basketballLifestyle.map(v => (
+              <span key={v} className="px-3 py-1 rounded-full bg-zinc-800 text-zinc-300 text-xs font-medium border border-zinc-700">
+                {lifestyleLabels[v] || v}
+              </span>
+            ))}
+            {focusSkill && (
+              <span className="px-3 py-1 rounded-full bg-orange-500/15 text-orange-400 text-xs font-medium border border-orange-500/30">
+                30-day: {skillLabels[focusSkill] || focusSkill}
+              </span>
+            )}
+          </div>
+          <Button
+            onClick={completeOnboarding}
+            disabled={isSaving}
+            className="w-full bg-orange-500 hover:bg-orange-600 text-black font-bold h-14 text-base rounded-xl"
+            data-testid="button-complete-onboarding"
+          >
+            {isSaving ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : null}
+            Let's Get Started
+            <ChevronRight className="w-5 h-5 ml-1" />
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   if (step === "trainer-profile") {
@@ -1745,6 +1973,20 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
               </div>
             </div>
 
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Country *</Label>
+              <Select onValueChange={v => { setCountry(v); setStateName(""); }} value={country}>
+                <SelectTrigger data-testid="select-trainer-country">
+                  <SelectValue placeholder="Select country" />
+                </SelectTrigger>
+                <SelectContent>
+                  {COUNTRIES.map(c => (
+                    <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium">City *</Label>
@@ -1756,25 +1998,47 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-sm font-medium">State *</Label>
-                <Select onValueChange={setStateName} value={stateName}>
-                  <SelectTrigger data-testid="select-trainer-state">
-                    <SelectValue placeholder="State" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {US_STATES.map(s => (
-                      <SelectItem key={s} value={s}>{s}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label className="text-sm font-medium">
+                  {country === "USA" ? "State *" : country === "CAN" ? "Province *" : "Region"}
+                </Label>
+                {country === "USA" ? (
+                  <Select onValueChange={setStateName} value={stateName}>
+                    <SelectTrigger data-testid="select-trainer-state">
+                      <SelectValue placeholder="State" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {US_STATES.map(s => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : country === "CAN" ? (
+                  <Select onValueChange={setStateName} value={stateName}>
+                    <SelectTrigger data-testid="select-trainer-province">
+                      <SelectValue placeholder="Province" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CANADIAN_PROVINCES.map(p => (
+                        <SelectItem key={p.code} value={p.code}>{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    value={stateName}
+                    onChange={e => setStateName(e.target.value)}
+                    placeholder="Region / Province"
+                    data-testid="input-trainer-region"
+                  />
+                )}
               </div>
               <div className="space-y-1.5">
-                <Label className="text-sm font-medium">Zip *</Label>
+                <Label className="text-sm font-medium">{country === "USA" ? "Zip *" : "Postal"}</Label>
                 <Input
                   value={zipCode}
-                  onChange={e => setZipCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 5))}
-                  placeholder="Zip"
-                  inputMode="numeric"
+                  onChange={e => setZipCode(country === "USA" ? e.target.value.replace(/[^0-9]/g, '').slice(0, 5) : e.target.value)}
+                  placeholder={country === "USA" ? "Zip" : "Postal code"}
+                  inputMode={country === "USA" ? "numeric" : "text"}
                   data-testid="input-trainer-zip"
                 />
               </div>
@@ -1991,253 +2255,13 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
               })
             )}
             <div className="flex justify-between pt-4">
-              <Button type="button" variant="outline" onClick={() => teams.length === 0 ? setStep("profile") : setStep("reason")} data-testid="button-back-reason">
-                <ChevronLeft className="w-4 h-4 mr-1" />
-                {teams.length === 0 ? "Add Teams" : "Back"}
-              </Button>
-              {teams.length === 0 ? (
-                <Button type="button" onClick={async () => { await completeOnboarding(); window.location.href = "/log"; }} data-testid="button-skip-teams">
-                  Skip for Now
-                  <ChevronRight className="w-4 h-4 ml-1" />
-                </Button>
-              ) : (
-                <Button type="button" onClick={handleTeamsSelected} data-testid="button-next-teams">
-                  Next
-                  <ChevronRight className="w-4 h-4 ml-1" />
-                </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (step === "no-season") {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-background to-muted/20">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <CardTitle className="text-xl font-bold">No Teams In Season</CardTitle>
-            <CardDescription>Would you like to log games from your most recent season?</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <Button
-                variant="outline"
-                className="h-auto p-6 flex flex-col gap-2"
-                onClick={() => handleNoSeasonResponse(true)}
-                data-testid="button-log-past-yes"
-              >
-                <CheckCircle className="w-8 h-8 text-green-500" />
-                <span className="font-semibold">Yes, log games</span>
-              </Button>
-              <Button
-                variant="outline"
-                className="h-auto p-6 flex flex-col gap-2"
-                onClick={() => handleNoSeasonResponse(false)}
-                data-testid="button-log-past-no"
-              >
-                <X className="w-8 h-8 text-muted-foreground" />
-                <span className="font-semibold">No, skip for now</span>
-              </Button>
-            </div>
-            <div className="pt-2">
-              <Button type="button" variant="outline" onClick={() => setStep("select-teams")} data-testid="button-back-select-teams">
+              <Button type="button" variant="outline" onClick={() => setStep("thirty-day-focus")} data-testid="button-back-thirty-day-focus">
                 <ChevronLeft className="w-4 h-4 mr-1" />
                 Back
               </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (step === "season-start") {
-    const offSeasonTeams = teams.filter(t => gameStatsTeams.includes(t.name) && !t.inSeason);
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-background to-muted/20">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <CardTitle className="text-xl font-bold">When does the season start?</CardTitle>
-            <CardDescription>We can remind you to start logging stats</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {offSeasonTeams.map((team, idx) => (
-              <div key={idx} className="space-y-2">
-                <Label className="text-sm font-medium">{team.name}</Label>
-                <Select
-                  onValueChange={v => setSeasonStartMonths(prev => ({ ...prev, [team.name]: parseInt(v) }))}
-                  value={seasonStartMonths[team.name]?.toString()}
-                >
-                  <SelectTrigger data-testid={`select-season-start-${idx}`}>
-                    <SelectValue placeholder="Select month" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {MONTHS.map(m => (
-                      <SelectItem key={m.value} value={m.value.toString()}>{m.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            ))}
-
-            <div className="pt-2">
-              <Label className="text-sm font-medium">Want a reminder when your season starts?</Label>
-              <div className="grid grid-cols-2 gap-3 mt-2">
-                <Button
-                  variant={wantReminders === true ? "default" : "outline"}
-                  onClick={() => setWantReminders(true)}
-                  data-testid="button-reminder-yes"
-                >
-                  Yes, remind me
-                </Button>
-                <Button
-                  variant={wantReminders === false ? "default" : "outline"}
-                  onClick={() => setWantReminders(false)}
-                  data-testid="button-reminder-no"
-                >
-                  No thanks
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex justify-between pt-4">
-              <Button type="button" variant="outline" onClick={() => setStep("no-season")} data-testid="button-back-no-season">
-                <ChevronLeft className="w-4 h-4 mr-1" />
-                Back
-              </Button>
-              <Button type="button" onClick={handleSeasonStartDone} data-testid="button-finish-onboarding">
-                Finish Setup
+              <Button type="button" onClick={handleTeamsSelected} data-testid="button-next-teams">
+                Next
                 <ChevronRight className="w-4 h-4 ml-1" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (step === "log-game") {
-    const currentTeam = gameStatsTeams[currentGameTeamIdx];
-    return (
-      <div className="min-h-screen flex items-start justify-center p-4 py-8 bg-gradient-to-b from-background to-muted/20">
-        <Card className="w-full max-w-lg">
-          <CardHeader className="text-center pb-4">
-            <CardTitle className="text-xl font-bold">Log a Game</CardTitle>
-            <CardDescription>
-              {currentTeam} {gameStatsTeams.length > 1 ? `(${currentGameTeamIdx + 1} of ${gameStatsTeams.length})` : ""}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-sm">Date</Label>
-                <Input type="date" value={gameDate} onChange={e => setGameDate(e.target.value)} className="mt-1" data-testid="input-game-date" />
-              </div>
-              <div>
-                <Label className="text-sm">Opponent</Label>
-                <Input value={opponent} onChange={e => setOpponent(e.target.value)} placeholder="vs." className="mt-1" data-testid="input-opponent" />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <Label className="text-sm">Home/Away</Label>
-                <Select onValueChange={v => setIsHome(v === "home")} value={isHome ? "home" : "away"}>
-                  <SelectTrigger className="mt-1" data-testid="select-home-away"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="home">Home</SelectItem>
-                    <SelectItem value="away">Away</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-sm">Result</Label>
-                <Select onValueChange={setResult} value={result}>
-                  <SelectTrigger className="mt-1" data-testid="select-result"><SelectValue placeholder="W/L" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="W">Win</SelectItem>
-                    <SelectItem value="L">Loss</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-sm">Minutes</Label>
-                <Input type="text" inputMode="numeric" value={minutesPlayed || ""} onChange={e => setMinutesPlayed(parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0)} className="mt-1" data-testid="input-minutes" />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-sm">Your Score</Label>
-                <Input type="text" inputMode="numeric" value={teamScore || ""} onChange={e => setTeamScore(parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0)} className="mt-1" data-testid="input-team-score" />
-              </div>
-              <div>
-                <Label className="text-sm">Opponent Score</Label>
-                <Input type="text" inputMode="numeric" value={opponentScore || ""} onChange={e => setOpponentScore(parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0)} className="mt-1" data-testid="input-opponent-score" />
-              </div>
-            </div>
-
-            <div>
-              <Label className="text-sm font-medium mb-2 block">Your Stats</Label>
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                {[
-                  { label: "PTS", value: points, set: setPoints },
-                  { label: "REB", value: rebounds, set: setRebounds },
-                  { label: "AST", value: assists, set: setAssists },
-                  { label: "STL", value: steals, set: setSteals },
-                  { label: "BLK", value: blocks, set: setBlocks },
-                  { label: "TO", value: turnovers, set: setTurnovers },
-                  { label: "PF", value: fouls, set: setFouls },
-                ].map(stat => (
-                  <div key={stat.label}>
-                    <Label className="text-xs text-muted-foreground">{stat.label}</Label>
-                    <Input type="text" inputMode="numeric" value={stat.value || ""} onChange={e => stat.set(parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0)} className="mt-0.5 h-9 text-center" data-testid={`input-stat-${stat.label.toLowerCase()}`} />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <Label className="text-sm font-medium mb-2 block">Shooting</Label>
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <Label className="text-xs text-muted-foreground">FG</Label>
-                  <div className="flex gap-1 mt-0.5">
-                    <Input type="text" inputMode="numeric" value={fgMade || ""} onChange={e => setFgMade(parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0)} placeholder="M" className="h-9 text-center" data-testid="input-fg-made" />
-                    <span className="flex items-center text-muted-foreground text-xs">/</span>
-                    <Input type="text" inputMode="numeric" value={fgAttempted || ""} onChange={e => setFgAttempted(parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0)} placeholder="A" className="h-9 text-center" data-testid="input-fg-attempted" />
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">3PT</Label>
-                  <div className="flex gap-1 mt-0.5">
-                    <Input type="text" inputMode="numeric" value={threePtMade || ""} onChange={e => setThreePtMade(parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0)} placeholder="M" className="h-9 text-center" data-testid="input-3pt-made" />
-                    <span className="flex items-center text-muted-foreground text-xs">/</span>
-                    <Input type="text" inputMode="numeric" value={threePtAttempted || ""} onChange={e => setThreePtAttempted(parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0)} placeholder="A" className="h-9 text-center" data-testid="input-3pt-attempted" />
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">FT</Label>
-                  <div className="flex gap-1 mt-0.5">
-                    <Input type="text" inputMode="numeric" value={ftMade || ""} onChange={e => setFtMade(parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0)} placeholder="M" className="h-9 text-center" data-testid="input-ft-made" />
-                    <span className="flex items-center text-muted-foreground text-xs">/</span>
-                    <Input type="text" inputMode="numeric" value={ftAttempted || ""} onChange={e => setFtAttempted(parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0)} placeholder="A" className="h-9 text-center" data-testid="input-ft-attempted" />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-between pt-4">
-              <Button type="button" variant="outline" onClick={() => setStep("select-teams")} data-testid="button-back-log-game">
-                <ChevronLeft className="w-4 h-4 mr-1" />
-                Back
-              </Button>
-              <Button type="button" onClick={submitGame} disabled={isSaving} data-testid="button-submit-game">
-                {isSaving ? "Saving..." : (currentGameTeamIdx < gameStatsTeams.length - 1 ? "Save & Next Team" : "Save & Finish")}
-                {!isSaving && <ChevronRight className="w-4 h-4 ml-1" />}
               </Button>
             </div>
           </CardContent>

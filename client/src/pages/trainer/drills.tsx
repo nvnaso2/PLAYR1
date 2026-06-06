@@ -826,7 +826,6 @@ function MyDrillsSection() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
     </div>
   );
 }

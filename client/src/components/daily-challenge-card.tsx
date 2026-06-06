@@ -15,7 +15,6 @@ import {
   ChevronRight,
   Crown,
   History,
-  Zap,
 } from "lucide-react";
 
 interface DailyData {

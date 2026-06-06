@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { track } from "@/lib/track";
-import { getObjectUrl } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -356,7 +355,7 @@ function ContinueCard({ enrollment }: { enrollment: EnrollmentRow }) {
           <div
             className="h-20 w-full relative"
             style={{
-              background: `linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.65) 100%), url("${getObjectUrl(enrollment.program.coverImageUrl)}") center/cover no-repeat`,
+              background: `linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.65) 100%), url("${enrollment.program.coverImageUrl.replace(/["\\\n\r<>]/g, "")}") center/cover no-repeat`,
             }}
           >
             <div className="absolute bottom-0 left-0 right-0 h-1" style={{ background: `linear-gradient(90deg, ${accent}, ${accent}66)` }} />
