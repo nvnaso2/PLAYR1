@@ -111,7 +111,31 @@ interface AssessmentResult {
   firstWorkout: { name: string; focus: string; duration: string; description: string }[];
 }
 
-export default function WelcomePage() {
+// Mock results used in preview mode so no API calls are made
+const MOCK_RESULTS: AssessmentResult = {
+  archetype: "The Floor General",
+  archetypeTagline: "You see the game before it happens. Your court vision and leadership make everyone around you better.",
+  stage: "Developing Starter",
+  stageDescription: "You've built a solid foundation and are starting to dominate at your current level.",
+  courtRole: "Primary Ball Handler",
+  courtRoleDescription: "You're at your best with the ball in your hands, setting the tempo and making plays for yourself and others.",
+  bottleneck: "Shooting Consistency",
+  bottleneckDescription: "Becoming a more reliable threat from the perimeter will open up the entire floor and take your game to the next level.",
+  summary: "You're a floor general with excellent court vision who makes everyone around you better. Your leadership and playmaking instincts put you ahead of the curve at the Developing Starter stage. Sharpening your shot will be the key that unlocks your ceiling — defenders will have to guard you further out, creating more space for your drives and passes. The game slows down for playmakers who can shoot, and that's the next evolution of your game.",
+  firstWorkout: [
+    { name: "Spot-Up Shooting Drill", focus: "Shooting", duration: "20 min", description: "Catch-and-shoot reps from 5 spots around the arc. Focus on quick release and consistent form." },
+    { name: "Dribble Pull-Up Series", focus: "Shooting", duration: "15 min", description: "Practice pull-up jumpers off 2–3 dribbles from the mid-range and wing areas." },
+    { name: "Pick-and-Roll Read Drill", focus: "Ball Handling", duration: "15 min", description: "Work through pick-and-roll scenarios: turn corner, reject, or hit the roller based on the defense." },
+    { name: "Full-Court Conditioning", focus: "Conditioning", duration: "10 min", description: "Defensive slides + sprint to finish. Builds the engine that fuels 4th-quarter playmaking." },
+  ],
+};
+
+interface WelcomePageProps {
+  previewMode?: boolean;
+  onPreviewComplete?: () => void;
+}
+
+export default function WelcomePage({ previewMode = false, onPreviewComplete }: WelcomePageProps = {}) {
   const [, navigate] = useLocation();
   const qc = useQueryClient();
 
@@ -188,6 +212,15 @@ export default function WelcomePage() {
 
   async function handleSubmit() {
     setPhase("loading");
+
+    // Preview mode: skip all API calls and use mock results after a brief delay
+    if (previewMode) {
+      await new Promise(r => setTimeout(r, 2200));
+      setResults(MOCK_RESULTS);
+      setPhase("results");
+      return;
+    }
+
     try {
       // Register account — use buildUrl so native (Capacitor) uses the correct API base
       const registerRes = await fetch(buildUrl("/api/auth/register"), {
@@ -238,6 +271,10 @@ export default function WelcomePage() {
   }
 
   function finishOnboarding() {
+    if (previewMode) {
+      onPreviewComplete?.();
+      return;
+    }
     localStorage.setItem("playr1_new_onboarding", "1");
     // Deterministically set auth cache from registered user data so the hub
     // loads immediately without a round-trip, then navigate
