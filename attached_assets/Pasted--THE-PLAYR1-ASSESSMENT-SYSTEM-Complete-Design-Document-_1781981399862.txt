@@ -1,0 +1,633 @@
+# THE PLAYR1 ASSESSMENT SYSTEM
+### Complete Design Document — Onboarding, Scoring, and Results Experience
+
+**Framing:** "Find Your PLAYR1 Journey in Under 60 Seconds"
+**Outputs:** Player Archetype · Development Stage · Team Role · Biggest Bottleneck · Competitive Mindset Score · Dedication Score · Experience Score
+**Design Standard:** Spotify Wrapped energy. Duolingo pacing. Sports-performance-app credibility. Never a school test.
+
+---
+
+# A DESIGN NOTE BEFORE WE START
+
+The source material contains two related but distinct ideas both labeled "team role":
+
+1. **Competition Level** — what level a player currently plays at (Elementary, Middle School, JV, Varsity, College, Rec League, Casual). This is what Deliverable 3 actually describes, and it's what the assessment calls **Team Role** as one of its 7 scored outputs.
+2. **In-Team Standing** — whether a player is a starter, a leader, a rotation piece, etc. This signal is real and valuable, but it functions as an input that helps determine **Development Stage**, not a separate scored output of its own.
+
+This document treats it that way: **Team Role = Competition Level** (the official 7th output), and **In-Team Standing** is folded in as a Development Stage signal. This keeps the 7 outputs clean and non-redundant, and it's flagged here so the design intent is clear rather than accidental.
+
+---
+
+# DELIVERABLE 1 — THE 10 PLAYR1 ARCHETYPES
+
+### 1. Sharpshooter
+**Tagline:** "Give me an inch of space, and it's already going in."
+**Description:** The Sharpshooter's value lives in their shot. Catch-and-shoot, movement shooting, or just a quick-trigger pull-up — when they're feeling it, the whole defense has to bend around them.
+**Strengths:** Elite shot mechanics · Quick release · Movement shooting · Gravity that opens space for teammates
+**Development Focus:** Off-ball movement, shooting off the catch under fatigue, expanding range, and building a counter move for when the jumper is taken away.
+**Coach P Explanation:** *"You're a Sharpshooter — which means your shot isn't just a skill, it's a weapon defenses have to respect every second you're on the floor. My job is to make sure you can get that shot off in more ways than just standing still and waiting for a pass."*
+
+### 2. Shot Creator
+**Tagline:** "I don't need a screen. I make my own daylight."
+**Description:** Shot Creators generate offense out of nothing — a hesitation, a screen, a quick burst — and they can score from anywhere on the floor without needing the offense run through them first.
+**Strengths:** Advanced ball handling · One-on-one scoring · Shot-making off the dribble · Footwork and change of pace
+**Development Focus:** Shot selection and efficiency, reading double teams, and developing a playmaking counter so defenses can't simply load up on the scoring.
+**Coach P Explanation:** *"You're a Shot Creator — you can get a bucket when nobody else can. That's rare. The next step is making sure you're not just scoring, you're scoring efficiently, and that when the defense sends extra help, you know exactly what to do with it."*
+
+### 3. Floor General
+**Tagline:** "The game runs through my hands — and through my head."
+**Description:** Floor Generals see the whole court before everyone else does. They organize the offense, set the pace, and make the players around them better through timing and decision-making.
+**Strengths:** Court vision · Pace control · Decision-making under pressure · Leadership through organization
+**Development Focus:** Scoring threat development (so defenses can't ignore them), pick-and-roll reads, and late-clock decision-making.
+**Coach P Explanation:** *"You're a Floor General — the game slows down for you in a way it doesn't for most players. That gift is the foundation. Now we build the scoring punch that forces defenses to respect you as more than just a passer."*
+
+### 4. Lockdown Defender
+**Tagline:** "Whoever you're guarding tonight is having a rough night."
+**Description:** Lockdown Defenders take pride in making the other team's best player uncomfortable for 32+ minutes. Defense isn't a chore for them — it's their identity.
+**Strengths:** Lateral quickness · On-ball pressure · Anticipation · Physical and mental toughness
+**Development Focus:** Building enough offensive value to stay on the floor in crunch time, and expanding from on-ball defense into team-defense reads (help-side, rotations).
+**Coach P Explanation:** *"You're a Lockdown Defender — you make winning plays that never show up on a stat sheet. The next level for you is making sure your offense doesn't become a reason coaches sit you in close games."*
+
+### 5. Athletic Slasher
+**Tagline:** "If there's a gap, I'm already through it."
+**Description:** Athletic Slashers attack downhill with speed and explosiveness, finishing through and around contact in ways that make highlight reels.
+**Strengths:** First-step burst · Finishing through contact · Transition scoring · Vertical explosiveness
+**Development Focus:** A reliable jumper to keep defenses honest, finishing package versatility (not just one go-to move), and controlling speed in the half-court.
+**Coach P Explanation:** *"You're an Athletic Slasher — your speed and explosiveness create problems most defenders can't solve. We're going to make sure you're not one-dimensional, so when the lane gets crowded, you've still got an answer."*
+
+### 6. Playmaking Wing
+**Tagline:** "I make the right play look easy."
+**Description:** Playmaking Wings combine size and vision — they can initiate offense, make reads from the wing, and create easy looks for teammates without needing to dominate the ball.
+**Strengths:** Positional size · Secondary playmaking · Versatility in different lineups · Unselfish decision-making
+**Development Focus:** Developing a more aggressive scoring mentality when the team needs it, and sharpening pick-and-roll reads from a non-traditional ball-handling spot.
+**Coach P Explanation:** *"You're a Playmaking Wing — you make the game easier for everyone around you. That's a real superpower. Now let's make sure you're comfortable taking over when your team needs you to score, not just facilitate."*
+
+### 7. Two-Way Player
+**Tagline:** "I'm not punting on either end."
+**Description:** Two-Way Players refuse to be a specialist. They compete defensively and contribute offensively, giving their team a dependable presence on both ends of the floor every night.
+**Strengths:** Defensive versatility · Offensive reliability · Conditioning and consistency · Coachability
+**Development Focus:** Developing one clear standout skill (a "go-to" strength) so they evolve from "solid everywhere" into "elite somewhere," while keeping the two-way habits intact.
+**Coach P Explanation:** *"You're a Two-Way Player — you don't give anything away on either end, and that's incredibly valuable. The next step is finding the one thing you can become truly elite at, so you're not just reliable — you're a difference-maker."*
+
+### 8. Swiss Army Knife
+**Tagline:** "Whatever the team needs tonight, that's what I'll do."
+**Description:** The Swiss Army Knife plays whatever role is required — rebounding one night, scoring the next, defending the other team's best player after that. Pure adaptability.
+**Strengths:** Basketball IQ · Positional versatility · Selflessness · Reading what the team actually needs in the moment
+**Development Focus:** Building one signature strength to anchor their game, since pure versatility without a calling card can get overlooked at higher levels of competition.
+**Coach P Explanation:** *"You're a Swiss Army Knife — you can do a little bit of everything, and coaches love that. The risk is staying a 'jack of all trades, master of none.' Let's find your signature move so your versatility has a real edge to it."*
+
+### 9. Rim Protector
+**Tagline:** "Nothing gets through. Nothing gets easy."
+**Description:** Rim Protectors control the paint defensively, deterring and erasing shots at the basket and anchoring their team's entire defensive structure.
+**Strengths:** Shot-blocking instincts · Rebounding · Defensive anchor presence · Physical and vertical advantage
+**Development Focus:** Mobility on the perimeter (to defend in space against modern offenses), and developing a finishing package on offense beyond simple putbacks.
+**Coach P Explanation:** *"You're a Rim Protector — you make your team feel safe just by being on the floor. To take the next step, we need to make sure you can move well enough on defense to handle being pulled away from the paint, because modern offenses will test that."*
+
+### 10. Stretch Big
+**Tagline:** "I'm taller than you and I can shoot over you."
+**Description:** Stretch Bigs combine size with perimeter shooting ability, creating spacing problems for defenses that aren't built to guard a shooter their height.
+**Strengths:** Outside shooting from a size advantage · Floor spacing · Mismatch creation · Rebounding range
+**Development Focus:** Adding strength and physicality in the post and on the boards so the shooting gift doesn't come at the cost of being pushed around inside.
+**Coach P Explanation:** *"You're a Stretch Big — that combination of size and shooting is exactly what modern basketball is built around. Just make sure you don't become only a shooter. We still need you to win the physical battles in the paint."*
+
+---
+
+# DELIVERABLE 2 — THE 6 DEVELOPMENT STAGES
+
+### Stage 1 — Foundation Builder
+**Description:** Just starting to build real basketball habits — learning fundamentals, getting comfortable with the ball, and figuring out how the game actually works.
+**Common Traits:** Inconsistent fundamentals · High enthusiasm · Limited game experience · Still developing body control and coordination on the court
+**What They Need Most:** Repetition of the basics in a low-pressure environment, and encouragement that progress takes time — confidence-building matters more than complex skill work right now.
+
+### Stage 2 — Aspiring Player
+**Description:** Has the fundamentals but hasn't found a clear role yet — working hard in practice without consistent payoff in games.
+**Common Traits:** Inconsistent minutes · Strong work ethic without a clear identity on the floor · Comparing themselves to more established teammates
+**What They Need Most:** Help identifying their natural strengths (an early archetype signal) so their effort starts pointing in one clear direction instead of trying to do everything.
+
+### Stage 3 — Team Contributor
+**Description:** Has earned a steady role and reliably contributes when called upon — not yet a primary option, but a trusted piece of the rotation.
+**Common Traits:** Consistent minutes · Understands their role · Executes within a system · Building real in-game confidence
+**What They Need Most:** Expanding their offensive or defensive role incrementally, and reps in slightly higher-pressure situations to build trust that they can do more.
+
+### Stage 4 — Impact Player
+**Description:** A player their team genuinely leans on — someone whose performance noticeably swings the outcome of games.
+**Common Traits:** High usage in their role · Coaches design situations around their strengths · Real in-game pressure and expectations
+**What They Need Most:** Skill refinement at game speed and mental tools for handling pressure, since their margin for error is smaller and the team's success is more tied to their performance.
+
+### Stage 5 — Difference Maker
+**Description:** A go-to player capable of single-handedly changing a game's outcome through scoring, defense, or both.
+**Common Traits:** Primary option in crunch time · Opponents game-plan specifically around them · High individual responsibility for winning
+**What They Need Most:** Elite-level competition to keep being challenged, and leadership development — at this stage, how they affect teammates matters as much as their own production.
+
+### Stage 6 — Elite Competitor
+**Description:** Operating at the highest level of their current environment — the standard others are measured against.
+**Common Traits:** Dominant production relative to competition level · Often being scouted, recruited, or recognized beyond their immediate team · Carries real pressure and expectation
+**What They Need Most:** A path to the next level of competition (so they keep being pushed), and structured habits around recovery, mindset, and consistency — the margins at this stage are about sustaining excellence, not just reaching it.
+
+---
+
+# DELIVERABLE 3 — THE 7 TEAM ROLES (COMPETITION LEVEL)
+
+### 1. Youth Player
+**Description:** Early-stage organized basketball, typically elementary-aged — first real exposure to structured team basketball.
+**Typical Challenges:** Short attention spans, inconsistent coordination, and games that are more about exposure than execution.
+**Typical Mindset:** Pure enjoyment-driven — motivated by fun, teammates, and the simple thrill of playing, more than outcomes.
+
+### 2. Middle School Player
+**Description:** The transition point where basketball starts to feel more competitive and identity-forming.
+**Typical Challenges:** Uneven physical development among peers, increased competition for playing time, and the first real taste of being cut or benched.
+**Typical Mindset:** Starting to take the game seriously, often forming their first real basketball identity and beginning to compare themselves to peers.
+
+### 3. Freshman / JV Player
+**Description:** Competing at the high school sub-varsity level, often while trying to prove they belong on a path toward varsity.
+**Typical Challenges:** Physical gaps against older competition, uncertain role definition, and pressure to "prove it" for a varsity opportunity.
+**Typical Mindset:** Driven and a little anxious — motivated by the visible next step (varsity) and aware that performance now affects future opportunity.
+
+### 4. Varsity Player
+**Description:** Competing at the top level of their high school program, often the most visible and highest-stakes environment they've played in.
+**Typical Challenges:** Real game pressure, public scrutiny (school, community, recruiting), and balancing role expectations with personal development.
+**Typical Mindset:** Competitive and identity-invested — basketball success at this level often feels tied to broader self-image and future opportunity.
+
+### 5. College Player
+**Description:** Competing at the college level, where basketball often becomes a structured, near-professional commitment.
+**Typical Challenges:** Significantly higher competition, time-management against academics, and navigating role changes (e.g., from high school star to limited college minutes).
+**Typical Mindset:** High-performance oriented — focused on maximizing whatever role they have, with real career or post-college stakes attached to their development.
+
+### 6. Adult Rec League Player
+**Description:** Competing in organized adult or intramural leagues — structured games without professional or scholastic stakes.
+**Typical Challenges:** Limited practice time, balancing basketball with work/life responsibilities, and physical recovery becoming a real factor.
+**Typical Mindset:** Competitive but balanced — genuinely wants to win and improve, while keeping basketball in proper perspective against other life priorities.
+
+### 7. Casual / For-Fun Player
+**Description:** Plays basketball primarily for enjoyment, fitness, or social connection rather than competitive stakes.
+**Typical Challenges:** Inconsistent play frequency, and a lack of structured improvement path since "casual" rarely comes with formal coaching.
+**Typical Mindset:** Enjoyment and stress-relief focused — improvement is welcome, but winning isn't the primary driver of why they play.
+
+---
+
+# DELIVERABLE 4 — THE 8 BOTTLENECK CATEGORIES
+
+### 1. Shooting
+**Symptoms:** Inconsistent percentages on open looks, hesitation to shoot in-rhythm, a shot that breaks down under fatigue or pressure.
+**Common Frustrations:** "I'm open and I still miss," and the feeling that defenses don't even need to guard them closely.
+**What Improvement Unlocks:** Defensive gravity — defenders are forced to respect the shot, which opens driving lanes and space for the rest of their game.
+
+### 2. Ball Handling
+**Symptoms:** Turnovers under pressure, difficulty creating separation, getting stripped or trapped by aggressive defense.
+**Common Frustrations:** Feeling "stuck" with the ball and unable to get into their offense the way they want to.
+**What Improvement Unlocks:** Independence — the ability to create offense and escape pressure without relying entirely on teammates or set plays.
+
+### 3. Finishing
+**Symptoms:** Getting blocked or losing the ball at the rim, finishing well in practice but not in live game contact.
+**Common Frustrations:** "I get to the rim, I just can't finish there," especially against bigger or more athletic defenders.
+**What Improvement Unlocks:** Conversion — turning drives that are already happening into actual points, immediately raising scoring efficiency without changing anything else about their game.
+
+### 4. Defense
+**Symptoms:** Getting beaten off the dribble, late or incorrect rotations, fouling out of position rather than through good defensive habits.
+**Common Frustrations:** Feeling like a defensive liability, or like coaches don't trust them in crunch-time defensive situations.
+**What Improvement Unlocks:** Playing time and trust — defense is often the fastest path to earning a coach's confidence, especially for players who aren't yet a primary scoring option.
+
+### 5. Athleticism
+**Symptoms:** Getting beaten in transition, losing physical battles for position, fatigue affecting performance late in games.
+**Common Frustrations:** Feeling physically overmatched regardless of skill level or effort.
+**What Improvement Unlocks:** A higher ceiling on every other skill — athleticism amplifies shooting range, finishing ability, and defensive reach simultaneously.
+
+### 6. Basketball IQ
+**Symptoms:** Poor shot selection, late reads on rotations or passing lanes, getting "sped up" mentally in high-pressure moments.
+**Common Frustrations:** Knowing the right answer after the play is already over, or feeling like the game moves faster than they can process.
+**What Improvement Unlocks:** Efficiency without needing more athleticism or skill — smarter decisions immediately reduce mistakes and increase impact with the same physical tools.
+
+### 7. Confidence
+**Symptoms:** Hesitating on open shots, playing tighter in big moments than in practice, visible body language changes after mistakes.
+**Common Frustrations:** Knowing they're capable of more but freezing or second-guessing themselves when it matters.
+**What Improvement Unlocks:** Consistency — most of the gap between "practice player" and "game player" is confidence, not actual skill.
+
+### 8. Rebounding
+**Symptoms:** Getting boxed out easily, poor timing on box-outs, low second-chance opportunities created or denied.
+**Common Frustrations:** Watching loose balls and missed shots go to the other team repeatedly.
+**What Improvement Unlocks:** Extra possessions — rebounding is one of the most direct ways to single-handedly create more chances for a team to score, independent of shooting or ball-handling skill.
+
+---
+
+# DELIVERABLE 5 — THE COMPLETE ASSESSMENT
+
+The assessment is built as **6 chapters**, each with its own short transition screen so the experience feels like a guided journey rather than a numbered quiz. Personal info (name, email, password) is collected at specific emotional high points — never as a wall at the start, and never all at once.
+
+---
+
+## CHAPTER 1 — "Let's Find Your Game"
+*(Transition copy: "No wrong answers here. Just go with your gut.")*
+
+**Q1. When you have a great game, what usually happens?**
+- Shots are falling
+- I'm breaking down defenders
+- I'm controlling the offense
+- I'm locking people up
+- I'm dominating inside
+
+**Q2. What part of basketball comes most naturally to you?**
+- Shooting the ball
+- Creating my own shot off the dribble
+- Setting up teammates / playmaking
+- Defending and disrupting
+- Attacking the rim / finishing through contact
+- Rebounding and playing physical
+- Doing a little bit of everything
+- Protecting the rim / shot blocking
+
+**→ NAME CAPTURE (placed here, after 2 fun questions):**
+> *"Alright, we're already learning a lot about your game. Before we keep going — what should we call you on your PLAYR1 journey?"*
+> [First Name input field]
+
+---
+
+## CHAPTER 2 — "[Name], Tell Us About Your Game"
+*(Transition copy: "Now let's get specific.")*
+
+**Q3. What best describes your current basketball situation?**
+- Elementary School
+- Middle School
+- Freshman / JV
+- Varsity
+- College Basketball
+- Intramural League
+- Adult Rec League
+- Just Playing For Fun
+
+**Q4. How would you describe your current role on your team?**
+- Not On A Team
+- Limited Minutes
+- Rotation Player
+- Starter
+- Team Leader
+
+**Q5. When your team needs a bucket, what are you most likely to do?**
+- Take the shot
+- Create a shot
+- Drive
+- Find an open teammate
+- Get a teammate open
+- Get the offensive rebound
+
+---
+
+## CHAPTER 3 — "The Real Talk Section"
+*(Transition copy: "This is the part most apps skip. We don't.")*
+
+**Q6. What frustrates you most during games?**
+- Missing open shots
+- Losing the ball
+- Finishing at the rim
+- Defending athletes and scorers
+- Making quick decisions under pressure
+- Confidence
+
+**Q7. When you struggle in games, why?**
+- Can't create space
+- Miss opportunities
+- Lose confidence
+- Got sped up
+- Too slow / physical limitations
+- Defensive mistakes
+- Poor shot selection
+
+**Q8. If you could instantly improve one thing tomorrow, what would it be?**
+- Shooting
+- Finishing
+- Ball Handling
+- Defense
+- Athleticism
+- Rebounding
+- Confidence
+- Basketball IQ
+
+---
+
+## CHAPTER 4 — "How Bad Do You Want It?"
+*(Transition copy: "Be honest. This stays between us.")*
+
+**Q9. How serious is basketball in your life right now?**
+- Casual Hobby
+- Serious Hobby
+- Major Priority
+- My Biggest Goal
+
+**Q10. How often do you train outside of team practice?**
+- Never
+- Rarely
+- 1–2 Times a Week
+- 3–4 Times a Week
+- 5–6 Times a Week
+- Daily
+
+**Q11. How many years have you played organized team basketball?**
+- 0 · 1–3 · 4–6 · 7–10 · 10+
+
+**Q12. How many years have you played basketball in general — including just playing for fun?**
+- 0 · 1–3 · 4–6 · 7–10 · 10+
+
+---
+
+## CHAPTER 5 — "Pressure Reveals Character"
+*(Transition copy: "Anyone can play well when it's easy. Let's talk about when it's not.")*
+
+**Q13. When games get close, what do you do?**
+- Tense up and get nervous
+- Embrace the moment
+- Imagine yourself on the sidelines
+- Don't think too much about it
+
+**Q14. How confident are you in your ability to impact games?**
+- Still Learning
+- Sometimes
+- Usually
+- Consistently
+- I expect to be one of the best players on the court
+
+**Q15. After a bad game, what's your honest reaction?**
+- I get frustrated and need time to cool off
+- I replay it trying to figure out what went wrong
+- I immediately think about what I need to fix
+- I get back in the gym as soon as I can
+- I barely think about it — I'm already focused on the next one
+
+**Q16. Which statement feels most like you right now?**
+- I'm still learning the fundamentals and figuring out my game
+- I work hard in practice but haven't found my role yet
+- I've earned a steady spot and contribute when I'm needed
+- I'm one of the players my team leans on to make plays happen
+- I expect to dominate every time I step on the court
+
+---
+
+## CHAPTER 6 — "What Are You Chasing?"
+*(Transition copy: "Last one. Then we show you everything.")*
+
+**Q17. What's your primary basketball goal right now?**
+- Make a team I'm trying out for
+- Earn more playing time / a bigger role
+- Play at the next level (high school, college, etc.)
+- Become the best version of my game, for myself
+- Compete at the highest level I possibly can
+
+*(This question personalizes onboarding content and CTAs — it does not feed the 7 scored outputs.)*
+
+**→ EMAIL CAPTURE:**
+> *"[Name], your PLAYR1 Journey is built. Enter your email to unlock it."*
+> [Email input field] → button: **"Unlock My Journey"**
+
+**→ PASSWORD CAPTURE (immediately after, same flow):**
+> *"Almost there. Save your journey so you never lose your progress."*
+> [Create password field] → button: **"Save & Reveal My Results"**
+
+---
+
+# DELIVERABLE 6 — THE SCORING SYSTEM
+
+## 6.1 — Archetype Scoring
+
+Three questions feed archetype scoring. Each selected answer awards points to a primary archetype and, where relevant, a secondary related archetype — this allows blended profiles instead of forcing players into an artificially narrow box.
+
+| Question | Answer | Primary (+pts) | Secondary (+pts) |
+|---|---|---|---|
+| Q1 — Great game | Shots are falling | Sharpshooter +3 | Stretch Big +1 |
+| Q1 | Breaking down defenders | Shot Creator +3 | Athletic Slasher +1 |
+| Q1 | Controlling the offense | Floor General +3 | Playmaking Wing +1 |
+| Q1 | Locking people up | Lockdown Defender +3 | Two-Way Player +1 |
+| Q1 | Dominating inside | Rim Protector +2 | Athletic Slasher +2 |
+| Q2 — Comes naturally | Shooting the ball | Sharpshooter +3 | Stretch Big +1 |
+| Q2 | Creating my own shot | Shot Creator +3 | Athletic Slasher +1 |
+| Q2 | Setting up teammates | Floor General +3 | Playmaking Wing +2 |
+| Q2 | Defending and disrupting | Lockdown Defender +3 | Two-Way Player +1 |
+| Q2 | Attacking the rim | Athletic Slasher +3 | Shot Creator +1 |
+| Q2 | Rebounding / physical | Swiss Army Knife +3 | Rim Protector +1 |
+| Q2 | A little bit of everything | Swiss Army Knife +3 | Two-Way Player +2 |
+| Q2 | Protecting the rim | Rim Protector +3 | Lockdown Defender +1 |
+| Q5 — Bucket needed | Take the shot | Sharpshooter +3 | Stretch Big +1 |
+| Q5 | Create a shot | Shot Creator +3 | Athletic Slasher +1 |
+| Q5 | Drive | Athletic Slasher +3 | Shot Creator +1 |
+| Q5 | Find an open teammate | Floor General +3 | Playmaking Wing +1 |
+| Q5 | Get a teammate open | Playmaking Wing +3 | Swiss Army Knife +1 |
+| Q5 | Get the offensive rebound | Rim Protector +2 | Swiss Army Knife +2 |
+
+**Result:** Sum all points per archetype across the 3 questions (max possible per archetype ≈ 9). The highest-scoring archetype is the player's result. **Tie-break:** the archetype that scored points on the most distinct questions wins; if still tied, the Q2 ("comes naturally") answer takes priority as the most intrinsic signal.
+
+## 6.2 — Development Stage Scoring
+
+Two questions directly drive Development Stage — current team role status, and the self-identifying statement.
+
+| Question | Answer | Points |
+|---|---|---|
+| Q4 — Team role | Not On A Team | 0 |
+| Q4 | Limited Minutes | 2 |
+| Q4 | Rotation Player | 4 |
+| Q4 | Starter | 6 |
+| Q4 | Team Leader | 8 |
+| Q16 — Statement | "Still learning fundamentals" | 0 |
+| Q16 | "Haven't found my role yet" | 2 |
+| Q16 | "Steady spot, contribute when needed" | 4 |
+| Q16 | "Team leans on me to make plays" | 6 |
+| Q16 | "Expect to dominate every time" | 8 |
+
+**Result:** Add both point values (range 0–16), then map to a stage:
+
+| Combined Score | Stage |
+|---|---|
+| 0–2 | Foundation Builder |
+| 3–5 | Aspiring Player |
+| 6–8 | Team Contributor |
+| 9–11 | Impact Player |
+| 12–14 | Difference Maker |
+| 15–16 | Elite Competitor |
+
+## 6.3 — Team Role (Competition Level) — Direct Mapping
+
+No point math required — Q3 maps directly to one of the 7 outputs:
+
+| Q3 Answer | Team Role Output |
+|---|---|
+| Elementary School | Youth Player |
+| Middle School | Middle School Player |
+| Freshman / JV | Freshman / JV Player |
+| Varsity | Varsity Player |
+| College Basketball | College Player |
+| Intramural League | Adult Rec League Player |
+| Adult Rec League | Adult Rec League Player |
+| Just Playing For Fun | Casual / For-Fun Player |
+
+## 6.4 — Biggest Bottleneck Scoring
+
+Three questions feed this score with different weights — Q6 (real-time, in-game frustration) is weighted highest since it's the most emotionally reliable signal; Q7 (root cause) and Q8 (direct preference across all 8 categories) refine and confirm it.
+
+| Question | Weight | Notes |
+|---|---|---|
+| Q6 — What frustrates you most | ×4 | Strongest signal — real, felt-in-the-moment frustration |
+| Q7 — Why you struggle | ×3 | Root-cause diagnosis |
+| Q8 — Instant improvement | ×3 | Direct preference, covers all 8 categories explicitly |
+
+Each answer awards its full weighted value to its mapped category only (single-select, single-category mapping per the original design).
+
+**Result:** Sum weighted points per category across all 3 questions. Highest total = Biggest Bottleneck. **Top 3 Growth Areas** (shown in results) = the categories selected across Q6, Q7, and Q8 — deduplicated, and backfilled with the next-highest scoring category if any overlap reduces the set below 3 unique categories.
+
+## 6.5 — Competitive Mindset Score
+
+| Question | Answer | Points |
+|---|---|---|
+| Q13 — Close games | Tense up and get nervous | 2 |
+| Q13 | Embrace the moment | 10 |
+| Q13 | Imagine yourself on the sidelines | 0 |
+| Q13 | Don't think too much about it | 6 |
+| Q14 — Confidence | Still Learning | 2 |
+| Q14 | Sometimes | 4 |
+| Q14 | Usually | 6 |
+| Q14 | Consistently | 8 |
+| Q14 | Expect to be one of the best on the court | 10 |
+| Q15 — Bad game reaction | Get frustrated, need time to cool off | 3 |
+| Q15 | Replay it to find what went wrong | 6 |
+| Q15 | Immediately think about what to fix | 9 |
+| Q15 | Get back in the gym ASAP | 10 |
+| Q15 | Barely think about it, focused on next one | 8 |
+
+**Formula:** `Mindset Score = round((Q13 + Q14 + Q15) ÷ 30 × 100)`
+
+| Score Range | Band Label |
+|---|---|
+| 0–20 | Still Building Belief |
+| 21–40 | Finding Your Footing |
+| 41–60 | Trusting Your Game |
+| 61–80 | Bringing The Heat |
+| 81–100 | Ice In Your Veins |
+
+## 6.6 — Dedication Score
+
+| Question | Answer | Points |
+|---|---|---|
+| Q9 — Seriousness | Casual Hobby | 2 |
+| Q9 | Serious Hobby | 5 |
+| Q9 | Major Priority | 8 |
+| Q9 | My Biggest Goal | 10 |
+| Q10 — Training frequency | Never | 0 |
+| Q10 | Rarely | 2 |
+| Q10 | 1–2x/week | 4 |
+| Q10 | 3–4x/week | 7 |
+| Q10 | 5–6x/week | 9 |
+| Q10 | Daily | 10 |
+
+**Formula:** `Dedication Score = round((Q9 + Q10) ÷ 20 × 100)`
+
+| Score Range | Band Label |
+|---|---|
+| 0–20 | Just Getting Started |
+| 21–40 | Building The Habit |
+| 41–60 | Putting In Work |
+| 61–80 | Grinding |
+| 81–100 | Obsessed |
+
+## 6.7 — Experience Score
+
+| Question | Answer | Points |
+|---|---|---|
+| Q11 / Q12 — Years played | 0 years | 0 |
+| | 1–3 years | 2 |
+| | 4–6 years | 5 |
+| | 7–10 years | 8 |
+| | 10+ years | 10 |
+
+**Formula:** `Experience Score = round((Q11 + Q12) ÷ 20 × 100)`
+
+| Score Range | Band Label |
+|---|---|
+| 0–20 | New To The Game |
+| 21–40 | Building A Foundation |
+| 41–60 | Seasoned Player |
+| 61–80 | Deep Roots |
+| 81–100 | Lifer |
+
+*Note: Experience reflects history, not skill level — a high score simply means a long relationship with the game, which is framed positively regardless of current ability.*
+
+---
+
+# DELIVERABLE 7 — THE RESULTS EXPERIENCE
+
+**Design Standard:** Each result builds on the last like a Spotify Wrapped reveal — full-screen, one idea at a time, with a satisfying animated entrance before any text appears. No page should feel like a report; every page should feel like a reveal.
+
+*(Example copy below uses a sample result: "Jake" — Shot Creator, Varsity, Impact Player, Ball Handling bottleneck, Mindset 74 / Bringing The Heat, Dedication 82 / Obsessed, Experience 65 / Deep Roots.)*
+
+---
+
+## Page 1 — Your Archetype
+
+**Visual:** Full-screen animated reveal — a silhouette mid-crossover fills the screen, then sharpens into the archetype icon as the name types in letter by letter (Duolingo-style reveal animation).
+
+**Example Copy:**
+> **JAKE, YOU'RE A SHOT CREATOR.**
+> *"I don't need a screen. I make my own daylight."*
+>
+> You generate offense out of nothing. That's rare — and it's exactly why we're starting your PLAYR1 Journey here.
+
+**Secondary card (swipe up):**
+> **Your Strengths:** Advanced ball handling · One-on-one scoring · Shot-making off the dribble
+> **Coach P says:** *"You can get a bucket when nobody else can. Let's make sure you're scoring efficiently — not just often."*
+
+**Onboarding Recommendation:** CTA button — **"See Your Archetype Drills"** → routes directly into a pre-built Shot Creator drill pack inside the app, so the very first action after onboarding is basketball, not a settings menu.
+
+---
+
+## Page 2 — Your Development Stage
+
+**Visual:** A vertical progress ladder animates upward, lighting up stage-by-stage until it lands on the player's current stage with a satisfying "snap" and glow effect — visually communicating *"here's the full path, and here's exactly where you are on it."*
+
+**Example Copy:**
+> **YOU'RE AN IMPACT PLAYER.**
+>
+> Your team genuinely leans on you. Your performance swings outcomes. That's a real level most players never reach.
+
+**Secondary card:**
+> **What This Means:** Coaches design situations around your strengths. The margin for error gets smaller from here.
+> **What You Need Most:** Skill refinement at game speed, and mental tools for handling pressure — because at this stage, it's not about whether you're good enough. It's about doing it under more weight.
+
+**Onboarding Recommendation:** CTA — **"Unlock Impact Player Training Path"** → frames the next app step as a leveling-up journey rather than a generic feature tour.
+
+---
+
+## Page 3 — Your Biggest Bottleneck
+
+**Visual:** A bar-chart style reveal of the player's "Top 3 Growth Areas," animating in from left to right, with the #1 bottleneck pulsing in PLAYR1 orange to draw the eye.
+
+**Example Copy:**
+> **YOUR #1 GROWTH AREA: BALL HANDLING.**
+>
+> This isn't a weakness call-out. It's the single highest-leverage thing you can work on right now.
+>
+> Improving this unlocks: *independence* — the ability to create offense and escape pressure without needing a play drawn up for you.
+
+**Secondary card:**
+> **Your Top 3 Growth Areas:** Ball Handling · Shooting · Confidence
+> **Coach P says:** *"This is exactly where we start. Everything else in your game gets easier once this gets stronger."*
+
+**Onboarding Recommendation:** CTA — **"Start My Ball Handling Plan"** → the single most important conversion moment in the entire flow, since it routes the player directly into their first real piece of personalized training content.
+
+---
+
+## Page 4 — Your PLAYR1 Journey Summary
+
+**Visual:** A full "player card" reveal — styled like a trading card or a Spotify Wrapped final summary slide, built to be screenshotted and shared. All 7 outputs displayed together for the first time.
+
+**Example Copy:**
+> **JAKE'S PLAYR1 JOURNEY**
+>
+> 🏀 **Archetype:** Shot Creator
+> 📈 **Stage:** Impact Player
+> 🏟️ **Level:** Varsity
+> 🎯 **Top Growth Area:** Ball Handling
+> 🔥 **Mindset:** 74 — Bringing The Heat
+> 💪 **Dedication:** 82 — Obsessed
+> ⏳ **Experience:** 65 — Deep Roots
+>
+> *"You've got the scoring instincts of a Shot Creator and the dedication of someone who's truly obsessed. The gap between where you are and where you're going? Ball handling. Let's close it."*
+
+**Bottom of page — Two CTAs:**
+- Primary: **"Start My First Training Session"** (drives immediately into product usage)
+- Secondary: **"Share My PLAYR1 Card"** (drives organic growth — the shareable card is intentionally designed to double as a referral mechanism, the same way Spotify Wrapped functions as free marketing)
+
+**Onboarding Recommendation:** This page is the conversion hinge of the entire assessment. Every prior page built emotional investment; this page must immediately funnel that investment into a first concrete action inside the app — the goal is zero gap between "I just learned something exciting about myself" and "I'm already doing something about it."

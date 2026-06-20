@@ -149,8 +149,16 @@ export const careerProfiles = pgTable("career_profiles", {
   assessmentCourtRoleDescription: text("assessment_court_role_description"),
   assessmentBottleneck: varchar("assessment_bottleneck"), // e.g. "Ball Handling"
   assessmentBottleneckDescription: text("assessment_bottleneck_description"),
-  assessmentSummary: text("assessment_summary"), // 3-4 sentence AI paragraph
-  firstWorkoutData: jsonb("first_workout_data"), // [{name, focus, duration, description}]
+  assessmentSummary: text("assessment_summary"),
+  firstWorkoutData: jsonb("first_workout_data"),
+  // Cinematic v2 — coded scoring outputs
+  assessmentMindsetScore: integer("assessment_mindset_score"),
+  assessmentMindsetBand: varchar("assessment_mindset_band"),
+  assessmentDedicationScore: integer("assessment_dedication_score"),
+  assessmentDedicationBand: varchar("assessment_dedication_band"),
+  assessmentExperienceScore: integer("assessment_experience_score"),
+  assessmentExperienceBand: varchar("assessment_experience_band"),
+  assessmentPrimaryGoal: varchar("assessment_primary_goal"),
 
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow()

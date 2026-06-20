@@ -1,0 +1,2 @@
+- [Assessment scoring engine](assessment-scoring.md) — client-side coded scoring (no AI); backend /api/onboarding/assess now accepts pre-computed result object.
+- [DB migration pattern](db-migration-pattern.md) — never use db:push (drops leaderboard tables); always use direct SQL ALTER TABLE with IF NOT EXISTS.
