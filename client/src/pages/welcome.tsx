@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
-import { apiRequest, storeAuthToken } from "@/lib/queryClient";
+import { apiRequest, storeAuthToken, buildUrl, getAuthHeaders } from "@/lib/queryClient";
 import { useQueryClient } from "@tanstack/react-query";
 import { track } from "@/lib/track";
 import logoImg from "@assets/PNG_image_auth_trimmed.png";
@@ -137,6 +137,7 @@ export default function WelcomePage() {
   const introTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const summaryCardRef = useRef<HTMLDivElement>(null);
   const [shareState, setShareState] = useState<"idle" | "sharing" | "shared">("idle");
+  const [registeredUser, setRegisteredUser] = useState<any>(null);
 
   // Intro: auto-advance after 4s
   useEffect(() => {
@@ -188,10 +189,10 @@ export default function WelcomePage() {
   async function handleSubmit() {
     setPhase("loading");
     try {
-      // Register account
-      const registerRes = await fetch("/api/auth/register", {
+      // Register account — use buildUrl so native (Capacitor) uses the correct API base
+      const registerRes = await fetch(buildUrl("/api/auth/register"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({ firstName: firstName.trim(), email: accountEmail.trim().toLowerCase(), password: accountPassword }),
         credentials: "include",
       });
@@ -204,13 +205,16 @@ export default function WelcomePage() {
       }
       const registerData = await registerRes.json();
       if (registerData?.token) storeAuthToken(registerData.token);
-      track("signup", { userId: registerData?.id, source: "cinematic-onboarding" });
+      // Store user data — auth cache updated only in finishOnboarding() to avoid
+      // premature /welcome → / redirect while the results slides are still showing
+      const { token: _t, ...userData } = registerData;
+      setRegisteredUser(userData);
+      track("signup", { userId: userData?.id, source: "cinematic-onboarding" });
 
-      // Run assessment
+      // Run assessment (apiRequest uses stored token via getAuthHeaders)
       const assessRes = await apiRequest("POST", "/api/onboarding/assess", { answers });
       const assessData: AssessmentResult = await assessRes.json();
       setResults(assessData);
-      // Invalidate career query so hub picks up the new profile
       qc.invalidateQueries({ queryKey: ["/api/career"] });
       setPhase("results");
     } catch (err) {
@@ -235,8 +239,13 @@ export default function WelcomePage() {
 
   function finishOnboarding() {
     localStorage.setItem("playr1_new_onboarding", "1");
-    // Invalidate auth so router recognizes the newly registered user
-    qc.invalidateQueries({ queryKey: ["/api/auth/user"] });
+    // Deterministically set auth cache from registered user data so the hub
+    // loads immediately without a round-trip, then navigate
+    if (registeredUser) {
+      qc.setQueryData(["/api/auth/user"], registeredUser);
+    } else {
+      qc.invalidateQueries({ queryKey: ["/api/auth/user"] });
+    }
     navigate("/hub");
   }
 
