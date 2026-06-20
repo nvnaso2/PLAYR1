@@ -577,11 +577,33 @@ The first workout should directly target their bottleneck and complement their s
         return res.status(500).json({ message: "Failed to parse AI response" });
       }
 
+      // Normalize archetype — map AI text to nearest DB archetype name
+      let normalizedArchetype = profile.archetype as string;
+      try {
+        const { archetypes: archetypesTable } = await import("@shared/schema");
+        const dbArchetypes = await db.select({ id: archetypesTable.id, name: archetypesTable.name }).from(archetypesTable);
+        if (dbArchetypes.length > 0) {
+          const aiArch = normalizedArchetype.toLowerCase().replace(/^the\s+/i, "");
+          // Find best match: DB archetype name contained in AI string or AI string contained in DB name
+          const match = dbArchetypes.find(a => {
+            const dbName = a.name.toLowerCase().replace(/^the\s+/i, "");
+            return aiArch.includes(dbName) || dbName.includes(aiArch);
+          });
+          if (match) {
+            // Keep the AI's "The X" prefix style but normalize the core name
+            const prefix = normalizedArchetype.toLowerCase().startsWith("the ") ? "The " : "";
+            normalizedArchetype = `${prefix}${match.name}`;
+          }
+        }
+      } catch (archetypeErr) {
+        console.warn("Archetype normalization failed, using AI value:", archetypeErr);
+      }
+
       // Save to career profile
       const existing = await storage.getCareerProfile(userId);
       const updateData: any = {
         assessmentAnswers: answers,
-        assessmentArchetype: profile.archetype,
+        assessmentArchetype: normalizedArchetype,
         assessmentArchetypeTagline: profile.archetypeTagline,
         assessmentStage: profile.stage,
         assessmentStageDescription: profile.stageDescription,

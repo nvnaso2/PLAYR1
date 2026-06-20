@@ -139,10 +139,10 @@ export default function HubPage() {
             <div className="flex-1 min-w-0">
               <p className="text-white font-bold text-sm">Welcome to PLAYR1! 🏀</p>
               <p className="text-zinc-400 text-xs mt-0.5 leading-snug">
-                Complete your player profile to unlock more features — drills, goals, and community.
+                Finish setting up your profile to unlock personalized drills, goals, and trainer matching.
               </p>
               <button
-                onClick={() => navigate("/career")}
+                onClick={() => navigate("/profile")}
                 className="mt-2.5 text-orange-400 text-xs font-bold flex items-center gap-1 hover:text-orange-300 transition-colors"
                 data-testid="button-banner-complete-profile"
               >

@@ -4,7 +4,7 @@ import { apiRequest, storeAuthToken } from "@/lib/queryClient";
 import { useQueryClient } from "@tanstack/react-query";
 import { track } from "@/lib/track";
 import logoImg from "@assets/PNG_image_auth_trimmed.png";
-import { Eye, EyeOff, ChevronRight, Dumbbell, Target, Zap, Shield, Brain } from "lucide-react";
+import { Eye, EyeOff, ChevronRight, Dumbbell, Target, Zap, Shield, Brain, Share2, Download, Check } from "lucide-react";
 
 // ─── Quiz questions (7 basketball + 3 account) ───────────────────────────────
 const BASKETBALL_QUESTIONS = [
@@ -135,6 +135,8 @@ export default function WelcomePage() {
   const [slideIn, setSlideIn] = useState(true);
 
   const introTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const summaryCardRef = useRef<HTMLDivElement>(null);
+  const [shareState, setShareState] = useState<"idle" | "sharing" | "shared">("idle");
 
   // Intro: auto-advance after 4s
   useEffect(() => {
@@ -236,6 +238,38 @@ export default function WelcomePage() {
     // Invalidate auth so router recognizes the newly registered user
     qc.invalidateQueries({ queryKey: ["/api/auth/user"] });
     navigate("/hub");
+  }
+
+  async function handleShareSummary() {
+    if (!summaryCardRef.current || shareState !== "idle") return;
+    setShareState("sharing");
+    try {
+      const html2canvas = (await import("html2canvas")).default;
+      const canvas = await html2canvas(summaryCardRef.current, {
+        backgroundColor: "#18181b",
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      });
+      const dataUrl = canvas.toDataURL("image/png");
+
+      // Try Web Share API first (mobile), fall back to download
+      const blob = await (await fetch(dataUrl)).blob();
+      const file = new File([blob], "playr1-player-profile.png", { type: "image/png" });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: "My PLAYR1 Player Profile" });
+      } else {
+        const a = document.createElement("a");
+        a.download = "playr1-player-profile.png";
+        a.href = dataUrl;
+        a.click();
+      }
+      setShareState("shared");
+      setTimeout(() => setShareState("idle"), 3000);
+    } catch (err) {
+      console.error("Share failed:", err);
+      setShareState("idle");
+    }
   }
 
   // ─── RENDER ───────────────────────────────────────────────────────────────
@@ -480,9 +514,9 @@ export default function WelcomePage() {
     return (
       <div
         className={`fixed inset-0 ${cfg.bg} flex flex-col`}
-        onClick={advanceResult}
+        onClick={isLast ? undefined : advanceResult}
         data-testid={`screen-result-${resultSlide}`}
-        style={{ cursor: "pointer" }}
+        style={{ cursor: isLast ? "default" : "pointer" }}
       >
         {/* Dot indicator */}
         <div className="shrink-0 flex items-center justify-center gap-2 pt-safe pt-8">
@@ -494,8 +528,9 @@ export default function WelcomePage() {
           ))}
         </div>
 
-        {/* Content */}
+        {/* Content — summary slide gets a capturable ref */}
         <div
+          ref={isLast ? summaryCardRef : undefined}
           className={`flex-1 flex flex-col items-center justify-center px-8 text-center transition-all duration-250 ${slideIn ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
           style={{ transition: "opacity 0.25s, transform 0.25s" }}
         >
@@ -516,20 +551,52 @@ export default function WelcomePage() {
           <p className={`text-lg leading-relaxed max-w-sm ${cfg.key === "summary" ? "text-zinc-300" : cfg.subClass}`} data-testid="text-result-description">
             {getDescription()}
           </p>
+
+          {/* Summary slide: archetype + stat chips */}
+          {isLast && (
+            <div className="mt-6 flex flex-wrap justify-center gap-2">
+              {[results.archetype, results.stage, results.courtRole].map((label) => (
+                <span key={label} className="px-3 py-1 rounded-full bg-white/10 text-white/80 text-xs font-semibold backdrop-blur-sm">
+                  {label}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* CTA */}
-        <div className="shrink-0 px-8 pb-safe pb-10 text-center">
+        <div className="shrink-0 px-8 pb-safe pb-8 space-y-3" onClick={e => e.stopPropagation()}>
           {isLast ? (
-            <button
-              onClick={(e) => { e.stopPropagation(); setPhase("workout"); }}
-              data-testid="button-see-workout"
-              className="w-full bg-orange-500 hover:bg-orange-400 text-white rounded-2xl py-4 font-bold text-base transition-all active:scale-[0.98] flex items-center justify-center gap-2"
-            >
-              See My First Workout <ChevronRight className="h-5 w-5" />
-            </button>
+            <>
+              {/* Share / screenshot button */}
+              <button
+                onClick={handleShareSummary}
+                disabled={shareState === "sharing"}
+                data-testid="button-share-profile"
+                className="w-full bg-white/10 hover:bg-white/20 active:scale-[0.98] text-white rounded-2xl py-3.5 font-bold text-sm transition-all flex items-center justify-center gap-2 border border-white/20"
+              >
+                {shareState === "shared" ? (
+                  <><Check className="h-4 w-4 text-green-400" /> Saved!</>
+                ) : shareState === "sharing" ? (
+                  <><div className="h-4 w-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Saving…</>
+                ) : (
+                  navigator.canShare ? (
+                    <><Share2 className="h-4 w-4" /> Share My Profile</>
+                  ) : (
+                    <><Download className="h-4 w-4" /> Save My Profile</>
+                  )
+                )}
+              </button>
+              <button
+                onClick={() => setPhase("workout")}
+                data-testid="button-see-workout"
+                className="w-full bg-orange-500 hover:bg-orange-400 text-white rounded-2xl py-4 font-bold text-base transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+              >
+                See My First Workout <ChevronRight className="h-5 w-5" />
+              </button>
+            </>
           ) : (
-            <p className={`text-sm ${cfg.key === "summary" ? "text-zinc-500" : cfg.subClass}`}>
+            <p className={`text-sm text-center ${cfg.subClass}`}>
               Tap anywhere to continue
             </p>
           )}
