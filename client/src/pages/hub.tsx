@@ -57,19 +57,19 @@ function formatDate() {
 export default function HubPage() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
-  const [showNewPlayerBanner, setShowNewPlayerBanner] = useState(false);
-
-  useEffect(() => {
-    const flag = localStorage.getItem("playr1_new_onboarding");
-    if (flag === "1") setShowNewPlayerBanner(true);
-  }, []);
+  const [bannerDismissed, setBannerDismissed] = useState(() =>
+    localStorage.getItem("playr1_new_onboarding_dismissed") === "1"
+  );
 
   function dismissNewPlayerBanner() {
-    setShowNewPlayerBanner(false);
+    setBannerDismissed(true);
+    localStorage.setItem("playr1_new_onboarding_dismissed", "1");
+    // Also clear the "new onboarding" flag
     localStorage.removeItem("playr1_new_onboarding");
   }
 
   const { data: profile } = useQuery<any>({ queryKey: ["/api/profile"] });
+  const { data: careerData } = useQuery<any>({ queryKey: ["/api/career"] });
   const { data: overview, isLoading: overviewLoading } = useQuery<any>({ queryKey: ["/api/stats/overview"] });
   const { data: goalData, isLoading: goalLoading } = useQuery<GoalData>({
     queryKey: ["/api/goals/active"],
@@ -83,6 +83,12 @@ export default function HubPage() {
     queryKey: ["/api/archetypes/user"],
     enabled: !!user,
   });
+
+  // Show banner for new cinematic onboarding users with incomplete profiles
+  // Driven by durable server state (onboardingVersion) + local dismissal flag
+  const isCinematicOnboarding = careerData?.onboardingVersion === "cinematic-v1";
+  const profileIncomplete = !profile?.lastName || !careerData?.positions?.length || !careerData?.aspiration;
+  const showNewPlayerBanner = isCinematicOnboarding && profileIncomplete && !bannerDismissed;
 
   const firstName = profile?.firstName ?? user?.firstName;
   const { text: greetText, emoji } = greeting(firstName);
@@ -139,7 +145,7 @@ export default function HubPage() {
             <div className="flex-1 min-w-0">
               <p className="text-white font-bold text-sm">Welcome to PLAYR1! 🏀</p>
               <p className="text-zinc-400 text-xs mt-0.5 leading-snug">
-                Finish setting up your profile to unlock personalized drills, goals, and trainer matching.
+                Unlock 10% off your first session with a trainer when you complete your profile.
               </p>
               <button
                 onClick={() => navigate("/profile")}
