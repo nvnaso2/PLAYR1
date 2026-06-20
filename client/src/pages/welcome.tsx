@@ -4,7 +4,24 @@ import { apiRequest, storeAuthToken, buildUrl, getAuthHeaders } from "@/lib/quer
 import { useQueryClient } from "@tanstack/react-query";
 import { track } from "@/lib/track";
 import logoImg from "@assets/PNG_image_auth_trimmed.png";
-import { Eye, EyeOff, Share2, Download, Check, Lock, ArrowRight } from "lucide-react";
+import { Eye, EyeOff, Share2, Download, Check, Lock, ArrowRight, ChevronRight } from "lucide-react";
+
+function getCharIcon(c: string): string {
+  const l = c.toLowerCase();
+  if (l.includes("shoot") || l.includes("shot") || l.includes("range") || l.includes("arc")) return "🎯";
+  if (l.includes("handling") || l.includes("dribble") || l.includes("ball")) return "🏀";
+  if (l.includes("defense") || l.includes("defensive") || l.includes("deny") || l.includes("pressure")) return "🛡️";
+  if (l.includes("finish") || l.includes("contact") || l.includes("paint")) return "💪";
+  if (l.includes("pass") || l.includes("vision") || l.includes("making") || l.includes("court")) return "👁️";
+  if (l.includes("speed") || l.includes("burst") || l.includes("quick") || l.includes("lateral") || l.includes("explosive")) return "⚡";
+  if (l.includes("rebound")) return "🏆";
+  if (l.includes("block") || l.includes("protect") || l.includes("anchor")) return "🤚";
+  if (l.includes("iq") || l.includes("versatil") || l.includes("selfless") || l.includes("selflessness")) return "🧠";
+  if (l.includes("leadership") || l.includes("tempo")) return "⭐";
+  if (l.includes("condition") || l.includes("consistency") || l.includes("motor") || l.includes("physical")) return "🔄";
+  if (l.includes("size") || l.includes("transition") || l.includes("spacing")) return "📐";
+  return "🏀";
+}
 
 // ─── ROMAN NUMERALS ──────────────────────────────────────────────────────────
 function toRoman(n: number): string {
@@ -463,7 +480,7 @@ export default function WelcomePage({ previewMode = false, onPreviewComplete }: 
           ref={videoRef}
           src="/welcome.mp4"
           autoPlay muted playsInline
-          className="absolute inset-0 w-full h-full object-cover"
+          className="absolute inset-0 w-full h-full object-contain"
           onEnded={() => setVideoEnded(true)}
         />
         {/* Logo overlay always shown */}
@@ -516,14 +533,12 @@ export default function WelcomePage({ previewMode = false, onPreviewComplete }: 
           {/* Content */}
           <div className={`relative z-10 flex flex-col items-center text-center px-8 max-w-sm w-full transition-all duration-200 ${animIn ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}>
 
-            {/* Chapter divider line with roman numeral */}
-            <div className="flex items-center gap-3 w-full mb-7">
-              <div className="flex-1 h-px" style={{ background: "linear-gradient(to right, transparent, rgba(249,115,22,0.55))" }} />
-              <span className="text-[10px] font-black tracking-[0.5em] uppercase whitespace-nowrap"
+            {/* Chapter label */}
+            <div className="mb-7">
+              <span className="text-[10px] font-black tracking-[0.5em] uppercase"
                 style={{ color: "#f97316", textShadow: "0 0 16px rgba(249,115,22,0.8), 0 0 32px rgba(249,115,22,0.4)" }}>
                 Chapter {roman}
               </span>
-              <div className="flex-1 h-px" style={{ background: "linear-gradient(to left, transparent, rgba(249,115,22,0.55))" }} />
             </div>
 
             {/* Title */}
@@ -543,37 +558,82 @@ export default function WelcomePage({ previewMode = false, onPreviewComplete }: 
       );
     }
 
-    // ─ Name capture ─────────────────────────────────────────────────────────
+    // ─ Name capture — jersey design ─────────────────────────────────────────
     if (step.type === "name") {
       return (
         <div className={`fixed inset-0 bg-black flex flex-col ${topPad}`} data-testid="screen-name-capture">
-          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 rounded-full pointer-events-none"
-            style={{ background: "radial-gradient(circle, rgba(249,115,22,0.1) 0%, transparent 70%)" }} />
-          <div className="relative z-10 flex-1 flex flex-col justify-center px-5 py-8">
-            {/* Sports card header */}
-            <div className="mb-8">
-              <div className="flex items-center gap-2 mb-1">
-                <div className="w-4 h-px bg-orange-500/60" />
-                <span className="text-orange-500/70 text-[9px] font-black tracking-[0.5em] uppercase">Player Registration</span>
+          {/* Ambient glow */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 rounded-full pointer-events-none"
+            style={{ background: "radial-gradient(circle, rgba(249,115,22,0.09) 0%, transparent 70%)" }} />
+
+          <div className="relative z-10 flex-1 flex flex-col justify-center items-center px-6 gap-5">
+            {/* Prompt */}
+            <div className="text-center">
+              <p className="text-zinc-600 text-[9px] font-bold tracking-[0.5em] uppercase mb-1">PLAYR1 ASSESSMENT</p>
+              <h2 className="text-white text-2xl font-black">Who Are You?</h2>
+            </div>
+
+            {/* Jersey card */}
+            <div className="w-full max-w-[288px]">
+              {/* Jersey body */}
+              <div className="rounded-b-3xl overflow-hidden"
+                style={{
+                  background: "linear-gradient(to right, #ea580c 0px, #ea580c 14px, #0c0c0e 14px, #0c0c0e calc(100% - 14px), #ea580c calc(100% - 14px), #ea580c 100%)",
+                  boxShadow: "0 0 50px rgba(249,115,22,0.13), 0 8px 32px rgba(0,0,0,0.6)",
+                }}>
+                {/* Collar */}
+                <div className="h-3" style={{ background: "linear-gradient(to right, #c2410c, #f97316, #ea580c, #f97316, #c2410c)" }} />
+
+                {/* Body content */}
+                <div className="px-7 pt-5 pb-7 flex flex-col items-center">
+                  {/* PLAYR1 logo on chest */}
+                  <img src={logoImg} alt="PLAYR1" className="h-5 w-auto object-contain mb-5 opacity-80" />
+
+                  {/* Name inputs — inline on jersey */}
+                  <div className="relative w-full">
+                    {/* Watermark player number */}
+                    <div className="absolute inset-0 flex items-center justify-center select-none pointer-events-none">
+                      <span className="text-[88px] font-black leading-none"
+                        style={{ color: "rgba(249,115,22,0.05)", letterSpacing: "-0.04em" }}>01</span>
+                    </div>
+
+                    <div className="relative z-10 space-y-4 py-2">
+                      <input
+                        type="text"
+                        value={firstName}
+                        onChange={e => setFirstName(e.target.value)}
+                        placeholder="FIRST NAME"
+                        autoFocus
+                        data-testid="input-first-name"
+                        onKeyDown={e => e.key === "Enter" && document.getElementById("ln-jersey")?.focus()}
+                        className="w-full bg-transparent border-b-2 border-orange-500/35 text-white text-center text-xl font-black tracking-[0.12em] uppercase focus:outline-none placeholder:text-zinc-700 focus:border-orange-500 transition-colors py-1.5"
+                      />
+                      <input
+                        id="ln-jersey"
+                        type="text"
+                        value={lastName}
+                        onChange={e => setLastName(e.target.value)}
+                        placeholder="LAST NAME"
+                        data-testid="input-last-name"
+                        onKeyDown={e => e.key === "Enter" && handleCaptureNext()}
+                        className="w-full bg-transparent border-b border-orange-500/25 text-white text-center text-base font-bold tracking-[0.1em] uppercase focus:outline-none placeholder:text-zinc-700 focus:border-orange-500/60 transition-colors py-1"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bottom trim */}
+                <div className="h-2.5" style={{ background: "linear-gradient(to right, #c2410c, #f97316, #ea580c, #f97316, #c2410c)" }} />
               </div>
-              <h2 className="text-white text-3xl font-black leading-tight tracking-tight">Who Are You?</h2>
             </div>
-            <div className="space-y-3">
-              <input type="text" value={firstName} onChange={e=>setFirstName(e.target.value)}
-                placeholder="First name" autoFocus data-testid="input-first-name"
-                onKeyDown={e=>e.key==="Enter"&&document.getElementById("ln-input")?.focus()}
-                className="w-full bg-zinc-900/80 border border-zinc-800 text-white rounded-2xl px-5 py-3.5 text-base placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/60 transition-colors" />
-              <input id="ln-input" type="text" value={lastName} onChange={e=>setLastName(e.target.value)}
-                placeholder="Last name (optional)" data-testid="input-last-name"
-                onKeyDown={e=>e.key==="Enter"&&handleCaptureNext()}
-                className="w-full bg-zinc-900/80 border border-zinc-800 text-white rounded-2xl px-5 py-3.5 text-base placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/60 transition-colors" />
-              {captureError && <p className="text-red-400 text-sm" data-testid="text-capture-error">{captureError}</p>}
-              <button onClick={handleCaptureNext} data-testid="button-name-next"
-                className="w-full bg-orange-600 hover:bg-orange-500 active:scale-[0.98] text-white rounded-2xl py-4 font-bold text-base transition-all flex items-center justify-center gap-2 mt-1"
-                style={{ boxShadow: "0 0 20px rgba(234,88,12,0.25)" }}>
-                Continue <ArrowRight className="h-5 w-5" />
-              </button>
-            </div>
+
+            {captureError && <p className="text-red-400 text-xs text-center -mt-1" data-testid="text-capture-error">{captureError}</p>}
+
+            <button onClick={handleCaptureNext} data-testid="button-name-next"
+              className="w-full max-w-[288px] bg-orange-600 hover:bg-orange-500 active:scale-[0.98] text-white rounded-2xl py-4 font-bold text-base transition-all flex items-center justify-center gap-2"
+              style={{ boxShadow: "0 0 24px rgba(234,88,12,0.3)" }}>
+              Continue <ArrowRight className="h-5 w-5" />
+            </button>
           </div>
         </div>
       );
@@ -731,21 +791,23 @@ export default function WelcomePage({ previewMode = false, onPreviewComplete }: 
     const meta = ARCHETYPE_META[results.archetype] ?? ARCHETYPE_META["Two-Way Player"];
     const isLast = resultSlide === 3;
 
-    // Per-slide config
+    // Per-slide config — slide 0 is always black per reference design
     const slideBgs = [
-      `bg-gradient-to-br ${meta.gradient}`,
+      "bg-black",
       "bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900",
       "bg-gradient-to-br from-zinc-950 via-red-950/40 to-zinc-950",
       "bg-black",
     ];
     const slideLabels = ["YOUR ARCHETYPE", "YOUR DEVELOPMENT STAGE", "YOUR #1 GROWTH AREA", "YOUR PLAYR1 JOURNEY"];
     const bg = slideBgs[resultSlide];
+    // Slide 0 advances via the CONTINUE button only; slides 1–2 advance on tap
+    const containerClick = resultSlide === 0 || isLast ? undefined : advanceResult;
 
     return (
       <div
         className={`fixed inset-0 ${bg} flex flex-col overflow-hidden ${topPad}`}
-        onClick={isLast ? undefined : advanceResult}
-        style={{ cursor: isLast ? "default" : "pointer" }}
+        onClick={containerClick}
+        style={{ cursor: containerClick ? "pointer" : "default" }}
         data-testid={`screen-result-${resultSlide}`}>
 
         {/* Slide dots */}
@@ -757,29 +819,100 @@ export default function WelcomePage({ previewMode = false, onPreviewComplete }: 
           ))}
         </div>
 
-        {/* ─ Slide 0: Archetype ─ */}
+        {/* ─ Slide 0: Archetype — reference design ─ */}
         {resultSlide === 0 && (
-          <div className={`flex-1 overflow-y-auto px-6 pb-5 transition-opacity duration-200 ${slideIn?"opacity-100":"opacity-0"}`}>
-            <p className="text-white/50 text-[10px] font-bold tracking-[0.3em] uppercase mb-3 mt-2">{slideLabels[0]}</p>
-            <div className="text-5xl mb-3 leading-none">{meta.icon}</div>
-            <h1 className="text-white text-3xl font-black leading-tight mb-1" data-testid="text-result-archetype">
-              {firstName ? `${firstName.toUpperCase()},` : "YOU ARE A"}
-            </h1>
-            <h1 className="text-white text-3xl font-black leading-tight mb-3">
-              {firstName ? "YOU ARE A" : ""}<br className={firstName?"block":"hidden"} />
-              {results.archetype.toUpperCase()}
-            </h1>
-            <p className="text-white/70 text-base italic leading-relaxed mb-4">"{results.archetypeTagline}"</p>
-            <div className="flex flex-wrap gap-1.5 mb-4">
-              {results.archetypeStrengths.map(s => (
-                <span key={s} className="px-2.5 py-1 rounded-full text-xs font-semibold bg-white/15 text-white/80">{s}</span>
-              ))}
+          <div className={`flex-1 overflow-y-auto transition-opacity duration-200 ${slideIn?"opacity-100":"opacity-0"}`}
+            style={{ WebkitOverflowScrolling: "touch" }}>
+            <div className="px-5 pb-6 pt-2">
+
+              {/* ASSESSMENT COMPLETE label */}
+              <p className="text-zinc-500 text-[10px] font-bold tracking-[0.4em] uppercase text-center mb-3">
+                ASSESSMENT COMPLETE
+              </p>
+
+              {/* Name + YOU ARE A + archetype name */}
+              <div className="text-center mb-5">
+                {firstName && (
+                  <p className="text-white text-2xl font-black tracking-tight leading-tight">
+                    {firstName.toUpperCase()},
+                  </p>
+                )}
+                <p className="text-zinc-400 text-sm font-bold tracking-[0.2em] uppercase mb-1">
+                  YOU ARE A
+                </p>
+                <h1
+                  className="text-5xl font-black leading-tight tracking-tight"
+                  style={{
+                    color: meta.primaryHex,
+                    textShadow: `0 0 30px ${meta.primaryHex}55, 0 0 60px ${meta.primaryHex}22`,
+                  }}
+                  data-testid="text-result-archetype"
+                >
+                  {results.archetype.toUpperCase()}
+                </h1>
+              </div>
+
+              {/* Basketball emblem — circular glowing icon */}
+              <div className="flex justify-center mb-6">
+                <div
+                  className="w-32 h-32 rounded-full flex items-center justify-center text-5xl"
+                  style={{
+                    background: `radial-gradient(circle, ${meta.primaryHex}28 0%, ${meta.primaryHex}0a 55%, transparent 75%)`,
+                    border: `1.5px solid ${meta.primaryHex}55`,
+                    boxShadow: `0 0 32px ${meta.primaryHex}40, 0 0 64px ${meta.primaryHex}18, inset 0 0 20px ${meta.primaryHex}10`,
+                  }}
+                >
+                  {meta.icon}
+                </div>
+              </div>
+
+              {/* Coach P Says */}
+              <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4 mb-5">
+                <p className="font-black tracking-[0.25em] uppercase text-[10px] mb-3"
+                  style={{ color: meta.primaryHex }}>
+                  COACH P SAYS
+                </p>
+                <div className="flex gap-2.5 items-start">
+                  <span className="text-2xl leading-none font-black shrink-0 mt-0.5"
+                    style={{ color: `${meta.primaryHex}70` }}>"</span>
+                  <p className="text-zinc-300 text-sm leading-relaxed">{results.archetypeCoachP}</p>
+                </div>
+              </div>
+
+              {/* Core Characteristics */}
+              <p className="font-black tracking-[0.25em] uppercase text-[10px] mb-3"
+                style={{ color: meta.primaryHex }}>
+                CORE CHARACTERISTICS
+              </p>
+              <div className="space-y-2 mb-5">
+                {results.archetypeStrengths.map((s, i) => (
+                  <div key={i}
+                    className="flex items-center gap-3 rounded-xl px-3 py-2.5 border"
+                    style={{ background: `${meta.primaryHex}08`, borderColor: `${meta.primaryHex}20` }}>
+                    <div
+                      className="w-9 h-9 rounded-full flex items-center justify-center text-base shrink-0"
+                      style={{ background: `${meta.primaryHex}18`, border: `1px solid ${meta.primaryHex}30` }}>
+                      {getCharIcon(s)}
+                    </div>
+                    <span className="text-white text-sm font-semibold flex-1">{s}</span>
+                    <ChevronRight className="w-4 h-4 shrink-0" style={{ color: `${meta.primaryHex}60` }} />
+                  </div>
+                ))}
+              </div>
+
+              {/* CONTINUE button */}
+              <button
+                onClick={e => { e.stopPropagation(); advanceResult(); }}
+                data-testid="button-result-continue"
+                className="w-full py-4 rounded-2xl font-black text-sm tracking-[0.3em] uppercase transition-all active:scale-[0.98]"
+                style={{
+                  background: meta.primaryHex,
+                  color: "#000",
+                  boxShadow: `0 0 24px ${meta.primaryHex}50`,
+                }}>
+                CONTINUE
+              </button>
             </div>
-            <div className="rounded-2xl p-4 bg-black/20 border border-white/10 mb-3">
-              <p className="text-white/40 text-[10px] font-bold tracking-widest mb-1.5">COACH P SAYS</p>
-              <p className="text-white/80 text-sm leading-relaxed">"{results.archetypeCoachP}"</p>
-            </div>
-            <p className="text-center text-white/30 text-xs mt-3">Tap anywhere to continue</p>
           </div>
         )}
 
