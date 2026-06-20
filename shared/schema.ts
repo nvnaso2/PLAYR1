@@ -137,7 +137,21 @@ export const careerProfiles = pgTable("career_profiles", {
 
   // Onboarding status
   onboardingCompleted: boolean("onboarding_completed").default(false),
-  
+  onboardingVersion: varchar("onboarding_version"), // 'legacy' | 'cinematic-v1'
+
+  // Cinematic onboarding assessment results
+  assessmentAnswers: jsonb("assessment_answers"), // raw Q&A array
+  assessmentArchetype: varchar("assessment_archetype"), // e.g. "The Sharpshooter"
+  assessmentArchetypeTagline: varchar("assessment_archetype_tagline"),
+  assessmentStage: varchar("assessment_stage"), // e.g. "Rising Star"
+  assessmentStageDescription: text("assessment_stage_description"),
+  assessmentCourtRole: varchar("assessment_court_role"), // e.g. "Off-Ball Scorer"
+  assessmentCourtRoleDescription: text("assessment_court_role_description"),
+  assessmentBottleneck: varchar("assessment_bottleneck"), // e.g. "Ball Handling"
+  assessmentBottleneckDescription: text("assessment_bottleneck_description"),
+  assessmentSummary: text("assessment_summary"), // 3-4 sentence AI paragraph
+  firstWorkoutData: jsonb("first_workout_data"), // [{name, focus, duration, description}]
+
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow()
 });

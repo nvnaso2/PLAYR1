@@ -507,6 +507,107 @@ Start now with a warm one-line greeting that briefly references something specif
     }
   });
 
+  // Cinematic Onboarding Assessment — compute player profile from quiz answers
+  app.post("/api/onboarding/assess", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { answers } = req.body; // array of {question, answer} objects
+
+      if (!Array.isArray(answers) || answers.length < 7) {
+        return res.status(400).json({ message: "Need at least 7 quiz answers" });
+      }
+
+      const answersText = answers.map((a: { question: string; answer: string }, i: number) =>
+        `Q${i + 1}: ${a.question}\nAnswer: ${a.answer}`
+      ).join('\n\n');
+
+      const systemPrompt = `You are the PLAYR1AI assessment engine. Analyze a basketball player's quiz answers and return a structured JSON profile. Be specific, energetic, and inspiring. Use basketball terminology.
+
+Respond with ONLY valid JSON in this exact format:
+{
+  "archetype": "The [Name]",
+  "archetypeTagline": "One punchy sentence describing this archetype",
+  "stage": "[Stage Name]",
+  "stageDescription": "One sentence about where they are in their development",
+  "courtRole": "[Role Name]",
+  "courtRoleDescription": "One sentence about what they bring to the floor",
+  "bottleneck": "[Skill/Area]",
+  "bottleneckDescription": "One sentence about why this is holding them back and what unlocking it means",
+  "summary": "3-4 sentences combining all 4 results into a personalized player profile. Be specific, motivating, and forward-looking.",
+  "firstWorkout": [
+    {"name": "Drill name", "focus": "Ball Handling", "duration": "15 min", "description": "Brief what/why for this drill"},
+    {"name": "Drill name", "focus": "Shooting", "duration": "20 min", "description": "Brief what/why"},
+    {"name": "Drill name", "focus": "Finishing", "duration": "15 min", "description": "Brief what/why"},
+    {"name": "Drill name", "focus": "Conditioning", "duration": "10 min", "description": "Brief what/why"}
+  ]
+}
+
+Archetype options (pick the best fit): The Sharpshooter, The Slasher, The Floor General, The Lockdown Defender, The Playmaker, The Versatile Wing, The Interior Presence, The Two-Way Player, The Athletic Freak, The Basketball IQ Player
+
+Development Stage options (pick one): Raw Prospect, Rising Player, Developing Starter, Consistent Performer, High-Level Player, Elite Competitor
+
+Court Role options (pick one): Primary Ball Handler, Off-Ball Scorer, Two-Way Wing, Interior Anchor, Defensive Stopper, Stretch Forward, Secondary Creator, Energy Player
+
+Bottleneck — pick the single most limiting area based on their answers: Ball Handling, Shooting Consistency, Athleticism & First Step, Basketball IQ, Mental Toughness, Finishing at the Rim, Defensive Awareness, Court Vision
+
+The first workout should directly target their bottleneck and complement their strengths. 4 drills total.`;
+
+      const OpenAI = (await import("openai")).default;
+      const openai = new OpenAI({
+        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+      });
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: `Here are the player's quiz answers:\n\n${answersText}\n\nGenerate their player profile JSON.` }
+        ],
+        max_tokens: 800,
+        temperature: 0.7,
+        response_format: { type: "json_object" },
+      });
+
+      const raw = completion.choices[0].message.content || "{}";
+      let profile: any;
+      try {
+        profile = JSON.parse(raw);
+      } catch {
+        return res.status(500).json({ message: "Failed to parse AI response" });
+      }
+
+      // Save to career profile
+      const existing = await storage.getCareerProfile(userId);
+      const updateData: any = {
+        assessmentAnswers: answers,
+        assessmentArchetype: profile.archetype,
+        assessmentArchetypeTagline: profile.archetypeTagline,
+        assessmentStage: profile.stage,
+        assessmentStageDescription: profile.stageDescription,
+        assessmentCourtRole: profile.courtRole,
+        assessmentCourtRoleDescription: profile.courtRoleDescription,
+        assessmentBottleneck: profile.bottleneck,
+        assessmentBottleneckDescription: profile.bottleneckDescription,
+        assessmentSummary: profile.summary,
+        firstWorkoutData: profile.firstWorkout,
+        onboardingCompleted: true,
+        onboardingVersion: 'cinematic-v1',
+      };
+
+      if (existing) {
+        await storage.updateCareerProfile(userId, updateData);
+      } else {
+        await storage.createCareerProfile({ userId, ...updateData });
+      }
+
+      res.json(profile);
+    } catch (error) {
+      console.error("Error in onboarding assess:", error);
+      res.status(500).json({ message: "Assessment failed. Please try again." });
+    }
+  });
+
   // Get all users (admin only)
   app.get("/api/admin/users", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {

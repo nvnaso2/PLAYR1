@@ -21,6 +21,7 @@ import { usePageViewTracking } from "@/lib/track";
 // Critical path — load immediately
 import Landing from "@/pages/landing";
 import AuthPage from "@/pages/auth-page";
+import WelcomePage from "@/pages/welcome";
 import ForgotPassword from "@/pages/forgot-password";
 import ResetPassword from "@/pages/reset-password";
 import Privacy from "@/pages/privacy";
@@ -273,6 +274,7 @@ function Router() {
       <Route path="/teams/:slug">{() => <Suspense fallback={<LoadingScreen />}><TeamProfile /></Suspense>}</Route>
       <Route path="/leagues/:slug">{() => <Suspense fallback={<LoadingScreen />}><LeagueProfile /></Suspense>}</Route>
       <Route path="/auth">{() => isAuthenticated ? <Redirect to="/" /> : <AuthPage />}</Route>
+      <Route path="/welcome">{() => isAuthenticated ? <Redirect to="/" /> : <WelcomePage />}</Route>
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password" component={ResetPassword} />
       <Route path="/privacy" component={Privacy} />
@@ -294,7 +296,7 @@ function Router() {
           if (!isAuthenticated) {
             const isNative = !!(window as any).Capacitor?.isNative || Capacitor.isNativePlatform();
             if (isNative) {
-              return <Redirect to="/auth" />;
+              return <Redirect to="/welcome" />;
             }
             return <Landing />;
           }

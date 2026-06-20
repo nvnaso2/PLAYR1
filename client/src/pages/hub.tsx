@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { useState, useEffect } from "react";
 import {
   Flame,
   Zap,
@@ -16,6 +17,8 @@ import {
   Trophy,
   Dumbbell,
   TrendingUp,
+  X,
+  Sparkles,
 } from "lucide-react";
 import type { GoalProgram } from "@shared/schema";
 
@@ -54,6 +57,17 @@ function formatDate() {
 export default function HubPage() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
+  const [showNewPlayerBanner, setShowNewPlayerBanner] = useState(false);
+
+  useEffect(() => {
+    const flag = localStorage.getItem("playr1_new_onboarding");
+    if (flag === "1") setShowNewPlayerBanner(true);
+  }, []);
+
+  function dismissNewPlayerBanner() {
+    setShowNewPlayerBanner(false);
+    localStorage.removeItem("playr1_new_onboarding");
+  }
 
   const { data: profile } = useQuery<any>({ queryKey: ["/api/profile"] });
   const { data: overview, isLoading: overviewLoading } = useQuery<any>({ queryKey: ["/api/stats/overview"] });
@@ -108,6 +122,37 @@ export default function HubPage() {
 
   return (
     <div className="min-h-full bg-background pb-6">
+      {/* New Player Welcome Banner (cinematic onboarding graduates) */}
+      {showNewPlayerBanner && (
+        <div className="mx-4 mt-4 rounded-2xl border border-orange-500/30 bg-gradient-to-r from-orange-500/15 via-orange-500/8 to-transparent p-4 relative" data-testid="banner-new-player">
+          <button
+            onClick={dismissNewPlayerBanner}
+            className="absolute top-3 right-3 text-zinc-500 hover:text-white transition-colors"
+            data-testid="button-dismiss-banner"
+          >
+            <X className="h-4 w-4" />
+          </button>
+          <div className="flex items-start gap-3 pr-6">
+            <div className="w-9 h-9 rounded-xl bg-orange-500/20 flex items-center justify-center shrink-0">
+              <Sparkles className="h-4 w-4 text-orange-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-white font-bold text-sm">Welcome to PLAYR1! 🏀</p>
+              <p className="text-zinc-400 text-xs mt-0.5 leading-snug">
+                Complete your player profile to unlock more features — drills, goals, and community.
+              </p>
+              <button
+                onClick={() => navigate("/career")}
+                className="mt-2.5 text-orange-400 text-xs font-bold flex items-center gap-1 hover:text-orange-300 transition-colors"
+                data-testid="button-banner-complete-profile"
+              >
+                Complete My Profile <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Greeting Header */}
       <div className="px-5 pt-6 pb-2">
         <div className="flex items-start justify-between">
