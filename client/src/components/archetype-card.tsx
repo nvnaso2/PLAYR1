@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { Target, Zap, Shuffle, Shield, Eye, ArrowUpDown, Wind, Dumbbell } from "lucide-react";
+import { Target, Zap, Shuffle, Shield, Eye, ArrowUpDown, Wind, Dumbbell, Layers, Repeat2 } from "lucide-react";
 import { ARCHETYPE_TIER_XP, type ArchetypeTier } from "@shared/schema";
 
 const ARCHETYPE_ICONS: Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
@@ -11,6 +11,8 @@ const ARCHETYPE_ICONS: Record<string, React.ComponentType<{ className?: string; 
   "stretch-big": ArrowUpDown,
   "versatile-wing": Wind,
   "glass-cleaner": Dumbbell,
+  "rim-protector": Layers,
+  "two-way-player": Repeat2,
 };
 
 const TIER_CONFIG: Record<ArchetypeTier, {

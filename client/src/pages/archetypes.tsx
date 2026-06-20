@@ -4,7 +4,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import {
-  Target, Zap, Shuffle, Shield, Eye, ArrowUpDown, Wind, Dumbbell,
+  Target, Zap, Shuffle, Shield, Eye, ArrowUpDown, Wind, Dumbbell, Layers, Repeat2,
   Check, Crown, Fingerprint, Lock, Flame, BookOpen, Trophy,
   ChevronDown, ChevronUp, ChevronLeft,
 } from "lucide-react";
@@ -25,6 +25,7 @@ const ARCHETYPE_ICONS: Record<string, React.ComponentType<{ className?: string; 
   sharpshooter: Target, slasher: Zap, playmaker: Shuffle,
   "two-way-lockdown": Shield, "floor-general": Eye,
   "stretch-big": ArrowUpDown, "versatile-wing": Wind, "glass-cleaner": Dumbbell,
+  "rim-protector": Layers, "two-way-player": Repeat2,
 };
 
 const TIER_LABELS: Record<string, string> = {
