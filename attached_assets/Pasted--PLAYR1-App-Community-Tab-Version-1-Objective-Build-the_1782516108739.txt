@@ -1,0 +1,286 @@
+# PLAYR1 App – Community Tab (Version 1)
+
+## Objective
+
+Build the first version of the Community tab for the PLAYR1 app. The goal is to help basketball players connect, stay accountable, and compete with one another.
+
+The Community tab should remain simple and intuitive. Do **not** build a social media feed, messaging platform, or AI recommendation system. Every feature should directly support basketball improvement and community.
+
+---
+
+# Community Navigation
+
+The Community page should contain three top navigation tabs:
+
+1. Friends Activity
+2. Group Challenges
+3. Find Players
+
+Use the existing PLAYR1 design language and UI style throughout.
+
+---
+
+# 1. Friends Activity
+
+Purpose:
+Allow users to stay updated on what their friends are accomplishing inside the app.
+
+This is **not** a social media feed.
+
+Users should **not** create posts.
+
+Instead, the activity feed should automatically generate updates from in-app actions.
+
+Example activity cards:
+
+• Completed a workout
+• Finished a challenge
+• New personal record
+• Started a training program
+• Completed Allen Iverson Day 2
+• 14-day streak
+• Finished 3 Point Challenge
+• Level Up
+• Badge earned
+
+Each activity card should display:
+
+* Player profile picture
+* Player name
+* Time since activity
+* Activity description
+* Optional badge/icon
+
+Example:
+
+Nick
+🏀 Completed the Allen Iverson Day 2 Workout
+2 hours ago
+
+Every player shown in the activity feed should be clickable.
+
+Clicking a player opens their Player Profile.
+
+---
+
+# 2. Group Challenges
+
+Purpose:
+Allow players to manually create competitive basketball challenges with friends.
+
+There should be no AI-generated groups.
+
+Users manually create a challenge and invite other users.
+
+Challenge Creation should include:
+
+Challenge Name
+
+Goal Type
+
+Examples:
+
+* Made Threes
+* Free Throws
+* Workout Minutes
+* XP
+* Streak
+* Challenge Completion
+* Ball Handling Reps
+
+Goal Amount
+
+Examples:
+
+500 Makes
+
+1000 Reps
+
+30 Days
+
+Challenge Duration
+
+Invite Players
+
+Once created, each challenge should display:
+
+Challenge Name
+
+Members
+
+Progress
+
+Leaderboard
+
+Remaining Time
+
+Completion Percentage
+
+Example:
+
+Summer Shooting Challenge
+
+Nick
+425 / 500
+
+Jake
+398 / 500
+
+Sarah
+470 / 500
+
+18 Days Remaining
+
+Challenges should update automatically based on progress already tracked throughout the app.
+
+No manual score submission should be required if data already exists.
+
+Challenge cards should be clean, modern, and progress-focused.
+
+---
+
+# 3. Find Players
+
+Purpose:
+Help players discover other basketball players nearby or with similar interests.
+
+Do NOT build an AI recommendation engine.
+
+Do NOT use machine learning.
+
+Instead, use traditional filtering and searching.
+
+Allow players to search and filter by:
+
+Location
+
+Age
+
+Gender
+
+Skill Level
+
+Primary Position
+
+Goals
+
+Examples:
+
+Improve Shooting
+
+Improve Ball Handling
+
+Play More Games
+
+Increase Vertical
+
+Competitive Level
+
+Available For
+
+Training Partner
+
+Pickup Basketball
+
+League
+
+Mentor
+
+Sorting options:
+
+Nearest
+
+Recently Active
+
+Highest Streak
+
+Newest Users
+
+A simple recommendation section can exist using profile similarity only.
+
+Examples:
+
+Players Near You
+
+Players Your Age
+
+Players With Similar Goals
+
+Recently Joined
+
+No AI should be used.
+
+---
+
+# Player Profile
+
+Every player displayed anywhere inside Community should be clickable.
+
+Selecting a player opens their Player Profile.
+
+Player Profile should include:
+
+Profile Picture
+
+Name
+
+Username
+
+Location
+
+Age
+
+Height
+
+Position
+
+Skill Level
+
+Bio
+
+Current Streak
+
+Current Level
+
+XP
+
+Favorite Challenge
+
+Achievements
+
+Training Programs Completed
+
+Challenge Stats
+
+Friends Button
+
+Follow Button
+
+The profile should feel like a basketball résumé rather than a social media profile.
+
+The emphasis is progress, consistency, and improvement.
+
+---
+
+# Design Philosophy
+
+The Community tab should answer four simple questions:
+
+• What are my friends working on?
+• Who can I compete with?
+• Who can I train with?
+• Who else loves basketball?
+
+Keep everything simple, clean, and basketball-first.
+
+Avoid unnecessary complexity.
+
+Avoid messaging.
+
+Avoid social posting.
+
+Avoid AI recommendation systems.
+
+The experience should feel like Strava for basketball rather than Instagram.
+
+Every feature should reinforce accountability, competition, and player development.
