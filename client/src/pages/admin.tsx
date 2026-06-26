@@ -59,7 +59,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText, Play, ChevronDown, GraduationCap, MapPin, ListFilter, X, BarChart2, TrendingUp, TrendingDown, Activity, UserCheck, Wrench, Flame, Lightbulb, Zap, Globe, AlertTriangle, Trophy, Target, GitBranch, Clock, ArrowDown, Flag, ToggleLeft, ToggleRight, UserPlus, Copy, RotateCcw } from "lucide-react";
+import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText, Play, ChevronDown, GraduationCap, MapPin, ListFilter, X, BarChart2, TrendingUp, TrendingDown, Activity, UserCheck, Wrench, Flame, Lightbulb, Zap, Globe, AlertTriangle, Trophy, Target, GitBranch, Clock, ArrowDown, Flag, ToggleLeft, ToggleRight, UserPlus, Copy, RotateCcw, ExternalLink } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
 import type { Drill, DrillCategory, DifficultyLevel, DrillMetric, VideoLibrary, PdfLibrary, MetricTemplate, Workout, WorkoutDrill, TrainingLocation, ShotLocationDB, ShotTypeDB } from "@shared/schema";
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, METRIC_TYPES, US_STATES } from "@shared/schema";
@@ -2907,7 +2908,7 @@ export default function AdminPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 lg:grid-cols-11 gap-1 h-auto p-1">
+        <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 lg:grid-cols-12 gap-1 h-auto p-1">
           <TabsTrigger value="videos" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-videos">
             <Film className="w-4 h-4 shrink-0" />
             <span>Videos</span>
@@ -2963,6 +2964,10 @@ export default function AdminPage() {
           <TabsTrigger value="flags" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-flags">
             <Flag className="w-4 h-4 shrink-0" />
             <span>Flags</span>
+          </TabsTrigger>
+          <TabsTrigger value="challenge-videos" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-challenge-videos">
+            <Flame className="w-4 h-4 shrink-0" />
+            <span>Challenge</span>
           </TabsTrigger>
         </TabsList>
 
@@ -4310,6 +4315,10 @@ export default function AdminPage() {
           <FeatureFlagsTab />
         </TabsContent>
 
+        <TabsContent value="challenge-videos" className="space-y-6">
+          <ChallengeVideosTab />
+        </TabsContent>
+
       </Tabs>
 
     </div>
@@ -4629,6 +4638,162 @@ function FeatureFlagsTab() {
 // ─── Admin Analytics Tab Component ───────────────────────────────────────────
 
 const CHART_COLORS = ["#f97316", "#3b82f6", "#22c55e", "#a855f7", "#ec4899", "#14b8a6", "#eab308", "#ef4444"];
+
+// ─── Challenge Videos Tab ─────────────────────────────────────────────────────
+
+type CreatorSubmission = {
+  id: string;
+  userId: string;
+  displayName: string;
+  profilePhotoUrl: string | null;
+  score: number;
+  attemptDate: string;
+  videoUrl: string;
+  isNewRecord: boolean;
+  createdAt: string;
+};
+
+function ChallengeVideosTab() {
+  const CHALLENGE_SLUG = "fifty-in-a-row";
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [dateFilter, setDateFilter] = useState<string>("");
+
+  const { data: submissions = [], isLoading } = useQuery<CreatorSubmission[]>({
+    queryKey: ["/api/admin/streak-challenges/creator-submissions", CHALLENGE_SLUG],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/streak-challenges/creator-submissions?slug=${CHALLENGE_SLUG}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+  });
+
+  const filtered = dateFilter
+    ? submissions.filter((s) => s.attemptDate === dateFilter)
+    : submissions;
+
+  const isInternal = (url: string) => url.startsWith("/objects/");
+
+  return (
+    <div className="space-y-6" data-testid="section-challenge-videos">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h2 className="text-xl font-bold flex items-center gap-2">
+            <Flame className="w-5 h-5 text-orange-400" />
+            Community 3 Point Challenge — Creator Submissions
+          </h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Videos players opted to submit for your content. Filter by date to find clips for a specific session.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Input
+            type="date"
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.target.value)}
+            className="h-9 text-sm w-44"
+            data-testid="input-date-filter"
+          />
+          {dateFilter && (
+            <Button size="sm" variant="ghost" onClick={() => setDateFilter("")} className="h-9 px-2 text-muted-foreground">
+              <X className="w-4 h-4" />
+            </Button>
+          )}
+          <Badge variant="outline" className="text-xs">{filtered.length} clip{filtered.length !== 1 ? "s" : ""}</Badge>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="space-y-3">
+          {[0, 1, 2].map((i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border/50 py-16 text-center">
+          <Film className="w-10 h-10 mx-auto text-muted-foreground/30 mb-3" />
+          <p className="text-sm text-muted-foreground">
+            {dateFilter ? `No submissions on ${dateFilter}` : "No creator submissions yet. Players can opt in when logging attempts."}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map((sub) => (
+            <div
+              key={sub.id}
+              className="rounded-xl border border-border/60 bg-card overflow-hidden"
+              data-testid={`card-submission-${sub.id}`}
+            >
+              <div className="flex items-center gap-3 p-4">
+                {/* Avatar */}
+                <Avatar className="w-10 h-10 flex-shrink-0">
+                  <AvatarImage src={sub.profilePhotoUrl ?? undefined} />
+                  <AvatarFallback className="text-xs">{sub.displayName.slice(0, 2).toUpperCase()}</AvatarFallback>
+                </Avatar>
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-semibold text-sm truncate">{sub.displayName}</p>
+                    {sub.isNewRecord && (
+                      <Badge className="text-[10px] px-1.5 py-0 bg-yellow-500/15 text-yellow-500 border-yellow-500/30">
+                        <Star className="w-2.5 h-2.5 mr-0.5" />PR
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 mt-0.5">
+                    <span className="text-xs text-muted-foreground">{sub.attemptDate}</span>
+                    <span className="text-xs font-bold text-orange-400">{sub.score} makes</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      submitted {new Date(sub.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {isInternal(sub.videoUrl) ? (
+                    <Button
+                      size="sm" variant="outline"
+                      className="h-8 text-xs gap-1.5"
+                      onClick={() => setExpandedId(expandedId === sub.id ? null : sub.id)}
+                      data-testid={`button-play-submission-${sub.id}`}
+                    >
+                      <Play className="w-3.5 h-3.5" />
+                      {expandedId === sub.id ? "Hide" : "Play"}
+                    </Button>
+                  ) : (
+                    <a
+                      href={sub.videoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 border border-blue-400/20 rounded-md px-2 py-1.5"
+                      data-testid={`link-submission-${sub.id}`}
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />Open link
+                    </a>
+                  )}
+                </div>
+              </div>
+
+              {/* Inline video player */}
+              {expandedId === sub.id && isInternal(sub.videoUrl) && (
+                <div className="px-4 pb-4">
+                  <video
+                    src={sub.videoUrl}
+                    controls
+                    autoPlay
+                    className="w-full rounded-lg max-h-80 bg-black"
+                    playsInline
+                    data-testid={`video-submission-${sub.id}`}
+                  />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function StatCard({ label, value, sub, icon: Icon }: { label: string; value: string | number; sub?: string; icon: ({ className }: { className?: string }) => JSX.Element }) {
   return (

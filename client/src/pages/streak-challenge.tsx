@@ -1,7 +1,7 @@
 import { useParams, Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useRef } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
@@ -22,7 +23,7 @@ import {
 import {
   ChevronLeft, Flame, Trophy, Medal, Star, Target, Users,
   Play, Plus, CheckCircle2, Info, Video, Upload, Link2, X,
-  Loader2, LogOut, ExternalLink,
+  Loader2, LogOut, ExternalLink, Film, Crown,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -44,6 +45,7 @@ type LeaderboardEntry = {
   dayNumber: number;
   percentToGoal: number;
   recentScore: number | null;
+  leaderboardVideoUrl: string | null;
 };
 
 function rankIcon(rank: number) {
@@ -98,7 +100,7 @@ function VideoPlayer({ url }: { url: string }) {
       <video
         src={url}
         controls
-        className="w-full rounded-lg mt-2 max-h-48 bg-black"
+        className="w-full rounded-lg mt-2 max-h-52 bg-black"
         playsInline
       />
     );
@@ -115,31 +117,127 @@ function VideoPlayer({ url }: { url: string }) {
   );
 }
 
+function VideoUploadSection({
+  videoMode, setVideoMode,
+  selectedFile, setSelectedFile,
+  videoUrl, setVideoUrl,
+  fileInputRef,
+}: {
+  videoMode: "file" | "link";
+  setVideoMode: (m: "file" | "link") => void;
+  selectedFile: File | null;
+  setSelectedFile: (f: File | null) => void;
+  videoUrl: string;
+  setVideoUrl: (u: string) => void;
+  fileInputRef: React.RefObject<HTMLInputElement>;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex rounded-lg overflow-hidden border border-white/10">
+        <button
+          type="button"
+          onClick={() => setVideoMode("file")}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${videoMode === "file" ? "bg-blue-500/20 text-blue-300" : "text-zinc-500 hover:bg-white/5"}`}
+          data-testid="button-video-file-mode"
+        >
+          <Upload className="w-3.5 h-3.5" />Upload from device
+        </button>
+        <button
+          type="button"
+          onClick={() => setVideoMode("link")}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${videoMode === "link" ? "bg-blue-500/20 text-blue-300" : "text-zinc-500 hover:bg-white/5"}`}
+          data-testid="button-video-link-mode"
+        >
+          <Link2 className="w-3.5 h-3.5" />Paste a link
+        </button>
+      </div>
+      {videoMode === "file" ? (
+        <div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="video/*"
+            className="hidden"
+            onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
+            data-testid="input-video-file"
+          />
+          {selectedFile ? (
+            <div className="flex items-center gap-2 rounded-lg bg-blue-500/10 border border-blue-500/20 p-3">
+              <Video className="w-4 h-4 text-blue-400 flex-shrink-0" />
+              <span className="text-xs text-blue-300 flex-1 truncate">{selectedFile.name}</span>
+              <button
+                type="button"
+                onClick={() => { setSelectedFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
+                className="text-zinc-500 hover:text-zinc-300 flex-shrink-0"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full rounded-lg border border-dashed border-white/10 py-4 flex flex-col items-center gap-1.5 text-zinc-500 hover:border-blue-500/40 hover:text-blue-400 transition-colors"
+              data-testid="button-select-video"
+            >
+              <Upload className="w-5 h-5" />
+              <span className="text-xs">Tap to select from photo library or files</span>
+            </button>
+          )}
+        </div>
+      ) : (
+        <Input
+          type="url"
+          placeholder="YouTube, TikTok, Instagram link…"
+          value={videoUrl}
+          onChange={(e) => setVideoUrl(e.target.value)}
+          className="bg-black border-white/10 text-white focus:border-blue-500/50 placeholder:text-zinc-700"
+          data-testid="input-attempt-video"
+        />
+      )}
+    </div>
+  );
+}
+
 export default function StreakChallengePage() {
   const { slug } = useParams<{ slug: string }>();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
   const [leaderSort, setLeaderSort] = useState<"best" | "closest" | "percent">("best");
   const [showLogModal, setShowLogModal] = useState(false);
   const [showJoinForm, setShowJoinForm] = useState(false);
   const [showLeaveConfirm1, setShowLeaveConfirm1] = useState(false);
   const [showLeaveConfirm2, setShowLeaveConfirm2] = useState(false);
-  const [videoMode, setVideoMode] = useState<"file" | "link">("file");
-  const [uploadingVideo, setUploadingVideo] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [showRecordVideoModal, setShowRecordVideoModal] = useState(false);
   const [expandedVideo, setExpandedVideo] = useState<string | null>(null);
+
+  // Attempt form state
+  const [attemptForm, setAttemptForm] = useState({
+    score: "",
+    attemptDate: new Date().toISOString().slice(0, 10),
+    showOnLeaderboard: false,
+    submitToCreator: false,
+  });
+  const [videoMode, setVideoMode] = useState<"file" | "link">("file");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [videoUrl, setVideoUrl] = useState("");
+  const [uploadingVideo, setUploadingVideo] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Record video modal state
+  const [rvMode, setRvMode] = useState<"file" | "link">("file");
+  const [rvFile, setRvFile] = useState<File | null>(null);
+  const [rvLink, setRvLink] = useState("");
+  const [rvUploading, setRvUploading] = useState(false);
+  const rvFileRef = useRef<HTMLInputElement>(null);
+
+  // Join form state
   const [joinForm, setJoinForm] = useState({
     personalGoal: 10,
     currentBest: 0,
     dayNumber: 1,
     isDaily: false,
-  });
-  const [attemptForm, setAttemptForm] = useState({
-    score: "",
-    videoUrl: "",
-    attemptDate: new Date().toISOString().slice(0, 10),
   });
 
   const { data, isLoading } = useQuery<ChallengeDetail>({
@@ -184,39 +282,60 @@ export default function StreakChallengePage() {
 
   const attemptMutation = useMutation({
     mutationFn: async () => {
-      let videoUrl = attemptForm.videoUrl || undefined;
+      let finalVideoUrl: string | undefined = videoMode === "link" ? videoUrl || undefined : undefined;
       if (videoMode === "file" && selectedFile) {
         setUploadingVideo(true);
         try {
-          videoUrl = await uploadVideoFile(selectedFile);
+          finalVideoUrl = await uploadVideoFile(selectedFile);
         } finally {
           setUploadingVideo(false);
         }
       }
+      const hasVideo = Boolean(finalVideoUrl);
       return apiRequest("POST", `/api/streak-challenges/${slug}/attempt`, {
         score: Number(attemptForm.score),
-        videoUrl,
+        videoUrl: finalVideoUrl,
         attemptDate: attemptForm.attemptDate,
+        showOnLeaderboard: hasVideo ? attemptForm.showOnLeaderboard : false,
+        submitToCreator: hasVideo ? attemptForm.submitToCreator : false,
       });
     },
     onSuccess: (res: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/streak-challenges", slug] });
       queryClient.invalidateQueries({ queryKey: ["/api/streak-challenges", slug, "leaderboard", leaderSort] });
       setShowLogModal(false);
-      setAttemptForm({ score: "", videoUrl: "", attemptDate: new Date().toISOString().slice(0, 10) });
+      setAttemptForm({ score: "", attemptDate: new Date().toISOString().slice(0, 10), showOnLeaderboard: false, submitToCreator: false });
       setSelectedFile(null);
+      setVideoUrl("");
       const isNewRecord = res?.attempt?.isNewRecord;
       toast({
         title: isNewRecord ? "🏆 New Personal Record!" : "Attempt logged!",
-        description: isNewRecord
-          ? `${attemptForm.score} consecutive makes — your new best!`
-          : `${attemptForm.score} makes logged.`,
+        description: isNewRecord ? `${attemptForm.score} consecutive makes — your new best!` : `${attemptForm.score} makes logged.`,
       });
     },
     onError: () => toast({ title: "Error", description: "Could not log attempt.", variant: "destructive" }),
   });
 
-  const today = new Date().toISOString().slice(0, 10);
+  const recordVideoMutation = useMutation({
+    mutationFn: async () => {
+      let finalUrl = rvMode === "link" ? rvLink : "";
+      if (rvMode === "file" && rvFile) {
+        setRvUploading(true);
+        try { finalUrl = await uploadVideoFile(rvFile); }
+        finally { setRvUploading(false); }
+      }
+      if (!finalUrl) throw new Error("No video");
+      return apiRequest("PATCH", `/api/streak-challenges/${slug}/record-video`, { videoUrl: finalUrl });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/streak-challenges", slug] });
+      queryClient.invalidateQueries({ queryKey: ["/api/streak-challenges", slug, "leaderboard", leaderSort] });
+      setShowRecordVideoModal(false);
+      setRvFile(null); setRvLink("");
+      toast({ title: "Record video saved!", description: "It now appears on the leaderboard next to your name." });
+    },
+    onError: () => toast({ title: "Error", description: "Could not save video.", variant: "destructive" }),
+  });
 
   if (isLoading) {
     return (
@@ -236,9 +355,7 @@ export default function StreakChallengePage() {
       <div className="min-h-screen bg-black max-w-5xl mx-auto px-4 py-16 text-center">
         <p className="text-zinc-500">Challenge not found.</p>
         <Link href="/events">
-          <Button variant="ghost" className="mt-4 text-zinc-400">
-            <ChevronLeft className="w-4 h-4 mr-1" />Back to Compete
-          </Button>
+          <Button variant="ghost" className="mt-4 text-zinc-400"><ChevronLeft className="w-4 h-4 mr-1" />Back to Compete</Button>
         </Link>
       </div>
     );
@@ -250,23 +367,20 @@ export default function StreakChallengePage() {
     ? Math.min(Math.round((myParticipation.bestRecord / myParticipation.personalGoal) * 100), 100)
     : 0;
 
-  const latestAttempt = myParticipation?.recentAttempts?.[0] ?? null;
+  const today = new Date().toISOString().slice(0, 10);
   const todayAttempt = myParticipation?.recentAttempts?.find((a) => a.attemptDate === today) ?? null;
+  const latestAttempt = myParticipation?.recentAttempts?.[0] ?? null;
   const recentScore = todayAttempt ?? latestAttempt;
   const recentScoreLabel = todayAttempt ? "Today's Score" : myParticipation?.isDaily ? "Last Daily Score" : "Latest Score";
 
-  // Attempts with videos
-  const videoAttempts = myParticipation?.recentAttempts?.filter((a) => a.videoUrl) ?? [];
+  const hasVideo = videoMode === "file" ? Boolean(selectedFile) : Boolean(videoUrl);
 
   return (
     <div className="min-h-screen bg-black pb-16" data-testid="page-streak-challenge">
 
       {/* ─── Hero ─── */}
       <div className="relative overflow-hidden border-b border-white/5">
-        <div
-          className="absolute inset-0 opacity-[0.04]"
-          style={{ backgroundImage: `linear-gradient(rgba(249,115,22,0.6) 1px,transparent 1px),linear-gradient(90deg,rgba(249,115,22,0.6) 1px,transparent 1px)`, backgroundSize: "40px 40px" }}
-        />
+        <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: `linear-gradient(rgba(249,115,22,0.6) 1px,transparent 1px),linear-gradient(90deg,rgba(249,115,22,0.6) 1px,transparent 1px)`, backgroundSize: "40px 40px" }} />
         <div className="absolute -top-20 -left-20 w-96 h-96 rounded-full opacity-25 blur-3xl pointer-events-none" style={{ background: accent }} />
         <div className="absolute -bottom-20 right-0 w-64 h-64 rounded-full opacity-15 blur-3xl pointer-events-none" style={{ background: accent }} />
 
@@ -276,7 +390,6 @@ export default function StreakChallengePage() {
               <ChevronLeft className="w-4 h-4 mr-1" />Compete
             </Button>
           </Link>
-
           <div className="flex items-center gap-2 mb-3 flex-wrap">
             <Badge className="bg-orange-500/15 text-orange-400 border-orange-500/30 animate-pulse font-medium">
               <Flame className="w-3 h-3 mr-1" />Always Live
@@ -285,17 +398,10 @@ export default function StreakChallengePage() {
               <Users className="w-3 h-3 mr-1" />{participantCount} players
             </Badge>
           </div>
-
-          <h1
-            className="text-3xl md:text-5xl font-black tracking-tight bg-gradient-to-r from-orange-400 via-amber-300 to-orange-500 bg-clip-text text-transparent"
-            data-testid="text-challenge-title"
-          >
+          <h1 className="text-3xl md:text-5xl font-black tracking-tight bg-gradient-to-r from-orange-400 via-amber-300 to-orange-500 bg-clip-text text-transparent" data-testid="text-challenge-title">
             {challenge.title}
           </h1>
-          <p className="text-zinc-400 mt-3 max-w-2xl text-sm md:text-base leading-relaxed">
-            {challenge.description}
-          </p>
-
+          <p className="text-zinc-400 mt-3 max-w-2xl text-sm md:text-base leading-relaxed">{challenge.description}</p>
           {challenge.rules && (
             <details className="mt-4">
               <summary className="text-xs text-zinc-600 cursor-pointer flex items-center gap-1 w-fit hover:text-zinc-400 transition-colors">
@@ -319,14 +425,12 @@ export default function StreakChallengePage() {
                 data-testid="card-my-progress"
               >
                 <div className="h-[2px] w-full" style={{ background: `linear-gradient(90deg,transparent,${accent},transparent)` }} />
-
                 <div className="p-5">
                   <div className="flex items-center justify-between mb-5">
                     <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500">My Progress</p>
                     <div className="flex items-center gap-2">
                       <Button
-                        size="sm"
-                        variant="ghost"
+                        size="sm" variant="ghost"
                         className="text-xs h-8 px-2 text-zinc-600 hover:text-red-400 hover:bg-red-500/10"
                         onClick={() => setShowLeaveConfirm1(true)}
                         data-testid="button-leave-challenge"
@@ -345,18 +449,15 @@ export default function StreakChallengePage() {
                     </div>
                   </div>
 
-                  {/* Ring + stats row */}
+                  {/* Ring + stats */}
                   <div className="flex items-center gap-5">
                     <div className="relative flex-shrink-0">
                       <HoloRing percent={myPercent} color={accent} />
                       <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <span className="text-2xl font-black leading-none text-white" data-testid="text-my-best-record">
-                          {myParticipation.bestRecord}
-                        </span>
+                        <span className="text-2xl font-black leading-none text-white" data-testid="text-my-best-record">{myParticipation.bestRecord}</span>
                         <span className="text-[9px] text-zinc-500 font-medium uppercase tracking-wider">best</span>
                       </div>
                     </div>
-
                     <div className="flex-1 grid grid-cols-3 gap-2">
                       {[
                         { label: "Goal", value: myParticipation.personalGoal },
@@ -379,14 +480,11 @@ export default function StreakChallengePage() {
                       <span>{myParticipation.personalGoal}</span>
                     </div>
                     <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all duration-700"
-                        style={{ width: `${myPercent}%`, background: `linear-gradient(90deg,${accent},${accent}cc)`, boxShadow: `0 0 8px ${accent}66` }}
-                      />
+                      <div className="h-full rounded-full transition-all duration-700" style={{ width: `${myPercent}%`, background: `linear-gradient(90deg,${accent},${accent}cc)`, boxShadow: `0 0 8px ${accent}66` }} />
                     </div>
                   </div>
 
-                  {/* Recent / today's score */}
+                  {/* Recent score */}
                   {recentScore && (
                     <div className="mt-4 pt-4 border-t border-white/[0.06]">
                       <p className="text-[10px] text-zinc-500 uppercase tracking-widest mb-1">{recentScoreLabel}</p>
@@ -399,18 +497,12 @@ export default function StreakChallengePage() {
                           </Badge>
                         )}
                         {recentScore.videoUrl && (
-                          <button
-                            onClick={() => setExpandedVideo(expandedVideo === recentScore.id ? null : recentScore.id)}
-                            className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300"
-                          >
-                            <Video className="w-3.5 h-3.5" />
-                            {expandedVideo === recentScore.id ? "hide" : "play"}
+                          <button onClick={() => setExpandedVideo(expandedVideo === recentScore.id ? null : recentScore.id)} className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300">
+                            <Video className="w-3.5 h-3.5" />{expandedVideo === recentScore.id ? "hide" : "play"}
                           </button>
                         )}
                       </div>
-                      {expandedVideo === recentScore.id && recentScore.videoUrl && (
-                        <VideoPlayer url={recentScore.videoUrl} />
-                      )}
+                      {expandedVideo === recentScore.id && recentScore.videoUrl && <VideoPlayer url={recentScore.videoUrl} />}
                       <p className="text-[10px] text-zinc-600 mt-0.5">{recentScore.attemptDate}</p>
                     </div>
                   )}
@@ -426,33 +518,51 @@ export default function StreakChallengePage() {
                             <div className="flex items-center gap-1.5">
                               {a.isNewRecord && <Star className="w-3 h-3 text-yellow-400" />}
                               {a.videoUrl && (
-                                <button
-                                  onClick={() => setExpandedVideo(expandedVideo === a.id ? null : a.id)}
-                                  className="text-blue-400/70 hover:text-blue-400"
-                                >
+                                <button onClick={() => setExpandedVideo(expandedVideo === a.id ? null : a.id)} className="text-blue-400/70 hover:text-blue-400">
                                   <Video className="w-3 h-3" />
                                 </button>
                               )}
                               <span className="text-xs font-semibold text-zinc-300">{a.score}</span>
                             </div>
                           </div>
-                          {expandedVideo === a.id && a.videoUrl && (
-                            <VideoPlayer url={a.videoUrl} />
-                          )}
+                          {expandedVideo === a.id && a.videoUrl && <VideoPlayer url={a.videoUrl} />}
                         </div>
                       ))}
                     </div>
                   )}
 
-                  {/* Uploaded videos section */}
-                  {videoAttempts.length > 0 && myParticipation.recentAttempts.length <= 1 && !recentScore?.videoUrl && (
-                    <div className="mt-3 pt-3 border-t border-white/[0.06]">
-                      <p className="text-[10px] text-zinc-600 uppercase tracking-widest mb-2">Your Videos</p>
-                      <p className="text-[11px] text-zinc-500">
-                        {videoAttempts.length} video{videoAttempts.length > 1 ? "s" : ""} uploaded. Tap the <Video className="inline w-3 h-3 text-blue-400" /> icon on each attempt to play.
-                      </p>
+                  {/* Record video button */}
+                  <div className="mt-4 pt-4 border-t border-white/[0.06]">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
+                          <Crown className="w-3.5 h-3.5 text-yellow-400" />Record Footage
+                        </p>
+                        <p className="text-[10px] text-zinc-600 mt-0.5">
+                          {(myParticipation as any).recordVideoUrl ? "Showing on leaderboard ✓" : "Set your highlight clip — shows on leaderboard"}
+                        </p>
+                      </div>
+                      <Button
+                        size="sm" variant="outline"
+                        className="text-xs h-7 px-2 border-white/10 text-zinc-400 hover:bg-white/5"
+                        onClick={() => setShowRecordVideoModal(true)}
+                        data-testid="button-set-record-video"
+                      >
+                        {(myParticipation as any).recordVideoUrl ? "Update" : "Upload"}
+                      </Button>
                     </div>
-                  )}
+                    {(myParticipation as any).recordVideoUrl && (
+                      <button
+                        onClick={() => setExpandedVideo(expandedVideo === "record" ? null : "record")}
+                        className="flex items-center gap-1 text-xs text-yellow-400/80 hover:text-yellow-400 mt-2"
+                      >
+                        <Film className="w-3 h-3" />{expandedVideo === "record" ? "Hide" : "Preview"} record video
+                      </button>
+                    )}
+                    {expandedVideo === "record" && (myParticipation as any).recordVideoUrl && (
+                      <VideoPlayer url={(myParticipation as any).recordVideoUrl} />
+                    )}
+                  </div>
                 </div>
               </div>
             ) : (
@@ -466,97 +576,43 @@ export default function StreakChallengePage() {
                 <div className="p-5">
                   {!showJoinForm ? (
                     <div className="text-center py-6">
-                      <div
-                        className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-                        style={{ background: `${accent}15`, border: `1px solid ${accent}30` }}
-                      >
+                      <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: `${accent}15`, border: `1px solid ${accent}30` }}>
                         <Target className="w-8 h-8" style={{ color: accent }} />
                       </div>
                       <h2 className="font-bold text-white text-lg mb-1">Join the Challenge</h2>
-                      <p className="text-sm text-zinc-500 mb-5 max-w-xs mx-auto">
-                        Enter your current record and goal. Your streak lives on the leaderboard.
-                      </p>
-                      <Button
-                        className="w-full font-bold rounded-xl"
-                        style={{ background: `linear-gradient(135deg,${accent},${accent}cc)`, boxShadow: `0 0 20px ${accent}44` }}
-                        onClick={() => setShowJoinForm(true)}
-                        data-testid="button-start-join"
-                      >
+                      <p className="text-sm text-zinc-500 mb-5 max-w-xs mx-auto">Enter your current record and goal. Your streak lives on the leaderboard.</p>
+                      <Button className="w-full font-bold rounded-xl" style={{ background: `linear-gradient(135deg,${accent},${accent}cc)`, boxShadow: `0 0 20px ${accent}44` }} onClick={() => setShowJoinForm(true)} data-testid="button-start-join">
                         <Play className="w-4 h-4 mr-2" />Enter the Challenge
                       </Button>
                     </div>
                   ) : (
                     <div className="space-y-4">
                       <h2 className="font-bold text-white text-base">Set Up Your Challenge</h2>
-
                       <div className="space-y-1.5">
                         <Label className="text-[11px] text-zinc-500 uppercase tracking-wider">Your Current Best Record</Label>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={joinForm.currentBest}
-                          onChange={(e) => setJoinForm((f) => ({ ...f, currentBest: Number(e.target.value) }))}
-                          className="bg-zinc-950 border-white/10 text-white text-center font-bold text-xl h-12 focus:border-orange-500/50"
-                          placeholder="0"
-                          data-testid="input-current-best"
-                        />
+                        <Input type="number" min={0} value={joinForm.currentBest} onChange={(e) => setJoinForm((f) => ({ ...f, currentBest: Number(e.target.value) }))} className="bg-zinc-950 border-white/10 text-white text-center font-bold text-xl h-12 focus:border-orange-500/50" placeholder="0" data-testid="input-current-best" />
                         <p className="text-[10px] text-zinc-600">Your highest consecutive 3-pointers made so far.</p>
                       </div>
-
                       <div className="space-y-1.5">
                         <Label className="text-[11px] text-zinc-500 uppercase tracking-wider">Personal Goal</Label>
-                        <Input
-                          type="number"
-                          min={1}
-                          value={joinForm.personalGoal}
-                          onChange={(e) => setJoinForm((f) => ({ ...f, personalGoal: Number(e.target.value) }))}
-                          className="bg-zinc-950 border-white/10 text-white text-center font-bold text-xl h-12 focus:border-orange-500/50"
-                          data-testid="input-personal-goal"
-                        />
+                        <Input type="number" min={1} value={joinForm.personalGoal} onChange={(e) => setJoinForm((f) => ({ ...f, personalGoal: Number(e.target.value) }))} className="bg-zinc-950 border-white/10 text-white text-center font-bold text-xl h-12 focus:border-orange-500/50" data-testid="input-personal-goal" />
                         <p className="text-[10px] text-zinc-600">Default is {challenge.defaultGoal}. Set your own target to beat.</p>
                       </div>
-
                       <div className="space-y-1.5">
                         <Label className="text-[11px] text-zinc-500 uppercase tracking-wider">What day are you on?</Label>
-                        <Input
-                          type="number"
-                          min={1}
-                          value={joinForm.dayNumber}
-                          onChange={(e) => setJoinForm((f) => ({ ...f, dayNumber: Number(e.target.value) }))}
-                          className="bg-zinc-950 border-white/10 text-white text-center focus:border-orange-500/50"
-                          data-testid="input-day-number"
-                        />
+                        <Input type="number" min={1} value={joinForm.dayNumber} onChange={(e) => setJoinForm((f) => ({ ...f, dayNumber: Number(e.target.value) }))} className="bg-zinc-950 border-white/10 text-white text-center focus:border-orange-500/50" data-testid="input-day-number" />
                         <p className="text-[10px] text-zinc-600">If you've been training, enter which day you're on.</p>
                       </div>
-
                       <div className="flex items-center justify-between py-2 border-t border-white/[0.06]">
                         <div>
                           <p className="text-sm font-medium text-white">Daily challenge mode</p>
                           <p className="text-[10px] text-zinc-500">Track an attempt every day</p>
                         </div>
-                        <Switch
-                          checked={joinForm.isDaily}
-                          onCheckedChange={(v) => setJoinForm((f) => ({ ...f, isDaily: v }))}
-                          data-testid="toggle-daily-mode"
-                        />
+                        <Switch checked={joinForm.isDaily} onCheckedChange={(v) => setJoinForm((f) => ({ ...f, isDaily: v }))} data-testid="toggle-daily-mode" />
                       </div>
-
                       <div className="flex gap-2 pt-1">
-                        <Button
-                          variant="outline"
-                          className="flex-1 border-white/10 text-zinc-400 hover:bg-white/5"
-                          onClick={() => setShowJoinForm(false)}
-                          data-testid="button-cancel-join"
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          className="flex-1 font-bold"
-                          style={{ background: `linear-gradient(135deg,${accent},${accent}cc)` }}
-                          onClick={() => joinMutation.mutate()}
-                          disabled={joinMutation.isPending}
-                          data-testid="button-confirm-join"
-                        >
+                        <Button variant="outline" className="flex-1 border-white/10 text-zinc-400 hover:bg-white/5" onClick={() => setShowJoinForm(false)} data-testid="button-cancel-join">Cancel</Button>
+                        <Button className="flex-1 font-bold" style={{ background: `linear-gradient(135deg,${accent},${accent}cc)` }} onClick={() => joinMutation.mutate()} disabled={joinMutation.isPending} data-testid="button-confirm-join">
                           {joinMutation.isPending ? "Joining…" : "Join Challenge"}
                         </Button>
                       </div>
@@ -566,13 +622,13 @@ export default function StreakChallengePage() {
               </div>
             )}
 
-            {/* Video tip card */}
+            {/* Video tip */}
             <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4 flex gap-3">
-              <Video className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
+              <Film className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-medium text-blue-300">Film your attempt</p>
+                <p className="text-sm font-medium text-blue-300">Film your attempts</p>
                 <p className="text-[11px] text-zinc-500 mt-0.5 leading-relaxed">
-                  Upload videos when logging attempts — they're stored to your account and playable right here. Outstanding clips may be featured in creator content.
+                  When you log an attempt with video, you choose whether to show it on your leaderboard row, submit it to be featured in creator content, or both.
                 </p>
               </div>
             </div>
@@ -580,10 +636,7 @@ export default function StreakChallengePage() {
 
           {/* ─── Right: Leaderboard ─── */}
           <div>
-            <div
-              className="rounded-2xl border overflow-hidden"
-              style={{ background: "linear-gradient(160deg,#0d0d0d 0%,#000 100%)", borderColor: "rgba(255,255,255,0.06)" }}
-            >
+            <div className="rounded-2xl border overflow-hidden" style={{ background: "linear-gradient(160deg,#0d0d0d 0%,#000 100%)", borderColor: "rgba(255,255,255,0.06)" }}>
               <div className="h-[2px] w-full" style={{ background: `linear-gradient(90deg,transparent,${accent}88,transparent)` }} />
 
               <div className="px-5 pt-5 pb-3 border-b border-white/[0.05]">
@@ -606,7 +659,8 @@ export default function StreakChallengePage() {
                     <div className="w-6 flex-shrink-0" />
                     <div className="w-8 flex-shrink-0" />
                     <div className="flex-1 min-w-0" />
-                    <div className="flex gap-2 flex-shrink-0">
+                    <div className="flex gap-1.5 flex-shrink-0 items-center">
+                      <div className="w-6 text-center text-[9px] uppercase tracking-wider text-zinc-600">Vid</div>
                       <div className="w-9 text-center text-[9px] uppercase tracking-wider text-zinc-600">Goal</div>
                       <div className="w-9 text-center text-[9px] uppercase tracking-wider text-zinc-600">Day</div>
                       <div className="w-10 text-center text-[9px] uppercase tracking-wider text-zinc-600">Recent</div>
@@ -615,9 +669,7 @@ export default function StreakChallengePage() {
                   </div>
 
                   {leaderLoading ? (
-                    <div className="space-y-2 py-3">
-                      {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-12 rounded-lg bg-zinc-900" />)}
-                    </div>
+                    <div className="space-y-2 py-3">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-12 rounded-lg bg-zinc-900" />)}</div>
                   ) : !leaderboard?.length ? (
                     <div className="py-12 text-center" data-testid="text-leaderboard-empty">
                       <Trophy className="w-10 h-10 mx-auto text-zinc-800 mb-3" />
@@ -627,66 +679,69 @@ export default function StreakChallengePage() {
                     <div className="divide-y divide-white/[0.03]" data-testid="list-leaderboard">
                       {leaderboard.map((entry) => {
                         const isMe = myParticipation?.userId === entry.userId;
+                        const vidKey = `lb-${entry.userId}`;
                         return (
-                          <div
-                            key={entry.userId}
-                            className={`flex items-center gap-2 px-2 py-3 rounded-lg transition-colors ${isMe ? "bg-orange-500/5 border border-orange-500/15" : "hover:bg-white/[0.02]"}`}
-                            data-testid={`row-leaderboard-${entry.userId}`}
-                          >
-                            {/* Rank */}
-                            <div className="w-6 flex-shrink-0 flex items-center justify-center">
-                              {rankIcon(entry.rank)}
-                            </div>
-
-                            {/* Avatar */}
-                            <Avatar className="w-8 h-8 flex-shrink-0 ring-1 ring-white/10">
-                              <AvatarImage src={entry.profilePhotoUrl ?? undefined} />
-                              <AvatarFallback className="text-[10px] bg-zinc-900 text-zinc-400">
-                                {entry.displayName.slice(0, 2).toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-
-                            {/* Name */}
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-sm font-semibold truncate ${isMe ? "text-orange-400" : "text-white"}`}>
-                                {entry.displayName}
-                                {isMe && <span className="text-[10px] text-zinc-600 ml-1 font-normal">(you)</span>}
-                              </p>
-                            </div>
-
-                            {/* Stats — 4 columns */}
-                            <div className="flex gap-2 flex-shrink-0">
-                              {/* Goal */}
-                              <div className="w-9 text-center">
-                                <p className="text-sm font-bold text-zinc-300">{entry.personalGoal}</p>
-                                <p className="text-[9px] text-zinc-600">goal</p>
-                              </div>
-                              {/* Day */}
-                              <div className="w-9 text-center">
-                                <p className="text-sm font-bold text-zinc-300">{entry.dayNumber}</p>
-                                <p className="text-[9px] text-zinc-600">day</p>
-                              </div>
-                              {/* Recent */}
-                              <div className="w-10 text-center">
-                                <p className="text-sm font-bold text-zinc-400">
-                                  {entry.recentScore != null ? entry.recentScore : "—"}
-                                </p>
-                                <p className="text-[9px] text-zinc-600">recent</p>
-                              </div>
-                              {/* Best — highlighted */}
-                              <div className="w-10 text-center">
-                                <p
-                                  className="text-base font-black"
-                                  style={{ color: accent, textShadow: `0 0 10px ${accent}66` }}
-                                  data-testid={`text-score-${entry.userId}`}
-                                >
-                                  {leaderSort === "percent" ? `${entry.percentToGoal}%` : entry.bestRecord}
-                                </p>
-                                <p className="text-[9px]" style={{ color: `${accent}88` }}>
-                                  {leaderSort === "closest" ? "left" : leaderSort === "percent" ? "done" : "best"}
+                          <div key={entry.userId} className="space-y-0">
+                            <div
+                              className={`flex items-center gap-2 px-2 py-3 rounded-lg transition-colors ${isMe ? "bg-orange-500/5 border border-orange-500/15" : "hover:bg-white/[0.02]"}`}
+                              data-testid={`row-leaderboard-${entry.userId}`}
+                            >
+                              <div className="w-6 flex-shrink-0 flex items-center justify-center">{rankIcon(entry.rank)}</div>
+                              <Avatar className="w-8 h-8 flex-shrink-0 ring-1 ring-white/10">
+                                <AvatarImage src={entry.profilePhotoUrl ?? undefined} />
+                                <AvatarFallback className="text-[10px] bg-zinc-900 text-zinc-400">{entry.displayName.slice(0, 2).toUpperCase()}</AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-sm font-semibold truncate ${isMe ? "text-orange-400" : "text-white"}`}>
+                                  {entry.displayName}
+                                  {isMe && <span className="text-[10px] text-zinc-600 ml-1 font-normal">(you)</span>}
                                 </p>
                               </div>
+                              {/* Stats row */}
+                              <div className="flex gap-1.5 flex-shrink-0 items-center">
+                                {/* Video button */}
+                                <div className="w-6 flex items-center justify-center">
+                                  {entry.leaderboardVideoUrl ? (
+                                    <button
+                                      onClick={() => setExpandedVideo(expandedVideo === vidKey ? null : vidKey)}
+                                      className="text-blue-400 hover:text-blue-300 transition-colors"
+                                      title="Watch video"
+                                      data-testid={`button-leaderboard-video-${entry.userId}`}
+                                    >
+                                      <Video className="w-3.5 h-3.5" />
+                                    </button>
+                                  ) : (
+                                    <span className="w-3.5 h-3.5 inline-block" />
+                                  )}
+                                </div>
+                                <div className="w-9 text-center">
+                                  <p className="text-sm font-bold text-zinc-300">{entry.personalGoal}</p>
+                                  <p className="text-[9px] text-zinc-600">goal</p>
+                                </div>
+                                <div className="w-9 text-center">
+                                  <p className="text-sm font-bold text-zinc-300">{entry.dayNumber}</p>
+                                  <p className="text-[9px] text-zinc-600">day</p>
+                                </div>
+                                <div className="w-10 text-center">
+                                  <p className="text-sm font-bold text-zinc-400">{entry.recentScore != null ? entry.recentScore : "—"}</p>
+                                  <p className="text-[9px] text-zinc-600">recent</p>
+                                </div>
+                                <div className="w-10 text-center">
+                                  <p className="text-base font-black" style={{ color: accent, textShadow: `0 0 10px ${accent}66` }} data-testid={`text-score-${entry.userId}`}>
+                                    {leaderSort === "percent" ? `${entry.percentToGoal}%` : entry.bestRecord}
+                                  </p>
+                                  <p className="text-[9px]" style={{ color: `${accent}88` }}>
+                                    {leaderSort === "closest" ? "left" : leaderSort === "percent" ? "done" : "best"}
+                                  </p>
+                                </div>
+                              </div>
                             </div>
+                            {/* Inline video for leaderboard row */}
+                            {expandedVideo === vidKey && entry.leaderboardVideoUrl && (
+                              <div className="px-4 pb-3">
+                                <VideoPlayer url={entry.leaderboardVideoUrl} />
+                              </div>
+                            )}
                           </div>
                         );
                       })}
@@ -704,9 +759,7 @@ export default function StreakChallengePage() {
         <DialogContent className="max-w-md bg-zinc-950 border-white/10" data-testid="modal-log-attempt">
           <DialogHeader>
             <DialogTitle className="text-white">Log an Attempt</DialogTitle>
-            <DialogDescription className="text-zinc-500">
-              How many consecutive 3-pointers did you make?
-            </DialogDescription>
+            <DialogDescription className="text-zinc-500">How many consecutive 3-pointers did you make?</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-5 pt-1">
@@ -715,10 +768,7 @@ export default function StreakChallengePage() {
                 Consecutive Makes <span className="text-orange-500">*</span>
               </Label>
               <Input
-                id="attempt-score"
-                type="number"
-                min={0}
-                placeholder="0"
+                id="attempt-score" type="number" min={0} placeholder="0"
                 value={attemptForm.score}
                 onChange={(e) => setAttemptForm((f) => ({ ...f, score: e.target.value }))}
                 className="bg-black border-white/10 text-white text-3xl font-black text-center h-16 focus:border-orange-500/50"
@@ -737,8 +787,7 @@ export default function StreakChallengePage() {
             <div className="space-y-1.5">
               <Label htmlFor="attempt-date" className="text-zinc-400 text-xs uppercase tracking-wider">Date</Label>
               <Input
-                id="attempt-date"
-                type="date"
+                id="attempt-date" type="date"
                 value={attemptForm.attemptDate}
                 onChange={(e) => setAttemptForm((f) => ({ ...f, attemptDate: e.target.value }))}
                 className="bg-black border-white/10 text-white focus:border-orange-500/50"
@@ -746,90 +795,52 @@ export default function StreakChallengePage() {
               />
             </div>
 
+            {/* Video section */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-zinc-400 text-xs uppercase tracking-wider flex items-center gap-1.5">
-                  <Video className="w-3.5 h-3.5 text-blue-400" />Video <span className="text-zinc-600 normal-case font-normal">(optional)</span>
-                </Label>
-              </div>
+              <Label className="text-zinc-400 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                <Video className="w-3.5 h-3.5 text-blue-400" />Video <span className="text-zinc-600 normal-case font-normal">(optional)</span>
+              </Label>
+              <VideoUploadSection
+                videoMode={videoMode} setVideoMode={setVideoMode}
+                selectedFile={selectedFile} setSelectedFile={setSelectedFile}
+                videoUrl={videoUrl} setVideoUrl={setVideoUrl}
+                fileInputRef={fileInputRef}
+              />
 
-              <div className="flex rounded-lg overflow-hidden border border-white/10">
-                <button
-                  type="button"
-                  onClick={() => setVideoMode("file")}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${videoMode === "file" ? "bg-blue-500/20 text-blue-300" : "text-zinc-500 hover:bg-white/5"}`}
-                  data-testid="button-video-file-mode"
-                >
-                  <Upload className="w-3.5 h-3.5" />Upload from device
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setVideoMode("link")}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${videoMode === "link" ? "bg-blue-500/20 text-blue-300" : "text-zinc-500 hover:bg-white/5"}`}
-                  data-testid="button-video-link-mode"
-                >
-                  <Link2 className="w-3.5 h-3.5" />Paste a link
-                </button>
-              </div>
+              {/* Video visibility options — only shown when a video is attached */}
+              {hasVideo && (
+                <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3 space-y-2.5 mt-1">
+                  <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">How should this video be used?</p>
 
-              {videoMode === "file" ? (
-                <div>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="video/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0] ?? null;
-                      setSelectedFile(f);
-                    }}
-                    data-testid="input-video-file"
-                  />
-                  {selectedFile ? (
-                    <div className="flex items-center gap-2 rounded-lg bg-blue-500/10 border border-blue-500/20 p-3">
-                      <Video className="w-4 h-4 text-blue-400 flex-shrink-0" />
-                      <span className="text-xs text-blue-300 flex-1 truncate">{selectedFile.name}</span>
-                      <button
-                        type="button"
-                        onClick={() => { setSelectedFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
-                        className="text-zinc-500 hover:text-zinc-300 flex-shrink-0"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
+                  <label className="flex items-start gap-3 cursor-pointer group" data-testid="checkbox-show-leaderboard">
+                    <Checkbox
+                      checked={attemptForm.showOnLeaderboard}
+                      onCheckedChange={(v) => setAttemptForm((f) => ({ ...f, showOnLeaderboard: Boolean(v) }))}
+                      className="mt-0.5 border-white/20 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+                    />
+                    <div>
+                      <p className="text-sm font-medium text-white group-hover:text-blue-300 transition-colors">Show on leaderboard</p>
+                      <p className="text-[10px] text-zinc-500 leading-relaxed mt-0.5">A play button appears next to your name so anyone can watch your attempt inline.</p>
                     </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="w-full rounded-lg border border-dashed border-white/10 py-4 flex flex-col items-center gap-1.5 text-zinc-500 hover:border-blue-500/40 hover:text-blue-400 transition-colors"
-                      data-testid="button-select-video"
-                    >
-                      <Upload className="w-5 h-5" />
-                      <span className="text-xs">Tap to select from photo library or files</span>
-                    </button>
-                  )}
+                  </label>
+
+                  <label className="flex items-start gap-3 cursor-pointer group" data-testid="checkbox-submit-creator">
+                    <Checkbox
+                      checked={attemptForm.submitToCreator}
+                      onCheckedChange={(v) => setAttemptForm((f) => ({ ...f, submitToCreator: Boolean(v) }))}
+                      className="mt-0.5 border-white/20 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                    />
+                    <div>
+                      <p className="text-sm font-medium text-white group-hover:text-orange-300 transition-colors">Submit for creator content</p>
+                      <p className="text-[10px] text-zinc-500 leading-relaxed mt-0.5">Your clip goes to @nicknaso's review queue. Outstanding submissions may be featured in videos.</p>
+                    </div>
+                  </label>
                 </div>
-              ) : (
-                <Input
-                  type="url"
-                  placeholder="YouTube, TikTok, Instagram link…"
-                  value={attemptForm.videoUrl}
-                  onChange={(e) => setAttemptForm((f) => ({ ...f, videoUrl: e.target.value }))}
-                  className="bg-black border-white/10 text-white focus:border-blue-500/50 placeholder:text-zinc-700"
-                  data-testid="input-attempt-video"
-                />
               )}
             </div>
 
             <div className="flex gap-3 pt-1">
-              <Button
-                variant="outline"
-                className="flex-1 border-white/10 text-zinc-400 hover:bg-white/5"
-                onClick={() => setShowLogModal(false)}
-                data-testid="button-cancel-attempt"
-              >
-                Cancel
-              </Button>
+              <Button variant="outline" className="flex-1 border-white/10 text-zinc-400 hover:bg-white/5" onClick={() => setShowLogModal(false)} data-testid="button-cancel-attempt">Cancel</Button>
               <Button
                 className="flex-1 font-bold"
                 style={{ background: `linear-gradient(135deg,${accent},${accent}cc)`, boxShadow: `0 0 12px ${accent}44` }}
@@ -848,6 +859,44 @@ export default function StreakChallengePage() {
         </DialogContent>
       </Dialog>
 
+      {/* ─── Set Record Video Modal ─── */}
+      <Dialog open={showRecordVideoModal} onOpenChange={setShowRecordVideoModal}>
+        <DialogContent className="max-w-md bg-zinc-950 border-white/10" data-testid="modal-record-video">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <Crown className="w-4 h-4 text-yellow-400" />Set Record Footage
+            </DialogTitle>
+            <DialogDescription className="text-zinc-500">
+              Upload your best attempt clip. It will show as a video button on your leaderboard row for everyone to watch.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-1">
+            <VideoUploadSection
+              videoMode={rvMode} setVideoMode={setRvMode}
+              selectedFile={rvFile} setSelectedFile={setRvFile}
+              videoUrl={rvLink} setVideoUrl={setRvLink}
+              fileInputRef={rvFileRef}
+            />
+            <div className="flex gap-3 pt-1">
+              <Button variant="outline" className="flex-1 border-white/10 text-zinc-400 hover:bg-white/5" onClick={() => setShowRecordVideoModal(false)}>Cancel</Button>
+              <Button
+                className="flex-1 font-bold"
+                style={{ background: `linear-gradient(135deg,#eab308,#f59e0b)` }}
+                onClick={() => recordVideoMutation.mutate()}
+                disabled={recordVideoMutation.isPending || rvUploading || (rvMode === "file" ? !rvFile : !rvLink)}
+                data-testid="button-save-record-video"
+              >
+                {(recordVideoMutation.isPending || rvUploading) ? (
+                  <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" />{rvUploading ? "Uploading…" : "Saving…"}</>
+                ) : (
+                  <><Crown className="w-4 h-4 mr-1.5" />Save Record Video</>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* ─── Leave Confirm Step 1 ─── */}
       <AlertDialog open={showLeaveConfirm1} onOpenChange={setShowLeaveConfirm1}>
         <AlertDialogContent className="bg-zinc-950 border-white/10">
@@ -858,24 +907,15 @@ export default function StreakChallengePage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel
-              className="border-white/10 text-zinc-400 hover:bg-white/5"
-              data-testid="button-leave-cancel-1"
-            >
-              Keep my progress
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-red-600 hover:bg-red-700 text-white border-0"
-              onClick={() => { setShowLeaveConfirm1(false); setShowLeaveConfirm2(true); }}
-              data-testid="button-leave-confirm-1"
-            >
+            <AlertDialogCancel className="border-white/10 text-zinc-400 hover:bg-white/5" data-testid="button-leave-cancel-1">Keep my progress</AlertDialogCancel>
+            <AlertDialogAction className="bg-red-600 hover:bg-red-700 text-white border-0" onClick={() => { setShowLeaveConfirm1(false); setShowLeaveConfirm2(true); }} data-testid="button-leave-confirm-1">
               Yes, leave challenge
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* ─── Leave Confirm Step 2 (final) ─── */}
+      {/* ─── Leave Confirm Step 2 ─── */}
       <AlertDialog open={showLeaveConfirm2} onOpenChange={setShowLeaveConfirm2}>
         <AlertDialogContent className="bg-zinc-950 border-red-500/30">
           <AlertDialogHeader>
@@ -885,18 +925,8 @@ export default function StreakChallengePage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel
-              className="border-white/10 text-zinc-400 hover:bg-white/5"
-              data-testid="button-leave-cancel-2"
-            >
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-red-600 hover:bg-red-700 text-white border-0 font-bold"
-              onClick={() => leaveMutation.mutate()}
-              disabled={leaveMutation.isPending}
-              data-testid="button-leave-confirm-2"
-            >
+            <AlertDialogCancel className="border-white/10 text-zinc-400 hover:bg-white/5" data-testid="button-leave-cancel-2">Cancel</AlertDialogCancel>
+            <AlertDialogAction className="bg-red-600 hover:bg-red-700 text-white border-0 font-bold" onClick={() => leaveMutation.mutate()} disabled={leaveMutation.isPending} data-testid="button-leave-confirm-2">
               {leaveMutation.isPending ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" />Leaving…</> : "Delete everything & leave"}
             </AlertDialogAction>
           </AlertDialogFooter>

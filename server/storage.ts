@@ -581,11 +581,16 @@ export interface IStorage {
   getStreakLeaderboard(challengeId: string, sort?: "best" | "closest" | "percent"): Promise<Array<{
     rank: number; userId: string; displayName: string; profilePhotoUrl: string | null;
     personalGoal: number; bestRecord: number; dayNumber: number; percentToGoal: number;
-    recentScore: number | null;
+    recentScore: number | null; leaderboardVideoUrl: string | null;
   }>>;
   getStreakAttempts(participantId: string, limit?: number): Promise<StreakChallengeAttempt[]>;
   getStreakChallengeParticipantCount(challengeId: string): Promise<number>;
   leaveStreakChallenge(challengeId: string, userId: string): Promise<void>;
+  getCreatorSubmissions(challengeId: string): Promise<Array<{
+    id: string; userId: string; displayName: string; profilePhotoUrl: string | null;
+    score: number; attemptDate: string; videoUrl: string; isNewRecord: boolean; createdAt: Date;
+  }>>;
+  updateParticipantRecordVideo(challengeId: string, userId: string, videoUrl: string): Promise<void>;
 
   setAdminDailyChallenge(dateStr: string, drillId: string): Promise<DailyChallenge>;
   getAdminDailyChallenges(from: string, to: string): Promise<Array<DailyChallenge & { drill: Drill }>>;
@@ -7069,7 +7074,7 @@ Object.assign(DatabaseStorage.prototype, {
   async getStreakLeaderboard(challengeId: string, sort: "best" | "closest" | "percent" = "best"): Promise<Array<{
     rank: number; userId: string; displayName: string; profilePhotoUrl: string | null;
     personalGoal: number; bestRecord: number; dayNumber: number; percentToGoal: number;
-    recentScore: number | null;
+    recentScore: number | null; leaderboardVideoUrl: string | null;
   }>> {
     const result = await pool.query(
       `SELECT
@@ -7077,9 +7082,11 @@ Object.assign(DatabaseStorage.prototype, {
          scp.personal_goal,
          scp.best_record,
          scp.day_number,
+         scp.record_video_url,
          COALESCE(up.display_name, NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), ''), u.email, 'Player') AS display_name,
          COALESCE(up.profile_photo_url, u.profile_image_url) AS profile_photo_url,
-         (SELECT score FROM streak_challenge_attempts WHERE participant_id = scp.id ORDER BY created_at DESC LIMIT 1) AS recent_score
+         (SELECT score FROM streak_challenge_attempts WHERE participant_id = scp.id ORDER BY created_at DESC LIMIT 1) AS recent_score,
+         (SELECT video_url FROM streak_challenge_attempts WHERE participant_id = scp.id AND show_on_leaderboard = true AND video_url IS NOT NULL ORDER BY created_at DESC LIMIT 1) AS attempt_video_url
        FROM streak_challenge_participants scp
        LEFT JOIN user_profiles up ON up.user_id = scp.user_id
        LEFT JOIN users u ON u.id = scp.user_id
@@ -7095,6 +7102,7 @@ Object.assign(DatabaseStorage.prototype, {
       displayName: r.display_name || "Player",
       profilePhotoUrl: r.profile_photo_url ?? null,
       recentScore: r.recent_score != null ? Number(r.recent_score) : null,
+      leaderboardVideoUrl: r.record_video_url ?? r.attempt_video_url ?? null,
       percentToGoal: r.personal_goal > 0 ? Math.round((r.best_record / r.personal_goal) * 100) : 0,
     }));
 
@@ -7138,6 +7146,47 @@ Object.assign(DatabaseStorage.prototype, {
       await db.delete(streakChallengeAttempts).where(eq(streakChallengeAttempts.participantId, participant.id));
       await db.delete(streakChallengeParticipants).where(eq(streakChallengeParticipants.id, participant.id));
     }
+  },
+
+  async getCreatorSubmissions(challengeId: string): Promise<Array<{
+    id: string; userId: string; displayName: string; profilePhotoUrl: string | null;
+    score: number; attemptDate: string; videoUrl: string; isNewRecord: boolean; createdAt: Date;
+  }>> {
+    const result = await pool.query(
+      `SELECT
+         sca.id, sca.user_id, sca.score, sca.attempt_date, sca.video_url, sca.is_new_record, sca.created_at,
+         COALESCE(up.display_name, NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), ''), u.email, 'Player') AS display_name,
+         COALESCE(up.profile_photo_url, u.profile_image_url) AS profile_photo_url
+       FROM streak_challenge_attempts sca
+       LEFT JOIN user_profiles up ON up.user_id = sca.user_id
+       LEFT JOIN users u ON u.id = sca.user_id
+       WHERE sca.challenge_id = $1
+         AND sca.submit_to_creator = true
+         AND sca.video_url IS NOT NULL
+       ORDER BY sca.created_at DESC`,
+      [challengeId],
+    );
+    return result.rows.map((r: any) => ({
+      id: r.id,
+      userId: r.user_id,
+      displayName: r.display_name || "Player",
+      profilePhotoUrl: r.profile_photo_url ?? null,
+      score: Number(r.score),
+      attemptDate: r.attempt_date,
+      videoUrl: r.video_url,
+      isNewRecord: Boolean(r.is_new_record),
+      createdAt: r.created_at,
+    }));
+  },
+
+  async updateParticipantRecordVideo(challengeId: string, userId: string, videoUrl: string): Promise<void> {
+    await db
+      .update(streakChallengeParticipants)
+      .set({ recordVideoUrl: videoUrl, updatedAt: new Date() })
+      .where(and(
+        eq(streakChallengeParticipants.challengeId, challengeId),
+        eq(streakChallengeParticipants.userId, userId),
+      ));
   },
 });
 

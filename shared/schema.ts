@@ -2431,6 +2431,7 @@ export const streakChallengeParticipants = pgTable("streak_challenge_participant
   isDaily:         boolean("is_daily").default(false),
   startDate:       varchar("start_date", { length: 10 }),
   lastAttemptDate: varchar("last_attempt_date", { length: 10 }),
+  recordVideoUrl:  varchar("record_video_url"),
   createdAt:       timestamp("created_at").defaultNow(),
   updatedAt:       timestamp("updated_at").defaultNow(),
 }, (t) => [
@@ -2438,16 +2439,18 @@ export const streakChallengeParticipants = pgTable("streak_challenge_participant
 ]);
 
 export const streakChallengeAttempts = pgTable("streak_challenge_attempts", {
-  id:            varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  participantId: varchar("participant_id").notNull(),
-  userId:        varchar("user_id").notNull(),
-  challengeId:   varchar("challenge_id").notNull(),
-  score:         integer("score").notNull(),
-  attemptDate:   varchar("attempt_date", { length: 10 }).notNull(),
-  isNewRecord:   boolean("is_new_record").default(false),
-  note:          text("note"),
-  videoUrl:      varchar("video_url"),
-  createdAt:     timestamp("created_at").defaultNow(),
+  id:                varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  participantId:     varchar("participant_id").notNull(),
+  userId:            varchar("user_id").notNull(),
+  challengeId:       varchar("challenge_id").notNull(),
+  score:             integer("score").notNull(),
+  attemptDate:       varchar("attempt_date", { length: 10 }).notNull(),
+  isNewRecord:       boolean("is_new_record").default(false),
+  note:              text("note"),
+  videoUrl:          varchar("video_url"),
+  showOnLeaderboard: boolean("show_on_leaderboard").default(false),
+  submitToCreator:   boolean("submit_to_creator").default(false),
+  createdAt:         timestamp("created_at").defaultNow(),
 });
 
 export type StreakChallenge             = typeof streakChallenges.$inferSelect;

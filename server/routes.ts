@@ -10108,11 +10108,45 @@ Return ONLY valid JSON array, no markdown.`;
         attemptDate: req.body.attemptDate || today,
         note: req.body.note || null,
         videoUrl: req.body.videoUrl || null,
-      });
+        showOnLeaderboard: Boolean(req.body.showOnLeaderboard),
+        submitToCreator: Boolean(req.body.submitToCreator),
+      } as any);
       res.json(result);
     } catch (err) {
       console.error("[streak] attempt:", err);
       res.status(500).json({ message: "Failed to log attempt" });
+    }
+  });
+
+  app.patch("/api/streak-challenges/:slug/record-video", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const challenge = await storage.getStreakChallengeBySlug(req.params.slug);
+      if (!challenge) return res.status(404).json({ message: "Not found" });
+      const { videoUrl } = req.body;
+      if (!videoUrl) return res.status(400).json({ message: "videoUrl required" });
+      await storage.updateParticipantRecordVideo(challenge.id, userId, videoUrl);
+      res.json({ success: true });
+    } catch (err) {
+      console.error("[streak] record-video:", err);
+      res.status(500).json({ message: "Failed to update record video" });
+    }
+  });
+
+  app.get("/api/admin/streak-challenges/creator-submissions", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const isAdminUser = await storage.isAdmin(userId);
+      if (!isAdminUser) return res.status(403).json({ message: "Forbidden" });
+      const { slug } = req.query as { slug?: string };
+      if (!slug) return res.status(400).json({ message: "slug required" });
+      const challenge = await storage.getStreakChallengeBySlug(slug);
+      if (!challenge) return res.status(404).json({ message: "Not found" });
+      const submissions = await storage.getCreatorSubmissions(challenge.id);
+      res.json(submissions);
+    } catch (err) {
+      console.error("[streak] creator-submissions:", err);
+      res.status(500).json({ message: "Failed to load submissions" });
     }
   });
 
