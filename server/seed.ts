@@ -734,7 +734,7 @@ export async function seedDatabase() {
         description: "How many consecutive 3-pointers can you make without a miss? Log your best streak, climb the leaderboard, and push for as many as you can. Join Nick in the premier PLAYR1 community challenge tracking your 3 point streak record alongside the community.",
         metric: "consecutive_makes",
         metricLabel: "Consecutive 3-Pointers Made",
-        defaultGoal: 50,
+        defaultGoal: 10,
         accentColor: "#f97316",
         rules: "Stand behind the 3-point line. Shoot until you miss — that's your score. Log every session honestly. You can attempt multiple times; only your best score counts on the leaderboard. Optional: record your attempt and share the link to be featured in creator content.",
         isActive: true,

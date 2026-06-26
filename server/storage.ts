@@ -581,9 +581,11 @@ export interface IStorage {
   getStreakLeaderboard(challengeId: string, sort?: "best" | "closest" | "percent"): Promise<Array<{
     rank: number; userId: string; displayName: string; profilePhotoUrl: string | null;
     personalGoal: number; bestRecord: number; dayNumber: number; percentToGoal: number;
+    recentScore: number | null;
   }>>;
   getStreakAttempts(participantId: string, limit?: number): Promise<StreakChallengeAttempt[]>;
   getStreakChallengeParticipantCount(challengeId: string): Promise<number>;
+  leaveStreakChallenge(challengeId: string, userId: string): Promise<void>;
 
   setAdminDailyChallenge(dateStr: string, drillId: string): Promise<DailyChallenge>;
   getAdminDailyChallenges(from: string, to: string): Promise<Array<DailyChallenge & { drill: Drill }>>;
@@ -7067,37 +7069,44 @@ Object.assign(DatabaseStorage.prototype, {
   async getStreakLeaderboard(challengeId: string, sort: "best" | "closest" | "percent" = "best"): Promise<Array<{
     rank: number; userId: string; displayName: string; profilePhotoUrl: string | null;
     personalGoal: number; bestRecord: number; dayNumber: number; percentToGoal: number;
+    recentScore: number | null;
   }>> {
-    const rows = await db
-      .select({
-        userId: streakChallengeParticipants.userId,
-        personalGoal: streakChallengeParticipants.personalGoal,
-        bestRecord: streakChallengeParticipants.bestRecord,
-        dayNumber: streakChallengeParticipants.dayNumber,
-        displayName: userProfiles.displayName,
-        profilePhotoUrl: userProfiles.profilePhotoUrl,
-      })
-      .from(streakChallengeParticipants)
-      .leftJoin(userProfiles, eq(userProfiles.userId, streakChallengeParticipants.userId))
-      .where(eq(streakChallengeParticipants.challengeId, challengeId));
+    const result = await pool.query(
+      `SELECT
+         scp.user_id,
+         scp.personal_goal,
+         scp.best_record,
+         scp.day_number,
+         COALESCE(up.display_name, NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), ''), u.email, 'Player') AS display_name,
+         COALESCE(up.profile_photo_url, u.profile_image_url) AS profile_photo_url,
+         (SELECT score FROM streak_challenge_attempts WHERE participant_id = scp.id ORDER BY created_at DESC LIMIT 1) AS recent_score
+       FROM streak_challenge_participants scp
+       LEFT JOIN user_profiles up ON up.user_id = scp.user_id
+       LEFT JOIN users u ON u.id = scp.user_id
+       WHERE scp.challenge_id = $1`,
+      [challengeId],
+    );
 
-    const withPercent = rows.map((r) => ({
-      ...r,
-      displayName: r.displayName ?? "Player",
-      profilePhotoUrl: r.profilePhotoUrl ?? null,
-      dayNumber: r.dayNumber ?? 1,
-      percentToGoal: r.personalGoal > 0 ? Math.round((r.bestRecord / r.personalGoal) * 100) : 0,
+    const rows = result.rows.map((r: any) => ({
+      userId: r.user_id,
+      personalGoal: r.personal_goal,
+      bestRecord: r.best_record,
+      dayNumber: r.day_number ?? 1,
+      displayName: r.display_name || "Player",
+      profilePhotoUrl: r.profile_photo_url ?? null,
+      recentScore: r.recent_score != null ? Number(r.recent_score) : null,
+      percentToGoal: r.personal_goal > 0 ? Math.round((r.best_record / r.personal_goal) * 100) : 0,
     }));
 
     if (sort === "closest") {
-      withPercent.sort((a, b) => (a.personalGoal - a.bestRecord) - (b.personalGoal - b.bestRecord));
+      rows.sort((a: any, b: any) => (a.personalGoal - a.bestRecord) - (b.personalGoal - b.bestRecord));
     } else if (sort === "percent") {
-      withPercent.sort((a, b) => b.percentToGoal - a.percentToGoal);
+      rows.sort((a: any, b: any) => b.percentToGoal - a.percentToGoal);
     } else {
-      withPercent.sort((a, b) => b.bestRecord - a.bestRecord);
+      rows.sort((a: any, b: any) => b.bestRecord - a.bestRecord);
     }
 
-    return withPercent.map((r, i) => ({ rank: i + 1, ...r }));
+    return rows.map((r: any, i: number) => ({ rank: i + 1, ...r }));
   },
 
   async getStreakAttempts(participantId: string, limit = 10): Promise<StreakChallengeAttempt[]> {
@@ -7115,6 +7124,20 @@ Object.assign(DatabaseStorage.prototype, {
       .from(streakChallengeParticipants)
       .where(eq(streakChallengeParticipants.challengeId, challengeId));
     return row?.count ?? 0;
+  },
+
+  async leaveStreakChallenge(challengeId: string, userId: string): Promise<void> {
+    const [participant] = await db
+      .select({ id: streakChallengeParticipants.id })
+      .from(streakChallengeParticipants)
+      .where(and(
+        eq(streakChallengeParticipants.challengeId, challengeId),
+        eq(streakChallengeParticipants.userId, userId),
+      ));
+    if (participant) {
+      await db.delete(streakChallengeAttempts).where(eq(streakChallengeAttempts.participantId, participant.id));
+      await db.delete(streakChallengeParticipants).where(eq(streakChallengeParticipants.id, participant.id));
+    }
   },
 });
 

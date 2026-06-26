@@ -196,77 +196,80 @@ function FeaturedStreakChallenge({ challenge }: { challenge: StreakChallenge }) 
   const accent = challenge.accentColor || "#f97316";
   return (
     <Link href={`/streak-challenges/${challenge.slug}`}>
-      <Card
-        className="overflow-hidden border-border/60 hover-elevate active-elevate-2 cursor-pointer group relative"
+      <div
+        className="overflow-hidden rounded-2xl cursor-pointer group relative hover:scale-[1.01] transition-transform duration-200"
+        style={{ border: `1px solid ${accent}30` }}
         data-testid={`card-streak-challenge-${challenge.slug}`}
       >
-        {/* Background glow */}
+        {/* Pure black base */}
+        <div className="absolute inset-0 bg-black" />
+
+        {/* Holographic grid */}
         <div
-          className="absolute inset-0"
+          className="absolute inset-0 opacity-[0.045]"
           style={{
-            background: `linear-gradient(135deg, ${accent}33 0%, ${accent}11 50%, transparent 100%)`,
+            backgroundImage: `linear-gradient(${accent}99 1px,transparent 1px),linear-gradient(90deg,${accent}99 1px,transparent 1px)`,
+            backgroundSize: "40px 40px",
           }}
-        />
-        <div
-          className="absolute inset-0 opacity-[0.06]"
-          style={{
-            backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)",
-            backgroundSize: "20px 20px",
-          }}
-        />
-        <div
-          className="absolute top-0 right-0 w-96 h-96 opacity-20 blur-3xl pointer-events-none"
-          style={{ background: accent }}
         />
 
-        <div className="relative p-6 md:p-10 grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-6 items-center min-h-[200px]">
+        {/* Orange glow blobs */}
+        <div className="absolute -top-16 -left-16 w-80 h-80 rounded-full opacity-30 blur-3xl pointer-events-none" style={{ background: accent }} />
+        <div className="absolute bottom-0 right-0 w-56 h-56 rounded-full opacity-15 blur-3xl pointer-events-none" style={{ background: accent }} />
+
+        {/* Top accent hairline */}
+        <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: `linear-gradient(90deg,transparent,${accent},transparent)` }} />
+
+        <div className="relative p-6 md:p-10 grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-6 items-center min-h-[220px]">
           <div>
-            {/* Labels */}
             <div className="flex items-center gap-2 mb-3 flex-wrap">
               <Badge
-                className="font-semibold text-white border-0"
-                style={{ background: `${accent}cc` }}
+                className="font-semibold border-0 text-black"
+                style={{ background: accent }}
                 data-testid="badge-streak-challenge"
               >
                 <Zap className="w-3 h-3 mr-1" /> Signature Challenge
               </Badge>
-              <Badge className="bg-green-500/20 text-green-300 border-green-500/40 animate-pulse">
+              <Badge className="bg-orange-500/15 text-orange-400 border-orange-500/30 animate-pulse">
                 <Flame className="w-3 h-3 mr-1" /> Always Live
               </Badge>
             </div>
 
-            <h2 className="text-2xl md:text-4xl font-bold tracking-tight" data-testid="text-streak-challenge-title">
+            <h2
+              className="text-2xl md:text-4xl font-black tracking-tight bg-gradient-to-r from-orange-400 via-amber-300 to-orange-500 bg-clip-text text-transparent"
+              data-testid="text-streak-challenge-title"
+            >
               {challenge.title}
             </h2>
-            <p className="text-sm md:text-base text-muted-foreground mt-2 max-w-xl line-clamp-2">
+            <p className="text-sm md:text-base text-zinc-400 mt-2 max-w-xl line-clamp-2">
               {challenge.description}
             </p>
 
             <div className="mt-4 flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Goal: make</span>
-              <span className="font-bold text-lg" style={{ color: accent }}>{challenge.defaultGoal}</span>
-              <span className="text-sm text-muted-foreground">consecutive 3-pointers in a row</span>
+              <span className="text-xs text-zinc-500 uppercase tracking-wider font-medium">Goal:</span>
+              <span className="text-sm font-bold" style={{ color: accent }}>Most Consecutive 3-Pointers in a Row</span>
             </div>
           </div>
 
           {/* CTA */}
-          <div className="flex flex-col items-center lg:items-end gap-2 flex-shrink-0">
+          <div className="flex flex-col items-center lg:items-end gap-3 flex-shrink-0">
             <div
-              className="w-20 h-20 rounded-2xl flex items-center justify-center text-4xl font-black mb-1"
-              style={{ background: `${accent}22`, border: `2px solid ${accent}44`, color: accent }}
+              className="w-20 h-20 rounded-2xl flex flex-col items-center justify-center gap-0.5"
+              style={{ background: `${accent}15`, border: `1px solid ${accent}40`, boxShadow: `0 0 24px ${accent}33` }}
             >
-              {challenge.defaultGoal}
+              <Flame className="w-7 h-7" style={{ color: accent }} />
+              <span className="text-[9px] text-zinc-500 uppercase tracking-wider font-medium">live</span>
             </div>
             <Button
-              className="gap-2 font-semibold"
-              style={{ background: accent }}
+              className="gap-2 font-bold rounded-xl"
+              style={{ background: `linear-gradient(135deg,${accent},${accent}bb)`, boxShadow: `0 0 16px ${accent}44` }}
               data-testid="button-view-streak-challenge"
             >
               Enter Challenge <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Button>
           </div>
         </div>
-      </Card>
+      </div>
     </Link>
   );
 }

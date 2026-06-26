@@ -10077,6 +10077,19 @@ Return ONLY valid JSON array, no markdown.`;
     }
   });
 
+  app.delete("/api/streak-challenges/:slug/leave", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const challenge = await storage.getStreakChallengeBySlug(req.params.slug);
+      if (!challenge) return res.status(404).json({ message: "Not found" });
+      await storage.leaveStreakChallenge(challenge.id, userId);
+      res.json({ success: true });
+    } catch (err) {
+      console.error("[streak] leave:", err);
+      res.status(500).json({ message: "Failed to leave challenge" });
+    }
+  });
+
   app.post("/api/streak-challenges/:slug/attempt", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user!.claims.sub;
