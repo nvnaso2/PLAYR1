@@ -45,7 +45,8 @@ type LeaderboardEntry = {
   dayNumber: number;
   percentToGoal: number;
   recentScore: number | null;
-  leaderboardVideoUrl: string | null;
+  recordVideoUrl: string | null;
+  attemptVideoUrl: string | null;
 };
 
 function rankIcon(rank: number) {
@@ -660,7 +661,12 @@ export default function StreakChallengePage() {
                     <div className="w-8 flex-shrink-0" />
                     <div className="flex-1 min-w-0" />
                     <div className="flex gap-1.5 flex-shrink-0 items-center">
-                      <div className="w-6 text-center text-[9px] uppercase tracking-wider text-zinc-600">Vid</div>
+                      <div className="w-5 text-center" title="Most recent attempt video">
+                        <Video className="w-2.5 h-2.5 text-blue-500/60 mx-auto" />
+                      </div>
+                      <div className="w-5 text-center" title="Record footage">
+                        <Crown className="w-2.5 h-2.5 text-yellow-500/60 mx-auto" />
+                      </div>
                       <div className="w-9 text-center text-[9px] uppercase tracking-wider text-zinc-600">Goal</div>
                       <div className="w-9 text-center text-[9px] uppercase tracking-wider text-zinc-600">Day</div>
                       <div className="w-10 text-center text-[9px] uppercase tracking-wider text-zinc-600">Recent</div>
@@ -699,16 +705,31 @@ export default function StreakChallengePage() {
                               </div>
                               {/* Stats row */}
                               <div className="flex gap-1.5 flex-shrink-0 items-center">
-                                {/* Video button */}
-                                <div className="w-6 flex items-center justify-center">
-                                  {entry.leaderboardVideoUrl ? (
+                                {/* Blue: most recent attempt video */}
+                                <div className="w-5 flex items-center justify-center">
+                                  {entry.attemptVideoUrl ? (
                                     <button
-                                      onClick={() => setExpandedVideo(expandedVideo === vidKey ? null : vidKey)}
+                                      onClick={() => setExpandedVideo(expandedVideo === `${vidKey}-attempt` ? null : `${vidKey}-attempt`)}
                                       className="text-blue-400 hover:text-blue-300 transition-colors"
-                                      title="Watch video"
-                                      data-testid={`button-leaderboard-video-${entry.userId}`}
+                                      title="Watch most recent attempt"
+                                      data-testid={`button-attempt-video-${entry.userId}`}
                                     >
                                       <Video className="w-3.5 h-3.5" />
+                                    </button>
+                                  ) : (
+                                    <span className="w-3.5 h-3.5 inline-block" />
+                                  )}
+                                </div>
+                                {/* Crown: record footage */}
+                                <div className="w-5 flex items-center justify-center">
+                                  {entry.recordVideoUrl ? (
+                                    <button
+                                      onClick={() => setExpandedVideo(expandedVideo === `${vidKey}-record` ? null : `${vidKey}-record`)}
+                                      className="text-yellow-400 hover:text-yellow-300 transition-colors"
+                                      title="Watch record footage"
+                                      data-testid={`button-record-video-${entry.userId}`}
+                                    >
+                                      <Crown className="w-3.5 h-3.5" />
                                     </button>
                                   ) : (
                                     <span className="w-3.5 h-3.5 inline-block" />
@@ -736,10 +757,22 @@ export default function StreakChallengePage() {
                                 </div>
                               </div>
                             </div>
-                            {/* Inline video for leaderboard row */}
-                            {expandedVideo === vidKey && entry.leaderboardVideoUrl && (
-                              <div className="px-4 pb-3">
-                                <VideoPlayer url={entry.leaderboardVideoUrl} />
+                            {/* Inline video — attempt */}
+                            {expandedVideo === `${vidKey}-attempt` && entry.attemptVideoUrl && (
+                              <div className="px-4 pb-3 space-y-1">
+                                <p className="text-[10px] text-blue-400 font-medium flex items-center gap-1">
+                                  <Video className="w-3 h-3" />Most recent attempt
+                                </p>
+                                <VideoPlayer url={entry.attemptVideoUrl} />
+                              </div>
+                            )}
+                            {/* Inline video — record footage */}
+                            {expandedVideo === `${vidKey}-record` && entry.recordVideoUrl && (
+                              <div className="px-4 pb-3 space-y-1">
+                                <p className="text-[10px] text-yellow-400 font-medium flex items-center gap-1">
+                                  <Crown className="w-3 h-3" />Record footage
+                                </p>
+                                <VideoPlayer url={entry.recordVideoUrl} />
                               </div>
                             )}
                           </div>

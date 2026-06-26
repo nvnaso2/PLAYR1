@@ -581,7 +581,7 @@ export interface IStorage {
   getStreakLeaderboard(challengeId: string, sort?: "best" | "closest" | "percent"): Promise<Array<{
     rank: number; userId: string; displayName: string; profilePhotoUrl: string | null;
     personalGoal: number; bestRecord: number; dayNumber: number; percentToGoal: number;
-    recentScore: number | null; leaderboardVideoUrl: string | null;
+    recentScore: number | null; recordVideoUrl: string | null; attemptVideoUrl: string | null;
   }>>;
   getStreakAttempts(participantId: string, limit?: number): Promise<StreakChallengeAttempt[]>;
   getStreakChallengeParticipantCount(challengeId: string): Promise<number>;
@@ -7102,7 +7102,8 @@ Object.assign(DatabaseStorage.prototype, {
       displayName: r.display_name || "Player",
       profilePhotoUrl: r.profile_photo_url ?? null,
       recentScore: r.recent_score != null ? Number(r.recent_score) : null,
-      leaderboardVideoUrl: r.record_video_url ?? r.attempt_video_url ?? null,
+      recordVideoUrl: r.record_video_url ?? null,
+      attemptVideoUrl: r.attempt_video_url ?? null,
       percentToGoal: r.personal_goal > 0 ? Math.round((r.best_record / r.personal_goal) * 100) : 0,
     }));
 

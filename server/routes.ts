@@ -10136,7 +10136,7 @@ Return ONLY valid JSON array, no markdown.`;
   app.get("/api/admin/streak-challenges/creator-submissions", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user!.claims.sub;
-      const isAdminUser = await storage.isAdmin(userId);
+      const isAdminUser = await storage.isUserAdmin(userId);
       if (!isAdminUser) return res.status(403).json({ message: "Forbidden" });
       const { slug } = req.query as { slug?: string };
       if (!slug) return res.status(400).json({ message: "slug required" });
