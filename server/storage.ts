@@ -7017,10 +7017,11 @@ Object.assign(DatabaseStorage.prototype, {
     return row;
   },
 
-  async joinStreakChallenge(data: InsertStreakChallengeParticipant): Promise<StreakChallengeParticipant> {
+  async joinStreakChallenge(data: InsertStreakChallengeParticipant & { initialBestRecord?: number }): Promise<StreakChallengeParticipant> {
+    const { initialBestRecord, ...insertData } = data;
     const [row] = await db
       .insert(streakChallengeParticipants)
-      .values(data)
+      .values({ ...insertData, bestRecord: initialBestRecord ?? 0 })
       .onConflictDoUpdate({
         target: [streakChallengeParticipants.challengeId, streakChallengeParticipants.userId],
         set: {

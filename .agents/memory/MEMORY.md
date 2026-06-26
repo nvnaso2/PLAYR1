@@ -1,1 +1,2 @@
-- [Streak Challenge Feature](streak-challenge.md) — new self-reported community leaderboard challenge, separate from existing statChallenges; tables created via direct SQL (db:push is interactive).
+- [Streak Challenge tables](streak-challenge-db.md) — tables created via direct SQL (not drizzle push); slug "fifty-in-a-row" seeded.
+- [Streak Challenge video upload](streak-challenge-upload.md) — attempt modal uses /api/user/uploads/request-url → PUT presigned URL; objectPath stored as videoUrl.

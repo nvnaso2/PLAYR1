@@ -10068,7 +10068,8 @@ Return ONLY valid JSON array, no markdown.`;
         dayNumber: Number(req.body.dayNumber) || 1,
         isDaily: Boolean(req.body.isDaily),
         startDate: today,
-      });
+        initialBestRecord: Number(req.body.currentBest) || 0,
+      } as any);
       res.json(participant);
     } catch (err) {
       console.error("[streak] join:", err);

@@ -731,7 +731,7 @@ export async function seedDatabase() {
       await db.insert(streakChallenges).values({
         slug: "fifty-in-a-row",
         title: "50-in-a-Row 3-Point Challenge",
-        description: "How many consecutive 3-pointers can you make without a miss? Log your best streak, climb the leaderboard, and push for 50 in a row. This is the premier PLAYR1 community challenge — the one Coach P built his brand on.",
+        description: "How many consecutive 3-pointers can you make without a miss? Log your best streak, climb the leaderboard, and push for as many as you can. Join Nick in the premier PLAYR1 community challenge tracking your 3 point streak record alongside the community.",
         metric: "consecutive_makes",
         metricLabel: "Consecutive 3-Pointers Made",
         defaultGoal: 50,
