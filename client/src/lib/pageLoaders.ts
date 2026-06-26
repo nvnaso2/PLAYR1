@@ -50,6 +50,7 @@ export const pageLoaders = {
   onboardingPreview: () => import("@/pages/onboarding-preview"),
   adminBrandPrinciples: () => import("@/pages/admin-brand-principles"),
   welcome: () => import("@/pages/welcome"),
+  streakChallenge: () => import("@/pages/streak-challenge"),
 } as const;
 
 // Map URL path → loader key. Used by the sidebar to preload on hover/touch.

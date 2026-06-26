@@ -6,9 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
-  ArrowRight, BarChart2, CalendarRange, Clock, Flame, PlayCircle, Sparkles, Target, Trophy, Users,
+  ArrowRight, BarChart2, CalendarRange, Clock, Flame, PlayCircle, Sparkles, Target, Trophy, Users, Zap,
 } from "lucide-react";
-import type { Event, Program, EventStatus, StatChallenge } from "@shared/schema";
+import type { Event, Program, EventStatus, StatChallenge, StreakChallenge } from "@shared/schema";
 import { STAT_CHALLENGE_METRIC_LABELS } from "@shared/schema";
 import { track } from "@/lib/track";
 
@@ -60,8 +60,9 @@ function getChallengeStatus(c: StatChallenge): { label: string; cls: string; key
 }
 
 export default function EventsPage() {
-  const { data: events,     isLoading: evLoading }  = useQuery<EventWithMeta[]>({ queryKey: ["/api/events"] });
-  const { data: challenges, isLoading: chLoading }  = useQuery<StatChallenge[]>({ queryKey: ["/api/stat-challenges"] });
+  const { data: events,          isLoading: evLoading }  = useQuery<EventWithMeta[]>({ queryKey: ["/api/events"] });
+  const { data: challenges,      isLoading: chLoading }  = useQuery<StatChallenge[]>({ queryKey: ["/api/stat-challenges"] });
+  const { data: streakChallenges, isLoading: scLoading } = useQuery<StreakChallenge[]>({ queryKey: ["/api/streak-challenges"] });
 
   useEffect(() => { track("events_browse_view"); }, []);
 
@@ -74,7 +75,9 @@ export default function EventsPage() {
   const scheduledChallenges = useMemo(() => (challenges ?? []).filter((c) => getChallengeStatus(c).key === "scheduled"), [challenges]);
   const finishedChallenges  = useMemo(() => (challenges ?? []).filter((c) => getChallengeStatus(c).key === "finished"),  [challenges]);
 
-  const isLoading = evLoading || chLoading;
+  const featuredStreakChallenge = (streakChallenges ?? []).find((c) => c.isActive) ?? null;
+
+  const isLoading = evLoading || chLoading || scLoading;
   const hasContent = (events ?? []).length + (challenges ?? []).length > 0;
 
   return (
@@ -117,17 +120,24 @@ export default function EventsPage() {
               {[0, 1, 2].map((i) => <Skeleton key={i} className="h-56 rounded-xl" />)}
             </div>
           </div>
-        ) : !hasContent ? (
-          <Card>
-            <CardContent className="py-16 text-center" data-testid="text-events-empty">
-              <Trophy className="w-12 h-12 mx-auto text-muted-foreground mb-3 opacity-40" />
-              <p className="text-lg font-semibold">No events or challenges right now</p>
-              <p className="text-sm text-muted-foreground mt-1">Check back soon — fresh competitions drop often.</p>
-            </CardContent>
-          </Card>
         ) : (
           <>
-            {featured && <FeaturedEvent ev={featured} />}
+            {/* ─── Featured Streak Challenge (always shown first) ─── */}
+            {featuredStreakChallenge && (
+              <FeaturedStreakChallenge challenge={featuredStreakChallenge} />
+            )}
+
+            {!hasContent && !featuredStreakChallenge ? (
+              <Card>
+                <CardContent className="py-16 text-center" data-testid="text-events-empty">
+                  <Trophy className="w-12 h-12 mx-auto text-muted-foreground mb-3 opacity-40" />
+                  <p className="text-lg font-semibold">No events or challenges right now</p>
+                  <p className="text-sm text-muted-foreground mt-1">Check back soon — fresh competitions drop often.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                {featured && <FeaturedEvent ev={featured} />}
 
             {/* Live section — events + challenges */}
             {(live.filter((e) => e.id !== featured?.id).length > 0 || liveChallenges.length > 0) && (
@@ -158,6 +168,8 @@ export default function EventsPage() {
                 </div>
               </Section>
             )}
+              </>
+            )}
           </>
         )}
       </div>
@@ -177,6 +189,85 @@ function Section({ title, subtitle, icon, variant, children }: {
       </div>
       {children}
     </section>
+  );
+}
+
+function FeaturedStreakChallenge({ challenge }: { challenge: StreakChallenge }) {
+  const accent = challenge.accentColor || "#f97316";
+  return (
+    <Link href={`/streak-challenges/${challenge.slug}`}>
+      <Card
+        className="overflow-hidden border-border/60 hover-elevate active-elevate-2 cursor-pointer group relative"
+        data-testid={`card-streak-challenge-${challenge.slug}`}
+      >
+        {/* Background glow */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background: `linear-gradient(135deg, ${accent}33 0%, ${accent}11 50%, transparent 100%)`,
+          }}
+        />
+        <div
+          className="absolute inset-0 opacity-[0.06]"
+          style={{
+            backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)",
+            backgroundSize: "20px 20px",
+          }}
+        />
+        <div
+          className="absolute top-0 right-0 w-96 h-96 opacity-20 blur-3xl pointer-events-none"
+          style={{ background: accent }}
+        />
+
+        <div className="relative p-6 md:p-10 grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-6 items-center min-h-[200px]">
+          <div>
+            {/* Labels */}
+            <div className="flex items-center gap-2 mb-3 flex-wrap">
+              <Badge
+                className="font-semibold text-white border-0"
+                style={{ background: `${accent}cc` }}
+                data-testid="badge-streak-challenge"
+              >
+                <Zap className="w-3 h-3 mr-1" /> Signature Challenge
+              </Badge>
+              <Badge className="bg-green-500/20 text-green-300 border-green-500/40 animate-pulse">
+                <Flame className="w-3 h-3 mr-1" /> Always Live
+              </Badge>
+            </div>
+
+            <h2 className="text-2xl md:text-4xl font-bold tracking-tight" data-testid="text-streak-challenge-title">
+              {challenge.title}
+            </h2>
+            <p className="text-sm md:text-base text-muted-foreground mt-2 max-w-xl line-clamp-2">
+              {challenge.description}
+            </p>
+
+            <div className="mt-4 flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Goal: make</span>
+              <span className="font-bold text-lg" style={{ color: accent }}>{challenge.defaultGoal}</span>
+              <span className="text-sm text-muted-foreground">consecutive 3-pointers in a row</span>
+            </div>
+          </div>
+
+          {/* CTA */}
+          <div className="flex flex-col items-center lg:items-end gap-2 flex-shrink-0">
+            <div
+              className="w-20 h-20 rounded-2xl flex items-center justify-center text-4xl font-black mb-1"
+              style={{ background: `${accent}22`, border: `2px solid ${accent}44`, color: accent }}
+            >
+              {challenge.defaultGoal}
+            </div>
+            <Button
+              className="gap-2 font-semibold"
+              style={{ background: accent }}
+              data-testid="button-view-streak-challenge"
+            >
+              Enter Challenge <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </Button>
+          </div>
+        </div>
+      </Card>
+    </Link>
   );
 }
 

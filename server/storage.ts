@@ -89,6 +89,9 @@ import {
   statChallenges, type StatChallenge, type InsertStatChallenge,
   type StatChallengeMetric,
   brandPrinciples, type BrandPrinciples,
+  streakChallenges, type StreakChallenge,
+  streakChallengeParticipants, type StreakChallengeParticipant, type InsertStreakChallengeParticipant,
+  streakChallengeAttempts, type StreakChallengeAttempt, type InsertStreakChallengeAttempt,
 } from "@shared/schema";
 import { users, type User } from "@shared/models/auth";
 import { db, pool } from "./db";
@@ -568,6 +571,19 @@ export interface IStorage {
   updateStatChallenge(id: string, data: Partial<InsertStatChallenge>): Promise<StatChallenge>;
   deleteStatChallenge(id: string): Promise<void>;
   getStatChallengeLeaderboard(challengeId: string, limit?: number): Promise<Array<{ userId: string; displayName: string; profilePhotoUrl: string | null; score: number }>>;
+
+  // Streak Challenges
+  getActiveStreakChallenges(): Promise<StreakChallenge[]>;
+  getStreakChallengeBySlug(slug: string): Promise<StreakChallenge | undefined>;
+  getStreakParticipant(challengeId: string, userId: string): Promise<StreakChallengeParticipant | undefined>;
+  joinStreakChallenge(data: InsertStreakChallengeParticipant): Promise<StreakChallengeParticipant>;
+  logStreakAttempt(data: InsertStreakChallengeAttempt): Promise<{ attempt: StreakChallengeAttempt; participant: StreakChallengeParticipant }>;
+  getStreakLeaderboard(challengeId: string, sort?: "best" | "closest" | "percent"): Promise<Array<{
+    rank: number; userId: string; displayName: string; profilePhotoUrl: string | null;
+    personalGoal: number; bestRecord: number; dayNumber: number; percentToGoal: number;
+  }>>;
+  getStreakAttempts(participantId: string, limit?: number): Promise<StreakChallengeAttempt[]>;
+  getStreakChallengeParticipantCount(challengeId: string): Promise<number>;
 
   setAdminDailyChallenge(dateStr: string, drillId: string): Promise<DailyChallenge>;
   getAdminDailyChallenges(from: string, to: string): Promise<Array<DailyChallenge & { drill: Drill }>>;
@@ -6970,6 +6986,134 @@ Object.assign(DatabaseStorage.prototype, {
       .from(goalCheckIns)
       .where(eq(goalCheckIns.goalId, goalId))
       .orderBy(goalCheckIns.weekNumber);
+  },
+
+  // ─── Streak Challenges ─────────────────────────────────────────────────────
+
+  async getActiveStreakChallenges(): Promise<StreakChallenge[]> {
+    return db
+      .select()
+      .from(streakChallenges)
+      .where(eq(streakChallenges.isActive, true))
+      .orderBy(desc(streakChallenges.createdAt));
+  },
+
+  async getStreakChallengeBySlug(slug: string): Promise<StreakChallenge | undefined> {
+    const [row] = await db
+      .select()
+      .from(streakChallenges)
+      .where(eq(streakChallenges.slug, slug));
+    return row;
+  },
+
+  async getStreakParticipant(challengeId: string, userId: string): Promise<StreakChallengeParticipant | undefined> {
+    const [row] = await db
+      .select()
+      .from(streakChallengeParticipants)
+      .where(and(
+        eq(streakChallengeParticipants.challengeId, challengeId),
+        eq(streakChallengeParticipants.userId, userId),
+      ));
+    return row;
+  },
+
+  async joinStreakChallenge(data: InsertStreakChallengeParticipant): Promise<StreakChallengeParticipant> {
+    const [row] = await db
+      .insert(streakChallengeParticipants)
+      .values(data)
+      .onConflictDoUpdate({
+        target: [streakChallengeParticipants.challengeId, streakChallengeParticipants.userId],
+        set: {
+          personalGoal: data.personalGoal,
+          dayNumber: data.dayNumber,
+          isDaily: data.isDaily,
+          startDate: data.startDate,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return row;
+  },
+
+  async logStreakAttempt(data: InsertStreakChallengeAttempt): Promise<{ attempt: StreakChallengeAttempt; participant: StreakChallengeParticipant }> {
+    const [participant] = await db
+      .select()
+      .from(streakChallengeParticipants)
+      .where(eq(streakChallengeParticipants.id, data.participantId));
+
+    const isNewRecord = data.score > (participant?.bestRecord ?? 0);
+
+    const [attempt] = await db
+      .insert(streakChallengeAttempts)
+      .values({ ...data, isNewRecord })
+      .returning();
+
+    const updates: Partial<typeof streakChallengeParticipants.$inferInsert> = {
+      lastAttemptDate: data.attemptDate,
+      updatedAt: new Date(),
+    };
+    if (isNewRecord) updates.bestRecord = data.score;
+
+    const [updatedParticipant] = await db
+      .update(streakChallengeParticipants)
+      .set(updates)
+      .where(eq(streakChallengeParticipants.id, data.participantId))
+      .returning();
+
+    return { attempt, participant: updatedParticipant };
+  },
+
+  async getStreakLeaderboard(challengeId: string, sort: "best" | "closest" | "percent" = "best"): Promise<Array<{
+    rank: number; userId: string; displayName: string; profilePhotoUrl: string | null;
+    personalGoal: number; bestRecord: number; dayNumber: number; percentToGoal: number;
+  }>> {
+    const rows = await db
+      .select({
+        userId: streakChallengeParticipants.userId,
+        personalGoal: streakChallengeParticipants.personalGoal,
+        bestRecord: streakChallengeParticipants.bestRecord,
+        dayNumber: streakChallengeParticipants.dayNumber,
+        displayName: userProfiles.displayName,
+        profilePhotoUrl: userProfiles.profilePhotoUrl,
+      })
+      .from(streakChallengeParticipants)
+      .leftJoin(userProfiles, eq(userProfiles.userId, streakChallengeParticipants.userId))
+      .where(eq(streakChallengeParticipants.challengeId, challengeId));
+
+    const withPercent = rows.map((r) => ({
+      ...r,
+      displayName: r.displayName ?? "Player",
+      profilePhotoUrl: r.profilePhotoUrl ?? null,
+      dayNumber: r.dayNumber ?? 1,
+      percentToGoal: r.personalGoal > 0 ? Math.round((r.bestRecord / r.personalGoal) * 100) : 0,
+    }));
+
+    if (sort === "closest") {
+      withPercent.sort((a, b) => (a.personalGoal - a.bestRecord) - (b.personalGoal - b.bestRecord));
+    } else if (sort === "percent") {
+      withPercent.sort((a, b) => b.percentToGoal - a.percentToGoal);
+    } else {
+      withPercent.sort((a, b) => b.bestRecord - a.bestRecord);
+    }
+
+    return withPercent.map((r, i) => ({ rank: i + 1, ...r }));
+  },
+
+  async getStreakAttempts(participantId: string, limit = 10): Promise<StreakChallengeAttempt[]> {
+    return db
+      .select()
+      .from(streakChallengeAttempts)
+      .where(eq(streakChallengeAttempts.participantId, participantId))
+      .orderBy(desc(streakChallengeAttempts.createdAt))
+      .limit(limit);
+  },
+
+  async getStreakChallengeParticipantCount(challengeId: string): Promise<number> {
+    const [row] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(streakChallengeParticipants)
+      .where(eq(streakChallengeParticipants.challengeId, challengeId));
+    return row?.count ?? 0;
   },
 });
 

@@ -10010,6 +10010,112 @@ Return ONLY valid JSON array, no markdown.`;
     }
   });
 
+  // ─── Streak Challenges ──────────────────────────────────────────────────────
+
+  app.get("/api/streak-challenges", async (_req, res) => {
+    try {
+      const challenges = await storage.getActiveStreakChallenges();
+      res.json(challenges);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to load streak challenges" });
+    }
+  });
+
+  app.get("/api/streak-challenges/:slug", optionalAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const challenge = await storage.getStreakChallengeBySlug(req.params.slug);
+      if (!challenge) return res.status(404).json({ message: "Challenge not found" });
+      const participantCount = await storage.getStreakChallengeParticipantCount(challenge.id);
+      let myParticipation: any = null;
+      const userId = req.user?.claims?.sub;
+      if (userId) {
+        const p = await storage.getStreakParticipant(challenge.id, userId);
+        if (p) {
+          const attempts = await storage.getStreakAttempts(p.id, 5);
+          myParticipation = { ...p, recentAttempts: attempts };
+        }
+      }
+      res.json({ challenge, participantCount, myParticipation });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to load streak challenge" });
+    }
+  });
+
+  app.get("/api/streak-challenges/:slug/leaderboard", async (req, res) => {
+    try {
+      const challenge = await storage.getStreakChallengeBySlug(req.params.slug);
+      if (!challenge) return res.status(404).json({ message: "Not found" });
+      const sort = (req.query.sort as string) === "closest" ? "closest"
+        : (req.query.sort as string) === "percent" ? "percent"
+        : "best";
+      const leaderboard = await storage.getStreakLeaderboard(challenge.id, sort);
+      res.json(leaderboard);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to load leaderboard" });
+    }
+  });
+
+  app.post("/api/streak-challenges/:slug/join", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const challenge = await storage.getStreakChallengeBySlug(req.params.slug);
+      if (!challenge) return res.status(404).json({ message: "Not found" });
+      const today = new Date().toISOString().slice(0, 10);
+      const participant = await storage.joinStreakChallenge({
+        challengeId: challenge.id,
+        userId,
+        personalGoal: Number(req.body.personalGoal) || challenge.defaultGoal,
+        dayNumber: Number(req.body.dayNumber) || 1,
+        isDaily: Boolean(req.body.isDaily),
+        startDate: today,
+      });
+      res.json(participant);
+    } catch (err) {
+      console.error("[streak] join:", err);
+      res.status(500).json({ message: "Failed to join challenge" });
+    }
+  });
+
+  app.post("/api/streak-challenges/:slug/attempt", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const challenge = await storage.getStreakChallengeBySlug(req.params.slug);
+      if (!challenge) return res.status(404).json({ message: "Not found" });
+      const participant = await storage.getStreakParticipant(challenge.id, userId);
+      if (!participant) return res.status(400).json({ message: "You must join before logging an attempt" });
+      const score = Number(req.body.score);
+      if (!score || score < 0) return res.status(400).json({ message: "score must be a positive number" });
+      const today = new Date().toISOString().slice(0, 10);
+      const result = await storage.logStreakAttempt({
+        participantId: participant.id,
+        userId,
+        challengeId: challenge.id,
+        score,
+        attemptDate: req.body.attemptDate || today,
+        note: req.body.note || null,
+        videoUrl: req.body.videoUrl || null,
+      });
+      res.json(result);
+    } catch (err) {
+      console.error("[streak] attempt:", err);
+      res.status(500).json({ message: "Failed to log attempt" });
+    }
+  });
+
+  app.get("/api/streak-challenges/:slug/my-attempts", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const challenge = await storage.getStreakChallengeBySlug(req.params.slug);
+      if (!challenge) return res.status(404).json({ message: "Not found" });
+      const participant = await storage.getStreakParticipant(challenge.id, userId);
+      if (!participant) return res.json([]);
+      const attempts = await storage.getStreakAttempts(participant.id, 20);
+      res.json(attempts);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to load attempts" });
+    }
+  });
+
   return httpServer;
 }
 

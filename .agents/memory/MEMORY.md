@@ -1,2 +1,1 @@
-- [Assessment scoring engine](assessment-scoring.md) — client-side coded scoring (no AI); backend /api/onboarding/assess now accepts pre-computed result object.
-- [DB migration pattern](db-migration-pattern.md) — never use db:push (drops leaderboard tables); always use direct SQL ALTER TABLE with IF NOT EXISTS.
+- [Streak Challenge Feature](streak-challenge.md) — new self-reported community leaderboard challenge, separate from existing statChallenges; tables created via direct SQL (db:push is interactive).

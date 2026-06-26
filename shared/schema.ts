@@ -2401,6 +2401,69 @@ export const insertStatChallengeSchema = createInsertSchema(statChallenges).omit
   metric:   z.enum(STAT_CHALLENGE_METRICS),
 });
 
+// ─── Streak Challenges ────────────────────────────────────────────────────────
+// Self-reported, ongoing challenges. Players track a personal consecutive-makes
+// (or any streak-based) record and compete on a live leaderboard.
+// Example: "50-in-a-Row 3-Point Challenge"
+
+export const streakChallenges = pgTable("streak_challenges", {
+  id:           varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  slug:         varchar("slug").notNull().unique(),
+  title:        varchar("title").notNull(),
+  description:  text("description"),
+  metric:       varchar("metric").notNull().default("consecutive_makes"),
+  metricLabel:  varchar("metric_label").notNull().default("Consecutive Makes"),
+  defaultGoal:  integer("default_goal").notNull().default(50),
+  rules:        text("rules"),
+  coverImageUrl: varchar("cover_image_url"),
+  accentColor:  varchar("accent_color").default("#f97316"),
+  isActive:     boolean("is_active").default(true),
+  createdAt:    timestamp("created_at").defaultNow(),
+});
+
+export const streakChallengeParticipants = pgTable("streak_challenge_participants", {
+  id:              varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  challengeId:     varchar("challenge_id").notNull(),
+  userId:          varchar("user_id").notNull(),
+  personalGoal:    integer("personal_goal").notNull(),
+  bestRecord:      integer("best_record").notNull().default(0),
+  dayNumber:       integer("day_number").default(1),
+  isDaily:         boolean("is_daily").default(false),
+  startDate:       varchar("start_date", { length: 10 }),
+  lastAttemptDate: varchar("last_attempt_date", { length: 10 }),
+  createdAt:       timestamp("created_at").defaultNow(),
+  updatedAt:       timestamp("updated_at").defaultNow(),
+}, (t) => [
+  uniqueIndex("streak_participant_uniq").on(t.challengeId, t.userId),
+]);
+
+export const streakChallengeAttempts = pgTable("streak_challenge_attempts", {
+  id:            varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  participantId: varchar("participant_id").notNull(),
+  userId:        varchar("user_id").notNull(),
+  challengeId:   varchar("challenge_id").notNull(),
+  score:         integer("score").notNull(),
+  attemptDate:   varchar("attempt_date", { length: 10 }).notNull(),
+  isNewRecord:   boolean("is_new_record").default(false),
+  note:          text("note"),
+  videoUrl:      varchar("video_url"),
+  createdAt:     timestamp("created_at").defaultNow(),
+});
+
+export type StreakChallenge             = typeof streakChallenges.$inferSelect;
+export type StreakChallengeParticipant  = typeof streakChallengeParticipants.$inferSelect;
+export type StreakChallengeAttempt      = typeof streakChallengeAttempts.$inferSelect;
+
+export const insertStreakChallengeParticipantSchema = createInsertSchema(streakChallengeParticipants).omit({
+  id: true, createdAt: true, updatedAt: true, bestRecord: true, lastAttemptDate: true,
+});
+export const insertStreakChallengeAttemptSchema = createInsertSchema(streakChallengeAttempts).omit({
+  id: true, createdAt: true, isNewRecord: true,
+});
+
+export type InsertStreakChallengeParticipant = z.infer<typeof insertStreakChallengeParticipantSchema>;
+export type InsertStreakChallengeAttempt     = z.infer<typeof insertStreakChallengeAttemptSchema>;
+
 // ─── Brand Principles ─────────────────────────────────────────────────────────
 export const brandPrinciples = pgTable("brand_principles", {
   id:                     integer("id").primaryKey().default(1),

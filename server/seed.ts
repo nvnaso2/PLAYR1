@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { drills, benchmarks, evaluationAttributes, shotLocations, shotTypes, userProfiles, metricTemplates, drillMetrics, teamClubs, leagues, archetypes, archetypeRoadmapItems, type ArchetypeTier, type ArchetypeRoadmapItemType } from "@shared/schema";
+import { drills, benchmarks, evaluationAttributes, shotLocations, shotTypes, userProfiles, metricTemplates, drillMetrics, teamClubs, leagues, archetypes, archetypeRoadmapItems, streakChallenges, type ArchetypeTier, type ArchetypeRoadmapItemType } from "@shared/schema";
 // seedPrograms disabled — generic programs removed per user request
 // import { seedPrograms } from "./seed-programs";
 import { users } from "@shared/models/auth";
@@ -723,6 +723,25 @@ export async function seedDatabase() {
       console.log(`Archetype roadmap seeded (${roadmapSeed.length} items)`);
     } else {
       console.log("Archetype roadmap already seeded, skipping");
+    }
+
+    // ─── Streak Challenge seed ───────────────────────────────────────────────
+    const [existingStreak] = await db.select().from(streakChallenges).limit(1);
+    if (!existingStreak) {
+      await db.insert(streakChallenges).values({
+        slug: "fifty-in-a-row",
+        title: "50-in-a-Row 3-Point Challenge",
+        description: "How many consecutive 3-pointers can you make without a miss? Log your best streak, climb the leaderboard, and push for 50 in a row. This is the premier PLAYR1 community challenge — the one Coach P built his brand on.",
+        metric: "consecutive_makes",
+        metricLabel: "Consecutive 3-Pointers Made",
+        defaultGoal: 50,
+        accentColor: "#f97316",
+        rules: "Stand behind the 3-point line. Shoot until you miss — that's your score. Log every session honestly. You can attempt multiple times; only your best score counts on the leaderboard. Optional: record your attempt and share the link to be featured in creator content.",
+        isActive: true,
+      });
+      console.log("Streak challenge 'fifty-in-a-row' seeded");
+    } else {
+      console.log("Streak challenge already seeded, skipping");
     }
 
     console.log("Database seeding complete!");
