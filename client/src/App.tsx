@@ -79,6 +79,9 @@ const Hub = lazy(pageLoaders.hub);
 const Journey = lazy(pageLoaders.journey);
 const OnboardingPreview = lazy(() => import("@/pages/onboarding-preview"));
 const CommunityPage = lazy(() => import("@/pages/community"));
+const CommunityFriendsPage = lazy(() => import("@/pages/community-friends"));
+const CommunityChallengePage = lazy(() => import("@/pages/community-challenges"));
+const CommunityFindPlayersPage = lazy(() => import("@/pages/community-find-players"));
 const ProfileHubPage = lazy(() => import("@/pages/profile-hub"));
 const StreaksPage = lazy(() => import("@/pages/streaks"));
 const StatChallengePage = lazy(() => import("@/pages/stat-challenge"));
@@ -339,6 +342,9 @@ function Router() {
                 <Route path="/hub" component={Hub} />
                 <Route path="/journey" component={Journey} />
                 <Route path="/community" component={CommunityPage} />
+                <Route path="/community/friends" component={CommunityFriendsPage} />
+                <Route path="/community/challenges" component={CommunityChallengePage} />
+                <Route path="/community/find-players" component={CommunityFindPlayersPage} />
                 <Route path="/profile-hub" component={ProfileHubPage} />
                 <Route path="/streaks" component={StreaksPage} />
                 <Route path="/archetypes" component={Archetypes} />
