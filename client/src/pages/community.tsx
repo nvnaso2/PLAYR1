@@ -13,19 +13,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import {
   UserPlus, Shield, ChevronRight, Users, Activity,
   Swords, Search, Clock, Trophy, Check, X, Plus,
-  UserCheck, Calendar, Zap, Star, Flame,
-  RefreshCw, Bell,
+  Zap, Star, Flame, Calendar, RefreshCw, Bell, MapPin,
 } from "lucide-react";
 import {
   GROUP_CHALLENGE_GOAL_TYPES,
   GROUP_CHALLENGE_GOAL_LABELS,
+  SHOT_LOCATIONS,
+  LOCATION_CLASSIFICATIONS,
 } from "@shared/schema";
-import { FindPeopleTab } from "@/pages/find-people";
 import { formatDistanceToNow } from "date-fns";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -53,6 +52,67 @@ function activityIcon(type: string) {
   return map[type] ?? { icon: Activity, color: "text-zinc-400" };
 }
 
+// Friendly display label for shot locations
+function shotLocationLabel(loc: string) {
+  return loc.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+}
+
+// ─── Player Card ─────────────────────────────────────────────────────────────
+function PlayerCard({
+  user,
+  onAdd,
+  adding,
+  alreadyFriend,
+}: {
+  user: any;
+  onAdd: (id: string) => void;
+  adding: boolean;
+  alreadyFriend: boolean;
+}) {
+  const name = user.displayName || `${user.firstName || ""} ${user.lastName || ""}`.trim() || "Player";
+  return (
+    <Card className="border-zinc-800/50 bg-zinc-900/30">
+      <CardContent className="p-3 flex items-center gap-3">
+        <Link href={`/player/${user.userId}`}>
+          <Avatar className="w-9 h-9 cursor-pointer shrink-0">
+            <AvatarImage src={getObjectUrl(user.profilePhotoUrl) ?? user.profilePhotoUrl ?? undefined} />
+            <AvatarFallback className="bg-zinc-800 text-xs">{initials(name)}</AvatarFallback>
+          </Avatar>
+        </Link>
+        <div className="flex-1 min-w-0">
+          <Link href={`/player/${user.userId}`}>
+            <p className="text-sm font-medium text-white hover:text-orange-400 transition-colors cursor-pointer truncate">{name}</p>
+          </Link>
+          <div className="flex items-center gap-2 flex-wrap mt-0.5">
+            {user.skillLevel && (
+              <span className="text-[10px] text-zinc-500 capitalize">{user.skillLevel}</span>
+            )}
+            {(user.city || user.state) && (
+              <span className="text-[10px] text-zinc-600 flex items-center gap-0.5">
+                <MapPin className="w-2.5 h-2.5" />{[user.city, user.state].filter(Boolean).join(", ")}
+              </span>
+            )}
+          </div>
+        </div>
+        {alreadyFriend ? (
+          <Badge variant="outline" className="text-[10px] border-green-500/30 text-green-400 shrink-0">Friends</Badge>
+        ) : (
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-xs h-7 border-orange-500/40 text-orange-400 hover:bg-orange-500/10 shrink-0"
+            onClick={() => onAdd(user.userId)}
+            disabled={adding}
+            data-testid={`button-add-friend-${user.userId}`}
+          >
+            <UserPlus className="w-3 h-3 mr-1" />Add
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Friends Tab ─────────────────────────────────────────────────────────────
 function FriendsTab() {
   const { user } = useAuth();
@@ -62,6 +122,7 @@ function FriendsTab() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
   const [subTab, setSubTab] = useState<"activity" | "friends" | "requests">("activity");
+  const [addingId, setAddingId] = useState<string | null>(null);
 
   const { data: friends = [], isLoading: friendsLoading } = useQuery<any[]>({
     queryKey: ["/api/friends"],
@@ -75,14 +136,20 @@ function FriendsTab() {
     queryKey: ["/api/friends/activity"],
     enabled: !!user,
   });
+  const { data: recommended = [], isLoading: recLoading } = useQuery<any[]>({
+    queryKey: ["/api/users/recommended"],
+    enabled: !!user && friends.length === 0,
+  });
 
   const sendRequest = useMutation({
     mutationFn: (addresseeId: string) => apiRequest("POST", "/api/friends/request", { addresseeId }),
     onSuccess: () => {
       toast({ title: "Friend request sent!" });
       queryClient.invalidateQueries({ queryKey: ["/api/friends"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users/recommended"] });
+      setAddingId(null);
     },
-    onError: () => toast({ title: "Failed to send request", variant: "destructive" }),
+    onError: () => { toast({ title: "Failed to send request", variant: "destructive" }); setAddingId(null); },
   });
 
   const respondRequest = useMutation({
@@ -105,10 +172,14 @@ function FriendsTab() {
     setSearching(true);
     try {
       const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}&limit=10`);
-      const data = await res.json();
-      setSearchResults((data || []).filter((u: any) => u.userId !== myId));
+      setSearchResults((await res.json() || []).filter((u: any) => u.userId !== myId));
     } catch { /* ignore */ }
     setSearching(false);
+  }
+
+  function handleAdd(id: string) {
+    setAddingId(id);
+    sendRequest.mutate(id);
   }
 
   const friendIds = new Set(friends.map((f: any) => f.friend.id));
@@ -126,9 +197,7 @@ function FriendsTab() {
             key={t.key}
             onClick={() => setSubTab(t.key)}
             className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-sm font-medium transition-colors ${
-              subTab === t.key
-                ? "bg-zinc-800 text-white"
-                : "text-zinc-500 hover:text-zinc-300"
+              subTab === t.key ? "bg-zinc-800 text-white" : "text-zinc-500 hover:text-zinc-300"
             }`}
             data-testid={`tab-friends-${t.key}`}
           >
@@ -146,7 +215,7 @@ function FriendsTab() {
       {subTab === "activity" && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-xs text-zinc-500">What your friends are up to</p>
+            <p className="text-xs text-zinc-500">What your friends are working on</p>
             <button onClick={() => refetchFeed()} className="text-zinc-500 hover:text-zinc-300 transition-colors">
               <RefreshCw className="w-3.5 h-3.5" />
             </button>
@@ -154,10 +223,10 @@ function FriendsTab() {
           {feedLoading ? (
             [0,1,2].map(i => <Skeleton key={i} className="h-16 rounded-xl bg-zinc-900" />)
           ) : activityFeed.length === 0 ? (
-            <div className="text-center py-10">
+            <div className="text-center py-8">
               <Activity className="w-10 h-10 text-zinc-700 mx-auto mb-3" />
               <p className="text-zinc-500 text-sm">No activity yet</p>
-              <p className="text-zinc-600 text-xs mt-1">Add friends to see their basketball activity here</p>
+              <p className="text-zinc-600 text-xs mt-1">Add friends to see their basketball progress here</p>
             </div>
           ) : (
             activityFeed.map((item: any) => {
@@ -166,7 +235,7 @@ function FriendsTab() {
                 <Card key={item.id} className="border-zinc-800/60 bg-zinc-900/40">
                   <CardContent className="p-4 flex items-start gap-3">
                     <Avatar className="w-9 h-9 shrink-0">
-                      <AvatarImage src={getObjectUrl(item.user?.profilePhotoUrl) ?? item.user?.profilePhotoUrl ?? undefined} />
+                      <AvatarImage src={getObjectUrl(item.user?.profilePhotoUrl) ?? undefined} />
                       <AvatarFallback className="bg-zinc-800 text-xs">{initials(item.user?.displayName || "P")}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
@@ -189,7 +258,6 @@ function FriendsTab() {
       {/* Friends list */}
       {subTab === "friends" && (
         <div className="space-y-3">
-          {/* Search to add */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
             <Input
@@ -200,62 +268,31 @@ function FriendsTab() {
               data-testid="input-friend-search"
             />
           </div>
-          {searchQ.length >= 2 && (
+
+          {searchQ.length >= 2 ? (
             <div className="space-y-2">
               {searching ? (
                 <Skeleton className="h-12 bg-zinc-900 rounded-xl" />
               ) : searchResults.length === 0 ? (
                 <p className="text-xs text-zinc-500 text-center py-3">No players found</p>
               ) : (
-                searchResults.map((u: any) => (
-                  <Card key={u.userId} className="border-zinc-800/60 bg-zinc-900/40">
-                    <CardContent className="p-3 flex items-center gap-3">
-                      <Avatar className="w-8 h-8 shrink-0">
-                        <AvatarImage src={getObjectUrl(u.profilePhotoUrl) ?? u.profilePhotoUrl ?? undefined} />
-                        <AvatarFallback className="bg-zinc-800 text-xs">{initials(u.displayName || `${u.firstName || ""} ${u.lastName || ""}`.trim())}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-white truncate">{u.displayName || `${u.firstName || ""} ${u.lastName || ""}`.trim()}</p>
-                        {u.skillLevel && <p className="text-[11px] text-zinc-500 capitalize">{u.skillLevel}</p>}
-                      </div>
-                      {friendIds.has(u.userId) ? (
-                        <Badge variant="outline" className="text-xs border-green-500/30 text-green-400">Friends</Badge>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-xs h-7 border-orange-500/40 text-orange-400 hover:bg-orange-500/10"
-                          onClick={() => sendRequest.mutate(u.userId)}
-                          disabled={sendRequest.isPending}
-                          data-testid={`button-add-friend-${u.userId}`}
-                        >
-                          <UserPlus className="w-3 h-3 mr-1" />Add
-                        </Button>
-                      )}
-                    </CardContent>
-                  </Card>
+                searchResults.map(u => (
+                  <PlayerCard key={u.userId} user={u}
+                    onAdd={handleAdd} adding={addingId === u.userId}
+                    alreadyFriend={friendIds.has(u.userId)} />
                 ))
               )}
             </div>
-          )}
-
-          {/* Current friends */}
-          {friendsLoading ? (
+          ) : friendsLoading ? (
             [0,1,2].map(i => <Skeleton key={i} className="h-14 rounded-xl bg-zinc-900" />)
-          ) : friends.length === 0 && searchQ.length < 2 ? (
-            <div className="text-center py-8">
-              <Users className="w-10 h-10 text-zinc-700 mx-auto mb-3" />
-              <p className="text-zinc-500 text-sm">No friends yet</p>
-              <p className="text-zinc-600 text-xs mt-1">Search for players above to send a friend request</p>
-            </div>
-          ) : (
+          ) : friends.length > 0 ? (
             <div className="space-y-2">
               {friends.map((item: any) => (
                 <Card key={item.friendship.id} className="border-zinc-800/50 bg-zinc-900/30">
                   <CardContent className="p-3 flex items-center gap-3">
                     <Link href={`/player/${item.friend.id}`}>
                       <Avatar className="w-9 h-9 cursor-pointer shrink-0">
-                        <AvatarImage src={getObjectUrl(item.friend.profilePhotoUrl) ?? item.friend.profilePhotoUrl ?? undefined} />
+                        <AvatarImage src={getObjectUrl(item.friend.profilePhotoUrl) ?? undefined} />
                         <AvatarFallback className="bg-zinc-800 text-xs">{initials(item.friend.displayName)}</AvatarFallback>
                       </Avatar>
                     </Link>
@@ -277,6 +314,26 @@ function FriendsTab() {
                 </Card>
               ))}
             </div>
+          ) : (
+            // No friends yet — show recommendations
+            <div className="space-y-3">
+              <div className="text-center pt-2 pb-1">
+                <Users className="w-8 h-8 text-zinc-700 mx-auto mb-2" />
+                <p className="text-zinc-500 text-sm font-medium">No friends yet</p>
+                <p className="text-zinc-600 text-xs mt-1">Players with similar profiles</p>
+              </div>
+              {recLoading ? (
+                [0,1,2].map(i => <Skeleton key={i} className="h-14 rounded-xl bg-zinc-900" />)
+              ) : recommended.length === 0 ? (
+                <p className="text-xs text-zinc-600 text-center pb-4">Search above to find players</p>
+              ) : (
+                recommended.slice(0, 8).map(u => (
+                  <PlayerCard key={u.userId} user={u}
+                    onAdd={handleAdd} adding={addingId === u.userId}
+                    alreadyFriend={false} />
+                ))
+              )}
+            </div>
           )}
         </div>
       )}
@@ -296,7 +353,7 @@ function FriendsTab() {
               <Card key={item.friendship.id} className="border-zinc-800/60 bg-zinc-900/40">
                 <CardContent className="p-4 flex items-center gap-3">
                   <Avatar className="w-9 h-9 shrink-0">
-                    <AvatarImage src={getObjectUrl(item.requester?.profilePhotoUrl) ?? item.requester?.profilePhotoUrl ?? undefined} />
+                    <AvatarImage src={getObjectUrl(item.requester?.profilePhotoUrl) ?? undefined} />
                     <AvatarFallback className="bg-zinc-800 text-xs">{initials(item.requester?.displayName || "P")}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
@@ -304,21 +361,14 @@ function FriendsTab() {
                     <p className="text-xs text-zinc-500">wants to be your friend</p>
                   </div>
                   <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      className="h-8 text-xs bg-orange-500 hover:bg-orange-600"
+                    <Button size="sm" className="h-8 text-xs bg-orange-500 hover:bg-orange-600"
                       onClick={() => respondRequest.mutate({ id: item.friendship.id, status: "accepted" })}
-                      data-testid={`button-accept-friend-${item.friendship.id}`}
-                    >
+                      data-testid={`button-accept-friend-${item.friendship.id}`}>
                       <Check className="w-3 h-3 mr-1" />Accept
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 text-xs border-zinc-700"
+                    <Button size="sm" variant="outline" className="h-8 text-xs border-zinc-700"
                       onClick={() => respondRequest.mutate({ id: item.friendship.id, status: "declined" })}
-                      data-testid={`button-decline-friend-${item.friendship.id}`}
-                    >
+                      data-testid={`button-decline-friend-${item.friendship.id}`}>
                       <X className="w-3 h-3" />
                     </Button>
                   </div>
@@ -333,15 +383,31 @@ function FriendsTab() {
 }
 
 // ─── Group Challenges Tab ─────────────────────────────────────────────────────
+const SHOT_TYPE_OPTIONS = [
+  { value: "", label: "All shots" },
+  { value: "3-pointer", label: "3-Pointers" },
+  { value: "2-pointer", label: "2-Pointers" },
+  { value: "free-throw", label: "Free Throws" },
+];
+
+const SHOT_LOCATION_OPTIONS = SHOT_LOCATIONS.map(loc => ({
+  value: loc,
+  label: shotLocationLabel(loc),
+  classification: LOCATION_CLASSIFICATIONS[loc],
+}));
+
 function GroupChallengesTab() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [createOpen, setCreateOpen] = useState(false);
   const [form, setForm] = useState({
     name: "",
-    goalType: "" as string,
+    goalType: "",
     goalAmount: "",
     durationDays: "30",
+    shotFilter: "",
+    locationFilter: "",
+    useLocation: false,
     inviteSearch: "",
   });
   const [inviteResults, setInviteResults] = useState<any[]>([]);
@@ -363,9 +429,7 @@ function GroupChallengesTab() {
       toast({ title: "Challenge created!" });
       queryClient.invalidateQueries({ queryKey: ["/api/group-challenges"] });
       setCreateOpen(false);
-      setForm({ name: "", goalType: "", goalAmount: "", durationDays: "30", inviteSearch: "" });
-      setInviteIds([]);
-      setInviteNames({});
+      resetForm();
     },
     onError: () => toast({ title: "Failed to create challenge", variant: "destructive" }),
   });
@@ -384,23 +448,32 @@ function GroupChallengesTab() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/group-challenges"] }),
   });
 
+  function resetForm() {
+    setForm({ name: "", goalType: "", goalAmount: "", durationDays: "30", shotFilter: "", locationFilter: "", useLocation: false, inviteSearch: "" });
+    setInviteIds([]);
+    setInviteNames({});
+    setInviteResults([]);
+  }
+
   async function searchInvites(q: string) {
     setForm(f => ({ ...f, inviteSearch: q }));
     if (q.length < 2) { setInviteResults([]); return; }
     const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}&limit=8`);
-    const data = await res.json();
-    setInviteResults(data || []);
+    setInviteResults(await res.json() || []);
   }
 
   function toggleInvite(u: any) {
+    const name = u.displayName || `${u.firstName || ""} ${u.lastName || ""}`.trim();
     setInviteIds(ids => ids.includes(u.userId) ? ids.filter(id => id !== u.userId) : [...ids, u.userId]);
-    setInviteNames(n => ({ ...n, [u.userId]: u.displayName || `${u.firstName || ""} ${u.lastName || ""}`.trim() }));
+    setInviteNames(n => ({ ...n, [u.userId]: name }));
   }
 
   function daysRemaining(endsAt: string) {
-    const diff = new Date(endsAt).getTime() - Date.now();
-    return Math.max(0, Math.ceil(diff / 86400000));
+    return Math.max(0, Math.ceil((new Date(endsAt).getTime() - Date.now()) / 86400000));
   }
+
+  const isShotType = form.goalType === "shots_made" || form.goalType === "shot_attempts";
+  const shotFilterValue = form.useLocation ? form.locationFilter : form.shotFilter;
 
   return (
     <div className="space-y-4">
@@ -415,7 +488,7 @@ function GroupChallengesTab() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-white truncate">{inv.challenge?.name}</p>
                   <p className="text-xs text-zinc-500">
-                    from {inv.challenge?.creator?.displayName} · {GROUP_CHALLENGE_GOAL_LABELS[inv.challenge?.goalType as keyof typeof GROUP_CHALLENGE_GOAL_LABELS] ?? inv.challenge?.goalType} · {inv.challenge?.goalAmount} goal
+                    from {inv.challenge?.creator?.displayName} · {GROUP_CHALLENGE_GOAL_LABELS[inv.challenge?.goalType as keyof typeof GROUP_CHALLENGE_GOAL_LABELS] ?? inv.challenge?.goalType} · goal: {inv.challenge?.goalAmount?.toLocaleString()}
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -435,13 +508,13 @@ function GroupChallengesTab() {
       )}
 
       {/* Create button */}
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+      <Dialog open={createOpen} onOpenChange={open => { setCreateOpen(open); if (!open) resetForm(); }}>
         <DialogTrigger asChild>
           <Button className="w-full bg-orange-500 hover:bg-orange-600 text-white" data-testid="button-create-group-challenge">
             <Plus className="w-4 h-4 mr-2" />Create Group Challenge
           </Button>
         </DialogTrigger>
-        <DialogContent className="bg-zinc-950 border-zinc-800 max-w-md">
+        <DialogContent className="bg-zinc-950 border-zinc-800 max-w-md max-h-[90vh] overflow-y-auto" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>New Group Challenge</DialogTitle>
           </DialogHeader>
@@ -453,35 +526,94 @@ function GroupChallengesTab() {
                 value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                 data-testid="input-challenge-name" />
             </div>
+
+            <div>
+              <Label className="text-xs text-zinc-400">Goal Type</Label>
+              <Select value={form.goalType} onValueChange={v => setForm(f => ({ ...f, goalType: v, shotFilter: "", locationFilter: "", useLocation: false }))}>
+                <SelectTrigger className="mt-1 bg-zinc-900 border-zinc-800" data-testid="select-goal-type">
+                  <SelectValue placeholder="Select a goal type…" />
+                </SelectTrigger>
+                <SelectContent className="bg-zinc-900 border-zinc-800">
+                  {GROUP_CHALLENGE_GOAL_TYPES.map(t => (
+                    <SelectItem key={t} value={t}>{GROUP_CHALLENGE_GOAL_LABELS[t]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Shot filter — only for shots_made / shot_attempts */}
+            {isShotType && (
+              <div className="space-y-3 p-3 rounded-lg bg-zinc-900/60 border border-zinc-800">
+                <p className="text-xs text-zinc-400 font-medium">Shot Filter (optional)</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setForm(f => ({ ...f, useLocation: false, locationFilter: "" }))}
+                    className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-colors border ${!form.useLocation ? "border-orange-500/50 bg-orange-500/10 text-orange-400" : "border-zinc-800 text-zinc-500 hover:text-zinc-300"}`}
+                    data-testid="toggle-shot-type">
+                    By Type
+                  </button>
+                  <button
+                    onClick={() => setForm(f => ({ ...f, useLocation: true, shotFilter: "" }))}
+                    className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-colors border ${form.useLocation ? "border-orange-500/50 bg-orange-500/10 text-orange-400" : "border-zinc-800 text-zinc-500 hover:text-zinc-300"}`}
+                    data-testid="toggle-location">
+                    By Location
+                  </button>
+                </div>
+                {!form.useLocation ? (
+                  <Select value={form.shotFilter} onValueChange={v => setForm(f => ({ ...f, shotFilter: v }))}>
+                    <SelectTrigger className="bg-zinc-900 border-zinc-800">
+                      <SelectValue placeholder="All shot types" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-zinc-900 border-zinc-800">
+                      {SHOT_TYPE_OPTIONS.map(o => (
+                        <SelectItem key={o.value || "_all"} value={o.value || "_all"}>{o.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Select value={form.locationFilter} onValueChange={v => setForm(f => ({ ...f, locationFilter: v }))}>
+                    <SelectTrigger className="bg-zinc-900 border-zinc-800">
+                      <SelectValue placeholder="Any location" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-zinc-900 border-zinc-800 max-h-48">
+                      <SelectItem value="_any">Any location</SelectItem>
+                      {SHOT_LOCATION_OPTIONS.map(o => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label} <span className="text-zinc-500 text-[10px]">({o.classification})</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label className="text-xs text-zinc-400">Goal Type</Label>
-                <Select value={form.goalType} onValueChange={v => setForm(f => ({ ...f, goalType: v }))}>
-                  <SelectTrigger className="mt-1 bg-zinc-900 border-zinc-800" data-testid="select-goal-type">
-                    <SelectValue placeholder="Select…" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-zinc-900 border-zinc-800">
-                    {GROUP_CHALLENGE_GOAL_TYPES.map(t => (
-                      <SelectItem key={t} value={t}>{GROUP_CHALLENGE_GOAL_LABELS[t]}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-xs text-zinc-400">Goal Amount</Label>
-                <Input type="number" placeholder="500"
+                <Label className="text-xs text-zinc-400">
+                  Goal Amount
+                  {form.goalType === "workout_minutes" ? " (minutes)" :
+                   form.goalType === "streak_days" ? " (days)" :
+                   form.goalType === "training_sessions" ? " (sessions)" : ""}
+                </Label>
+                <Input type="number" placeholder={
+                  form.goalType === "workout_minutes" ? "300" :
+                  form.goalType === "streak_days" ? "30" :
+                  form.goalType === "training_sessions" ? "20" : "500"
+                }
                   className="mt-1 bg-zinc-900 border-zinc-800"
                   value={form.goalAmount} onChange={e => setForm(f => ({ ...f, goalAmount: e.target.value }))}
                   data-testid="input-goal-amount" />
               </div>
+              <div>
+                <Label className="text-xs text-zinc-400">Duration (days)</Label>
+                <Input type="number" placeholder="30"
+                  className="mt-1 bg-zinc-900 border-zinc-800"
+                  value={form.durationDays} onChange={e => setForm(f => ({ ...f, durationDays: e.target.value }))}
+                  data-testid="input-duration-days" />
+              </div>
             </div>
-            <div>
-              <Label className="text-xs text-zinc-400">Duration (days)</Label>
-              <Input type="number" placeholder="30"
-                className="mt-1 bg-zinc-900 border-zinc-800"
-                value={form.durationDays} onChange={e => setForm(f => ({ ...f, durationDays: e.target.value }))}
-                data-testid="input-duration-days" />
-            </div>
+
             <div>
               <Label className="text-xs text-zinc-400">Invite Players</Label>
               <div className="relative mt-1">
@@ -496,8 +628,7 @@ function GroupChallengesTab() {
                     const selected = inviteIds.includes(u.userId);
                     return (
                       <button key={u.userId} onClick={() => toggleInvite(u)}
-                        className={`w-full flex items-center gap-2 p-2 rounded-lg transition-colors text-left ${selected ? "bg-orange-500/10 border border-orange-500/30" : "bg-zinc-900/60 hover:bg-zinc-800/60"}`}
-                        data-testid={`button-invite-${u.userId}`}>
+                        className={`w-full flex items-center gap-2 p-2 rounded-lg transition-colors text-left ${selected ? "bg-orange-500/10 border border-orange-500/30" : "bg-zinc-900/60 hover:bg-zinc-800/60"}`}>
                         <Avatar className="w-6 h-6 shrink-0">
                           <AvatarImage src={getObjectUrl(u.profilePhotoUrl) ?? undefined} />
                           <AvatarFallback className="text-[9px] bg-zinc-800">{initials(name)}</AvatarFallback>
@@ -522,10 +653,14 @@ function GroupChallengesTab() {
                 </div>
               )}
             </div>
+
             <Button
               className="w-full bg-orange-500 hover:bg-orange-600"
               disabled={!form.name || !form.goalType || !form.goalAmount || createMutation.isPending}
-              onClick={() => createMutation.mutate({ ...form, inviteIds })}
+              onClick={() => {
+                const sf = isShotType ? (form.useLocation ? (form.locationFilter === "_any" ? "" : form.locationFilter) : (form.shotFilter === "_all" ? "" : form.shotFilter)) : "";
+                createMutation.mutate({ name: form.name, goalType: form.goalType, goalAmount: Number(form.goalAmount), durationDays: Number(form.durationDays), shotFilter: sf || null, inviteIds });
+              }}
               data-testid="button-submit-create-challenge"
             >
               {createMutation.isPending ? "Creating…" : "Create Challenge"}
@@ -546,44 +681,43 @@ function GroupChallengesTab() {
       ) : (
         challenges.map((c: any) => {
           const days = daysRemaining(c.endsAt);
-          const sortedMembers = [...(c.members || [])].sort((a, b) => b.progress - a.progress);
+          const sortedMembers = [...(c.members || [])].sort((a: any, b: any) => b.progress - a.progress);
           const goalLabel = GROUP_CHALLENGE_GOAL_LABELS[c.goalType as keyof typeof GROUP_CHALLENGE_GOAL_LABELS] ?? c.goalType;
+          const shotLabel = c.shotFilter ? ` · ${shotLocationLabel(c.shotFilter)}` : "";
           return (
             <Card key={c.id} className="border-zinc-800/60 bg-zinc-900/40 overflow-hidden">
-              <div className="h-1 bg-gradient-to-r from-orange-500 to-orange-500/30" />
+              <div className="h-1 bg-gradient-to-r from-orange-500 to-orange-500/20" />
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <h3 className="font-semibold text-white text-base">{c.name}</h3>
-                    <p className="text-xs text-zinc-500">{goalLabel} · Goal: {c.goalAmount.toLocaleString()}</p>
+                    <h3 className="font-semibold text-white">{c.name}</h3>
+                    <p className="text-xs text-zinc-500">{goalLabel}{shotLabel} · Goal: {c.goalAmount.toLocaleString()}</p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     <Badge variant="outline" className={`text-xs ${days <= 3 ? "border-red-500/40 text-red-400" : "border-zinc-700 text-zinc-400"}`}>
                       <Clock className="w-2.5 h-2.5 mr-1" />{days}d left
                     </Badge>
                     <button onClick={() => syncMutation.mutate(c.id)}
                       className="text-zinc-500 hover:text-zinc-300 transition-colors"
                       title="Sync progress" data-testid={`button-sync-challenge-${c.id}`}>
-                      <RefreshCw className={`w-3.5 h-3.5 ${syncMutation.isPending ? "animate-spin" : ""}`} />
+                      <RefreshCw className={`w-3.5 h-3.5 ${syncMutation.variables === c.id && syncMutation.isPending ? "animate-spin" : ""}`} />
                     </button>
                   </div>
                 </div>
-
-                {/* Leaderboard */}
-                <div className="space-y-2">
+                <div className="space-y-2.5">
                   {sortedMembers.map((m: any, i: number) => {
                     const pct = c.goalAmount > 0 ? Math.min(100, Math.round((m.progress / c.goalAmount) * 100)) : 0;
                     return (
                       <div key={m.id} className="space-y-1" data-testid={`member-row-${m.userId}`}>
                         <div className="flex items-center gap-2">
-                          <span className="text-[11px] text-zinc-600 w-4 text-right">{i + 1}</span>
+                          <span className="text-[11px] text-zinc-600 w-4 text-right shrink-0">{i + 1}</span>
                           <Avatar className="w-6 h-6 shrink-0">
                             <AvatarImage src={getObjectUrl(m.user?.profilePhotoUrl) ?? undefined} />
                             <AvatarFallback className="text-[9px] bg-zinc-800">{initials(m.user?.displayName || "P")}</AvatarFallback>
                           </Avatar>
                           <span className="text-sm text-white flex-1 truncate">{m.user?.displayName}</span>
                           <span className="text-sm font-bold text-orange-400">{m.progress.toLocaleString()}</span>
-                          <span className="text-[10px] text-zinc-600">/ {c.goalAmount.toLocaleString()}</span>
+                          <span className="text-[10px] text-zinc-600 shrink-0">/ {c.goalAmount.toLocaleString()}</span>
                         </div>
                         <div className="ml-10">
                           <Progress value={pct} className="h-1 bg-zinc-800" />
@@ -596,6 +730,109 @@ function GroupChallengesTab() {
             </Card>
           );
         })
+      )}
+    </div>
+  );
+}
+
+// ─── Find Players Tab ─────────────────────────────────────────────────────────
+function FindPlayersTab() {
+  const { user } = useAuth();
+  const myId = (user as any)?.claims?.sub ?? (user as any)?.id;
+  const { toast } = useToast();
+  const [searchQ, setSearchQ] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [addingId, setAddingId] = useState<string | null>(null);
+
+  const { data: recommended = [], isLoading: recLoading } = useQuery<any[]>({
+    queryKey: ["/api/users/recommended", 20],
+    enabled: !!user,
+  });
+  const { data: friends = [] } = useQuery<any[]>({
+    queryKey: ["/api/friends"],
+    enabled: !!user,
+  });
+
+  const sendRequest = useMutation({
+    mutationFn: (addresseeId: string) => apiRequest("POST", "/api/friends/request", { addresseeId }),
+    onSuccess: () => {
+      toast({ title: "Friend request sent!" });
+      queryClient.invalidateQueries({ queryKey: ["/api/friends"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users/recommended", 20] });
+      setAddingId(null);
+    },
+    onError: () => { toast({ title: "Failed", variant: "destructive" }); setAddingId(null); },
+  });
+
+  async function handleSearch(q: string) {
+    setSearchQ(q);
+    if (q.length < 2) { setSearchResults([]); return; }
+    setSearching(true);
+    try {
+      const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}&limit=15`);
+      setSearchResults((await res.json() || []).filter((u: any) => u.userId !== myId));
+    } catch { /* ignore */ }
+    setSearching(false);
+  }
+
+  function handleAdd(id: string) {
+    setAddingId(id);
+    sendRequest.mutate(id);
+  }
+
+  const friendIds = new Set(friends.map((f: any) => f.friend.id));
+  const showSearch = searchQ.length >= 2;
+
+  return (
+    <div className="space-y-4">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+        <Input
+          placeholder="Search players by name…"
+          className="pl-9 bg-zinc-900/60 border-zinc-800"
+          value={searchQ}
+          onChange={e => handleSearch(e.target.value)}
+          data-testid="input-find-players-search"
+        />
+      </div>
+
+      {showSearch ? (
+        <div className="space-y-2">
+          {searching ? (
+            [0,1,2].map(i => <Skeleton key={i} className="h-14 rounded-xl bg-zinc-900" />)
+          ) : searchResults.length === 0 ? (
+            <p className="text-xs text-zinc-500 text-center py-4">No players found</p>
+          ) : (
+            searchResults.map(u => (
+              <PlayerCard key={u.userId} user={u}
+                onAdd={handleAdd} adding={addingId === u.userId}
+                alreadyFriend={friendIds.has(u.userId)} />
+            ))
+          )}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-xs text-zinc-500 font-medium uppercase tracking-wider">
+            Players Like You
+          </p>
+          <p className="text-xs text-zinc-600 -mt-2">Matched by skill level, position, and location</p>
+          {recLoading ? (
+            [0,1,2,3].map(i => <Skeleton key={i} className="h-14 rounded-xl bg-zinc-900" />)
+          ) : recommended.length === 0 ? (
+            <div className="text-center py-8">
+              <Users className="w-10 h-10 text-zinc-700 mx-auto mb-3" />
+              <p className="text-zinc-500 text-sm">No recommendations yet</p>
+              <p className="text-zinc-600 text-xs mt-1">Complete your profile to get matched with similar players</p>
+            </div>
+          ) : (
+            recommended.map(u => (
+              <PlayerCard key={u.userId} user={u}
+                onAdd={handleAdd} adding={addingId === u.userId}
+                alreadyFriend={friendIds.has(u.userId)} />
+            ))
+          )}
+        </div>
       )}
     </div>
   );
@@ -625,20 +862,10 @@ export default function CommunityPage() {
   const challengeInviteCount = challengeInvites?.length ?? 0;
 
   const tabs = [
-    { key: "friends",           label: "Friends",        icon: Users,    badge: friendReqCount },
-    { key: "group-challenges",  label: "Challenges",     icon: Swords,   badge: challengeInviteCount },
-    { key: "find-players",      label: "Find Players",   icon: Search,   badge: 0 },
-    { key: "my-trainer",        label: "My Trainer",     icon: UserPlus, badge: pendingCount, path: "/my-trainer" },
-    { key: "teams",             label: "Teams",          icon: Shield,   badge: 0,            path: "/teams" },
+    { key: "friends",          label: "Friends",        icon: Users,  badge: friendReqCount },
+    { key: "group-challenges", label: "Challenges",     icon: Swords, badge: challengeInviteCount },
+    { key: "find-players",     label: "Find Players",   icon: Search, badge: 0 },
   ];
-
-  function handleTabClick(t: typeof tabs[0]) {
-    if (t.path) {
-      navigate(t.path);
-    } else {
-      setTab(t.key);
-    }
-  }
 
   return (
     <div className="pb-24 max-w-2xl mx-auto">
@@ -650,25 +877,23 @@ export default function CommunityPage() {
 
       {/* Tab bar */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-zinc-800/60 px-4 pt-1 pb-0">
-        <div className="flex gap-0 overflow-x-auto scrollbar-hide -mx-1">
+        <div className="flex gap-0">
           {tabs.map(t => {
             const Icon = t.icon;
             const active = tab === t.key;
             return (
               <button
                 key={t.key}
-                onClick={() => handleTabClick(t)}
-                className={`flex items-center gap-1.5 px-3 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors shrink-0 ${
-                  active
-                    ? "border-orange-500 text-orange-400"
-                    : "border-transparent text-zinc-500 hover:text-zinc-300"
+                onClick={() => setTab(t.key)}
+                className={`flex items-center gap-1.5 px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                  active ? "border-orange-500 text-orange-400" : "border-transparent text-zinc-500 hover:text-zinc-300"
                 }`}
                 data-testid={`tab-community-${t.key}`}
               >
                 <Icon className="w-3.5 h-3.5" />
                 {t.label}
                 {t.badge > 0 && (
-                  <span className="ml-0.5 text-[10px] bg-red-500 text-white rounded-full px-1 min-w-[16px] text-center">
+                  <span className="text-[10px] bg-red-500 text-white rounded-full px-1 min-w-[16px] text-center">
                     {t.badge}
                   </span>
                 )}
@@ -679,10 +904,53 @@ export default function CommunityPage() {
       </div>
 
       {/* Tab content */}
-      <div className="px-4 pt-4">
+      <div className="px-4 pt-4 space-y-4">
         {tab === "friends" && <FriendsTab />}
         {tab === "group-challenges" && <GroupChallengesTab />}
-        {tab === "find-players" && <FindPeopleTab />}
+        {tab === "find-players" && <FindPlayersTab />}
+
+        {/* My Trainer & Teams — always visible as cards */}
+        <div className="pt-2 space-y-3">
+          <p className="text-xs text-zinc-500 uppercase tracking-wider font-medium">Also in Community</p>
+          <Card
+            className="cursor-pointer hover-elevate border-zinc-800/60 bg-zinc-900/40"
+            onClick={() => navigate("/my-trainer")}
+            data-testid="card-community-my-trainer"
+          >
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center shrink-0">
+                <UserPlus className="w-5 h-5 text-orange-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-sm">My Trainer</h3>
+                  {pendingCount > 0 && (
+                    <Badge variant="destructive" className="text-[10px] h-4 px-1.5">{pendingCount}</Badge>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">Connect, book sessions & view evaluations</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-zinc-600 shrink-0" />
+            </CardContent>
+          </Card>
+
+          <Card
+            className="cursor-pointer hover-elevate border-zinc-800/60 bg-zinc-900/40"
+            onClick={() => navigate("/teams")}
+            data-testid="card-community-teams"
+          >
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0">
+                <Shield className="w-5 h-5 text-blue-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-sm">Teams & Leagues</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Join teams, find leagues and compete</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-zinc-600 shrink-0" />
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

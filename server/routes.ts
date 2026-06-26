@@ -10164,6 +10164,76 @@ Return ONLY valid JSON array, no markdown.`;
     }
   });
 
+  // ─── Recommended Users ───────────────────────────────────────────────────────
+  app.get("/api/users/recommended", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const limit = parseInt(String(req.query.limit ?? "20"));
+
+      // Get current user's profile for matching
+      const [myProfile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, userId));
+      const [myCareer] = await db.select().from(careerProfiles).where(eq(careerProfiles.userId, userId));
+
+      // Get existing friends to exclude
+      const friends = await storage.getFriends(userId);
+      const friendIds = new Set(friends.map((f: any) => f.friend.id));
+      friendIds.add(userId);
+
+      // Build a scored recommendation list
+      const results = await db.select({
+        userId: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        profileImageUrl: users.profileImageUrl,
+        displayName: userProfiles.displayName,
+        profilePhotoUrl: userProfiles.profilePhotoUrl,
+        skillLevel: userProfiles.skillLevel,
+        city: userProfiles.city,
+        state: userProfiles.state,
+        age: userProfiles.age,
+        positions: careerProfiles.positions,
+      })
+        .from(users)
+        .leftJoin(userProfiles, eq(userProfiles.userId, users.id))
+        .leftJoin(careerProfiles, eq(careerProfiles.userId, users.id))
+        .limit(200);
+
+      const scored = results
+        .filter(r => !friendIds.has(r.userId))
+        .map(r => {
+          let score = 0;
+          if (myProfile?.skillLevel && r.skillLevel === myProfile.skillLevel) score += 3;
+          if (myProfile?.state && r.state === myProfile.state) score += 2;
+          if (myProfile?.city && r.city === myProfile.city) score += 3;
+          if (myProfile?.age && r.age && Math.abs((r.age ?? 0) - (myProfile.age ?? 0)) <= 3) score += 2;
+          const myPos = (myCareer?.positions as string[] | null)?.[0];
+          const theirPos = (r.positions as string[] | null)?.[0];
+          if (myPos && theirPos && myPos === theirPos) score += 2;
+          return { ...r, score };
+        })
+        .sort((a, b) => b.score - a.score)
+        .slice(0, limit)
+        .map(r => ({
+          userId: r.userId,
+          firstName: r.firstName,
+          lastName: r.lastName,
+          displayName: r.displayName,
+          profilePhotoUrl: r.profilePhotoUrl || r.profileImageUrl,
+          skillLevel: r.skillLevel,
+          city: r.city,
+          state: r.state,
+          age: r.age,
+          positions: r.positions,
+          score: r.score,
+        }));
+
+      res.json(scored);
+    } catch (err) {
+      console.error("Recommended users error:", err);
+      res.status(500).json({ message: "Failed to get recommendations" });
+    }
+  });
+
   // ─── Friendships ────────────────────────────────────────────────────────────
   app.get("/api/friends", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {

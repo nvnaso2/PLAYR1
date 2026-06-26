@@ -7418,29 +7418,44 @@ Object.assign(DatabaseStorage.prototype, {
     for (const m of members) {
       let progress = 0;
       const startDate = challenge.startsAt;
-      const endDate = challenge.endsAt;
-      if (challenge.goalType === "xp") {
-        const [career] = await db.select().from(careerProfiles).where(eq(careerProfiles.userId, m.userId));
-        progress = career?.xp ?? 0;
-      } else if (challenge.goalType === "streak_days") {
+
+      if (challenge.goalType === "streak_days") {
         const [streak] = await db.select().from(userStreaks).where(eq(userStreaks.userId, m.userId));
         progress = streak?.currentStreak ?? 0;
-      } else if (challenge.goalType === "workout_minutes" || challenge.goalType === "made_threes" || challenge.goalType === "free_throws" || challenge.goalType === "ball_handling_reps") {
+
+      } else if (challenge.goalType === "workout_minutes") {
         const logs = await db.select().from(trainingLogs).where(
           and(eq(trainingLogs.userId, m.userId), gte(trainingLogs.completedAt, startDate))
         );
-        if (challenge.goalType === "workout_minutes") {
-          progress = logs.reduce((sum, l) => sum + Math.round((l.duration || 0) / 60), 0);
-        } else {
-          // made_threes / free_throws / ball_handling_reps — count drill completions as proxy
-          progress = logs.length;
-        }
-      } else if (challenge.goalType === "challenge_completions") {
-        const completions = await db.select().from(userChallenges).where(
-          and(eq(userChallenges.userId, m.userId), eq(userChallenges.status, "completed"))
+        progress = logs.reduce((sum, l) => sum + Math.round((l.duration || 0) / 60), 0);
+
+      } else if (challenge.goalType === "training_sessions") {
+        const logs = await db.select().from(trainingLogs).where(
+          and(eq(trainingLogs.userId, m.userId), gte(trainingLogs.completedAt, startDate))
         );
-        progress = completions.length;
+        progress = logs.length;
+
+      } else if (challenge.goalType === "shots_made" || challenge.goalType === "shot_attempts") {
+        // Pull from training log metrics — metric names "makes" / "attempts"
+        const metricName = challenge.goalType === "shots_made" ? "makes" : "attempts";
+        const shotFilter = challenge.shotFilter; // e.g. "3-pointer", "free-throw", "corner-left"
+
+        const result = await pool.query(
+          `SELECT SUM(tlm.value::int) as total
+           FROM training_log_metrics tlm
+           JOIN training_logs tl ON tl.id = tlm.training_log_id
+           JOIN drill_metrics dm ON dm.id = tlm.metric_id
+           WHERE tl.user_id = $1
+             AND tl.completed_at >= $2
+             AND dm.name ILIKE $3
+             ${shotFilter ? "AND tl.notes ILIKE $4" : ""}`,
+          shotFilter
+            ? [m.userId, startDate, `%${metricName}%`, `%${shotFilter}%`]
+            : [m.userId, startDate, `%${metricName}%`]
+        );
+        progress = parseInt(result.rows[0]?.total ?? "0") || 0;
       }
+
       await db.update(groupChallengeMembers).set({ progress }).where(eq(groupChallengeMembers.id, m.id));
     }
   },

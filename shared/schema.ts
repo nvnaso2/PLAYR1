@@ -2511,24 +2511,20 @@ export type FriendActivity = typeof friendActivityFeed.$inferSelect;
 
 // ─── Group Challenges ──────────────────────────────────────────────────────────
 export const GROUP_CHALLENGE_GOAL_TYPES = [
-  "made_threes",
-  "free_throws",
+  "shots_made",
+  "shot_attempts",
   "workout_minutes",
-  "xp",
   "streak_days",
-  "challenge_completions",
-  "ball_handling_reps",
+  "training_sessions",
 ] as const;
 export type GroupChallengeGoalType = typeof GROUP_CHALLENGE_GOAL_TYPES[number];
 
 export const GROUP_CHALLENGE_GOAL_LABELS: Record<GroupChallengeGoalType, string> = {
-  made_threes: "Made Threes",
-  free_throws: "Free Throws",
-  workout_minutes: "Workout Minutes",
-  xp: "XP",
-  streak_days: "Streak Days",
-  challenge_completions: "Challenge Completions",
-  ball_handling_reps: "Ball Handling Reps",
+  shots_made:        "Shots Made",
+  shot_attempts:     "Shot Attempts",
+  workout_minutes:   "Workout Minutes",
+  streak_days:       "Streak Days",
+  training_sessions: "Training Sessions",
 };
 
 export const groupChallenges = pgTable("group_challenges", {
@@ -2540,6 +2536,7 @@ export const groupChallenges = pgTable("group_challenges", {
   durationDays: integer("duration_days").notNull(),
   startsAt: timestamp("starts_at").notNull(),
   endsAt: timestamp("ends_at").notNull(),
+  shotFilter: varchar("shot_filter"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
