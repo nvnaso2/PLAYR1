@@ -2467,6 +2467,100 @@ export const insertStreakChallengeAttemptSchema = createInsertSchema(streakChall
 export type InsertStreakChallengeParticipant = z.infer<typeof insertStreakChallengeParticipantSchema>;
 export type InsertStreakChallengeAttempt     = z.infer<typeof insertStreakChallengeAttemptSchema>;
 
+// ─── Friendships ──────────────────────────────────────────────────────────────
+export const friendships = pgTable("friendships", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  requesterId: varchar("requester_id").notNull(),
+  addresseeId: varchar("addressee_id").notNull(),
+  status: varchar("status").$type<"pending" | "accepted" | "declined">().default("pending").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertFriendshipSchema = createInsertSchema(friendships).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertFriendship = z.infer<typeof insertFriendshipSchema>;
+export type Friendship = typeof friendships.$inferSelect;
+
+// ─── Friend Activity Feed ─────────────────────────────────────────────────────
+export const FRIEND_ACTIVITY_TYPES = [
+  "completed_workout",
+  "completed_challenge",
+  "new_personal_record",
+  "started_program",
+  "completed_program_day",
+  "streak_milestone",
+  "level_up",
+  "badge_earned",
+  "finished_challenge",
+] as const;
+export type FriendActivityType = typeof FRIEND_ACTIVITY_TYPES[number];
+
+export const friendActivityFeed = pgTable("friend_activity_feed", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  activityType: varchar("activity_type").$type<FriendActivityType>().notNull(),
+  title: varchar("title").notNull(),
+  description: text("description"),
+  metadata: jsonb("metadata").$type<Record<string, any>>(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertFriendActivitySchema = createInsertSchema(friendActivityFeed).omit({ id: true, createdAt: true });
+export type InsertFriendActivity = z.infer<typeof insertFriendActivitySchema>;
+export type FriendActivity = typeof friendActivityFeed.$inferSelect;
+
+// ─── Group Challenges ──────────────────────────────────────────────────────────
+export const GROUP_CHALLENGE_GOAL_TYPES = [
+  "made_threes",
+  "free_throws",
+  "workout_minutes",
+  "xp",
+  "streak_days",
+  "challenge_completions",
+  "ball_handling_reps",
+] as const;
+export type GroupChallengeGoalType = typeof GROUP_CHALLENGE_GOAL_TYPES[number];
+
+export const GROUP_CHALLENGE_GOAL_LABELS: Record<GroupChallengeGoalType, string> = {
+  made_threes: "Made Threes",
+  free_throws: "Free Throws",
+  workout_minutes: "Workout Minutes",
+  xp: "XP",
+  streak_days: "Streak Days",
+  challenge_completions: "Challenge Completions",
+  ball_handling_reps: "Ball Handling Reps",
+};
+
+export const groupChallenges = pgTable("group_challenges", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  creatorId: varchar("creator_id").notNull(),
+  name: varchar("name").notNull(),
+  goalType: varchar("goal_type").$type<GroupChallengeGoalType>().notNull(),
+  goalAmount: integer("goal_amount").notNull(),
+  durationDays: integer("duration_days").notNull(),
+  startsAt: timestamp("starts_at").notNull(),
+  endsAt: timestamp("ends_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertGroupChallengeSchema = createInsertSchema(groupChallenges).omit({ id: true, createdAt: true });
+export type InsertGroupChallenge = z.infer<typeof insertGroupChallengeSchema>;
+export type GroupChallenge = typeof groupChallenges.$inferSelect;
+
+export const groupChallengeMembers = pgTable("group_challenge_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  challengeId: varchar("challenge_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  status: varchar("status").$type<"invited" | "accepted" | "declined">().default("invited").notNull(),
+  progress: integer("progress").default(0).notNull(),
+  joinedAt: timestamp("joined_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertGroupChallengeMemberSchema = createInsertSchema(groupChallengeMembers).omit({ id: true, createdAt: true });
+export type InsertGroupChallengeMember = z.infer<typeof insertGroupChallengeMemberSchema>;
+export type GroupChallengeMember = typeof groupChallengeMembers.$inferSelect;
+
 // ─── Brand Principles ─────────────────────────────────────────────────────────
 export const brandPrinciples = pgTable("brand_principles", {
   id:                     integer("id").primaryKey().default(1),

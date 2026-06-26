@@ -4,7 +4,7 @@ import { queryClient, apiRequest, getObjectUrl } from "@/lib/queryClient";
 import { useAdmin } from "@/hooks/use-admin";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -97,10 +97,19 @@ function TeamLogo({ name, logoUrl, size = "sm" }: { name: string; logoUrl?: stri
 
 export default function FinderPage() {
   const [mainTab, setMainTab] = useState("find");
+  const [, navigate] = useLocation();
 
   return (
     <div className="pb-24 overflow-x-hidden">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-6 overflow-x-hidden">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-4 overflow-x-hidden">
+        <button
+          onClick={() => navigate("/community")}
+          className="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors mb-4"
+          data-testid="button-back-community"
+        >
+          <ChevronRight className="w-4 h-4 rotate-180" />
+          Community
+        </button>
         <Tabs value={mainTab} onValueChange={setMainTab} className="w-full">
           <TabsList className="w-full max-w-2xl grid grid-cols-4" data-testid="tabs-teams-main">
             <TabsTrigger value="find" data-testid="tab-find-teams">

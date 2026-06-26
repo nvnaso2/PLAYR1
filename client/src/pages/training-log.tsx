@@ -2233,11 +2233,6 @@ export default function TrainingLogPage() {
                           );
                         })}
                       </div>
-                      <Link href="/programs">
-                        <button className="mt-3 w-full flex items-center justify-center gap-1.5 text-xs text-orange-400 hover:text-orange-300 transition-colors py-2" data-testid="link-all-programs">
-                          All programs <ArrowRight className="w-3 h-3" />
-                        </button>
-                      </Link>
                     </CollapsibleContent>
                   </Collapsible>
                 );

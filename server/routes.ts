@@ -10164,6 +10164,167 @@ Return ONLY valid JSON array, no markdown.`;
     }
   });
 
+  // ─── Friendships ────────────────────────────────────────────────────────────
+  app.get("/api/friends", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const friends = await storage.getFriends(userId);
+      res.json(friends);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to get friends" });
+    }
+  });
+
+  app.get("/api/friends/requests", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const requests = await storage.getPendingFriendRequests(userId);
+      res.json(requests);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to get friend requests" });
+    }
+  });
+
+  app.post("/api/friends/request", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const { addresseeId } = req.body;
+      if (!addresseeId) return res.status(400).json({ message: "addresseeId required" });
+      if (addresseeId === userId) return res.status(400).json({ message: "Cannot friend yourself" });
+      const friendship = await storage.sendFriendRequest(userId, addresseeId);
+      res.json(friendship);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to send friend request" });
+    }
+  });
+
+  app.patch("/api/friends/requests/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const { status } = req.body as { status: "accepted" | "declined" };
+      if (!["accepted", "declined"].includes(status)) return res.status(400).json({ message: "Invalid status" });
+      const friendship = await storage.respondFriendRequest(req.params.id, status);
+      res.json(friendship);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to respond to friend request" });
+    }
+  });
+
+  app.delete("/api/friends/:friendId", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      await storage.removeFriend(userId, req.params.friendId);
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to remove friend" });
+    }
+  });
+
+  app.get("/api/friends/status/:userId", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const myId = req.user!.claims.sub;
+      const friendship = await storage.getFriendshipBetween(myId, req.params.userId);
+      res.json({ friendship: friendship ?? null });
+    } catch (err) {
+      res.status(500).json({ message: "Failed" });
+    }
+  });
+
+  // ─── Friend Activity Feed ─────────────────────────────────────────────────
+  app.get("/api/friends/activity", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const limit = parseInt(String(req.query.limit ?? "50"));
+      const feed = await storage.getFriendActivityFeed(userId, limit);
+      res.json(feed);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to get activity feed" });
+    }
+  });
+
+  // ─── Group Challenges ────────────────────────────────────────────────────────
+  app.get("/api/group-challenges", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const challenges = await storage.getGroupChallengesForUser(userId);
+      res.json(challenges);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to get group challenges" });
+    }
+  });
+
+  app.get("/api/group-challenges/invites", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const invites = await storage.getPendingGroupChallengeInvites(userId);
+      res.json(invites);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to get invites" });
+    }
+  });
+
+  app.post("/api/group-challenges", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const { name, goalType, goalAmount, durationDays, inviteIds } = req.body;
+      if (!name || !goalType || !goalAmount || !durationDays) {
+        return res.status(400).json({ message: "name, goalType, goalAmount, durationDays required" });
+      }
+      const startsAt = new Date();
+      const endsAt = new Date(startsAt);
+      endsAt.setDate(endsAt.getDate() + Number(durationDays));
+      const challenge = await storage.createGroupChallenge({
+        creatorId: userId,
+        name,
+        goalType,
+        goalAmount: Number(goalAmount),
+        durationDays: Number(durationDays),
+        startsAt,
+        endsAt,
+      });
+      if (Array.isArray(inviteIds)) {
+        for (const id of inviteIds) {
+          await storage.inviteToGroupChallenge(challenge.id, id);
+        }
+      }
+      res.json(challenge);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to create group challenge" });
+    }
+  });
+
+  app.post("/api/group-challenges/:id/invite", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { userId: invitedUserId } = req.body;
+      if (!invitedUserId) return res.status(400).json({ message: "userId required" });
+      const member = await storage.inviteToGroupChallenge(req.params.id, invitedUserId);
+      res.json(member);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to invite" });
+    }
+  });
+
+  app.patch("/api/group-challenges/members/:memberId", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const { status } = req.body as { status: "accepted" | "declined" };
+      if (!["accepted", "declined"].includes(status)) return res.status(400).json({ message: "Invalid status" });
+      const member = await storage.respondGroupChallengeInvite(req.params.memberId, userId, status);
+      res.json(member);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to respond to invite" });
+    }
+  });
+
+  app.post("/api/group-challenges/:id/sync", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      await storage.syncGroupChallengeProgress(req.params.id);
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to sync" });
+    }
+  });
+
   return httpServer;
 }
 

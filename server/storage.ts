@@ -88,6 +88,10 @@ import {
   type GoalCheckIn, type InsertGoalCheckIn,
   statChallenges, type StatChallenge, type InsertStatChallenge,
   type StatChallengeMetric,
+  friendships, type Friendship, type InsertFriendship,
+  friendActivityFeed, type FriendActivity, type InsertFriendActivity,
+  groupChallenges, type GroupChallenge, type InsertGroupChallenge,
+  groupChallengeMembers, type GroupChallengeMember, type InsertGroupChallengeMember,
   brandPrinciples, type BrandPrinciples,
   streakChallenges, type StreakChallenge,
   streakChallengeParticipants, type StreakChallengeParticipant, type InsertStreakChallengeParticipant,
@@ -724,6 +728,27 @@ export interface IStorage {
   completeMilestone(milestoneId: string): Promise<GoalMilestone>;
   createCheckIn(data: InsertGoalCheckIn): Promise<GoalCheckIn>;
   getCheckIns(goalId: string): Promise<GoalCheckIn[]>;
+
+  // Friendships
+  sendFriendRequest(requesterId: string, addresseeId: string): Promise<Friendship>;
+  respondFriendRequest(id: string, status: "accepted" | "declined"): Promise<Friendship>;
+  getFriends(userId: string): Promise<Array<{ friendship: Friendship; friend: { id: string; displayName: string; profilePhotoUrl: string | null; skillLevel: string | null } }>>;
+  getPendingFriendRequests(userId: string): Promise<Array<{ friendship: Friendship; requester: { id: string; displayName: string; profilePhotoUrl: string | null } }>>;
+  getFriendshipBetween(userId1: string, userId2: string): Promise<Friendship | undefined>;
+  removeFriend(userId: string, friendId: string): Promise<boolean>;
+
+  // Friend Activity
+  logFriendActivity(data: InsertFriendActivity): Promise<FriendActivity>;
+  getFriendActivityFeed(userId: string, limit?: number): Promise<Array<FriendActivity & { user: { id: string; displayName: string; profilePhotoUrl: string | null } }>>;
+
+  // Group Challenges
+  createGroupChallenge(data: InsertGroupChallenge): Promise<GroupChallenge>;
+  getGroupChallengesForUser(userId: string): Promise<Array<GroupChallenge & { members: Array<GroupChallengeMember & { user: { id: string; displayName: string; profilePhotoUrl: string | null } }> }>>;
+  getGroupChallengeById(id: string): Promise<GroupChallenge | undefined>;
+  inviteToGroupChallenge(challengeId: string, invitedUserId: string): Promise<GroupChallengeMember>;
+  respondGroupChallengeInvite(memberId: string, userId: string, status: "accepted" | "declined"): Promise<GroupChallengeMember>;
+  syncGroupChallengeProgress(challengeId: string): Promise<void>;
+  getPendingGroupChallengeInvites(userId: string): Promise<Array<GroupChallengeMember & { challenge: GroupChallenge & { creator: { id: string; displayName: string } } }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -7188,6 +7213,260 @@ Object.assign(DatabaseStorage.prototype, {
         eq(streakChallengeParticipants.challengeId, challengeId),
         eq(streakChallengeParticipants.userId, userId),
       ));
+  },
+
+  // ─── Friendships ────────────────────────────────────────────────────────────
+  async sendFriendRequest(requesterId: string, addresseeId: string): Promise<Friendship> {
+    const [existing] = await db.select().from(friendships).where(
+      or(
+        and(eq(friendships.requesterId, requesterId), eq(friendships.addresseeId, addresseeId)),
+        and(eq(friendships.requesterId, addresseeId), eq(friendships.addresseeId, requesterId)),
+      )
+    );
+    if (existing) return existing;
+    const [f] = await db.insert(friendships).values({ requesterId, addresseeId, status: "pending" }).returning();
+    return f;
+  },
+
+  async respondFriendRequest(id: string, status: "accepted" | "declined"): Promise<Friendship> {
+    const [f] = await db.update(friendships).set({ status, updatedAt: new Date() }).where(eq(friendships.id, id)).returning();
+    return f;
+  },
+
+  async getFriends(userId: string): Promise<Array<{ friendship: Friendship; friend: { id: string; displayName: string; profilePhotoUrl: string | null; skillLevel: string | null } }>> {
+    const rows = await db.select().from(friendships).where(
+      and(
+        or(eq(friendships.requesterId, userId), eq(friendships.addresseeId, userId)),
+        eq(friendships.status, "accepted"),
+      )
+    );
+    const result = [];
+    for (const f of rows) {
+      const friendId = f.requesterId === userId ? f.addresseeId : f.requesterId;
+      const [profile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, friendId));
+      const [user] = await db.select().from(users).where(eq(users.id, friendId));
+      result.push({
+        friendship: f,
+        friend: {
+          id: friendId,
+          displayName: profile?.displayName || `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || user?.email || "Player",
+          profilePhotoUrl: profile?.profilePhotoUrl || user?.profileImageUrl || null,
+          skillLevel: profile?.skillLevel || null,
+        },
+      });
+    }
+    return result;
+  },
+
+  async getPendingFriendRequests(userId: string): Promise<Array<{ friendship: Friendship; requester: { id: string; displayName: string; profilePhotoUrl: string | null } }>> {
+    const rows = await db.select().from(friendships).where(
+      and(eq(friendships.addresseeId, userId), eq(friendships.status, "pending"))
+    );
+    const result = [];
+    for (const f of rows) {
+      const [profile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, f.requesterId));
+      const [user] = await db.select().from(users).where(eq(users.id, f.requesterId));
+      result.push({
+        friendship: f,
+        requester: {
+          id: f.requesterId,
+          displayName: profile?.displayName || `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || user?.email || "Player",
+          profilePhotoUrl: profile?.profilePhotoUrl || user?.profileImageUrl || null,
+        },
+      });
+    }
+    return result;
+  },
+
+  async getFriendshipBetween(userId1: string, userId2: string): Promise<Friendship | undefined> {
+    const [f] = await db.select().from(friendships).where(
+      or(
+        and(eq(friendships.requesterId, userId1), eq(friendships.addresseeId, userId2)),
+        and(eq(friendships.requesterId, userId2), eq(friendships.addresseeId, userId1)),
+      )
+    );
+    return f;
+  },
+
+  async removeFriend(userId: string, friendId: string): Promise<boolean> {
+    const result = await db.delete(friendships).where(
+      or(
+        and(eq(friendships.requesterId, userId), eq(friendships.addresseeId, friendId)),
+        and(eq(friendships.requesterId, friendId), eq(friendships.addresseeId, userId)),
+      )
+    );
+    return true;
+  },
+
+  // ─── Friend Activity ─────────────────────────────────────────────────────────
+  async logFriendActivity(data: InsertFriendActivity): Promise<FriendActivity> {
+    const [a] = await db.insert(friendActivityFeed).values(data).returning();
+    return a;
+  },
+
+  async getFriendActivityFeed(userId: string, limit = 50): Promise<Array<FriendActivity & { user: { id: string; displayName: string; profilePhotoUrl: string | null } }>> {
+    // Get accepted friends
+    const friendRows = await db.select().from(friendships).where(
+      and(
+        or(eq(friendships.requesterId, userId), eq(friendships.addresseeId, userId)),
+        eq(friendships.status, "accepted"),
+      )
+    );
+    const friendIds = friendRows.map(f => f.requesterId === userId ? f.addresseeId : f.requesterId);
+    if (friendIds.length === 0) return [];
+
+    const activities = await db.select().from(friendActivityFeed)
+      .where(inArray(friendActivityFeed.userId, friendIds))
+      .orderBy(desc(friendActivityFeed.createdAt))
+      .limit(limit);
+
+    const result = [];
+    for (const a of activities) {
+      const [profile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, a.userId));
+      const [user] = await db.select().from(users).where(eq(users.id, a.userId));
+      result.push({
+        ...a,
+        user: {
+          id: a.userId,
+          displayName: profile?.displayName || `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || "Player",
+          profilePhotoUrl: profile?.profilePhotoUrl || user?.profileImageUrl || null,
+        },
+      });
+    }
+    return result;
+  },
+
+  // ─── Group Challenges ────────────────────────────────────────────────────────
+  async createGroupChallenge(data: InsertGroupChallenge): Promise<GroupChallenge> {
+    const [c] = await db.insert(groupChallenges).values(data).returning();
+    // Auto-add creator as accepted member
+    await db.insert(groupChallengeMembers).values({
+      challengeId: c.id,
+      userId: data.creatorId,
+      status: "accepted",
+      joinedAt: new Date(),
+      progress: 0,
+    });
+    return c;
+  },
+
+  async getGroupChallengesForUser(userId: string): Promise<Array<GroupChallenge & { members: Array<GroupChallengeMember & { user: { id: string; displayName: string; profilePhotoUrl: string | null } }> }>> {
+    // Get challenges where user is an accepted member
+    const memberRows = await db.select().from(groupChallengeMembers).where(
+      and(eq(groupChallengeMembers.userId, userId), eq(groupChallengeMembers.status, "accepted"))
+    );
+    const challengeIds = memberRows.map(m => m.challengeId);
+    if (challengeIds.length === 0) return [];
+
+    const challenges = await db.select().from(groupChallenges).where(inArray(groupChallenges.id, challengeIds));
+    const result = [];
+    for (const c of challenges) {
+      const allMembers = await db.select().from(groupChallengeMembers).where(
+        and(eq(groupChallengeMembers.challengeId, c.id), eq(groupChallengeMembers.status, "accepted"))
+      );
+      const membersWithUsers = [];
+      for (const m of allMembers) {
+        const [profile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, m.userId));
+        const [user] = await db.select().from(users).where(eq(users.id, m.userId));
+        membersWithUsers.push({
+          ...m,
+          user: {
+            id: m.userId,
+            displayName: profile?.displayName || `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || "Player",
+            profilePhotoUrl: profile?.profilePhotoUrl || user?.profileImageUrl || null,
+          },
+        });
+      }
+      result.push({ ...c, members: membersWithUsers });
+    }
+    return result;
+  },
+
+  async getGroupChallengeById(id: string): Promise<GroupChallenge | undefined> {
+    const [c] = await db.select().from(groupChallenges).where(eq(groupChallenges.id, id));
+    return c;
+  },
+
+  async inviteToGroupChallenge(challengeId: string, invitedUserId: string): Promise<GroupChallengeMember> {
+    const [existing] = await db.select().from(groupChallengeMembers).where(
+      and(eq(groupChallengeMembers.challengeId, challengeId), eq(groupChallengeMembers.userId, invitedUserId))
+    );
+    if (existing) return existing;
+    const [m] = await db.insert(groupChallengeMembers).values({
+      challengeId,
+      userId: invitedUserId,
+      status: "invited",
+      progress: 0,
+    }).returning();
+    return m;
+  },
+
+  async respondGroupChallengeInvite(memberId: string, userId: string, status: "accepted" | "declined"): Promise<GroupChallengeMember> {
+    const [m] = await db.update(groupChallengeMembers)
+      .set({ status, joinedAt: status === "accepted" ? new Date() : null })
+      .where(and(eq(groupChallengeMembers.id, memberId), eq(groupChallengeMembers.userId, userId)))
+      .returning();
+    return m;
+  },
+
+  async syncGroupChallengeProgress(challengeId: string): Promise<void> {
+    const challenge = await this.getGroupChallengeById(challengeId);
+    if (!challenge) return;
+    const members = await db.select().from(groupChallengeMembers).where(
+      and(eq(groupChallengeMembers.challengeId, challengeId), eq(groupChallengeMembers.status, "accepted"))
+    );
+    for (const m of members) {
+      let progress = 0;
+      const startDate = challenge.startsAt;
+      const endDate = challenge.endsAt;
+      if (challenge.goalType === "xp") {
+        const [career] = await db.select().from(careerProfiles).where(eq(careerProfiles.userId, m.userId));
+        progress = career?.xp ?? 0;
+      } else if (challenge.goalType === "streak_days") {
+        const [streak] = await db.select().from(userStreaks).where(eq(userStreaks.userId, m.userId));
+        progress = streak?.currentStreak ?? 0;
+      } else if (challenge.goalType === "workout_minutes" || challenge.goalType === "made_threes" || challenge.goalType === "free_throws" || challenge.goalType === "ball_handling_reps") {
+        const logs = await db.select().from(trainingLogs).where(
+          and(eq(trainingLogs.userId, m.userId), gte(trainingLogs.completedAt, startDate))
+        );
+        if (challenge.goalType === "workout_minutes") {
+          progress = logs.reduce((sum, l) => sum + Math.round((l.duration || 0) / 60), 0);
+        } else {
+          // made_threes / free_throws / ball_handling_reps — count drill completions as proxy
+          progress = logs.length;
+        }
+      } else if (challenge.goalType === "challenge_completions") {
+        const completions = await db.select().from(userChallenges).where(
+          and(eq(userChallenges.userId, m.userId), eq(userChallenges.status, "completed"))
+        );
+        progress = completions.length;
+      }
+      await db.update(groupChallengeMembers).set({ progress }).where(eq(groupChallengeMembers.id, m.id));
+    }
+  },
+
+  async getPendingGroupChallengeInvites(userId: string): Promise<Array<GroupChallengeMember & { challenge: GroupChallenge & { creator: { id: string; displayName: string } } }>> {
+    const rows = await db.select().from(groupChallengeMembers).where(
+      and(eq(groupChallengeMembers.userId, userId), eq(groupChallengeMembers.status, "invited"))
+    );
+    const result = [];
+    for (const m of rows) {
+      const [c] = await db.select().from(groupChallenges).where(eq(groupChallenges.id, m.challengeId));
+      if (!c) continue;
+      const [profile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, c.creatorId));
+      const [user] = await db.select().from(users).where(eq(users.id, c.creatorId));
+      result.push({
+        ...m,
+        challenge: {
+          ...c,
+          creator: {
+            id: c.creatorId,
+            displayName: profile?.displayName || `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || "Player",
+          },
+        },
+      });
+    }
+    return result;
   },
 });
 
