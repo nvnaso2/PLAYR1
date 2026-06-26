@@ -231,12 +231,10 @@ export default function ProgramTodayPage() {
 
         <div className="relative max-w-5xl mx-auto px-4 sm:px-6 py-6 md:py-10">
           <div className="flex items-center justify-between mb-6">
-            <Link href={`/programs/${slug}`}>
-              <Button variant="ghost" size="sm" className="text-white/90 hover:text-white hover:bg-white/10" data-testid="button-back-program">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Program overview
-              </Button>
-            </Link>
+            <Button variant="ghost" size="sm" className="text-white/90 hover:text-white hover:bg-white/10" data-testid="button-back-program" onClick={() => window.history.back()}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="ghost" size="sm" className="text-white/80 hover:text-white hover:bg-white/10" data-testid="button-abandon">

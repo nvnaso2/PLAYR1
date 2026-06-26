@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { ProgramCard } from "@/components/program-card";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowRight, Calendar, Compass, Flame, Search, Sparkles, Trophy, UserCheck, Users } from "lucide-react";
+import { ArrowLeft, ArrowRight, Calendar, Compass, Flame, Search, Sparkles, Trophy, UserCheck, Users } from "lucide-react";
 import type { Program, ProgramEnrollment } from "@shared/schema";
 
 type Trainer = {
@@ -110,6 +110,14 @@ export default function ProgramsPage() {
           }}
         />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-14">
+          <button
+            onClick={() => window.history.back()}
+            data-testid="button-back-to-train"
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-5"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back
+          </button>
           <div className="flex items-center gap-2 text-primary text-sm font-medium mb-3">
             <Sparkles className="w-4 h-4" />
             <span className="uppercase tracking-widest text-xs">Structured Training</span>
