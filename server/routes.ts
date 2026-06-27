@@ -7310,6 +7310,64 @@ Start now with a warm one-line greeting that briefly references something specif
       const acceptorName = await getDisplayNameForUser(userId);
       const requesterId = existing.requesterUserId || (existing.initiatedBy === "player" ? existing.playerId : existing.trainerId);
       sendPushNotification(requesterId, { title: "Connection Accepted", body: `${acceptorName} accepted your connection request`, url: "/connect" }).catch(() => {});
+
+      // ── Auto-sync: add the player to the trainer's roster ──────────────────
+      try {
+        // Determine which of the two users is actually the trainer
+        const [p1Career] = await db.select({ staffRole: careerProfiles.staffRole })
+          .from(careerProfiles).where(eq(careerProfiles.userId, existing.playerId));
+        const [p2Career] = await db.select({ staffRole: careerProfiles.staffRole })
+          .from(careerProfiles).where(eq(careerProfiles.userId, existing.trainerId));
+
+        const isP1Staff = ["trainer","coach","both"].includes(p1Career?.staffRole ?? "");
+        const isP2Staff = ["trainer","coach","both"].includes(p2Career?.staffRole ?? "");
+
+        let actualTrainerId: string | null = null;
+        let actualPlayerId: string | null = null;
+
+        if (isP1Staff && !isP2Staff) {
+          actualTrainerId = existing.playerId;
+          actualPlayerId  = existing.trainerId;
+        } else if (!isP1Staff && isP2Staff) {
+          actualTrainerId = existing.trainerId;
+          actualPlayerId  = existing.playerId;
+        } else if (existing.initiatedBy === "trainer") {
+          // Requester was a trainer
+          actualTrainerId = existing.requesterUserId ?? null;
+          actualPlayerId  = actualTrainerId === existing.playerId ? existing.trainerId : existing.playerId;
+        } else {
+          // Requester was a player — the other party is the trainer
+          actualPlayerId  = existing.requesterUserId ?? null;
+          actualTrainerId = actualPlayerId === existing.playerId ? existing.trainerId : existing.playerId;
+        }
+
+        if (actualTrainerId && actualPlayerId) {
+          const existingRoster = await storage.getTrainerPlayers(actualTrainerId);
+          const alreadyAdded = existingRoster.some(p => p.linkedUserId === actualPlayerId);
+          if (!alreadyAdded) {
+            const [playerUser]    = await db.select().from(users).where(eq(users.id, actualPlayerId));
+            const [playerProfile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, actualPlayerId));
+            await storage.createTrainerPlayer({
+              trainerId:    actualTrainerId,
+              firstName:    playerUser?.firstName || playerProfile?.displayName || "Player",
+              lastName:     playerUser?.lastName  || null,
+              email:        playerUser?.email     || null,
+              phone:        null,
+              position:     null,
+              jerseyNumber: null,
+              ageGroup:     null,
+              teamType:     null,
+              notes:        null,
+              linkedUserId: actualPlayerId,
+            });
+          }
+        }
+      } catch (syncErr) {
+        console.error("Error auto-syncing roster after connection accept:", syncErr);
+        // Non-fatal — don't fail the whole accept
+      }
+      // ───────────────────────────────────────────────────────────────────────
+
       res.json(conn);
     } catch (error) {
       console.error("Error accepting connection:", error);

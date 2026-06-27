@@ -1,4 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, lazy, Suspense } from "react";
+import { Skeleton as PageSkeleton } from "@/components/ui/skeleton";
+const TrainerProgramsPage = lazy(() => import("@/pages/trainer/programs"));
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -183,7 +185,7 @@ export default function TrainerDrillsPage() {
   const [activeTab, setActiveTab] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get("tab");
-    return tab && ["all", "mine", "workouts", "assignments", "videos"].includes(tab) ? tab : "all";
+    return tab && ["all", "mine", "workouts", "assignments", "videos", "programs"].includes(tab) ? tab : "all";
   });
 
   return (
@@ -201,6 +203,7 @@ export default function TrainerDrillsPage() {
             <Video className="w-4 h-4 mr-1" />
             Videos
           </TabsTrigger>
+          <TabsTrigger value="programs" data-testid="tab-programs">Programs</TabsTrigger>
         </TabsList>
 
         <TabsContent value="all">
@@ -224,6 +227,11 @@ export default function TrainerDrillsPage() {
             <h2 className="text-lg font-semibold mb-3" data-testid="text-player-videos-heading">Player Videos</h2>
             <PlayerVideosSection />
           </div>
+        </TabsContent>
+        <TabsContent value="programs">
+          <Suspense fallback={<div className="space-y-3 mt-4">{[0,1,2].map(i=><PageSkeleton key={i} className="h-20 rounded-xl bg-zinc-900"/>)}</div>}>
+            <TrainerProgramsPage />
+          </Suspense>
         </TabsContent>
       </Tabs>
     </div>
