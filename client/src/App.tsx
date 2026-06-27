@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { Playr1Logo } from "@/components/playr1-logo";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useRole } from "@/hooks/use-role";
+import { useRole, RoleProvider } from "@/hooks/use-role";
 import { pageLoaders, preloadCommonPages } from "@/lib/pageLoaders";
 import { usePageViewTracking } from "@/lib/track";
 
@@ -377,7 +377,9 @@ function App() {
       <ThemeProvider defaultTheme="dark" storageKey="playr1-theme">
         <TooltipProvider>
           <Toaster />
-          <Router />
+          <RoleProvider>
+            <Router />
+          </RoleProvider>
         </TooltipProvider>
       </ThemeProvider>
     </QueryClientProvider>

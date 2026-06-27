@@ -1,5 +1,6 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, createContext, useContext, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { createElement } from "react";
 
 type StaffRole = "coach" | "trainer" | "both" | null;
 type ActiveView = "player" | "trainer";
@@ -10,9 +11,22 @@ interface CareerProfile {
   onboardingCompleted?: boolean;
 }
 
-const STORAGE_KEY = "playr1-active-view";
+export interface RoleContextValue {
+  staffRole: StaffRole;
+  isTrainer: boolean;
+  isCoach: boolean;
+  hasStaffRole: boolean;
+  isPlayer: boolean;
+  activeView: ActiveView;
+  setActiveView: (view: ActiveView) => void;
+  canToggle: boolean;
+  isLoading: boolean;
+}
 
-export function useRole() {
+const STORAGE_KEY = "playr1-active-view";
+export const RoleContext = createContext<RoleContextValue | null>(null);
+
+export function RoleProvider({ children }: { children: ReactNode }) {
   const { data: profile, isLoading } = useQuery<CareerProfile>({
     queryKey: ["/api/career"],
     retry: false,
@@ -30,13 +44,12 @@ export function useRole() {
     return "player";
   };
 
-  const [activeView, setActiveViewState] = useState<ActiveView>(initialView);
+  const [activeViewState, setActiveViewState] = useState<ActiveView>(initialView);
   const hasInitialized = useRef(false);
 
   useEffect(() => {
     if (!isLoading && profile && !hasInitialized.current) {
       hasInitialized.current = true;
-
       if (hasStaffRole && !alsoPlayer) {
         setActiveViewState("trainer");
         localStorage.setItem(STORAGE_KEY, "trainer");
@@ -62,12 +75,12 @@ export function useRole() {
   if (hasStaffRole && !alsoPlayer) {
     resolvedView = "trainer";
   } else if (hasStaffRole) {
-    resolvedView = activeView;
+    resolvedView = activeViewState;
   } else {
     resolvedView = "player";
   }
 
-  return {
+  const value: RoleContextValue = {
     staffRole,
     isTrainer,
     isCoach,
@@ -78,4 +91,12 @@ export function useRole() {
     canToggle: hasStaffRole && alsoPlayer,
     isLoading,
   };
+
+  return createElement(RoleContext.Provider, { value }, children);
+}
+
+export function useRole(): RoleContextValue {
+  const ctx = useContext(RoleContext);
+  if (!ctx) throw new Error("useRole must be used within a RoleProvider");
+  return ctx;
 }

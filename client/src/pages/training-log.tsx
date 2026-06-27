@@ -177,6 +177,8 @@ export default function TrainingLogPage() {
   // Single workout-level timer state
   const [workoutStartTime, setWorkoutStartTime] = useState<number | null>(null);
   const [, setWorkoutTimerTick] = useState(0);
+  // Manual duration override — user can type in actual minutes if timer was inaccurate
+  const [manualDurationMinutes, setManualDurationMinutes] = useState<string>("");
   // drillId → timestamp (ms) when that drill was first added to the session
   const [drillStartTimes, setDrillStartTimes] = useState<Record<string, number>>({});
 
@@ -1246,9 +1248,12 @@ export default function TrainingLogPage() {
       // total so old behavior is preserved for ad-hoc logs.
       const saveNow = Date.now();
       const totalElapsedMs = workoutStartTime ? (saveNow - workoutStartTime) : 0;
-      const totalSessionMinutes = workoutStartTime
-        ? Math.max(0, Math.round(totalElapsedMs / 60000))
-        : workoutEntries.reduce((s, e) => s + (e.duration || 0), 0);
+      const manualOverride = manualDurationMinutes ? parseInt(manualDurationMinutes, 10) : NaN;
+      const totalSessionMinutes = !isNaN(manualOverride) && manualOverride > 0
+        ? manualOverride
+        : workoutStartTime
+          ? Math.max(0, Math.round(totalElapsedMs / 60000))
+          : workoutEntries.reduce((s, e) => s + (e.duration || 0), 0);
 
       // Build bulk payload synchronously (no awaits)
       const bulkEntries = workoutEntries.map((entry, entryIdx) => {
@@ -1365,6 +1370,7 @@ export default function TrainingLogPage() {
         setWorkoutInProgress(false);
         setWorkoutStartTime(null);
         setDrillStartTimes({});
+        setManualDurationMinutes("");
         setShareSessionId(workoutEntries.length > 1 ? sessionId : null);
         setShowFavoriteDialog(true);
       });
@@ -1446,6 +1452,7 @@ export default function TrainingLogPage() {
     setWorkoutEntries([]);
     setWorkoutStartTime(null);
     setDrillStartTimes({});
+    setManualDurationMinutes("");
     setPendingProgramCompletion(null);
     setActiveView("library");
   };
@@ -2733,6 +2740,20 @@ export default function TrainingLogPage() {
                 <div className="flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-lg px-3 py-1.5" data-testid="workout-elapsed-timer">
                   <Timer className="w-4 h-4 text-primary" />
                   <span className="font-mono text-lg font-bold text-primary tabular-nums">{workoutElapsed}</span>
+                </div>
+                {/* Manual override — lets user correct the time if timer was started late */}
+                <div className="flex items-center gap-1.5" title="Override session duration if timer was inaccurate">
+                  <input
+                    type="number"
+                    min="1"
+                    max="600"
+                    placeholder="Override min"
+                    value={manualDurationMinutes}
+                    onChange={e => setManualDurationMinutes(e.target.value)}
+                    className="w-24 h-8 rounded-md border border-zinc-700 bg-zinc-900 text-white text-sm px-2 tabular-nums focus:outline-none focus:ring-1 focus:ring-primary/60 placeholder:text-zinc-600"
+                    data-testid="input-manual-duration"
+                  />
+                  <span className="text-xs text-zinc-500">min</span>
                 </div>
               </div>
               <div className="flex gap-2 flex-wrap">
