@@ -5,7 +5,7 @@ import path from "path";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated, optionalAuth, getAppBaseUrl, type AuthenticatedRequest } from "./auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
-import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, drills, trainingLogs, trainingLogMetrics, feedbackComments, insertProgramSchema, insertProgramItemSchema, insertEventSchema, events, insertStatChallengeSchema } from "@shared/schema";
+import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, drills, trainingLogs, trainingLogMetrics, feedbackComments, insertProgramSchema, insertProgramItemSchema, insertEventSchema, events, insertStatChallengeSchema, programEnrollments } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db, pool } from "./db";
 import { eq, and, or, isNull, ilike, sql, inArray, gte } from "drizzle-orm";
@@ -113,6 +113,15 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  // ─── Friend Activity Helper ───────────────────────────────────────────────────
+  // Fire-and-forget: logs an activity event so a user's friends see it in the feed.
+  function fireActivity(userId: string, activityType: string, title: string, description?: string) {
+    storage.logFriendActivity({ userId, activityType, title, description: description ?? null })
+      .catch(err => console.error("[FriendActivity]", activityType, err));
+  }
+
+  const STREAK_MILESTONES = new Set([3, 7, 14, 30, 50, 100, 200, 365]);
+
   // Health check endpoint — verifies the server is up AND the database is reachable.
   // Returns 200 with diagnostics on success, 503 on failure. No auth, no DB writes.
   app.get("/api/health", async (_req, res) => {
@@ -1639,6 +1648,17 @@ Start now with a warm one-line greeting that briefly references something specif
       }
 
       res.status(201).json(log);
+      // Friend activity — fire-and-forget
+      ;(async () => {
+        try {
+          const drill = log.drillId ? await storage.getDrillById(log.drillId) : null;
+          const label = drill?.title ?? "a drill";
+          const parts: string[] = [];
+          if (log.duration) parts.push(`${log.duration} min`);
+          if (log.shotsMade != null && log.shotsAttempted) parts.push(`${log.shotsMade}/${log.shotsAttempted} makes`);
+          fireActivity(userId, "completed_workout", `Logged a workout`, `${label}${parts.length ? " · " + parts.join(" · ") : ""}`);
+        } catch { /* non-fatal */ }
+      })();
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid data", errors: error.errors });
@@ -1725,6 +1745,24 @@ Start now with a warm one-line greeting that briefly references something specif
       } catch (e) { /* non-fatal */ }
 
       res.status(201).json({ logs, streakResult });
+      // Friend activity — fire-and-forget
+      ;(async () => {
+        try {
+          const drillIds = [...new Set(logs.map((l: any) => l.drillId).filter(Boolean))];
+          const firstDrill = drillIds[0] ? await storage.getDrillById(drillIds[0]) : null;
+          const drillLabel = drillIds.length > 1
+            ? `${drillIds.length} drills`
+            : (firstDrill?.title ?? "a drill");
+          const totalMin = logs.reduce((s: number, l: any) => s + (l.duration ?? 0), 0);
+          fireActivity(userId, "completed_workout", "Finished a workout session",
+            `${drillLabel}${totalMin > 0 ? ` · ${totalMin} min` : ""}`);
+          if (streakResult?.milestoneReached && STREAK_MILESTONES.has(streakResult.milestoneReached)) {
+            fireActivity(userId, "streak_milestone",
+              `Hit a ${streakResult.milestoneReached}-day training streak 🔥`,
+              `${streakResult.milestoneReached} days in a row on the daily challenge`);
+          }
+        } catch { /* non-fatal */ }
+      })();
     } catch (error) {
       console.error("Error bulk saving training logs:", error);
       res.status(500).json({ message: "Failed to save workout" });
@@ -2460,6 +2498,13 @@ Start now with a warm one-line greeting that briefly references something specif
       const challengeId = req.params.id;
       const userChallenge = await storage.startChallenge(userId, challengeId);
       res.json(userChallenge);
+      ;(async () => {
+        try {
+          const challenge = await storage.getChallengeById(challengeId);
+          fireActivity(userId, "started_program", `Entered a challenge`,
+            challenge?.name ?? "a challenge");
+        } catch { /* non-fatal */ }
+      })();
     } catch (error) {
       console.error("Error starting challenge:", error);
       res.status(500).json({ message: "Failed to start challenge" });
@@ -2497,6 +2542,13 @@ Start now with a warm one-line greeting that briefly references something specif
         return res.status(403).json({ message: "Not authorized" });
       }
       res.json(completed);
+      ;(async () => {
+        try {
+          const challenge = await storage.getChallengeById(completed.challengeId);
+          fireActivity(userId, "completed_challenge", `Completed a challenge 🏆`,
+            challenge?.name ?? "a challenge");
+        } catch { /* non-fatal */ }
+      })();
     } catch (error) {
       console.error("Error completing challenge:", error);
       res.status(500).json({ message: "Failed to complete challenge" });
@@ -8177,6 +8229,18 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
       if (!drillId) return res.status(400).json({ message: "drillId required" });
       const result = await storage.completeDailyChallenge(userId, drillId, date, trainingLogId);
       res.json(result);
+      // Friend activity — fire-and-forget
+      ;(async () => {
+        try {
+          fireActivity(userId, "finished_challenge", "Completed the daily challenge 🏀",
+            `Daily training streak: day ${result.streak.currentStreak}`);
+          if (result.milestoneReached && STREAK_MILESTONES.has(result.milestoneReached)) {
+            fireActivity(userId, "streak_milestone",
+              `Hit a ${result.milestoneReached}-day training streak 🔥`,
+              `${result.milestoneReached} days in a row on the daily challenge`);
+          }
+        } catch { /* non-fatal */ }
+      })();
     } catch (err) {
       console.error("Error completing daily challenge:", err);
       res.status(500).json({ message: "Failed to complete daily challenge" });
@@ -8313,6 +8377,8 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
       }
       const enrollment = await storage.enrollUserInProgram(userId, program.id);
       res.json(enrollment);
+      fireActivity(userId, "started_program", `Started a training program`,
+        program.title + (program.lengthDays ? ` · ${program.lengthDays} days` : ""));
     } catch (err) {
       console.error("Error enrolling in program:", err);
       res.status(500).json({ message: "Failed to enroll" });
@@ -8332,6 +8398,9 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
       try {
         const userId = req.user!.claims.sub;
         const body = completeItemSchema.parse(req.body ?? {});
+        // Capture pre-completion day so we can detect day advances
+        const [preEnroll] = await db.select({ currentDay: programEnrollments.currentDay, programId: programEnrollments.programId })
+          .from(programEnrollments).where(eq(programEnrollments.id, req.params.enrollmentId));
         const result = await storage.completeProgramItem({
           enrollmentId: req.params.enrollmentId,
           programItemId: req.params.itemId,
@@ -8351,6 +8420,20 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
           } catch (e) { console.error("[ArchetypeXP] program:", e); }
         })();
         res.json(result);
+        // Friend activity — fire-and-forget
+        ;(async () => {
+          try {
+            const prog = preEnroll?.programId ? await storage.getProgramById(preEnroll.programId) : null;
+            const progTitle = prog?.title ?? "a program";
+            if (result.programCompleted) {
+              fireActivity(userId, "completed_challenge", `Completed a training program 🏆`, progTitle);
+            } else if (result.enrollment.currentDay > (preEnroll?.currentDay ?? 0)) {
+              fireActivity(userId, "completed_program_day",
+                `Completed Day ${preEnroll?.currentDay ?? result.enrollment.currentDay} of ${progTitle}`,
+                prog ? `${result.enrollment.currentDay - 1} of ${prog.lengthDays} days done` : undefined);
+            }
+          } catch { /* non-fatal */ }
+        })();
       } catch (err: any) {
         if (err instanceof z.ZodError) return res.status(400).json({ message: "Invalid body", errors: err.errors });
         const msg = err?.message || "Failed to complete item";
@@ -10152,6 +10235,8 @@ Return ONLY valid JSON array, no markdown.`;
         initialBestRecord: Number(req.body.currentBest) || 0,
       } as any);
       res.json(participant);
+      fireActivity(userId, "started_program", `Joined a streak challenge`,
+        `${challenge.title} · goal: ${participant.personalGoal}`);
     } catch (err) {
       console.error("[streak] join:", err);
       res.status(500).json({ message: "Failed to join challenge" });
@@ -10193,6 +10278,8 @@ Return ONLY valid JSON array, no markdown.`;
         submitToCreator: Boolean(req.body.submitToCreator),
       } as any);
       res.json(result);
+      fireActivity(userId, "completed_program_day", `Logged a streak challenge attempt`,
+        `${challenge.title} · score: ${score}`);
     } catch (err) {
       console.error("[streak] attempt:", err);
       res.status(500).json({ message: "Failed to log attempt" });
