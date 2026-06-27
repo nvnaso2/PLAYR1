@@ -4093,8 +4093,9 @@ export class DatabaseStorage implements IStorage {
     const totalSessionsRow = r1(await db.execute(sql`SELECT COUNT(*) as count FROM training_sessions`));
     const totalConnRow     = r1(await db.execute(sql`SELECT COUNT(*) as count FROM player_trainer_connections WHERE status = 'accepted'`));
     const totalFbRow       = r1(await db.execute(sql`SELECT COUNT(*) as count FROM feedback_posts`));
-    const active7Row       = r1(await db.execute(sql`SELECT COUNT(DISTINCT user_id) as count FROM training_logs WHERE completed_at >= NOW() - INTERVAL '7 days'`));
-    const active30Row      = r1(await db.execute(sql`SELECT COUNT(DISTINCT user_id) as count FROM training_logs WHERE completed_at >= NOW() - INTERVAL '30 days'`));
+    // "Active" = opened the app (any analytics event) — not just logged a drill
+    const active7Row       = r1(await db.execute(sql`SELECT COUNT(DISTINCT user_id) as count FROM analytics_events WHERE created_at >= NOW() - INTERVAL '7 days'`));
+    const active30Row      = r1(await db.execute(sql`SELECT COUNT(DISTINCT user_id) as count FROM analytics_events WHERE created_at >= NOW() - INTERVAL '30 days'`));
 
     const usersByWeek      = r(await db.execute(sql`SELECT DATE_TRUNC('week', created_at) as week, COUNT(*) as count FROM users WHERE created_at >= NOW() - INTERVAL '12 weeks' GROUP BY week ORDER BY week ASC`));
     const logsByWeek       = r(await db.execute(sql`SELECT DATE_TRUNC('week', completed_at) as week, COUNT(*) as count FROM training_logs WHERE completed_at >= NOW() - INTERVAL '12 weeks' GROUP BY week ORDER BY week ASC`));
@@ -4338,6 +4339,7 @@ export class DatabaseStorage implements IStorage {
           u.id AS user_id,
           u.first_name, u.last_name, u.email, u.role,
           MAX(tl.completed_at) AS last_log_at,
+          MAX(ae.created_at) AS last_seen_at,
           COUNT(tl.id) FILTER (WHERE tl.completed_at >= NOW() - INTERVAL '28 days')::int AS logs_28d,
           COUNT(DISTINCT d.category) FILTER (WHERE tl.completed_at >= NOW() - INTERVAL '28 days')::int AS cats_28d,
           COALESCE(MAX(us.current_streak), 0)::int AS current_streak
@@ -4345,6 +4347,7 @@ export class DatabaseStorage implements IStorage {
         LEFT JOIN training_logs tl ON tl.user_id = u.id
         LEFT JOIN drills d ON d.id = tl.drill_id
         LEFT JOIN user_streaks us ON us.user_id = u.id
+        LEFT JOIN analytics_events ae ON ae.user_id = u.id
         GROUP BY u.id, u.first_name, u.last_name, u.email, u.role
       )
       SELECT
@@ -4353,12 +4356,13 @@ export class DatabaseStorage implements IStorage {
         email,
         role,
         last_log_at,
+        last_seen_at,
         logs_28d,
         cats_28d,
         current_streak,
         CASE
-          WHEN last_log_at IS NULL THEN NULL
-          ELSE EXTRACT(EPOCH FROM (NOW() - last_log_at)) / 86400.0
+          WHEN GREATEST(last_log_at, last_seen_at) IS NULL THEN NULL
+          ELSE EXTRACT(EPOCH FROM (NOW() - GREATEST(last_log_at, last_seen_at))) / 86400.0
         END AS days_since_last
       FROM metrics
     `));
@@ -4589,7 +4593,8 @@ export class DatabaseStorage implements IStorage {
   }> {
     const r = <T = any>(res: any): T[] => (res.rows ?? res) as T[];
 
-    // Pull per-user metrics: signup age, total logs ever, last log timestamp, logs in 28d, weekend logs in 28d, current streak.
+    // Pull per-user metrics: signup age, total logs ever, last log, last session, logs in 28d, weekend logs in 28d, current streak.
+    // last_seen_at = most recent analytics_event (any app visit, even without logging).
     const rows = r(await db.execute(sql`
       WITH metrics AS (
         SELECT
@@ -4605,25 +4610,28 @@ export class DatabaseStorage implements IStorage {
               AND EXTRACT(DOW FROM tl.completed_at) IN (0, 6)
           )::int AS weekend_logs_28d,
           MAX(tl.completed_at) AS last_log_at,
+          MAX(ae.created_at) AS last_seen_at,
           COALESCE(MAX(us.current_streak), 0)::int AS current_streak
         FROM users u
         LEFT JOIN training_logs tl ON tl.user_id = u.id
         LEFT JOIN user_streaks us ON us.user_id = u.id
+        LEFT JOIN analytics_events ae ON ae.user_id = u.id
         GROUP BY u.id, u.first_name, u.last_name, u.email, u.role, u.created_at
       )
       SELECT * FROM metrics
     `));
 
     const SEGMENT_DEFS: Array<{ key: string; label: string; description: string; color: string }> = [
-      { key: "power",       label: "Power Users",     description: "20+ training logs in the last 28 days. Your biggest fans.",                   color: "#22c55e" },
-      { key: "grinder",     label: "Daily Grinders",  description: "14–19 logs in 28 days. Logging almost every day.",                            color: "#3b82f6" },
-      { key: "weekend",     label: "Weekend Warriors", description: "4+ logs in 28 days, 60%+ on Saturday or Sunday.",                            color: "#a855f7" },
-      { key: "casual",      label: "Casual Loggers",   description: "1–13 logs in 28 days. Engaged, with room to grow.",                          color: "#06b6d4" },
-      { key: "new_active",  label: "New & Active",     description: "Signed up in the last 14 days and have already logged a drill.",             color: "#f59e0b" },
-      { key: "new_signup",  label: "New (Onboarding)", description: "Signed up in the last 14 days, no training log yet.",                        color: "#fbbf24" },
-      { key: "at_risk",     label: "At-Risk",          description: "Was active in last 60 days but hasn't logged in the last 14 days.",          color: "#f97316" },
-      { key: "ghost",       label: "Ghost Signups",    description: "Signed up over a week ago and never logged a single drill.",                 color: "#94a3b8" },
-      { key: "dormant",     label: "Dormant",          description: "Has logged in the past, but no activity in 60+ days.",                       color: "#64748b" },
+      { key: "power",       label: "Power Users",      description: "20+ training logs in the last 28 days. Your most dedicated users.",          color: "#22c55e" },
+      { key: "grinder",     label: "Daily Grinders",   description: "14–19 logs in 28 days. Logging nearly every day.",                          color: "#3b82f6" },
+      { key: "weekend",     label: "Weekend Warriors", description: "4+ logs in 28 days, 60%+ on Saturday or Sunday.",                           color: "#a855f7" },
+      { key: "casual",      label: "Casual Loggers",   description: "1–13 logs in 28 days. Engaged, with room to grow.",                         color: "#06b6d4" },
+      { key: "browser",     label: "Browsers",         description: "Opens the app regularly but hasn't logged a drill recently — still active.", color: "#84cc16" },
+      { key: "new_active",  label: "New & Active",     description: "Signed up in the last 14 days and have already logged a drill.",            color: "#f59e0b" },
+      { key: "new_signup",  label: "New (Onboarding)", description: "Signed up in the last 14 days, exploring the app.",                         color: "#fbbf24" },
+      { key: "at_risk",     label: "At-Risk",          description: "Was active (app open) in last 60 days but hasn't been seen in 14 days.",    color: "#f97316" },
+      { key: "ghost",       label: "Ghost Signups",    description: "Signed up over a week ago, never opened the app since.",                    color: "#94a3b8" },
+      { key: "dormant",     label: "Dormant",          description: "Has used the app in the past, but no activity in 60+ days.",                color: "#64748b" },
     ];
 
     const counts = new Map<string, number>(SEGMENT_DEFS.map(s => [s.key, 0]));
@@ -4638,18 +4646,26 @@ export class DatabaseStorage implements IStorage {
       const logs28d = Number(row.logs_28d);
       const logs14d = Number(row.logs_14d);
       const weekendLogs28d = Number(row.weekend_logs_28d);
-      const lastLogAt = row.last_log_at ? new Date(row.last_log_at) : null;
-      const lastActiveDaysAgo = lastLogAt ? Math.floor((Date.now() - lastLogAt.getTime()) / 86400000) : null;
+
+      // last_seen_at = most recent app open (analytics event); fallback to last log
+      const lastSeenAt  = row.last_seen_at  ? new Date(row.last_seen_at)  : null;
+      const lastLogAt   = row.last_log_at   ? new Date(row.last_log_at)   : null;
+      const lastActiveTs = lastSeenAt || lastLogAt;
+      const lastActiveDaysAgo = lastActiveTs ? Math.floor((Date.now() - lastActiveTs.getTime()) / 86400000) : null;
+      const seenInLast14d  = lastActiveTs ? (Date.now() - lastActiveTs.getTime()) < 14 * 86400000 : false;
+      const seenInLast60d  = lastActiveTs ? (Date.now() - lastActiveTs.getTime()) < 60 * 86400000 : false;
       const weekendShare = logs28d > 0 ? weekendLogs28d / logs28d : 0;
 
       let key: string;
       if (signupDaysAgo < 14) {
         key = logsTotal > 0 ? "new_active" : "new_signup";
-      } else if (logsTotal === 0) {
+      } else if (!lastActiveTs || lastActiveDaysAgo! > 7) {
+        // Never opened the app after sign-up (or opened only within signup grace period)
         key = "ghost";
-      } else if (logs60d > 0 && logs14d === 0) {
-        // At-Risk takes priority over Casual: any user with activity in the
-        // last 60 days but nothing in the last 14 is slipping away.
+      } else if (!seenInLast60d) {
+        key = "dormant";
+      } else if (!seenInLast14d) {
+        // Active (app opened) in last 60 days but not in last 14 — slipping away
         key = "at_risk";
       } else if (logs28d >= 20) {
         key = "power";
@@ -4660,7 +4676,8 @@ export class DatabaseStorage implements IStorage {
       } else if (logs28d >= 1) {
         key = "casual";
       } else {
-        key = "dormant";
+        // Recently opened the app but no drills logged in 28d
+        key = "browser";
       }
 
       counts.set(key, (counts.get(key) ?? 0) + 1);

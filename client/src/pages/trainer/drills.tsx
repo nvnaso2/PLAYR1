@@ -243,7 +243,7 @@ function AllDrillsSection() {
   const adminUserId = useAuth().user?.id;
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
-  const [sourceFilter, setSourceFilter] = useState("all");
+  const [sourceFilter, setSourceFilter] = useState("handlz");
   const [detailDrill, setDetailDrill] = useState<DrillItem | null>(null);
   const [quickAssignDrillId, setQuickAssignDrillId] = useState<string | null>(null);
   const [quickAssignGroupId, setQuickAssignGroupId] = useState("");
