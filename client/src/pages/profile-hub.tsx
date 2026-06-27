@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getObjectUrl } from "@/lib/queryClient";
 import {
   BarChart3, Fingerprint, BotMessageSquare, Zap,
-  ChevronRight, Settings,
+  ChevronRight, UserCircle, Settings,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -48,6 +48,15 @@ const sections = [
     path: "/game-day",
     testId: "card-profile-gameday",
   },
+  {
+    title: "Settings",
+    description: "Privacy, family controls, notifications and account",
+    icon: Settings,
+    color: "text-zinc-400",
+    bg: "bg-zinc-500/10",
+    path: "/settings",
+    testId: "card-profile-settings",
+  },
 ];
 
 export default function ProfileHubPage() {
@@ -67,7 +76,9 @@ export default function ProfileHubPage() {
 
   const displayName =
     [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.email || "Player";
-  const avatarSrc = profile?.profileImageUrl
+  const avatarSrc = profile?.profilePhotoUrl
+    ? getObjectUrl(profile.profilePhotoUrl)
+    : profile?.profileImageUrl
     ? getObjectUrl(profile.profileImageUrl)
     : undefined;
   const initials = displayName
@@ -79,7 +90,7 @@ export default function ProfileHubPage() {
 
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6 pb-6">
-      {/* Profile card */}
+      {/* My Profile card — tap to view/customize public profile */}
       <Card
         className="cursor-pointer hover-elevate border-zinc-800/60 bg-zinc-900/40"
         onClick={() => navigate("/profile")}
@@ -107,9 +118,9 @@ export default function ProfileHubPage() {
                 {archetype.archetypeName}
               </Badge>
             )}
-            <p className="text-xs text-zinc-500 mt-1">Tap to edit profile</p>
+            <p className="text-xs text-zinc-500 mt-1">My Profile · View &amp; customize</p>
           </div>
-          <Settings className="w-4 h-4 text-zinc-600 shrink-0" />
+          <UserCircle className="w-4 h-4 text-zinc-600 shrink-0" />
         </CardContent>
       </Card>
 
