@@ -1477,6 +1477,7 @@ export const trainingSessions = pgTable("training_sessions", {
   status: varchar("status").notNull().default("requested"),
   playerNotes: text("player_notes"),
   trainerNotes: text("trainer_notes"),
+  planNotes: text("plan_notes"),
   declineReason: text("decline_reason"),
   sessionType: varchar("session_type"),
   groupSessionId: varchar("group_session_id"),

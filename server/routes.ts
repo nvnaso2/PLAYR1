@@ -6611,6 +6611,29 @@ Start now with a warm one-line greeting that briefly references something specif
     }
   });
 
+  // Update session plan notes and/or post-session notes (trainer only)
+  app.put("/api/training-sessions/:id/notes", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const session = await storage.getTrainingSessionById(req.params.id);
+      if (!session) return res.status(404).json({ message: "Session not found" });
+      if (session.trainerId !== userId) return res.status(403).json({ message: "Forbidden" });
+      const notesSchema = z.object({
+        planNotes: z.string().nullable().optional(),
+        trainerNotes: z.string().nullable().optional(),
+      });
+      const parsed = notesSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
+      const updateData: any = {};
+      if (parsed.data.planNotes !== undefined) updateData.planNotes = parsed.data.planNotes || null;
+      if (parsed.data.trainerNotes !== undefined) updateData.trainerNotes = parsed.data.trainerNotes || null;
+      const updated = await storage.updateTrainingSession(req.params.id, updateData);
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Public Trainer Directory (for players to find trainers)
   app.get("/api/trainers/directory", async (req, res) => {
     try {

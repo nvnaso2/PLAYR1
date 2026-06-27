@@ -50,6 +50,9 @@ import {
   Plus,
   Trash2,
   Hourglass,
+  NotebookPen,
+  ClipboardList,
+  Save,
 } from "lucide-react";
 
 interface EnrichedSession {
@@ -64,6 +67,7 @@ interface EnrichedSession {
   status: string;
   playerNotes: string | null;
   trainerNotes: string | null;
+  planNotes: string | null;
   declineReason: string | null;
   sessionType: string | null;
   groupSessionId: string | null;
@@ -177,6 +181,11 @@ export default function TrainerSchedulePage() {
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
   const [playerSearch, setPlayerSearch] = useState("");
 
+  const [notesDialogOpen, setNotesDialogOpen] = useState(false);
+  const [notesDialogSession, setNotesDialogSession] = useState<EnrichedSession | null>(null);
+  const [editPlanNotes, setEditPlanNotes] = useState("");
+  const [editSessionNotes, setEditSessionNotes] = useState("");
+
   const now = new Date();
   const [calYear, setCalYear] = useState(now.getFullYear());
   const [calMonth, setCalMonth] = useState(now.getMonth());
@@ -251,6 +260,20 @@ export default function TrainerSchedulePage() {
     },
     onError: (error: Error) => {
       toast({ title: "Failed to delete", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const updateNotesMutation = useMutation({
+    mutationFn: ({ id, planNotes, trainerNotes }: { id: string; planNotes?: string; trainerNotes?: string }) =>
+      apiRequest("PUT", `/api/training-sessions/${id}/notes`, { planNotes, trainerNotes }),
+    onSuccess: () => {
+      invalidateSessions();
+      setNotesDialogOpen(false);
+      setNotesDialogSession(null);
+      toast({ title: "Notes saved" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to save notes", description: error.message, variant: "destructive" });
     },
   });
 
@@ -381,6 +404,13 @@ export default function TrainerSchedulePage() {
   function handleDeclineSubmit() {
     if (!declineSessionId) return;
     declineMutation.mutate({ id: declineSessionId, reason: declineReason || undefined });
+  }
+
+  function handleNotesClick(session: EnrichedSession) {
+    setNotesDialogSession(session);
+    setEditPlanNotes(session.planNotes || "");
+    setEditSessionNotes(session.trainerNotes || "");
+    setNotesDialogOpen(true);
   }
 
   function handleRescheduleClick(session: EnrichedSession) {
@@ -773,6 +803,7 @@ export default function TrainerSchedulePage() {
                           onComplete={() => completeMutation.mutate(session.id)}
                           onCancel={() => cancelMutation.mutate(session.id)}
                           onReschedule={() => handleRescheduleClick(session)}
+                          onNotes={() => handleNotesClick(session)}
                           completePending={completeMutation.isPending}
                           cancelPending={cancelMutation.isPending}
                           gcal={gcal}
@@ -1209,6 +1240,64 @@ export default function TrainerSchedulePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Session Plan & Notes Dialog */}
+      <Dialog open={notesDialogOpen} onOpenChange={(open) => { if (!open) { setNotesDialogOpen(false); setNotesDialogSession(null); } }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <NotebookPen className="w-4 h-4 text-primary" />
+              {notesDialogSession?.playerName} — {notesDialogSession && formatDate(notesDialogSession.sessionDate)}
+            </DialogTitle>
+            <DialogDescription>
+              Plan your session ahead of time and add notes after it's done.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5 text-sm font-medium">
+                <NotebookPen className="w-3.5 h-3.5 text-primary" />
+                Session Plan
+              </Label>
+              <p className="text-xs text-muted-foreground">Write out your training agenda, drills, and goals for this session.</p>
+              <Textarea
+                placeholder="e.g. Warm-up 10 min → ball-handling series (combo moves, crossover, behind-the-back) → 3-point shooting off dribble → conditioning finish..."
+                value={editPlanNotes}
+                onChange={(e) => setEditPlanNotes(e.target.value)}
+                className="min-h-[120px] text-sm"
+                data-testid="textarea-plan-notes"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5 text-sm font-medium">
+                <ClipboardList className="w-3.5 h-3.5 text-blue-500" />
+                Post-Session Notes
+              </Label>
+              <p className="text-xs text-muted-foreground">Observations, progress made, areas to focus on next time.</p>
+              <Textarea
+                placeholder="e.g. Player improved crossover consistency. Struggled with off-dribble shooting — focus here next session..."
+                value={editSessionNotes}
+                onChange={(e) => setEditSessionNotes(e.target.value)}
+                className="min-h-[100px] text-sm"
+                data-testid="textarea-session-notes"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setNotesDialogOpen(false); setNotesDialogSession(null); }}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => notesDialogSession && updateNotesMutation.mutate({ id: notesDialogSession.id, planNotes: editPlanNotes, trainerNotes: editSessionNotes })}
+              disabled={updateNotesMutation.isPending}
+              data-testid="button-save-notes"
+            >
+              <Save className="w-3.5 h-3.5 mr-1" />
+              Save Notes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -1218,6 +1307,7 @@ function SessionCard({
   onComplete,
   onCancel,
   onReschedule,
+  onNotes,
   completePending,
   cancelPending,
   gcal,
@@ -1226,14 +1316,17 @@ function SessionCard({
   onComplete: () => void;
   onCancel: () => void;
   onReschedule: () => void;
+  onNotes: () => void;
   completePending: boolean;
   cancelPending: boolean;
   gcal: ReturnType<typeof useGoogleCalendar>;
 }) {
+  const hasPlan = !!session.planNotes;
+  const hasSessionNotes = !!session.trainerNotes;
   return (
     <Card data-testid={`card-schedule-${session.id}`}>
       <CardContent className="py-3">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-start justify-between gap-2 flex-wrap">
           <div className="space-y-0.5 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-sm font-medium" data-testid={`text-schedule-player-${session.id}`}>
@@ -1253,6 +1346,12 @@ function SessionCard({
               <Badge variant={statusBadgeVariant(session.status)} className="no-default-hover-elevate text-xs">
                 {session.status}
               </Badge>
+              {hasPlan && (
+                <Badge variant="outline" className="no-default-hover-elevate text-xs text-primary border-primary/30">
+                  <NotebookPen className="w-3 h-3 mr-1" />
+                  Plan
+                </Badge>
+              )}
             </div>
             <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
               <span className="flex items-center gap-1">
@@ -1266,54 +1365,81 @@ function SessionCard({
                 </span>
               )}
             </div>
+            {hasPlan && (
+              <p className="text-xs text-muted-foreground mt-1 line-clamp-1 italic">
+                {session.planNotes}
+              </p>
+            )}
+            {hasSessionNotes && session.status === "completed" && (
+              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1 italic">
+                <ClipboardList className="w-3 h-3 inline mr-1" />
+                {session.trainerNotes}
+              </p>
+            )}
           </div>
-          {(session.status === "confirmed" || session.status === "requested") && (
-            <div className="flex items-center gap-2 flex-wrap">
-              {session.status === "confirmed" && (
-                <>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => gcal.isConnected ? gcal.addSession(session.id) : gcal.connect()}
-                    disabled={gcal.isAddingSession}
-                    data-testid={`button-gcal-${session.id}`}
-                  >
-                    <CalendarPlus className="w-3.5 h-3.5 mr-1" />
-                    {gcal.isConnected ? "Add to Calendar" : "Connect Calendar"}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={onComplete}
-                    disabled={completePending}
-                    data-testid={`button-complete-${session.id}`}
-                  >
-                    <CheckCircle className="w-3.5 h-3.5 mr-1" />
-                    Complete
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={onCancel}
-                    disabled={cancelPending}
-                    data-testid={`button-cancel-${session.id}`}
-                  >
-                    <XCircle className="w-3.5 h-3.5 mr-1" />
-                    Cancel
-                  </Button>
-                </>
-              )}
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={onReschedule}
-                data-testid={`button-reschedule-${session.id}`}
-              >
-                <CalendarDays className="w-3.5 h-3.5 mr-1" />
-                Reschedule
-              </Button>
-            </div>
-          )}
+          <div className="flex items-center gap-2 flex-wrap shrink-0">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onNotes}
+              data-testid={`button-notes-${session.id}`}
+              className="h-7 text-xs"
+            >
+              <NotebookPen className="w-3 h-3 mr-1" />
+              {hasPlan || hasSessionNotes ? "View Notes" : "Session Plan"}
+            </Button>
+            {(session.status === "confirmed" || session.status === "requested") && (
+              <>
+                {session.status === "confirmed" && (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => gcal.isConnected ? gcal.addSession(session.id) : gcal.connect()}
+                      disabled={gcal.isAddingSession}
+                      data-testid={`button-gcal-${session.id}`}
+                      className="h-7 text-xs"
+                    >
+                      <CalendarPlus className="w-3 h-3 mr-1" />
+                      {gcal.isConnected ? "Calendar" : "Connect Cal"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={onComplete}
+                      disabled={completePending}
+                      data-testid={`button-complete-${session.id}`}
+                      className="h-7 text-xs"
+                    >
+                      <CheckCircle className="w-3 h-3 mr-1" />
+                      Complete
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={onCancel}
+                      disabled={cancelPending}
+                      data-testid={`button-cancel-${session.id}`}
+                      className="h-7 text-xs"
+                    >
+                      <XCircle className="w-3 h-3 mr-1" />
+                      Cancel
+                    </Button>
+                  </>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={onReschedule}
+                  data-testid={`button-reschedule-${session.id}`}
+                  className="h-7 text-xs"
+                >
+                  <CalendarDays className="w-3 h-3 mr-1" />
+                  Reschedule
+                </Button>
+              </>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
