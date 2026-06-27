@@ -175,25 +175,39 @@ export default function FindTrainerPage() {
     },
   });
 
-  // Score trainers for recommendations — only shown when no search/filter is active
-  const recommendedTrainers = useMemo(() => {
-    if (!trainers?.length || hasFilters) return [];
+  // Score trainers for recommendations — always show top 4 when no filters active
+  const { recommendedTrainers, recommendReason, hasPersonalization } = useMemo(() => {
+    if (!trainers?.length || hasFilters) {
+      return { recommendedTrainers: [], recommendReason: "", hasPersonalization: false };
+    }
     const focusSpecialty = careerProfile?.focusSkill ? FOCUS_TO_SPECIALTY[careerProfile.focusSkill] : null;
     const playerState = userLocation?.state || null;
     const playerCity = userLocation?.city || null;
 
-    return trainers
-      .map(t => {
-        let score = 0;
-        if (focusSpecialty && t.specialties?.includes(focusSpecialty)) score += 3;
-        if (playerState && t.state === playerState) score += 2;
-        if (playerCity && t.city?.toLowerCase() === playerCity?.toLowerCase()) score += 2;
-        return { trainer: t, score };
-      })
-      .filter(({ score }) => score > 0)
+    const scored = trainers.map(t => {
+      let score = 0;
+      if (focusSpecialty && t.specialties?.includes(focusSpecialty)) score += 3;
+      if (playerState && t.state === playerState) score += 2;
+      if (playerCity && t.city?.toLowerCase() === playerCity?.toLowerCase()) score += 2;
+      return { trainer: t, score };
+    });
+
+    const anyMatch = scored.some(({ score }) => score > 0);
+    const top4 = scored
       .sort((a, b) => b.score - a.score)
       .slice(0, 4)
       .map(({ trainer }) => trainer);
+
+    let reason = "";
+    if (focusSpecialty && playerState) {
+      reason = `Based on your ${(careerProfile?.focusSkill ?? "").replace(/-/g, " ")} focus in ${playerState}`;
+    } else if (focusSpecialty) {
+      reason = `Based on your ${(careerProfile?.focusSkill ?? "").replace(/-/g, " ")} focus`;
+    } else if (playerState) {
+      reason = `Based on your location in ${playerState}`;
+    }
+
+    return { recommendedTrainers: top4, recommendReason: reason, hasPersonalization: anyMatch };
   }, [trainers, hasFilters, careerProfile, userLocation]);
 
   return (
@@ -298,15 +312,14 @@ export default function FindTrainerPage() {
           <div className="space-y-6">
             {recommendedTrainers.length > 0 && (
               <div className="space-y-3" data-testid="section-recommended-trainers">
-                <div className="flex items-center gap-2">
-                  <Star className="w-4 h-4 text-amber-500" fill="currentColor" />
-                  <h2 className="text-sm font-semibold">Recommended for You</h2>
-                  <span className="text-xs text-muted-foreground">
-                    {careerProfile?.focusSkill
-                      ? `Based on your ${careerProfile.focusSkill.replace(/-/g, " ")} focus`
-                      : "Based on your location"}
-                    {userLocation?.state ? ` in ${userLocation.state}` : ""}
-                  </span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Star className="w-4 h-4 text-amber-500 shrink-0" fill="currentColor" />
+                  <h2 className="text-sm font-semibold">
+                    {hasPersonalization ? "Recommended for You" : "Featured Trainers"}
+                  </h2>
+                  {recommendReason && (
+                    <span className="text-xs text-muted-foreground capitalize">{recommendReason}</span>
+                  )}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {recommendedTrainers.map(trainer => (
@@ -320,22 +333,29 @@ export default function FindTrainerPage() {
               </div>
             )}
 
-            <div className="space-y-3">
-              {recommendedTrainers.length > 0 && (
-                <h2 className="text-sm font-semibold text-muted-foreground">
-                  All Trainers ({trainers.length})
-                </h2>
-              )}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {trainers.map(trainer => (
-                  <TrainerCard
-                    key={trainer.id}
-                    trainer={trainer}
-                    onClick={() => setSelectedTrainer(trainer)}
-                  />
-                ))}
-              </div>
-            </div>
+            {(() => {
+              const recommendedIds = new Set(recommendedTrainers.map(t => t.id));
+              const remaining = trainers.filter(t => !recommendedIds.has(t.id));
+              if (!remaining.length) return null;
+              return (
+                <div className="space-y-3">
+                  {recommendedTrainers.length > 0 && (
+                    <h2 className="text-sm font-semibold text-muted-foreground">
+                      More Trainers ({remaining.length})
+                    </h2>
+                  )}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {remaining.map(trainer => (
+                      <TrainerCard
+                        key={trainer.id}
+                        trainer={trainer}
+                        onClick={() => setSelectedTrainer(trainer)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
       </div>
