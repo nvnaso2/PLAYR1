@@ -2428,6 +2428,7 @@ export default function AdminPage() {
   const [editingMetric, setEditingMetric] = useState<MetricTemplate | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [drillSourceFilter, setDrillSourceFilter] = useState<"playr1" | "community" | "all">("playr1");
   const [activeTab, setActiveTab] = useState("videos");
   const [repairingVideos, setRepairingVideos] = useState(false);
   const [repairResults, setRepairResults] = useState<{ fixed: number; skipped: number } | null>(null);
@@ -2849,7 +2850,11 @@ export default function AdminPage() {
       drill.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       drill.description?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = filterCategory === "all" || drill.category === filterCategory;
-    return matchesSearch && matchesCategory;
+    const matchesSource =
+      drillSourceFilter === "all" ? true :
+      drillSourceFilter === "playr1" ? drill.userId === null :
+      /* community */ drill.userId !== null && (drill as any).isShared === true;
+    return matchesSearch && matchesCategory && matchesSource;
   }) || [];
 
   const handleRepairAllVideos = async () => {
@@ -3477,7 +3482,17 @@ export default function AdminPage() {
                 <Video className="w-5 h-5" />
                 Drill Library ({filteredDrills.length})
               </CardTitle>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap justify-end">
+                <Select value={drillSourceFilter} onValueChange={(v) => setDrillSourceFilter(v as any)}>
+                  <SelectTrigger className="w-[140px]" data-testid="select-admin-drill-source">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="playr1">PLAYR1 Only</SelectItem>
+                    <SelectItem value="community">Community</SelectItem>
+                    <SelectItem value="all">All Sources</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Button
                   variant="outline"
                   size="sm"
