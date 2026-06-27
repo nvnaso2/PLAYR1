@@ -76,14 +76,6 @@ const playerNavItems = [
 ];
 
 const trainerNavItems = [
-  { title: "Home", url: "/trainer", icon: BarChart3 },
-  { title: "Player Management", url: "/trainer/roster", icon: Users },
-  { title: "Drills & Workouts", url: "/trainer/drills", icon: Dumbbell },
-  { title: "Chat", url: "/trainer/chat", icon: MessageCircle },
-  { title: "Schedule", url: "/trainer/schedule", icon: CalendarDays },
-  { title: "Programs", url: "/trainer/programs", icon: Sparkles },
-  { title: "Evaluations", url: "/trainer/evaluations", icon: ClipboardCheck },
-  { title: "Trainer Profile", url: "/trainer/profile", icon: UserCircle },
   { title: "Feedback", url: "/feedback", icon: Megaphone },
 ];
 

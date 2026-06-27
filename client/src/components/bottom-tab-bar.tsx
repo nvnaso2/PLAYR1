@@ -1,8 +1,9 @@
 import { useLocation } from "wouter";
-import { Dumbbell, Trophy, Home, Users, UserCircle } from "lucide-react";
+import { Dumbbell, Trophy, Home, Users, UserCircle, CalendarDays, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useRole } from "@/hooks/use-role";
 
-const tabs = [
+const playerTabs = [
   {
     id: "train",
     label: "Train",
@@ -41,13 +42,58 @@ const tabs = [
   },
 ];
 
+const trainerTabs = [
+  {
+    id: "schedule",
+    label: "Schedule",
+    icon: CalendarDays,
+    path: "/trainer/schedule",
+    activePatterns: ["/trainer/schedule"],
+  },
+  {
+    id: "content",
+    label: "Content",
+    icon: Dumbbell,
+    path: "/trainer/drills",
+    activePatterns: ["/trainer/drills", "/trainer/programs", "/trainer/logs"],
+  },
+  {
+    id: "trainer-hub",
+    label: "Hub",
+    icon: Home,
+    path: "/trainer",
+    center: true,
+    activePatterns: ["/trainer"],
+  },
+  {
+    id: "players",
+    label: "Players",
+    icon: Users,
+    path: "/trainer/roster",
+    activePatterns: ["/trainer/roster", "/trainer/chat", "/trainer/evaluations", "/trainer/progress"],
+  },
+  {
+    id: "trainer-profile",
+    label: "Profile",
+    icon: UserCircle,
+    path: "/trainer/profile",
+    activePatterns: ["/trainer/profile"],
+  },
+];
+
 export function BottomTabBar() {
   const [location, navigate] = useLocation();
+  const { activeView } = useRole();
+
+  const isTrainerView = activeView === "trainer";
+  const tabs = isTrainerView ? trainerTabs : playerTabs;
 
   function isTabActive(tab: typeof tabs[0]): boolean {
-    if (tab.id === "hub") {
+    if (tab.id === "hub" || tab.id === "trainer-hub") {
+      if (isTrainerView) return location === "/trainer";
       return location === "/" || location === "/hub" || location === "/dashboard";
     }
+    // "players" tab: active for /trainer but NOT /trainer/profile etc. handled by activePatterns
     return tab.activePatterns.some(
       (p) => location === p || location.startsWith(p + "/")
     );
@@ -67,10 +113,10 @@ export function BottomTabBar() {
           return (
             <button
               key={tab.id}
-              data-testid="tab-hub"
+              data-testid={`tab-${tab.id}`}
               onClick={() => navigate(tab.path)}
               className="flex flex-col items-center justify-end pb-2 pt-1 flex-1 relative"
-              aria-label="Hub"
+              aria-label={tab.label}
             >
               <div
                 className={cn(
@@ -88,7 +134,7 @@ export function BottomTabBar() {
                   active ? "text-orange-400" : "text-zinc-500"
                 )}
               >
-                Hub
+                {tab.label}
               </span>
             </button>
           );
