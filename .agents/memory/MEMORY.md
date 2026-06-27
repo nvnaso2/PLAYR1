@@ -1,2 +1,1 @@
-- [Streak Challenge tables](streak-challenge-db.md) — tables created via direct SQL (not drizzle push); slug "fifty-in-a-row" seeded.
-- [Streak Challenge video upload](streak-challenge-upload.md) — attempt modal uses /api/user/uploads/request-url → PUT presigned URL; objectPath stored as videoUrl.
+- [Player profile DB columns](player-profile-columns.md) — ALTER TABLE used for new columns (not drizzle push) to avoid interactive slug_unique conflict

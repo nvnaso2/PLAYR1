@@ -376,7 +376,13 @@ export function AppSidebar() {
                 <DropdownMenuItem asChild>
                   <Link href="/profile" className="cursor-pointer" data-testid="link-profile" onClick={closeSidebar}>
                     <User className="mr-2 h-4 w-4" />
-                    PLAYR1 Profile
+                    My Profile
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/settings" className="cursor-pointer" data-testid="link-settings" onClick={closeSidebar}>
+                    <Settings className="mr-2 h-4 w-4" />
+                    Settings
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />

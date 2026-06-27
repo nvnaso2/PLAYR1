@@ -3078,6 +3078,12 @@ Start now with a warm one-line greeting that briefly references something specif
           jerseyNumber: career.jerseyNumber,
           aspiration: career.aspiration,
           cardPhotoUrl: career.cardPhotoUrl,
+          skillBallHandling: profile.showSkills ? career.skillBallHandling : null,
+          skillShooting: profile.showSkills ? career.skillShooting : null,
+          skillDefense: profile.showSkills ? career.skillDefense : null,
+          skillAthleticism: profile.showSkills ? career.skillAthleticism : null,
+          skillIQ: profile.showSkills ? career.skillIQ : null,
+          assessmentArchetype: profile.showArchetype ? career.assessmentArchetype : null,
         } : null,
       };
 

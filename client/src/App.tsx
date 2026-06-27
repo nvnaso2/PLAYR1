@@ -86,6 +86,7 @@ const ProfileHubPage = lazy(() => import("@/pages/profile-hub"));
 const StreaksPage = lazy(() => import("@/pages/streaks"));
 const StatChallengePage = lazy(() => import("@/pages/stat-challenge"));
 const StreakChallengePage = lazy(pageLoaders.streakChallenge);
+const SettingsPage = lazy(pageLoaders.settings);
 
 function PageLoader() {
   return (
@@ -318,6 +319,7 @@ function Router() {
                 <Route path="/videos" component={Videos} />
                 <Route path="/career" component={Career} />
                 <Route path="/profile" component={Profile} />
+                <Route path="/settings">{() => <Suspense fallback={<LoadingScreen />}><SettingsPage /></Suspense>}</Route>
                 <Route path="/admin/onboarding-preview">{() => <AdminRoute><OnboardingPreview /></AdminRoute>}</Route>
                 <Route path="/admin/brand-principles">{() => <AdminRoute><AdminBrandPrinciples /></AdminRoute>}</Route>
                 <Route path="/admin">{() => <AdminRoute />}</Route>
