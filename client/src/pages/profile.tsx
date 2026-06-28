@@ -12,9 +12,9 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest, getObjectUrl } from "@/lib/queryClient";
 import {
-  Eye, EyeOff, Globe, Lock, ExternalLink, Save, Loader2,
+  Eye, EyeOff, Globe, Lock, Save, Loader2,
   Ruler, GraduationCap, Video, Star, Zap, Trophy, Medal,
-  BarChart3, School, Users, MapPin,
+  BarChart3, School, Users, MapPin, Dumbbell, Clock,
 } from "lucide-react";
 import { SiX, SiInstagram, SiTiktok, SiYoutube } from "react-icons/si";
 
@@ -24,42 +24,57 @@ const POSITION_LABELS: Record<string, string> = {
 };
 
 const GRADE_LABELS: Record<string, string> = {
-  elementary: "Elementary School", "6th": "6th Grade", "7th": "7th Grade",
+  elementary: "Elementary", "6th": "6th Grade", "7th": "7th Grade",
   "8th": "8th Grade", freshman: "HS Freshman", sophomore: "HS Sophomore",
   junior: "HS Junior", senior: "HS Senior", "college-freshman": "College Freshman",
   "college-sophomore": "College Sophomore", "college-junior": "College Junior",
   "college-senior": "College Senior", "post-college": "Post-College",
 };
 
-function generateSlug(name: string) {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+function makeSlug(name: string) {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "player";
 }
 
 function StatPill({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col items-center justify-center p-3 rounded-xl bg-white/5 border border-white/10 min-w-0">
-      <span className="text-xl font-bold text-white">{value}</span>
-      <span className="text-[11px] text-white/60 font-medium mt-0.5">{label}</span>
+    <div className="flex flex-col items-center justify-center p-3 rounded-xl bg-black/30 border border-orange-500/20 min-w-0">
+      <span className="text-xl font-black text-white">{value}</span>
+      <span className="text-[11px] text-orange-200/60 font-semibold mt-0.5 uppercase tracking-wide">{label}</span>
     </div>
   );
 }
 
-function SkillBar({ label, value }: { label: string; value: number | null }) {
+function SkillBar({ label, value }: { label: string; value: number | null | undefined }) {
   if (!value) return null;
-  const pct = Math.min(100, Math.round((value / 100) * 100));
+  const pct = Math.min(100, value);
   return (
-    <div className="space-y-1">
+    <div className="space-y-1.5">
       <div className="flex items-center justify-between text-sm">
         <span className="text-muted-foreground">{label}</span>
-        <span className="font-semibold tabular-nums">{value}</span>
+        <span className="font-bold text-orange-400 tabular-nums">{value}</span>
       </div>
-      <div className="h-2 rounded-full bg-muted overflow-hidden">
+      <div className="h-2.5 rounded-full bg-zinc-800 overflow-hidden">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-orange-500 to-orange-400 transition-all duration-500"
+          className="h-full rounded-full bg-gradient-to-r from-orange-600 to-orange-400"
           style={{ width: `${pct}%` }}
         />
       </div>
     </div>
+  );
+}
+
+function SectionCard({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
+  return (
+    <Card className="rounded-2xl border-zinc-800/60 bg-zinc-900/60">
+      <CardHeader className="pb-3 pt-4 px-4">
+        <CardTitle className="text-sm font-bold flex items-center gap-2">
+          {icon}{title}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="px-4 pb-4">
+        {children}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -71,11 +86,11 @@ function VisibilityToggle({
 }) {
   return (
     <div className="flex items-center justify-between py-3">
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 pr-3">
         <p className="text-sm font-medium leading-none">{label}</p>
         {description && <p className="text-xs text-muted-foreground mt-0.5">{description}</p>}
       </div>
-      <div className="flex items-center gap-2 ml-3 shrink-0">
+      <div className="flex items-center gap-2 shrink-0">
         {checked
           ? <Eye className="w-3.5 h-3.5 text-orange-400" />
           : <EyeOff className="w-3.5 h-3.5 text-zinc-600" />}
@@ -86,58 +101,48 @@ function VisibilityToggle({
 }
 
 const VIS_DEFAULTS = {
-  isPublic: false,
-  isPrivate: false,
-  showStats: true,
-  showAchievements: true,
-  showVideos: true,
-  showPersonalRecords: true,
-  showTrainingLog: false,
-  showSkills: true,
-  showArchetype: true,
-  showLocation: true,
-  showPhysical: true,
-  showAcademic: true,
-  showSocialLinks: true,
-  showEmail: false,
+  isPublic: false, isPrivate: false,
+  showStats: true, showAchievements: true, showVideos: true,
+  showPersonalRecords: true, showTrainingLog: false, showSkills: true,
+  showArchetype: true, showLocation: true, showPhysical: true,
+  showAcademic: true, showSocialLinks: true, showEmail: false,
 };
-
 type VisState = typeof VIS_DEFAULTS;
 
 export default function ProfilePage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<"preview" | "visibility">("preview");
+  const [tab, setTab] = useState<"profile" | "visibility">("profile");
   const [saving, setSaving] = useState(false);
   const [vis, setVis] = useState<VisState>(VIS_DEFAULTS);
   const [visLoaded, setVisLoaded] = useState(false);
 
   const { data: userProfile } = useQuery<any>({ queryKey: ["/api/profile"] });
   const { data: playerProfile, isLoading } = useQuery<any>({ queryKey: ["/api/player-profile"] });
-  const { data: careerProfile } = useQuery<any>({ queryKey: ["/api/career"] });
-  const { data: statsOverview } = useQuery<any>({ queryKey: ["/api/stats/overview"] });
+  const { data: career } = useQuery<any>({ queryKey: ["/api/career"] });
+  const { data: careerStats } = useQuery<any>({ queryKey: ["/api/career-stats/me"] });
   const { data: awards } = useQuery<any[]>({ queryKey: ["/api/team-awards"] });
   const { data: personalRecords } = useQuery<any[]>({ queryKey: ["/api/personal-records"] });
   const { data: videos } = useQuery<any[]>({ queryKey: ["/api/videos"] });
+  const { data: recentLogs } = useQuery<any[]>({ queryKey: ["/api/training-logs/recent"] });
 
-  // Sync vis from server exactly once after playerProfile loads
   useEffect(() => {
     if (playerProfile && !visLoaded) {
       setVis({
-        isPublic:          playerProfile.isPublic          ?? false,
-        isPrivate:         playerProfile.isPrivate         ?? false,
-        showStats:         playerProfile.showStats         ?? true,
-        showAchievements:  playerProfile.showAchievements  ?? true,
-        showVideos:        playerProfile.showVideos        ?? true,
+        isPublic:            playerProfile.isPublic            ?? false,
+        isPrivate:           playerProfile.isPrivate           ?? false,
+        showStats:           playerProfile.showStats           ?? true,
+        showAchievements:    playerProfile.showAchievements    ?? true,
+        showVideos:          playerProfile.showVideos          ?? true,
         showPersonalRecords: playerProfile.showPersonalRecords ?? true,
-        showTrainingLog:   playerProfile.showTrainingLog   ?? false,
-        showSkills:        playerProfile.showSkills        ?? true,
-        showArchetype:     playerProfile.showArchetype     ?? true,
-        showLocation:      playerProfile.showLocation      ?? true,
-        showPhysical:      playerProfile.showPhysical      ?? true,
-        showAcademic:      playerProfile.showAcademic      ?? true,
-        showSocialLinks:   playerProfile.showSocialLinks   ?? true,
-        showEmail:         playerProfile.showEmail         ?? false,
+        showTrainingLog:     playerProfile.showTrainingLog     ?? false,
+        showSkills:          playerProfile.showSkills          ?? true,
+        showArchetype:       playerProfile.showArchetype       ?? true,
+        showLocation:        playerProfile.showLocation        ?? true,
+        showPhysical:        playerProfile.showPhysical        ?? true,
+        showAcademic:        playerProfile.showAcademic        ?? true,
+        showSocialLinks:     playerProfile.showSocialLinks     ?? true,
+        showEmail:           playerProfile.showEmail           ?? false,
       });
       setVisLoaded(true);
     }
@@ -146,524 +151,516 @@ export default function ProfilePage() {
   const toggle = (key: keyof VisState, value: boolean) =>
     setVis(prev => ({ ...prev, [key]: value }));
 
-  const saveVisibility = async () => {
-    setSaving(true);
-    try {
-      await apiRequest("PUT", "/api/player-profile", { ...(playerProfile ?? {}), ...vis });
-      await queryClient.invalidateQueries({ queryKey: ["/api/player-profile"] });
-      toast({ title: "Visibility saved", description: "Your profile settings have been updated." });
-    } catch {
-      toast({ title: "Failed to save", variant: "destructive" });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Derived display values
   const displayName =
     userProfile?.displayName ||
     (user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : user?.firstName) ||
     user?.email || "Player";
 
-  const publicSlug = generateSlug(displayName);
+  const slug = makeSlug(displayName);
 
-  const playerInitials = displayName
-    .split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
+  const saveVisibility = async () => {
+    setSaving(true);
+    try {
+      const base = playerProfile ?? {};
+      await apiRequest("PUT", "/api/player-profile", { ...base, ...vis, slug });
+      await queryClient.invalidateQueries({ queryKey: ["/api/player-profile"] });
+      toast({ title: "Saved!", description: "Visibility settings updated." });
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Save failed", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
 
-  const photoSrc = careerProfile?.cardPhotoUrl
-    ? getObjectUrl(careerProfile.cardPhotoUrl)
+  const initials = displayName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
+  const photoSrc = career?.cardPhotoUrl
+    ? getObjectUrl(career.cardPhotoUrl)
     : userProfile?.profilePhotoUrl
     ? getObjectUrl(userProfile.profilePhotoUrl)
     : user?.profileImageUrl
     ? getObjectUrl(user.profileImageUrl)
     : undefined;
 
-  const hasPhysical = playerProfile?.heightFeet || playerProfile?.weight > 0 || playerProfile?.wingspan;
-  const hasAcademic = playerProfile?.gradYear > 0 || playerProfile?.gpa;
-  const hasSocials   = playerProfile?.socialTwitter || playerProfile?.socialInstagram || playerProfile?.socialTiktok || playerProfile?.socialYoutube;
-  const hasSkills    = careerProfile && (careerProfile.skillBallHandling || careerProfile.skillShooting || careerProfile.skillDefense || careerProfile.skillAthleticism || careerProfile.skillIQ);
-
-  const careerStats = statsOverview;
-  const hasStats = careerStats && careerStats.totalGames > 0;
+  // Data presence checks — using correct field names from schema
+  const hasStats      = careerStats && careerStats.totalGames > 0;
+  const hasSkills     = career && (career.skillBallHandling || career.skillShooting || career.skillDefense || career.skillAthletics || career.skillBasketballIQ || career.skillPassing || career.skillFinishing);
+  const hasArchetype  = !!career?.assessmentArchetype;
+  const hasPhysical   = playerProfile?.heightFeet > 0 || playerProfile?.weight > 0 || playerProfile?.wingspan;
+  const hasAcademic   = playerProfile?.gradYear > 0 || playerProfile?.gpa;
+  const hasSocials    = playerProfile?.socialTwitter || playerProfile?.socialInstagram || playerProfile?.socialTiktok || playerProfile?.socialYoutube;
+  const hasAwards     = awards && awards.length > 0;
+  const hasPRs        = personalRecords && personalRecords.length > 0;
+  const hasVideos     = videos && videos.filter((v: any) => v.isPublic).length > 0;
+  const hasLogs       = recentLogs && recentLogs.length > 0;
 
   if (isLoading) {
     return (
-      <div className="p-4 max-w-2xl mx-auto space-y-4">
+      <div className="p-4 max-w-2xl mx-auto space-y-4 pb-10">
         <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-64 w-full rounded-2xl" />
+        <Skeleton className="h-52 w-full rounded-3xl" />
+        <Skeleton className="h-32 w-full rounded-2xl" />
       </div>
     );
   }
 
   return (
-    <div className="max-w-2xl mx-auto pb-10">
-      {/* ── TOP BAR ── */}
-      <div className="flex items-center justify-between px-4 pt-5 pb-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-black tracking-tight" data-testid="text-page-title">
-            My Profile
-          </h1>
-          <p className="text-sm text-muted-foreground">What others see when they visit your profile</p>
-        </div>
-        {vis.isPublic && (
-          <Button variant="outline" size="sm" className="gap-1.5 shrink-0" asChild>
-            <a href={`/player/${publicSlug}`} target="_blank" rel="noopener noreferrer" data-testid="link-view-public-profile">
-              <ExternalLink className="w-3.5 h-3.5" />
-              View Live
-            </a>
-          </Button>
-        )}
+    <div className="max-w-2xl mx-auto pb-12">
+      {/* Header */}
+      <div className="px-4 pt-5 pb-3">
+        <h1 className="text-2xl font-black tracking-tight" data-testid="text-page-title">My Profile</h1>
+        <p className="text-sm text-muted-foreground">Exactly what others see when they visit your profile</p>
       </div>
 
-      {/* ── TABS ── */}
+      {/* Tabs */}
       <div className="flex gap-1 mx-4 mb-5 p-1 bg-zinc-900 border border-zinc-800 rounded-xl">
-        {(["preview", "visibility"] as const).map(tab => (
+        {(["profile", "visibility"] as const).map(t => (
           <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`flex-1 px-3 py-2 text-sm font-semibold rounded-lg transition-all capitalize ${
-              activeTab === tab
+            key={t}
+            onClick={() => setTab(t)}
+            className={`flex-1 px-3 py-2 text-sm font-bold rounded-lg transition-all capitalize ${
+              tab === t
                 ? "bg-orange-500 text-white shadow-lg shadow-orange-500/30"
                 : "text-zinc-500 hover:text-zinc-200"
             }`}
-            data-testid={`tab-${tab}`}
+            data-testid={`tab-${t}`}
           >
-            {tab}
+            {t === "profile" ? "My Profile" : "Visibility"}
           </button>
         ))}
       </div>
 
-      {/* ═══════════════════════════════════════
-          PREVIEW TAB — renders the full profile
-          exactly as it appears to visitors
-      ════════════════════════════════════════ */}
-      {activeTab === "preview" && (
+      {/* ══════════════════════════════════════════
+          MY PROFILE TAB
+      ═══════════════════════════════════════════ */}
+      {tab === "profile" && (
         <div>
-          {/* Private warning banner */}
+          {/* Private banner */}
           {!vis.isPublic && (
-            <div className="mx-4 mb-4 flex items-start gap-2.5 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/25">
+            <div className="mx-4 mb-3 flex items-start gap-2.5 px-3 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20">
               <Lock className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-              <p className="text-sm text-amber-300/90 leading-snug">
-                <strong>Profile is private.</strong> Enable "Public Profile" in the Visibility tab so others can find and view you.
+              <p className="text-xs text-amber-300/90 leading-snug">
+                Profile is <strong>private</strong>. Go to the Visibility tab to make it public.
               </p>
             </div>
           )}
 
-          {/* ── SPORTS CARD HERO (identical to player-public.tsx) ── */}
+          {/* ── HERO CARD — pure PLAYR1 orange + black ── */}
           <div className="relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-orange-600/30 via-purple-900/20 to-cyan-900/20" />
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(251,146,60,0.2),transparent_60%)]" />
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,rgba(99,102,241,0.15),transparent_60%)]" />
+            {/* Pure black base */}
+            <div className="absolute inset-0 bg-zinc-950" />
+            {/* Orange glow from top-right */}
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_80%_at_top_right,rgba(234,88,12,0.35),transparent)]" />
+            {/* Subtle orange fade bottom */}
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-zinc-950/80" />
+            {/* Grid */}
             <div
-              className="absolute inset-0 opacity-[0.04]"
+              className="absolute inset-0 opacity-[0.045]"
               style={{
                 backgroundImage: "linear-gradient(rgba(255,255,255,1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,1) 1px,transparent 1px)",
-                backgroundSize: "40px 40px",
+                backgroundSize: "36px 36px",
               }}
             />
 
             <div className="relative px-4 pt-8 pb-10">
               <div className="flex items-end gap-5">
-                {/* Avatar with holographic glow */}
+                {/* Avatar — pure orange glow */}
                 <div className="relative shrink-0">
-                  <div className="absolute -inset-1 rounded-full bg-gradient-to-br from-orange-400 via-purple-500 to-cyan-400 opacity-60 blur-sm" />
-                  <Avatar className="relative h-28 w-28 border-2 border-white/20">
-                    <AvatarFallback className="text-3xl font-bold bg-zinc-900 text-orange-400">
-                      {playerInitials}
-                    </AvatarFallback>
-                    {photoSrc && (
-                      <AvatarImage src={photoSrc} alt={displayName} className="object-cover" />
-                    )}
+                  <div className="absolute -inset-[3px] rounded-full bg-gradient-to-br from-orange-400 to-orange-600 opacity-80 blur-[4px]" />
+                  <Avatar className="relative h-28 w-28 border-2 border-orange-500/30">
+                    <AvatarFallback className="text-3xl font-black bg-zinc-900 text-orange-400">{initials}</AvatarFallback>
+                    {photoSrc && <AvatarImage src={photoSrc} alt={displayName} className="object-cover" />}
                   </Avatar>
                 </div>
 
-                {/* Name + meta */}
                 <div className="flex-1 min-w-0 pb-1">
                   <div className="flex flex-wrap items-baseline gap-2 mb-1">
-                    {careerProfile?.jerseyNumber != null && (
-                      <span className="text-2xl font-black text-orange-400">#{careerProfile.jerseyNumber}</span>
+                    {career?.jerseyNumber != null && (
+                      <span className="text-2xl font-black text-orange-400" data-testid="text-jersey">#  {career.jerseyNumber}</span>
                     )}
-                    <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-none" data-testid="text-profile-preview-name">
+                    <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-none uppercase" data-testid="text-profile-name">
                       {displayName}
                     </h2>
                   </div>
 
                   {playerProfile?.headline && (
-                    <p className="text-sm text-white/70 mb-2">{playerProfile.headline}</p>
+                    <p className="text-sm text-orange-100/60 mb-2">{playerProfile.headline}</p>
                   )}
 
                   <div className="flex flex-wrap gap-1.5 mb-2">
-                    {careerProfile?.positions?.map((pos: string) => (
-                      <Badge key={pos} className="bg-orange-500/20 text-orange-300 border border-orange-500/30 text-xs">
+                    {career?.positions?.map((pos: string) => (
+                      <Badge key={pos} className="bg-orange-500/25 text-orange-300 border border-orange-500/40 font-semibold text-xs">
                         {POSITION_LABELS[pos] || pos}
                       </Badge>
                     ))}
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-3 text-xs text-white/60">
-                    {careerProfile?.schoolName && (
-                      <span className="flex items-center gap-1"><School className="h-3 w-3" />{careerProfile.schoolName}</span>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
+                    {career?.schoolName && (
+                      <span className="flex items-center gap-1"><School className="h-3 w-3" />{career.schoolName}</span>
                     )}
-                    {careerProfile?.teamName && (
-                      <span className="flex items-center gap-1"><Users className="h-3 w-3" />{careerProfile.teamName}</span>
+                    {career?.teamName && (
+                      <span className="flex items-center gap-1"><Users className="h-3 w-3" />{career.teamName}</span>
                     )}
-                    {careerProfile?.gradeLevel && (
-                      <span className="flex items-center gap-1"><GraduationCap className="h-3 w-3" />{GRADE_LABELS[careerProfile.gradeLevel] || careerProfile.gradeLevel}</span>
+                    {career?.gradeLevel && (
+                      <span className="flex items-center gap-1"><GraduationCap className="h-3 w-3" />{GRADE_LABELS[career.gradeLevel] || career.gradeLevel}</span>
                     )}
                     {vis.showLocation && userProfile?.city && (
-                      <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{userProfile.city}{userProfile.state ? `, ${userProfile.state}` : ""}</span>
+                      <span className="flex items-center gap-1 text-orange-400/70">
+                        <MapPin className="h-3 w-3" />{userProfile.city}{userProfile.state ? `, ${userProfile.state}` : ""}
+                      </span>
                     )}
                   </div>
                 </div>
               </div>
 
-              {/* Career stats strip */}
+              {/* Game stats strip */}
               {vis.showStats && hasStats && (
                 <div className="mt-6">
-                  <div className="flex items-center gap-2 mb-2.5">
-                    <span className="text-xs font-semibold text-white/50 uppercase tracking-wider">Career Averages</span>
-                    <span className="text-xs text-white/30">·</span>
-                    <span className="text-xs text-white/40">{careerStats.totalGames} games</span>
-                  </div>
+                  <p className="text-[10px] font-bold text-orange-400/60 uppercase tracking-widest mb-2.5">
+                    Career Averages · {careerStats.totalGames} games
+                  </p>
                   <div className="grid grid-cols-5 gap-2">
-                    <StatPill label="PPG" value={Number(careerStats.avgPoints ?? 0).toFixed(1)} />
-                    <StatPill label="RPG" value={Number(careerStats.avgRebounds ?? 0).toFixed(1)} />
-                    <StatPill label="APG" value={Number(careerStats.avgAssists ?? 0).toFixed(1)} />
-                    <StatPill label="SPG" value={Number(careerStats.avgSteals ?? 0).toFixed(1)} />
-                    <StatPill label="BPG" value={Number(careerStats.avgBlocks ?? 0).toFixed(1)} />
+                    <StatPill label="PPG" value={Number(careerStats.avgPoints).toFixed(1)} />
+                    <StatPill label="RPG" value={Number(careerStats.avgRebounds).toFixed(1)} />
+                    <StatPill label="APG" value={Number(careerStats.avgAssists).toFixed(1)} />
+                    <StatPill label="SPG" value={Number(careerStats.avgSteals).toFixed(1)} />
+                    <StatPill label="BPG" value={Number(careerStats.avgBlocks).toFixed(1)} />
                   </div>
+                </div>
+              )}
+              {vis.showStats && !hasStats && (
+                <div className="mt-5 p-3 rounded-xl bg-black/30 border border-orange-500/10 text-center">
+                  <p className="text-xs text-zinc-500">No game stats yet — log games in <Link href="/career" className="text-orange-400 underline">My Career</Link></p>
                 </div>
               )}
             </div>
           </div>
 
-          {/* ── SECTIONS below hero ── */}
-          <div className="px-4 space-y-4 mt-4">
+          {/* ── SECTIONS ── */}
+          <div className="px-4 space-y-3 mt-3">
 
             {/* Archetype */}
-            {vis.showArchetype && careerProfile?.assessmentArchetype && (
-              <div className="flex items-center gap-3 p-4 rounded-2xl border bg-gradient-to-r from-purple-500/10 to-orange-500/10 border-purple-500/20">
-                <div className="w-9 h-9 rounded-xl bg-purple-500/20 flex items-center justify-center shrink-0">
-                  <Zap className="w-4 h-4 text-purple-400" />
+            {vis.showArchetype && (
+              hasArchetype ? (
+                <div className="flex items-center gap-3 p-4 rounded-2xl border border-orange-500/20 bg-gradient-to-r from-orange-500/10 to-black">
+                  <div className="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center shrink-0">
+                    <Zap className="w-5 h-5 text-orange-400" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Player Archetype</p>
+                    <p className="font-black text-white">{career.assessmentArchetype}</p>
+                    {career.assessmentArchetypeTagline && (
+                      <p className="text-xs text-zinc-400 mt-0.5">{career.assessmentArchetypeTagline}</p>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Player Archetype</p>
-                  <p className="font-bold">{careerProfile.assessmentArchetype}</p>
+              ) : (
+                <div className="flex items-center gap-3 p-4 rounded-2xl border border-dashed border-zinc-800">
+                  <Zap className="w-5 h-5 text-zinc-700 shrink-0" />
+                  <p className="text-xs text-zinc-600">No archetype yet — complete the assessment in <Link href="/archetypes" className="text-orange-500 underline">Archetypes</Link></p>
                 </div>
-              </div>
+              )
             )}
 
             {/* Bio */}
             {playerProfile?.bio && (
-              <Card className="rounded-2xl border-border/50">
+              <Card className="rounded-2xl border-zinc-800/60 bg-zinc-900/60">
                 <CardContent className="p-4">
-                  <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
-                    {playerProfile.bio}
-                  </p>
+                  <p className="text-sm text-zinc-400 whitespace-pre-wrap leading-relaxed">{playerProfile.bio}</p>
                 </CardContent>
               </Card>
             )}
 
             {/* Social links */}
             {vis.showSocialLinks && hasSocials && (
-              <div className="flex items-center justify-center gap-3 py-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {playerProfile?.socialTwitter && (
-                  <span className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-muted text-sm font-medium">
-                    <SiX className="h-3.5 w-3.5" />X
-                  </span>
+                  <a href={`https://twitter.com/${playerProfile.socialTwitter.replace("@","")}`} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-900 border border-zinc-800 text-xs font-semibold text-zinc-300 hover:border-orange-500/40 transition-colors">
+                    <SiX className="h-3 w-3" />X / Twitter
+                  </a>
                 )}
                 {playerProfile?.socialInstagram && (
-                  <span className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-muted text-sm font-medium">
-                    <SiInstagram className="h-3.5 w-3.5" />Instagram
-                  </span>
+                  <a href={`https://instagram.com/${playerProfile.socialInstagram.replace("@","")}`} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-900 border border-zinc-800 text-xs font-semibold text-zinc-300 hover:border-orange-500/40 transition-colors">
+                    <SiInstagram className="h-3 w-3 text-pink-400" />Instagram
+                  </a>
                 )}
                 {playerProfile?.socialTiktok && (
-                  <span className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-muted text-sm font-medium">
-                    <SiTiktok className="h-3.5 w-3.5" />TikTok
-                  </span>
+                  <a href={`https://tiktok.com/@${playerProfile.socialTiktok.replace("@","")}`} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-900 border border-zinc-800 text-xs font-semibold text-zinc-300 hover:border-orange-500/40 transition-colors">
+                    <SiTiktok className="h-3 w-3" />TikTok
+                  </a>
                 )}
                 {playerProfile?.socialYoutube && (
-                  <span className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-muted text-sm font-medium">
-                    <SiYoutube className="h-3.5 w-3.5" />YouTube
-                  </span>
+                  <a href={`https://youtube.com/${playerProfile.socialYoutube}`} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-900 border border-zinc-800 text-xs font-semibold text-zinc-300 hover:border-orange-500/40 transition-colors">
+                    <SiYoutube className="h-3 w-3 text-red-400" />YouTube
+                  </a>
                 )}
               </div>
             )}
 
-            {/* Skills */}
-            {vis.showSkills && hasSkills && (
-              <Card className="rounded-2xl border-border/50">
-                <CardHeader className="pb-3 pt-4 px-4">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                    <Star className="h-4 w-4 text-orange-500" />Skill Ratings
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-4 pb-4 space-y-3">
-                  <SkillBar label="Ball Handling" value={careerProfile?.skillBallHandling ?? null} />
-                  <SkillBar label="Shooting" value={careerProfile?.skillShooting ?? null} />
-                  <SkillBar label="Defense" value={careerProfile?.skillDefense ?? null} />
-                  <SkillBar label="Athleticism" value={careerProfile?.skillAthleticism ?? null} />
-                  <SkillBar label="IQ" value={careerProfile?.skillIQ ?? null} />
-                </CardContent>
-              </Card>
+            {/* Skill ratings */}
+            {vis.showSkills && (
+              <SectionCard icon={<Star className="h-4 w-4 text-orange-500" />} title="Skill Ratings">
+                {hasSkills ? (
+                  <div className="space-y-3">
+                    <SkillBar label="Ball Handling" value={career.skillBallHandling} />
+                    <SkillBar label="Shooting"      value={career.skillShooting} />
+                    <SkillBar label="Passing"       value={career.skillPassing} />
+                    <SkillBar label="Finishing"     value={career.skillFinishing} />
+                    <SkillBar label="Defense"       value={career.skillDefense} />
+                    <SkillBar label="Athleticism"   value={career.skillAthletics} />
+                    <SkillBar label="Basketball IQ" value={career.skillBasketballIQ} />
+                  </div>
+                ) : (
+                  <p className="text-xs text-zinc-500 text-center py-2">
+                    No skill ratings set — add them in <Link href="/career" className="text-orange-500 underline">My Career</Link>
+                  </p>
+                )}
+              </SectionCard>
             )}
 
             {/* Highlight reel */}
             {playerProfile?.highlightVideoUrl && (
-              <a
-                href={playerProfile.highlightVideoUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block"
-              >
-                <div className="flex items-center gap-4 p-4 rounded-2xl border bg-gradient-to-r from-orange-500/10 to-red-500/10 border-orange-500/20 hover:border-orange-500/40 transition-colors">
+              <a href={playerProfile.highlightVideoUrl} target="_blank" rel="noopener noreferrer" className="block">
+                <div className="flex items-center gap-4 p-4 rounded-2xl border border-orange-500/20 bg-gradient-to-r from-orange-500/10 to-black hover:border-orange-500/40 transition-colors">
                   <div className="w-12 h-12 rounded-xl bg-orange-500/20 flex items-center justify-center shrink-0">
                     <Video className="w-5 h-5 text-orange-400" />
                   </div>
                   <div>
-                    <p className="font-semibold text-sm">Watch Highlight Reel</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">Tap to open video</p>
+                    <p className="font-bold text-sm text-white">Highlight Reel</p>
+                    <p className="text-xs text-zinc-500 mt-0.5">Tap to watch</p>
                   </div>
-                  <ExternalLink className="w-4 h-4 text-muted-foreground ml-auto" />
                 </div>
               </a>
             )}
 
-            {/* Physical */}
-            {vis.showPhysical && hasPhysical && (
-              <Card className="rounded-2xl border-border/50">
-                <CardHeader className="pb-3 pt-4 px-4">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                    <Ruler className="h-4 w-4" />Measurements
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-4 pb-4">
-                  <div className="grid grid-cols-3 gap-3">
+            {/* Physical measurements */}
+            {vis.showPhysical && (
+              <SectionCard icon={<Ruler className="h-4 w-4 text-zinc-400" />} title="Measurements">
+                {hasPhysical ? (
+                  <div className="grid grid-cols-3 gap-2">
                     {playerProfile?.heightFeet > 0 && (
-                      <div className="text-center p-3 rounded-xl bg-muted/50">
-                        <p className="text-lg font-bold">{playerProfile.heightFeet}'{playerProfile.heightInches || 0}"</p>
-                        <p className="text-xs text-muted-foreground">Height</p>
+                      <div className="text-center p-3 rounded-xl bg-zinc-800/60">
+                        <p className="text-lg font-black text-white">{playerProfile.heightFeet}'{playerProfile.heightInches || 0}"</p>
+                        <p className="text-[10px] text-zinc-500 uppercase tracking-wide mt-0.5">Height</p>
                       </div>
                     )}
                     {playerProfile?.weight > 0 && (
-                      <div className="text-center p-3 rounded-xl bg-muted/50">
-                        <p className="text-lg font-bold">{playerProfile.weight}</p>
-                        <p className="text-xs text-muted-foreground">Weight (lbs)</p>
+                      <div className="text-center p-3 rounded-xl bg-zinc-800/60">
+                        <p className="text-lg font-black text-white">{playerProfile.weight}</p>
+                        <p className="text-[10px] text-zinc-500 uppercase tracking-wide mt-0.5">lbs</p>
                       </div>
                     )}
                     {playerProfile?.wingspan && (
-                      <div className="text-center p-3 rounded-xl bg-muted/50">
-                        <p className="text-lg font-bold">{playerProfile.wingspan}"</p>
-                        <p className="text-xs text-muted-foreground">Wingspan</p>
+                      <div className="text-center p-3 rounded-xl bg-zinc-800/60">
+                        <p className="text-lg font-black text-white">{playerProfile.wingspan}"</p>
+                        <p className="text-[10px] text-zinc-500 uppercase tracking-wide mt-0.5">Wingspan</p>
                       </div>
                     )}
                   </div>
-                </CardContent>
-              </Card>
+                ) : (
+                  <p className="text-xs text-zinc-500 text-center py-2">
+                    No measurements set — add them in <Link href="/career" className="text-orange-500 underline">My Career</Link>
+                  </p>
+                )}
+              </SectionCard>
             )}
 
             {/* Academic */}
-            {vis.showAcademic && hasAcademic && (
-              <Card className="rounded-2xl border-border/50">
-                <CardHeader className="pb-3 pt-4 px-4">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                    <GraduationCap className="h-4 w-4" />Academic
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-4 pb-4">
-                  <div className="grid grid-cols-2 gap-3">
+            {vis.showAcademic && (
+              <SectionCard icon={<GraduationCap className="h-4 w-4 text-zinc-400" />} title="Academic">
+                {hasAcademic ? (
+                  <div className="grid grid-cols-2 gap-2">
                     {playerProfile?.gradYear > 0 && (
-                      <div className="text-center p-3 rounded-xl bg-muted/50">
-                        <p className="text-lg font-bold">{playerProfile.gradYear}</p>
-                        <p className="text-xs text-muted-foreground">Class of</p>
+                      <div className="text-center p-3 rounded-xl bg-zinc-800/60">
+                        <p className="text-lg font-black text-white">{playerProfile.gradYear}</p>
+                        <p className="text-[10px] text-zinc-500 uppercase tracking-wide mt-0.5">Class of</p>
                       </div>
                     )}
                     {playerProfile?.gpa && (
-                      <div className="text-center p-3 rounded-xl bg-muted/50">
-                        <p className="text-lg font-bold">{playerProfile.gpa}</p>
-                        <p className="text-xs text-muted-foreground">GPA</p>
+                      <div className="text-center p-3 rounded-xl bg-zinc-800/60">
+                        <p className="text-lg font-black text-white">{playerProfile.gpa}</p>
+                        <p className="text-[10px] text-zinc-500 uppercase tracking-wide mt-0.5">GPA</p>
                       </div>
                     )}
                   </div>
-                </CardContent>
-              </Card>
+                ) : (
+                  <p className="text-xs text-zinc-500 text-center py-2">
+                    No academic info — add it in <Link href="/career" className="text-orange-500 underline">My Career</Link>
+                  </p>
+                )}
+              </SectionCard>
             )}
 
             {/* Awards */}
-            {vis.showAchievements && awards && awards.length > 0 && (
-              <Card className="rounded-2xl border-border/50">
-                <CardHeader className="pb-3 pt-4 px-4">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                    <Trophy className="h-4 w-4 text-amber-500" />Awards & Achievements
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-4 pb-4 space-y-2">
-                  {awards.map((award: any) => (
-                    <div key={award.id} className="flex items-start gap-3 p-3 rounded-xl bg-muted/40">
-                      <Trophy className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium">{award.awardName}</p>
-                        <p className="text-xs text-muted-foreground">{award.teamName}{award.season ? ` · ${award.season}` : ""}</p>
-                        {award.description && <p className="text-xs text-muted-foreground mt-0.5">{award.description}</p>}
-                      </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Personal Records */}
-            {vis.showPersonalRecords && personalRecords && personalRecords.length > 0 && (
-              <Card className="rounded-2xl border-border/50">
-                <CardHeader className="pb-3 pt-4 px-4">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                    <Medal className="h-4 w-4 text-orange-500" />Personal Records
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-4 pb-4">
-                  <div className="grid grid-cols-2 gap-2">
-                    {personalRecords.slice(0, 8).map((pr: any) => (
-                      <div key={pr.id} className="flex items-center justify-between gap-2 p-3 rounded-xl bg-muted/40">
+            {vis.showAchievements && (
+              <SectionCard icon={<Trophy className="h-4 w-4 text-amber-500" />} title="Awards & Achievements">
+                {hasAwards ? (
+                  <div className="space-y-2">
+                    {(awards as any[]).map((award: any) => (
+                      <div key={award.id} className="flex items-start gap-3 p-3 rounded-xl bg-zinc-800/50">
+                        <Trophy className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
                         <div className="min-w-0">
-                          <p className="text-xs font-medium truncate">{pr.metricName}</p>
-                          <p className="text-[11px] text-muted-foreground truncate">{pr.drill?.title || "Training"}</p>
+                          <p className="text-sm font-semibold">{award.awardName}</p>
+                          <p className="text-xs text-zinc-500">{award.teamName}{award.season ? ` · ${award.season}` : ""}</p>
+                          {award.description && <p className="text-xs text-zinc-500 mt-0.5">{award.description}</p>}
                         </div>
-                        <span className="text-base font-bold text-orange-500 shrink-0">{Number(pr.newValue).toFixed(0)}</span>
                       </div>
                     ))}
                   </div>
-                </CardContent>
-              </Card>
+                ) : (
+                  <p className="text-xs text-zinc-500 text-center py-2">
+                    No awards yet — add them in <Link href="/career" className="text-orange-500 underline">My Career</Link>
+                  </p>
+                )}
+              </SectionCard>
+            )}
+
+            {/* Personal Records */}
+            {vis.showPersonalRecords && (
+              <SectionCard icon={<Medal className="h-4 w-4 text-orange-500" />} title="Personal Records">
+                {hasPRs ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    {(personalRecords as any[]).slice(0, 8).map((pr: any) => (
+                      <div key={pr.id} className="flex items-center justify-between gap-2 p-3 rounded-xl bg-zinc-800/50">
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold truncate">{pr.metricName}</p>
+                          <p className="text-[11px] text-zinc-500 truncate">{pr.drill?.title || "Training"}</p>
+                        </div>
+                        <span className="text-base font-black text-orange-400 shrink-0">{Number(pr.newValue).toFixed(0)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-zinc-500 text-center py-2">
+                    No personal records yet — start training!
+                  </p>
+                )}
+              </SectionCard>
+            )}
+
+            {/* Training Log */}
+            {vis.showTrainingLog && (
+              <SectionCard icon={<Dumbbell className="h-4 w-4 text-orange-500" />} title="Recent Training">
+                {hasLogs ? (
+                  <div className="space-y-2">
+                    {(recentLogs as any[]).slice(0, 5).map((log: any) => (
+                      <div key={log.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-zinc-800/50">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold truncate">{log.drillTitle || log.title || "Training Session"}</p>
+                          <div className="flex items-center gap-2 mt-0.5 text-xs text-zinc-500">
+                            {log.duration && <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{log.duration}m</span>}
+                            {log.score && <span className="text-orange-400 font-semibold">{log.score} pts</span>}
+                          </div>
+                        </div>
+                        {log.completedAt && (
+                          <span className="text-[10px] text-zinc-600 shrink-0">
+                            {new Date(log.completedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-zinc-500 text-center py-2">No recent training sessions</p>
+                )}
+              </SectionCard>
             )}
 
             {/* Training Videos */}
-            {vis.showVideos && videos && videos.length > 0 && (
-              <Card className="rounded-2xl border-border/50">
-                <CardHeader className="pb-3 pt-4 px-4">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                    <Video className="h-4 w-4" />Training Videos
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-4 pb-4 space-y-2">
-                  {videos.filter((v: any) => v.isPublic).map((video: any) => (
-                    <a
-                      key={video.id}
-                      href={video.videoUrl?.startsWith("/") ? video.videoUrl : `/objects/${video.videoUrl}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-3 p-3 rounded-xl bg-muted/40 hover:bg-muted/60 transition-colors"
-                    >
-                      <div className="w-9 h-9 rounded-lg bg-orange-500/15 flex items-center justify-center shrink-0">
-                        <Video className="h-4 w-4 text-orange-500" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium truncate">{video.title}</p>
-                        {video.description && <p className="text-xs text-muted-foreground truncate">{video.description}</p>}
-                      </div>
-                      <ExternalLink className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                    </a>
-                  ))}
-                </CardContent>
-              </Card>
+            {vis.showVideos && (
+              <SectionCard icon={<Video className="h-4 w-4 text-zinc-400" />} title="Training Videos">
+                {hasVideos ? (
+                  <div className="space-y-2">
+                    {(videos as any[]).filter((v: any) => v.isPublic).map((video: any) => (
+                      <a key={video.id}
+                        href={video.videoUrl?.startsWith("/") ? video.videoUrl : `/objects/${video.videoUrl}`}
+                        target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-3 p-3 rounded-xl bg-zinc-800/50 hover:bg-zinc-800 transition-colors">
+                        <div className="w-9 h-9 rounded-lg bg-orange-500/15 flex items-center justify-center shrink-0">
+                          <Video className="h-4 w-4 text-orange-500" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold truncate">{video.title}</p>
+                          {video.description && <p className="text-xs text-zinc-500 truncate">{video.description}</p>}
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-zinc-500 text-center py-2">
+                    No public videos yet — upload them in <Link href="/my-film-room" className="text-orange-500 underline">My Film Room</Link>
+                  </p>
+                )}
+              </SectionCard>
             )}
 
-            {/* Empty state when no meaningful info */}
-            {!playerProfile?.bio && !playerProfile?.headline && !careerProfile?.positions?.length &&
-              !hasSkills && !hasPhysical && !hasAcademic && !hasSocials && (
-              <div className="py-12 text-center space-y-3 rounded-2xl border border-dashed border-border">
-                <BarChart3 className="w-8 h-8 text-muted-foreground mx-auto" />
-                <p className="font-semibold text-sm">Your profile is empty</p>
-                <p className="text-xs text-muted-foreground px-8">
-                  Fill out your info in{" "}
-                  <Link href="/career" className="text-orange-500 underline">My Career</Link>{" "}
-                  to populate your public profile.
-                </p>
-              </div>
-            )}
-
-            {/* Footer — same as public page */}
-            <div className="pt-4 pb-2 text-center space-y-3">
-              <Separator />
-              <p className="text-xs text-muted-foreground">Powered by PLAYR1</p>
+            <div className="pt-2 text-center">
+              <Separator className="mb-3" />
+              <p className="text-xs text-zinc-700 font-semibold tracking-widest uppercase">PLAYR1</p>
             </div>
           </div>
         </div>
       )}
 
-      {/* ═══════════════════════════════════════
+      {/* ══════════════════════════════════════════
           VISIBILITY TAB
-      ════════════════════════════════════════ */}
-      {activeTab === "visibility" && (
+      ═══════════════════════════════════════════ */}
+      {tab === "visibility" && (
         <div className="px-4 space-y-4">
           {/* Profile access */}
-          <Card>
+          <Card className="border-zinc-800/60 bg-zinc-900/60">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <Globe className="w-4 h-4 text-orange-500" />Profile Access
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex items-center justify-between p-3 rounded-xl bg-muted/40">
+              <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-800/50">
                 <div>
-                  <p className="font-semibold text-sm flex items-center gap-2">
+                  <p className="text-sm font-semibold flex items-center gap-2">
                     <Globe className="w-3.5 h-3.5 text-orange-400" />Make Profile Public
                   </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Anyone with the link can see your profile</p>
+                  <p className="text-xs text-zinc-500 mt-0.5">Anyone with the link can find and view your profile</p>
                 </div>
-                <Switch
-                  checked={vis.isPublic}
-                  onCheckedChange={v => toggle("isPublic", v)}
-                  data-testid="switch-is-public"
-                />
+                <Switch checked={vis.isPublic} onCheckedChange={v => toggle("isPublic", v)} data-testid="switch-is-public" />
               </div>
 
               {vis.isPublic && (
-                <>
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-muted/40">
-                    <div>
-                      <p className="font-semibold text-sm flex items-center gap-2">
-                        <Lock className="w-3.5 h-3.5 text-amber-500" />Connections Only
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">Only accepted connections can view details</p>
-                    </div>
-                    <Switch
-                      checked={vis.isPrivate}
-                      onCheckedChange={v => toggle("isPrivate", v)}
-                      data-testid="switch-is-private"
-                    />
+                <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-800/50">
+                  <div>
+                    <p className="text-sm font-semibold flex items-center gap-2">
+                      <Lock className="w-3.5 h-3.5 text-amber-400" />Connections Only
+                    </p>
+                    <p className="text-xs text-zinc-500 mt-0.5">Only your accepted connections can view details</p>
                   </div>
-
-                  <div className="flex items-center gap-2 p-3 rounded-xl bg-orange-500/10 border border-orange-500/20">
-                    <Globe className="w-3.5 h-3.5 text-orange-400 shrink-0" />
-                    <p className="text-xs text-zinc-400 flex-1 font-mono">/player/{publicSlug}</p>
-                    <Button variant="ghost" size="sm" className="h-6 px-2 text-xs gap-1 text-orange-400 hover:text-orange-300" asChild>
-                      <a href={`/player/${publicSlug}`} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="w-3 h-3" />View
-                      </a>
-                    </Button>
-                  </div>
-                </>
+                  <Switch checked={vis.isPrivate} onCheckedChange={v => toggle("isPrivate", v)} data-testid="switch-is-private" />
+                </div>
               )}
             </CardContent>
           </Card>
 
-          {/* Per-section toggles */}
-          <Card>
+          {/* Section toggles */}
+          <Card className="border-zinc-800/60 bg-zinc-900/60">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <Eye className="w-4 h-4 text-orange-500" />Section Visibility
               </CardTitle>
-              <p className="text-xs text-muted-foreground">Toggle sections on/off — changes reflect live in Preview</p>
+              <p className="text-xs text-zinc-500">Toggle sections on/off — changes reflect live in My Profile tab</p>
             </CardHeader>
-            <CardContent className="divide-y divide-border/50 pt-0">
+            <CardContent className="divide-y divide-zinc-800 pt-0">
               {[
-                { key: "showStats" as const,           label: "Game Stats",        desc: "Career averages: points, rebounds, assists" },
-                { key: "showSkills" as const,           label: "Skill Ratings",     desc: "Ball handling, shooting, defense scores" },
+                { key: "showStats" as const,           label: "Game Stats",        desc: "Career averages: PPG, RPG, APG" },
+                { key: "showSkills" as const,           label: "Skill Ratings",     desc: "Ball handling, shooting, defense & more" },
                 { key: "showArchetype" as const,        label: "Player Archetype",  desc: "Your AI-assessed player type" },
-                { key: "showAchievements" as const,     label: "Awards & Trophies", desc: "Team awards you've earned" },
+                { key: "showAchievements" as const,     label: "Awards & Trophies", desc: "Team awards and achievements" },
                 { key: "showPersonalRecords" as const,  label: "Personal Records",  desc: "Your drill personal bests" },
-                { key: "showVideos" as const,           label: "Training Videos",   desc: "Uploaded training content" },
                 { key: "showTrainingLog" as const,      label: "Training Log",      desc: "Recent practice sessions" },
+                { key: "showVideos" as const,           label: "Training Videos",   desc: "Uploaded training content" },
                 { key: "showPhysical" as const,         label: "Measurements",      desc: "Height, weight, wingspan" },
                 { key: "showAcademic" as const,         label: "Academic Info",     desc: "GPA and graduation year" },
                 { key: "showLocation" as const,         label: "Location",          desc: "City and state" },
@@ -671,9 +668,7 @@ export default function ProfilePage() {
                 { key: "showEmail" as const,            label: "Email Address",     desc: "Contact email (off by default)" },
               ].map(({ key, label, desc }) => (
                 <VisibilityToggle
-                  key={key}
-                  label={label}
-                  description={desc}
+                  key={key} label={label} description={desc}
                   checked={vis[key]}
                   onCheckedChange={v => toggle(key, v)}
                   testId={`switch-${key}`}
@@ -683,13 +678,13 @@ export default function ProfilePage() {
           </Card>
 
           <Button
-            className="w-full gap-2 bg-orange-500 hover:bg-orange-600 text-white font-bold h-12"
+            className="w-full gap-2 bg-orange-500 hover:bg-orange-600 text-white font-black h-12 text-base"
             onClick={saveVisibility}
             disabled={saving}
             data-testid="button-save-visibility"
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            {saving ? "Saving…" : "Save Visibility Settings"}
+            {saving ? "Saving…" : "Save Settings"}
           </Button>
         </div>
       )}

@@ -2961,6 +2961,29 @@ Start now with a warm one-line greeting that briefly references something specif
     }
   });
 
+  // Own career game stats (authenticated — no public-profile check needed)
+  app.get("/api/career-stats/me", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const stats = await storage.getCareerStats(userId);
+      const totalGames = stats.totalGames;
+      res.json({
+        totalGames,
+        avgPoints:   totalGames ? stats.avgPoints   : 0,
+        avgRebounds: totalGames ? stats.avgRebounds : 0,
+        avgAssists:  totalGames ? stats.avgAssists  : 0,
+        avgSteals:   totalGames ? stats.avgSteals   : 0,
+        avgBlocks:   totalGames ? stats.avgBlocks   : 0,
+        wins:        stats.wins,
+        losses:      stats.losses,
+        seasonBreakdown: stats.seasonBreakdown,
+      });
+    } catch (error) {
+      console.error("Error fetching own career stats:", error);
+      res.status(500).json({ message: "Failed to fetch career stats" });
+    }
+  });
+
   // ===== PLAYER PROFILES (PUBLIC) =====
 
   // Get own player profile
