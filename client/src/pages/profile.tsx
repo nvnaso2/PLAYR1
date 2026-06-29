@@ -21,6 +21,19 @@ import {
 } from "lucide-react";
 import { SiX, SiInstagram, SiTiktok, SiYoutube, SiWhatsapp } from "react-icons/si";
 
+const ARCHETYPE_COLORS: Record<string, { bg: string; text: string; icon: string }> = {
+  blue:   { bg: "rgba(59,130,246,0.22)",  text: "#93c5fd", icon: "#3b82f6" },
+  orange: { bg: "rgba(249,115,22,0.22)",  text: "#fdba74", icon: "#f97316" },
+  slate:  { bg: "rgba(100,116,139,0.22)", text: "#94a3b8", icon: "#64748b" },
+  red:    { bg: "rgba(239,68,68,0.22)",   text: "#fca5a5", icon: "#ef4444" },
+  teal:   { bg: "rgba(20,184,166,0.22)",  text: "#5eead4", icon: "#14b8a6" },
+  sky:    { bg: "rgba(14,165,233,0.22)",  text: "#7dd3fc", icon: "#0ea5e9" },
+  indigo: { bg: "rgba(99,102,241,0.22)",  text: "#a5b4fc", icon: "#6366f1" },
+  green:  { bg: "rgba(34,197,94,0.22)",   text: "#86efac", icon: "#22c55e" },
+  amber:  { bg: "rgba(245,158,11,0.22)",  text: "#fcd34d", icon: "#f59e0b" },
+  purple: { bg: "rgba(168,85,247,0.22)",  text: "#d8b4fe", icon: "#a855f7" },
+};
+
 const POSITION_LABELS: Record<string, string> = {
   PG: "PG", SG: "SG", SF: "SF", PF: "PF", C: "C",
 };
@@ -144,41 +157,74 @@ function ShareDialog({ open, onClose, profileUrl, displayName }: { open: boolean
     setTimeout(() => setCopied(false), 2500);
   };
   const shareText = `Check out ${displayName}'s basketball profile on PLAYR1! 🏀`;
+
+  const options = [
+    {
+      label: "WhatsApp",
+      icon: <SiWhatsapp className="h-6 w-6 text-green-400" />,
+      href: `https://wa.me/?text=${encodeURIComponent(shareText + "\n" + profileUrl)}`,
+      ring: "rgba(74,222,128,0.35)",
+    },
+    {
+      label: "X / Twitter",
+      icon: <SiX className="h-6 w-6 text-zinc-100" />,
+      href: `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(profileUrl)}`,
+      ring: "rgba(148,163,184,0.35)",
+    },
+    {
+      label: "Text",
+      icon: <Share2 className="h-6 w-6 text-blue-400" />,
+      href: `sms:?body=${encodeURIComponent(shareText + "\n" + profileUrl)}`,
+      ring: "rgba(96,165,250,0.35)",
+    },
+    {
+      label: "Instagram",
+      icon: <SiInstagram className="h-6 w-6 text-pink-400" />,
+      href: `https://instagram.com`,
+      ring: "rgba(244,114,182,0.35)",
+    },
+  ];
+
   return (
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
-      <DialogContent className="max-w-sm rounded-2xl">
-        <DialogHeader><DialogTitle className="flex items-center gap-2"><Share2 className="w-4 h-4 text-orange-500" />Share Profile</DialogTitle></DialogHeader>
-        <div className="space-y-3 py-1">
-          <div className="flex items-center gap-2 px-3 py-2.5 bg-zinc-800/60 rounded-xl border border-zinc-700/50">
-            <Globe className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
-            <p className="text-xs text-zinc-400 truncate flex-1 font-mono">{profileUrl}</p>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <Button variant="outline" className="gap-2 border-zinc-700 hover:border-green-500/40 h-11" asChild>
-              <a href={`https://wa.me/?text=${encodeURIComponent(shareText + "\n" + profileUrl)}`} target="_blank" rel="noopener noreferrer">
-                <SiWhatsapp className="h-4 w-4 text-green-400" />WhatsApp
-              </a>
-            </Button>
-            <Button variant="outline" className="gap-2 border-zinc-700 hover:border-sky-500/40 h-11" asChild>
-              <a href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(profileUrl)}`} target="_blank" rel="noopener noreferrer">
-                <SiX className="h-4 w-4" />X / Twitter
-              </a>
-            </Button>
-            <Button variant="outline" className="gap-2 border-zinc-700 hover:border-blue-500/40 h-11" asChild>
-              <a href={`sms:?body=${encodeURIComponent(shareText + "\n" + profileUrl)}`}>
-                <Share2 className="h-4 w-4 text-blue-400" />Text Message
-              </a>
-            </Button>
-            <Button variant="outline" className="gap-2 border-zinc-700 hover:border-pink-500/40 h-11" asChild>
-              <a href={`https://instagram.com`} target="_blank" rel="noopener noreferrer">
-                <SiInstagram className="h-4 w-4 text-pink-400" />Instagram
-              </a>
-            </Button>
-          </div>
-          <Button className="w-full gap-2 h-11 bg-orange-500 hover:bg-orange-600 text-white font-bold" onClick={copyLink}>
-            {copied ? <><Check className="w-4 h-4" />Copied!</> : <><Copy className="w-4 h-4" />Copy Link</>}
-          </Button>
+      <DialogContent className="w-[92vw] max-w-xs rounded-2xl px-4 pt-5 pb-5">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <Share2 className="w-4 h-4 text-orange-500" />Share Profile
+          </DialogTitle>
+        </DialogHeader>
+
+        {/* Profile URL pill */}
+        <div className="flex items-center gap-2 px-3 py-2 bg-zinc-800/70 rounded-xl border border-zinc-700/50 mt-1">
+          <Globe className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
+          <p className="text-[11px] text-zinc-400 truncate flex-1 font-mono">{profileUrl}</p>
         </div>
+
+        {/* Icon grid — 4 equal columns */}
+        <div className="grid grid-cols-4 gap-2 mt-1">
+          {options.map(opt => (
+            <a
+              key={opt.label}
+              href={opt.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex flex-col items-center gap-1.5 py-3 rounded-xl bg-zinc-800/60 border border-zinc-700/40 hover:border-zinc-500/60 active:scale-95 transition-all"
+              style={{ boxShadow: `0 0 0 0px ${opt.ring}` }}
+            >
+              {opt.icon}
+              <span className="text-[10px] text-zinc-400 font-medium leading-none">{opt.label}</span>
+            </a>
+          ))}
+        </div>
+
+        {/* Copy link */}
+        <Button
+          className="w-full gap-2 h-11 bg-orange-500 hover:bg-orange-600 text-white font-bold mt-1"
+          onClick={copyLink}
+          data-testid="button-copy-link"
+        >
+          {copied ? <><Check className="w-4 h-4" />Copied!</> : <><Copy className="w-4 h-4" />Copy Link</>}
+        </Button>
       </DialogContent>
     </Dialog>
   );
@@ -214,6 +260,7 @@ export default function ProfilePage() {
   const { data: career } = useQuery<any>({ queryKey: ["/api/career"] });
   const { data: careerStats } = useQuery<any>({ queryKey: ["/api/stats/career"] });
   const { data: userArchetypes } = useQuery<any[]>({ queryKey: ["/api/archetypes/user"] });
+  const { data: allArchetypes } = useQuery<any[]>({ queryKey: ["/api/archetypes"] });
   const { data: awards } = useQuery<any[]>({ queryKey: ["/api/team-awards"] });
   const { data: personalRecords } = useQuery<any[]>({ queryKey: ["/api/personal-records"] });
   const { data: videos } = useQuery<any[]>({ queryKey: ["/api/videos"] });
@@ -336,7 +383,14 @@ export default function ProfilePage() {
 
   const mainUserArchetype = (userArchetypes || []).find((ua: any) => ua.role === "main");
   const archetypeName = mainUserArchetype?.archetype?.name || career?.assessmentArchetype || null;
-  const archetypeTagline = mainUserArchetype?.archetype?.tagline || mainUserArchetype?.archetype?.description || career?.assessmentArchetypeTagline || null;
+  // Resolve tagline: prefer the joined archetype row, then look up by id/name in allArchetypes, then fall back to career assessment tagline
+  const _lookupArchetype = allArchetypes?.find((a: any) =>
+    (mainUserArchetype && a.id === mainUserArchetype.archetypeId) ||
+    (archetypeName && (a.name === archetypeName || a.id === archetypeName?.toLowerCase().replace(/\s+/g, "-")))
+  );
+  const archetypeTagline = mainUserArchetype?.archetype?.tagline || _lookupArchetype?.tagline || career?.assessmentArchetypeTagline || null;
+  const archetypeColorTheme = mainUserArchetype?.archetype?.colorTheme || _lookupArchetype?.colorTheme || null;
+  const archetypeColors = archetypeColorTheme ? (ARCHETYPE_COLORS[archetypeColorTheme] ?? ARCHETYPE_COLORS.orange) : ARCHETYPE_COLORS.orange;
 
   const totalGames = careerStats?.totalGames ?? 0;
   const hasGameStats = totalGames > 0;
@@ -446,12 +500,19 @@ export default function ProfilePage() {
                   {/* Archetype */}
                   {vis.cardShowArchetype && archetypeName && (
                     <div className="flex items-start gap-2">
-                      <div className="w-5 h-5 rounded-md bg-orange-500/25 flex items-center justify-center shrink-0 mt-0.5">
-                        <Zap className="w-3 h-3 text-orange-400" />
+                      <div
+                        className="w-5 h-5 rounded-md flex items-center justify-center shrink-0 mt-0.5"
+                        style={{ background: archetypeColors.bg }}
+                      >
+                        <Zap className="w-3 h-3" style={{ color: archetypeColors.icon }} />
                       </div>
                       <div className="min-w-0">
                         <p className="text-xs font-black text-white leading-tight">{archetypeName}</p>
-                        {archetypeTagline && <p className="text-[11px] text-orange-300/60 mt-0.5 leading-snug line-clamp-2">{archetypeTagline}</p>}
+                        {archetypeTagline && (
+                          <p className="text-[11px] mt-0.5 leading-snug line-clamp-2" style={{ color: archetypeColors.text, opacity: 0.8 }}>
+                            {archetypeTagline}
+                          </p>
+                        )}
                       </div>
                     </div>
                   )}
