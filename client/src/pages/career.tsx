@@ -109,7 +109,6 @@ import {
 } from "@shared/schema";
 import { ShareCardDialog } from "@/components/share-card";
 import { WorkoutShareDialog } from "@/components/workout-share-dialog";
-import { PlayerProfileSection } from "@/pages/player-profile";
 import CsvImportDialog from "@/components/csv-import-dialog";
 
 const MONTHS = [
@@ -4859,7 +4858,6 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
         </Card>
       </div>
 
-      <PlayerProfileSection />
 
         </TabsContent>
 

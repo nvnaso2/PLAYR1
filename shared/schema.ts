@@ -684,6 +684,13 @@ export const playerProfiles = pgTable("player_profiles", {
   showAcademic: boolean("show_academic").default(true),
   showSocialLinks: boolean("show_social_links").default(true),
   showEmail: boolean("show_email").default(false),
+  showHighlightReel: boolean("show_highlight_reel").default(true),
+  // Card section customization — which items appear in the shareable top card
+  cardShowPlayerCard: boolean("card_show_player_card").default(true),
+  cardShowArchetype: boolean("card_show_archetype").default(true),
+  cardShowBio: boolean("card_show_bio").default(true),
+  cardShowSocials: boolean("card_show_socials").default(true),
+  cardShowHighlightReel: boolean("card_show_highlight_reel").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow()
 });

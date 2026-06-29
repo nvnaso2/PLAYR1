@@ -390,6 +390,17 @@ export async function seedDatabase() {
         ADD COLUMN IF NOT EXISTS preset_rounds jsonb;
     `);
 
+    // Schema migration: add new player_profiles columns for highlight reel & card customization
+    await db.execute(sql`
+      ALTER TABLE player_profiles
+        ADD COLUMN IF NOT EXISTS show_highlight_reel boolean DEFAULT true,
+        ADD COLUMN IF NOT EXISTS card_show_player_card boolean DEFAULT true,
+        ADD COLUMN IF NOT EXISTS card_show_archetype boolean DEFAULT true,
+        ADD COLUMN IF NOT EXISTS card_show_bio boolean DEFAULT true,
+        ADD COLUMN IF NOT EXISTS card_show_socials boolean DEFAULT true,
+        ADD COLUMN IF NOT EXISTS card_show_highlight_reel boolean DEFAULT true;
+    `);
+
     // Check if drills already exist
     const existingDrills = await db.select().from(drills).limit(1);
     
