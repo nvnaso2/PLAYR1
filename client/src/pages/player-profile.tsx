@@ -351,7 +351,7 @@ export function PlayerProfileSection() {
         </CardContent>
       </Card>
 
-      {profile?.slug && isPublicValue && (
+      {false && profile?.slug && isPublicValue && (
         <Card>
           <CardContent className="p-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0">
@@ -824,7 +824,7 @@ export function PlayerProfileSection() {
             </CardContent>
           </Card>
 
-          <Card>
+          {false && <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <Eye className="h-5 w-5" />
@@ -971,7 +971,7 @@ export function PlayerProfileSection() {
                 )}
               />
             </CardContent>
-          </Card>
+          </Card>}
 
           {userSeasons.length > 0 && (
             <Card>

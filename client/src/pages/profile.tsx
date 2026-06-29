@@ -478,10 +478,10 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                {/* RIGHT: Baseball card (scaled 0.5x) */}
+                {/* RIGHT: Baseball card (responsive scale) */}
                 {vis.cardShowPlayerCard && career && (
-                  <div style={{ width: 160, height: 190, overflow: "hidden", flexShrink: 0, position: "relative" }}>
-                    <div style={{ transform: "scale(0.5)", transformOrigin: "top left", width: 320, height: 380 }}>
+                  <div className="shrink-0" style={{ width: "min(150px, 42vw)", height: "min(178px, 50vw)", overflow: "hidden", position: "relative" }}>
+                    <div style={{ transform: `scale(${Math.min(150, window.innerWidth * 0.42) / 320})`, transformOrigin: "top left", width: 320, height: 380 }}>
                       <BaseballCard
                         profile={career}
                         careerStats={careerStats}
@@ -602,29 +602,6 @@ export default function ProfilePage() {
                     <SkillBar label="Basketball IQ" value={career.skillBasketballIQ} />
                   </div>
                 ) : <p className="text-xs text-zinc-500 text-center py-2">Set skill ratings in <Link href="/career" className="text-orange-500 underline">My Career</Link></p>}
-              </SectionCard>
-            )}
-
-            {vis.showPhysical && (
-              <SectionCard icon={<Ruler className="h-4 w-4 text-zinc-400" />} title="Measurements">
-                {hasPhysical ? (
-                  <div className="grid grid-cols-3 gap-2">
-                    {playerProfile?.heightFeet > 0 && <div className="text-center p-3 rounded-xl bg-zinc-800/60"><p className="text-lg font-black text-white">{playerProfile.heightFeet}'{playerProfile.heightInches || 0}"</p><p className="text-[10px] text-zinc-500 uppercase mt-0.5">Height</p></div>}
-                    {playerProfile?.weight > 0 && <div className="text-center p-3 rounded-xl bg-zinc-800/60"><p className="text-lg font-black text-white">{playerProfile.weight}</p><p className="text-[10px] text-zinc-500 uppercase mt-0.5">lbs</p></div>}
-                    {playerProfile?.wingspan && <div className="text-center p-3 rounded-xl bg-zinc-800/60"><p className="text-lg font-black text-white">{playerProfile.wingspan}"</p><p className="text-[10px] text-zinc-500 uppercase mt-0.5">Wingspan</p></div>}
-                  </div>
-                ) : <p className="text-xs text-zinc-500 text-center py-2">No measurements — add in <Link href="/career" className="text-orange-500 underline">My Career</Link></p>}
-              </SectionCard>
-            )}
-
-            {vis.showAcademic && (
-              <SectionCard icon={<GraduationCap className="h-4 w-4 text-zinc-400" />} title="Academic">
-                {hasAcademic ? (
-                  <div className="grid grid-cols-2 gap-2">
-                    {playerProfile?.gradYear > 0 && <div className="text-center p-3 rounded-xl bg-zinc-800/60"><p className="text-lg font-black text-white">{playerProfile.gradYear}</p><p className="text-[10px] text-zinc-500 uppercase mt-0.5">Class of</p></div>}
-                    {playerProfile?.gpa && <div className="text-center p-3 rounded-xl bg-zinc-800/60"><p className="text-lg font-black text-white">{playerProfile.gpa}</p><p className="text-[10px] text-zinc-500 uppercase mt-0.5">GPA</p></div>}
-                  </div>
-                ) : <p className="text-xs text-zinc-500 text-center py-2">No academic info — add in <Link href="/career" className="text-orange-500 underline">My Career</Link></p>}
               </SectionCard>
             )}
 
@@ -755,6 +732,8 @@ export default function ProfilePage() {
               <VisToggle label="Player Card"     description="The flippable baseball-style card"      checked={vis.cardShowPlayerCard}  onCheckedChange={v => toggle("cardShowPlayerCard", v)}  testId="switch-card-player-card" />
               <VisToggle label="Archetype"       description="Your player type + tagline"             checked={vis.cardShowArchetype}   onCheckedChange={v => toggle("cardShowArchetype", v)}   testId="switch-card-archetype" />
               <VisToggle label="Bio"             description="Your personal description"              checked={vis.cardShowBio}         onCheckedChange={v => toggle("cardShowBio", v)}         testId="switch-card-bio" />
+              <VisToggle label="Location"        description="City and state in the hero banner"       checked={vis.showLocation}        onCheckedChange={v => toggle("showLocation", v)}        testId="switch-show-location" />
+              <VisToggle label="Email Address"   description="Contact email visible in the card"       checked={vis.showEmail}           onCheckedChange={v => toggle("showEmail", v)}           testId="switch-show-email" />
               <VisToggle label="Social Links"    description="Platform icons (X, Instagram, TikTok, YouTube)" checked={vis.cardShowSocials} onCheckedChange={v => toggle("cardShowSocials", v)} testId="switch-card-socials" />
               <VisToggle label="Highlight Reel"  description="Link button to your highlight video"   checked={vis.cardShowHighlightReel} onCheckedChange={v => toggle("cardShowHighlightReel", v)} testId="switch-card-highlight-reel" />
               <VisToggle label="Measurements"    description="Height, weight, wingspan (compact row)" checked={vis.cardShowMeasurements} onCheckedChange={v => toggle("cardShowMeasurements", v)} testId="switch-card-measurements" />
@@ -781,14 +760,10 @@ export default function ProfilePage() {
             </CardHeader>
             <CardContent className="divide-y divide-zinc-800 pt-0">
               <VisToggle label="Skill Ratings"      description="Ball handling, shooting, defense, etc."  checked={vis.showSkills}          onCheckedChange={v => toggle("showSkills", v)}          testId="switch-show-skills" />
-              <VisToggle label="Measurements"        description="Height, weight, wingspan"               checked={vis.showPhysical}         onCheckedChange={v => toggle("showPhysical", v)}        testId="switch-show-physical" />
-              <VisToggle label="Academic Info"        description="GPA and graduation year"                checked={vis.showAcademic}         onCheckedChange={v => toggle("showAcademic", v)}        testId="switch-show-academic" />
               <VisToggle label="Awards & Trophies"   description="Team awards and achievements"           checked={vis.showAchievements}     onCheckedChange={v => toggle("showAchievements", v)}    testId="switch-show-achievements" />
               <VisToggle label="Personal Records"    description="Your drill personal bests"             checked={vis.showPersonalRecords}  onCheckedChange={v => toggle("showPersonalRecords", v)} testId="switch-show-prs" />
               <VisToggle label="Training Log"        description="Recent practice sessions"              checked={vis.showTrainingLog}      onCheckedChange={v => toggle("showTrainingLog", v)}     testId="switch-show-training-log" />
               <VisToggle label="Training Videos"     description="Uploaded training content"             checked={vis.showVideos}           onCheckedChange={v => toggle("showVideos", v)}          testId="switch-show-videos" />
-              <VisToggle label="Location"            description="City and state in the hero"            checked={vis.showLocation}         onCheckedChange={v => toggle("showLocation", v)}        testId="switch-show-location" />
-              <VisToggle label="Email Address"        description="Contact email visible on card"         checked={vis.showEmail}            onCheckedChange={v => toggle("showEmail", v)}           testId="switch-show-email" />
             </CardContent>
           </Card>
 
