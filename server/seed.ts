@@ -398,7 +398,9 @@ export async function seedDatabase() {
         ADD COLUMN IF NOT EXISTS card_show_archetype boolean DEFAULT true,
         ADD COLUMN IF NOT EXISTS card_show_bio boolean DEFAULT true,
         ADD COLUMN IF NOT EXISTS card_show_socials boolean DEFAULT true,
-        ADD COLUMN IF NOT EXISTS card_show_highlight_reel boolean DEFAULT true;
+        ADD COLUMN IF NOT EXISTS card_show_highlight_reel boolean DEFAULT true,
+        ADD COLUMN IF NOT EXISTS card_show_measurements boolean DEFAULT false,
+        ADD COLUMN IF NOT EXISTS card_show_academic boolean DEFAULT false;
     `);
 
     // Check if drills already exist

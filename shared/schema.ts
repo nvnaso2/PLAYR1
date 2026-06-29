@@ -691,6 +691,8 @@ export const playerProfiles = pgTable("player_profiles", {
   cardShowBio: boolean("card_show_bio").default(true),
   cardShowSocials: boolean("card_show_socials").default(true),
   cardShowHighlightReel: boolean("card_show_highlight_reel").default(true),
+  cardShowMeasurements: boolean("card_show_measurements").default(false),
+  cardShowAcademic: boolean("card_show_academic").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow()
 });
