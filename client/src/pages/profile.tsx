@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
@@ -9,12 +9,17 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest, getObjectUrl } from "@/lib/queryClient";
+import { BaseballCard } from "@/pages/career";
 import {
-  Eye, EyeOff, Globe, Lock, Save, Loader2,
+  Eye, EyeOff, Globe, Lock, Save, Loader2, Camera,
   Ruler, GraduationCap, Video, Star, Zap, Trophy, Medal,
-  BarChart3, School, Users, MapPin, Dumbbell, Clock,
+  BarChart3, School, Users, MapPin, Dumbbell, Clock, Target,
+  CheckCircle2, StickyNote,
 } from "lucide-react";
 import { SiX, SiInstagram, SiTiktok, SiYoutube } from "react-icons/si";
 
@@ -45,8 +50,9 @@ function StatPill({ label, value }: { label: string; value: string }) {
 }
 
 function SkillBar({ label, value }: { label: string; value: number | null | undefined }) {
-  if (!value) return null;
-  const pct = Math.min(100, value);
+  if (value == null) return null;
+  // Skills are on a 1-10 scale — convert to percentage
+  const pct = Math.round((Math.min(10, Math.max(0, value)) / 10) * 100);
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between text-sm">
@@ -55,7 +61,7 @@ function SkillBar({ label, value }: { label: string; value: number | null | unde
       </div>
       <div className="h-2.5 rounded-full bg-zinc-800 overflow-hidden">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-orange-600 to-orange-400"
+          className="h-full rounded-full bg-gradient-to-r from-orange-600 to-orange-400 transition-all duration-700"
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -100,6 +106,116 @@ function VisibilityToggle({
   );
 }
 
+function TrainingLogDetailDialog({ logId, open, onClose }: { logId: string | null; open: boolean; onClose: () => void }) {
+  const { data: log, isLoading } = useQuery<any>({
+    queryKey: ["/api/training-logs", logId],
+    enabled: !!logId && open,
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={o => !o && onClose()}>
+      <DialogContent className="max-w-md rounded-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Dumbbell className="w-4 h-4 text-orange-500" />
+            Training Session Detail
+          </DialogTitle>
+        </DialogHeader>
+        {isLoading ? (
+          <div className="space-y-3 py-2">
+            <Skeleton className="h-6 w-3/4" />
+            <Skeleton className="h-4 w-1/2" />
+            <Skeleton className="h-20 w-full" />
+          </div>
+        ) : log ? (
+          <div className="space-y-4 py-1">
+            {log.completedAt && (
+              <p className="text-xs text-zinc-500">
+                {new Date(log.completedAt).toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+              </p>
+            )}
+
+            {/* Stats grid */}
+            <div className="grid grid-cols-3 gap-2">
+              {log.duration > 0 && (
+                <div className="text-center p-3 rounded-xl bg-zinc-800/60">
+                  <p className="text-lg font-black text-white">{log.duration}</p>
+                  <p className="text-[10px] text-zinc-500 uppercase tracking-wide mt-0.5">Minutes</p>
+                </div>
+              )}
+              {log.score != null && (
+                <div className="text-center p-3 rounded-xl bg-zinc-800/60">
+                  <p className="text-lg font-black text-orange-400">{log.score}</p>
+                  <p className="text-[10px] text-zinc-500 uppercase tracking-wide mt-0.5">Score</p>
+                </div>
+              )}
+              {log.reps != null && (
+                <div className="text-center p-3 rounded-xl bg-zinc-800/60">
+                  <p className="text-lg font-black text-white">{log.reps}</p>
+                  <p className="text-[10px] text-zinc-500 uppercase tracking-wide mt-0.5">Reps</p>
+                </div>
+              )}
+              {log.sets != null && (
+                <div className="text-center p-3 rounded-xl bg-zinc-800/60">
+                  <p className="text-lg font-black text-white">{log.sets}</p>
+                  <p className="text-[10px] text-zinc-500 uppercase tracking-wide mt-0.5">Sets</p>
+                </div>
+              )}
+              {log.shotsMade != null && log.shotsAttempted != null && (
+                <div className="text-center p-3 rounded-xl bg-zinc-800/60">
+                  <p className="text-lg font-black text-white">{log.shotsMade}/{log.shotsAttempted}</p>
+                  <p className="text-[10px] text-zinc-500 uppercase tracking-wide mt-0.5">Shots</p>
+                </div>
+              )}
+              {log.shotsMade != null && log.shotsAttempted != null && log.shotsAttempted > 0 && (
+                <div className="text-center p-3 rounded-xl bg-zinc-800/60">
+                  <p className="text-lg font-black text-green-400">{Math.round((log.shotsMade / log.shotsAttempted) * 100)}%</p>
+                  <p className="text-[10px] text-zinc-500 uppercase tracking-wide mt-0.5">FG%</p>
+                </div>
+              )}
+            </div>
+
+            {/* Shot location */}
+            {log.shotLocation && (
+              <div className="flex items-center gap-2 text-sm text-zinc-400">
+                <Target className="w-4 h-4 text-zinc-600" />
+                <span>Shot location: <span className="text-white font-semibold">{log.shotLocation}</span></span>
+              </div>
+            )}
+
+            {/* Metrics */}
+            {log.metrics && log.metrics.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Metrics</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {log.metrics.map((m: any) => (
+                    <div key={m.id} className="flex items-center justify-between p-2.5 rounded-lg bg-zinc-800/50">
+                      <span className="text-xs text-zinc-400">{m.metricName || "Metric"}</span>
+                      <span className="text-sm font-black text-orange-400">{m.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Notes */}
+            {log.notes && (
+              <div className="p-3 rounded-xl bg-zinc-800/50 border-l-2 border-orange-500/40">
+                <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                  <StickyNote className="w-3 h-3" />Notes
+                </p>
+                <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">{log.notes}</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-sm text-zinc-500 py-4 text-center">Could not load session details.</p>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 const VIS_DEFAULTS = {
   isPublic: false, isPrivate: false,
   showStats: true, showAchievements: true, showVideos: true,
@@ -112,15 +228,20 @@ type VisState = typeof VIS_DEFAULTS;
 export default function ProfilePage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const [tab, setTab] = useState<"profile" | "visibility">("profile");
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [vis, setVis] = useState<VisState>(VIS_DEFAULTS);
   const [visLoaded, setVisLoaded] = useState(false);
+  const [logDetailId, setLogDetailId] = useState<string | null>(null);
 
   const { data: userProfile } = useQuery<any>({ queryKey: ["/api/profile"] });
   const { data: playerProfile, isLoading } = useQuery<any>({ queryKey: ["/api/player-profile"] });
   const { data: career } = useQuery<any>({ queryKey: ["/api/career"] });
-  const { data: careerStats } = useQuery<any>({ queryKey: ["/api/career-stats/me"] });
+  // Use the same career-stats endpoint as the My Career page
+  const { data: careerStats } = useQuery<any>({ queryKey: ["/api/stats/career"] });
+  const { data: userArchetypes } = useQuery<any[]>({ queryKey: ["/api/archetypes/user"] });
   const { data: awards } = useQuery<any[]>({ queryKey: ["/api/team-awards"] });
   const { data: personalRecords } = useQuery<any[]>({ queryKey: ["/api/personal-records"] });
   const { data: videos } = useQuery<any[]>({ queryKey: ["/api/videos"] });
@@ -158,6 +279,44 @@ export default function ProfilePage() {
 
   const slug = makeSlug(displayName);
 
+  // Photo upload — same pattern as career.tsx
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/heic", "image/heif"];
+    if (file.type && !allowedTypes.includes(file.type)) {
+      toast({ title: "Invalid file type", description: "Please upload a JPEG, PNG, GIF, or WebP image.", variant: "destructive" });
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Maximum file size is 10MB.", variant: "destructive" });
+      return;
+    }
+    setUploading(true);
+    try {
+      const urlRes = await apiRequest("POST", "/api/user/uploads/photo-url", {
+        name: file.name || "photo.jpg",
+        size: file.size,
+        contentType: file.type || "image/jpeg",
+      });
+      const { uploadURL, objectPath } = await urlRes.json();
+      await fetch(uploadURL, {
+        method: "PUT",
+        headers: { "Content-Type": file.type || "image/jpeg" },
+        body: file,
+      });
+      await apiRequest("PUT", "/api/career", { cardPhotoUrl: objectPath });
+      await queryClient.invalidateQueries({ queryKey: ["/api/career"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
+      toast({ title: "Photo updated!" });
+    } catch {
+      toast({ title: "Upload failed", description: "Could not upload photo. Please try again.", variant: "destructive" });
+    } finally {
+      setUploading(false);
+      if (photoInputRef.current) photoInputRef.current.value = "";
+    }
+  };
+
   const saveVisibility = async () => {
     setSaving(true);
     try {
@@ -182,10 +341,18 @@ export default function ProfilePage() {
     ? getObjectUrl(user.profileImageUrl)
     : undefined;
 
-  // Data presence checks — using correct field names from schema
-  const hasStats      = careerStats && careerStats.totalGames > 0;
-  const hasSkills     = career && (career.skillBallHandling || career.skillShooting || career.skillDefense || career.skillAthletics || career.skillBasketballIQ || career.skillPassing || career.skillFinishing);
-  const hasArchetype  = !!career?.assessmentArchetype;
+  // Active archetype: either selected in Archetypes page OR from assessment
+  const mainUserArchetype = (userArchetypes || []).find((ua: any) => ua.role === "main");
+  const archetypeName = mainUserArchetype?.archetype?.name || career?.assessmentArchetype || null;
+  const archetypeTagline = mainUserArchetype?.archetype?.tagline || career?.assessmentArchetypeTagline || null;
+
+  // Career game stats (from /api/stats/career)
+  const totalGames = careerStats?.totalGames ?? 0;
+  const hasGameStats = totalGames > 0;
+
+  // Data presence checks
+  const hasSkills     = career && (career.skillBallHandling != null || career.skillShooting != null || career.skillDefense != null || career.skillAthletics != null || career.skillBasketballIQ != null || career.skillPassing != null || career.skillFinishing != null);
+  const hasArchetype  = !!archetypeName;
   const hasPhysical   = playerProfile?.heightFeet > 0 || playerProfile?.weight > 0 || playerProfile?.wingspan;
   const hasAcademic   = playerProfile?.gradYear > 0 || playerProfile?.gpa;
   const hasSocials    = playerProfile?.socialTwitter || playerProfile?.socialInstagram || playerProfile?.socialTiktok || playerProfile?.socialYoutube;
@@ -206,6 +373,16 @@ export default function ProfilePage() {
 
   return (
     <div className="max-w-2xl mx-auto pb-12">
+      {/* Hidden file input */}
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/gif,image/webp,image/heic"
+        className="hidden"
+        onChange={handlePhotoUpload}
+        data-testid="input-profile-photo"
+      />
+
       {/* Header */}
       <div className="px-4 pt-5 pb-3">
         <h1 className="text-2xl font-black tracking-tight" data-testid="text-page-title">My Profile</h1>
@@ -247,13 +424,9 @@ export default function ProfilePage() {
 
           {/* ── HERO CARD — pure PLAYR1 orange + black ── */}
           <div className="relative overflow-hidden">
-            {/* Pure black base */}
             <div className="absolute inset-0 bg-zinc-950" />
-            {/* Orange glow from top-right */}
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_80%_at_top_right,rgba(234,88,12,0.35),transparent)]" />
-            {/* Subtle orange fade bottom */}
             <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-zinc-950/80" />
-            {/* Grid */}
             <div
               className="absolute inset-0 opacity-[0.045]"
               style={{
@@ -264,19 +437,30 @@ export default function ProfilePage() {
 
             <div className="relative px-4 pt-8 pb-10">
               <div className="flex items-end gap-5">
-                {/* Avatar — pure orange glow */}
-                <div className="relative shrink-0">
+                {/* Avatar with upload overlay */}
+                <div className="relative shrink-0 group">
                   <div className="absolute -inset-[3px] rounded-full bg-gradient-to-br from-orange-400 to-orange-600 opacity-80 blur-[4px]" />
                   <Avatar className="relative h-28 w-28 border-2 border-orange-500/30">
                     <AvatarFallback className="text-3xl font-black bg-zinc-900 text-orange-400">{initials}</AvatarFallback>
                     {photoSrc && <AvatarImage src={photoSrc} alt={displayName} className="object-cover" />}
                   </Avatar>
+                  {/* Upload overlay */}
+                  <button
+                    className="absolute inset-0 rounded-full flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => photoInputRef.current?.click()}
+                    disabled={uploading}
+                    data-testid="button-upload-photo"
+                  >
+                    {uploading
+                      ? <Loader2 className="w-6 h-6 text-white animate-spin" />
+                      : <Camera className="w-6 h-6 text-white" />}
+                  </button>
                 </div>
 
                 <div className="flex-1 min-w-0 pb-1">
                   <div className="flex flex-wrap items-baseline gap-2 mb-1">
                     {career?.jerseyNumber != null && (
-                      <span className="text-2xl font-black text-orange-400" data-testid="text-jersey">#  {career.jerseyNumber}</span>
+                      <span className="text-2xl font-black text-orange-400" data-testid="text-jersey">#{career.jerseyNumber}</span>
                     )}
                     <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-none uppercase" data-testid="text-profile-name">
                       {displayName}
@@ -311,14 +495,24 @@ export default function ProfilePage() {
                       </span>
                     )}
                   </div>
+
+                  {/* Upload hint for mobile (no hover) */}
+                  <button
+                    onClick={() => photoInputRef.current?.click()}
+                    disabled={uploading}
+                    className="mt-2 text-[11px] text-orange-400/60 flex items-center gap-1 hover:text-orange-400 transition-colors sm:hidden"
+                    data-testid="button-upload-photo-mobile"
+                  >
+                    <Camera className="w-3 h-3" />{uploading ? "Uploading…" : "Change photo"}
+                  </button>
                 </div>
               </div>
 
               {/* Game stats strip */}
-              {vis.showStats && hasStats && (
+              {vis.showStats && hasGameStats && (
                 <div className="mt-6">
                   <p className="text-[10px] font-bold text-orange-400/60 uppercase tracking-widest mb-2.5">
-                    Career Averages · {careerStats.totalGames} games
+                    Career Averages · {totalGames} games · {careerStats.wins}W–{careerStats.losses}L
                   </p>
                   <div className="grid grid-cols-5 gap-2">
                     <StatPill label="PPG" value={Number(careerStats.avgPoints).toFixed(1)} />
@@ -329,7 +523,7 @@ export default function ProfilePage() {
                   </div>
                 </div>
               )}
-              {vis.showStats && !hasStats && (
+              {vis.showStats && !hasGameStats && (
                 <div className="mt-5 p-3 rounded-xl bg-black/30 border border-orange-500/10 text-center">
                   <p className="text-xs text-zinc-500">No game stats yet — log games in <Link href="/career" className="text-orange-400 underline">My Career</Link></p>
                 </div>
@@ -340,6 +534,20 @@ export default function ProfilePage() {
           {/* ── SECTIONS ── */}
           <div className="px-4 space-y-3 mt-3">
 
+            {/* Player Card from My Career */}
+            {career && (
+              <div>
+                <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-2">Player Card</p>
+                <div className="flex justify-center">
+                  <BaseballCard
+                    profile={career}
+                    careerStats={careerStats}
+                    onPhotoUpdated={() => queryClient.invalidateQueries({ queryKey: ["/api/career"] })}
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Archetype */}
             {vis.showArchetype && (
               hasArchetype ? (
@@ -349,16 +557,19 @@ export default function ProfilePage() {
                   </div>
                   <div>
                     <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Player Archetype</p>
-                    <p className="font-black text-white">{career.assessmentArchetype}</p>
-                    {career.assessmentArchetypeTagline && (
-                      <p className="text-xs text-zinc-400 mt-0.5">{career.assessmentArchetypeTagline}</p>
+                    <p className="font-black text-white">{archetypeName}</p>
+                    {archetypeTagline && (
+                      <p className="text-xs text-zinc-400 mt-0.5">{archetypeTagline}</p>
+                    )}
+                    {mainUserArchetype && (
+                      <p className="text-[11px] text-orange-400/60 mt-0.5 capitalize">{mainUserArchetype.tier} · {mainUserArchetype.totalXp} XP</p>
                     )}
                   </div>
                 </div>
               ) : (
                 <div className="flex items-center gap-3 p-4 rounded-2xl border border-dashed border-zinc-800">
                   <Zap className="w-5 h-5 text-zinc-700 shrink-0" />
-                  <p className="text-xs text-zinc-600">No archetype yet — complete the assessment in <Link href="/archetypes" className="text-orange-500 underline">Archetypes</Link></p>
+                  <p className="text-xs text-zinc-600">No archetype yet — pick one in <Link href="/archetypes" className="text-orange-500 underline">Archetypes</Link></p>
                 </div>
               )
             )}
@@ -402,7 +613,7 @@ export default function ProfilePage() {
               </div>
             )}
 
-            {/* Skill ratings */}
+            {/* Skill ratings — 1-10 scale → bar fills correctly */}
             {vis.showSkills && (
               <SectionCard icon={<Star className="h-4 w-4 text-orange-500" />} title="Skill Ratings">
                 {hasSkills ? (
@@ -549,20 +760,31 @@ export default function ProfilePage() {
                 {hasLogs ? (
                   <div className="space-y-2">
                     {(recentLogs as any[]).slice(0, 5).map((log: any) => (
-                      <div key={log.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-zinc-800/50">
+                      <button
+                        key={log.id}
+                        className="w-full text-left flex items-center justify-between gap-3 p-3 rounded-xl bg-zinc-800/50 hover:bg-zinc-800 active:scale-[0.98] transition-all"
+                        onClick={() => setLogDetailId(log.id)}
+                        data-testid={`button-log-${log.id}`}
+                      >
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-semibold truncate">{log.drillTitle || log.title || "Training Session"}</p>
                           <div className="flex items-center gap-2 mt-0.5 text-xs text-zinc-500">
                             {log.duration && <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{log.duration}m</span>}
-                            {log.score && <span className="text-orange-400 font-semibold">{log.score} pts</span>}
+                            {log.score != null && <span className="text-orange-400 font-semibold">Score: {log.score}</span>}
+                            {log.shotsMade != null && log.shotsAttempted != null && (
+                              <span>{log.shotsMade}/{log.shotsAttempted} shots</span>
+                            )}
                           </div>
                         </div>
-                        {log.completedAt && (
-                          <span className="text-[10px] text-zinc-600 shrink-0">
-                            {new Date(log.completedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                          </span>
-                        )}
-                      </div>
+                        <div className="text-right shrink-0">
+                          {log.completedAt && (
+                            <span className="text-[10px] text-zinc-600">
+                              {new Date(log.completedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                            </span>
+                          )}
+                          <CheckCircle2 className="w-4 h-4 text-green-500/40 mt-0.5 ml-auto" />
+                        </div>
+                      </button>
                     ))}
                   </div>
                 ) : (
@@ -612,6 +834,40 @@ export default function ProfilePage() {
       ═══════════════════════════════════════════ */}
       {tab === "visibility" && (
         <div className="px-4 space-y-4">
+          {/* Profile photo upload */}
+          <Card className="border-zinc-800/60 bg-zinc-900/60">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Camera className="w-4 h-4 text-orange-500" />Profile Photo
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-4">
+                <div className="relative group">
+                  <Avatar className="h-16 w-16 border-2 border-orange-500/30">
+                    <AvatarFallback className="text-xl font-black bg-zinc-800 text-orange-400">{initials}</AvatarFallback>
+                    {photoSrc && <AvatarImage src={photoSrc} alt={displayName} className="object-cover" />}
+                  </Avatar>
+                </div>
+                <div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => photoInputRef.current?.click()}
+                    disabled={uploading}
+                    className="gap-2 border-orange-500/30 hover:border-orange-500/60"
+                    data-testid="button-change-photo"
+                  >
+                    {uploading
+                      ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Uploading…</>
+                      : <><Camera className="w-3.5 h-3.5" />Change Photo</>}
+                  </Button>
+                  <p className="text-xs text-zinc-500 mt-1.5">JPEG, PNG, WebP · Max 10MB</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Profile access */}
           <Card className="border-zinc-800/60 bg-zinc-900/60">
             <CardHeader className="pb-3">
@@ -650,13 +906,13 @@ export default function ProfilePage() {
               <CardTitle className="text-base flex items-center gap-2">
                 <Eye className="w-4 h-4 text-orange-500" />Section Visibility
               </CardTitle>
-              <p className="text-xs text-zinc-500">Toggle sections on/off — changes reflect live in My Profile tab</p>
+              <p className="text-xs text-zinc-500">Toggle sections on/off for your public profile</p>
             </CardHeader>
             <CardContent className="divide-y divide-zinc-800 pt-0">
               {[
                 { key: "showStats" as const,           label: "Game Stats",        desc: "Career averages: PPG, RPG, APG" },
                 { key: "showSkills" as const,           label: "Skill Ratings",     desc: "Ball handling, shooting, defense & more" },
-                { key: "showArchetype" as const,        label: "Player Archetype",  desc: "Your AI-assessed player type" },
+                { key: "showArchetype" as const,        label: "Player Archetype",  desc: "Your selected player type" },
                 { key: "showAchievements" as const,     label: "Awards & Trophies", desc: "Team awards and achievements" },
                 { key: "showPersonalRecords" as const,  label: "Personal Records",  desc: "Your drill personal bests" },
                 { key: "showTrainingLog" as const,      label: "Training Log",      desc: "Recent practice sessions" },
@@ -688,6 +944,13 @@ export default function ProfilePage() {
           </Button>
         </div>
       )}
+
+      {/* Training log detail dialog */}
+      <TrainingLogDetailDialog
+        logId={logDetailId}
+        open={!!logDetailId}
+        onClose={() => setLogDetailId(null)}
+      />
     </div>
   );
 }

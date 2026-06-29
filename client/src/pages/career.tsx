@@ -2273,7 +2273,7 @@ export function OnboardingWizard({ onComplete, previewMode = false }: { onComple
   return null;
 }
 
-function BaseballCard({ profile, careerStats, onPhotoUpdated, userName }: { profile: CareerProfile; careerStats?: CareerStats; onPhotoUpdated?: () => void; userName?: string }) {
+export function BaseballCard({ profile, careerStats, onPhotoUpdated, userName }: { profile: CareerProfile; careerStats?: CareerStats; onPhotoUpdated?: () => void; userName?: string }) {
   const [isFlipped, setIsFlipped] = useState(false);
   const [seasonFilter, setSeasonFilter] = useState<string>("all");
   const [uploading, setUploading] = useState(false);
@@ -4646,6 +4646,13 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
+      <div className="flex items-center gap-3 mb-1">
+        <a href="/profile-hub" onClick={(e) => { e.preventDefault(); window.history.back(); }}
+          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          data-testid="button-career-back">
+          <ChevronLeft className="w-4 h-4" /> Back
+        </a>
+      </div>
       <div className="flex flex-col items-center gap-4 text-center">
         <h1 className="text-2xl sm:text-3xl font-bold">My Career</h1>
         <BaseballCard profile={profile} careerStats={careerStats} userName={playerName} onPhotoUpdated={() => queryClient.invalidateQueries({ queryKey: ["/api/career"] })} />
