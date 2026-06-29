@@ -17,7 +17,7 @@ import {
   Eye, EyeOff, Globe, Lock, Save, Loader2, Camera, Share2,
   Ruler, GraduationCap, Video, Star, Zap, Trophy, Medal,
   School, Users, MapPin, Dumbbell, Clock, Target,
-  CheckCircle2, StickyNote, Copy, Check, Mail,
+  CheckCircle2, StickyNote, Copy, Check, Mail, ArrowLeft,
 } from "lucide-react";
 import { SiX, SiInstagram, SiTiktok, SiYoutube, SiWhatsapp } from "react-icons/si";
 
@@ -187,44 +187,45 @@ function ShareDialog({ open, onClose, profileUrl, displayName }: { open: boolean
 
   return (
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
-      <DialogContent className="w-[92vw] max-w-xs rounded-2xl px-4 pt-5 pb-5">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-base">
-            <Share2 className="w-4 h-4 text-orange-500" />Share Profile
-          </DialogTitle>
-        </DialogHeader>
-
-        {/* Profile URL pill */}
-        <div className="flex items-center gap-2 px-3 py-2 bg-zinc-800/70 rounded-xl border border-zinc-700/50 mt-1">
-          <Globe className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
-          <p className="text-[11px] text-zinc-400 truncate flex-1 font-mono">{profileUrl}</p>
+      <DialogContent className="w-[min(92vw,360px)] max-w-none gap-0 p-0 rounded-2xl overflow-hidden border border-zinc-800">
+        {/* Header */}
+        <div className="flex items-center gap-2 px-4 py-3.5 border-b border-zinc-800">
+          <Share2 className="w-4 h-4 text-orange-500 shrink-0" />
+          <span className="text-sm font-bold text-white">Share Profile</span>
         </div>
 
-        {/* Icon grid — 4 equal columns */}
-        <div className="grid grid-cols-4 gap-2 mt-1">
-          {options.map(opt => (
-            <a
-              key={opt.label}
-              href={opt.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex flex-col items-center gap-1.5 py-3 rounded-xl bg-zinc-800/60 border border-zinc-700/40 hover:border-zinc-500/60 active:scale-95 transition-all"
-              style={{ boxShadow: `0 0 0 0px ${opt.ring}` }}
-            >
-              {opt.icon}
-              <span className="text-[10px] text-zinc-400 font-medium leading-none">{opt.label}</span>
-            </a>
-          ))}
-        </div>
+        <div className="px-4 py-3 space-y-2">
+          {/* Profile URL pill */}
+          <div className="flex items-center gap-2 px-3 py-2 bg-zinc-800/70 rounded-xl border border-zinc-700/50">
+            <Globe className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
+            <p className="text-[11px] text-zinc-400 truncate flex-1 font-mono">{profileUrl}</p>
+          </div>
 
-        {/* Copy link */}
-        <Button
-          className="w-full gap-2 h-11 bg-orange-500 hover:bg-orange-600 text-white font-bold mt-1"
-          onClick={copyLink}
-          data-testid="button-copy-link"
-        >
-          {copied ? <><Check className="w-4 h-4" />Copied!</> : <><Copy className="w-4 h-4" />Copy Link</>}
-        </Button>
+          {/* Share options — vertical list, always fits */}
+          <div className="space-y-1.5">
+            {options.map(opt => (
+              <a
+                key={opt.label}
+                href={opt.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 px-3 h-11 rounded-xl bg-zinc-800/60 border border-zinc-700/40 hover:border-zinc-600/60 hover:bg-zinc-800 active:scale-[0.98] transition-all"
+              >
+                <span className="shrink-0 w-6 flex items-center justify-center">{opt.icon}</span>
+                <span className="text-sm font-medium text-zinc-200">{opt.label}</span>
+              </a>
+            ))}
+          </div>
+
+          {/* Copy link */}
+          <Button
+            className="w-full gap-2 h-11 bg-orange-500 hover:bg-orange-600 text-white font-bold"
+            onClick={copyLink}
+            data-testid="button-copy-link"
+          >
+            {copied ? <><Check className="w-4 h-4" />Copied!</> : <><Copy className="w-4 h-4" />Copy Link</>}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );
@@ -422,6 +423,13 @@ export default function ProfilePage() {
 
       {/* Header */}
       <div className="px-4 pt-5 pb-3">
+        <button
+          onClick={() => window.history.back()}
+          className="flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-200 transition-colors mb-3"
+          data-testid="button-back"
+        >
+          <ArrowLeft className="w-4 h-4" />Back
+        </button>
         <h1 className="text-2xl font-black tracking-tight" data-testid="text-page-title">My Profile</h1>
         <p className="text-sm text-muted-foreground">Your player card + profile</p>
       </div>
@@ -496,6 +504,13 @@ export default function ProfilePage() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Headline — toggled by Bio visibility */}
+                  {vis.cardShowBio && playerProfile?.headline && (
+                    <p className="text-[11px] text-orange-300/70 font-semibold leading-snug -mt-1" data-testid="text-profile-headline">
+                      {playerProfile.headline}
+                    </p>
+                  )}
 
                   {/* Archetype */}
                   {vis.cardShowArchetype && archetypeName && (
