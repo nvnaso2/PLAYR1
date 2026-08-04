@@ -84,11 +84,19 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+// Guard so multiple simultaneous 401s only trigger one redirect
+let _redirectingToAuth = false;
+
 function handle401(error: unknown) {
   if (error instanceof Error && error.message.startsWith("401:")) {
     // Don't hard-redirect if we have a stored token — this is a race condition
     // (e.g. a pre-login in-flight request completing after login on iOS).
     if (localStorage.getItem(TOKEN_KEY)) return;
+    // Already on auth page — nothing to do.
+    if (window.location.pathname === "/auth") return;
+    // Only redirect once; multiple in-flight 401s after logout cause a cascade loop.
+    if (_redirectingToAuth) return;
+    _redirectingToAuth = true;
     window.location.href = "/auth";
   }
 }

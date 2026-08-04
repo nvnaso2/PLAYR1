@@ -1914,8 +1914,8 @@ export default function TrainingLogPage() {
         <div className="space-y-6">
           {!showCreateWorkoutMode ? (
             <>
-              {/* Action Buttons — 2×2 grid, max-width so they don't stretch on desktop */}
-              <div className="grid grid-cols-2 gap-2.5 max-w-sm">
+              {/* Action Buttons — 2×2 on mobile, 4-across on desktop */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 {/* Start Workout — primary action */}
                 <div
                   className="cursor-pointer rounded-xl border border-primary/40 bg-primary/10 p-4 flex flex-col gap-3 active:opacity-75 transition-opacity"
@@ -1979,7 +1979,7 @@ export default function TrainingLogPage() {
 
               {/* Free Shoot — full-width row, also capped */}
               <div
-                className="cursor-pointer rounded-xl border border-border bg-card px-4 py-3.5 flex items-center gap-3.5 active:opacity-75 transition-opacity max-w-sm"
+                className="cursor-pointer rounded-xl border border-border bg-card px-4 py-3.5 flex items-center gap-3.5 active:opacity-75 transition-opacity"
                 onClick={() => setShowFreeShotMode(true)}
                 data-testid="action-free-shoot"
               >
