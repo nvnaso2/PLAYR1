@@ -144,6 +144,7 @@ export default function ProgramEditorPage() {
 
   const totalDays = meta?.lengthDays ?? program?.lengthDays ?? 0;
   const dayList = Array.from({ length: Math.max(totalDays, 1) }, (_, i) => i + 1);
+  const [selectedDay, setSelectedDay] = useState<number>(1);
 
   if (isLoading || !program || !meta) {
     return (
@@ -166,10 +167,9 @@ export default function ProgramEditorPage() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-2xl font-bold leading-tight" data-testid="text-editor-title">{meta.title}</h1>
+            <h1 className="text-3xl font-heading tracking-wide uppercase leading-tight" data-testid="text-editor-title">Program Studio</h1>
             <p className="text-sm text-muted-foreground">
-              {meta.authorType === "system" ? "PLAYR1 system program" : "Trainer-authored"}
-              {" · "}/{meta.slug}
+              {meta.title || "Untitled"}{" · "}{meta.authorType === "system" ? "PLAYR1 system" : "Trainer-authored"}
             </p>
           </div>
         </div>
@@ -209,152 +209,152 @@ export default function ProgramEditorPage() {
       </div>
 
       {/* Metadata form */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Program details</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="title">Title</Label>
-              <Input id="title" value={meta.title ?? ""}
-                onChange={(e) => setMeta({ ...meta, title: e.target.value })}
-                data-testid="input-program-title" />
-            </div>
-            <div>
-              <Label htmlFor="slug">Slug</Label>
-              <Input id="slug" value={meta.slug ?? ""}
-                onChange={(e) => setMeta({ ...meta, slug: e.target.value })}
-                data-testid="input-program-slug" />
-            </div>
-          </div>
-          <div>
-            <Label htmlFor="tagline">Tagline</Label>
-            <Input id="tagline" value={meta.tagline ?? ""}
-              onChange={(e) => setMeta({ ...meta, tagline: e.target.value })}
-              data-testid="input-program-tagline" />
-          </div>
-          <div>
-            <Label htmlFor="description">Description</Label>
-            <Textarea id="description" rows={4} value={meta.description ?? ""}
-              onChange={(e) => setMeta({ ...meta, description: e.target.value })}
-              data-testid="input-program-description" />
-          </div>
+      {/* Program Studio — metadata */}
+      <div className="rounded-xl border border-border bg-card p-5 space-y-5">
+        <div className="space-y-1">
+          <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Title</label>
+          <Input
+            value={meta.title ?? ""}
+            onChange={(e) => setMeta({ ...meta, title: e.target.value })}
+            className="bg-background border-border text-base font-semibold h-12"
+            placeholder="Program title…"
+            data-testid="input-program-title"
+          />
+        </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <Label htmlFor="lengthDays">Length (days)</Label>
-              <Input id="lengthDays" type="number" min={1} value={meta.lengthDays ?? 7}
-                onChange={(e) => setMeta({ ...meta, lengthDays: parseInt(e.target.value || "0", 10) })}
-                data-testid="input-program-length" />
-            </div>
-            <div>
-              <Label htmlFor="difficulty">Difficulty</Label>
-              <Select value={meta.difficulty ?? "beginner"}
-                onValueChange={(v) => setMeta({ ...meta, difficulty: v as any })}>
-                <SelectTrigger id="difficulty" data-testid="select-program-difficulty"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {DIFFICULTIES.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="cadence">Cadence</Label>
-              <Select value={meta.cadence ?? "userPaced"}
-                onValueChange={(v) => setMeta({ ...meta, cadence: v as any })}>
-                <SelectTrigger id="cadence" data-testid="select-program-cadence"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {PROGRAM_CADENCES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+        <div className="space-y-1">
+          <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Tagline</label>
+          <Input
+            value={meta.tagline ?? ""}
+            onChange={(e) => setMeta({ ...meta, tagline: e.target.value })}
+            className="bg-background border-border h-12"
+            placeholder="One-sentence hook…"
+            data-testid="input-program-tagline"
+          />
+        </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <Label htmlFor="visibility">Visibility</Label>
-              <Select value={meta.visibility ?? "public"}
-                onValueChange={(v) => setMeta({ ...meta, visibility: v as any })}>
-                <SelectTrigger id="visibility" data-testid="select-program-visibility"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {PROGRAM_VISIBILITY.map((v) => (
-                    <SelectItem key={v} value={v}>{VISIBILITY_LABELS[v] ?? v}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        <div className="space-y-1">
+          <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Cover Image URL</label>
+          <Input
+            value={meta.coverImageUrl ?? ""}
+            onChange={(e) => setMeta({ ...meta, coverImageUrl: e.target.value })}
+            className="bg-background border-border h-12"
+            placeholder="https://…"
+            data-testid="input-program-cover-url"
+          />
+          {meta.coverImageUrl && (
+            <div className="mt-2 rounded-lg overflow-hidden border border-border h-28">
+              <img src={meta.coverImageUrl} alt="Cover" className="w-full h-full object-cover" />
             </div>
-            <div>
-              <Label htmlFor="estMin">Est. minutes / day</Label>
-              <Input id="estMin" type="number" min={0} value={meta.estimatedMinutesPerDay ?? 0}
-                onChange={(e) => setMeta({ ...meta, estimatedMinutesPerDay: parseInt(e.target.value || "0", 10) })}
-                data-testid="input-program-minutes-per-day" />
-            </div>
-            <div>
-              <Label htmlFor="accent">Accent color (hex)</Label>
-              <Input id="accent" placeholder="#f97316" value={meta.accentColor ?? ""}
-                onChange={(e) => setMeta({ ...meta, accentColor: e.target.value })}
-                data-testid="input-program-accent" />
-            </div>
-          </div>
+          )}
+        </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="cover">Cover image</Label>
-              <ProgramCoverPicker
-                value={meta.coverImageUrl ?? ""}
-                onChange={(v) => setMeta({ ...meta, coverImageUrl: v })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="tags">Category tags (comma-separated)</Label>
-              <Input id="tags" value={(meta.categoryTags ?? []).join(", ")}
-                onChange={(e) => setMeta({
-                  ...meta,
-                  categoryTags: e.target.value.split(",").map((t) => t.trim()).filter(Boolean),
-                })}
-                data-testid="input-program-tags" />
-            </div>
+        {/* Tier toggle */}
+        <div className="space-y-2">
+          <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Tier</label>
+          <div className="flex rounded-lg border border-border overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setMeta({ ...meta, tier: "free" } as any)}
+              className={`flex-1 py-3 text-sm font-bold uppercase tracking-wide transition-colors ${(meta as any).tier !== "pro" ? "bg-background text-foreground" : "bg-transparent text-muted-foreground"}`}
+              data-testid="button-tier-free"
+            >
+              Free
+            </button>
+            <button
+              type="button"
+              onClick={() => setMeta({ ...meta, tier: "pro" } as any)}
+              className={`flex-1 py-3 text-sm font-bold uppercase tracking-wide transition-colors ${(meta as any).tier === "pro" ? "bg-primary text-white" : "bg-transparent text-muted-foreground"}`}
+              data-testid="button-tier-pro"
+            >
+              Pro
+            </button>
           </div>
+        </div>
 
-          <div className="flex items-center gap-6 flex-wrap">
-            <div className="flex items-center gap-2">
-              <Switch checked={!!meta.isPublished}
-                onCheckedChange={(v) => setMeta({ ...meta, isPublished: v })}
-                data-testid="switch-program-published" />
-              <span className="text-sm">Published</span>
-            </div>
-            {isAdmin && (
-              <div className="flex items-center gap-2">
-                <Switch checked={!!meta.isFeatured}
-                  onCheckedChange={(v) => setMeta({ ...meta, isFeatured: v })}
-                  data-testid="switch-program-featured" />
-                <span className="text-sm">Featured on browse page</span>
-              </div>
-            )}
-            <Button onClick={handleMetaSave} disabled={updateMeta.isPending} className="ml-auto" data-testid="button-save-program">
-              <Save className="w-4 h-4 mr-1" /> Save details
-            </Button>
+        {/* Visibility + Published row */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Visibility</label>
+            <Select value={meta.visibility ?? "public"} onValueChange={(v) => setMeta({ ...meta, visibility: v as any })}>
+              <SelectTrigger data-testid="select-program-visibility"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {PROGRAM_VISIBILITY.map((v) => (
+                  <SelectItem key={v} value={v}>{VISIBILITY_LABELS[v] ?? v}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Items by day */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Schedule</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {dayList.map((day) => (
-            <DayBlock
-              key={day}
-              programId={programId!}
-              day={day}
-              items={itemsByDay.get(day) ?? []}
-              accentColor={meta.accentColor ?? "#f97316"}
+          <div className="space-y-1">
+            <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Length (days)</label>
+            <Input
+              type="number" min={1}
+              value={meta.lengthDays ?? 7}
+              onChange={(e) => setMeta({ ...meta, lengthDays: parseInt(e.target.value || "0", 10) })}
+              className="bg-background border-border"
+              data-testid="input-program-length"
             />
-          ))}
-        </CardContent>
-      </Card>
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Description</label>
+          <Textarea
+            rows={3}
+            value={meta.description ?? ""}
+            onChange={(e) => setMeta({ ...meta, description: e.target.value })}
+            className="bg-background border-border resize-none"
+            placeholder="What will players learn?"
+            data-testid="input-program-description"
+          />
+        </div>
+
+        <div className="flex items-center gap-4 pt-1 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Switch checked={!!meta.isPublished} onCheckedChange={(v) => setMeta({ ...meta, isPublished: v })} data-testid="switch-program-published" />
+            <span className="text-sm text-muted-foreground">Published</span>
+          </div>
+          {isAdmin && (
+            <div className="flex items-center gap-2">
+              <Switch checked={!!meta.isFeatured} onCheckedChange={(v) => setMeta({ ...meta, isFeatured: v })} data-testid="switch-program-featured" />
+              <span className="text-sm text-muted-foreground">Featured</span>
+            </div>
+          )}
+          <Button onClick={handleMetaSave} disabled={updateMeta.isPending} className="ml-auto" data-testid="button-save-program">
+            <Save className="w-4 h-4 mr-1" /> Save details
+          </Button>
+        </div>
+      </div>
+
+      {/* Day selector + per-day editor */}
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <h2 className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Select Day</h2>
+          <div className="flex gap-2 flex-wrap">
+            {dayList.map((day) => (
+              <button
+                key={day}
+                type="button"
+                onClick={() => setSelectedDay(day)}
+                className={`w-10 h-10 rounded-lg text-sm font-bold transition-colors ${selectedDay === day ? "bg-primary text-white" : "bg-card border border-border text-muted-foreground hover:border-primary/50"}`}
+                data-testid={`button-day-${day}`}
+              >
+                {day}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {selectedDay !== null && (
+          <DayBlock
+            key={selectedDay}
+            programId={programId!}
+            day={selectedDay}
+            items={itemsByDay.get(selectedDay) ?? []}
+            accentColor={meta.accentColor ?? "#f97316"}
+          />
+        )}
+      </div>
     </div>
   );
 }

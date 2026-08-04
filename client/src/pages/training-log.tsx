@@ -73,7 +73,9 @@ import {
   Search,
   Loader2,
   Share2,
-  Info
+  Info,
+  BookOpen,
+  Lock,
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Drill, TrainingLog, DrillMetric, MetricTemplate, Workout, WorkoutDrill, ShotLocationDB, Challenge, UserChallenge } from "@shared/schema";
@@ -414,6 +416,11 @@ export default function TrainingLogPage() {
   const { data: programEnrollments } = useQuery<any[]>({
     queryKey: ["/api/programs/me"],
     staleTime: 30_000,
+  });
+
+  const { data: allAvailablePrograms } = useQuery<any[]>({
+    queryKey: ["/api/programs"],
+    staleTime: 60_000,
   });
 
   // Group drills by category
@@ -1521,8 +1528,8 @@ export default function TrainingLogPage() {
     <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6 pb-24">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold" data-testid="text-page-title">Training Log</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">Build workouts, track progress, get better</p>
+          <h1 className="text-3xl sm:text-4xl font-heading tracking-wide uppercase" data-testid="text-page-title">Training Log</h1>
+          <p className="text-sm text-muted-foreground">Build workouts, track progress, get better</p>
         </div>
         
         <div className="flex gap-2">
@@ -1907,85 +1914,83 @@ export default function TrainingLogPage() {
         <div className="space-y-6">
           {!showCreateWorkoutMode ? (
             <>
-              {/* Action Buttons */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <Card className="cursor-pointer hover-elevate" onClick={() => { setDrillSearchQuery(""); setIsStartWorkoutDialogOpen(true); }} data-testid="action-start-workout">
-                  <CardContent className="p-4 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0">
-                      <Play className="w-5 h-5 text-green-500" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-sm">Start Workout</h3>
-                      <p className="text-xs text-muted-foreground">Select drills and go</p>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="cursor-pointer hover-elevate" onClick={() => setIsCreateDrillOpen(true)} data-testid="action-create-drill">
-                  <CardContent className="p-4 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                      <Plus className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-sm">Create a Drill</h3>
-                      <p className="text-xs text-muted-foreground">Add a custom drill</p>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="cursor-pointer hover-elevate" onClick={() => { setShowCreateWorkoutMode(true); setSelectedDrillIds(new Set()); }} data-testid="action-create-workout">
-                  <CardContent className="p-4 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
-                      <Layers className="w-5 h-5 text-blue-500" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-sm">Create a Workout</h3>
-                      <p className="text-xs text-muted-foreground">Combine 2+ drills</p>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="cursor-pointer hover-elevate" onClick={() => setShowChallengeDialog(true)} data-testid="action-create-challenge">
-                  <CardContent className="p-4 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-yellow-500/10 flex items-center justify-center shrink-0">
-                      <Trophy className="w-5 h-5 text-yellow-500" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-sm">Create a Challenge</h3>
-                      <p className="text-xs text-muted-foreground">Set goals & track</p>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card
-                  className="cursor-pointer hover-elevate"
-                  onClick={() => setShowFreeShotMode(true)}
-                  data-testid="action-free-shoot"
+              {/* Action Buttons — 2×2 grid */}
+              <div className="grid grid-cols-2 gap-3">
+                {/* Start Workout — primary action, orange highlight */}
+                <div
+                  className="relative cursor-pointer rounded-xl border border-primary/40 bg-primary/10 p-5 flex flex-col gap-4 active:scale-[0.98] transition-transform"
+                  onClick={() => { setDrillSearchQuery(""); setIsStartWorkoutDialogOpen(true); }}
+                  data-testid="action-start-workout"
                 >
-                  <CardContent className="p-4 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                      <Target className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-sm">Free Shoot</h3>
-                      <p className="text-xs text-muted-foreground">Tap zones to log shots live</p>
-                    </div>
-                  </CardContent>
-                </Card>
-                {/* RECORD_SHOOTING_FEATURE: hidden pending Roboflow CV integration — re-enable by removing the {false && ...} wrapper */}
-                {false && (
-                <Card
-                  className="cursor-pointer hover-elevate"
-                  onClick={() => setShowRecordShootingMode(true)}
-                  data-testid="action-record-shooting"
+                  <div className="w-12 h-12 rounded-lg bg-primary flex items-center justify-center shrink-0">
+                    <Play className="w-6 h-6 text-white fill-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-heading text-base uppercase tracking-wide">Start Workout</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Select drills and go</p>
+                  </div>
+                </div>
+
+                {/* Create a Drill */}
+                <div
+                  className="relative cursor-pointer rounded-xl border border-border bg-card p-5 flex flex-col gap-4 active:scale-[0.98] transition-transform"
+                  onClick={() => setIsCreateDrillOpen(true)}
+                  data-testid="action-create-drill"
                 >
-                  <CardContent className="p-4 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
-                      <Video className="w-5 h-5 text-blue-400" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-sm">Record Shooting</h3>
-                      <p className="text-xs text-muted-foreground">Film &amp; AI tracks your shots</p>
-                    </div>
-                  </CardContent>
-                </Card>
-                )}
+                  <div className="w-12 h-12 rounded-lg bg-zinc-800 border border-border flex items-center justify-center shrink-0">
+                    <Plus className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-heading text-base uppercase tracking-wide">Create a Drill</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Add a custom drill</p>
+                  </div>
+                </div>
+
+                {/* Create a Workout */}
+                <div
+                  className="relative cursor-pointer rounded-xl border border-border bg-card p-5 flex flex-col gap-4 active:scale-[0.98] transition-transform"
+                  onClick={() => { setShowCreateWorkoutMode(true); setSelectedDrillIds(new Set()); }}
+                  data-testid="action-create-workout"
+                >
+                  <div className="w-12 h-12 rounded-lg bg-zinc-800 border border-border flex items-center justify-center shrink-0">
+                    <Layers className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-heading text-base uppercase tracking-wide">Create a Workout</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Combine 2+ drills</p>
+                  </div>
+                </div>
+
+                {/* Create a Challenge */}
+                <div
+                  className="relative cursor-pointer rounded-xl border border-border bg-card p-5 flex flex-col gap-4 active:scale-[0.98] transition-transform"
+                  onClick={() => setShowChallengeDialog(true)}
+                  data-testid="action-create-challenge"
+                >
+                  <div className="w-12 h-12 rounded-lg bg-zinc-800 border border-border flex items-center justify-center shrink-0">
+                    <Trophy className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-heading text-base uppercase tracking-wide">Create a Challenge</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Set goals & track</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Free Shoot — full-width row */}
+              <div
+                className="cursor-pointer rounded-xl border border-border bg-card px-5 py-4 flex items-center gap-4 active:scale-[0.99] transition-transform"
+                onClick={() => setShowFreeShotMode(true)}
+                data-testid="action-free-shoot"
+              >
+                <div className="w-12 h-12 rounded-lg bg-zinc-800 border border-border flex items-center justify-center shrink-0">
+                  <Target className="w-6 h-6 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-heading text-base uppercase tracking-wide">Free Shoot</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">Tap zones to log shots live</p>
+                </div>
+                <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0" />
               </div>
 
               {/* Favorite Workouts Section */}
@@ -2011,7 +2016,7 @@ export default function TrainingLogPage() {
                           data-testid={`fav-workout-${workout.id}`}
                         >
                           <CardContent className="p-3 flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                            <div className="w-9 h-9 rounded-lg bg-zinc-800 flex items-center justify-center shrink-0">
                               <Layers className="w-4 h-4 text-primary" />
                             </div>
                             <div className="flex-1 min-w-0">
@@ -2065,7 +2070,7 @@ export default function TrainingLogPage() {
                     <CollapsibleTrigger asChild>
                       <div className="flex items-center gap-2 cursor-pointer select-none" data-testid="section-challenges">
                         <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                          <Trophy className="w-4 h-4 text-yellow-500" />
+                          <Trophy className="w-4 h-4 text-primary" />
                           My Challenges
                           {inProgressChallenges.length > 0 && (
                             <Badge className="text-xs bg-orange-500/20 text-orange-400 border-orange-500/30">{inProgressChallenges.length} Active</Badge>
@@ -2180,68 +2185,117 @@ export default function TrainingLogPage() {
                 );
               })()}
 
-              {/* Active Programs Section */}
+              {/* Daily Free Drills Section */}
+              {(() => {
+                const freeDrills = (allDrills || []).filter(d => !d.userId).slice(0, 3);
+                if (freeDrills.length === 0) return null;
+                return (
+                  <div className="space-y-3" data-testid="section-daily-drills">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+                        Daily Free Drills
+                      </h3>
+                      <button
+                        className="text-xs text-primary font-medium flex items-center gap-1 hover:opacity-80 transition-opacity"
+                        onClick={() => {
+                          const librarySection = document.querySelector('[data-testid="section-drill-library"]');
+                          librarySection?.scrollIntoView({ behavior: 'smooth' });
+                        }}
+                        data-testid="link-drill-library"
+                      >
+                        <BookOpen className="w-3 h-3" />
+                        Drill Library
+                      </button>
+                    </div>
+                    <div className="space-y-2">
+                      {freeDrills.map(drill => (
+                        <div
+                          key={drill.id}
+                          className="rounded-xl border border-border bg-card px-4 py-3 flex items-center gap-4 cursor-pointer active:scale-[0.99] transition-transform"
+                          onClick={() => quickStartDrill(drill.id)}
+                          data-testid={`daily-drill-${drill.id}`}
+                        >
+                          <div className="w-8 h-8 flex items-center justify-center shrink-0">
+                            <Play className="w-4 h-4 text-primary fill-primary" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold leading-tight truncate">{drill.title}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {drill.duration ? `${Math.ceil(drill.duration / 60)} min · ` : ""}{drill.category?.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                            </p>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Programs Section — active enrollments + available programs */}
               {(() => {
                 const activePrograms = (programEnrollments ?? []).filter((e: any) => e.status === "active");
-                if (activePrograms.length === 0) return null;
+                const enrolledIds = new Set(activePrograms.map((e: any) => e.programId));
+                const availablePrograms = (allAvailablePrograms ?? []).filter((p: any) => !enrolledIds.has(p.id));
+                const hasAnything = activePrograms.length > 0 || availablePrograms.length > 0;
+                if (!hasAnything) return null;
+
                 return (
-                  <Collapsible open={programsSectionOpen} onOpenChange={setProgramsSectionOpen}>
+                  <div className="space-y-3" data-testid="section-programs">
                     <div className="flex items-center justify-between">
-                      <CollapsibleTrigger asChild>
-                        <button className="flex items-center gap-2 cursor-pointer select-none" data-testid="section-active-programs">
-                          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                            <Sparkles className="w-4 h-4 text-orange-500" />
-                            Active Programs
-                            <Badge className="text-xs bg-orange-500/20 text-orange-400 border-orange-500/30">{activePrograms.length} Active</Badge>
-                          </h3>
-                          <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${programsSectionOpen ? 'rotate-90' : ''}`} />
-                        </button>
-                      </CollapsibleTrigger>
-                      <Link href="/programs" onClick={(e) => e.stopPropagation()}>
-                        <span className="text-xs text-orange-400 hover:text-orange-300 transition-colors flex items-center gap-1" data-testid="link-all-programs">
-                          All programs <ArrowRight className="w-3 h-3" />
+                      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Programs</h3>
+                      <Link href="/programs">
+                        <span className="text-xs text-primary font-medium flex items-center gap-1 hover:opacity-80 transition-opacity" data-testid="link-all-programs">
+                          View all <ArrowRight className="w-3 h-3" />
                         </span>
                       </Link>
                     </div>
-                    <CollapsibleContent className="pt-3">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {activePrograms.map((e: any) => {
-                          const accent = e.program?.accentColor || "#f97316";
-                          const pct = e.totalItemCount > 0
-                            ? Math.round((e.completedItemCount / e.totalItemCount) * 100)
-                            : 0;
-                          const slug = e.program?.slug;
-                          const href = slug ? `/programs/${slug}/today` : `/programs`;
-                          return (
-                            <Link key={e.id} href={href} data-testid={`link-program-${e.programId}`}>
-                              <Card className="hover-elevate active-elevate-2 cursor-pointer overflow-hidden border-border/60 h-full">
-                                <div className="h-1.5" style={{ background: `linear-gradient(90deg, ${accent}, ${accent}66)` }} />
-                                <CardContent className="p-4">
-                                  <div className="flex items-start justify-between gap-2 mb-2">
-                                    <Badge variant="outline" className="text-xs">
-                                      <Calendar className="w-3 h-3 mr-1" />
-                                      Day {e.currentDay} of {e.program?.lengthDays}
-                                    </Badge>
-                                    <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-                                  </div>
-                                  <h3 className="text-sm font-semibold leading-tight line-clamp-2">
-                                    {e.program?.title ?? "Program"}
-                                  </h3>
-                                  <div className="flex items-center justify-between text-[11px] text-muted-foreground mt-3 mb-1">
-                                    <span>{e.completedItemCount}/{e.totalItemCount} items</span>
-                                    <span className="font-medium text-foreground">{pct}%</span>
-                                  </div>
-                                  <div className="h-1 bg-muted rounded-full overflow-hidden">
-                                    <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: accent }} />
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            </Link>
-                          );
-                        })}
-                      </div>
-                    </CollapsibleContent>
-                  </Collapsible>
+
+                    {/* Active enrollments */}
+                    {activePrograms.map((e: any) => {
+                      const pct = e.totalItemCount > 0 ? Math.round((e.completedItemCount / e.totalItemCount) * 100) : 0;
+                      const slug = e.program?.slug;
+                      const href = slug ? `/programs/${slug}/today` : `/programs`;
+                      return (
+                        <Link key={e.id} href={href} data-testid={`link-program-${e.programId}`}>
+                          <div className="rounded-xl border border-primary/30 bg-card px-4 py-3 flex items-center gap-4 cursor-pointer active:scale-[0.99] transition-transform">
+                            <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center shrink-0 text-primary font-heading text-lg">
+                              {e.currentDay}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-primary font-semibold uppercase tracking-wide">{(e.program?.title ?? "Program").slice(0,30)}</p>
+                              <p className="text-sm font-semibold truncate">Day {e.currentDay} of {e.program?.lengthDays} · {pct}% complete</p>
+                              <div className="mt-1.5 h-1 bg-muted rounded-full overflow-hidden">
+                                <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+                              </div>
+                            </div>
+                            <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                          </div>
+                        </Link>
+                      );
+                    })}
+
+                    {/* Available (locked) programs */}
+                    {availablePrograms.slice(0, 4).map((p: any) => (
+                      <Link key={p.id} href={`/programs/${p.slug}`} data-testid={`link-available-program-${p.id}`}>
+                        <div className="rounded-xl border border-border bg-card px-4 py-4 flex items-start gap-4 cursor-pointer active:scale-[0.99] transition-transform">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold leading-snug">{p.title}</p>
+                            {p.tagline && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{p.tagline}</p>}
+                            <p className="text-xs text-muted-foreground mt-0.5">{p.lengthDays} sessions</p>
+                          </div>
+                          {p.tier === "pro" ? (
+                            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider bg-zinc-800 border border-border text-muted-foreground px-2 py-1 rounded-md shrink-0">
+                              <Lock className="w-3 h-3 text-primary" />
+                              Pro
+                            </div>
+                          ) : (
+                            <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                          )}
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
                 );
               })()}
 
