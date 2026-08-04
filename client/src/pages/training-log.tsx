@@ -1914,16 +1914,16 @@ export default function TrainingLogPage() {
         <div className="space-y-6">
           {!showCreateWorkoutMode ? (
             <>
-              {/* Action Buttons — 2×2 compact grid */}
-              <div className="grid grid-cols-2 gap-2">
+              {/* Action Buttons — 2×2 grid, max-width so they don't stretch on desktop */}
+              <div className="grid grid-cols-2 gap-2.5 max-w-sm">
                 {/* Start Workout — primary action */}
                 <div
-                  className="cursor-pointer rounded-lg border border-primary/30 bg-primary/8 p-3.5 flex flex-col gap-2.5 active:opacity-75 transition-opacity"
+                  className="cursor-pointer rounded-xl border border-primary/40 bg-primary/10 p-4 flex flex-col gap-3 active:opacity-75 transition-opacity"
                   onClick={() => { setDrillSearchQuery(""); setIsStartWorkoutDialogOpen(true); }}
                   data-testid="action-start-workout"
                 >
-                  <div className="w-8 h-8 rounded-md bg-primary flex items-center justify-center shrink-0">
-                    <Play className="w-3.5 h-3.5 text-white fill-white" />
+                  <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center shrink-0">
+                    <Play className="w-4 h-4 text-white fill-white" />
                   </div>
                   <div>
                     <h3 className="font-heading text-sm uppercase tracking-wide leading-tight">Start Workout</h3>
@@ -1933,12 +1933,12 @@ export default function TrainingLogPage() {
 
                 {/* Create a Drill */}
                 <div
-                  className="cursor-pointer rounded-lg border border-border bg-card p-3.5 flex flex-col gap-2.5 active:opacity-75 transition-opacity"
+                  className="cursor-pointer rounded-xl border border-border bg-card p-4 flex flex-col gap-3 active:opacity-75 transition-opacity"
                   onClick={() => setIsCreateDrillOpen(true)}
                   data-testid="action-create-drill"
                 >
-                  <div className="w-8 h-8 rounded-md border border-border flex items-center justify-center shrink-0">
-                    <Plus className="w-3.5 h-3.5 text-primary" />
+                  <div className="w-10 h-10 rounded-lg bg-card border border-border flex items-center justify-center shrink-0">
+                    <Plus className="w-4 h-4 text-primary" />
                   </div>
                   <div>
                     <h3 className="font-heading text-sm uppercase tracking-wide leading-tight">Create a Drill</h3>
@@ -1948,12 +1948,12 @@ export default function TrainingLogPage() {
 
                 {/* Create a Workout */}
                 <div
-                  className="cursor-pointer rounded-lg border border-border bg-card p-3.5 flex flex-col gap-2.5 active:opacity-75 transition-opacity"
+                  className="cursor-pointer rounded-xl border border-border bg-card p-4 flex flex-col gap-3 active:opacity-75 transition-opacity"
                   onClick={() => { setShowCreateWorkoutMode(true); setSelectedDrillIds(new Set()); }}
                   data-testid="action-create-workout"
                 >
-                  <div className="w-8 h-8 rounded-md border border-border flex items-center justify-center shrink-0">
-                    <Layers className="w-3.5 h-3.5 text-primary" />
+                  <div className="w-10 h-10 rounded-lg bg-card border border-border flex items-center justify-center shrink-0">
+                    <Layers className="w-4 h-4 text-primary" />
                   </div>
                   <div>
                     <h3 className="font-heading text-sm uppercase tracking-wide leading-tight">Create a Workout</h3>
@@ -1963,12 +1963,12 @@ export default function TrainingLogPage() {
 
                 {/* Create a Challenge */}
                 <div
-                  className="cursor-pointer rounded-lg border border-border bg-card p-3.5 flex flex-col gap-2.5 active:opacity-75 transition-opacity"
+                  className="cursor-pointer rounded-xl border border-border bg-card p-4 flex flex-col gap-3 active:opacity-75 transition-opacity"
                   onClick={() => setShowChallengeDialog(true)}
                   data-testid="action-create-challenge"
                 >
-                  <div className="w-8 h-8 rounded-md border border-border flex items-center justify-center shrink-0">
-                    <Trophy className="w-3.5 h-3.5 text-primary" />
+                  <div className="w-10 h-10 rounded-lg bg-card border border-border flex items-center justify-center shrink-0">
+                    <Trophy className="w-4 h-4 text-primary" />
                   </div>
                   <div>
                     <h3 className="font-heading text-sm uppercase tracking-wide leading-tight">Create a Challenge</h3>
@@ -1977,16 +1977,16 @@ export default function TrainingLogPage() {
                 </div>
               </div>
 
-              {/* Free Shoot — full-width row */}
+              {/* Free Shoot — full-width row, also capped */}
               <div
-                className="cursor-pointer rounded-lg border border-border bg-card px-4 py-3 flex items-center gap-3 active:opacity-75 transition-opacity"
+                className="cursor-pointer rounded-xl border border-border bg-card px-4 py-3.5 flex items-center gap-3.5 active:opacity-75 transition-opacity max-w-sm"
                 onClick={() => setShowFreeShotMode(true)}
                 data-testid="action-free-shoot"
               >
-                <div className="w-8 h-8 rounded-md border border-border flex items-center justify-center shrink-0">
-                  <Target className="w-3.5 h-3.5 text-primary" />
+                <div className="w-10 h-10 rounded-lg bg-card border border-border flex items-center justify-center shrink-0">
+                  <Target className="w-4 h-4 text-primary" />
                 </div>
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <h3 className="font-heading text-sm uppercase tracking-wide leading-tight">Free Shoot</h3>
                   <p className="text-[11px] text-muted-foreground mt-0.5">Tap zones to log shots live</p>
                 </div>
