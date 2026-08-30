@@ -4094,8 +4094,8 @@ export class DatabaseStorage implements IStorage {
     const totalConnRow     = r1(await db.execute(sql`SELECT COUNT(*) as count FROM player_trainer_connections WHERE status = 'accepted'`));
     const totalFbRow       = r1(await db.execute(sql`SELECT COUNT(*) as count FROM feedback_posts`));
     // "Active" = opened the app (any analytics event) — not just logged a drill
-    const active7Row       = r1(await db.execute(sql`SELECT COUNT(DISTINCT user_id) as count FROM analytics_events WHERE created_at >= NOW() - INTERVAL '7 days'`));
-    const active30Row      = r1(await db.execute(sql`SELECT COUNT(DISTINCT user_id) as count FROM analytics_events WHERE created_at >= NOW() - INTERVAL '30 days'`));
+    const active7Row       = r1(await db.execute(sql`SELECT COUNT(DISTINCT user_id) as count FROM analytics_events WHERE user_id IS NOT NULL AND created_at >= NOW() - INTERVAL '7 days'`));
+    const active30Row      = r1(await db.execute(sql`SELECT COUNT(DISTINCT user_id) as count FROM analytics_events WHERE user_id IS NOT NULL AND created_at >= NOW() - INTERVAL '30 days'`));
 
     const usersByWeek      = r(await db.execute(sql`SELECT DATE_TRUNC('week', created_at) as week, COUNT(*) as count FROM users WHERE created_at >= NOW() - INTERVAL '12 weeks' GROUP BY week ORDER BY week ASC`));
     const logsByWeek       = r(await db.execute(sql`SELECT DATE_TRUNC('week', completed_at) as week, COUNT(*) as count FROM training_logs WHERE completed_at >= NOW() - INTERVAL '12 weeks' GROUP BY week ORDER BY week ASC`));
@@ -4107,6 +4107,35 @@ export class DatabaseStorage implements IStorage {
     const categoryBrkdn    = r(await db.execute(sql`SELECT d.category, COUNT(tl.id) as count FROM training_logs tl JOIN drills d ON d.id = tl.drill_id GROUP BY d.category ORDER BY count DESC`));
     const analyticsEvents  = r(await db.execute(sql`SELECT event, COUNT(*) as count FROM analytics_events GROUP BY event ORDER BY count DESC LIMIT 20`));
     const pageViews        = r(await db.execute(sql`SELECT page, COUNT(*) as count FROM analytics_events WHERE event = 'page_view' AND page IS NOT NULL GROUP BY page ORDER BY count DESC LIMIT 15`));
+    const activityByWeek   = r(await db.execute(sql`
+      SELECT
+        DATE_TRUNC('week', created_at) AS week,
+        COUNT(*)::int AS event_count,
+        COUNT(DISTINCT user_id)::int AS active_users
+      FROM analytics_events
+      WHERE user_id IS NOT NULL AND created_at >= NOW() - INTERVAL '12 weeks'
+      GROUP BY week
+      ORDER BY week ASC
+    `));
+    const viewedDrills     = r(await db.execute(sql`
+      SELECT d.id, d.title, COUNT(*)::int AS view_count, COUNT(DISTINCT ae.user_id)::int AS unique_users
+      FROM analytics_events ae
+      JOIN drills d ON d.id = ae.metadata->>'drillId'
+      WHERE ae.event = 'drill_viewed' AND ae.created_at >= NOW() - INTERVAL '28 days'
+      GROUP BY d.id, d.title
+      ORDER BY view_count DESC, unique_users DESC
+      LIMIT 10
+    `));
+    const viewedPrograms   = r(await db.execute(sql`
+      SELECT p.id, p.title, COUNT(*)::int AS view_count, COUNT(DISTINCT ae.user_id)::int AS unique_users
+      FROM analytics_events ae
+      JOIN programs p ON p.id = ae.metadata->>'programId'
+      WHERE ae.event IN ('program_view', 'program_today_view')
+        AND ae.created_at >= NOW() - INTERVAL '28 days'
+      GROUP BY p.id, p.title
+      ORDER BY view_count DESC, unique_users DESC
+      LIMIT 10
+    `));
 
     return {
       totals: {
@@ -4128,6 +4157,9 @@ export class DatabaseStorage implements IStorage {
       categoryBreakdown: categoryBrkdn.map((x: any) => ({ category: x.category || 'unknown', count: Number(x.count) })),
       topEvents:        analyticsEvents.map((x: any) => ({ event: x.event, count: Number(x.count) })),
       topPages:         pageViews.map((x: any) => ({ page: x.page, count: Number(x.count) })),
+      activityByWeek:   activityByWeek.map((x: any) => ({ week: x.week, events: Number(x.event_count), activeUsers: Number(x.active_users) })),
+      viewedDrills:     viewedDrills.map((x: any) => ({ id: String(x.id), title: String(x.title), views: Number(x.view_count), uniqueUsers: Number(x.unique_users) })),
+      viewedPrograms:   viewedPrograms.map((x: any) => ({ id: String(x.id), name: String(x.title), views: Number(x.view_count), uniqueUsers: Number(x.unique_users) })),
     };
   }
 
@@ -4135,7 +4167,7 @@ export class DatabaseStorage implements IStorage {
 
   /**
    * Weekly signup cohorts. For each cohort week, returns the % of users from
-   * that cohort who were active (had >=1 training_log) in week 0, 1, 2, ...
+   * that cohort who were active (had >=1 app activity event) in week 0, 1, 2, ...
    */
   async getCohortRetention(): Promise<{
     cohorts: Array<{
@@ -4148,7 +4180,8 @@ export class DatabaseStorage implements IStorage {
     const r = <T = any>(res: any): T[] => (res.rows ?? res) as T[];
 
     // Cohort = users who signed up in the last 12 weeks, grouped by signup week.
-    // Activity = had >=1 training_log in week N relative to their cohort week.
+    // Activity = had >=1 authenticated analytics event in week N relative to
+    // their cohort week. Workout logs are intentionally not used here.
     const rows = r(await db.execute(sql`
       WITH cohorts AS (
         SELECT
@@ -4164,13 +4197,13 @@ export class DatabaseStorage implements IStorage {
       activity AS (
         SELECT
           c.cohort_week,
-          c.user_id,
+           c.user_id,
           -- Postgres date minus date returns integer days, so divide by 7 for weeks.
-          GREATEST(0, FLOOR((DATE_TRUNC('week', tl.completed_at)::date - c.cohort_week) / 7.0)::int) AS week_offset
-        FROM cohorts c
-        JOIN training_logs tl ON tl.user_id = c.user_id
-        WHERE tl.completed_at >= c.cohort_week
-        GROUP BY c.cohort_week, c.user_id, week_offset
+          GREATEST(0, FLOOR((DATE_TRUNC('week', ae.created_at)::date - c.cohort_week) / 7.0)::int) AS week_offset
+         FROM cohorts c
+         JOIN analytics_events ae ON ae.user_id = c.user_id
+         WHERE ae.created_at >= c.cohort_week
+         GROUP BY c.cohort_week, c.user_id, week_offset
       )
       SELECT
         cs.cohort_week,
@@ -4220,27 +4253,27 @@ export class DatabaseStorage implements IStorage {
 
   /**
    * D1 / D7 / D30 retention overall — % of eligible signups who had >=1
-   * training_log within N days of signup.
+   * authenticated app activity event within N days of signup.
    */
   async getRetentionCurves(): Promise<{ d1: number; d7: number; d30: number; eligibleD1: number; eligibleD7: number; eligibleD30: number; }> {
     const r = <T = any>(res: any): T[] => (res.rows ?? res) as T[];
     const r1 = (res: any): any => r(res)[0] ?? {};
 
     const row = r1(await db.execute(sql`
-      WITH first_log AS (
-        SELECT u.id, u.created_at, MIN(tl.completed_at) AS first_log_at
+      WITH first_activity AS (
+        SELECT u.id, u.created_at, MIN(ae.created_at) AS first_activity_at
         FROM users u
-        LEFT JOIN training_logs tl ON tl.user_id = u.id
+        LEFT JOIN analytics_events ae ON ae.user_id = u.id
         GROUP BY u.id, u.created_at
       )
       SELECT
         COUNT(*) FILTER (WHERE created_at <= NOW() - INTERVAL '1 day')::int AS elig_d1,
         COUNT(*) FILTER (WHERE created_at <= NOW() - INTERVAL '7 days')::int AS elig_d7,
         COUNT(*) FILTER (WHERE created_at <= NOW() - INTERVAL '30 days')::int AS elig_d30,
-        COUNT(*) FILTER (WHERE created_at <= NOW() - INTERVAL '1 day' AND first_log_at IS NOT NULL AND first_log_at <= created_at + INTERVAL '1 day')::int AS ret_d1,
-        COUNT(*) FILTER (WHERE created_at <= NOW() - INTERVAL '7 days' AND first_log_at IS NOT NULL AND first_log_at <= created_at + INTERVAL '7 days')::int AS ret_d7,
-        COUNT(*) FILTER (WHERE created_at <= NOW() - INTERVAL '30 days' AND first_log_at IS NOT NULL AND first_log_at <= created_at + INTERVAL '30 days')::int AS ret_d30
-      FROM first_log
+         COUNT(*) FILTER (WHERE created_at <= NOW() - INTERVAL '1 day' AND first_activity_at IS NOT NULL AND first_activity_at <= created_at + INTERVAL '1 day')::int AS ret_d1,
+         COUNT(*) FILTER (WHERE created_at <= NOW() - INTERVAL '7 days' AND first_activity_at IS NOT NULL AND first_activity_at <= created_at + INTERVAL '7 days')::int AS ret_d7,
+         COUNT(*) FILTER (WHERE created_at <= NOW() - INTERVAL '30 days' AND first_activity_at IS NOT NULL AND first_activity_at <= created_at + INTERVAL '30 days')::int AS ret_d30
+       FROM first_activity
     `));
 
     const pct = (n: number, d: number) => d > 0 ? Math.round((n / d) * 1000) / 10 : 0;
@@ -4334,35 +4367,65 @@ export class DatabaseStorage implements IStorage {
     const r = <T = any>(res: any): T[] => (res.rows ?? res) as T[];
 
     const rows = r(await db.execute(sql`
-      WITH metrics AS (
+      WITH app_metrics AS (
+        SELECT
+          user_id,
+          MAX(created_at) AS last_seen_at,
+          COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '28 days')::int AS app_events_28d,
+          COUNT(DISTINCT DATE(created_at)) FILTER (WHERE created_at >= NOW() - INTERVAL '28 days')::int AS app_days_28d,
+          COUNT(DISTINCT page) FILTER (WHERE created_at >= NOW() - INTERVAL '28 days' AND page IS NOT NULL)::int AS app_pages_28d,
+          COUNT(DISTINCT event) FILTER (WHERE created_at >= NOW() - INTERVAL '28 days')::int AS app_event_types_28d
+        FROM analytics_events
+        WHERE user_id IS NOT NULL
+        GROUP BY user_id
+      ),
+      training_metrics AS (
+        SELECT
+          tl.user_id,
+          COUNT(tl.id) FILTER (WHERE tl.completed_at >= NOW() - INTERVAL '28 days')::int AS logs_28d,
+          COUNT(DISTINCT d.category) FILTER (WHERE tl.completed_at >= NOW() - INTERVAL '28 days')::int AS cats_28d
+        FROM training_logs tl
+        LEFT JOIN drills d ON d.id = tl.drill_id
+        GROUP BY tl.user_id
+      ),
+      streak_metrics AS (
+        SELECT user_id, MAX(current_streak)::int AS current_streak
+        FROM user_streaks
+        GROUP BY user_id
+      ),
+      metrics AS (
         SELECT
           u.id AS user_id,
           u.first_name, u.last_name, u.email, u.role,
-          MAX(tl.completed_at) AS last_log_at,
-          MAX(ae.created_at) AS last_seen_at,
-          COUNT(tl.id) FILTER (WHERE tl.completed_at >= NOW() - INTERVAL '28 days')::int AS logs_28d,
-          COUNT(DISTINCT d.category) FILTER (WHERE tl.completed_at >= NOW() - INTERVAL '28 days')::int AS cats_28d,
-          COALESCE(MAX(us.current_streak), 0)::int AS current_streak
+          a.last_seen_at,
+          COALESCE(t.logs_28d, 0)::int AS logs_28d,
+          COALESCE(t.cats_28d, 0)::int AS cats_28d,
+          COALESCE(a.app_events_28d, 0)::int AS app_events_28d,
+          COALESCE(a.app_days_28d, 0)::int AS app_days_28d,
+          COALESCE(a.app_pages_28d, 0)::int AS app_pages_28d,
+          COALESCE(a.app_event_types_28d, 0)::int AS app_event_types_28d,
+          COALESCE(s.current_streak, 0)::int AS current_streak
         FROM users u
-        LEFT JOIN training_logs tl ON tl.user_id = u.id
-        LEFT JOIN drills d ON d.id = tl.drill_id
-        LEFT JOIN user_streaks us ON us.user_id = u.id
-        LEFT JOIN analytics_events ae ON ae.user_id = u.id
-        GROUP BY u.id, u.first_name, u.last_name, u.email, u.role
+        LEFT JOIN app_metrics a ON a.user_id = u.id
+        LEFT JOIN training_metrics t ON t.user_id = u.id
+        LEFT JOIN streak_metrics s ON s.user_id = u.id
       )
       SELECT
         user_id,
         TRIM(BOTH ' ' FROM COALESCE(first_name, '') || ' ' || COALESCE(last_name, '')) AS name,
         email,
         role,
-        last_log_at,
         last_seen_at,
         logs_28d,
         cats_28d,
+        app_events_28d,
+        app_days_28d,
+        app_pages_28d,
+        app_event_types_28d,
         current_streak,
         CASE
-          WHEN GREATEST(last_log_at, last_seen_at) IS NULL THEN NULL
-          ELSE EXTRACT(EPOCH FROM (NOW() - GREATEST(last_log_at, last_seen_at))) / 86400.0
+          WHEN last_seen_at IS NULL THEN NULL
+          ELSE EXTRACT(EPOCH FROM (NOW() - last_seen_at)) / 86400.0
         END AS days_since_last
       FROM metrics
     `));
@@ -4383,12 +4446,16 @@ export class DatabaseStorage implements IStorage {
 
       // Recency: 1.0 today → 0 at 30+ days
       const r_score = daysSince == null ? 0 : Math.max(0, 1 - daysSince / 30);
-      // Frequency: 1+ log/day for 28d = perfect
-      const f_score = Math.min(logs28d / 28, 1);
-      // Breadth: 5+ distinct categories in 28d = perfect
-      const b_score = Math.min(cats28d / 5, 1);
-      // Streak: 30+ day streak = perfect
-      const s_score = Math.min(streak / 30, 1);
+      const appDays28d = Number(row.app_days_28d || 0);
+      const appPages28d = Number(row.app_pages_28d || 0);
+      const appEventTypes28d = Number(row.app_event_types_28d || 0);
+      // App activity is primary; training behavior is a secondary signal.
+      // Frequency: activity on 18+ days in 28d = perfect.
+      const f_score = Math.min(appDays28d / 18, 1);
+      // Breadth: 8+ distinct pages/event types in 28d = perfect.
+      const b_score = Math.min((appPages28d + appEventTypes28d) / 8, 1);
+      // Training behavior remains useful without dominating engagement.
+      const s_score = Math.min((logs28d + cats28d + streak) / 60, 1);
 
       const score = Math.round((r_score * 35 + f_score * 35 + b_score * 15 + s_score * 15) * 10) / 10;
 
@@ -4399,20 +4466,20 @@ export class DatabaseStorage implements IStorage {
         role:   String(row.role || "player"),
         score,
         logs28d,
+        appDays28d,
+        appEvents28d: Number(row.app_events_28d || 0),
         currentStreak: streak,
         daysSinceLast: daysSince == null ? null : Math.round(daysSince * 10) / 10,
       };
     });
 
-    // "Active" = had ≥1 training log in the last 28 days. This matches the
-    // product definition (active in the recent window), not "score > 0"
-    // which would include users whose only signal is recency.
+    // "Active" = had ≥1 authenticated app activity event in the last 28 days.
     let totalScore = 0;
     let activeCount = 0;
     for (const u of scored) {
       const b = buckets.find(b => u.score >= b.min && u.score < b.max);
       if (b) b.count++;
-      if (u.logs28d > 0) {
+      if (u.appEvents28d > 0) {
         totalScore += u.score;
         activeCount++;
       }
@@ -4420,9 +4487,10 @@ export class DatabaseStorage implements IStorage {
 
     const topUsers = [...scored].sort((a, b) => b.score - a.score).slice(0, 20);
 
-    // At-risk: had recent activity (logs in 28d > 0) but score 15-40 (slipping).
+    // At-risk: used the app in the last 60 days but has not returned in 14+
+    // days, with a low-to-mid engagement score.
     const atRisk = scored
-      .filter(u => u.logs28d > 0 && u.score >= 15 && u.score < 40)
+      .filter(u => u.daysSinceLast != null && u.daysSinceLast >= 14 && u.daysSinceLast < 60 && u.score >= 15 && u.score < 40)
       .sort((a, b) => (b.daysSinceLast ?? 0) - (a.daysSinceLast ?? 0))
       .slice(0, 20);
 
@@ -4588,19 +4656,31 @@ export class DatabaseStorage implements IStorage {
     totalUsers: number;
     segmentDetails: Record<string, Array<{
       userId: string; name: string; email: string; role: string;
-      signedUpDaysAgo: number; logs28d: number; lastActiveDaysAgo: number | null; currentStreak: number;
+      signedUpDaysAgo: number; appDays28d: number; appEvents28d: number; logs28d: number; lastActiveDaysAgo: number | null; currentStreak: number;
     }>>;
   }> {
     const r = <T = any>(res: any): T[] => (res.rows ?? res) as T[];
 
-    // Pull per-user metrics: signup age, total logs ever, last log, last session, logs in 28d, weekend logs in 28d, current streak.
-    // last_seen_at = most recent analytics_event (any app visit, even without logging).
+    // Pull app activity and training metrics separately so joins cannot
+    // multiply workout logs by the number of analytics events.
     const rows = r(await db.execute(sql`
-      WITH metrics AS (
+      WITH app_metrics AS (
         SELECT
-          u.id AS user_id,
-          u.first_name, u.last_name, u.email, u.role,
-          EXTRACT(EPOCH FROM (NOW() - u.created_at)) / 86400.0 AS signup_days_ago,
+          user_id,
+          MAX(created_at) AS last_seen_at,
+          COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '28 days')::int AS app_events_28d,
+          COUNT(DISTINCT DATE(created_at)) FILTER (WHERE created_at >= NOW() - INTERVAL '28 days')::int AS app_days_28d,
+          COUNT(DISTINCT DATE(created_at)) FILTER (
+            WHERE created_at >= NOW() - INTERVAL '28 days'
+              AND EXTRACT(DOW FROM created_at) IN (0, 6)
+          )::int AS weekend_app_days_28d
+        FROM analytics_events
+        WHERE user_id IS NOT NULL
+        GROUP BY user_id
+      ),
+      training_metrics AS (
+        SELECT
+          tl.user_id,
           COUNT(tl.id)::int AS logs_total,
           COUNT(tl.id) FILTER (WHERE tl.completed_at >= NOW() - INTERVAL '60 days')::int AS logs_60d,
           COUNT(tl.id) FILTER (WHERE tl.completed_at >= NOW() - INTERVAL '28 days')::int AS logs_28d,
@@ -4609,25 +4689,46 @@ export class DatabaseStorage implements IStorage {
             WHERE tl.completed_at >= NOW() - INTERVAL '28 days'
               AND EXTRACT(DOW FROM tl.completed_at) IN (0, 6)
           )::int AS weekend_logs_28d,
-          MAX(tl.completed_at) AS last_log_at,
-          MAX(ae.created_at) AS last_seen_at,
-          COALESCE(MAX(us.current_streak), 0)::int AS current_streak
+          MAX(tl.completed_at) AS last_log_at
+        FROM training_logs tl
+        GROUP BY tl.user_id
+      ),
+      streak_metrics AS (
+        SELECT user_id, MAX(current_streak)::int AS current_streak
+        FROM user_streaks
+        GROUP BY user_id
+      ),
+      metrics AS (
+        SELECT
+          u.id AS user_id,
+          u.first_name, u.last_name, u.email, u.role,
+          EXTRACT(EPOCH FROM (NOW() - u.created_at)) / 86400.0 AS signup_days_ago,
+          COALESCE(t.logs_total, 0)::int AS logs_total,
+          COALESCE(t.logs_60d, 0)::int AS logs_60d,
+          COALESCE(t.logs_28d, 0)::int AS logs_28d,
+          COALESCE(t.logs_14d, 0)::int AS logs_14d,
+          COALESCE(t.weekend_logs_28d, 0)::int AS weekend_logs_28d,
+          t.last_log_at,
+          a.last_seen_at,
+          COALESCE(a.app_events_28d, 0)::int AS app_events_28d,
+          COALESCE(a.app_days_28d, 0)::int AS app_days_28d,
+          COALESCE(a.weekend_app_days_28d, 0)::int AS weekend_app_days_28d,
+          COALESCE(s.current_streak, 0)::int AS current_streak
         FROM users u
-        LEFT JOIN training_logs tl ON tl.user_id = u.id
-        LEFT JOIN user_streaks us ON us.user_id = u.id
-        LEFT JOIN analytics_events ae ON ae.user_id = u.id
-        GROUP BY u.id, u.first_name, u.last_name, u.email, u.role, u.created_at
+        LEFT JOIN training_metrics t ON t.user_id = u.id
+        LEFT JOIN app_metrics a ON a.user_id = u.id
+        LEFT JOIN streak_metrics s ON s.user_id = u.id
       )
       SELECT * FROM metrics
     `));
 
     const SEGMENT_DEFS: Array<{ key: string; label: string; description: string; color: string }> = [
-      { key: "power",       label: "Power Users",      description: "20+ training logs in the last 28 days. Your most dedicated users.",          color: "#22c55e" },
-      { key: "grinder",     label: "Daily Grinders",   description: "14–19 logs in 28 days. Logging nearly every day.",                          color: "#3b82f6" },
-      { key: "weekend",     label: "Weekend Warriors", description: "4+ logs in 28 days, 60%+ on Saturday or Sunday.",                           color: "#a855f7" },
-      { key: "casual",      label: "Casual Loggers",   description: "1–13 logs in 28 days. Engaged, with room to grow.",                         color: "#06b6d4" },
-      { key: "browser",     label: "Browsers",         description: "Opens the app regularly but hasn't logged a drill recently — still active.", color: "#84cc16" },
-      { key: "new_active",  label: "New & Active",     description: "Signed up in the last 14 days and have already logged a drill.",            color: "#f59e0b" },
+      { key: "power",       label: "Power Users",      description: "Active in the app on 20+ days in the last 28 days.",                       color: "#22c55e" },
+      { key: "grinder",     label: "Frequent Users",   description: "Active in the app on 14–19 days in the last 28 days.",                    color: "#3b82f6" },
+      { key: "weekend",     label: "Weekend Warriors", description: "Active on 4+ days in 28 days, with most activity on weekends.",            color: "#a855f7" },
+      { key: "casual",      label: "Casual Users",     description: "Active in the app on 1–13 days in the last 28 days.",                     color: "#06b6d4" },
+      { key: "browser",     label: "Browsers",         description: "Recently opened the app but has not returned in the last 28 days.",       color: "#84cc16" },
+      { key: "new_active",  label: "New & Active",     description: "Signed up in the last 14 days and has opened the app.",                   color: "#f59e0b" },
       { key: "new_signup",  label: "New (Onboarding)", description: "Signed up in the last 14 days, exploring the app.",                         color: "#fbbf24" },
       { key: "at_risk",     label: "At-Risk",          description: "Was active (app open) in last 60 days but hasn't been seen in 14 days.",    color: "#f97316" },
       { key: "ghost",       label: "Ghost Signups",    description: "Signed up over a week ago, never opened the app since.",                    color: "#94a3b8" },
@@ -4646,37 +4747,39 @@ export class DatabaseStorage implements IStorage {
       const logs28d = Number(row.logs_28d);
       const logs14d = Number(row.logs_14d);
       const weekendLogs28d = Number(row.weekend_logs_28d);
+      const appEvents28d = Number(row.app_events_28d);
+      const appDays28d = Number(row.app_days_28d);
+      const weekendAppDays28d = Number(row.weekend_app_days_28d);
 
-      // last_seen_at = most recent app open (analytics event); fallback to last log
-      const lastSeenAt  = row.last_seen_at  ? new Date(row.last_seen_at)  : null;
-      const lastLogAt   = row.last_log_at   ? new Date(row.last_log_at)   : null;
-      const lastActiveTs = lastSeenAt || lastLogAt;
+      // last_seen_at is app activity only. Training logs must not make a user
+      // appear active in engagement segments.
+      const lastActiveTs = row.last_seen_at ? new Date(row.last_seen_at) : null;
       const lastActiveDaysAgo = lastActiveTs ? Math.floor((Date.now() - lastActiveTs.getTime()) / 86400000) : null;
       const seenInLast14d  = lastActiveTs ? (Date.now() - lastActiveTs.getTime()) < 14 * 86400000 : false;
       const seenInLast60d  = lastActiveTs ? (Date.now() - lastActiveTs.getTime()) < 60 * 86400000 : false;
-      const weekendShare = logs28d > 0 ? weekendLogs28d / logs28d : 0;
+      const weekendShare = appDays28d > 0 ? weekendAppDays28d / appDays28d : 0;
 
       let key: string;
       if (signupDaysAgo < 14) {
-        key = logsTotal > 0 ? "new_active" : "new_signup";
-      } else if (!lastActiveTs || lastActiveDaysAgo! > 7) {
-        // Never opened the app after sign-up (or opened only within signup grace period)
+        key = appEvents28d > 0 ? "new_active" : "new_signup";
+      } else if (!lastActiveTs) {
+        // Never opened the app after sign-up.
         key = "ghost";
       } else if (!seenInLast60d) {
         key = "dormant";
       } else if (!seenInLast14d) {
         // Active (app opened) in last 60 days but not in last 14 — slipping away
         key = "at_risk";
-      } else if (logs28d >= 20) {
+      } else if (appDays28d >= 20) {
         key = "power";
-      } else if (logs28d >= 14) {
+      } else if (appDays28d >= 14) {
         key = "grinder";
-      } else if (logs28d >= 4 && weekendShare >= 0.6) {
+      } else if (appDays28d >= 4 && weekendShare >= 0.6) {
         key = "weekend";
-      } else if (logs28d >= 1) {
+      } else if (appDays28d >= 1) {
         key = "casual";
       } else {
-        // Recently opened the app but no drills logged in 28d
+        // Recently opened the app but has not returned in the last 28 days.
         key = "browser";
       }
 
@@ -4687,6 +4790,8 @@ export class DatabaseStorage implements IStorage {
         email: String(row.email ?? ""),
         role: String(row.role ?? "player"),
         signedUpDaysAgo: Math.round(signupDaysAgo),
+        appDays28d,
+        appEvents28d,
         logs28d,
         lastActiveDaysAgo,
         currentStreak: Number(row.current_streak),
@@ -4694,12 +4799,12 @@ export class DatabaseStorage implements IStorage {
     }
 
     // Sort each segment's full list deterministically, THEN cap to 50.
-    // Active segments sort by logs28d desc; recovery/inactive segments by
+    // Active segments sort by appDays28d desc; recovery/inactive segments by
     // signedUpDaysAgo desc (oldest first — most worth re-engaging).
     const ACTIVE = new Set(["power", "grinder", "weekend", "casual", "new_active"]);
     for (const [key, arr] of details) {
       if (ACTIVE.has(key)) {
-        arr.sort((a, b) => b.logs28d - a.logs28d || a.userId.localeCompare(b.userId));
+        arr.sort((a, b) => b.appDays28d - a.appDays28d || a.userId.localeCompare(b.userId));
       } else {
         arr.sort((a, b) => b.signedUpDaysAgo - a.signedUpDaysAgo || a.userId.localeCompare(b.userId));
       }
@@ -5100,7 +5205,7 @@ export class DatabaseStorage implements IStorage {
         (SELECT COUNT(*) FROM users WHERE created_at >= NOW() - INTERVAL '14 days' AND created_at < NOW() - INTERVAL '7 days')::int AS signups_prev_7d,
         (SELECT COUNT(*) FROM training_logs WHERE completed_at >= NOW() - INTERVAL '7 days')::int AS logs_7d,
         (SELECT COUNT(*) FROM training_logs WHERE completed_at >= NOW() - INTERVAL '14 days' AND completed_at < NOW() - INTERVAL '7 days')::int AS logs_prev_7d,
-        (SELECT COUNT(DISTINCT user_id) FROM training_logs WHERE completed_at >= NOW() - INTERVAL '7 days')::int AS active_users_7d,
+        (SELECT COUNT(DISTINCT user_id) FROM analytics_events WHERE user_id IS NOT NULL AND created_at >= NOW() - INTERVAL '7 days')::int AS active_users_7d,
         (SELECT COUNT(*) FROM daily_completions WHERE completed_at >= NOW() - INTERVAL '7 days')::int AS daily_challenge_7d,
         (SELECT COUNT(*) FROM training_sessions WHERE created_at >= NOW() - INTERVAL '7 days')::int AS bookings_7d
     `));
@@ -5121,8 +5226,8 @@ export class DatabaseStorage implements IStorage {
         (SELECT COUNT(*) FROM users WHERE created_at >= NOW() - INTERVAL '14 days' AND created_at < NOW() - INTERVAL '7 days')::int AS signups_lw,
         (SELECT COUNT(*) FROM training_logs WHERE completed_at >= NOW() - INTERVAL '7 days')::int AS logs_tw,
         (SELECT COUNT(*) FROM training_logs WHERE completed_at >= NOW() - INTERVAL '14 days' AND completed_at < NOW() - INTERVAL '7 days')::int AS logs_lw,
-        (SELECT COUNT(DISTINCT user_id) FROM training_logs WHERE completed_at >= NOW() - INTERVAL '7 days')::int AS active_tw,
-        (SELECT COUNT(DISTINCT user_id) FROM training_logs WHERE completed_at >= NOW() - INTERVAL '14 days' AND completed_at < NOW() - INTERVAL '7 days')::int AS active_lw,
+        (SELECT COUNT(DISTINCT user_id) FROM analytics_events WHERE user_id IS NOT NULL AND created_at >= NOW() - INTERVAL '7 days')::int AS active_tw,
+        (SELECT COUNT(DISTINCT user_id) FROM analytics_events WHERE user_id IS NOT NULL AND created_at >= NOW() - INTERVAL '14 days' AND created_at < NOW() - INTERVAL '7 days')::int AS active_lw,
         (SELECT COUNT(*) FROM training_sessions WHERE created_at >= NOW() - INTERVAL '7 days')::int AS sessions_tw,
         (SELECT COUNT(*) FROM training_sessions WHERE created_at >= NOW() - INTERVAL '14 days' AND created_at < NOW() - INTERVAL '7 days')::int AS sessions_lw,
         (SELECT COUNT(*) FROM daily_completions WHERE completed_at >= NOW() - INTERVAL '7 days')::int AS daily_tw,
@@ -5141,7 +5246,7 @@ export class DatabaseStorage implements IStorage {
     const metrics = [
       { metric: "New Signups",          tw: Number(row.signups_tw  || 0), lw: Number(row.signups_lw  || 0) },
       { metric: "Training Logs",        tw: Number(row.logs_tw     || 0), lw: Number(row.logs_lw     || 0) },
-      { metric: "Active Users",         tw: Number(row.active_tw   || 0), lw: Number(row.active_lw   || 0) },
+      { metric: "Active App Users",     tw: Number(row.active_tw   || 0), lw: Number(row.active_lw   || 0) },
       { metric: "Sessions Booked",      tw: Number(row.sessions_tw || 0), lw: Number(row.sessions_lw || 0) },
       { metric: "Daily Challenges",     tw: Number(row.daily_tw    || 0), lw: Number(row.daily_lw    || 0) },
       { metric: "New Connections",      tw: Number(row.conns_tw    || 0), lw: Number(row.conns_lw    || 0) },

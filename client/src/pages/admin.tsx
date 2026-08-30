@@ -4900,7 +4900,11 @@ function OverviewSubTab() {
 
   if (!data) return null;
 
-  const { totals, usersByWeek, logsByWeek, popularDrills, usersByRole, topActiveUsers, recentSignups, sessionsByStatus, categoryBreakdown } = data;
+  const {
+    totals, usersByWeek, logsByWeek, popularDrills, usersByRole, topActiveUsers,
+    recentSignups, sessionsByStatus, categoryBreakdown, activityByWeek = [],
+    viewedDrills = [], viewedPrograms = [], topPages = [],
+  } = data;
 
   const weekLabel = (w: string) => {
     const d = new Date(w);
@@ -4911,12 +4915,18 @@ function OverviewSubTab() {
     <div className="space-y-8">
       {/* KPI Cards */}
       <div>
-        <h2 className="text-lg font-semibold mb-3">Platform Overview</h2>
+        <h2 className="text-lg font-semibold mb-3">App Engagement</h2>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           <StatCard label="Total Users" value={totals.users} icon={Users} />
-          <StatCard label="Active (7 days)" value={totals.activeUsers7d} sub="unique users with logs" icon={Activity} />
-          <StatCard label="Active (30 days)" value={totals.activeUsers30d} sub="unique users with logs" icon={TrendingUp} />
-          <StatCard label="Training Logs" value={totals.trainingLogs} icon={BarChart2} />
+          <StatCard label="Active (7 days)" value={totals.activeUsers7d} sub="unique users with app activity" icon={Activity} />
+          <StatCard label="Active (30 days)" value={totals.activeUsers30d} sub="unique users with app activity" icon={TrendingUp} />
+        </div>
+      </div>
+
+      <div>
+        <h2 className="text-lg font-semibold mb-3">Training Behavior</h2>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <StatCard label="Training Logs" value={totals.trainingLogs} sub="completed workout entries" icon={BarChart2} />
           <StatCard label="Sessions Booked" value={totals.sessions} icon={UserCheck} />
           <StatCard label="Connections" value={totals.connections} icon={Users} />
           <StatCard label="Feedback Posts" value={totals.feedbackPosts} icon={Activity} />
@@ -4925,6 +4935,28 @@ function OverviewSubTab() {
 
       {/* Top Movers — Week-over-Week change */}
       <TopMoversWidget movers={movers || []} />
+
+      {/* App Activity Chart */}
+      <div>
+        <div className="flex items-baseline justify-between mb-3">
+          <h2 className="text-lg font-semibold">App Activity (Last 12 Weeks)</h2>
+          <p className="text-xs text-muted-foreground">Authenticated events and unique active users</p>
+        </div>
+        <Card>
+          <CardContent className="p-4">
+            <ResponsiveContainer width="100%" height={240}>
+              <LineChart data={activityByWeek.map((r: any) => ({ week: weekLabel(r.week), events: r.events, activeUsers: r.activeUsers }))}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="week" tick={{ fontSize: 11 }} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                <Tooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8 }} />
+                <Line type="monotone" dataKey="events" name="App Events" stroke="#f97316" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="activeUsers" name="Active Users" stroke="#3b82f6" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* User Growth Chart */}
       <div>
@@ -4960,6 +4992,64 @@ function OverviewSubTab() {
             </ResponsiveContainer>
           </CardContent>
         </Card>
+      </div>
+
+      {/* App content usage */}
+      <div>
+        <div className="flex items-baseline justify-between mb-3">
+          <h2 className="text-lg font-semibold">What Users Are Exploring</h2>
+          <p className="text-xs text-muted-foreground">Views and unique users in the last 28 days</p>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Card>
+            <CardContent className="p-0">
+              <div className="p-4 border-b font-medium">Popular Screens</div>
+              <Table>
+                <TableBody>
+                  {topPages.slice(0, 6).map((p: any) => (
+                    <TableRow key={p.page}>
+                      <TableCell className="pl-4 text-sm truncate max-w-[220px]">{p.page}</TableCell>
+                      <TableCell className="text-right pr-4">{p.count.toLocaleString()}</TableCell>
+                    </TableRow>
+                  ))}
+                  {topPages.length === 0 && <TableRow><TableCell className="text-center py-6 text-muted-foreground">No activity yet</TableCell></TableRow>}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-0">
+              <div className="p-4 border-b font-medium">Most Viewed Drills</div>
+              <Table>
+                <TableBody>
+                  {viewedDrills.slice(0, 6).map((d: any) => (
+                    <TableRow key={d.id}>
+                      <TableCell className="pl-4 text-sm">{d.title}</TableCell>
+                      <TableCell className="text-right pr-4">{d.views.toLocaleString()} <span className="text-xs text-muted-foreground">views</span></TableCell>
+                    </TableRow>
+                  ))}
+                  {viewedDrills.length === 0 && <TableRow><TableCell className="text-center py-6 text-muted-foreground">No drill views yet</TableCell></TableRow>}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-0">
+              <div className="p-4 border-b font-medium">Most Viewed Programs</div>
+              <Table>
+                <TableBody>
+                  {viewedPrograms.slice(0, 6).map((p: any) => (
+                    <TableRow key={p.id}>
+                      <TableCell className="pl-4 text-sm">{p.name}</TableCell>
+                      <TableCell className="text-right pr-4">{p.views.toLocaleString()} <span className="text-xs text-muted-foreground">views</span></TableCell>
+                    </TableRow>
+                  ))}
+                  {viewedPrograms.length === 0 && <TableRow><TableCell className="text-center py-6 text-muted-foreground">No program views yet</TableCell></TableRow>}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Two columns: role breakdown + drill categories */}
@@ -5019,7 +5109,7 @@ function OverviewSubTab() {
 
       {/* Popular Drills */}
       <div>
-        <h2 className="text-lg font-semibold mb-3">Top 10 Most Practiced Drills</h2>
+        <h2 className="text-lg font-semibold mb-3">Top 10 Most Practiced Drills (Training)</h2>
         <Card>
           <CardContent className="p-0">
             <Table>
@@ -5049,7 +5139,7 @@ function OverviewSubTab() {
 
       {/* Top Active Users */}
       <div>
-        <h2 className="text-lg font-semibold mb-3">Most Active Users (All Time)</h2>
+        <h2 className="text-lg font-semibold mb-3">Most Active Users by Training Logs</h2>
         <Card>
           <CardContent className="p-0">
             <Table>
@@ -5206,7 +5296,7 @@ function RetentionSubTab() {
       {/* D1/D7/D30 Retention */}
       <div>
         <h2 className="text-lg font-semibold mb-3">Day-N Retention</h2>
-        <p className="text-sm text-muted-foreground mb-3">% of new signups who completed at least one drill within N days of joining.</p>
+        <p className="text-sm text-muted-foreground mb-3">% of new signups who returned to the app within N days of joining.</p>
         <div className="grid grid-cols-3 gap-4">
           <RetentionCard label="Day 1" pct={curves.d1} sample={curves.eligibleD1} icon={Zap} accent="orange" />
           <RetentionCard label="Day 7" pct={curves.d7} sample={curves.eligibleD7} icon={Flame} accent="blue" />
@@ -5266,7 +5356,7 @@ function RetentionSubTab() {
                   </BarChart>
                 </ResponsiveContainer>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Score (0–100) = recency × 35 + frequency × 35 + breadth × 15 + streak × 15
+                Score (0–100) = app recency × 35 + app frequency × 35 + app breadth × 15 + training signal × 15
                 </p>
               </CardContent>
             </Card>
@@ -5410,7 +5500,7 @@ function EngagementUserList({ title, icon: Icon, accent, users, emptyMessage, su
   title: string;
   icon: ({ className }: { className?: string }) => JSX.Element;
   accent: string;
-  users: Array<{ userId: string; name: string; email: string; role: string; score: number; logs28d: number; currentStreak: number; daysSinceLast: number | null }>;
+  users: Array<{ userId: string; name: string; email: string; role: string; score: number; appDays28d: number; appEvents28d: number; logs28d: number; currentStreak: number; daysSinceLast: number | null }>;
   emptyMessage: string;
   subtitle?: string;
 }) {
@@ -5430,7 +5520,7 @@ function EngagementUserList({ title, icon: Icon, accent, users, emptyMessage, su
               <TableRow>
                 <TableHead className="pl-4">User</TableHead>
                 <TableHead className="text-right">Score</TableHead>
-                <TableHead className="text-right">28d Logs</TableHead>
+                <TableHead className="text-right">28d App Days</TableHead>
                 <TableHead className="text-right pr-4">Last Active</TableHead>
               </TableRow>
             </TableHeader>
@@ -5445,7 +5535,10 @@ function EngagementUserList({ title, icon: Icon, accent, users, emptyMessage, su
                     <div className="text-xs text-muted-foreground">{u.email}</div>
                   </TableCell>
                   <TableCell className="text-right font-semibold">{u.score}</TableCell>
-                  <TableCell className="text-right text-sm">{u.logs28d}</TableCell>
+                  <TableCell className="text-right text-sm">
+                    {u.appDays28d ?? 0}
+                    <span className="block text-[10px] text-muted-foreground">{u.appEvents28d ?? 0} events</span>
+                  </TableCell>
                   <TableCell className="text-right pr-4 text-xs text-muted-foreground">
                     {u.daysSinceLast == null ? "—" : `${Math.round(u.daysSinceLast)}d ago`}
                   </TableCell>
@@ -5663,7 +5756,7 @@ function humanizeSeconds(sec: number): string {
 type Segment = { key: string; label: string; description: string; color: string; count: number; pct: number };
 type SegmentUser = {
   userId: string; name: string; email: string; role: string;
-  signedUpDaysAgo: number; logs28d: number; lastActiveDaysAgo: number | null; currentStreak: number;
+  signedUpDaysAgo: number; appDays28d: number; appEvents28d: number; logs28d: number; lastActiveDaysAgo: number | null; currentStreak: number;
 };
 
 function UsersSubTab() {
@@ -5714,7 +5807,7 @@ function UsersSubTab() {
         <div>
           <h2 className="text-lg font-semibold">User Segmentation</h2>
           <p className="text-sm text-muted-foreground">
-            Every user is auto-grouped into one behavioral segment based on signup recency and 28-day activity. Click a segment to see who's in it.
+            Every user is auto-grouped into one behavioral segment based on signup recency and 28-day app activity. Workout logs are shown separately. Click a segment to see who's in it.
           </p>
         </div>
         <p className="text-xs text-muted-foreground">
@@ -5769,6 +5862,7 @@ function UsersSubTab() {
                   <TableHead className="pl-4">User</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead className="text-right">Joined</TableHead>
+                  <TableHead className="text-right">28d App Days</TableHead>
                   <TableHead className="text-right">28d Logs</TableHead>
                   <TableHead className="text-right">Last Active</TableHead>
                   <TableHead className="text-right pr-4">Streak</TableHead>
@@ -5776,7 +5870,7 @@ function UsersSubTab() {
               </TableHeader>
               <TableBody>
                 {activeUsers.length === 0 && (
-                  <TableRow><TableCell colSpan={6} className="text-center py-6 text-muted-foreground text-sm">No users in this segment.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="text-center py-6 text-muted-foreground text-sm">No users in this segment.</TableCell></TableRow>
                 )}
                 {activeUsers.map(u => (
                   <TableRow key={u.userId} data-testid={`segment-user-${u.userId}`}>
@@ -5786,7 +5880,8 @@ function UsersSubTab() {
                     </TableCell>
                     <TableCell><Badge variant="outline" className="text-xs capitalize">{u.role}</Badge></TableCell>
                     <TableCell className="text-right text-xs text-muted-foreground">{u.signedUpDaysAgo}d ago</TableCell>
-                    <TableCell className="text-right font-semibold">{u.logs28d}</TableCell>
+                    <TableCell className="text-right font-semibold">{u.appDays28d ?? 0}</TableCell>
+                    <TableCell className="text-right">{u.logs28d}</TableCell>
                     <TableCell className="text-right text-xs text-muted-foreground">
                       {u.lastActiveDaysAgo == null ? "Never" : `${u.lastActiveDaysAgo}d ago`}
                     </TableCell>

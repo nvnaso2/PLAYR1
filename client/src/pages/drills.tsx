@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { QueryError } from "@/components/query-error";
 import { useLocation, useSearch } from "wouter";
@@ -31,6 +31,7 @@ import { DrillCard } from "@/components/drill-card";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { track } from "@/lib/track";
 import { 
   Search, 
   Grid3X3, 
@@ -193,6 +194,30 @@ export default function Drills() {
   const [, setLocation] = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
+
+  useEffect(() => {
+    track("drill_library_view", {
+      tab: activeTab,
+      category: selectedCategory,
+      difficulty: selectedDifficulty,
+    });
+  }, []);
+
+  useEffect(() => {
+    const hasFilter = selectedCategory !== "all" || selectedDifficulty !== "all";
+    const hasSearch = searchQuery.trim().length >= 2;
+    if (!hasFilter && !hasSearch) return;
+
+    const timer = window.setTimeout(() => {
+      track("drill_library_filter", {
+        tab: activeTab,
+        category: selectedCategory,
+        difficulty: selectedDifficulty,
+        searchLength: hasSearch ? searchQuery.trim().length : 0,
+      });
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [activeTab, selectedCategory, selectedDifficulty, searchQuery]);
 
   const { data: drills, isLoading, isError: drillsError, refetch: refetchDrills } = useQuery<Drill[]>({
     queryKey: ['/api/drills'],
