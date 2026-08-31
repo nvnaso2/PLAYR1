@@ -1,4 +1,4 @@
-modules = ["nodejs-20", "web", "python-3.11", "postgresql-16"]
+modules = ["nodejs-22", "web", "python-3.11", "postgresql-16"]
 run = "npm run dev"
 hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
@@ -52,3 +52,7 @@ VAPID_PUBLIC_KEY = "BPUwtSsEx50XUdU9_qAAsVnf0LZV_g0IXte1CHQgpjC97hGfUAL7eTdSBKQF
 VAPID_PRIVATE_KEY = "h_OrIBHy1oAPbNrOt0UUTs3hpGQSyijMPlB5mkZpGp4"
 VAPID_SUBJECT = "mailto:noreply@handlz.co"
 ADMIN_EMAIL = "nvnaso@outlook.com"
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 180000
