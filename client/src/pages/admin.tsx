@@ -59,7 +59,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText, Play, ChevronDown, GraduationCap, MapPin, ListFilter, X, BarChart2, TrendingUp, TrendingDown, Activity, UserCheck, Wrench, Flame, Lightbulb, Zap, Globe, AlertTriangle, Trophy, Target, GitBranch, Clock, ArrowDown, Flag, ToggleLeft, ToggleRight, UserPlus, Copy, RotateCcw, ExternalLink } from "lucide-react";
+import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText, Play, ChevronDown, GraduationCap, MapPin, ListFilter, X, BarChart2, TrendingUp, TrendingDown, Activity, UserCheck, Wrench, Flame, Lightbulb, Zap, Globe, AlertTriangle, Trophy, Target, GitBranch, Clock, ArrowDown, Flag, ToggleLeft, ToggleRight, UserPlus, Copy, RotateCcw, ExternalLink, type LucideIcon } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
 import type { Drill, DrillCategory, DifficultyLevel, DrillMetric, VideoLibrary, PdfLibrary, MetricTemplate, Workout, WorkoutDrill, TrainingLocation, ShotLocationDB, ShotTypeDB } from "@shared/schema";
@@ -4810,7 +4810,7 @@ function ChallengeVideosTab() {
   );
 }
 
-function StatCard({ label, value, sub, icon: Icon }: { label: string; value: string | number; sub?: string; icon: ({ className }: { className?: string }) => JSX.Element }) {
+function StatCard({ label, value, sub, icon: Icon }: { label: string; value: string | number; sub?: string; icon: LucideIcon }) {
   return (
     <Card>
       <CardContent className="p-5 flex items-start gap-3">
@@ -5389,7 +5389,7 @@ function RetentionSubTab() {
 // ─── Retention helper components ───────────────────────────────────────────
 
 function RetentionCard({ label, pct, sample, icon: Icon, accent }: {
-  label: string; pct: number; sample: number; icon: ({ className }: { className?: string }) => JSX.Element;
+  label: string; pct: number; sample: number; icon: LucideIcon;
   accent: "orange" | "blue" | "purple";
 }) {
   const colorMap = {
@@ -5498,7 +5498,7 @@ function CohortHeatmap({ cohorts, maxOffset }: {
 
 function EngagementUserList({ title, icon: Icon, accent, users, emptyMessage, subtitle }: {
   title: string;
-  icon: ({ className }: { className?: string }) => JSX.Element;
+  icon: LucideIcon;
   accent: string;
   users: Array<{ userId: string; name: string; email: string; role: string; score: number; appDays28d: number; appEvents28d: number; logs28d: number; currentStreak: number; daysSinceLast: number | null }>;
   emptyMessage: string;
@@ -6075,7 +6075,7 @@ function ContentSubTab() {
 }
 
 function AccentStatCard({ label, value, sub, icon: Icon, accent, testId }: {
-  label: string; value: string; sub: string; icon: ({ className }: { className?: string }) => JSX.Element;
+  label: string; value: string; sub: string; icon: LucideIcon;
   accent: "orange" | "blue" | "purple" | "green"; testId?: string;
 }) {
   const colorMap = {
@@ -6299,7 +6299,7 @@ type Insight = {
   metadata: any; isDismissed: boolean; createdAt: string;
 };
 
-const SEVERITY_STYLES: Record<string, { bg: string; border: string; icon: typeof Lightbulb; iconColor: string }> = {
+const SEVERITY_STYLES: Record<string, { bg: string; border: string; icon: LucideIcon; iconColor: string }> = {
   positive: { bg: "bg-green-500/5",  border: "border-green-500/30",  icon: TrendingUp,    iconColor: "text-green-500" },
   warn:     { bg: "bg-orange-500/5", border: "border-orange-500/30", icon: AlertTriangle, iconColor: "text-orange-500" },
   critical: { bg: "bg-red-500/5",    border: "border-red-500/30",    icon: AlertTriangle, iconColor: "text-red-500" },
@@ -6408,7 +6408,7 @@ function AiInsightsSubTab() {
           </Button>
           <Button
             size="sm"
-            onClick={() => generateMutation.mutate()}
+            onClick={() => generateMutation.mutate(false)}
             disabled={generateMutation.isPending}
             data-testid="btn-generate-summary"
           >
@@ -6475,7 +6475,7 @@ function AiInsightsSubTab() {
 // ─── Coming-Soon placeholder for future analytics phases ───────────────────
 
 function ComingSoonCard({ title, description, icon: Icon }: {
-  title: string; description: string; icon: ({ className }: { className?: string }) => JSX.Element;
+  title: string; description: string; icon: LucideIcon;
 }) {
   return (
     <Card>

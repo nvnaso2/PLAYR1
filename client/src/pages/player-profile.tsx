@@ -362,7 +362,7 @@ export function PlayerProfileSection() {
             </div>
             <div className="flex gap-2">
               <ShareMenu
-                url={`/player/${profile.slug}`}
+                url={`/player/${profile?.slug || ""}`}
                 title={`${user?.firstName || ""} ${user?.lastName || ""} - PLAYR1 Player Profile`.trim()}
                 description="Check out my basketball profile on PLAYR1!"
                 testId="button-share-player-profile"
@@ -370,7 +370,7 @@ export function PlayerProfileSection() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setLocation(`/player/${profile.slug}`)}
+                onClick={() => setLocation(`/player/${profile?.slug || ""}`)}
                 data-testid="button-preview-profile"
               >
                 <ExternalLink className="h-4 w-4 mr-1" />

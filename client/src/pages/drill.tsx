@@ -448,7 +448,7 @@ export default function DrillPage() {
             }
             return (
               <VideoPlayer
-                src={getObjectUrl(url)}
+                src={getObjectUrl(url) || null}
                 poster={getObjectUrl(drill.thumbnailUrl) || undefined}
               />
             );

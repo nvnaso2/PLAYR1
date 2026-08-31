@@ -870,7 +870,7 @@ Start now with a warm one-line greeting that briefly references something specif
       if (!parsed.success) {
         return res.status(400).json({ message: "Invalid tutorial video data", errors: parsed.error.flatten() });
       }
-      const data = { ...parsed.data, key: req.params.key };
+      const data = { ...parsed.data, key: req.params.key, videoUrl: parsed.data.url };
       const video = await storage.upsertTutorialVideo(data);
       res.json(video);
     } catch (error) {
@@ -1501,7 +1501,7 @@ Start now with a warm one-line greeting that briefly references something specif
         const weekEnd = new Date();
         weekEnd.setDate(weekEnd.getDate() - i * 7);
         const weekLogs = logs.filter(l => {
-          const d = new Date(l.completedAt || l.createdAt || 0);
+          const d = new Date(l.completedAt || 0);
           return d >= weekStart && d < weekEnd;
         });
         weeklyActivity.push({
@@ -1513,7 +1513,7 @@ Start now with a warm one-line greeting that briefly references something specif
 
       const categoryMap: Record<string, number> = {};
       for (const log of logs) {
-        const drill = drillMap.get(log.drillId);
+        const drill = log.drillId ? drillMap.get(log.drillId) : undefined;
         if (drill) {
           categoryMap[drill.category] = (categoryMap[drill.category] || 0) + 1;
         }
@@ -1525,8 +1525,8 @@ Start now with a warm one-line greeting that briefly references something specif
         .slice(0, 10)
         .map(l => ({
           ...l,
-          drillTitle: drillMap.get(l.drillId)?.title || 'Unknown Drill',
-          drillCategory: drillMap.get(l.drillId)?.category || 'unknown',
+          drillTitle: l.drillId ? drillMap.get(l.drillId)?.title || 'Unknown Drill' : 'Unknown Drill',
+          drillCategory: l.drillId ? drillMap.get(l.drillId)?.category || 'unknown' : 'unknown',
         }));
 
       const groups = await storage.getCoachTeams(userId, "trainer");
@@ -1615,7 +1615,7 @@ Start now with a warm one-line greeting that briefly references something specif
         if (pct > 0) prMetrics.push({ metricName: "Shooting %", value: pct });
       }
       if (prMetrics.length > 0) {
-        try { await storage.checkAndCreateDrillPRs(userId, log.drillId, log.id, prMetrics); } catch (e) { console.error("PR check error:", e); }
+        try { if (log.drillId) await storage.checkAndCreateDrillPRs(userId, log.drillId, log.id, prMetrics); } catch (e) { console.error("PR check error:", e); }
       }
 
       if (log.drillId) {
@@ -1714,7 +1714,7 @@ Start now with a warm one-line greeting that briefly references something specif
           }
         }
         if (prMetrics.length > 0) {
-          try { await storage.checkAndCreateDrillPRs(userId, log.drillId, log.id, prMetrics); } catch (e) { /* non-fatal */ }
+          try { if (log.drillId) await storage.checkAndCreateDrillPRs(userId, log.drillId, log.id, prMetrics); } catch (e) { /* non-fatal */ }
         }
         if (log.drillId) {
           try {
@@ -1826,7 +1826,7 @@ Start now with a warm one-line greeting that briefly references something specif
       }
       const enriched = sessionLogs
         .map(l => ({ ...l, metrics: metricsByLog.get(l.id) ?? [] }))
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        .sort((a, b) => new Date(a.completedAt || 0).getTime() - new Date(b.completedAt || 0).getTime());
       res.json(enriched);
     } catch (error) {
       console.error("Error fetching session logs:", error);
@@ -1867,7 +1867,7 @@ Start now with a warm one-line greeting that briefly references something specif
         if (pct > 0) prMetrics.push({ metricName: "Shooting %", value: pct });
       }
       if (prMetrics.length > 0) {
-        try { await storage.checkAndCreateDrillPRs(userId, log.drillId, req.params.id, prMetrics); } catch (e) { console.error("PR check error:", e); }
+        try { if (log.drillId) await storage.checkAndCreateDrillPRs(userId, log.drillId, req.params.id, prMetrics); } catch (e) { console.error("PR check error:", e); }
       }
       
       res.json(updated);
@@ -2205,7 +2205,7 @@ Start now with a warm one-line greeting that briefly references something specif
           }
         }
         if (prMetrics.length > 0) {
-          try { await storage.checkAndCreateDrillPRs(userId, log.drillId, req.params.id, prMetrics); } catch (e) { console.error("Metric PR check error:", e); }
+          try { if (log.drillId) await storage.checkAndCreateDrillPRs(userId, log.drillId, req.params.id, prMetrics); } catch (e) { console.error("Metric PR check error:", e); }
         }
       }
       
@@ -2635,7 +2635,7 @@ Start now with a warm one-line greeting that briefly references something specif
         }
         if (prMetrics.length > 0) {
           try {
-            const prs = await storage.checkAndCreateDrillPRs(userId, log.drillId, log.id, prMetrics);
+            const prs = log.drillId ? await storage.checkAndCreateDrillPRs(userId, log.drillId, log.id, prMetrics) : [];
             created += prs.length;
           } catch (e) { /* skip errors */ }
         }
@@ -3104,8 +3104,8 @@ Start now with a warm one-line greeting that briefly references something specif
           skillBallHandling: profile.showSkills ? career.skillBallHandling : null,
           skillShooting: profile.showSkills ? career.skillShooting : null,
           skillDefense: profile.showSkills ? career.skillDefense : null,
-          skillAthleticism: profile.showSkills ? career.skillAthleticism : null,
-          skillIQ: profile.showSkills ? career.skillIQ : null,
+          skillAthletics: profile.showSkills ? career.skillAthletics : null,
+          skillBasketballIQ: profile.showSkills ? career.skillBasketballIQ : null,
           assessmentArchetype: profile.showArchetype ? career.assessmentArchetype : null,
         } : null,
       };
@@ -3956,7 +3956,7 @@ Start now with a warm one-line greeting that briefly references something specif
       if (!group || group.coachId !== userId) {
         return res.status(403).json({ message: "Not authorized" });
       }
-      const allPlayers = await storage.getTrainerPlayers(userId);
+      const allPlayers = await storage.getTrainerPlayers(userId) as any[];
       const members = allPlayers
         .filter(p => p.groups?.some((g: any) => g.groupId === req.params.id))
         .map(p => {
@@ -4067,7 +4067,7 @@ Start now with a warm one-line greeting that briefly references something specif
         let pushTarget = assignedTo;
         const [tp] = await db.select({ linkedUserId: trainerPlayers.linkedUserId }).from(trainerPlayers).where(eq(trainerPlayers.id, assignedTo));
         if (tp?.linkedUserId) pushTarget = tp.linkedUserId;
-        sendPushNotification(pushTarget, { title: "New Drill Assigned", body: `${trainerName} assigned you: ${drill?.name || "a new drill"}`, url: "/my-trainer" }).catch(() => {});
+        sendPushNotification(pushTarget, { title: "New Drill Assigned", body: `${trainerName} assigned you: ${drill?.title || "a new drill"}`, url: "/my-trainer" }).catch(() => {});
       }
       res.status(201).json(assignment);
     } catch (error) {
@@ -4374,7 +4374,7 @@ Start now with a warm one-line greeting that briefly references something specif
     try {
       const userId = req.user.claims.sub;
       const data = insertTrainerVideoSchema.parse({ ...req.body, trainerId: userId });
-      const [video] = await db.insert(trainerVideos).values(data).returning();
+      const [video] = await db.insert(trainerVideos).values(data as any).returning();
       res.status(201).json(video);
     } catch (error: any) {
       if (error?.name === "ZodError") {
@@ -4841,7 +4841,7 @@ Start now with a warm one-line greeting that briefly references something specif
         enriched.push({
           ...msg,
           senderName: profile?.displayName || "Unknown",
-          senderImage: profile?.profileImageUrl || null,
+          senderImage: profile?.profilePhotoUrl || null,
         });
       }
       res.json(enriched);
@@ -4896,7 +4896,7 @@ Start now with a warm one-line greeting that briefly references something specif
         enriched.push({
           ...m,
           displayName: profile?.displayName || "Unknown",
-          profileImageUrl: profile?.profileImageUrl || null,
+          profileImageUrl: profile?.profilePhotoUrl || null,
         });
       }
       res.json(enriched);
@@ -4920,7 +4920,6 @@ Start now with a warm one-line greeting that briefly references something specif
       const member = await storage.addChatThreadMember({
         threadId: req.params.id,
         userId: newUserId,
-        role: role || "member",
       });
       res.status(201).json(member);
     } catch (error) {
@@ -9033,7 +9032,7 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
   // User-facing: returns {[key]: boolean} for current user
   app.get("/api/feature-flags", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.userId!;
+      const userId = req.user.claims.sub;
       const flags = await storage.getUserFeatureFlags(userId);
       res.json(flags);
     } catch (err) {
@@ -9221,7 +9220,7 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
       const last7Logs = recentLogs.slice(0, 7);
       const trainingContext = last7Logs.length > 0
         ? `Recent training activity (last ${last7Logs.length} sessions): ${last7Logs.map(l =>
-            `${l.drillTitle || "drill"} on ${l.date ? new Date(l.date).toLocaleDateString() : "unknown date"}`
+            `drill on ${l.completedAt ? new Date(l.completedAt).toLocaleDateString() : "unknown date"}`
           ).join(", ")}`
         : "No recent training data available.";
 
@@ -9526,7 +9525,7 @@ Rules:
   app.post("/api/admin/archetypes", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const data = req.body as typeof import("@shared/schema").archetypes.$inferInsert;
-      const result = await storage.upsertArchetype(data);
+      const result = await storage.upsertArchetype(data as any);
       res.json(result);
     } catch (err) {
       res.status(500).json({ message: "Failed to save archetype" });
@@ -10141,7 +10140,7 @@ Return ONLY valid JSON array, no markdown.`;
 
   app.get("/api/stat-challenges/:slug", optionalAuth, async (req, res) => {
     try {
-      const challenge = await storage.getStatChallengeBySlug(req.params.slug);
+      const challenge = await storage.getStatChallengeBySlug(String(req.params.slug));
       if (!challenge) return res.status(404).json({ message: "Challenge not found" });
       res.json(challenge);
     } catch (err) {
@@ -10151,7 +10150,7 @@ Return ONLY valid JSON array, no markdown.`;
 
   app.get("/api/stat-challenges/:slug/leaderboard", optionalAuth, async (req, res) => {
     try {
-      const challenge = await storage.getStatChallengeBySlug(req.params.slug);
+      const challenge = await storage.getStatChallengeBySlug(String(req.params.slug));
       if (!challenge) return res.status(404).json({ message: "Challenge not found" });
       const leaderboard = await storage.getStatChallengeLeaderboard(challenge.id);
       res.json(leaderboard);

@@ -83,6 +83,7 @@ import {
   ARCHETYPE_TIER_XP, ARCHETYPE_TIER_ITEM_COUNTS, ARCHETYPE_TIERS, type ArchetypeTier,
   playerGoals, goalClarifications, goalMilestones, goalCheckIns,
   type PlayerGoal, type InsertPlayerGoal,
+  type AnalyticsInsight,
   type GoalClarification,
   type GoalMilestone, type InsertGoalMilestone,
   type GoalCheckIn, type InsertGoalCheckIn,
@@ -108,6 +109,7 @@ export interface IStorage {
 
   // Drills
   getDrills(): Promise<Drill[]>;
+  getAllDrills(): Promise<Drill[]>;
   getDrillById(id: string): Promise<Drill | undefined>;
   getFeaturedDrills(): Promise<Drill[]>;
   getDrillsByCategory(category: string): Promise<Drill[]>;
@@ -751,7 +753,7 @@ export interface IStorage {
   getPendingGroupChallengeInvites(userId: string): Promise<Array<GroupChallengeMember & { challenge: GroupChallenge & { creator: { id: string; displayName: string } } }>>;
 }
 
-export class DatabaseStorage implements IStorage {
+export class DatabaseStorage {
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
@@ -760,6 +762,10 @@ export class DatabaseStorage implements IStorage {
   // Drills
   async getDrills(): Promise<Drill[]> {
     return await db.select().from(drills).where(or(eq(drills.isAiGenerated, false), isNull(drills.isAiGenerated))).orderBy(drills.title);
+  }
+
+  async getAllDrills(): Promise<Drill[]> {
+    return await db.select().from(drills).orderBy(drills.title);
   }
 
   async getDrillById(id: string): Promise<Drill | undefined> {
@@ -990,7 +996,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTrainingLog(log: InsertTrainingLog): Promise<TrainingLog> {
-    const [newLog] = await db.insert(trainingLogs).values(log).returning();
+    const [newLog] = await db.insert(trainingLogs).values(log as any).returning();
     
     // Update drill progress
     if (log.drillId) {
@@ -1002,7 +1008,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateTrainingLog(id: string, updates: Partial<InsertTrainingLog>): Promise<TrainingLog> {
     const [updated] = await db.update(trainingLogs)
-      .set(updates)
+      .set(updates as any)
       .where(eq(trainingLogs.id, id))
       .returning();
     return updated;
@@ -1453,7 +1459,7 @@ export class DatabaseStorage implements IStorage {
     const categoryStats: Record<string, { minutes: number; sessions: number }> = {};
 
     logs.forEach(log => {
-      const category = drillCategoryMap.get(log.drillId) || 'unknown';
+      const category = log.drillId ? drillCategoryMap.get(log.drillId) || 'unknown' : 'unknown';
       if (!categoryStats[category]) {
         categoryStats[category] = { minutes: 0, sessions: 0 };
       }
@@ -2100,12 +2106,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createChallenge(challenge: InsertChallenge): Promise<Challenge> {
-    const [newChallenge] = await db.insert(challenges).values(challenge).returning();
+    const [newChallenge] = await db.insert(challenges).values(challenge as any).returning();
     return newChallenge;
   }
 
   async updateChallenge(id: string, challenge: Partial<InsertChallenge>): Promise<Challenge | undefined> {
-    const [updated] = await db.update(challenges).set(challenge).where(eq(challenges.id, id)).returning();
+    const [updated] = await db.update(challenges).set(challenge as any).where(eq(challenges.id, id)).returning();
     return updated;
   }
 
@@ -2340,12 +2346,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createSeason(season: InsertSeason): Promise<Season> {
-    const [newSeason] = await db.insert(seasons).values(season).returning();
+    const [newSeason] = await db.insert(seasons).values(season as any).returning();
     return newSeason;
   }
 
   async updateSeason(id: string, season: Partial<InsertSeason>): Promise<Season | undefined> {
-    const [updated] = await db.update(seasons).set({ ...season, updatedAt: new Date() }).where(eq(seasons.id, id)).returning();
+    const [updated] = await db.update(seasons).set({ ...season, updatedAt: new Date() } as any).where(eq(seasons.id, id)).returning();
     return updated;
   }
 
@@ -3375,7 +3381,7 @@ export class DatabaseStorage implements IStorage {
           playerId: a.playerId,
           teamId: a.teamId,
           teamName: team.name,
-          seasonYear: team.seasonYear ?? null,
+          seasonYear: team.seasonYear == null ? null : String(team.seasonYear),
           ageGroup: team.ageGroup ?? null,
           position: a.position,
           jerseyNumber: a.jerseyNumber,
@@ -3545,7 +3551,7 @@ export class DatabaseStorage implements IStorage {
     .innerJoin(users, eq(trainerProfiles.userId, users.id))
     .where(and(...conditions))
     .orderBy(trainerProfiles.createdAt);
-    return results;
+    return results as any;
   }
 
   async getTrainerProfileById(id: string): Promise<(TrainerProfile & { firstName: string | null; lastName: string | null }) | undefined> {
@@ -3578,7 +3584,7 @@ export class DatabaseStorage implements IStorage {
     .from(trainerProfiles)
     .innerJoin(users, eq(trainerProfiles.userId, users.id))
     .where(eq(trainerProfiles.id, id));
-    return result;
+    return result as any;
   }
 
   async getTrainerProfilesByIds(ids: string[]): Promise<(TrainerProfile & { firstName: string | null; lastName: string | null })[]> {
@@ -3611,7 +3617,7 @@ export class DatabaseStorage implements IStorage {
     })
     .from(trainerProfiles)
     .innerJoin(users, eq(trainerProfiles.userId, users.id))
-    .where(inArray(trainerProfiles.id, ids));
+    .where(inArray(trainerProfiles.id, ids)) as any;
   }
 
   async getTrainingLocations(): Promise<TrainingLocation[]> {
@@ -3893,7 +3899,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createConnection(data: InsertConnection): Promise<PlayerTrainerConnection> {
-    const [conn] = await db.insert(playerTrainerConnections).values(data).returning();
+    const [conn] = await db.insert(playerTrainerConnections).values(data as any).returning();
     return conn;
   }
 
@@ -5835,14 +5841,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createProgram(input: InsertProgram): Promise<Program> {
-    const [row] = await db.insert(programs).values(input).returning();
+    const [row] = await db.insert(programs).values(input as any).returning();
     return row;
   }
 
   async updateProgram(id: string, patch: Partial<InsertProgram>): Promise<Program | undefined> {
     const [row] = await db
       .update(programs)
-      .set({ ...patch, updatedAt: new Date() })
+      .set({ ...patch, updatedAt: new Date() } as any)
       .where(eq(programs.id, id))
       .returning();
     return row;
@@ -5869,14 +5875,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async addProgramItem(input: InsertProgramItem): Promise<ProgramItem> {
-    const [row] = await db.insert(programItems).values(input).returning();
+    const [row] = await db.insert(programItems).values(input as any).returning();
     return row;
   }
 
   async updateProgramItem(id: string, patch: Partial<InsertProgramItem>): Promise<ProgramItem | undefined> {
     const [row] = await db
       .update(programItems)
-      .set(patch)
+      .set(patch as any)
       .where(eq(programItems.id, id))
       .returning();
     return row;
@@ -7422,7 +7428,7 @@ Object.assign(DatabaseStorage.prototype, {
 
   // ─── Friend Activity ─────────────────────────────────────────────────────────
   async logFriendActivity(data: InsertFriendActivity): Promise<FriendActivity> {
-    const [a] = await db.insert(friendActivityFeed).values(data).returning();
+    const [a] = await db.insert(friendActivityFeed).values(data as any).returning();
     return a;
   },
 
@@ -7460,7 +7466,7 @@ Object.assign(DatabaseStorage.prototype, {
 
   // ─── Group Challenges ────────────────────────────────────────────────────────
   async createGroupChallenge(data: InsertGroupChallenge): Promise<GroupChallenge> {
-    const [c] = await db.insert(groupChallenges).values(data).returning();
+    const [c] = await db.insert(groupChallenges).values(data as any).returning();
     // Auto-add creator as accepted member
     await db.insert(groupChallengeMembers).values({
       challengeId: c.id,
@@ -7607,4 +7613,6 @@ Object.assign(DatabaseStorage.prototype, {
   },
 });
 
-export const storage = new DatabaseStorage();
+// Several newer storage API groups are attached below with Object.assign.
+// Expose their complete contract at the shared storage boundary.
+export const storage: DatabaseStorage & IStorage = new DatabaseStorage() as DatabaseStorage & IStorage;

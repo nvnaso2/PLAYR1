@@ -460,11 +460,11 @@ export default function CsvImportDialog({ open, onOpenChange }: Props) {
                           </Badge>
                         ) : "—"}
                       </td>
-                      <td className="p-2 font-medium">{game.points ?? 0}</td>
-                      <td className="p-2">{game.rebounds ?? 0}</td>
-                      <td className="p-2">{game.assists ?? 0}</td>
-                      <td className="p-2">{game.steals ?? 0}</td>
-                      <td className="p-2">{game.blocks ?? 0}</td>
+                      <td className="p-2 font-medium">{String(game.points ?? 0)}</td>
+                      <td className="p-2">{String(game.rebounds ?? 0)}</td>
+                      <td className="p-2">{String(game.assists ?? 0)}</td>
+                      <td className="p-2">{String(game.steals ?? 0)}</td>
+                      <td className="p-2">{String(game.blocks ?? 0)}</td>
                     </tr>
                   ))}
                 </tbody>

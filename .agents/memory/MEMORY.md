@@ -1,1 +1,2 @@
 - [Player profile DB columns](player-profile-columns.md) — ALTER TABLE used for new columns (not drizzle push) to avoid interactive slug_unique conflict
+- [Type-check compatibility boundaries](typecheck-compatibility.md) — contain schema drift at stale adapters and persistence boundaries without excluding active app code

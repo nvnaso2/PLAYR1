@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
-import type { Express, RequestHandler } from "express";
+import type { Express, Request, RequestHandler } from "express";
 
 declare global {
   namespace Express {
@@ -11,7 +11,10 @@ declare global {
   }
 }
 
-export type AuthenticatedRequest = Express.Request & { user: { claims: { sub: string } } };
+// Express cannot express middleware-refined request types in route overloads.
+// The authentication middleware still guarantees req.user at runtime; route
+// handlers use the regular request shape so they remain valid Express handlers.
+export type AuthenticatedRequest = Request<any, any, any, any> & { user: { claims: { sub: string } } };
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import cookieParser from "cookie-parser";
@@ -22,12 +25,11 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { sendPasswordResetEmail } from "./email";
 
-const JWT_SECRET = process.env.SESSION_SECRET;
-if (!JWT_SECRET) {
+const JWT_SECRET: string = process.env.SESSION_SECRET ?? (() => {
   throw new Error("SESSION_SECRET environment variable is required");
-}
+})();
 const SALT_ROUNDS = 12;
-const TOKEN_EXPIRY = "7d";
+const TOKEN_EXPIRY = "7d" as const;
 
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, SALT_ROUNDS);

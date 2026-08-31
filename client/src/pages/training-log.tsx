@@ -3044,7 +3044,7 @@ export default function TrainingLogPage() {
                                 {metricColumns.map(dm => (
                                   <th key={dm.metricTemplateId} className="text-left p-2 sm:p-3 font-medium text-muted-foreground text-xs sm:text-sm whitespace-nowrap">
                                     <span className="inline-flex items-center gap-1 max-w-[80px] sm:max-w-none truncate sm:whitespace-normal">
-                                      {dm.template.type === 'timer' && <Timer className="w-3 h-3 text-primary shrink-0" />}
+                                      {(dm.template.type as string) === 'timer' && <Timer className="w-3 h-3 text-primary shrink-0" />}
                                       {dm.template.label}
                                     </span>
                                     {dm.isRequired && <span className="text-destructive ml-1">*</span>}
@@ -3118,7 +3118,7 @@ export default function TrainingLogPage() {
                                   )}
                                   {metricColumns.map(dm => (
                                     <td key={dm.metricTemplateId} className="p-1 sm:p-2">
-                                      {dm.template.type === 'timer' ? (
+                                      {(dm.template.type as string) === 'timer' ? (
                                         <DrillTimer
                                           value={entry.metrics[dm.metricTemplateId] || 0}
                                           onChange={(seconds) => updateMetricValue(index, dm.metricTemplateId, seconds)}
@@ -3394,7 +3394,7 @@ export default function TrainingLogPage() {
                             let sessionTotalAttempts = 0;
                             let sessionTotalMade = 0;
                             group.logs.forEach(log => {
-                              const stats = getMetricStats(log, log.drillId);
+                              const stats = getMetricStats(log, log.drillId ?? "");
                               if (stats) {
                                 sessionTotalAttempts += stats.attempts;
                                 sessionTotalMade += stats.made;
@@ -3409,10 +3409,11 @@ export default function TrainingLogPage() {
                             // Group logs by drillId to create Drills > Rounds hierarchy
                             const drillGroups: Record<string, TrainingLogWithMetricsResponse[]> = {};
                             group.logs.forEach(log => {
-                              if (!drillGroups[log.drillId]) {
-                                drillGroups[log.drillId] = [];
+                              const drillId = log.drillId ?? "unknown";
+                              if (!drillGroups[drillId]) {
+                                drillGroups[drillId] = [];
                               }
-                              drillGroups[log.drillId].push(log);
+                              drillGroups[drillId].push(log);
                             });
                             
                             const uniqueDrillCount = Object.keys(drillGroups).length;
@@ -3501,7 +3502,7 @@ export default function TrainingLogPage() {
                                       let drillTotalAttempts = 0;
                                       let drillTotalMade = 0;
                                       drillLogs.forEach(log => {
-                                        const stats = getMetricStats(log, log.drillId);
+                                        const stats = getMetricStats(log, log.drillId ?? "");
                                         if (stats) {
                                           drillTotalAttempts += stats.attempts;
                                           drillTotalMade += stats.made;
@@ -3556,7 +3557,7 @@ export default function TrainingLogPage() {
                                                 <div className="text-xs font-medium text-muted-foreground py-2">Rounds</div>
                                                 <div className="space-y-2">
                                                   {drillLogs.map((log, roundIndex) => {
-                                                    const roundStats = getMetricStats(log, log.drillId);
+                                                    const roundStats = getMetricStats(log, log.drillId ?? "");
                                                     return (
                                                       <div 
                                                         key={log.id}
@@ -3623,7 +3624,7 @@ export default function TrainingLogPage() {
                           );
                           })() : (
                             group.logs.map((log) => {
-                              const stats = getMetricStats(log, log.drillId);
+                              const stats = getMetricStats(log, log.drillId ?? "");
                               return (
                               <Card 
                                 key={log.id} 
@@ -3638,7 +3639,7 @@ export default function TrainingLogPage() {
                                     </div>
                                     <div className="min-w-0 flex-1">
                                       <h4 className="font-medium text-sm truncate" data-testid={`text-log-drill-${log.id}`}>
-                                        {getDrillTitle(log.drillId)}
+                                        {getDrillTitle(log.drillId ?? "")}
                                       </h4>
                                       <div className="flex items-center gap-1.5 sm:gap-2 text-xs text-muted-foreground flex-wrap">
                                         <span className="flex items-center gap-1">
@@ -3722,7 +3723,7 @@ export default function TrainingLogPage() {
               {isEditMode ? "Edit Training Log" : "Training Log Details"}
             </DialogTitle>
             <DialogDescription>
-              {viewEditLog && getDrillTitle(viewEditLog.drillId)}
+              {viewEditLog && getDrillTitle(viewEditLog.drillId ?? "")}
             </DialogDescription>
           </DialogHeader>
           
@@ -3860,7 +3861,7 @@ export default function TrainingLogPage() {
                 if (shotData.length > 0 && !isEditMode) {
                   return (
                     <div className="border-t pt-4">
-                      <ShotChartButton shotData={shotData} title={`${getDrillTitle(viewEditLog.drillId)} Shot Chart`} testId={`button-shot-chart-log-${viewEditLog.id}`} />
+                      <ShotChartButton shotData={shotData} title={`${getDrillTitle(viewEditLog.drillId ?? "")} Shot Chart`} testId={`button-shot-chart-log-${viewEditLog.id}`} />
                     </div>
                   );
                 }

@@ -1037,7 +1037,7 @@ export default function WelcomePage({ previewMode = false, onPreviewComplete }: 
                   className="w-full bg-zinc-900 hover:bg-zinc-800 active:scale-[0.98] text-white rounded-2xl py-3.5 font-bold text-sm transition-all flex items-center justify-center gap-2 border border-zinc-800">
                   {shareState==="shared" ? <><Check className="h-4 w-4 text-green-400"/>Saved!</>
                   : shareState==="sharing" ? <><div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Saving…</>
-                  : navigator.canShare ? <><Share2 className="h-4 w-4"/>Share My PLAYR1 Card</>
+                  : typeof navigator.canShare === "function" ? <><Share2 className="h-4 w-4"/>Share My PLAYR1 Card</>
                   : <><Download className="h-4 w-4"/>Save My PLAYR1 Card</>}
                 </button>
                 <button onClick={finishOnboarding} data-testid="button-start-journey"

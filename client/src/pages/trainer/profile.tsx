@@ -103,6 +103,8 @@ function formatAvailabilityDisplay(raw: string | null): DayAvailability[] {
 type TrainerProfileData = {
   id?: string;
   userId: string;
+  firstName?: string | null;
+  lastName?: string | null;
   headline: string | null;
   bio: string | null;
   specialties: string[] | null;

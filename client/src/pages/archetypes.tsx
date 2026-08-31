@@ -590,7 +590,7 @@ function BrowseTab({ definitions, userArchetypes }: { definitions: Archetype[]; 
                 </div>
                 {status !== "main" && (
                   <Button size="sm" variant="ghost" className="w-full text-xs h-7 text-zinc-500 -mt-2"
-                    onClick={() => handleSelect(def.id, "secondary")} disabled={isBusy || status === "main"}
+                    onClick={() => handleSelect(def.id, "secondary")} disabled={isBusy}
                     data-testid={`button-set-secondary-${def.id}`}>
                     {status === "secondary" ? <><Check className="w-3 h-3 mr-1" />Remove Secondary</> : "Set as Secondary"}
                   </Button>

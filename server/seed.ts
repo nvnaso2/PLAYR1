@@ -513,7 +513,7 @@ export async function seedDatabase() {
       console.log("Syncing metric templates...");
       await db.delete(drillMetrics);
       await db.delete(metricTemplates);
-      await db.insert(metricTemplates).values(canonicalMetrics);
+      await db.insert(metricTemplates).values(canonicalMetrics as any);
       console.log("Metric templates synced");
     } else {
       console.log("Metric templates already synced");
@@ -561,7 +561,7 @@ export async function seedDatabase() {
         ],
       };
 
-      const associations: { drillId: number; metricTemplateId: number; isRequired: boolean; sortOrder: number }[] = [];
+      const associations: { drillId: string; metricTemplateId: string; isRequired: boolean; sortOrder: number }[] = [];
       for (const drill of adminDrills) {
         const metrics = categoryMetrics[drill.category] ?? [{ name: "time", isRequired: true }];
         metrics.forEach((m, idx) => {
@@ -570,7 +570,7 @@ export async function seedDatabase() {
         });
       }
       if (associations.length > 0) {
-        await db.insert(drillMetrics).values(associations).onConflictDoNothing();
+        await db.insert(drillMetrics).values(associations as any).onConflictDoNothing();
         console.log(`Seeded ${associations.length} drill-metric associations`);
       }
     } else {
