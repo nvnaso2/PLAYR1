@@ -8163,7 +8163,7 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
       ];
 
       const response = await openai.chat.completions.create({
-        model: "gpt-4o",
+        model: "gpt-5",
         messages: [{ role: "user", content }],
         max_tokens: 400,
       });
@@ -9235,7 +9235,7 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
       });
 
       const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
+        model: "gpt-5",
         messages: [
           {
             role: "system",
@@ -9392,7 +9392,7 @@ Rules:
       let challengeStructure: any = null;
 
       const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
+        model: "gpt-5",
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: GAME_DAY_SYSTEM_PROMPT },
@@ -9755,7 +9755,7 @@ Make items feel like a real progressive training program for a ${archetype.name}
 Return ONLY valid JSON array, no markdown.`;
 
       const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
+        model: "gpt-5",
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
         max_tokens: 4000,
@@ -9886,7 +9886,7 @@ Return ONLY valid JSON array, no markdown.`;
       ? "Previous questions and answers:\n" + prevQAs.map((qa, i) => `Q${i + 1}: ${qa.question}\nA${i + 1}: ${qa.answer}`).join("\n\n") + "\n\n"
       : "";
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-5",
       messages: [
         {
           role: "system",
@@ -9920,7 +9920,7 @@ Return ONLY valid JSON array, no markdown.`;
     const qaContext = clarifications.map((c, i) => `Q${i + 1}: ${c.question}\nA${i + 1}: ${c.answer}`).join("\n\n");
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-5",
       messages: [
         {
           role: "system",
@@ -10061,7 +10061,7 @@ Return ONLY valid JSON array, no markdown.`;
       });
 
       const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
+        model: "gpt-5",
         messages: [
           {
             role: "system",

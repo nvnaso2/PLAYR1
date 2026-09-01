@@ -1,0 +1,98 @@
+PLAYR1 Hub — Replit Briefing: Dynamic Onboarding & Deep-Link Diagnostic Engine
+1. Executive Summary & Objective
+Implement a hyper-targeted, friction-free onboarding system for the PLAYR1 Hub mobile app.
+
+The engine must support Deferred Deep Linking so that when a user clicks a specific lead-magnet link in content (e.g., playr1.app/quiz/thumb-flick), the app:
+
+Passes the parameter through the App Store installation process.
+
+Launches immediately into a dynamic 5-question micro-quiz specific to that video's topic in Guest Mode.
+
+Gates the diagnostic results behind a 1-tap account creation wall.
+
+Delivers the specific fix drill directly into the Hub Dashboard, where the Cinematic Intro Trailer and an optional full player profile assessment reside.
+
+2. Dynamic Onboarding User Flow
+┌───────────────────────────────────────────────────────────┐
+│ DEEP LINK ENTRY (e.g., playr1.app/quiz/thumb-flick)      │
+└─────────────────────────────┬─────────────────────────────┘
+                              │
+                              ▼
+┌───────────────────────────────────────────────────────────┐
+│ APP FIRST OPEN (Guest Mode)                               │
+│ • Detect quiz_id parameter (fallback: "jumpshot-default") │
+│ • Render dynamic 5-Question Visual Micro-Quiz             │
+└─────────────────────────────┬─────────────────────────────┘
+                              │ (User Completes Quiz)
+                              ▼
+┌───────────────────────────────────────────────────────────┐
+│ ACCOUNT CREATION WALL                                     │
+│ • "Your Diagnostic & Custom Drill Fix are ready!"         │
+│ • 1-Tap Apple / Google Sign-In or Email Registration      │
+└─────────────────────────────┬─────────────────────────────┘
+                              │ (Account Created / Authenticated)
+                              ▼
+┌───────────────────────────────────────────────────────────┐
+│ HUB DASHBOARD LANDING                                     │
+│ • Top Banner: Unlocked Custom Fix Drill                   │
+│ • Featured Section: Cinematic Intro Trailer               │
+│ • Profile Card: Optional "Complete Full 17-Q Assessment" │
+└───────────────────────────────────────────────────────────┘
+3. Technical Implementation Requirements
+A. Deferred Deep-Link Router
+Integration with Branch.io (or Expo / React Native Linking API for deep links).
+
+Parse URL parameters on cold boot: playr1.app/quiz/:quiz_id.
+
+Store incoming quiz_id in app state (e.g., React Context / Redux / Zustand) to control the initial view.
+
+B. Dynamic Quiz Component Engine
+Build a modular QuizContainer component driven by JSON schemas:
+
+State Management: Track user responses locally during Guest Mode before authentication.
+
+UI Specs: 5-7 visual choice cards (illustrations/icons + short text) per question. Progress indicator bar at the top. Smooth slide transitions between questions.
+
+Fallback Rule: If no quiz_id is present or if the link is generic, load quiz_id: "jumpshot-default".
+
+C. Account Creation Gate
+Upon completing the final question of the micro-quiz, display a loading/calculation state ("Analyzing shot mechanics...").
+
+Present the account creation modal:
+
+Headline: "Unlock Your Diagnostic Report & Free Fix Drill"
+
+Auth Options: 1-Tap Apple Sign-In, Google Sign-In, Email/Password.
+
+On successful auth, save the local quiz payload directly to the newly created user profile in the database.
+
+D. Hub Dashboard Post-Onboarding State
+Once routed to the main Hub Dashboard:
+
+Primary Hero Card: Render the specific unlocked Fix Drill derived from their quiz results.
+
+Cinematic Trailer Banner: A non-intrusive card featuring a 15–20 second intro video with a close/dismiss option.
+
+Full Player Assessment Callout: An optional banner inviting the user to complete their comprehensive 17-question baseline profile whenever they are ready.
+
+4. Database Schema Adjustments (User Profiles)
+Ensure the users and diagnostic_results database tables store:
+
+user_id (UUID)
+
+initial_quiz_id (String — tracks which lead magnet converted the user)
+
+quiz_responses (JSONB object — stores question-by-question answers)
+
+assigned_fix_drill_ids (Array of Drill UUIDs)
+
+full_profile_completed (Boolean — tracks status of optional 17-question assessment)
+
+5. Immediate Replit Action Items
+Setup Deep Link Listener: Configure parameter handling for cold app launches.
+
+Build JSON Quiz Schema & UI Renderer: Create sample JSON structure for jumpshot-default and thumb-flick micro-quizzes.
+
+Build Auth Gate Modal: Wire 1-tap authentication to save local guest quiz responses to the DB.
+
+Wire Hub Card Output: Ensure the Hub dynamically renders the correct fix drill based on saved profile quiz data.

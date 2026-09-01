@@ -61,7 +61,7 @@ Respond with ONLY valid JSON, no markdown:
 }`;
 
   const response = await openai.chat.completions.create({
-    model: "gpt-4o",
+    model: "gpt-5",
     messages: [{ role: "user", content: prompt }],
     max_completion_tokens: 600,
   });
