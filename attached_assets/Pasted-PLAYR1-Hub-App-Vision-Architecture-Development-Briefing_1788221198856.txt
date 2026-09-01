@@ -1,0 +1,116 @@
+PLAYR1 Hub — App Vision, Architecture & Development Briefing
+1. Product Overview & Vision
+PLAYR1 Hub is the central digital ecosystem for modern basketball players seeking high-level player development, structured training, and career tracking.
+
+The app operates on a three-pillar user journey:
+
+Diagnose & Improve (Free): Diagnostic quizzes identify specific mechanical or tactical flaws, pairing users with targeted single drills to fix their game. Serves as the primary top-of-funnel lead magnet.
+
+Learn & Coach (Paid): Full masterclass-style courses, structured multi-week programs, and an AI basketball coach (Coach P) for personalized guidance.
+
+Track & Share (Free / Growth): Dynamic workout and game stat tracking, shooting heatmaps, player profiles, and social features to drive community retention and viral sharing.
+
+2. Core Tab Architecture & Navigation
+The app is structured around a 5-tab bottom navigation bar:
+
+┌───────────┬───────────┬───────────┬───────────┬───────────┐
+│   Train   │  Compete  │    Hub    │ Community │  Profile  │
+└───────────┴───────────┴───────────┴───────────┴───────────┘
+1. Train Tab
+Primary Actions: Start Workout, Create Drill, Create Workout, Create Challenge, Free Shoot mode.
+
+Sections:
+
+Active Challenges: User's active streak/training challenges.
+
+Daily Free Drills: Rotating single drills for non-paying users.
+
+Drill Library: Searchable/filterable database of individual drills.
+
+Programs & Courses (Gated - Paid Tier): Multi-week video/text courses (e.g., Jump Shot Mastery, Vertical Boost).
+
+2. Compete Tab
+Primary Focus: Live 3-Point Challenge matching creator video challenges.
+
+Features:
+
+Live streak tracking (recording 3-point makes in a row).
+
+Drill and challenge leaderboards.
+
+3. Hub Tab (Main Dashboard)
+Primary Focus: The central command center customized to the player's diagnostic data.
+
+Features:
+
+Summary analytics & streak status.
+
+Suggested daily drills/programs based on onboarding quiz and profile results.
+
+Quick-launch buttons for logging workouts and accessing the Drill Library.
+
+Coach P AI Entry Point: Direct entry to chat with the AI basketball coach for custom workout generation and Q&A.
+
+Creator Feed / Direct Announcement System.
+
+4. Community Tab
+Features:
+
+Friends list and activity feed.
+
+Group Challenges.
+
+Find Players (local pickup/training partner matching).
+
+Note: Remove legacy sections ("My Trainer", "Find Teams & Leagues") to streamline the UI.
+
+5. Profile Tab ("My Career")
+Features:
+
+Player Profile card (Archetype, Position, Baseline Percentile Score).
+
+Saved Diagnostic Quiz Results.
+
+Detailed Game & Workout Analytics (including Dynamic Shooting Heatmaps).
+
+Goal Setting & Tracking.
+
+Game Day UI Mode: Pre-game routine builder and scheduling assistant.
+
+3. Monetization & Funnel Model
+Free Tier: Access to Diagnostic Quizzes, Daily Free Drills, Workout/Game Stat Tracking, Shooting Heatmaps, Profile Creation, and Community features.
+
+Paid Tier (Monthly/Annual Subscription): Unlocks full access to all Programs & Courses, Coach P AI (chat + custom workout generator), advanced analytics, and exclusive challenges.
+
+4. Technical Feature Backlog & Release Roadmap
+Phase 1: Funnel & Core Infrastructure (Immediate Priority)
+Onboarding & Diagnostic Engine: Build dynamic quiz UI on first launch; store diagnostic output directly to user profile.
+
+Subscription & Payment Gate: Integrate RevenueCat/Stripe/In-App Purchases to lock Programs/Courses in the Train tab and Coach P AI in the Hub behind a subscription wall.
+
+Navigation Cleanup: Remove outdated UI elements from the Community tab (My Trainer, Teams & Leagues).
+
+Phase 2: Engagement & Value Add (v1.1 - v1.2)
+Coach P AI Integration: Conversational AI trained on basketball coaching methodology with custom workout generation capabilities.
+
+Dynamic Shooting Heatmap: Visual Court Map rendering make/miss percentages by court zones.
+
+Game Day UI Mode: Dedicated low-friction interface for game days featuring pre-game routines, mental prep checklists, and stat logging.
+
+Goal Setting & Journaling: Interactive goal-tracking engine with post-workout reflection prompts.
+
+Push Notifications: Automated daily workout and streak maintenance reminders.
+
+Phase 3: Virality & Optimization (v1.3)
+Shareable Progress Graphics: Auto-generate branded, aesthetic summary graphics ("Post to Story" format) for Instagram/TikTok.
+
+In-Season vs. Offseason Modes: Dynamic UI switch adjusting training volume and drill recommendations based on season timing.
+
+5. Immediate Development Sprint Tasks
+Database & Auth Setup: Ensure user profiles persist diagnostic quiz responses and user state.
+
+Subscription Infrastructure: Set up paywall screens and logic for gating course content.
+
+Hub UI Polish: Wire the main dashboard to dynamically display diagnostic-driven drill recommendations.
+
+Course Viewer UI: Build a video-player container and module breakdown UI for structured training programs inside the Train tab.
