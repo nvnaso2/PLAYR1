@@ -22,7 +22,7 @@ import {
   sendParentInviteEmail,
 } from "./email";
 import { sendPushNotification, getVapidPublicKey } from "./push";
-import { ensureOnboardingSchema, getFixCategory, validateMicroQuizPayload } from "./onboarding";
+import { ensureOnboardingSchema, getDiagnosticSummary, getFixCategory, validateMicroQuizPayload } from "./onboarding";
 import { getMicroQuiz } from "@shared/micro-quizzes";
 
 async function getEmailForUser(userId: string): Promise<string | null> {
@@ -182,7 +182,6 @@ export async function registerRoutes(
             initialQuizId: payload.quizId,
             quizResponses: payload.responses,
             assignedFixDrillIds: fixDrills.map((drill) => drill.id),
-            fullProfileCompleted: false,
             updatedAt: new Date(),
           } as any,
         })
@@ -191,6 +190,7 @@ export async function registerRoutes(
       res.json({
         profile,
         quizId: payload.quizId,
+        diagnosticSummary: getDiagnosticSummary(payload),
         fixDrills,
         primaryFixDrill: fixDrills[0] || null,
       });
@@ -207,14 +207,19 @@ export async function registerRoutes(
       const userId = req.user!.claims.sub;
       const [profile] = await db.select({
         initialQuizId: userProfiles.initialQuizId,
+        quizResponses: userProfiles.quizResponses,
         fullProfileCompleted: userProfiles.fullProfileCompleted,
         assignedFixDrillIds: userProfiles.assignedFixDrillIds,
       }).from(userProfiles).where(eq(userProfiles.userId, userId));
       const ids = profile?.assignedFixDrillIds ?? [];
       const fixDrills = (await Promise.all(ids.map((id) => storage.getDrillById(id)))).filter(Boolean);
+      const diagnosticSummary = profile?.initialQuizId && profile.quizResponses
+        ? getDiagnosticSummary({ quizId: profile.initialQuizId, responses: profile.quizResponses as Record<string, string> })
+        : null;
       res.json({
         quizId: profile?.initialQuizId ?? null,
         fullProfileCompleted: profile?.fullProfileCompleted ?? false,
+        diagnosticSummary,
         fixDrills,
         primaryFixDrill: fixDrills[0] ?? null,
       });

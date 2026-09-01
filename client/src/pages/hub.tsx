@@ -247,7 +247,7 @@ export default function HubPage() {
             </div>
             <h2 className="text-xl font-black text-white">{fixData.primaryFixDrill.title}</h2>
             <p className="text-sm text-zinc-400 mt-1 line-clamp-2">
-              {fixData.primaryFixDrill.description || "A focused drill built around your diagnostic."}
+              {fixData.diagnosticSummary || fixData.primaryFixDrill.description || "A focused drill built around your diagnostic."}
             </p>
             <Button
               size="sm"

@@ -43,3 +43,29 @@ export function validateMicroQuizPayload(payload: unknown): MicroQuizPayload {
 export function getFixCategory(quizId: string) {
   return FIX_CATEGORY_BY_QUIZ[quizId] || "shooting";
 }
+
+export function getDiagnosticSummary(payload: MicroQuizPayload) {
+  const response = payload.responses;
+  if (payload.quizId === "thumb-flick") {
+    if (response.thumb === "flick") {
+      return "Your guide hand is getting active at release. Start by training a quiet guide hand close to the rim.";
+    }
+    if (response.miss === "left" || response.miss === "right") {
+      return "Your release path is pulling the shot off line. Start close and build a straighter finish.";
+    }
+    if (response.cue === "side-spin") {
+      return "Side spin is your clearest signal. Own the ball with your shooting hand and let the guide hand stay quiet.";
+    }
+    return "Your best first move is a repeatable release close to the rim, then add distance one step at a time.";
+  }
+  if (response.setup === "short" || response.feel === "legs") {
+    return "Your first opportunity is building more lift from the floor so your range and arc stay consistent.";
+  }
+  if (response.setup === "left" || response.setup === "right" || response.feel === "guide") {
+    return "Your release path is the first thing to clean up. A quiet, repeatable finish will tighten your misses.";
+  }
+  if (response.context === "pressure" || response.goal === "pressure") {
+    return "Your mechanics need to stay available when the game speeds up. Start with clean reps, then add a closeout.";
+  }
+  return "Your best first move is a repeatable release close to the rim, then add distance one step at a time.";
+}
