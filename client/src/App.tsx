@@ -1,4 +1,4 @@
-import { Switch, Route, Redirect } from "wouter";
+import { Switch, Route, Redirect, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { Capacitor } from "@capacitor/core";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
@@ -29,6 +29,7 @@ import Terms from "@/pages/terms";
 import Support from "@/pages/support";
 import ParentInvite from "@/pages/parent-invite";
 import NotFound from "@/pages/not-found";
+import MicroQuizPage from "@/pages/micro-quiz";
 
 // Heavy pages — lazy load on first visit so the initial bundle is smaller.
 // Sidebar preloads chunks on hover/touch (see pageLoaders.ts) to avoid
@@ -260,9 +261,11 @@ function CoachRedirect() {
 
 function Router() {
   const { user, isLoading, isAuthenticated } = useAuth();
+  const [location] = useLocation();
   const [splashDone, setSplashDone] = useState(false);
+  const isQuizDeepLink = location === "/quiz" || location.startsWith("/quiz/");
 
-  if (!splashDone) {
+  if (!splashDone && !isQuizDeepLink) {
     return (
       <SplashScreen
         isAuthLoading={isLoading}
@@ -279,6 +282,8 @@ function Router() {
       <Route path="/teams/:slug">{() => <Suspense fallback={<LoadingScreen />}><TeamProfile /></Suspense>}</Route>
       <Route path="/leagues/:slug">{() => <Suspense fallback={<LoadingScreen />}><LeagueProfile /></Suspense>}</Route>
       <Route path="/auth">{() => isAuthenticated ? <Redirect to="/" /> : <AuthPage />}</Route>
+      <Route path="/quiz/:quizId" component={MicroQuizPage} />
+      <Route path="/quiz" component={MicroQuizPage} />
       <Route path="/welcome">{() => isAuthenticated ? <Redirect to="/" /> : <WelcomePage />}</Route>
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password" component={ResetPassword} />

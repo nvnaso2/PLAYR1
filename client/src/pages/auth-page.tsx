@@ -55,7 +55,8 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
       if (data?.token) storeAuthToken(data.token);
       const { token: _t, ...user } = data;
       queryClient.setQueryData(["/api/auth/user"], user);
-      navigate("/");
+       const returnTo = new URLSearchParams(window.location.search).get("returnTo");
+       navigate(returnTo?.startsWith("/") ? returnTo : "/");
     },
     onError: (error: Error) => {
       toast({ title: "Login failed", description: error.message.replace(/^\d+:\s*/, ""), variant: "destructive" });
@@ -162,7 +163,8 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
       const { token: _t, ...user } = data;
       queryClient.setQueryData(["/api/auth/user"], user);
       track("signup", { userId: user?.id });
-      navigate("/");
+       const returnTo = new URLSearchParams(window.location.search).get("returnTo");
+       navigate(returnTo?.startsWith("/") ? returnTo : "/");
     },
     onError: (error: Error) => {
       toast({ title: "Registration failed", description: error.message.replace(/^\d+:\s*/, ""), variant: "destructive" });

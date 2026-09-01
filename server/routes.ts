@@ -22,6 +22,8 @@ import {
   sendParentInviteEmail,
 } from "./email";
 import { sendPushNotification, getVapidPublicKey } from "./push";
+import { ensureOnboardingSchema, getFixCategory, validateMicroQuizPayload } from "./onboarding";
+import { getMicroQuiz } from "@shared/micro-quizzes";
 
 async function getEmailForUser(userId: string): Promise<string | null> {
   const [profile] = await db.select({ email: userProfiles.email }).from(userProfiles).where(eq(userProfiles.userId, userId));
@@ -113,6 +115,8 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  await ensureOnboardingSchema();
+
   // ─── Friend Activity Helper ───────────────────────────────────────────────────
   // Fire-and-forget: logs an activity event so a user's friends see it in the feed.
   function fireActivity(userId: string, activityType: string, title: string, description?: string) {
@@ -145,6 +149,78 @@ export async function registerRoutes(
         error: err?.message || "database unreachable",
         timestamp: new Date().toISOString(),
       });
+    }
+  });
+
+  // Public dynamic quiz catalog. This is intentionally available before auth
+  // so a lead-magnet link can open directly in guest mode.
+  const sendMicroQuiz = (req: any, res: any) => {
+    res.json(getMicroQuiz(req.params.quizId));
+  };
+  app.get("/api/onboarding/micro-quiz", sendMicroQuiz);
+  app.get("/api/onboarding/micro-quiz/:quizId", sendMicroQuiz);
+
+  // Save the guest quiz after the account wall. The browser only transports
+  // answers; the server validates every answer against the canonical quiz.
+  app.post("/api/onboarding/micro-quiz/complete", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const payload = validateMicroQuizPayload(req.body);
+      const category = getFixCategory(payload.quizId);
+      const fixDrills = (await storage.getDrillsByCategory(category)).slice(0, 2);
+      const [profile] = await db.insert(userProfiles)
+        .values({
+          userId,
+          initialQuizId: payload.quizId,
+          quizResponses: payload.responses,
+          assignedFixDrillIds: fixDrills.map((drill) => drill.id),
+          fullProfileCompleted: false,
+        } as any)
+        .onConflictDoUpdate({
+          target: userProfiles.userId,
+          set: {
+            initialQuizId: payload.quizId,
+            quizResponses: payload.responses,
+            assignedFixDrillIds: fixDrills.map((drill) => drill.id),
+            fullProfileCompleted: false,
+            updatedAt: new Date(),
+          } as any,
+        })
+        .returning();
+
+      res.json({
+        profile,
+        quizId: payload.quizId,
+        fixDrills,
+        primaryFixDrill: fixDrills[0] || null,
+      });
+    } catch (error: any) {
+      const message = error?.message || "Could not save quiz results";
+      const status = message.startsWith("Missing or invalid") ? 400 : 500;
+      console.error("Micro-quiz completion failed:", error);
+      res.status(status).json({ message });
+    }
+  });
+
+  app.get("/api/onboarding/fix-drills", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const [profile] = await db.select({
+        initialQuizId: userProfiles.initialQuizId,
+        fullProfileCompleted: userProfiles.fullProfileCompleted,
+        assignedFixDrillIds: userProfiles.assignedFixDrillIds,
+      }).from(userProfiles).where(eq(userProfiles.userId, userId));
+      const ids = profile?.assignedFixDrillIds ?? [];
+      const fixDrills = (await Promise.all(ids.map((id) => storage.getDrillById(id)))).filter(Boolean);
+      res.json({
+        quizId: profile?.initialQuizId ?? null,
+        fullProfileCompleted: profile?.fullProfileCompleted ?? false,
+        fixDrills,
+        primaryFixDrill: fixDrills[0] ?? null,
+      });
+    } catch (error) {
+      console.error("Could not load onboarding fix drills:", error);
+      res.status(500).json({ message: "Could not load your fix drill" });
     }
   });
 
@@ -577,6 +653,13 @@ Start now with a warm one-line greeting that briefly references something specif
       } else {
         await storage.createCareerProfile({ userId, ...updateData });
       }
+      await db.insert(userProfiles)
+        .values({ userId, fullProfileCompleted: true } as any)
+        .onConflictDoUpdate({
+          target: userProfiles.userId,
+          set: { fullProfileCompleted: true, updatedAt: new Date() } as any,
+        })
+        .execute();
 
       res.json({ ok: true, result });
     } catch (error) {
@@ -2357,6 +2440,14 @@ Start now with a warm one-line greeting that briefly references something specif
       if (!profile) {
         return res.status(404).json({ message: "Career profile not found" });
       }
+
+      await db.insert(userProfiles)
+        .values({ userId, fullProfileCompleted: true } as any)
+        .onConflictDoUpdate({
+          target: userProfiles.userId,
+          set: { fullProfileCompleted: true, updatedAt: new Date() } as any,
+        })
+        .execute();
 
       if (profile.staffRole === "trainer" || profile.staffRole === "coach" || profile.staffRole === "both") {
         const existingTrainerProfile = await storage.getTrainerProfile(userId);

@@ -338,6 +338,10 @@ export const userProfiles = pgTable("user_profiles", {
   profilePhotoUrl: varchar("profile_photo_url"),
   isAdmin: boolean("is_admin").default(false),
   subscriptionPlan: varchar("subscription_plan").default("free"), // 'free' | 'pro'
+  initialQuizId: varchar("initial_quiz_id"),
+  quizResponses: jsonb("quiz_responses"),
+  assignedFixDrillIds: text("assigned_fix_drill_ids").array(),
+  fullProfileCompleted: boolean("full_profile_completed").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow()
 });

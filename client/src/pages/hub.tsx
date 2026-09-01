@@ -19,8 +19,10 @@ import {
   TrendingUp,
   X,
   Sparkles,
+  Play,
 } from "lucide-react";
 import type { GoalProgram } from "@shared/schema";
+import introTrailer from "@assets/Welcome_To_PLAYR1_1781991119550.mp4";
 
 type GoalData = {
   goal: any;
@@ -60,12 +62,20 @@ export default function HubPage() {
   const [bannerDismissed, setBannerDismissed] = useState(() =>
     localStorage.getItem("playr1_new_onboarding_dismissed") === "1"
   );
+  const [trailerDismissed, setTrailerDismissed] = useState(() =>
+    localStorage.getItem("playr1_intro_trailer_dismissed") === "1"
+  );
 
   function dismissNewPlayerBanner() {
     setBannerDismissed(true);
     localStorage.setItem("playr1_new_onboarding_dismissed", "1");
     // Also clear the "new onboarding" flag
     localStorage.removeItem("playr1_new_onboarding");
+  }
+
+  function dismissTrailer() {
+    setTrailerDismissed(true);
+    localStorage.setItem("playr1_intro_trailer_dismissed", "1");
   }
 
   const { data: profile } = useQuery<any>({ queryKey: ["/api/profile"] });
@@ -81,6 +91,10 @@ export default function HubPage() {
   });
   const { data: archetypes, isLoading: archLoading } = useQuery<any[]>({
     queryKey: ["/api/archetypes/user"],
+    enabled: !!user,
+  });
+  const { data: fixData } = useQuery<any>({
+    queryKey: ["/api/onboarding/fix-drills"],
     enabled: !!user,
   });
 
@@ -191,6 +205,80 @@ export default function HubPage() {
       </div>
 
       <div className="px-4 space-y-4 mt-4">
+        {!trailerDismissed && (
+          <div className="relative rounded-2xl overflow-hidden border border-zinc-800 bg-black" data-testid="card-intro-trailer">
+            <video
+              src={introTrailer}
+              autoPlay
+              muted
+              loop
+              playsInline
+              className="absolute inset-0 w-full h-full object-cover opacity-50"
+              aria-label="Welcome to PLAYR1 intro trailer"
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-black via-black/60 to-transparent" />
+            <button
+              onClick={dismissTrailer}
+              className="absolute top-3 right-3 z-10 text-white/60 hover:text-white"
+              aria-label="Dismiss intro trailer"
+              data-testid="button-dismiss-trailer"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <div className="relative z-10 p-5 min-h-[156px] flex flex-col justify-end">
+              <p className="text-[10px] uppercase tracking-[0.25em] text-orange-400 font-bold">PLAYR1 // INTRO</p>
+              <h2 className="text-xl font-black text-white mt-1">Your game starts here.</h2>
+              <p className="text-xs text-zinc-300 mt-1 max-w-[230px]">Train with intention. Track what matters. Become your next level.</p>
+              <div className="mt-3 flex items-center gap-2 text-xs font-bold text-white">
+                <span className="h-7 w-7 rounded-full bg-orange-500 text-black flex items-center justify-center"><Play className="h-3.5 w-3.5 fill-current ml-0.5" /></span>
+                Watch the intro
+              </div>
+            </div>
+          </div>
+        )}
+
+        {fixData?.primaryFixDrill && (
+          <div className="rounded-2xl overflow-hidden border border-orange-500/30 bg-gradient-to-br from-orange-500/20 via-orange-500/8 to-transparent p-5" data-testid="card-unlocked-fix-drill">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center">
+                <Target className="w-4 h-4 text-orange-400" />
+              </div>
+              <p className="text-xs text-orange-400 font-bold uppercase tracking-wider">Your unlocked fix</p>
+            </div>
+            <h2 className="text-xl font-black text-white">{fixData.primaryFixDrill.title}</h2>
+            <p className="text-sm text-zinc-400 mt-1 line-clamp-2">
+              {fixData.primaryFixDrill.description || "A focused drill built around your diagnostic."}
+            </p>
+            <Button
+              size="sm"
+              className="mt-4 bg-orange-500 hover:bg-orange-400 text-black font-bold"
+              onClick={() => navigate(`/drill/${fixData.primaryFixDrill.id}`)}
+              data-testid="button-open-fix-drill"
+            >
+              Start your fix <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+          </div>
+        )}
+
+        {fixData?.quizId && !fixData.fullProfileCompleted && (
+          <button
+            onClick={() => navigate("/career")}
+            className="w-full text-left rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4 hover:border-zinc-700 transition-colors"
+            data-testid="banner-full-profile-assessment"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-orange-400" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm text-white font-bold">Go deeper when you’re ready</p>
+                <p className="text-xs text-zinc-500 mt-0.5">Complete the full 17-question player assessment.</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-zinc-600" />
+            </div>
+          </button>
+        )}
+
         {/* Today's Training Card */}
         {!goalLoading && (
           <>
