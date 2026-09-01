@@ -25,7 +25,10 @@ export default function MicroQuizPage() {
       return {};
     }
   });
-  const [questionIndex, setQuestionIndex] = useState(0);
+  const [questionIndex, setQuestionIndex] = useState(() => {
+    const firstUnanswered = quiz.questions.findIndex((question) => !answers[question.id]);
+    return firstUnanswered === -1 ? quiz.questions.length - 1 : firstUnanswered;
+  });
   const [phase, setPhase] = useState<Phase>(() => Object.keys(answers).length === quiz.questions.length ? "gate" : "quiz");
   const [error, setError] = useState("");
 
