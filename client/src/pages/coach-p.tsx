@@ -1,10 +1,9 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowUp, Bot, Check, Crown, Loader2, Sparkles, Target, Dumbbell, Gamepad2 } from "lucide-react";
+import { ArrowLeft, ArrowUp, Bot, Crosshair, Dumbbell, Flag, Gamepad2, Loader2, Sparkles, Target } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 
 type ChatMessage = {
@@ -31,13 +30,18 @@ const STARTER_PROMPTS = [
   },
   {
     label: "Build my next workout",
-    prompt: "Build me a realistic 3-day basketball workout plan for this week based on my archetype, bottleneck, current goal, and recent training. Make each session specific with time, sets, reps, and what success looks like.",
+    prompt: "Build me a realistic 3-day basketball workout plan for this week based on my archetype, bottleneck, current goal, recent training, available drills, and active programs. Make each session specific with time, sets, reps, and what success looks like.",
     icon: Dumbbell,
   },
   {
     label: "Prepare me for game day",
-    prompt: "Based on my PLAYR1 profile, give me a simple game plan for my next game: what to hunt on offense, what to prioritize on defense, and one mental cue I can use when the game gets hard.",
+    prompt: "Based on my PLAYR1 profile, training history, game statistics, and assessment, give me a simple game plan for my next game: what to hunt on offense, what to prioritize on defense, and one mental cue I can use when the game gets hard.",
     icon: Gamepad2,
+  },
+  {
+    label: "Build my PLAYR1 goal",
+    prompt: "Use the primary basketball goal I shared in my onboarding assessment to help me build a clear PLAYR1 goal. Start by telling me what you understood, then ask me the single best question to make it specific and achievable. Do not jump straight to a workout plan yet.",
+    icon: Flag,
   },
 ];
 
@@ -46,8 +50,8 @@ function MessageBubble({ message }: { message: ChatMessage }) {
   return (
     <div className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"}`}>
       {!isUser && (
-        <div className="w-8 h-8 rounded-full bg-orange-500/15 border border-orange-500/30 flex items-center justify-center shrink-0 mt-1">
-          <Bot className="w-4 h-4 text-orange-400" />
+        <div className="w-8 h-8 rounded-full bg-orange-500/15 flex items-center justify-center shrink-0 mt-1">
+          <Sparkles className="w-4 h-4 text-orange-400" />
         </div>
       )}
       <div className={`max-w-[88%] rounded-2xl px-4 py-3 ${
@@ -66,15 +70,20 @@ export default function CoachPPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [usage, setUsage] = useState<CoachPUsage | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [limitReached, setLimitReached] = useState(false);
+  const onboardingSent = useRef(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const onboardingMode = typeof window !== "undefined"
+    && new URLSearchParams(window.location.search).get("mode") === "goal";
 
   const { data: subscription } = useQuery<SubscriptionState>({
     queryKey: ["/api/billing/subscription"],
   });
 
   const currentUsage = usage ?? subscription?.coachP ?? null;
-  const isPro = subscription?.plan === "pro" || currentUsage?.limit === null;
-  const canSend = isPro || currentUsage?.remaining == null || currentUsage.remaining > 0;
+  const isUnlimited = subscription?.plan === "pro" || currentUsage?.limit === null;
+  const canSend = isUnlimited || currentUsage?.remaining == null || currentUsage.remaining > 0;
 
   const chatMutation = useMutation({
     mutationFn: async (history: ChatMessage[]) => {
@@ -84,10 +93,15 @@ export default function CoachPPage() {
     onSuccess: (data) => {
       setMessages((previous) => [...previous, { role: "assistant", content: data.message }]);
       setUsage(data.coachP);
+      setErrorMessage(null);
+      requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }));
     },
     onError: (error: Error) => {
       if (error.message.includes("COACH_P_LIMIT_REACHED")) {
         setLimitReached(true);
+        setErrorMessage("You’ve used your 3 Coach P questions this month.");
+      } else {
+        setErrorMessage("Coach P couldn’t answer that right now. Try sending it again.");
       }
     },
   });
@@ -98,97 +112,103 @@ export default function CoachPPage() {
     const nextHistory = [...messages, { role: "user" as const, content }];
     setMessages(nextHistory);
     setDraft("");
+    setErrorMessage(null);
     setLimitReached(false);
     chatMutation.mutate(nextHistory);
+    requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }));
   };
+
+  useEffect(() => {
+    if (onboardingMode && !onboardingSent.current) {
+      onboardingSent.current = true;
+      sendMessage(STARTER_PROMPTS[3].prompt);
+    }
+  }, [onboardingMode]);
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <div className="max-w-3xl mx-auto px-4 py-5 sm:py-8 pb-28">
-        <header className="flex items-center justify-between gap-3 mb-8">
+      <header className="h-16 border-b border-zinc-900 px-4 sm:px-6 flex items-center justify-between">
+        <div className="flex items-center gap-3">
           <Button
             variant="ghost"
-            size="sm"
+            size="icon"
             onClick={() => navigate("/hub")}
-            className="text-zinc-500 hover:text-white -ml-2"
+            className="text-zinc-500 hover:text-white"
             data-testid="button-coach-p-back"
           >
-            <ArrowLeft className="w-4 h-4 mr-1.5" /> Back
+            <ArrowLeft className="w-4 h-4" />
           </Button>
           <div className="flex items-center gap-2">
-            {isPro ? (
-              <Badge className="bg-orange-500/15 text-orange-300 border-orange-500/25"><Crown className="w-3 h-3 mr-1" /> PRO</Badge>
-            ) : currentUsage ? (
-              <span className="text-xs text-zinc-500">{currentUsage.remaining} of {currentUsage.limit} questions left</span>
-            ) : null}
-          </div>
-        </header>
-
-        <div className="flex items-start gap-3 mb-8">
-          <div className="w-12 h-12 rounded-2xl bg-orange-500/15 border border-orange-500/30 flex items-center justify-center shrink-0">
-            <Sparkles className="w-6 h-6 text-orange-400" />
-          </div>
-          <div>
-            <p className="text-orange-400 text-[10px] font-black uppercase tracking-[0.3em]">PLAYR1 AI COACH</p>
-            <h1 className="text-3xl font-black tracking-tight mt-1">Coach P</h1>
-            <p className="text-zinc-500 text-sm mt-1">A coach who knows your game — not a generic chatbot.</p>
+            <span className="w-2.5 h-2.5 rounded-full bg-orange-500" />
+            <span className="font-semibold tracking-tight">Coach P</span>
           </div>
         </div>
+        <span className="text-xs text-zinc-500">
+          {isUnlimited ? "Unlimited" : currentUsage ? `${currentUsage.remaining} left this month` : ""}
+        </span>
+      </header>
 
-        {messages.length === 0 && (
-          <section className="mb-7">
-            <div className="rounded-2xl border border-orange-500/20 bg-gradient-to-br from-orange-500/10 via-zinc-950 to-zinc-950 p-5 sm:p-6 mb-4">
-              <p className="text-zinc-200 text-base leading-relaxed">
-                I’ve got your PLAYR1 profile, assessment, goals, and training history. Ask me something real, and I’ll help you decide what to do next.
-              </p>
-              <p className="text-zinc-600 text-xs mt-3">Start with one of these, or ask me anything about your development.</p>
-            </div>
-            <div className="grid gap-3">
-              {STARTER_PROMPTS.map(({ label, prompt, icon: Icon }) => (
-                <button
-                  key={label}
-                  onClick={() => sendMessage(prompt)}
-                  disabled={chatMutation.isPending || !canSend}
-                  className="w-full text-left rounded-2xl border border-zinc-800 bg-zinc-950 p-4 flex items-center gap-3 transition-colors hover:border-orange-500/40 hover:bg-zinc-900 disabled:opacity-50"
-                  data-testid={`button-coach-p-starter-${label.toLowerCase().replace(/\s+/g, "-")}`}
-                >
-                  <div className="w-9 h-9 rounded-xl bg-zinc-900 flex items-center justify-center shrink-0">
-                    <Icon className="w-4 h-4 text-orange-400" />
+      <main className="max-w-3xl mx-auto min-h-[calc(100vh-4rem)] px-4 sm:px-6 flex flex-col">
+        <section className={`flex-1 ${messages.length === 0 ? "flex items-center" : "pt-8"}`}>
+          <div className="w-full">
+            {messages.length === 0 ? (
+              <div className="w-full max-w-2xl mx-auto">
+                <div className="flex items-center justify-center gap-2 mb-8">
+                  <div className="w-9 h-9 rounded-full bg-orange-500/15 flex items-center justify-center">
+                    <Bot className="w-5 h-5 text-orange-400" />
                   </div>
-                  <span className="text-sm font-semibold text-zinc-200 flex-1">{label}</span>
-                  <ArrowUp className="w-4 h-4 text-zinc-600 rotate-45" />
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {messages.length > 0 && (
-          <section className="space-y-5 mb-6">
-            {messages.map((message, index) => <MessageBubble key={`${message.role}-${index}`} message={message} />)}
-            {chatMutation.isPending && (
-              <div className="flex gap-3 items-center text-zinc-500 text-sm">
-                <div className="w-8 h-8 rounded-full bg-orange-500/15 border border-orange-500/30 flex items-center justify-center">
-                  <Loader2 className="w-4 h-4 text-orange-400 animate-spin" />
+                  <h1 className="text-2xl font-semibold tracking-tight">What are you working on?</h1>
                 </div>
-                Coach P is thinking...
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {STARTER_PROMPTS.map(({ label, prompt, icon: Icon }, index) => (
+                    <button
+                      key={label}
+                      onClick={() => sendMessage(prompt)}
+                      disabled={chatMutation.isPending || !canSend}
+                      className={`min-h-[58px] rounded-xl border bg-zinc-950 px-4 py-3 flex items-center gap-3 text-left transition-colors hover:bg-zinc-900 disabled:opacity-50 ${
+                        index === 3 ? "border-orange-500/35 hover:border-orange-500/60" : "border-zinc-800 hover:border-zinc-700"
+                      }`}
+                      data-testid={`button-coach-p-starter-${label.toLowerCase().replace(/\s+/g, "-")}`}
+                    >
+                      <Icon className={`w-4 h-4 shrink-0 ${index === 3 ? "text-orange-400" : "text-zinc-500"}`} />
+                      <span className="text-sm text-zinc-200">{label}</span>
+                      <ArrowUp className="w-3.5 h-3.5 text-zinc-600 rotate-45 ml-auto shrink-0" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-5">
+                {messages.map((message, index) => (
+                  <MessageBubble key={`${message.role}-${index}`} message={message} />
+                ))}
+                {chatMutation.isPending && (
+                  <div className="flex gap-3 items-center text-zinc-500 text-sm">
+                    <div className="w-8 h-8 rounded-full bg-orange-500/15 flex items-center justify-center">
+                      <Loader2 className="w-4 h-4 text-orange-400 animate-spin" />
+                    </div>
+                    Coach P is thinking...
+                  </div>
+                )}
+                <div ref={bottomRef} />
               </div>
             )}
-          </section>
-        )}
+          </div>
+        </section>
 
-        {limitReached && (
-          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 mb-5">
-            <p className="text-sm font-semibold text-amber-200">You’ve used your 3 Coach P questions this month.</p>
-            <p className="text-xs text-amber-200/70 mt-1">Upgrade to PLAYR1 Pro for unlimited coaching conversations.</p>
-            <Button size="sm" variant="outline" className="mt-3 border-amber-500/40 text-amber-200 hover:bg-amber-500/10" onClick={() => navigate("/subscription")}>
-              View PLAYR1 Pro
-            </Button>
+        {errorMessage && (
+          <div className="flex items-center justify-between gap-3 text-xs text-red-300 py-3">
+            <span>{errorMessage}</span>
+            {limitReached && (
+              <Button size="sm" variant="outline" className="border-zinc-700 text-zinc-200" onClick={() => navigate("/subscription")}>
+                View options
+              </Button>
+            )}
           </div>
         )}
 
-        <div className="sticky bottom-4">
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-950/95 backdrop-blur p-2 shadow-2xl shadow-black">
+        <div className="sticky bottom-4 py-4 bg-black">
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-2">
             <div className="flex items-end gap-2">
               <Textarea
                 value={draft}
@@ -199,9 +219,9 @@ export default function CoachPPage() {
                     sendMessage(draft);
                   }
                 }}
-                placeholder={canSend ? "Ask Coach P anything..." : "Your free questions are used for this month"}
+                placeholder={canSend ? "Message Coach P..." : "Your monthly questions are used"}
                 disabled={!canSend || chatMutation.isPending}
-                className="min-h-[46px] max-h-32 resize-none border-0 bg-transparent focus-visible:ring-0 text-sm"
+                className="min-h-[44px] max-h-32 resize-none border-0 bg-transparent focus-visible:ring-0 text-sm"
                 data-testid="textarea-coach-p"
               />
               <Button
@@ -215,9 +235,9 @@ export default function CoachPPage() {
               </Button>
             </div>
           </div>
-          <p className="text-center text-[10px] text-zinc-700 mt-2">Coach P uses your PLAYR1 profile to make each answer specific to you.</p>
+          <p className="text-center text-[10px] text-zinc-700 mt-2">Shift + Enter for a new line</p>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

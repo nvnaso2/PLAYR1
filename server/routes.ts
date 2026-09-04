@@ -768,7 +768,7 @@ Start now with a warm one-line greeting that briefly references something specif
       }
       charged = coachPAccess.charged;
 
-      const [userProfile, career, playerProfile, userArchetypes, activeGoal, journalEntries, trainingLogs, principles] = await Promise.all([
+      const [userProfile, career, playerProfile, userArchetypes, activeGoal, journalEntries, trainingLogs, principles, userStats, weeklyStats, categoryStats, dashboardStats, progressTrends, shotStats, careerStats, drillProgress, availableDrills, availablePrograms, activeEnrollments] = await Promise.all([
         storage.getUserProfile(userId),
         storage.getCareerProfile(userId),
         storage.getPlayerProfile(userId),
@@ -777,6 +777,17 @@ Start now with a warm one-line greeting that briefly references something specif
         storage.getJournalEntries(userId),
         storage.getTrainingLogs(userId),
         storage.getBrandPrinciples(),
+        storage.getUserStats(userId, "all"),
+        storage.getWeeklyStats(userId, "monthly"),
+        storage.getCategoryStats(userId, "monthly"),
+        storage.getDashboardTrainingStats(userId, "monthly"),
+        storage.getProgressTrends(userId, "monthly"),
+        storage.getUserShotStats(userId, "monthly"),
+        storage.getCareerStats(userId),
+        storage.getDrillProgress(userId),
+        storage.getDrillsForUser(userId),
+        storage.listPrograms({ featuredFirst: true }),
+        storage.getActiveEnrollmentsForUser(userId),
       ]);
 
       const principlesText = principles ? [
@@ -800,11 +811,6 @@ Start now with a warm one-line greeting that briefly references something specif
       const assessmentAnswers = career?.assessmentAnswers
         ? JSON.stringify(career.assessmentAnswers).slice(0, 10000)
         : "No raw assessment answers saved.";
-      const recentTraining = trainingLogs.slice(0, 10).map((log: any) => {
-        const date = log.completedAt ? new Date(log.completedAt).toLocaleDateString() : "unknown date";
-        const shooting = log.shotsAttempted ? `, shooting ${log.shotsMade ?? 0}/${log.shotsAttempted}` : "";
-        return `${date}: ${log.duration} min${log.score ? `, self-score ${log.score}/10` : ""}${shooting}${log.notes ? `, note: ${String(log.notes).slice(0, 240)}` : ""}`;
-      }).join("\n") || "No training sessions logged yet.";
       const recentJournal = journalEntries.slice(0, 5).map((entry: any) => {
         const answers = (entry.responses ?? []).map((response: any) => `${response.question}: ${response.answer}`).join(" | ");
         return `${entry.createdAt ? new Date(entry.createdAt).toLocaleDateString() : "unknown date"}${entry.mood ? `, mood ${entry.mood}/5` : ""}: ${answers.slice(0, 500)}`;
@@ -812,6 +818,64 @@ Start now with a warm one-line greeting that briefly references something specif
       const goalText = activeGoal
         ? `Active goal: ${activeGoal.goalText}\nStatus: ${activeGoal.status}; week ${activeGoal.currentWeek} of ${activeGoal.totalWeeks}`
         : "No active goal yet.";
+      const drillCatalog = availableDrills.map((drill: any) => ({
+        title: drill.title,
+        category: drill.category,
+        difficulty: drill.difficulty,
+        description: drill.description,
+        durationMinutes: drill.duration ? Math.round(drill.duration / 60) : null,
+        equipment: drill.equipment,
+        tips: drill.tips,
+        tracksShots: drill.trackShots,
+      }));
+      const drillNameById = new Map(availableDrills.map((drill: any) => [drill.id, drill.title]));
+      const trainingHistory = trainingLogs.map((log: any) => {
+        const date = log.completedAt ? new Date(log.completedAt).toLocaleDateString() : "unknown date";
+        const drillName = log.drillId ? drillNameById.get(log.drillId) || `drill ${log.drillId}` : "free session";
+        const shooting = log.shotsAttempted ? `, shooting ${log.shotsMade ?? 0}/${log.shotsAttempted}` : "";
+        return `${date}: ${drillName}, ${log.duration} min${log.sets ? `, ${log.sets} sets` : ""}${log.reps ? `, ${log.reps} reps` : ""}${log.score ? `, self-score ${log.score}/10` : ""}${shooting}${log.notes ? `, note: ${String(log.notes).slice(0, 240)}` : ""}`;
+      }).join("\n") || "No training sessions logged yet.";
+      const allTimeTraining = {
+        sessions: trainingLogs.length,
+        minutes: trainingLogs.reduce((sum: number, log: any) => sum + (log.duration || 0), 0),
+        averageSelfScore: (() => {
+          const scored = trainingLogs.filter((log: any) => log.score != null);
+          return scored.length ? Math.round((scored.reduce((sum: number, log: any) => sum + log.score, 0) / scored.length) * 10) / 10 : null;
+        })(),
+      };
+      const programCatalog = await Promise.all(availablePrograms.map(async (program: any) => ({
+        title: program.title,
+        tagline: program.tagline,
+        description: program.description,
+        lengthDays: program.lengthDays,
+        difficulty: program.difficulty,
+        categoryTags: program.categoryTags,
+        estimatedMinutesPerDay: program.estimatedMinutesPerDay,
+        items: (await storage.getProgramItems(program.id)).map((item: any) => ({
+          day: item.dayNumber,
+          type: item.itemType,
+          title: item.title,
+          notes: item.notes,
+          estimatedMinutes: item.estimatedMinutes,
+          drillId: item.drillId,
+          workout: item.workoutSpec,
+          challenge: item.challengeSpec,
+        })),
+      })));
+      const activeProgramText = activeEnrollments.length > 0
+        ? activeEnrollments.map((enrollment: any) => `${enrollment.program.title}: ${enrollment.completedItemCount}/${enrollment.totalItemCount} items completed, day ${enrollment.currentDay}, status ${enrollment.status}`).join("\n")
+        : "No active program enrollments.";
+      const statsText = JSON.stringify({
+        allTimeTraining,
+        currentPeriodOverview: userStats,
+        monthlyWeeklyBreakdown: weeklyStats,
+        monthlyCategoryBreakdown: categoryStats,
+        monthlyDashboardTotals: dashboardStats,
+        monthlyProgressTrends: progressTrends,
+        monthlyShotHeatmap: shotStats,
+        careerGameStats: careerStats,
+        drillProgress,
+      }).slice(0, 30000);
 
       const playerContext = `
 PLAYER IDENTITY
@@ -848,8 +912,20 @@ ${archetypeText}
 
 ${goalText}
 
-RECENT TRAINING
-${recentTraining}
+COMPLETE LOGGED WORKOUT HISTORY
+${trainingHistory}
+
+PLAYER DASHBOARD, GAME STATS & HEAT MAP DATA
+${statsText}
+
+ACTIVE PROGRAMS
+${activeProgramText}
+
+AVAILABLE DRILLS
+${JSON.stringify(drillCatalog).slice(0, 30000)}
+
+AVAILABLE PROGRAMS AND PROGRAM ITEMS
+${JSON.stringify(programCatalog).slice(0, 50000)}
 
 RECENT REFLECTIONS
 ${recentJournal}
@@ -882,6 +958,8 @@ COACHING RULES:
 - Never invent player facts, stats, available equipment, schedule, injuries, or results. If something important is missing, say so and ask one focused question.
 - Connect advice to the player's actual profile instead of repeating their data back to them.
 - For workouts, include a realistic structure, time, sets/reps or makes, coaching cues, and a clear success measure.
+- Prefer drills that exist in the available drill catalog and reference active programs when they are relevant. Do not invent a drill or program title when a suitable catalog item exists.
+- Use dashboard trends, game stats, shot locations, heat-map patterns, and logged workout history when they help answer the question. Be clear when a data set is empty or too small to support a conclusion.
 - For goals, turn vague ambition into a concrete next action and a way to track it.
 - For game preparation, include one offensive priority, one defensive priority, and one mental cue.
 - Keep most answers to 4-8 short paragraphs or bullets. Give the player something they can do today.
