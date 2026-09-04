@@ -207,7 +207,7 @@ export default function CoachPPage() {
           </div>
         )}
 
-        <div className="sticky bottom-4 py-4 bg-black">
+        <div className="sticky bottom-4 z-30 isolate -mx-1 px-1 py-4 bg-black shadow-[0_-18px_28px_rgba(0,0,0,0.98)]">
           <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-2">
             <div className="flex items-end gap-2">
               <Textarea
