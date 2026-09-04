@@ -12,6 +12,8 @@ import {
   STAGES,
   STAGE_ORDER,
 } from "@/pages/welcome";
+import type { Archetype } from "@shared/schema";
+import { findArchetypeDefinition, getCoreCharacteristics } from "@/components/archetype-content";
 
 function getCharIcon(value: string): string {
   const text = value.toLowerCase();
@@ -78,6 +80,7 @@ export default function DevelopmentPage() {
 
   const { data: career, isLoading } = useQuery<any>({ queryKey: ["/api/career"] });
   const { data: profile } = useQuery<any>({ queryKey: ["/api/profile"] });
+  const { data: archetypeDefinitions = [] } = useQuery<Archetype[]>({ queryKey: ["/api/archetypes"] });
 
   useEffect(() => {
     if (career?.assessmentArchetype) setSelectedArchetype(normalizeArchetype(career.assessmentArchetype));
@@ -89,6 +92,11 @@ export default function DevelopmentPage() {
   const currentArchetype = normalizeArchetype(career?.assessmentArchetype);
   const viewingArchetype = selectedArchetype || currentArchetype;
   const archetypeMeta = ARCHETYPE_META[viewingArchetype] || ARCHETYPE_META["Two-Way Player"];
+  const archetypeDefinition = findArchetypeDefinition(archetypeDefinitions, viewingArchetype);
+  const archetypePrimaryHex = archetypeDefinition?.primaryHex || archetypeMeta.primaryHex;
+  const coreCharacteristics = archetypeDefinition
+    ? getCoreCharacteristics(archetypeDefinition.traits)
+    : archetypeMeta.strengths.slice(0, 4);
   const currentStage = career?.assessmentStage || STAGE_ORDER[0];
   const viewingStage = selectedStage || currentStage;
   const stageInfo = STAGES[viewingStage] || STAGES[STAGE_ORDER[0]];
@@ -239,7 +247,7 @@ export default function DevelopmentPage() {
               <p className="text-zinc-400 text-sm font-bold tracking-[0.2em] uppercase mb-1">YOU ARE A</p>
               <h1
                 className="text-5xl font-black leading-tight tracking-tight"
-                style={{ color: archetypeMeta.primaryHex, textShadow: `0 0 30px ${archetypeMeta.primaryHex}55, 0 0 60px ${archetypeMeta.primaryHex}22` }}
+                 style={{ color: archetypePrimaryHex, textShadow: `0 0 30px ${archetypePrimaryHex}55, 0 0 60px ${archetypePrimaryHex}22` }}
                 data-testid="text-development-archetype"
               >
                 {viewingArchetype.toUpperCase()}
@@ -255,9 +263,9 @@ export default function DevelopmentPage() {
               <div
                 className="w-28 h-28 rounded-full flex items-center justify-center text-5xl"
                 style={{
-                  background: `radial-gradient(circle, ${archetypeMeta.primaryHex}28 0%, ${archetypeMeta.primaryHex}0a 55%, transparent 75%)`,
-                  border: `1.5px solid ${archetypeMeta.primaryHex}55`,
-                  boxShadow: `0 0 32px ${archetypeMeta.primaryHex}40, 0 0 64px ${archetypeMeta.primaryHex}18, inset 0 0 20px ${archetypeMeta.primaryHex}10`,
+                   background: `radial-gradient(circle, ${archetypePrimaryHex}28 0%, ${archetypePrimaryHex}0a 55%, transparent 75%)`,
+                   border: `1.5px solid ${archetypePrimaryHex}55`,
+                   boxShadow: `0 0 32px ${archetypePrimaryHex}40, 0 0 64px ${archetypePrimaryHex}18, inset 0 0 20px ${archetypePrimaryHex}10`,
                 }}
               >
                 {archetypeMeta.icon}
@@ -285,23 +293,30 @@ export default function DevelopmentPage() {
               })}
             </div>
 
-            <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4 mb-5">
-              <p className="font-black tracking-[0.25em] uppercase text-[10px] mb-3" style={{ color: archetypeMeta.primaryHex }}>COACH P SAYS</p>
+             {archetypeDefinition?.description && (
+               <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4 mb-5">
+                 <p className="font-black tracking-[0.25em] uppercase text-[10px] mb-2" style={{ color: archetypePrimaryHex }}>ARCHETYPE PROFILE</p>
+                 <p className="text-zinc-300 text-sm leading-relaxed">{archetypeDefinition.description}</p>
+               </div>
+             )}
+
+             <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4 mb-5">
+               <p className="font-black tracking-[0.25em] uppercase text-[10px] mb-3" style={{ color: archetypePrimaryHex }}>COACH P SAYS</p>
               <div className="flex gap-2.5 items-start">
-                <span className="text-2xl leading-none font-black shrink-0 mt-0.5" style={{ color: `${archetypeMeta.primaryHex}70` }}>"</span>
+                 <span className="text-2xl leading-none font-black shrink-0 mt-0.5" style={{ color: `${archetypePrimaryHex}70` }}>"</span>
                 <p className="text-zinc-300 text-sm leading-relaxed">{archetypeMeta.coachP}</p>
               </div>
             </div>
 
-            <p className="font-black tracking-[0.25em] uppercase text-[10px] mb-3" style={{ color: archetypeMeta.primaryHex }}>CORE CHARACTERISTICS</p>
+             <p className="font-black tracking-[0.25em] uppercase text-[10px] mb-3" style={{ color: archetypePrimaryHex }}>CORE CHARACTERISTICS</p>
             <div className="space-y-2 mb-5">
-              {archetypeMeta.strengths.map((strength, i) => (
-                <div key={i} className="flex items-center gap-3 rounded-xl px-3 py-2.5 border" style={{ background: `${archetypeMeta.primaryHex}08`, borderColor: `${archetypeMeta.primaryHex}20` }}>
-                  <div className="w-9 h-9 rounded-full flex items-center justify-center text-base shrink-0" style={{ background: `${archetypeMeta.primaryHex}18`, border: `1px solid ${archetypeMeta.primaryHex}30` }}>
+               {coreCharacteristics.map((strength, i) => (
+                 <div key={i} className="flex items-center gap-3 rounded-xl px-3 py-2.5 border" style={{ background: `${archetypePrimaryHex}08`, borderColor: `${archetypePrimaryHex}20` }}>
+                   <div className="w-9 h-9 rounded-full flex items-center justify-center text-base shrink-0" style={{ background: `${archetypePrimaryHex}18`, border: `1px solid ${archetypePrimaryHex}30` }}>
                     {getCharIcon(strength)}
                   </div>
                   <span className="text-white text-sm font-semibold flex-1">{strength}</span>
-                  <ChevronRight className="w-4 h-4 shrink-0" style={{ color: `${archetypeMeta.primaryHex}60` }} />
+                   <ChevronRight className="w-4 h-4 shrink-0" style={{ color: `${archetypePrimaryHex}60` }} />
                 </div>
               ))}
             </div>
@@ -309,7 +324,7 @@ export default function DevelopmentPage() {
             <button
               onClick={handleNext}
               className="w-full py-4 rounded-2xl font-black text-sm tracking-[0.3em] uppercase transition-all active:scale-[0.98]"
-              style={{ background: archetypeMeta.primaryHex, color: "#000", boxShadow: `0 0 24px ${archetypeMeta.primaryHex}50` }}
+               style={{ background: archetypePrimaryHex, color: "#000", boxShadow: `0 0 24px ${archetypePrimaryHex}50` }}
               data-testid="button-development-next"
             >
               CONTINUE <ArrowRight className="inline-block ml-2 h-4 w-4" />

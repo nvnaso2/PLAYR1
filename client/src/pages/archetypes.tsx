@@ -17,6 +17,7 @@ import { Progress } from "@/components/ui/progress";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArchetypeRingChart, type RingSegment } from "@/components/archetype-ring-chart";
+import { getCoreCharacteristics } from "@/components/archetype-content";
 import { Link } from "wouter";
 
 type UserArchetypeWithDef = UserArchetype & { archetype: Archetype };
@@ -88,8 +89,8 @@ function ArchetypeRoadmapSheet({
           </SheetHeader>
           <p className="text-sm text-zinc-400 italic mb-3">"{archetype.tagline}"</p>
           <p className="text-sm text-zinc-400 leading-relaxed mb-4">{archetype.description}</p>
-          <div className="flex flex-wrap gap-1.5 mb-4">
-            {archetype.traits.map(t => (
+           <div className="flex flex-wrap gap-1.5 mb-4">
+             {getCoreCharacteristics(archetype.traits).map(t => (
               <span key={t} className="text-[10px] px-2 py-0.5 rounded-full font-medium"
                 style={{ background: `${archetype.primaryHex}18`, color: archetype.primaryHex }}>{t}</span>
             ))}
@@ -316,7 +317,7 @@ function ArchetypeIdentityDetail({ ua }: { ua: UserArchetypeWithDef }) {
           </span>
         </div>
         <div className="flex flex-wrap gap-1.5 mt-3">
-          {ua.archetype.traits.map(t => <span key={t} className="text-[11px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700">{t}</span>)}
+          {getCoreCharacteristics(ua.archetype.traits).map(t => <span key={t} className="text-[11px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700">{t}</span>)}
         </div>
       </div>
 

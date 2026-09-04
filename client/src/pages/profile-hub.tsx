@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getObjectUrl } from "@/lib/queryClient";
 import {
-  BarChart3, Fingerprint, BotMessageSquare, Zap, Target,
+  BarChart3, BotMessageSquare, Zap,
   ChevronRight, UserCircle, Settings, Crown,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
@@ -22,15 +22,6 @@ const sections = [
     testId: "card-profile-subscription",
   },
   {
-    title: "Development",
-    description: "Your assessment results, player stage and growth areas",
-    icon: Target,
-    color: "text-orange-400",
-    bg: "bg-orange-500/10",
-    path: "/development",
-    testId: "card-profile-development",
-  },
-  {
     title: "My Career",
     description: "Stats, trophies, training history and milestones",
     icon: BarChart3,
@@ -38,15 +29,6 @@ const sections = [
     bg: "bg-orange-500/10",
     path: "/career",
     testId: "card-profile-career",
-  },
-  {
-    title: "Archetypes",
-    description: "Explore player archetypes and discover your style",
-    icon: Fingerprint,
-    color: "text-purple-400",
-    bg: "bg-purple-500/10",
-    path: "/archetypes",
-    testId: "card-profile-archetypes",
   },
   {
     title: "My Goal",

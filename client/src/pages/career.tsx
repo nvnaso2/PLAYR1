@@ -91,6 +91,7 @@ import {
   Pen,
   Sparkles,
   MessageSquare,
+  Fingerprint,
 } from "lucide-react";
 import type { CareerProfile, UserAchievement, CareerAchievement, Challenge, UserChallenge, PersonalRecord, TeamAward, Season, Game, InsertTeamAward, InsertChallenge } from "@shared/schema";
 import { insertTeamAwardSchema, insertChallengeSchema } from "@shared/schema";
@@ -111,6 +112,7 @@ import { ShareCardDialog } from "@/components/share-card";
 import { WorkoutShareDialog } from "@/components/workout-share-dialog";
 import CsvImportDialog from "@/components/csv-import-dialog";
 import { PlayerProfileSection } from "@/pages/player-profile";
+import { Link } from "wouter";
 
 const MONTHS = [
   { value: 1, label: "January" },
@@ -4656,6 +4658,27 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
       <div className="flex flex-col items-center gap-4 text-center">
         <h1 className="text-2xl sm:text-3xl font-bold">My Career</h1>
         <BaseballCard profile={profile} careerStats={careerStats} userName={playerName} onPhotoUpdated={() => queryClient.invalidateQueries({ queryKey: ["/api/career"] })} />
+         <div className="w-full max-w-xl">
+           <p className="text-xs text-muted-foreground uppercase tracking-[0.18em] font-semibold mb-2">Player Development</p>
+           <div className="grid grid-cols-2 gap-3">
+             <Link
+               href="/archetypes"
+               className="flex items-center justify-center gap-2 rounded-xl border border-orange-500/30 bg-orange-500/10 px-3 py-3 text-sm font-bold text-orange-300 transition-colors hover:bg-orange-500/20"
+               data-testid="button-career-archetype"
+             >
+               <Fingerprint className="w-4 h-4" />
+               Archetype
+             </Link>
+             <Link
+               href="/development"
+               className="flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900/70 px-3 py-3 text-sm font-bold text-zinc-200 transition-colors hover:bg-zinc-800"
+               data-testid="button-career-development-profile"
+             >
+               <Target className="w-4 h-4" />
+               Development Profile
+             </Link>
+           </div>
+         </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
