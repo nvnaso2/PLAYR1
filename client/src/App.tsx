@@ -286,6 +286,9 @@ function Router() {
       <Route path="/auth">{() => isAuthenticated ? <Redirect to="/" /> : <AuthPage />}</Route>
       <Route path="/quiz/:quizId" component={MicroQuizPage} />
       <Route path="/quiz" component={MicroQuizPage} />
+      <Route path="/assessment">{() => isAuthenticated
+        ? <WelcomePage authenticatedMode />
+        : <Redirect to="/auth?returnTo=/assessment" />}</Route>
       <Route path="/welcome">{() => isAuthenticated ? <Redirect to="/" /> : <WelcomePage />}</Route>
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password" component={ResetPassword} />

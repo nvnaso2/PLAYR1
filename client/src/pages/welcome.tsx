@@ -337,10 +337,18 @@ function ScoreBar({ label, score, band, color="bg-orange-500" }: { label: string
 }
 
 // ─── PROPS ───────────────────────────────────────────────────────────────────
-interface WelcomePageProps { previewMode?: boolean; onPreviewComplete?: () => void; }
+interface WelcomePageProps {
+  previewMode?: boolean;
+  authenticatedMode?: boolean;
+  onPreviewComplete?: () => void;
+}
 type Phase = "intro" | "quiz" | "loading" | "results";
 
-export default function WelcomePage({ previewMode = false, onPreviewComplete }: WelcomePageProps = {}) {
+export default function WelcomePage({
+  previewMode = false,
+  authenticatedMode = false,
+  onPreviewComplete,
+}: WelcomePageProps = {}) {
   const [, navigate] = useLocation();
   const qc = useQueryClient();
 
@@ -374,7 +382,23 @@ export default function WelcomePage({ previewMode = false, onPreviewComplete }: 
     setAnimIn(false);
     setTimeout(() => { setStepIdx(idx); setAnimIn(true); }, 200);
   }
-  function advanceStep() { goToStep(stepIdx + 1); }
+
+  function getNextStepIndex(index: number) {
+    let nextIndex = index + 1;
+    if (authenticatedMode) {
+      while (
+        nextIndex < STEPS.length &&
+        ["name", "email", "password"].includes(STEPS[nextIndex].type)
+      ) {
+        nextIndex += 1;
+      }
+    }
+    return nextIndex;
+  }
+
+  function advanceStep() {
+    goToStep(getNextStepIndex(stepIdx));
+  }
 
   function handleAnswer(answer: string) {
     if (transitioning) return;
@@ -383,9 +407,17 @@ export default function WelcomePage({ previewMode = false, onPreviewComplete }: 
     setSelectedOption(answer);
     setTransitioning(true);
     setTimeout(() => {
-      setAnswers(prev => new Map(prev).set(step.id, answer));
-      setSelectedOption(null); setTransitioning(false);
-      goToStep(stepIdx + 1);
+      const nextAnswers = new Map(answers).set(step.id, answer);
+      setAnswers(nextAnswers);
+      setSelectedOption(null);
+      setTransitioning(false);
+
+      const nextStepIndex = getNextStepIndex(stepIdx);
+      if (authenticatedMode && nextStepIndex >= STEPS.length) {
+        handleSubmit(nextAnswers);
+      } else {
+        goToStep(nextStepIndex);
+      }
     }, 280);
   }
 
@@ -404,14 +436,26 @@ export default function WelcomePage({ previewMode = false, onPreviewComplete }: 
     }
   }
 
-  async function handleSubmit() {
+  async function handleSubmit(answerSet = answers) {
     setPhase("loading");
-    const computed = computeResults(answers);
+    const computed = computeResults(answerSet);
     if (previewMode) {
       await new Promise(r => setTimeout(r, 1600));
       setResults(computed); setResultSlide(0); setPhase("results"); return;
     }
     try {
+      if (authenticatedMode) {
+        await apiRequest("POST", "/api/onboarding/assess", {
+          result: computed,
+          answers: Object.fromEntries(answerSet),
+        });
+        qc.invalidateQueries({ queryKey: ["/api/career"] });
+        setResults(computed);
+        setResultSlide(0);
+        setPhase("results");
+        return;
+      }
+
       const registerRes = await fetch(buildUrl("/api/auth/register"), {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },

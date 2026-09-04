@@ -231,7 +231,7 @@ export default function HubPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button
-              onClick={() => navigate("/career")}
+              onClick={() => navigate("/assessment")}
               className="w-full text-left rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 hover:border-orange-500/40 transition-colors"
               data-testid="button-regular-onboarding"
             >
