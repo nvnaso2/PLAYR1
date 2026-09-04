@@ -243,7 +243,12 @@ export default function HubPage() {
                 </div>
                 <div className="min-w-0">
                   <p className="text-white font-bold text-sm">Tell Us More About Your Basketball Story</p>
+                  <p className="text-zinc-500 text-xs mt-0.5">Answer a few quick questions</p>
                 </div>
+              </div>
+              <div className="mt-3 flex items-center gap-1 text-orange-400 text-xs font-bold">
+                {fullOnboardingComplete ? "Review assessment" : "Take assessment"}
+                <ChevronRight className="w-3.5 h-3.5" />
               </div>
             </button>
 
