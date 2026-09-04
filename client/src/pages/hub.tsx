@@ -247,7 +247,7 @@ export default function HubPage() {
                 </div>
               </div>
               <div className="mt-3 flex items-center gap-1 text-orange-400 text-xs font-bold">
-                {fullOnboardingComplete ? "Review assessment" : "Take assessment"}
+                Build Your PLAYR1 Profile
                 <ChevronRight className="w-3.5 h-3.5" />
               </div>
             </button>
