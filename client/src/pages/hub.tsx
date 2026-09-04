@@ -194,12 +194,12 @@ export default function HubPage() {
               <X className="h-4 w-4" />
             </button>
             <div className="relative z-10 p-5 min-h-[156px] flex flex-col justify-end">
-              <p className="text-[10px] uppercase tracking-[0.25em] text-orange-400 font-bold">PLAYR1 // INTRO</p>
-              <h2 className="text-xl font-black text-white mt-1">Your game starts here.</h2>
-              <p className="text-xs text-zinc-300 mt-1 max-w-[230px]">Train with intention. Track what matters. Become your next level.</p>
+              <p className="text-[10px] uppercase tracking-[0.25em] text-orange-400 font-bold">The PLAYR1 Trailer</p>
+              <h2 className="text-xl font-black text-white mt-1">Start Your Road to PLAYR1 Here.</h2>
+              <p className="text-xs text-zinc-300 mt-1 max-w-[260px]">The game of basketball has changed my life forever. No matter how the game affects your life, everyone has their own PLAYR1 story.</p>
               <div className="mt-3 flex items-center gap-2 text-xs font-bold text-white">
                 <span className="h-7 w-7 rounded-full bg-orange-500 text-black flex items-center justify-center"><Play className="h-3.5 w-3.5 fill-current ml-0.5" /></span>
-                Watch the intro
+                Watch the Trailer
               </div>
             </div>
           </div>
@@ -208,7 +208,6 @@ export default function HubPage() {
         {/* Post-onboarding path */}
         <section className="space-y-3" data-testid="section-post-onboarding">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.24em] text-orange-400 font-bold">YOUR PLAYR1 PATH</p>
             <h2 className="text-xl font-black text-white mt-1">Your next steps are ready.</h2>
             <p className="text-sm text-zinc-500 mt-1">Finish your setup, meet your coach, then get to work.</p>
           </div>
@@ -239,13 +238,13 @@ export default function HubPage() {
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0">
                   {fullOnboardingComplete
-                    ? <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                    : <ClipboardCheck className="w-5 h-5 text-blue-400" />}
+                    ? <CheckCircle2 className="w-5 h-5 text-white" />
+                    : <ClipboardCheck className="w-5 h-5 text-white" />}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-white font-bold text-sm">Regular onboarding quiz</p>
+                  <p className="text-white font-bold text-sm">Tell us more about your basketball story</p>
                   <p className="text-zinc-500 text-xs mt-0.5">
-                    {fullOnboardingComplete ? "Review your player assessment." : "Build your full PLAYR1 player profile."}
+                    {fullOnboardingComplete ? "Review your player assessment." : "Answer a few questions to customize your profile and app experience."}
                   </p>
                 </div>
               </div>
@@ -263,13 +262,13 @@ export default function HubPage() {
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center shrink-0">
                   {showProfileSetup
-                    ? <UserRound className="w-5 h-5 text-purple-400" />
-                    : <CheckCircle2 className="w-5 h-5 text-emerald-400" />}
+                    ? <UserRound className="w-5 h-5 text-white" />
+                    : <CheckCircle2 className="w-5 h-5 text-white" />}
                 </div>
                 <div className="min-w-0">
                   <p className="text-white font-bold text-sm">Complete your profile</p>
                   <p className="text-zinc-500 text-xs mt-0.5">
-                    {showProfileSetup ? "Add the details that make your player card yours." : "Your player profile is looking good."}
+                    {showProfileSetup ? "Add the details to customize your PLAYR1 Card and Account." : "Your player profile is looking good."}
                   </p>
                 </div>
               </div>
