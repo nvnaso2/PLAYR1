@@ -25,6 +25,66 @@ export async function runApplicationMigrations(): Promise<void> {
       );
       CREATE UNIQUE INDEX IF NOT EXISTS coach_p_usage_user_month_uq
         ON coach_p_usage (user_id, month_key);
+      CREATE TABLE IF NOT EXISTS coach_p_conversations (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id varchar NOT NULL,
+        title varchar(200) NOT NULL DEFAULT 'New Coach P conversation',
+        summary text,
+        summary_updated_at timestamp,
+        message_count integer NOT NULL DEFAULT 0,
+        created_at timestamp DEFAULT now(),
+        updated_at timestamp DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS coach_p_conversations_user_updated_idx
+        ON coach_p_conversations (user_id, updated_at);
+      CREATE TABLE IF NOT EXISTS coach_p_messages (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        conversation_id varchar NOT NULL,
+        role varchar(20) NOT NULL,
+        content text NOT NULL,
+        model varchar(100),
+        context_mode varchar(40),
+        prompt_tokens integer,
+        completion_tokens integer,
+        total_tokens integer,
+        latency_ms integer,
+        created_at timestamp DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS coach_p_messages_conversation_created_idx
+        ON coach_p_messages (conversation_id, created_at);
+      CREATE TABLE IF NOT EXISTS coach_p_requests (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id varchar NOT NULL,
+        conversation_id varchar,
+        operation varchar(30) NOT NULL DEFAULT 'chat',
+        status varchar(20) NOT NULL DEFAULT 'completed',
+        model varchar(100),
+        context_mode varchar(40),
+        prompt_tokens integer,
+        cached_prompt_tokens integer,
+        completion_tokens integer,
+        total_tokens integer,
+        input_cost_usd double precision,
+        cached_input_cost_usd double precision,
+        output_cost_usd double precision,
+        estimated_cost_usd double precision,
+        input_rate_per_million double precision,
+        output_rate_per_million double precision,
+        context_ms integer,
+        prompt_ms integer,
+        model_ms integer,
+        total_ms integer,
+        error_message text,
+        created_at timestamp DEFAULT now()
+      );
+      ALTER TABLE coach_p_requests ADD COLUMN IF NOT EXISTS cached_prompt_tokens integer;
+      ALTER TABLE coach_p_requests ADD COLUMN IF NOT EXISTS cached_input_cost_usd double precision;
+      ALTER TABLE coach_p_requests ADD COLUMN IF NOT EXISTS input_rate_per_million double precision;
+      ALTER TABLE coach_p_requests ADD COLUMN IF NOT EXISTS output_rate_per_million double precision;
+      CREATE INDEX IF NOT EXISTS coach_p_requests_created_at_idx
+        ON coach_p_requests (created_at);
+      CREATE INDEX IF NOT EXISTS coach_p_requests_user_created_at_idx
+        ON coach_p_requests (user_id, created_at);
     `);
     await client.query("COMMIT");
   } catch (error) {

@@ -1856,6 +1856,86 @@ export const coachPUsage = pgTable("coach_p_usage", {
 }, (table) => ({
   userMonth: uniqueIndex("coach_p_usage_user_month_uq").on(table.userId, table.monthKey),
 }));
+
+export const coachPConversations = pgTable("coach_p_conversations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  title: varchar("title", { length: 200 }).notNull().default("New Coach P conversation"),
+  summary: text("summary"),
+  summaryUpdatedAt: timestamp("summary_updated_at"),
+  messageCount: integer("message_count").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  userUpdatedIdx: index("coach_p_conversations_user_updated_idx").on(table.userId, table.updatedAt),
+}));
+
+export const coachPMessages = pgTable("coach_p_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  conversationId: varchar("conversation_id").notNull(),
+  role: varchar("role", { length: 20 }).$type<"user" | "assistant">().notNull(),
+  content: text("content").notNull(),
+  model: varchar("model", { length: 100 }),
+  contextMode: varchar("context_mode", { length: 40 }),
+  promptTokens: integer("prompt_tokens"),
+  completionTokens: integer("completion_tokens"),
+  totalTokens: integer("total_tokens"),
+  latencyMs: integer("latency_ms"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  conversationCreatedIdx: index("coach_p_messages_conversation_created_idx").on(table.conversationId, table.createdAt),
+}));
+
+export const coachPRequests = pgTable("coach_p_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  conversationId: varchar("conversation_id"),
+  operation: varchar("operation", { length: 30 }).notNull().default("chat"),
+  status: varchar("status", { length: 20 }).notNull().default("completed"),
+  model: varchar("model", { length: 100 }),
+  contextMode: varchar("context_mode", { length: 40 }),
+  promptTokens: integer("prompt_tokens"),
+  cachedPromptTokens: integer("cached_prompt_tokens"),
+  completionTokens: integer("completion_tokens"),
+  totalTokens: integer("total_tokens"),
+  inputCostUsd: doublePrecision("input_cost_usd"),
+  cachedInputCostUsd: doublePrecision("cached_input_cost_usd"),
+  outputCostUsd: doublePrecision("output_cost_usd"),
+  estimatedCostUsd: doublePrecision("estimated_cost_usd"),
+  inputRatePerMillion: doublePrecision("input_rate_per_million"),
+  outputRatePerMillion: doublePrecision("output_rate_per_million"),
+  contextMs: integer("context_ms"),
+  promptMs: integer("prompt_ms"),
+  modelMs: integer("model_ms"),
+  totalMs: integer("total_ms"),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  createdAtIdx: index("coach_p_requests_created_at_idx").on(table.createdAt),
+  userCreatedAtIdx: index("coach_p_requests_user_created_at_idx").on(table.userId, table.createdAt),
+}));
+
+export const insertCoachPConversationSchema = createInsertSchema(coachPConversations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export const insertCoachPMessageSchema = createInsertSchema(coachPMessages).omit({
+  id: true,
+  createdAt: true,
+});
+export const insertCoachPRequestSchema = createInsertSchema(coachPRequests).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type CoachPConversation = typeof coachPConversations.$inferSelect;
+export type CoachPMessage = typeof coachPMessages.$inferSelect;
+export type CoachPRequest = typeof coachPRequests.$inferSelect;
+export type InsertCoachPConversation = z.infer<typeof insertCoachPConversationSchema>;
+export type InsertCoachPMessage = z.infer<typeof insertCoachPMessageSchema>;
+export type InsertCoachPRequest = z.infer<typeof insertCoachPRequestSchema>;
+
 export const programEnrollments = pgTable("program_enrollments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull(),

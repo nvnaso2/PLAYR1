@@ -97,6 +97,9 @@ import {
   streakChallenges, type StreakChallenge,
   streakChallengeParticipants, type StreakChallengeParticipant, type InsertStreakChallengeParticipant,
   streakChallengeAttempts, type StreakChallengeAttempt, type InsertStreakChallengeAttempt,
+  coachPConversations, coachPMessages, coachPRequests,
+  type CoachPConversation, type CoachPMessage, type CoachPRequest,
+  type InsertCoachPConversation, type InsertCoachPMessage, type InsertCoachPRequest,
 } from "@shared/schema";
 import { users, type User } from "@shared/models/auth";
 import { db, pool } from "./db";
@@ -930,6 +933,15 @@ export class DatabaseStorage {
   }
 
   async deleteUser(userId: string): Promise<boolean> {
+    const conversations = await db.select({ id: coachPConversations.id })
+      .from(coachPConversations)
+      .where(eq(coachPConversations.userId, userId));
+    if (conversations.length > 0) {
+      await db.delete(coachPMessages).where(inArray(coachPMessages.conversationId, conversations.map(row => row.id)));
+      await db.delete(coachPRequests).where(inArray(coachPRequests.conversationId, conversations.map(row => row.id)));
+      await db.delete(coachPConversations).where(eq(coachPConversations.userId, userId));
+    }
+    await db.delete(coachPRequests).where(eq(coachPRequests.userId, userId));
     await db.delete(users).where(eq(users.id, userId));
     return true;
   }
@@ -4088,6 +4100,195 @@ export class DatabaseStorage {
 
   async trackAnalyticsEvent(userId: string, event: string, page?: string, metadata?: any): Promise<void> {
     await db.insert(analyticsEvents).values({ userId, event, page: page || null, metadata: metadata || null });
+  }
+
+  async getCoachPConversations(userId: string): Promise<CoachPConversation[]> {
+    return db.select().from(coachPConversations)
+      .where(eq(coachPConversations.userId, userId))
+      .orderBy(desc(coachPConversations.updatedAt));
+  }
+
+  async getCoachPConversation(userId: string, id: string): Promise<CoachPConversation | undefined> {
+    const [conversation] = await db.select().from(coachPConversations)
+      .where(and(eq(coachPConversations.id, id), eq(coachPConversations.userId, userId)));
+    return conversation;
+  }
+
+  async createCoachPConversation(data: InsertCoachPConversation): Promise<CoachPConversation> {
+    const [conversation] = await db.insert(coachPConversations).values(data).returning();
+    return conversation;
+  }
+
+  async updateCoachPConversation(
+    id: string,
+    userId: string,
+    data: Partial<InsertCoachPConversation>,
+  ): Promise<CoachPConversation | undefined> {
+    const [conversation] = await db.update(coachPConversations)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq(coachPConversations.id, id), eq(coachPConversations.userId, userId)))
+      .returning();
+    return conversation;
+  }
+
+  async deleteCoachPConversation(id: string, userId: string): Promise<boolean> {
+    const conversation = await this.getCoachPConversation(userId, id);
+    if (!conversation) return false;
+    await db.delete(coachPMessages).where(eq(coachPMessages.conversationId, id));
+    await db.delete(coachPRequests).where(eq(coachPRequests.conversationId, id));
+    await db.delete(coachPConversations).where(eq(coachPConversations.id, id));
+    return true;
+  }
+
+  async getCoachPMessages(conversationId: string): Promise<CoachPMessage[]> {
+    return db.select().from(coachPMessages)
+      .where(eq(coachPMessages.conversationId, conversationId))
+      .orderBy(asc(coachPMessages.createdAt));
+  }
+
+  async createCoachPMessage(data: InsertCoachPMessage): Promise<CoachPMessage> {
+    const [message] = await db.insert(coachPMessages).values({
+      ...data,
+      role: data.role as "user" | "assistant",
+    }).returning();
+    return message;
+  }
+
+  async recordCoachPRequest(data: InsertCoachPRequest): Promise<CoachPRequest> {
+    const [request] = await db.insert(coachPRequests).values(data).returning();
+    return request;
+  }
+
+  async getAdminCoachPAnalytics(days = 30): Promise<any> {
+    const safeDays = Math.min(365, Math.max(1, Math.floor(days) || 30));
+    const r = <T = any>(res: any): T[] => (res.rows ?? res) as T[];
+    const r1 = (res: any): any => r(res)[0] ?? {};
+    const window = `${safeDays} days`;
+    const summary = r1(await db.execute(sql`
+      SELECT
+        COUNT(*)::int AS requests,
+        COUNT(*) FILTER (WHERE status = 'completed')::int AS completed_requests,
+        COUNT(*) FILTER (WHERE status = 'error')::int AS error_requests,
+        COUNT(*) FILTER (WHERE operation = 'chat')::int AS chat_requests,
+        COUNT(*) FILTER (WHERE operation = 'summary')::int AS summary_requests,
+        COALESCE(SUM(prompt_tokens), 0)::bigint AS prompt_tokens,
+        COALESCE(SUM(cached_prompt_tokens), 0)::bigint AS cached_prompt_tokens,
+        COALESCE(SUM(completion_tokens), 0)::bigint AS completion_tokens,
+        COALESCE(SUM(total_tokens), 0)::bigint AS total_tokens,
+        COALESCE(SUM(estimated_cost_usd), 0)::double precision AS estimated_cost_usd,
+        COALESCE(SUM(cached_input_cost_usd), 0)::double precision AS cached_input_cost_usd,
+        COALESCE(AVG(total_ms) FILTER (WHERE status = 'completed'), 0)::double precision AS avg_total_ms,
+        COALESCE(AVG(model_ms) FILTER (WHERE status = 'completed'), 0)::double precision AS avg_model_ms
+      FROM coach_p_requests
+      WHERE created_at >= NOW() - ${window}::interval
+    `));
+    const daily = r(await db.execute(sql`
+      SELECT
+        DATE_TRUNC('day', created_at)::date AS day,
+        COUNT(*)::int AS requests,
+        COALESCE(SUM(total_tokens), 0)::bigint AS total_tokens,
+        COALESCE(SUM(estimated_cost_usd), 0)::double precision AS estimated_cost_usd,
+        COALESCE(AVG(total_ms), 0)::double precision AS avg_total_ms
+      FROM coach_p_requests
+      WHERE created_at >= NOW() - ${window}::interval
+      GROUP BY day
+      ORDER BY day ASC
+    `));
+    const byModel = r(await db.execute(sql`
+      SELECT
+        COALESCE(model, 'unknown') AS model,
+        COUNT(*)::int AS requests,
+        COALESCE(SUM(prompt_tokens), 0)::bigint AS prompt_tokens,
+        COALESCE(SUM(cached_prompt_tokens), 0)::bigint AS cached_prompt_tokens,
+        COALESCE(SUM(completion_tokens), 0)::bigint AS completion_tokens,
+        COALESCE(SUM(total_tokens), 0)::bigint AS total_tokens,
+        COALESCE(SUM(estimated_cost_usd), 0)::double precision AS estimated_cost_usd,
+        COALESCE(SUM(cached_input_cost_usd), 0)::double precision AS cached_input_cost_usd,
+        COALESCE(AVG(total_ms), 0)::double precision AS avg_total_ms
+      FROM coach_p_requests
+      WHERE created_at >= NOW() - ${window}::interval
+      GROUP BY model
+      ORDER BY estimated_cost_usd DESC
+    `));
+    const byMode = r(await db.execute(sql`
+      SELECT
+        COALESCE(context_mode, 'unknown') AS mode,
+        COUNT(*)::int AS requests,
+        COALESCE(SUM(total_tokens), 0)::bigint AS total_tokens,
+        COALESCE(SUM(estimated_cost_usd), 0)::double precision AS estimated_cost_usd,
+        COALESCE(AVG(total_ms), 0)::double precision AS avg_total_ms
+      FROM coach_p_requests
+      WHERE created_at >= NOW() - ${window}::interval
+      GROUP BY context_mode
+      ORDER BY requests DESC
+    `));
+    const topUsers = r(await db.execute(sql`
+      SELECT
+        r.user_id,
+        COALESCE(NULLIF(TRIM(CONCAT(u.first_name, ' ', u.last_name)), ''), u.email, r.user_id) AS name,
+        u.email,
+        COUNT(*)::int AS requests,
+        COALESCE(SUM(r.total_tokens), 0)::bigint AS total_tokens,
+        COALESCE(SUM(r.estimated_cost_usd), 0)::double precision AS estimated_cost_usd
+      FROM coach_p_requests r
+      LEFT JOIN users u ON u.id = r.user_id
+      WHERE r.created_at >= NOW() - ${window}::interval
+      GROUP BY r.user_id, u.first_name, u.last_name, u.email
+      ORDER BY estimated_cost_usd DESC
+      LIMIT 20
+    `));
+
+    return {
+      windowDays: safeDays,
+      summary: {
+        requests: Number(summary.requests || 0),
+        completedRequests: Number(summary.completed_requests || 0),
+        errorRequests: Number(summary.error_requests || 0),
+        chatRequests: Number(summary.chat_requests || 0),
+        summaryRequests: Number(summary.summary_requests || 0),
+        promptTokens: Number(summary.prompt_tokens || 0),
+        cachedPromptTokens: Number(summary.cached_prompt_tokens || 0),
+        completionTokens: Number(summary.completion_tokens || 0),
+        totalTokens: Number(summary.total_tokens || 0),
+        estimatedCostUsd: Number(summary.estimated_cost_usd || 0),
+        cachedInputCostUsd: Number(summary.cached_input_cost_usd || 0),
+        avgTotalMs: Number(summary.avg_total_ms || 0),
+        avgModelMs: Number(summary.avg_model_ms || 0),
+      },
+      daily: daily.map((row: any) => ({
+        day: row.day,
+        requests: Number(row.requests || 0),
+        totalTokens: Number(row.total_tokens || 0),
+        estimatedCostUsd: Number(row.estimated_cost_usd || 0),
+        avgTotalMs: Number(row.avg_total_ms || 0),
+      })),
+      byModel: byModel.map((row: any) => ({
+        model: row.model,
+        requests: Number(row.requests || 0),
+        promptTokens: Number(row.prompt_tokens || 0),
+        cachedPromptTokens: Number(row.cached_prompt_tokens || 0),
+        completionTokens: Number(row.completion_tokens || 0),
+        totalTokens: Number(row.total_tokens || 0),
+        estimatedCostUsd: Number(row.estimated_cost_usd || 0),
+        cachedInputCostUsd: Number(row.cached_input_cost_usd || 0),
+        avgTotalMs: Number(row.avg_total_ms || 0),
+      })),
+      byMode: byMode.map((row: any) => ({
+        mode: row.mode,
+        requests: Number(row.requests || 0),
+        totalTokens: Number(row.total_tokens || 0),
+        estimatedCostUsd: Number(row.estimated_cost_usd || 0),
+        avgTotalMs: Number(row.avg_total_ms || 0),
+      })),
+      topUsers: topUsers.map((row: any) => ({
+        userId: row.user_id,
+        name: row.name,
+        email: row.email,
+        requests: Number(row.requests || 0),
+        totalTokens: Number(row.total_tokens || 0),
+        estimatedCostUsd: Number(row.estimated_cost_usd || 0),
+      })),
+    };
   }
 
   async getAdminAnalytics(): Promise<any> {

@@ -4847,6 +4847,9 @@ function AdminAnalyticsTab() {
           <TabsTrigger value="content" data-testid="tab-analytics-content" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <Trophy className="w-4 h-4 mr-1.5" /> Content
           </TabsTrigger>
+          <TabsTrigger value="coach-p" data-testid="tab-analytics-coach-p" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <Calculator className="w-4 h-4 mr-1.5" /> Coach P
+          </TabsTrigger>
           <TabsTrigger value="ai" data-testid="tab-analytics-ai" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <Lightbulb className="w-4 h-4 mr-1.5" /> AI Insights
           </TabsTrigger>
@@ -4860,9 +4863,185 @@ function AdminAnalyticsTab() {
         <TabsContent value="funnels" className="mt-6"><FunnelsSubTab /></TabsContent>
         <TabsContent value="users" className="mt-6"><UsersSubTab /></TabsContent>
         <TabsContent value="content" className="mt-6"><ContentSubTab /></TabsContent>
+        <TabsContent value="coach-p" className="mt-6"><CoachPAnalyticsSubTab /></TabsContent>
         <TabsContent value="ai" className="mt-6"><AiInsightsSubTab /></TabsContent>
         <TabsContent value="live" className="mt-6"><LiveActivitySubTab /></TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+function formatCoachPCost(value: number) {
+  if (!value) return "$0.00";
+  if (value < 0.01) return `$${value.toFixed(4)}`;
+  return `$${value.toFixed(2)}`;
+}
+
+function formatCoachPTokens(value: number) {
+  return value >= 1_000_000 ? `${(value / 1_000_000).toFixed(2)}M` : value >= 1_000 ? `${(value / 1_000).toFixed(1)}K` : value.toLocaleString();
+}
+
+function CoachPAnalyticsSubTab() {
+  const [days, setDays] = useState("30");
+  const { data, isLoading, isError, refetch } = useQuery<any>({
+    queryKey: ["/api/admin/analytics/coach-p", days],
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/api/admin/analytics/coach-p?days=${days}`);
+      return response.json();
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">{[1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="h-24 rounded-xl" />)}</div>
+        <Skeleton className="h-72 rounded-xl" />
+      </div>
+    );
+  }
+
+  if (isError || !data) {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center space-y-3">
+          <AlertTriangle className="w-8 h-8 text-orange-500 mx-auto" />
+          <p className="font-medium">Couldn’t load Coach P analytics</p>
+          <Button size="sm" variant="outline" onClick={() => refetch()}>Retry</Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const summary = data.summary;
+  const daily = data.daily ?? [];
+  const maxDailyCost = Math.max(0.0001, ...daily.map((row: any) => Number(row.estimatedCostUsd || 0)));
+
+  return (
+    <div className="space-y-6" data-testid="section-coach-p-analytics">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h2 className="text-lg font-semibold">Coach P Usage & Cost</h2>
+          <p className="text-sm text-muted-foreground">
+            Provider-cost estimates from recorded token usage. Conversation text is not shown here.
+          </p>
+        </div>
+        <Select value={days} onValueChange={setDays}>
+          <SelectTrigger className="w-[150px]" data-testid="select-coach-p-analytics-window"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="7">Last 7 days</SelectItem>
+            <SelectItem value="30">Last 30 days</SelectItem>
+            <SelectItem value="90">Last 90 days</SelectItem>
+            <SelectItem value="365">Last year</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+        <AccentStatCard label="Estimated cost" value={formatCoachPCost(summary.estimatedCostUsd)} sub={`${data.windowDays}-day window`} icon={Calculator} accent="orange" testId="stat-coach-p-cost" />
+        <AccentStatCard label="Requests" value={summary.requests.toLocaleString()} sub={`${summary.chatRequests} chats · ${summary.summaryRequests} summaries`} icon={Activity} accent="blue" testId="stat-coach-p-requests" />
+        <AccentStatCard label="Total tokens" value={formatCoachPTokens(summary.totalTokens)} sub={`${formatCoachPTokens(summary.promptTokens)} input · ${formatCoachPTokens(summary.completionTokens)} output`} icon={Hash} accent="purple" testId="stat-coach-p-tokens" />
+        <AccentStatCard label="Avg response" value={`${Math.round(summary.avgTotalMs).toLocaleString()} ms`} sub={`${Math.round(summary.avgModelMs).toLocaleString()} ms model time`} icon={Clock} accent="green" testId="stat-coach-p-latency" />
+        <AccentStatCard label="Errors" value={summary.errorRequests.toLocaleString()} sub={`${summary.completedRequests} completed`} icon={AlertTriangle} accent="orange" testId="stat-coach-p-errors" />
+      </div>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Daily cost and token usage</CardTitle></CardHeader>
+        <CardContent>
+          {daily.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">No Coach P usage recorded in this window yet.</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={260}>
+              <LineChart data={daily.map((row: any) => ({
+                day: new Date(row.day).toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+                cost: Number(row.estimatedCostUsd || 0),
+                tokens: Number(row.totalTokens || 0),
+              }))}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="day" tick={{ fontSize: 11 }} />
+                <YAxis yAxisId="cost" tickFormatter={(value) => `$${Number(value).toFixed(2)}`} tick={{ fontSize: 11 }} />
+                <YAxis yAxisId="tokens" orientation="right" tickFormatter={(value) => formatCoachPTokens(Number(value))} tick={{ fontSize: 11 }} />
+                <Tooltip formatter={(value: any, name: string) => name === "Estimated cost" ? formatCoachPCost(Number(value)) : formatCoachPTokens(Number(value))} />
+                <Line yAxisId="cost" type="monotone" dataKey="cost" name="Estimated cost" stroke="#f97316" strokeWidth={2} dot={false} />
+                <Line yAxisId="tokens" type="monotone" dataKey="tokens" name="Tokens" stroke="#a855f7" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+          {daily.length > 0 && (
+            <div className="mt-4 space-y-2">
+              {daily.slice(-10).reverse().map((row: any) => (
+                <div key={row.day} className="flex items-center gap-3 text-xs">
+                  <span className="w-20 text-muted-foreground">{new Date(row.day).toLocaleDateString()}</span>
+                  <div className="h-2 flex-1 rounded-full bg-muted overflow-hidden">
+                    <div className="h-full rounded-full bg-orange-500" style={{ width: `${Math.max(2, (Number(row.estimatedCostUsd || 0) / maxDailyCost) * 100)}%` }} />
+                  </div>
+                  <span className="w-16 text-right font-medium">{formatCoachPCost(Number(row.estimatedCostUsd || 0))}</span>
+                  <span className="w-16 text-right text-muted-foreground">{formatCoachPTokens(Number(row.totalTokens || 0))}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader><CardTitle className="text-base">By model</CardTitle></CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader><TableRow><TableHead>Model</TableHead><TableHead>Requests</TableHead><TableHead>Tokens</TableHead><TableHead>Cached input</TableHead><TableHead className="text-right">Cost</TableHead></TableRow></TableHeader>
+              <TableBody>
+                {(data.byModel ?? []).map((row: any) => (
+                  <TableRow key={row.model}>
+                    <TableCell className="font-medium">{row.model}</TableCell>
+                    <TableCell>{row.requests.toLocaleString()}</TableCell>
+                    <TableCell>{formatCoachPTokens(row.totalTokens)}</TableCell>
+                    <TableCell>{formatCoachPTokens(row.cachedPromptTokens || 0)}</TableCell>
+                    <TableCell className="text-right">{formatCoachPCost(row.estimatedCostUsd)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle className="text-base">By coaching context</CardTitle></CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader><TableRow><TableHead>Context</TableHead><TableHead>Requests</TableHead><TableHead>Avg ms</TableHead><TableHead className="text-right">Cost</TableHead></TableRow></TableHeader>
+              <TableBody>
+                {(data.byMode ?? []).map((row: any) => (
+                  <TableRow key={row.mode}>
+                    <TableCell className="font-medium capitalize">{row.mode}</TableCell>
+                    <TableCell>{row.requests.toLocaleString()}</TableCell>
+                    <TableCell>{Math.round(row.avgTotalMs).toLocaleString()}</TableCell>
+                    <TableCell className="text-right">{formatCoachPCost(row.estimatedCostUsd)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Highest Coach P usage by player</CardTitle></CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader><TableRow><TableHead>Player</TableHead><TableHead>Email</TableHead><TableHead>Requests</TableHead><TableHead>Tokens</TableHead><TableHead className="text-right">Cost</TableHead></TableRow></TableHeader>
+            <TableBody>
+              {(data.topUsers ?? []).map((row: any) => (
+                <TableRow key={row.userId}>
+                  <TableCell className="font-medium">{row.name}</TableCell>
+                  <TableCell className="text-muted-foreground">{row.email || "—"}</TableCell>
+                  <TableCell>{row.requests.toLocaleString()}</TableCell>
+                  <TableCell>{formatCoachPTokens(row.totalTokens)}</TableCell>
+                  <TableCell className="text-right">{formatCoachPCost(row.estimatedCostUsd)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 }

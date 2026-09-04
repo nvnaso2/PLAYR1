@@ -233,6 +233,105 @@ export async function registerRoutes(
     return (await getSubscriptionSnapshot(userId)).plan === "pro";
   }
 
+  const COACH_P_MODEL_PRICING: Record<string, { inputPerMillion: number; outputPerMillion: number }> = {
+    "gpt-5-mini": { inputPerMillion: 0.25, outputPerMillion: 2 },
+    "gpt-5": { inputPerMillion: 1.25, outputPerMillion: 10 },
+  };
+
+  function getCoachPCost(model: string | null | undefined, usage: { prompt_tokens?: number; prompt_tokens_details?: { cached_tokens?: number }; completion_tokens?: number } | null) {
+    const pricing = model ? COACH_P_MODEL_PRICING[model] : undefined;
+    if (!pricing || usage?.prompt_tokens == null || usage?.completion_tokens == null) {
+      return {
+        inputCostUsd: null,
+        cachedInputCostUsd: null,
+        outputCostUsd: null,
+        estimatedCostUsd: null,
+        inputRatePerMillion: pricing?.inputPerMillion ?? null,
+        outputRatePerMillion: pricing?.outputPerMillion ?? null,
+      };
+    }
+    const cachedPromptTokens = Math.min(usage.prompt_tokens, usage.prompt_tokens_details?.cached_tokens ?? 0);
+    const nonCachedPromptTokens = usage.prompt_tokens - cachedPromptTokens;
+    const inputCostUsd = nonCachedPromptTokens / 1_000_000 * pricing.inputPerMillion;
+    const cachedInputCostUsd = cachedPromptTokens / 1_000_000 * (pricing.inputPerMillion * 0.1);
+    const outputCostUsd = usage.completion_tokens / 1_000_000 * pricing.outputPerMillion;
+    return {
+      inputCostUsd,
+      cachedInputCostUsd,
+      outputCostUsd,
+      estimatedCostUsd: inputCostUsd + cachedInputCostUsd + outputCostUsd,
+      inputRatePerMillion: pricing.inputPerMillion,
+      outputRatePerMillion: pricing.outputPerMillion,
+    };
+  }
+
+  async function refreshCoachPSummary(userId: string, conversationId: string) {
+    const conversation = await storage.getCoachPConversation(userId, conversationId);
+    if (!conversation || conversation.messageCount < 12) return;
+    if (conversation.messageCount % 4 !== 0 && conversation.summary) return;
+
+    const messages = await storage.getCoachPMessages(conversationId);
+    const olderMessages = messages.slice(0, -8);
+    if (olderMessages.length === 0) return;
+    const source = olderMessages.map(message => `${message.role.toUpperCase()}: ${message.content.slice(0, 900)}`).join("\n\n");
+    const previousSummary = conversation.summary ? `CURRENT SUMMARY:\n${conversation.summary}\n\n` : "";
+    const summaryStartedAt = Date.now();
+    try {
+      const OpenAI = (await import("openai")).default;
+      const openai = new OpenAI({
+        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+      });
+      const completion = await openai.chat.completions.create({
+        model: "gpt-5-mini",
+        messages: [{
+          role: "system",
+          content: "Create a compact coaching memory for Coach P. Preserve durable player goals, constraints, preferences, decisions, progress, and unresolved questions. Remove greetings, repetition, and sensitive details that are not useful for future coaching. Write 3 to 6 concise bullets, no more than 900 characters.",
+        }, {
+          role: "user",
+          content: `${previousSummary}EARLIER CONVERSATION:\n${source}`,
+        }],
+        max_completion_tokens: 500,
+      });
+      const summary = completion.choices[0]?.message?.content?.trim();
+      if (!summary) return;
+      await storage.updateCoachPConversation(conversationId, userId, {
+        summary,
+        summaryUpdatedAt: new Date(),
+      });
+      const usage = completion.usage;
+      const costs = getCoachPCost("gpt-5-mini", usage ? {
+        prompt_tokens: usage.prompt_tokens,
+        prompt_tokens_details: usage.prompt_tokens_details ? { cached_tokens: usage.prompt_tokens_details.cached_tokens } : undefined,
+        completion_tokens: usage.completion_tokens,
+      } : null);
+      await storage.recordCoachPRequest({
+        userId,
+        conversationId,
+        operation: "summary",
+        status: "completed",
+        model: "gpt-5-mini",
+        promptTokens: usage?.prompt_tokens ?? null,
+        cachedPromptTokens: usage?.prompt_tokens_details?.cached_tokens ?? null,
+        completionTokens: usage?.completion_tokens ?? null,
+        totalTokens: usage?.total_tokens ?? null,
+        ...costs,
+        totalMs: Date.now() - summaryStartedAt,
+      }).catch((error) => console.error("Coach P summary analytics failed:", error));
+    } catch (error) {
+      await storage.recordCoachPRequest({
+        userId,
+        conversationId,
+        operation: "summary",
+        status: "error",
+        model: "gpt-5-mini",
+        errorMessage: error instanceof Error ? error.message.slice(0, 500) : "Summary generation failed",
+        totalMs: Date.now() - summaryStartedAt,
+      }).catch((analyticsError) => console.error("Coach P summary error analytics failed:", analyticsError));
+      console.warn("Coach P rolling summary refresh failed:", error);
+    }
+  }
+
   // Health check endpoint — verifies the server is up AND the database is reachable.
   // Returns 200 with diagnostics on success, 503 on failure. No auth, no DB writes.
   app.get("/api/health", async (_req, res) => {
@@ -789,11 +888,62 @@ Start now with a warm one-line greeting that briefly references something specif
     }
   });
 
+  app.get("/api/coach-p/conversations", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const conversations = await storage.getCoachPConversations(req.user!.claims.sub);
+      res.json(conversations);
+    } catch (error) {
+      console.error("Error listing Coach P conversations:", error);
+      res.status(500).json({ message: "Failed to load Coach P conversations" });
+    }
+  });
+
+  app.get("/api/coach-p/conversations/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const conversation = await storage.getCoachPConversation(userId, req.params.id);
+      if (!conversation) return res.status(404).json({ message: "Conversation not found" });
+      const messages = await storage.getCoachPMessages(conversation.id);
+      res.json({
+        conversation,
+        messages: messages.map(message => ({ role: message.role, content: message.content })),
+      });
+    } catch (error) {
+      console.error("Error loading Coach P conversation:", error);
+      res.status(500).json({ message: "Failed to load Coach P conversation" });
+    }
+  });
+
+  app.patch("/api/coach-p/conversations/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { title } = z.object({ title: z.string().trim().min(1).max(200) }).parse(req.body);
+      const conversation = await storage.updateCoachPConversation(req.params.id, req.user!.claims.sub, { title });
+      if (!conversation) return res.status(404).json({ message: "Conversation not found" });
+      res.json(conversation);
+    } catch (error) {
+      res.status(400).json({ message: "Enter a valid conversation title." });
+    }
+  });
+
+  app.delete("/api/coach-p/conversations/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const deleted = await storage.deleteCoachPConversation(req.params.id, req.user!.claims.sub);
+      if (!deleted) return res.status(404).json({ message: "Conversation not found" });
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting Coach P conversation:", error);
+      res.status(500).json({ message: "Failed to delete Coach P conversation" });
+    }
+  });
+
   // Coach P — ongoing personalized coaching surface.
   // Context is assembled server-side so the client cannot spoof or omit player data.
   app.post("/api/coach-p/chat", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     const userId = req.user!.claims.sub;
     let charged = false;
+    let conversationId: string | null = null;
+    let requestModel: string | null = null;
+    let requestContextMode: CoachPContextMode | null = null;
     const requestStartedAt = Date.now();
     const timings: Record<string, number> = {};
     const sendSse = (event: string, data: unknown) => {
@@ -803,15 +953,16 @@ Start now with a warm one-line greeting that briefly references something specif
     };
     try {
       const parsed = z.object({
-        messages: z.array(z.object({
-          role: z.enum(["user", "assistant"]),
-          content: z.string().trim().min(1).max(3000),
-        })).min(1).max(12),
+        conversationId: z.string().min(1).nullable().optional(),
+        message: z.string().trim().min(1).max(3000),
       }).safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: "Send a valid Coach P message." });
 
-      const lastUserMessage = [...parsed.data.messages].reverse().find(message => message.role === "user");
-      if (!lastUserMessage) return res.status(400).json({ message: "Coach P needs a player question." });
+      if (parsed.data.conversationId) {
+        const existingConversation = await storage.getCoachPConversation(userId, parsed.data.conversationId);
+        if (!existingConversation) return res.status(404).json({ message: "Conversation not found." });
+        conversationId = existingConversation.id;
+      }
 
       const coachPAccess = await consumeCoachPQuestion(userId);
       if (!coachPAccess.allowed) {
@@ -823,6 +974,34 @@ Start now with a warm one-line greeting that briefly references something specif
       }
       charged = coachPAccess.charged;
 
+      let conversation = conversationId
+        ? await storage.getCoachPConversation(userId, conversationId)
+        : undefined;
+      if (!conversation) {
+        conversation = await storage.createCoachPConversation({
+          userId,
+          title: parsed.data.message.slice(0, 80).trim() || "New Coach P conversation",
+          messageCount: 0,
+        });
+        conversationId = conversation.id;
+      }
+      const previousMessages = await storage.getCoachPMessages(conversation.id);
+      const userMessage = await storage.createCoachPMessage({
+        conversationId: conversation.id,
+        role: "user",
+        content: parsed.data.message,
+      });
+      await storage.updateCoachPConversation(conversation.id, userId, {
+        messageCount: previousMessages.length + 1,
+      });
+      const rollingContext = [
+        conversation.summary ? `ROLLING COACHING MEMORY:\n${conversation.summary}` : "",
+        ...[...previousMessages, userMessage].slice(-8).map(message => ({
+          role: message.role,
+          content: message.content,
+        })),
+      ].filter(Boolean);
+
       res.status(200);
       res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
       res.setHeader("Cache-Control", "no-cache, no-transform");
@@ -831,8 +1010,9 @@ Start now with a warm one-line greeting that briefly references something specif
       res.flushHeaders?.();
       sendSse("status", { stage: "Checking your player context..." });
 
-      const lastUserQuestion = lastUserMessage.content;
+      const lastUserQuestion = parsed.data.message;
       const contextMode = classifyCoachPQuestion(lastUserQuestion);
+      requestContextMode = contextMode;
       const needsTraining = ["training", "workout", "game", "goal"].includes(contextMode);
       const needsWorkoutCatalog = contextMode === "workout";
       const needsGameData = contextMode === "game";
@@ -1067,22 +1247,28 @@ COACHING RULES:
       const maxCompletionTokens = useStrongModel ? 2600 : 1400;
       const modelStartedAt = Date.now();
       sendSse("status", { stage: "Coach P is writing..." });
-      let tokenUsage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | null = null;
+      let tokenUsage: { prompt_tokens?: number; prompt_tokens_details?: { cached_tokens?: number }; completion_tokens?: number; total_tokens?: number } | null = null;
       const completion = await openai.chat.completions.create({
         model,
         messages: [
           { role: "system", content: systemPrompt },
-          ...parsed.data.messages.map(message => ({ role: message.role, content: message.content })),
+          ...rollingContext.map(message => typeof message === "string"
+            ? { role: "system" as const, content: message }
+            : { role: message.role, content: message.content }),
         ],
         max_completion_tokens: maxCompletionTokens,
         stream: true,
         stream_options: { include_usage: true },
       });
+      requestModel = model;
       let message = "";
       for await (const chunk of completion) {
         if (chunk.usage) {
           tokenUsage = {
             prompt_tokens: chunk.usage.prompt_tokens,
+            prompt_tokens_details: chunk.usage.prompt_tokens_details
+              ? { cached_tokens: chunk.usage.prompt_tokens_details.cached_tokens }
+              : undefined,
             completion_tokens: chunk.usage.completion_tokens,
             total_tokens: chunk.usage.total_tokens,
           };
@@ -1098,6 +1284,38 @@ COACHING RULES:
 
       timings.model = Date.now() - modelStartedAt;
       timings.total = Date.now() - requestStartedAt;
+      const costs = getCoachPCost(model, tokenUsage);
+      await storage.createCoachPMessage({
+        conversationId: conversation!.id,
+        role: "assistant",
+        content: message,
+        model,
+        contextMode,
+        promptTokens: tokenUsage?.prompt_tokens ?? null,
+        completionTokens: tokenUsage?.completion_tokens ?? null,
+        totalTokens: tokenUsage?.total_tokens ?? null,
+        latencyMs: timings.model,
+      });
+      const totalMessageCount = previousMessages.length + 2;
+      await storage.updateCoachPConversation(conversation!.id, userId, {
+        messageCount: totalMessageCount,
+      });
+      await storage.recordCoachPRequest({
+        userId,
+        conversationId: conversation!.id,
+        operation: "chat",
+        status: "completed",
+        model,
+        contextMode,
+        promptTokens: tokenUsage?.prompt_tokens ?? null,
+        completionTokens: tokenUsage?.completion_tokens ?? null,
+        totalTokens: tokenUsage?.total_tokens ?? null,
+        ...costs,
+        contextMs: timings.context,
+        promptMs: timings.prompt,
+        modelMs: timings.model,
+        totalMs: timings.total,
+      }).catch((analyticsError) => console.error("Coach P request analytics failed:", analyticsError));
       console.info("[Coach P timing]", {
         userId,
         mode: contextMode,
@@ -1109,6 +1327,7 @@ COACHING RULES:
       sendSse("done", {
         message,
         coachP: coachPAccess,
+        conversationId: conversation!.id,
         timing: {
           model,
           mode: contextMode,
@@ -1117,8 +1336,22 @@ COACHING RULES:
         },
       });
       res.end();
+      void refreshCoachPSummary(userId, conversation!.id);
     } catch (error) {
       if (charged) await refundCoachPQuestion(userId).catch((refundError) => console.error("Coach P quota refund failed:", refundError));
+      await storage.recordCoachPRequest({
+        userId,
+        conversationId,
+        operation: "chat",
+        status: "error",
+        model: requestModel,
+        contextMode: requestContextMode,
+        errorMessage: error instanceof Error ? error.message.slice(0, 500) : "Coach P request failed",
+        contextMs: timings.context,
+        promptMs: timings.prompt,
+        modelMs: timings.model,
+        totalMs: Date.now() - requestStartedAt,
+      }).catch((analyticsError) => console.error("Coach P error analytics failed:", analyticsError));
       console.error("Error generating Coach P response:", error);
       if (res.headersSent) {
         sendSse("error", { message: "Coach P is unavailable right now. Please try again." });
@@ -8598,6 +8831,20 @@ COACHING RULES:
     } catch (err) {
       console.error("Error getting analytics:", err);
       res.status(500).json({ message: "Failed to get analytics" });
+    }
+  });
+
+  app.get("/api/admin/analytics/coach-p", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const adminCheck = await storage.isUserAdmin(userId);
+      if (!adminCheck) return res.status(403).json({ message: "Admins only" });
+      const requestedDays = typeof req.query.days === "string" ? Number(req.query.days) : 30;
+      const data = await storage.getAdminCoachPAnalytics(Number.isFinite(requestedDays) ? requestedDays : 30);
+      res.json(data);
+    } catch (err) {
+      console.error("Error getting Coach P analytics:", err);
+      res.status(500).json({ message: "Failed to get Coach P analytics" });
     }
   });
 

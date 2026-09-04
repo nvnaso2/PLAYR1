@@ -1,8 +1,8 @@
 import { useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowUp, Dumbbell, Flag, Gamepad2, GraduationCap, Loader2, Target } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
+import { ArrowLeft, ArrowUp, Dumbbell, Flag, Gamepad2, GraduationCap, Loader2, MessageSquarePlus, Target, Trash2 } from "lucide-react";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -25,6 +25,16 @@ type SubscriptionState = {
 type CoachPStreamResult = {
   message: string;
   coachP: CoachPUsage;
+  conversationId: string;
+};
+
+type SavedConversation = {
+  id: string;
+  title: string;
+  messageCount: number;
+  summary: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
 };
 
 const STARTER_PROMPTS = [
@@ -92,7 +102,13 @@ export default function CoachPPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [limitReached, setLimitReached] = useState(false);
   const [thinkingStage, setThinkingStage] = useState<string | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [loadingConversation, setLoadingConversation] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  const { data: conversations = [] } = useQuery<SavedConversation[]>({
+    queryKey: ["/api/coach-p/conversations"],
+  });
 
   const { data: subscription } = useQuery<SubscriptionState>({
     queryKey: ["/api/billing/subscription"],
@@ -103,8 +119,8 @@ export default function CoachPPage() {
   const canSend = isUnlimited || currentUsage?.remaining == null || currentUsage.remaining > 0;
 
   const chatMutation = useMutation({
-    mutationFn: async (history: ChatMessage[]): Promise<CoachPStreamResult> => {
-      const response = await apiRequest("POST", "/api/coach-p/chat", { messages: history });
+    mutationFn: async (request: { message: string; conversationId: string | null }): Promise<CoachPStreamResult> => {
+      const response = await apiRequest("POST", "/api/coach-p/chat", request);
       const reader = response.body?.getReader();
       if (!reader) throw new Error("Coach P streaming is unavailable.");
 
@@ -133,13 +149,13 @@ export default function CoachPPage() {
         const event = lines.find((line) => line.startsWith("event:"))?.slice(6).trim() ?? "message";
         const data = lines.filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trim()).join("\n");
         if (!data) return;
-        const payload = JSON.parse(data) as { stage?: string; text?: string; message?: string; coachP?: CoachPUsage };
+         const payload = JSON.parse(data) as { stage?: string; text?: string; message?: string; coachP?: CoachPUsage; conversationId?: string };
         if (event === "status" && payload.stage) {
           setThinkingStage(payload.stage);
         } else if (event === "delta" && payload.text) {
           appendAssistantText(payload.text);
-        } else if (event === "done" && payload.message && payload.coachP) {
-          result = { message: payload.message, coachP: payload.coachP };
+        } else if (event === "done" && payload.message && payload.coachP && payload.conversationId) {
+          result = { message: payload.message, coachP: payload.coachP, conversationId: payload.conversationId };
           setThinkingStage(null);
         } else if (event === "error") {
           throw new Error(payload.message || "Coach P is unavailable right now.");
@@ -160,8 +176,10 @@ export default function CoachPPage() {
     },
     onSuccess: (data) => {
       setUsage(data.coachP);
+      setConversationId(data.conversationId);
       setErrorMessage(null);
       setThinkingStage(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/coach-p/conversations"] });
       requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }));
     },
     onError: (error: Error) => {
@@ -185,8 +203,48 @@ export default function CoachPPage() {
     setErrorMessage(null);
     setLimitReached(false);
     setThinkingStage("Starting Coach P...");
-    chatMutation.mutate(nextHistory);
+    chatMutation.mutate({ message: content, conversationId });
     requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }));
+  };
+
+  const startNewConversation = () => {
+    if (chatMutation.isPending) return;
+    setConversationId(null);
+    setMessages([]);
+    setDraft("");
+    setErrorMessage(null);
+    setLimitReached(false);
+    setThinkingStage(null);
+  };
+
+  const openConversation = async (id: string) => {
+    if (chatMutation.isPending || loadingConversation) return;
+    setLoadingConversation(true);
+    try {
+      const response = await apiRequest("GET", `/api/coach-p/conversations/${id}`);
+      const data = await response.json() as { conversation: SavedConversation; messages: ChatMessage[] };
+      setConversationId(data.conversation.id);
+      setMessages(data.messages);
+      setDraft("");
+      setErrorMessage(null);
+      setLimitReached(false);
+      requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "auto" }));
+    } catch {
+      setErrorMessage("That conversation could not be loaded.");
+    } finally {
+      setLoadingConversation(false);
+    }
+  };
+
+  const deleteConversation = async (id: string) => {
+    if (chatMutation.isPending) return;
+    try {
+      await apiRequest("DELETE", `/api/coach-p/conversations/${id}`);
+      if (conversationId === id) startNewConversation();
+      queryClient.invalidateQueries({ queryKey: ["/api/coach-p/conversations"] });
+    } catch {
+      setErrorMessage("That conversation could not be deleted.");
+    }
   };
 
   return (
@@ -211,6 +269,48 @@ export default function CoachPPage() {
           {isUnlimited ? "Unlimited" : currentUsage ? `${currentUsage.remaining} left this month` : ""}
         </span>
       </header>
+
+      <div className="border-b border-zinc-900 bg-zinc-950/60">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-2 overflow-x-auto">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={startNewConversation}
+            disabled={chatMutation.isPending}
+            className="shrink-0 border-orange-500/40 text-orange-300 hover:bg-orange-500/10"
+            data-testid="button-coach-p-new-conversation"
+          >
+            <MessageSquarePlus className="w-3.5 h-3.5 mr-1.5" /> New chat
+          </Button>
+          {conversations.map((conversation) => (
+            <div
+              key={conversation.id}
+              className={`shrink-0 flex items-center rounded-lg border ${
+                conversationId === conversation.id ? "border-orange-500/60 bg-orange-500/10" : "border-zinc-800 bg-zinc-950"
+              }`}
+            >
+              <button
+                onClick={() => openConversation(conversation.id)}
+                disabled={loadingConversation || chatMutation.isPending}
+                className="max-w-[190px] truncate px-3 py-2 text-left text-xs text-zinc-300 hover:text-white disabled:opacity-50"
+                title={conversation.title}
+                data-testid={`button-coach-p-conversation-${conversation.id}`}
+              >
+                {conversation.title}
+              </button>
+              <button
+                onClick={() => deleteConversation(conversation.id)}
+                disabled={chatMutation.isPending}
+                className="px-2 text-zinc-600 hover:text-red-300 disabled:opacity-50"
+                aria-label={`Delete ${conversation.title}`}
+                data-testid={`button-delete-coach-p-conversation-${conversation.id}`}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
 
       <main className="max-w-3xl mx-auto min-h-[calc(100vh-4rem)] px-4 sm:px-6 flex flex-col">
         <section className={`flex-1 ${messages.length === 0 ? "flex items-center" : "pt-8"}`}>
