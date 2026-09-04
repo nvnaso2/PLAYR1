@@ -1,0 +1,68 @@
+Question 1: When you have a great game, what usually happens?
+Instruction: Select up to 2 options that best describe your best performances.
+
+I'm catching fire from deep and pulling the defense out. (Sharpshooter)
+
+I'm creating my own shot off the dribble and hitting tough looks. (Shot Creator)
+
+I'm controlling the tempo, finding open teammates, and making the right reads. (Floor General)
+
+I'm locking down the opposing team’s best scorer and turning defense into energy. (Lockdown Defender)
+
+I'm blowing past defenders, finishing in transition, and attacking the rim. (Athletic Slasher)
+
+I'm using my size to score, facilitate, and make plays from the wing. (Playmaking Wing)
+
+I'm setting the tone on both ends — scoring when needed and locking down on defense. (Two-Way Player)
+
+I'm making all the winning plays that don't always show up in stats — offensive rebounds, steals, extra passes. (Swiss Army Knife)
+
+I'm walling off the paint, blocking shots, and owning the defensive glass. (Rim Protector)
+
+I'm creating mismatches by using my size down low and stretching the floor with my jumper. (Stretch Big)
+
+Question 2: What part of basketball comes most naturally to you?
+Instruction: Select up to 2 options that represent your core strengths.
+
+Shot mechanics, catch-and-shoot rhythm, and finding open space. (Sharpshooter)
+
+1-on-1 footwork, ball handling, and making space off the bounce. (Shot Creator)
+
+Court vision, high basketball IQ, and knowing where everyone should be. (Floor General)
+
+Lateral quickness, reading ball-handlers' hips, and relentless on-ball pressure. (Lockdown Defender)
+
+First-step quickness, speed in the open court, and athletic finishing. (Athletic Slasher)
+
+Versatility — passing over defenses, scoring over smaller guards, and positional flexibility. (Playmaking Wing)
+
+Consistency, stamina, and refusing to be a liability on either end of the floor. (Two-Way Player)
+
+Adaptability — filling whatever gap the team needs on any given night. (Swiss Army Knife)
+
+Shot-blocking timing, rim intimidation, and controlling the paint. (Rim Protector)
+
+Pick-and-pop execution, fluid shooting mechanics for my size, and post footwork. (Stretch Big)
+
+Question 3: When it comes down to a tight game in the 4th quarter, what are you most likely to do?
+Instruction: Select up to 2 options that describe your crunch-time instinct.
+
+Relocate to an open spot behind the arc and let it fly with zero hesitation. (Sharpshooter)
+
+Call for an isolation, break down my man, and get a bucket. (Shot Creator)
+
+Take the ball, call out the play, and make sure we get the best possible shot. (Floor General)
+
+Demand to guard their hot hand and get a critical stop. (Lockdown Defender)
+
+Rip through, attack the lane, and force the defense to foul or give up a layup. (Athletic Slasher)
+
+Make the smart secondary pass or hit the clutch mid-range shot over a smaller defender. (Playmaking Wing)
+
+Make a clutch defensive stop on one end, then execute the offense on the other. (Two-Way Player)
+
+Dive for a loose ball, grab a critical offensive rebound, or make the extra pass to win. (Swiss Army Knife)
+
+Anchor the backline, alter a game-winning layup attempt, and secure the final rebound. (Rim Protector)
+
+Pop out to the perimeter for a clutch 3 or seal a smaller player in the post for an easy look. (Stretch Big)
