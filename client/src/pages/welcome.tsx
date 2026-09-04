@@ -291,7 +291,7 @@ function scoreMindset(ans: Map<string, string>): { score: number; band: string }
   const q15m: Record<string,number> = {"I get frustrated and need time to cool off":3,"I replay it trying to figure out what went wrong":6,"I immediately think about what I need to fix":9,"I get back in the gym as soon as I can":10,"I'm already focused on the next one":8};
   const total = (q13m[ans.get("Q13")??""]??5)+(q14m[ans.get("Q14")??""]??5)+(q15m[ans.get("Q15")??""]??5);
   const score = Math.round((total/30)*100);
-  const band = score<=20?"Still Building Belief":score<=40?"Finding Your Footing":score<=60?"Trusting Your Game":score<=80?"Bringing The Heat":"Ice In Your Veins";
+  const band = score<=20?"Still Building Belief":score<=40?"Finding Your Footing":score<=60?"Trusting Your Game":score<=80?"Playing With Confidence":"Embraces the Moment";
   return { score, band };
 }
 
