@@ -7,3 +7,4 @@
 - [Coach P context routing](coach-p-context-routing.md) — load only question-relevant context and invalidate cached Coach P catalogs after edits
 - [Onboarding copy and scoring maps](onboarding-copy-score-maps.md) — visible answer text is also used as client-side scoring keys
 - [Coach P conversation memory](coach-p-conversation-memory.md) — persist full chats, send a rolling summary plus recent messages, and keep request cost records separate from content
+- [Coach P navigation](coach-p-navigation.md) — Coach P is a top-level menu destination, with Hub launch access and an internal saved-chat drawer
