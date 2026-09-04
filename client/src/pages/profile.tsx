@@ -397,7 +397,7 @@ export default function ProfilePage() {
   const hasGameStats = totalGames > 0;
   const hasSkills = career && (career.skillBallHandling != null || career.skillShooting != null || career.skillDefense != null);
   const hasPhysical = playerProfile?.heightFeet > 0 || playerProfile?.weight > 0 || playerProfile?.wingspan;
-  const hasAcademic = playerProfile?.gradYear > 0 || playerProfile?.gpa;
+  const hasAcademic = playerProfile?.schoolName || playerProfile?.gradYear > 0 || playerProfile?.gpa;
   const hasSocials = playerProfile?.socialTwitter || playerProfile?.socialInstagram || playerProfile?.socialTiktok || playerProfile?.socialYoutube;
   const hasAwards = awards && awards.length > 0;
   const hasPRs = personalRecords && personalRecords.length > 0;
@@ -640,8 +640,10 @@ export default function ProfilePage() {
               <div className="px-4 py-2.5 border-t border-orange-500/10">
                 <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Academic</p>
                 <p className="text-xs text-zinc-400">
+                   {playerProfile?.schoolName}
+                   {playerProfile?.schoolName && (playerProfile?.gradYear > 0 || playerProfile?.gpa) ? " · " : ""}
                   {playerProfile?.gradYear > 0 && `Class of ${playerProfile.gradYear}`}
-                  {playerProfile?.gpa && ` · ${playerProfile.gpa} GPA`}
+                   {playerProfile?.gpa && `${playerProfile?.gradYear > 0 ? " · " : ""}${playerProfile.gpa} GPA`}
                 </p>
               </div>
             )}

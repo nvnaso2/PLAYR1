@@ -76,6 +76,7 @@ const playerProfileFormSchema = z.object({
   heightInches: z.coerce.number().min(0).max(11).optional().or(z.literal(0)),
   weight: z.coerce.number().min(50).max(400).optional().or(z.literal(0)),
   wingspan: z.string().max(20).optional().or(z.literal("")),
+  schoolName: z.string().max(200).optional().or(z.literal("")),
   gradYear: z.coerce.number().min(2020).max(2040).optional().or(z.literal(0)),
   gpa: z.string().max(10).optional().or(z.literal("")),
   highlightVideoUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")),
@@ -144,6 +145,7 @@ export function PlayerProfileSection() {
       heightInches: 0,
       weight: 0,
       wingspan: "",
+        schoolName: "",
       gradYear: 0,
       gpa: "",
       highlightVideoUrl: "",
@@ -174,6 +176,7 @@ export function PlayerProfileSection() {
         heightInches: profile.heightInches || 0,
         weight: profile.weight || 0,
         wingspan: profile.wingspan || "",
+        schoolName: profile.schoolName || "",
         gradYear: profile.gradYear || 0,
         gpa: profile.gpa || "",
         highlightVideoUrl: profile.highlightVideoUrl || "",
@@ -202,6 +205,7 @@ export function PlayerProfileSection() {
       if (payload.headline === "") payload.headline = null;
       if (payload.bio === "") payload.bio = null;
       if (payload.wingspan === "") payload.wingspan = null;
+      if (payload.schoolName === "") payload.schoolName = null;
       if (payload.gpa === "") payload.gpa = null;
       if (payload.highlightVideoUrl === "") payload.highlightVideoUrl = null;
       if (payload.socialTwitter === "") payload.socialTwitter = null;
@@ -577,6 +581,23 @@ export function PlayerProfileSection() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              <FormField
+                control={form.control}
+                name="schoolName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>School Name</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="e.g., Lincoln High School"
+                        data-testid="input-school-name"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}

@@ -143,7 +143,7 @@ export default function PlayerPublicPage() {
     : user?.profileImageUrl ? getObjectUrl(user.profileImageUrl) : undefined;
 
   const hasPhysical = profile.heightFeet || profile.weight || profile.wingspan;
-  const hasAcademic = profile.gradYear || profile.gpa;
+  const hasAcademic = profile.schoolName || profile.gradYear || profile.gpa;
   const hasSocials = profile.socialTwitter || profile.socialInstagram || profile.socialTiktok || profile.socialYoutube;
   const hasSkills = career && (career.skillBallHandling || career.skillShooting || career.skillDefense || career.skillAthleticism || career.skillIQ);
 
@@ -428,6 +428,12 @@ export default function PlayerPublicPage() {
             </CardHeader>
             <CardContent className="px-4 pb-4">
               <div className="grid grid-cols-2 gap-3">
+                {profile.schoolName && (
+                  <div className="text-center p-3 rounded-xl bg-muted/50 col-span-2" data-testid="text-school-name">
+                    <p className="text-lg font-bold">{profile.schoolName}</p>
+                    <p className="text-xs text-muted-foreground">School</p>
+                  </div>
+                )}
                 {profile.gradYear && profile.gradYear > 0 && (
                   <div className="text-center p-3 rounded-xl bg-muted/50" data-testid="text-grad-year">
                     <p className="text-lg font-bold">{profile.gradYear}</p>

@@ -15,6 +15,7 @@ export async function runApplicationMigrations(): Promise<void> {
       ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_cancel_at_period_end boolean DEFAULT false;
       ALTER TABLE programs ADD COLUMN IF NOT EXISTS trailer_video_url varchar;
       ALTER TABLE programs ADD COLUMN IF NOT EXISTS is_pro boolean DEFAULT false;
+      ALTER TABLE player_profiles ADD COLUMN IF NOT EXISTS school_name varchar;
       CREATE TABLE IF NOT EXISTS coach_p_usage (
         id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id varchar NOT NULL,

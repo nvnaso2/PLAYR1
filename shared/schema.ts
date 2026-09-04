@@ -667,6 +667,7 @@ export const playerProfiles = pgTable("player_profiles", {
   heightInches: integer("height_inches"),
   weight: integer("weight"),
   wingspan: varchar("wingspan"),
+  schoolName: varchar("school_name"),
   gradYear: integer("grad_year"),
   gpa: varchar("gpa"),
   highlightVideoUrl: varchar("highlight_video_url"),
