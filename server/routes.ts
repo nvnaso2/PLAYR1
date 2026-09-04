@@ -7,7 +7,7 @@ import { setupAuth, registerAuthRoutes, isAuthenticated, optionalAuth, getAppBas
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { users } from "@shared/models/auth";
 import { db, pool } from "./db";
-import { eq, and, or, isNull, ilike, sql, inArray, gte } from "drizzle-orm";
+import { eq, and, or, isNull, ilike, sql, inArray, gte, desc } from "drizzle-orm";
 import { z } from "zod";
 import { zipToCoords, cityStateToCoords, haversineDistance } from "./geo";
 import {
@@ -954,17 +954,38 @@ Start now with a warm one-line greeting that briefly references something specif
     try {
       const parsed = z.object({
         conversationId: z.string().min(1).nullable().optional(),
-        message: z.string().trim().min(1).max(3000),
+        message: z.string().trim().min(1).max(3000).optional(),
+        messages: z.array(z.object({
+          role: z.enum(["user", "assistant"]),
+          content: z.string().trim().min(1).max(3000),
+        })).min(1).max(12).optional(),
+        journalEntryId: z.string().optional(),
       }).safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: "Send a valid Coach P message." });
+      const journalMessages = parsed.data.messages || (parsed.data.message ? [{ role: "user" as const, content: parsed.data.message }] : []);
+      const lastUserMessage = [...journalMessages].reverse().find((message) => message.role === "user");
+      if (!lastUserMessage) return res.status(400).json({ message: "Coach P needs a player question." });
+      const journalEntry = parsed.data.journalEntryId
+        ? await storage.getJournalEntry(parsed.data.journalEntryId, userId)
+        : null;
+      if (parsed.data.journalEntryId && !journalEntry) return res.status(404).json({ message: "Journal entry not found." });
+      if (journalEntry && !(await hasProAccess(userId))) {
+        return res.status(402).json({
+          message: "Journal Coach P is a PLAYR1 Pro feature. Upgrade to continue this conversation.",
+          code: "JOURNAL_AI_PRO_REQUIRED",
+          upgradePath: "/subscription",
+        });
+      }
 
-      if (parsed.data.conversationId) {
+      if (parsed.data.conversationId && !journalEntry) {
         const existingConversation = await storage.getCoachPConversation(userId, parsed.data.conversationId);
         if (!existingConversation) return res.status(404).json({ message: "Conversation not found." });
         conversationId = existingConversation.id;
       }
 
-      const coachPAccess = await consumeCoachPQuestion(userId);
+      const coachPAccess = journalEntry
+        ? { allowed: true, charged: false, used: 0, limit: null, remaining: null, monthKey: currentMonthKey() }
+        : await consumeCoachPQuestion(userId);
       if (!coachPAccess.allowed) {
         return res.status(402).json({
           message: "You've used all 3 free Coach P questions this month.",
@@ -974,33 +995,25 @@ Start now with a warm one-line greeting that briefly references something specif
       }
       charged = coachPAccess.charged;
 
-      let conversation = conversationId
+      let conversation = !journalEntry && conversationId
         ? await storage.getCoachPConversation(userId, conversationId)
         : undefined;
-      if (!conversation) {
+      if (!conversation && !journalEntry) {
         conversation = await storage.createCoachPConversation({
           userId,
-          title: parsed.data.message.slice(0, 80).trim() || "New Coach P conversation",
+          title: lastUserMessage.content.slice(0, 80).trim() || "New Coach P conversation",
           messageCount: 0,
         });
         conversationId = conversation.id;
       }
-      const previousMessages = await storage.getCoachPMessages(conversation.id);
-      const userMessage = await storage.createCoachPMessage({
-        conversationId: conversation.id,
-        role: "user",
-        content: parsed.data.message,
-      });
-      await storage.updateCoachPConversation(conversation.id, userId, {
-        messageCount: previousMessages.length + 1,
-      });
-      const rollingContext = [
-        conversation.summary ? `ROLLING COACHING MEMORY:\n${conversation.summary}` : "",
-        ...[...previousMessages, userMessage].slice(-8).map(message => ({
-          role: message.role,
-          content: message.content,
-        })),
-      ].filter(Boolean);
+      const previousMessages = conversation ? await storage.getCoachPMessages(conversation.id) : [];
+      const rollingContext = journalEntry
+        ? journalMessages
+        : [
+            conversation?.summary ? `ROLLING COACHING MEMORY:\n${conversation.summary}` : "",
+            ...previousMessages.slice(-8).map(message => ({ role: message.role, content: message.content })),
+            { role: "user" as const, content: lastUserMessage.content },
+          ].filter(Boolean);
 
       res.status(200);
       res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
@@ -1010,15 +1023,15 @@ Start now with a warm one-line greeting that briefly references something specif
       res.flushHeaders?.();
       sendSse("status", { stage: "Checking your player context..." });
 
-      const lastUserQuestion = parsed.data.message;
-      const contextMode = classifyCoachPQuestion(lastUserQuestion);
+      const contextMode = classifyCoachPQuestion(lastUserMessage.content);
       requestContextMode = contextMode;
-      const needsTraining = ["training", "workout", "game", "goal"].includes(contextMode);
-      const needsWorkoutCatalog = contextMode === "workout";
-      const needsGameData = contextMode === "game";
-      const needsJournal = contextMode === "goal";
-      const needsAssessmentAnswers = contextMode === "profile" || contextMode === "goal";
-      const needsPrograms = contextMode === "workout";
+      const isJournalCoach = !!journalEntry;
+      const needsTraining = ["training", "workout", "game", "goal"].includes(contextMode) || isJournalCoach;
+      const needsWorkoutCatalog = contextMode === "workout" || isJournalCoach;
+      const needsGameData = contextMode === "game" || !!journalEntry?.gameId;
+      const needsJournal = contextMode === "goal" || isJournalCoach;
+      const needsAssessmentAnswers = contextMode === "profile" || contextMode === "goal" || isJournalCoach;
+      const needsPrograms = contextMode === "workout" || isJournalCoach;
       const contextStartedAt = Date.now();
       const [userProfile, career, playerProfile, userArchetypes, activeGoal, journalEntries, trainingLogs, principles, userStats, weeklyStats, categoryStats, dashboardStats, progressTrends, shotStats, careerStats, drillProgress, availableDrills, availablePrograms, activeEnrollments] = await Promise.all([
         storage.getUserProfile(userId),
@@ -1041,6 +1054,9 @@ Start now with a warm one-line greeting that briefly references something specif
         needsPrograms ? getCoachPCached("program-catalog", 60_000, () => storage.listPrograms({ featuredFirst: true })) : Promise.resolve([]),
         needsPrograms ? storage.getActiveEnrollmentsForUser(userId) : Promise.resolve([]),
       ]);
+      const selectedJournalSource = journalEntry
+        ? await getJournalSource(userId, journalEntry.gameId ? "game" : "workout", journalEntry.gameId || journalEntry.trainingLogId || "")
+        : null;
       timings.context = Date.now() - contextStartedAt;
       const promptStartedAt = Date.now();
       sendSse("status", { stage: "Choosing the most relevant PLAYR1 information..." });
@@ -1140,6 +1156,9 @@ Start now with a warm one-line greeting that briefly references something specif
             drillProgress,
           }).slice(0, 30000)
         : "Game statistics and shot data were not loaded because they were not needed for this question.";
+      const selectedJournalText = journalEntry
+        ? `\nSELECTED JOURNAL ENTRY\nType: ${journalEntry.type}; mood: ${journalEntry.mood ?? "not rated"}/5.\n${(journalEntry.responses || []).map((response: any) => `Q: ${response.question}\nA: ${response.answer}`).join("\n\n")}\nLINKED PERFORMANCE SOURCE\n${JSON.stringify(selectedJournalSource).slice(0, 12000)}`
+        : "";
 
       const contextModeLabel = contextMode === "general" ? "general coaching" : `${contextMode} coaching`;
       timings.prompt = Date.now() - promptStartedAt;
@@ -1197,6 +1216,7 @@ ${JSON.stringify(programCatalog).slice(0, 50000)}
 
 RECENT REFLECTIONS
 ${recentJournal}
+${selectedJournalText}
 
 PLAYER PROFILE DETAILS
 - Headline: ${playerProfile?.headline || "not specified"}
@@ -1285,24 +1305,26 @@ COACHING RULES:
       timings.model = Date.now() - modelStartedAt;
       timings.total = Date.now() - requestStartedAt;
       const costs = getCoachPCost(model, tokenUsage);
-      await storage.createCoachPMessage({
-        conversationId: conversation!.id,
-        role: "assistant",
-        content: message,
-        model,
-        contextMode,
-        promptTokens: tokenUsage?.prompt_tokens ?? null,
-        completionTokens: tokenUsage?.completion_tokens ?? null,
-        totalTokens: tokenUsage?.total_tokens ?? null,
-        latencyMs: timings.model,
-      });
-      const totalMessageCount = previousMessages.length + 2;
-      await storage.updateCoachPConversation(conversation!.id, userId, {
-        messageCount: totalMessageCount,
-      });
+      if (conversation) {
+        await storage.createCoachPMessage({
+          conversationId: conversation.id,
+          role: "assistant",
+          content: message,
+          model,
+          contextMode,
+          promptTokens: tokenUsage?.prompt_tokens ?? null,
+          completionTokens: tokenUsage?.completion_tokens ?? null,
+          totalTokens: tokenUsage?.total_tokens ?? null,
+          latencyMs: timings.model,
+        });
+        const totalMessageCount = previousMessages.length + 2;
+        await storage.updateCoachPConversation(conversation.id, userId, {
+          messageCount: totalMessageCount,
+        });
+      }
       await storage.recordCoachPRequest({
         userId,
-        conversationId: conversation!.id,
+        conversationId: conversation?.id ?? null,
         operation: "chat",
         status: "completed",
         model,
@@ -1327,7 +1349,7 @@ COACHING RULES:
       sendSse("done", {
         message,
         coachP: coachPAccess,
-        conversationId: conversation!.id,
+        conversationId: conversation?.id ?? null,
         timing: {
           model,
           mode: contextMode,
@@ -1336,7 +1358,7 @@ COACHING RULES:
         },
       });
       res.end();
-      void refreshCoachPSummary(userId, conversation!.id);
+      if (conversation) void refreshCoachPSummary(userId, conversation.id);
     } catch (error) {
       if (charged) await refundCoachPQuestion(userId).catch((refundError) => console.error("Coach P quota refund failed:", refundError));
       await storage.recordCoachPRequest({
@@ -10021,17 +10043,118 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
 
   // ===== REFLECTION JOURNAL =====
 
+  async function validateJournalSource(userId: string, trainingLogId?: string | null, gameId?: string | null) {
+    if (trainingLogId && gameId) return "Choose either a workout or a game, not both.";
+    if (trainingLogId) {
+      const [log] = await db.select({ id: trainingLogs.id })
+        .from(trainingLogs)
+        .where(and(eq(trainingLogs.id, trainingLogId), eq(trainingLogs.userId, userId)))
+        .limit(1);
+      if (!log) return "That workout could not be found.";
+    }
+    if (gameId) {
+      const [game] = await db.select({ id: games.id })
+        .from(games)
+        .where(and(eq(games.id, gameId), eq(games.userId, userId)))
+        .limit(1);
+      if (!game) return "That game could not be found.";
+    }
+    return null;
+  }
+
+  async function getJournalSource(userId: string, kind: string, id: string) {
+    if (kind === "workout") {
+      const [anchor] = await db.select().from(trainingLogs)
+        .where(and(eq(trainingLogs.id, id), eq(trainingLogs.userId, userId))).limit(1);
+      if (!anchor) return null;
+      const sessionId = anchor.workoutSessionId;
+      const logs = await db.select().from(trainingLogs).where(and(
+        eq(trainingLogs.userId, userId),
+        sessionId ? eq(trainingLogs.workoutSessionId, sessionId) : eq(trainingLogs.id, anchor.id),
+      )).orderBy(desc(trainingLogs.completedAt));
+      const drillIds = logs.map((log) => log.drillId).filter((value): value is string => !!value);
+      const drillRows = drillIds.length
+        ? await db.select({ id: drills.id, title: drills.title }).from(drills).where(inArray(drills.id, drillIds))
+        : [];
+      const drillNames = new Map(drillRows.map((drill) => [drill.id, drill.title]));
+      return {
+        kind: "workout",
+        id: anchor.id,
+        sessionId,
+        date: anchor.completedAt,
+        duration: logs.reduce((sum, log) => sum + (log.duration || 0), 0),
+        logs: logs.map((log) => ({ ...log, drillTitle: log.drillId ? drillNames.get(log.drillId) || "Drill" : "Free session" })),
+      };
+    }
+    if (kind === "game") {
+      const [game] = await db.select({ game: games, seasonName: seasons.name })
+        .from(games).leftJoin(seasons, eq(seasons.id, games.seasonId))
+        .where(and(eq(games.id, id), eq(games.userId, userId))).limit(1);
+      return game ? { ...game.game, kind: "game", seasonName: game.seasonName, sourceId: game.game.id } : null;
+    }
+    return null;
+  }
+
   // List user's journal entries
   app.get("/api/journal", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const uid = req.user.claims.sub;
-      console.log("[journal] GET /api/journal userId:", uid);
-      const entries = await storage.getJournalEntries(uid);
-      console.log("[journal] entries found:", entries.length);
+      const mood = req.query.mood ? Number(req.query.mood) : undefined;
+      const coached = req.query.coached == null ? undefined : req.query.coached === "true";
+      const linkedSource = req.query.linkedSource as "workout" | "game" | "none" | undefined;
+      const validDate = (value: unknown) => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : undefined;
+      const entries = await storage.getJournalEntries(uid, {
+        search: req.query.search as string | undefined,
+        type: req.query.type as string | undefined,
+        mood: Number.isInteger(mood) ? mood : undefined,
+        coached,
+        linkedSource,
+        from: validDate(req.query.from),
+        to: validDate(req.query.to),
+      });
       res.json(entries);
     } catch (err) {
       console.error("Error fetching journal entries:", err);
       res.status(500).json({ message: "Failed to fetch journal entries" });
+    }
+  });
+
+  app.get("/api/journal/sources", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const [workoutRows, gameRows] = await Promise.all([
+        db.query.trainingLogs.findMany({ where: eq(trainingLogs.userId, userId), orderBy: [desc(trainingLogs.completedAt)], limit: 100 }),
+        db.select({ game: games, seasonName: seasons.name }).from(games)
+          .leftJoin(seasons, eq(seasons.id, games.seasonId))
+          .where(eq(games.userId, userId)).orderBy(desc(games.gameDate)).limit(100),
+      ]);
+      const workoutMap = new Map<string, any>();
+      for (const log of workoutRows) {
+        const key = log.workoutSessionId || log.id;
+        const current = workoutMap.get(key) || { sourceId: log.id, sessionId: log.workoutSessionId, kind: "workout", date: log.completedAt, duration: 0, count: 0 };
+        current.duration += log.duration || 0;
+        current.count += 1;
+        if (!current.date || (log.completedAt && log.completedAt > current.date)) current.date = log.completedAt;
+        workoutMap.set(key, current);
+      }
+      res.json({
+        workouts: [...workoutMap.values()],
+        games: gameRows.map((row) => ({ ...row.game, sourceId: row.game.id, kind: "game", seasonName: row.seasonName })),
+      });
+    } catch (err) {
+      console.error("Error fetching journal sources:", err);
+      res.status(500).json({ message: "Failed to fetch journal sources" });
+    }
+  });
+
+  app.get("/api/journal/source/:kind/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const source = await getJournalSource(req.user.claims.sub, req.params.kind, req.params.id);
+      if (!source) return res.status(404).json({ message: "Source not found" });
+      res.json(source);
+    } catch (err) {
+      console.error("Error fetching journal source:", err);
+      res.status(500).json({ message: "Failed to fetch source" });
     }
   });
 
@@ -10052,12 +10175,13 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
       const { z } = await import("zod");
       const schema = z.object({
         type: z.enum(["post-workout", "post-game", "open"]).default("open"),
-        trainingLogId: z.string().optional(),
-        mood: z.number().int().min(1).max(5).optional(),
+        trainingLogId: z.string().nullable().optional(),
+        gameId: z.string().nullable().optional(),
+        mood: z.number().int().min(1).max(5).nullable().optional(),
         responses: z.array(z.object({
           promptId: z.string(),
           question: z.string(),
-          answer: z.string(),
+          answer: z.string().trim().min(1),
         })).default([]),
         aiCoachFeedback: z.string().optional(),
         aiFollowUpQuestion: z.string().optional(),
@@ -10065,6 +10189,10 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
       });
       const parsed = schema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: "Invalid input", errors: parsed.error.flatten() });
+      const sourceError = await validateJournalSource(req.user.claims.sub, parsed.data.trainingLogId, parsed.data.gameId);
+      if (sourceError) return res.status(400).json({ message: sourceError });
+      if (parsed.data.type === "post-workout" && parsed.data.gameId) return res.status(400).json({ message: "Post-workout entries must link to a workout." });
+      if (parsed.data.type === "post-game" && parsed.data.trainingLogId) return res.status(400).json({ message: "Post-game entries must link to a game." });
       const entry = await storage.createJournalEntry({ ...parsed.data, userId: req.user.claims.sub });
       res.json(entry);
     } catch (err) {
@@ -10078,19 +10206,30 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
     try {
       const { z } = await import("zod");
       const schema = z.object({
-        mood: z.number().int().min(1).max(5).optional(),
+        mood: z.number().int().min(1).max(5).nullable().optional(),
+        trainingLogId: z.string().nullable().optional(),
+        gameId: z.string().nullable().optional(),
         responses: z.array(z.object({
           promptId: z.string(),
           question: z.string(),
-          answer: z.string(),
+          answer: z.string().trim().min(1),
         })).optional(),
-        aiFollowUpAnswer: z.string().optional(),
+        aiFollowUpAnswer: z.string().trim().max(5000).nullable().optional(),
       });
-      const parsed = schema.safeParse(req.body);
+      const parsed = schema.strict().safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: "Invalid input" });
+      const existing = await storage.getJournalEntry(req.params.id, req.user.claims.sub);
+      if (!existing) return res.status(404).json({ message: "Entry not found" });
+      const sourceError = await validateJournalSource(
+        req.user.claims.sub,
+        parsed.data.trainingLogId !== undefined ? parsed.data.trainingLogId : existing.trainingLogId,
+        parsed.data.gameId !== undefined ? parsed.data.gameId : existing.gameId,
+      );
+      if (sourceError) return res.status(400).json({ message: sourceError });
+      const reflectionChanged = parsed.data.responses !== undefined || parsed.data.mood !== undefined;
       const entry = await storage.updateJournalEntry(req.params.id, req.user.claims.sub, parsed.data);
       if (!entry) return res.status(404).json({ message: "Entry not found" });
-      res.json(entry);
+      res.json({ ...entry, feedbackStale: reflectionChanged });
     } catch (err) {
       res.status(500).json({ message: "Failed to update journal entry" });
     }
@@ -10110,21 +10249,18 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
   // AI Coach feedback (pro users only)
   app.post("/api/journal/:id/ai-coach", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     const userId = req.user.claims.sub;
-    let charged = false;
     try {
       console.log("[ai-coach] userId:", userId, "entryId:", req.params.id);
       const entry = await storage.getJournalEntry(req.params.id, userId);
       console.log("[ai-coach] entry found:", !!entry);
       if (!entry) return res.status(404).json({ message: "Entry not found" });
-      const coachPAccess = await consumeCoachPQuestion(userId);
-      if (!coachPAccess.allowed) {
+      if (!(await hasProAccess(userId))) {
         return res.status(402).json({
-          message: "You've used all 3 free Coach P questions this month.",
-          code: "COACH_P_LIMIT_REACHED",
-          coachP: coachPAccess,
+          message: "Journal Coach P is a PLAYR1 Pro feature. Upgrade to get personalized coaching on your reflections.",
+          code: "JOURNAL_AI_PRO_REQUIRED",
+          upgradePath: "/subscription",
         });
       }
-      charged = coachPAccess.charged;
 
       // Pull recent training data for context
       const recentLogs = await storage.getTrainingLogs(userId);
@@ -10172,7 +10308,6 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
 
       res.json(updated);
     } catch (err) {
-      if (charged) await refundCoachPQuestion(userId).catch((e) => console.error("Coach P quota refund failed:", e));
       console.error("Error generating AI coach feedback:", err);
       res.status(500).json({ message: "Failed to generate AI feedback" });
     }

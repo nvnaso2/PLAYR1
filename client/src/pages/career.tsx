@@ -112,7 +112,7 @@ import { ShareCardDialog } from "@/components/share-card";
 import { WorkoutShareDialog } from "@/components/workout-share-dialog";
 import CsvImportDialog from "@/components/csv-import-dialog";
 import { PlayerProfileSection } from "@/pages/player-profile";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 
 const MONTHS = [
   { value: 1, label: "January" },
@@ -2814,6 +2814,7 @@ function StatsOverviewCard({ careerStats, seasons }: { careerStats?: CareerStats
 
 function StatsTab() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [selectedSeasonId, setSelectedSeasonId] = useState<string | null>(null);
   const [showSeasonDialog, setShowSeasonDialog] = useState(false);
   const [editingSeason, setEditingSeason] = useState<Season | null>(null);
@@ -2825,6 +2826,7 @@ function StatsTab() {
   const [expandedSeasons, setExpandedSeasons] = useState<Set<string>>(new Set());
   const [initialExpandDone, setInitialExpandDone] = useState(false);
   const [showCsvImport, setShowCsvImport] = useState(false);
+  const [postJournalGameId, setPostJournalGameId] = useState<string | null>(null);
 
   const { data: seasons = [], isLoading: seasonsLoading } = useQuery<Season[]>({
     queryKey: ['/api/seasons']
@@ -2941,13 +2943,15 @@ function StatsTab() {
       const { seasonId, ...gameData } = data;
       return apiRequest("POST", `/api/seasons/${seasonId}/games`, gameData);
     },
-    onSuccess: () => {
+    onSuccess: async (response) => {
       queryClient.invalidateQueries({ queryKey: [`/api/seasons/${selectedSeasonId}/games`] });
       queryClient.invalidateQueries({ queryKey: ['/api/stats/career'] });
       setShowGameDialog(false);
       setEditingGame(null);
       gameForm.reset();
       toast({ title: "Game logged successfully!" });
+      const game = await response.json().catch(() => null);
+      if (game?.id) setPostJournalGameId(game.id);
     }
   });
 
@@ -3066,6 +3070,20 @@ function StatsTab() {
 
   return (
     <div className="space-y-6">
+      {postJournalGameId && (
+        <Card className="border-primary/25 bg-primary/5">
+          <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex-1">
+              <p className="font-medium">Want to process that game while it is fresh?</p>
+              <p className="text-sm text-muted-foreground">Capture the moments, emotions, and next adjustment in your Journal.</p>
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={() => { setLocation(`/journal?type=post-game&gameId=${postJournalGameId}`); setPostJournalGameId(null); }} data-testid="button-reflect-after-game">Reflect now</Button>
+              <Button variant="ghost" onClick={() => setPostJournalGameId(null)} data-testid="button-dismiss-game-reflection">Later</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       <StatsOverviewCard careerStats={careerStats} seasons={seasons} />
 
       <Card>

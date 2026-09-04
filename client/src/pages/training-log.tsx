@@ -156,6 +156,7 @@ export default function TrainingLogPage() {
   const [drillVideoProgress, setDrillVideoProgress] = useState(0);
   const [activeView, setActiveView] = useState<"library" | "workout" | "history">("library");
   const [showFavoriteDialog, setShowFavoriteDialog] = useState(false);
+  const [postJournalPrompt, setPostJournalPrompt] = useState<{ type: "post-workout"; trainingLogId: string } | null>(null);
   const [shareSessionId, setShareSessionId] = useState<string | null>(null);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [showCreateWorkoutMode, setShowCreateWorkoutMode] = useState(false);
@@ -1385,12 +1386,15 @@ export default function TrainingLogPage() {
       // Show streak celebration if daily challenge was auto-completed
       const bulkData = bulkRes?.ok ? await bulkRes.json().catch(() => null) : null;
       const streakResult = bulkData?.streakResult;
+      const firstLogId = Array.isArray(bulkData?.logs) && bulkData.logs[0]?.id ? bulkData.logs[0].id : undefined;
+      if (bulkRes?.ok && firstLogId) {
+        setPostJournalPrompt({ type: "post-workout", trainingLogId: firstLogId });
+      }
 
       // Auto-complete the originating program item if this workout was launched
       // from a program/today deep link. Only fire when the bulk save itself
       // succeeded so we never mark a program item complete after a failed save.
       if (programCompletion && bulkRes?.ok) {
-        const firstLogId = Array.isArray(bulkData?.logs) && bulkData.logs[0]?.id ? bulkData.logs[0].id : undefined;
         try {
           await apiRequest(
             "POST",
@@ -2657,6 +2661,20 @@ export default function TrainingLogPage() {
                 ? "Would you like to save this drill as a favorite for quick access?"
                 : "Would you like to save this workout as a favorite for quick access?"}
             </DialogDescription>
+            {postJournalPrompt && (
+              <div className="rounded-lg border border-primary/25 bg-primary/5 p-3 space-y-2 text-left">
+                <p className="text-sm font-medium">Want to capture what you learned?</p>
+                <p className="text-xs text-muted-foreground">Start a post-workout Journal entry while the session is fresh.</p>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={() => {
+                    setPostJournalPrompt(null);
+                    setShowFavoriteDialog(false);
+                    setLocation(`/journal?type=post-workout&trainingLogId=${postJournalPrompt.trainingLogId}`);
+                  }} data-testid="button-reflect-after-workout">Reflect now</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setPostJournalPrompt(null)} data-testid="button-dismiss-workout-reflection">Later</Button>
+                </div>
+              </div>
+            )}
           </DialogHeader>
           <div className="space-y-3 py-2">
             {workoutEntries.map(entry => (

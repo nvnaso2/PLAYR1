@@ -695,7 +695,15 @@ export interface IStorage {
   getUserFeatureFlags(userId: string): Promise<Record<string, boolean>>;
 
   // Journal
-  getJournalEntries(userId: string): Promise<JournalEntry[]>;
+  getJournalEntries(userId: string, filters?: {
+    search?: string;
+    type?: string;
+    mood?: number;
+    coached?: boolean;
+    linkedSource?: "workout" | "game" | "none";
+    from?: string;
+    to?: string;
+  }): Promise<JournalEntry[]>;
   getJournalEntry(id: string, userId: string): Promise<JournalEntry | undefined>;
   createJournalEntry(entry: InsertJournalEntry): Promise<JournalEntry>;
   updateJournalEntry(id: string, userId: string, updates: Partial<JournalEntry>): Promise<JournalEntry | undefined>;
@@ -6706,6 +6714,7 @@ export class DatabaseStorage {
       userId: row.user_id,
       type: row.type,
       trainingLogId: row.training_log_id ?? null,
+      gameId: row.game_id ?? null,
       mood: row.mood ?? null,
       responses: row.responses ?? [],
       aiCoachFeedback: row.ai_coach_feedback ?? null,
@@ -6715,12 +6724,35 @@ export class DatabaseStorage {
     };
   }
 
-  async getJournalEntries(userId: string): Promise<JournalEntry[]> {
+  async getJournalEntries(userId: string, filters: {
+    search?: string;
+    type?: string;
+    mood?: number;
+    coached?: boolean;
+    linkedSource?: "workout" | "game" | "none";
+    from?: string;
+    to?: string;
+  } = {}): Promise<JournalEntry[]> {
+    const values: any[] = [String(userId)];
+    const clauses = ["j.user_id = $1"];
+    const add = (value: any) => { values.push(value); return `$${values.length}`; };
+    if (filters.search?.trim()) {
+      const term = `%${filters.search.trim()}%`;
+      const p = add(term);
+      clauses.push(`(j.ai_coach_feedback ILIKE ${p} OR j.ai_follow_up_question ILIKE ${p} OR j.responses::text ILIKE ${p})`);
+    }
+    if (filters.type && ["post-workout", "post-game", "open"].includes(filters.type)) clauses.push(`j.type = ${add(filters.type)}`);
+    if (filters.mood != null && Number.isInteger(filters.mood)) clauses.push(`j.mood = ${add(filters.mood)}`);
+    if (filters.coached != null) clauses.push(filters.coached ? "j.ai_coach_feedback IS NOT NULL" : "j.ai_coach_feedback IS NULL");
+    if (filters.linkedSource === "workout") clauses.push("j.training_log_id IS NOT NULL");
+    if (filters.linkedSource === "game") clauses.push("j.game_id IS NOT NULL");
+    if (filters.linkedSource === "none") clauses.push("j.training_log_id IS NULL AND j.game_id IS NULL");
+    if (filters.from) clauses.push(`j.created_at >= ${add(filters.from)}::date`);
+    if (filters.to) clauses.push(`j.created_at < (${add(filters.to)}::date + INTERVAL '1 day')`);
     const result = await pool.query(
-      `SELECT * FROM journal_entries WHERE user_id = $1 ORDER BY created_at DESC`,
-      [String(userId)]
+      `SELECT j.* FROM journal_entries j WHERE ${clauses.join(" AND ")} ORDER BY j.created_at DESC`,
+      values
     );
-    console.log("[storage.getJournalEntries] userId:", userId, "rows:", result.rowCount);
     return result.rows.map((r) => this.mapJournalRow(r));
   }
 
@@ -6735,13 +6767,14 @@ export class DatabaseStorage {
 
   async createJournalEntry(entry: InsertJournalEntry): Promise<JournalEntry> {
     const result = await pool.query(
-      `INSERT INTO journal_entries (user_id, type, training_log_id, mood, responses, ai_coach_feedback, ai_follow_up_question, ai_follow_up_answer)
-       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8)
+      `INSERT INTO journal_entries (user_id, type, training_log_id, game_id, mood, responses, ai_coach_feedback, ai_follow_up_question, ai_follow_up_answer)
+       VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9)
        RETURNING *`,
       [
         String(entry.userId),
         entry.type ?? "open",
         entry.trainingLogId ?? null,
+        entry.gameId ?? null,
         entry.mood ?? null,
         JSON.stringify(entry.responses ?? []),
         entry.aiCoachFeedback ?? null,
@@ -6757,6 +6790,16 @@ export class DatabaseStorage {
     const setParts: string[] = [];
     const values: any[] = [];
     let idx = 1;
+    const reflectionChanged = updates.responses !== undefined || updates.mood !== undefined;
+
+    // Feedback is tied to the exact reflection it was generated from. Editing
+    // the reflection makes that feedback stale rather than silently presenting
+    // it as if it still applies.
+    if (reflectionChanged) {
+      setParts.push("ai_coach_feedback = NULL");
+      setParts.push("ai_follow_up_question = NULL");
+      setParts.push("ai_follow_up_answer = NULL");
+    }
 
     if (updates.aiCoachFeedback !== undefined) {
       setParts.push(`ai_coach_feedback = $${idx++}`);
@@ -6777,6 +6820,14 @@ export class DatabaseStorage {
     if (updates.responses !== undefined) {
       setParts.push(`responses = $${idx++}::jsonb`);
       values.push(JSON.stringify(updates.responses));
+    }
+    if (updates.trainingLogId !== undefined) {
+      setParts.push(`training_log_id = $${idx++}`);
+      values.push(updates.trainingLogId);
+    }
+    if (updates.gameId !== undefined) {
+      setParts.push(`game_id = $${idx++}`);
+      values.push(updates.gameId);
     }
 
     if (setParts.length === 0) {

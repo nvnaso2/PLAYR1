@@ -2373,6 +2373,7 @@ export const journalEntries = pgTable("journal_entries", {
   userId: varchar("user_id").notNull(),
   type: varchar("type").$type<JournalType>().notNull().default("open"),
   trainingLogId: varchar("training_log_id"),
+  gameId: varchar("game_id"),
   mood: integer("mood"), // 1–5
   responses: jsonb("responses").$type<Array<{ promptId: string; question: string; answer: string }>>().default([]),
   aiCoachFeedback: text("ai_coach_feedback"),

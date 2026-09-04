@@ -25,6 +25,11 @@ export async function runApplicationMigrations(): Promise<void> {
       );
       CREATE UNIQUE INDEX IF NOT EXISTS coach_p_usage_user_month_uq
         ON coach_p_usage (user_id, month_key);
+      ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS game_id varchar;
+      CREATE INDEX IF NOT EXISTS journal_entries_user_created_idx
+        ON journal_entries (user_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS journal_entries_game_idx
+        ON journal_entries (game_id);
       CREATE TABLE IF NOT EXISTS coach_p_conversations (
         id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id varchar NOT NULL,
