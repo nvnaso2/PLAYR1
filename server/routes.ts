@@ -5,7 +5,6 @@ import path from "path";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated, optionalAuth, getAppBaseUrl, type AuthenticatedRequest } from "./auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
-import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, drills, trainingLogs, trainingLogMetrics, feedbackComments, insertProgramSchema, insertProgramItemSchema, insertEventSchema, events, insertStatChallengeSchema, programEnrollments } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { db, pool } from "./db";
 import { eq, and, or, isNull, ilike, sql, inArray, gte } from "drizzle-orm";
@@ -24,6 +23,9 @@ import {
 import { sendPushNotification, getVapidPublicKey } from "./push";
 import { ensureOnboardingSchema, getDiagnosticSummary, getFixCategory, validateMicroQuizPayload } from "./onboarding";
 import { getMicroQuiz } from "@shared/micro-quizzes";
+import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, drills, trainingLogs, trainingLogMetrics, feedbackComments, insertProgramSchema, insertProgramItemSchema, insertEventSchema, events, insertStatChallengeSchema, programEnrollments, coachPUsage } from "@shared/schema";
+import { getUncachableStripeClient } from "./stripeClient";
+import { WebhookHandlers } from "./webhookHandlers";
 
 async function getEmailForUser(userId: string): Promise<string | null> {
   const [profile] = await db.select({ email: userProfiles.email }).from(userProfiles).where(eq(userProfiles.userId, userId));
@@ -125,6 +127,65 @@ export async function registerRoutes(
   }
 
   const STREAK_MILESTONES = new Set([3, 7, 14, 30, 50, 100, 200, 365]);
+
+  const FREE_COACH_P_LIMIT = 3;
+  const currentMonthKey = () => new Date().toISOString().slice(0, 7);
+
+  async function getSubscriptionSnapshot(userId: string) {
+    const [[user], usageResult] = await Promise.all([
+      db.select().from(users).where(eq(users.id, userId)),
+      db.select().from(coachPUsage).where(and(
+        eq(coachPUsage.userId, userId),
+        eq(coachPUsage.monthKey, currentMonthKey()),
+      )),
+    ]);
+    const stripeActive = user?.subscriptionPlan === "pro" &&
+      (user.subscriptionStatus === "active" || user.subscriptionStatus === "trialing");
+    const isPro = stripeActive;
+    const used = usageResult[0]?.questionCount ?? 0;
+    return {
+      plan: isPro ? "pro" : "free",
+      status: user?.subscriptionStatus ?? "free",
+      interval: user?.subscriptionPriceInterval ?? null,
+      currentPeriodEnd: user?.subscriptionCurrentPeriodEnd ?? null,
+      cancelAtPeriodEnd: user?.subscriptionCancelAtPeriodEnd ?? false,
+      coachP: {
+        used,
+        limit: isPro ? null : FREE_COACH_P_LIMIT,
+        remaining: isPro ? null : Math.max(0, FREE_COACH_P_LIMIT - used),
+        monthKey: currentMonthKey(),
+      },
+    };
+  }
+
+  async function consumeCoachPQuestion(userId: string) {
+    const snapshot = await getSubscriptionSnapshot(userId);
+    if (snapshot.plan === "pro") return { allowed: true, charged: false, ...snapshot.coachP };
+    const result = await db.execute(sql`
+      INSERT INTO coach_p_usage (user_id, month_key, question_count, updated_at)
+      VALUES (${userId}, ${currentMonthKey()}, 1, NOW())
+      ON CONFLICT (user_id, month_key)
+      DO UPDATE SET question_count = coach_p_usage.question_count + 1, updated_at = NOW()
+      WHERE coach_p_usage.question_count < ${FREE_COACH_P_LIMIT}
+      RETURNING question_count
+    `);
+    const count = Number((result.rows[0] as any)?.question_count ?? 0);
+    return count > 0
+      ? { allowed: true, charged: true, used: count, limit: FREE_COACH_P_LIMIT, remaining: FREE_COACH_P_LIMIT - count, monthKey: currentMonthKey() }
+      : { allowed: false, charged: false, used: FREE_COACH_P_LIMIT, limit: FREE_COACH_P_LIMIT, remaining: 0, monthKey: currentMonthKey() };
+  }
+
+  async function refundCoachPQuestion(userId: string) {
+    await db.execute(sql`
+      UPDATE coach_p_usage
+      SET question_count = GREATEST(0, question_count - 1), updated_at = NOW()
+      WHERE user_id = ${userId} AND month_key = ${currentMonthKey()}
+    `);
+  }
+
+  async function hasProAccess(userId: string) {
+    return (await getSubscriptionSnapshot(userId)).plan === "pro";
+  }
 
   // Health check endpoint — verifies the server is up AND the database is reachable.
   // Returns 200 with diagnostics on success, 503 on failure. No auth, no DB writes.
@@ -232,6 +293,87 @@ export async function registerRoutes(
   // Setup authentication
   setupAuth(app);
   registerAuthRoutes(app);
+
+  app.post("/api/stripe/webhook", async (req, res) => {
+    const signature = req.headers["stripe-signature"];
+    if (!signature || Array.isArray(signature)) return res.status(400).send("Missing Stripe signature");
+    try {
+      await WebhookHandlers.processWebhook(req.body, signature);
+      res.json({ received: true });
+    } catch (error) {
+      console.error("Stripe webhook failed:", error);
+      res.status(400).send("Webhook processing failed");
+    }
+  });
+
+  app.get("/api/billing/subscription", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      res.json(await getSubscriptionSnapshot(req.user.claims.sub));
+    } catch (error) {
+      console.error("Failed to load subscription:", error);
+      res.status(500).json({ message: "Failed to load subscription" });
+    }
+  });
+
+  app.post("/api/billing/checkout", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { interval } = z.object({ interval: z.enum(["month", "year"]) }).parse(req.body);
+      if (await hasProAccess(userId)) return res.status(409).json({ message: "You already have PLAYR1 Pro" });
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user) return res.status(404).json({ message: "User not found" });
+      const stripe = await getUncachableStripeClient();
+      let customerId = user.stripeCustomerId;
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          email: user.email ?? undefined,
+          name: [user.firstName, user.lastName].filter(Boolean).join(" ") || undefined,
+          metadata: { userId },
+        });
+        customerId = customer.id;
+        await db.update(users).set({ stripeCustomerId: customerId, updatedAt: new Date() }).where(eq(users.id, userId));
+      }
+      const lookupKey = interval === "month" ? "playr1_pro_monthly" : "playr1_pro_annual";
+      const prices = await stripe.prices.list({ lookup_keys: [lookupKey], active: true, limit: 1 });
+      const price = prices.data[0];
+      if (!price || price.metadata.playr1_plan !== "pro") {
+        return res.status(503).json({ message: "PLAYR1 Pro pricing is not configured yet" });
+      }
+      const baseUrl = getAppBaseUrl();
+      const session = await stripe.checkout.sessions.create({
+        mode: "subscription",
+        customer: customerId,
+        client_reference_id: userId,
+        line_items: [{ price: price.id, quantity: 1 }],
+        allow_promotion_codes: false,
+        success_url: `${baseUrl}/subscription?checkout=success`,
+        cancel_url: `${baseUrl}/subscription?checkout=cancelled`,
+        metadata: { userId, playr1_plan: "pro" },
+        subscription_data: { metadata: { userId, playr1_plan: "pro" } },
+      });
+      res.json({ url: session.url });
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "Choose monthly or annual billing" });
+      console.error("Failed to create checkout:", error);
+      res.status(500).json({ message: "Failed to create checkout" });
+    }
+  });
+
+  app.post("/api/billing/portal", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const [user] = await db.select().from(users).where(eq(users.id, req.user.claims.sub));
+      if (!user?.stripeCustomerId) return res.status(400).json({ message: "No Stripe customer found" });
+      const stripe = await getUncachableStripeClient();
+      const session = await stripe.billingPortal.sessions.create({
+        customer: user.stripeCustomerId,
+        return_url: `${getAppBaseUrl()}/subscription`,
+      });
+      res.json({ url: session.url });
+    } catch (error) {
+      console.error("Failed to open billing portal:", error);
+      res.status(500).json({ message: "Failed to open subscription controls" });
+    }
+  });
 
   // Setup object storage for file uploads
   registerObjectStorageRoutes(app);
@@ -529,6 +671,8 @@ export async function registerRoutes(
   });
 
   // AI Onboarding Interview Chat
+  // Onboarding is quota-exempt because it is the free diagnostic intake,
+  // not an ongoing Coach P question surface.
   app.post("/api/ai/onboarding-chat", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const { messages = [], playerContext = {} } = req.body;
@@ -2012,7 +2156,12 @@ Start now with a warm one-line greeting that briefly references something specif
           body.longitude = coords.longitude;
         }
       }
-      const data = insertUserProfileSchema.parse({ ...body, userId });
+      delete body.isAdmin;
+      delete body.subscriptionPlan;
+      delete body.userId;
+      const data = insertUserProfileSchema
+        .omit({ isAdmin: true, subscriptionPlan: true })
+        .parse({ ...body, userId });
       const profile = await storage.upsertUserProfile(data);
 
       if (data.profilePhotoUrl !== undefined) {
@@ -8473,9 +8622,16 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
       if (!isPublic && !isConnectionVisible && !isOwner && !enrollment) {
         return res.status(404).json({ message: "Program not found" });
       }
+      const isLocked = Boolean(program.isPro) && !isOwner && !(await hasProAccess(userId));
       const items = await storage.getProgramItems(program.id);
       const completions = enrollment ? await storage.getCompletionsForEnrollment(enrollment.id) : [];
-      res.json({ program, items, enrollment, completions });
+      res.json({
+        program,
+        items: isLocked ? [] : items,
+        enrollment: isLocked ? null : enrollment,
+        completions: isLocked ? [] : completions,
+        isLocked,
+      });
     } catch (err) {
       console.error("Error getting program:", err);
       res.status(500).json({ message: "Failed to get program" });
@@ -8489,6 +8645,9 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
       const program = await storage.getProgramById(req.params.id);
       if (!program) return res.status(404).json({ message: "Program not found" });
       const isOwner = program.authorUserId === userId;
+      if (program.isPro && !isOwner && !(await hasProAccess(userId))) {
+        return res.status(402).json({ message: "PLAYR1 Pro is required for this program", code: "PRO_REQUIRED" });
+      }
       if (!program.isPublished && !isOwner) return res.status(403).json({ message: "Program not available" });
       if (program.visibility !== "public" && !isOwner) {
         // Allow connections-tier programs for accepted-connected players.
@@ -8525,6 +8684,10 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
         // Capture pre-completion day so we can detect day advances
         const [preEnroll] = await db.select({ currentDay: programEnrollments.currentDay, programId: programEnrollments.programId })
           .from(programEnrollments).where(eq(programEnrollments.id, req.params.enrollmentId));
+        const program = preEnroll?.programId ? await storage.getProgramById(preEnroll.programId) : null;
+        if (program?.isPro && program.authorUserId !== userId && !(await hasProAccess(userId))) {
+          return res.status(402).json({ message: "PLAYR1 Pro is required for this program", code: "PRO_REQUIRED" });
+        }
         const result = await storage.completeProgramItem({
           enrollmentId: req.params.enrollmentId,
           programItemId: req.params.itemId,
@@ -9304,12 +9467,22 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
 
   // AI Coach feedback (pro users only)
   app.post("/api/journal/:id/ai-coach", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    const userId = req.user.claims.sub;
+    let charged = false;
     try {
-      const userId = req.user.claims.sub;
       console.log("[ai-coach] userId:", userId, "entryId:", req.params.id);
       const entry = await storage.getJournalEntry(req.params.id, userId);
       console.log("[ai-coach] entry found:", !!entry);
       if (!entry) return res.status(404).json({ message: "Entry not found" });
+      const coachPAccess = await consumeCoachPQuestion(userId);
+      if (!coachPAccess.allowed) {
+        return res.status(402).json({
+          message: "You've used all 3 free Coach P questions this month.",
+          code: "COACH_P_LIMIT_REACHED",
+          coachP: coachPAccess,
+        });
+      }
+      charged = coachPAccess.charged;
 
       // Pull recent training data for context
       const recentLogs = await storage.getTrainingLogs(userId);
@@ -9357,6 +9530,7 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
 
       res.json(updated);
     } catch (err) {
+      if (charged) await refundCoachPQuestion(userId).catch((e) => console.error("Coach P quota refund failed:", e));
       console.error("Error generating AI coach feedback:", err);
       res.status(500).json({ message: "Failed to generate AI feedback" });
     }
@@ -10073,8 +10247,9 @@ Return ONLY valid JSON array, no markdown.`;
   });
 
   app.post("/api/goals/:id/answer", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    const userId = req.user!.claims.sub;
+    let charged = false;
     try {
-      const userId = req.user!.claims.sub;
       const goalId = req.params.id;
       const { clarificationId, answer } = z.object({
         clarificationId: z.string(),
@@ -10083,6 +10258,15 @@ Return ONLY valid JSON array, no markdown.`;
 
       const goal = await storage.getGoalById(goalId);
       if (!goal || goal.userId !== userId) return res.status(404).json({ message: "Goal not found" });
+      const coachPAccess = await consumeCoachPQuestion(userId);
+      if (!coachPAccess.allowed) {
+        return res.status(402).json({
+          message: "You've used all 3 free Coach P questions this month.",
+          code: "COACH_P_LIMIT_REACHED",
+          coachP: coachPAccess,
+        });
+      }
+      charged = coachPAccess.charged;
 
       await storage.answerClarification(clarificationId, answer);
       const allClarifications = await storage.getClarifications(goalId);
@@ -10121,14 +10305,16 @@ Return ONLY valid JSON array, no markdown.`;
 
       res.json({ done: true, goal: updatedGoal, milestones, clarifications: allClarifications });
     } catch (err) {
+      if (charged) await refundCoachPQuestion(userId).catch((e) => console.error("Coach P quota refund failed:", e));
       console.error("[goals] answer:", err);
       res.status(500).json({ message: "Failed to process answer" });
     }
   });
 
   app.post("/api/goals/:id/checkin", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    const userId = req.user!.claims.sub;
+    let charged = false;
     try {
-      const userId = req.user!.claims.sub;
       const goalId = req.params.id;
       const { userInput, weekNumber } = z.object({
         userInput: z.string().min(1),
@@ -10146,6 +10332,15 @@ Return ONLY valid JSON array, no markdown.`;
 
       const already = existingCheckIns.find((c) => c.weekNumber === weekNumber);
       if (already) return res.status(409).json({ message: "Check-in for this week already submitted" });
+      const coachPAccess = await consumeCoachPQuestion(userId);
+      if (!coachPAccess.allowed) {
+        return res.status(402).json({
+          message: "You've used all 3 free Coach P questions this month.",
+          code: "COACH_P_LIMIT_REACHED",
+          coachP: coachPAccess,
+        });
+      }
+      charged = coachPAccess.charged;
 
       const completedMilestones = milestones.filter((m) => m.completed).map((m) => m.title);
       const mainArch = userArchetypes.find((ua) => ua.role === "main")?.archetype?.name ?? "";
@@ -10176,6 +10371,7 @@ Return ONLY valid JSON array, no markdown.`;
       const checkIn = await storage.createCheckIn({ goalId, userId, weekNumber, userInput, aiResponse });
       res.json(checkIn);
     } catch (err) {
+      if (charged) await refundCoachPQuestion(userId).catch((e) => console.error("Coach P quota refund failed:", e));
       console.error("[goals] checkin:", err);
       res.status(500).json({ message: "Failed to submit check-in" });
     }

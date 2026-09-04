@@ -17,6 +17,7 @@ import {
   PlayCircle,
   Sparkles,
   Users,
+  Lock,
 } from "lucide-react";
 import type { Program, ProgramItem, ProgramEnrollment, ProgramItemCompletion, Drill } from "@shared/schema";
 import { DayPlanGrid, ProgramStatRibbon } from "@/components/program-day-plan";
@@ -26,6 +27,7 @@ interface ProgramDetailResponse {
   items: ProgramItem[];
   enrollment: ProgramEnrollment | null;
   completions: ProgramItemCompletion[];
+  isLocked?: boolean;
 }
 
 const difficultyColors: Record<string, string> = {
@@ -101,7 +103,7 @@ export default function ProgramDetailPage() {
     );
   }
 
-  const { program, items, enrollment } = data;
+  const { program, items, enrollment, isLocked } = data;
   const accent = program.accentColor || "#f97316";
   const completedCount = completedItemIds.size;
   const totalItems = items.length;
@@ -196,7 +198,17 @@ export default function ProgramDetailPage() {
 
             {/* Enrollment CTA */}
             <div className="flex flex-col items-stretch lg:items-end gap-2 min-w-[220px]">
-              {enrollment ? (
+              {isLocked ? (
+                <Button
+                  size="lg"
+                  className="w-full lg:w-auto bg-amber-500 text-black hover:bg-amber-400"
+                  onClick={() => setLocation("/subscription")}
+                  data-testid="button-upgrade-program"
+                >
+                  <Lock className="w-5 h-5 mr-2" />
+                  Unlock with PLAYR1 Pro
+                </Button>
+              ) : enrollment ? (
                 <>
                   <Link href={`/programs/${program.slug}/today`}>
                     <Button
@@ -246,18 +258,44 @@ export default function ProgramDetailPage() {
             </Card>
           )}
 
+          {program.trailerVideoUrl && (
+            <Card data-testid="card-program-trailer">
+              <CardContent className="p-4">
+                <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                  <PlayCircle className="w-5 h-5" /> Free trailer
+                </h2>
+                <div className="aspect-video rounded-lg overflow-hidden bg-black">
+                  <video src={program.trailerVideoUrl} controls className="w-full h-full" preload="metadata" />
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {isLocked && (
+            <Card className="border-amber-500/40 bg-amber-500/5" data-testid="card-program-locked">
+              <CardContent className="p-6 text-center">
+                <Lock className="w-8 h-8 text-amber-400 mx-auto mb-3" />
+                <h2 className="text-xl font-bold">Full program is part of PLAYR1 Pro</h2>
+                <p className="text-muted-foreground mt-2">Watch the trailer above, then upgrade for the full day-by-day plan.</p>
+                <Button className="mt-5 bg-amber-500 text-black hover:bg-amber-400" onClick={() => setLocation("/subscription")}>
+                  View Pro options
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Stat ribbon */}
-          <ProgramStatRibbon
+          {!isLocked && <ProgramStatRibbon
             accent={accent}
             lengthDays={totalDays}
             totalItems={totalItems}
             estimatedMinutesPerDay={program.estimatedMinutesPerDay ?? null}
             difficulty={program.difficulty}
             enrollmentCount={program.enrollmentCount ?? null}
-          />
+          />}
 
           {/* Day-by-day outline */}
-          <div>
+          {!isLocked && <div>
             <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
               <Calendar className="w-5 h-5" style={{ color: accent }} />
               Day-by-day plan
@@ -271,7 +309,7 @@ export default function ProgramDetailPage() {
               accent={accent}
               layout="rows"
             />
-          </div>
+          </div>}
         </div>
 
         {/* Sidebar */}

@@ -7,11 +7,20 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getObjectUrl } from "@/lib/queryClient";
 import {
   BarChart3, Fingerprint, BotMessageSquare, Zap,
-  ChevronRight, UserCircle, Settings,
+  ChevronRight, UserCircle, Settings, Crown,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
 const sections = [
+  {
+    title: "PLAYR1 Pro",
+    description: "Plan, Coach P usage and subscription controls",
+    icon: Crown,
+    color: "text-amber-400",
+    bg: "bg-amber-500/10",
+    path: "/subscription",
+    testId: "card-profile-subscription",
+  },
   {
     title: "My Career",
     description: "Stats, trophies, training history and milestones",

@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Calendar, Clock, Flame, Sparkles, Users } from "lucide-react";
+import { Calendar, Clock, Flame, Sparkles, Users, Lock } from "lucide-react";
 import type { Program } from "@shared/schema";
 
 const difficultyColors: Record<string, string> = {
@@ -74,6 +74,11 @@ export function ProgramCard({ program, enrolledCount, totalItems, variant = "gri
 
           {/* Featured / Length badges */}
           <div className="absolute top-3 left-3 flex items-center gap-2">
+            {program.isPro && (
+              <Badge className="bg-amber-500 text-black border-0" data-testid={`badge-pro-${program.slug}`}>
+                <Lock className="w-3 h-3 mr-1" /> PRO
+              </Badge>
+            )}
             {program.isFeatured && (
               <Badge className="bg-white/95 text-black border-0 backdrop-blur shadow-sm" data-testid={`badge-featured-${program.slug}`}>
                 <Sparkles className="w-3 h-3 mr-1" />

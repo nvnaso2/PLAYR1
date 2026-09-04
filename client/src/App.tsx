@@ -84,6 +84,8 @@ const CommunityFriendsPage = lazy(() => import("@/pages/community-friends"));
 const CommunityChallengePage = lazy(() => import("@/pages/community-challenges"));
 const CommunityFindPlayersPage = lazy(() => import("@/pages/community-find-players"));
 const ProfileHubPage = lazy(() => import("@/pages/profile-hub"));
+
+const SubscriptionPage = lazy(() => import("@/pages/subscription"));
 const StreaksPage = lazy(() => import("@/pages/streaks"));
 const StatChallengePage = lazy(() => import("@/pages/stat-challenge"));
 const StreakChallengePage = lazy(pageLoaders.streakChallenge);
@@ -324,6 +326,7 @@ function Router() {
                 <Route path="/videos" component={Videos} />
                 <Route path="/career" component={Career} />
                 <Route path="/profile" component={Profile} />
+                <Route path="/subscription" component={SubscriptionPage} />
                 <Route path="/settings">{() => <Suspense fallback={<LoadingScreen />}><SettingsPage /></Suspense>}</Route>
                 <Route path="/admin/onboarding-preview">{() => <AdminRoute><OnboardingPreview /></AdminRoute>}</Route>
                 <Route path="/admin/brand-principles">{() => <AdminRoute><AdminBrandPrinciples /></AdminRoute>}</Route>

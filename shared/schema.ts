@@ -1796,6 +1796,8 @@ export const programs = pgTable("programs", {
   tagline: varchar("tagline"),
   description: text("description"),
   coverImageUrl: varchar("cover_image_url"),
+  trailerVideoUrl: varchar("trailer_video_url"),
+  isPro: boolean("is_pro").default(false),
   accentColor: varchar("accent_color"), // optional hex like "#f97316" — themes the hero
   authorType: varchar("author_type").$type<ProgramAuthorType>().notNull().default("system"),
   authorUserId: varchar("author_user_id"), // null for system; set for trainer-authored
@@ -1844,6 +1846,15 @@ export const programItems = pgTable("program_items", {
   byProgramDay: index("program_items_program_day_idx").on(table.programId, table.dayNumber, table.orderInDay),
 }));
 
+export const coachPUsage = pgTable("coach_p_usage", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  monthKey: varchar("month_key").notNull(),
+  questionCount: integer("question_count").notNull().default(0),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  userMonth: uniqueIndex("coach_p_usage_user_month_uq").on(table.userId, table.monthKey),
+}));
 export const programEnrollments = pgTable("program_enrollments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull(),
@@ -1906,6 +1917,7 @@ export const insertProgramSchema = createInsertSchema(programs).omit({
   id: true, createdAt: true, updatedAt: true, enrollmentCount: true,
 }).extend({
   coverImageUrl: urlOrObjectPath,
+  trailerVideoUrl: urlOrObjectPath,
 });
 
 export const insertProgramItemSchema = createInsertSchema(programItems).omit({
@@ -1931,12 +1943,7 @@ export type InsertProgramEnrollment = z.infer<typeof insertProgramEnrollmentSche
 export type ProgramItemCompletion = typeof programItemCompletions.$inferSelect;
 export type InsertProgramItemCompletion = z.infer<typeof insertProgramItemCompletionSchema>;
 
-// ─── Events (Program Wrapper w/ Time Window + Leaderboard) ───────────────
-// An Event wraps a Program with a strict start/end window and a leaderboard.
-// During the window players join → auto-enrolls them in the wrapped program
-// with `programEnrollments.eventId` set so all completions are scoped. The
-// optional final-challenge item points at a specific program_items row whose
-// score becomes the final-leaderboard input.
+export type CoachPUsage = typeof coachPUsage.$inferSelect;
 export const EVENT_LEADERBOARD_METRICS = ["completions", "finalScore", "composite"] as const;
 export type EventLeaderboardMetric = typeof EVENT_LEADERBOARD_METRICS[number];
 

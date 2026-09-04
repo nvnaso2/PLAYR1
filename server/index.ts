@@ -5,6 +5,10 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { seedDatabase } from "./seed";
+import { runMigrations } from "stripe-replit-sync";
+import { getStripeSync } from "./stripeClient";
+import { runApplicationMigrations } from "./appMigrations";
+import { ensureProCatalog } from "./proCatalog";
 
 const app = express();
 const httpServer = createServer(app);
@@ -39,6 +43,8 @@ declare module "http" {
   }
 }
 
+// This must run before express.json() so Stripe can verify the signed bytes.
+app.use("/api/stripe/webhook", express.raw({ type: "application/json" }));
 
 app.use(
   express.json({
@@ -97,6 +103,21 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  await runApplicationMigrations();
+  log("Application migrations complete");
+  try {
+    if (process.env.DATABASE_URL && process.env.REPLIT_DOMAINS) {
+      await runMigrations({ databaseUrl: process.env.DATABASE_URL });
+      const stripeSync = await getStripeSync();
+      const webhookBaseUrl = `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`;
+      await stripeSync.findOrCreateManagedWebhook(`${webhookBaseUrl}/api/stripe/webhook`);
+      await ensureProCatalog();
+      await stripeSync.syncBackfill();
+      log("Stripe sync initialized");
+    }
+  } catch (error) {
+    console.error("Stripe initialization skipped:", error);
+  }
   await registerRoutes(httpServer, app);
   
   // Seed the database with initial data

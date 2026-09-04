@@ -31,14 +31,14 @@ const playerTabs = [
     label: "Community",
     icon: Users,
     path: "/community",
-    activePatterns: ["/community", "/my-trainer", "/teams", "/connect"],
+    activePatterns: ["/community", "/connect"],
   },
   {
     id: "profile",
     label: "Profile",
     icon: UserCircle,
     path: "/profile-hub",
-    activePatterns: ["/profile-hub", "/profile", "/career", "/archetypes", "/my-archetype", "/my-goal", "/game-day"],
+    activePatterns: ["/profile-hub", "/profile", "/subscription", "/career", "/archetypes", "/my-archetype", "/my-goal", "/game-day"],
   },
 ];
 

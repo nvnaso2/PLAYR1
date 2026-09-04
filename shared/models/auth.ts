@@ -27,6 +27,11 @@ export const users = pgTable("users", {
   role: varchar("role").default("player"),
   stripeCustomerId: varchar("stripe_customer_id"),
   stripeSubscriptionId: varchar("stripe_subscription_id"),
+  subscriptionPlan: varchar("subscription_plan").default("free"),
+  subscriptionStatus: varchar("subscription_status").default("free"),
+  subscriptionPriceInterval: varchar("subscription_price_interval"),
+  subscriptionCurrentPeriodEnd: timestamp("subscription_current_period_end"),
+  subscriptionCancelAtPeriodEnd: boolean("subscription_cancel_at_period_end").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

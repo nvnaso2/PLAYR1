@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ChevronRight, Users, Swords, Search, UserPlus, Shield } from "lucide-react";
+import { ChevronRight, Users, Swords, Search } from "lucide-react";
 
 export default function CommunityPage() {
   const [, navigate] = useLocation();
@@ -17,14 +17,9 @@ export default function CommunityPage() {
     queryKey: ["/api/group-challenges/invites"],
     enabled: !!user,
   });
-  const { data: connections } = useQuery<any[]>({
-    queryKey: ["/api/connections/pending"],
-    enabled: !!user,
-  });
 
   const friendReqCount  = friendRequests?.length ?? 0;
   const challengeCount  = challengeInvites?.length ?? 0;
-  const trainerCount    = connections?.length ?? 0;
 
   const sections = [
     {
@@ -55,26 +50,6 @@ export default function CommunityPage() {
       iconBg: "bg-green-500/10",
       iconColor: "text-green-400",
       path: "/community/find-players",
-      badge: 0,
-    },
-    {
-      key: "my-trainer",
-      label: "My Trainer",
-      description: "Connect, book sessions & view evaluations",
-      icon: UserPlus,
-      iconBg: "bg-blue-500/10",
-      iconColor: "text-blue-400",
-      path: "/my-trainer",
-      badge: trainerCount,
-    },
-    {
-      key: "teams",
-      label: "Teams & Leagues",
-      description: "Join teams, find leagues and compete",
-      icon: Shield,
-      iconBg: "bg-purple-500/10",
-      iconColor: "text-purple-400",
-      path: "/teams",
       badge: 0,
     },
   ];
