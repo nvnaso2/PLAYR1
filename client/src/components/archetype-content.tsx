@@ -1,5 +1,27 @@
 export const CORE_CHARACTERISTIC_COUNT = 4;
 
+export const ARCHETYPE_DISPLAY_ORDER = [
+  "Sharpshooter",
+  "Shot Creator",
+  "Floor General",
+  "Lockdown Defender",
+  "Athletic Slasher",
+  "Playmaking Wing",
+  "Two-Way Player",
+  "Swiss Army Knife",
+  "Rim Protector",
+  "Stretch Big",
+] as const;
+
+export function sortArchetypeDefinitions<T extends { name: string }>(definitions: T[]): T[] {
+  const order = new Map<string, number>(ARCHETYPE_DISPLAY_ORDER.map((name, index) => [name, index]));
+  return [...definitions].sort((a, b) => {
+    const aOrder = order.get(a.name) ?? ARCHETYPE_DISPLAY_ORDER.length;
+    const bOrder = order.get(b.name) ?? ARCHETYPE_DISPLAY_ORDER.length;
+    return aOrder - bOrder;
+  });
+}
+
 const ASSESSMENT_ARCHETYPE_DEFINITION_IDS: Record<string, string> = {
   "Sharpshooter": "sharpshooter",
   "Shot Creator": "slasher",

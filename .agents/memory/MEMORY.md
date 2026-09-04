@@ -3,3 +3,4 @@
 - [Stripe connector credential shape](stripe-connector-credentials.md) — accept both legacy and installed connector secret field names without persisting credentials
 - [Hub onboarding path](hub-onboarding-path.md) — Hub prioritizes post-onboarding actions; Coach P currently enters through Journal reflection
 - [Archetype content source](archetype-content-source.md) — descriptions and four core characteristics come from database definitions with explicit assessment-label mapping
+- [Coach P model budget](coach-p-model-budget.md) — leave enough completion budget for reasoning and visible coaching text

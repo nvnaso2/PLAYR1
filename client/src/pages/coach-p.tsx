@@ -40,7 +40,7 @@ const STARTER_PROMPTS = [
   },
   {
     label: "Build my PLAYR1 goal",
-    prompt: "Use the primary basketball goal I shared in my onboarding assessment to help me build a clear PLAYR1 goal. Start by telling me what you understood, then ask me the single best question to make it specific and achievable. Do not jump straight to a workout plan yet.",
+    prompt: "Use the primary basketball goal I shared in my onboarding assessment and the Coach P Says guidance for my archetype to help me build a clear PLAYR1 goal. Make that Coach P Says guidance a central part of the goal: explain how the goal fits my player identity, addresses my growth edge, and can be measured. Start by telling me what you understood, then ask me the single best question to make it specific and achievable. Do not jump straight to a workout plan yet.",
     icon: Flag,
   },
 ];

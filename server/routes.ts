@@ -27,6 +27,19 @@ import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema
 import { getUncachableStripeClient } from "./stripeClient";
 import { WebhookHandlers } from "./webhookHandlers";
 
+const COACH_P_ARCHETYPE_GUIDANCE: Record<string, string> = {
+  "Sharpshooter": "Your shot isn't just a skill, it's a weapon defenses have to respect every second you're on the floor. My job is making sure you can get that shot off in more ways than standing still waiting for a pass.",
+  "Shot Creator": "You can get a bucket when nobody else can. That's rare. The next step is making sure you're not just scoring, you're scoring efficiently, and when the defense sends extra help, you know exactly what to do.",
+  "Floor General": "The game slows down for you in a way it doesn't for most players. That gift is the foundation. Now we build the scoring punch that forces defenses to respect you as more than just a passer.",
+  "Lockdown Defender": "You make winning plays that never show up on a stat sheet. The next level for you is making sure your offense doesn't become a reason coaches sit you in close games.",
+  "Athletic Slasher": "Your speed and explosiveness create problems most defenders can't solve. We're going to make sure you're not one-dimensional, so when the lane gets crowded, you've still got an answer.",
+  "Playmaking Wing": "You make the game easier for everyone around you. That's a real superpower. Now let's make sure you're comfortable taking over when your team needs you to score, not just facilitate.",
+  "Two-Way Player": "You don't give anything away on either end, and that's incredibly valuable. The next step is finding the one thing you can become truly elite at, so you're not just reliable, you're a difference-maker.",
+  "Swiss Army Knife": "You can do a little bit of everything, and coaches love that. The risk is staying a 'jack of all trades, master of none.' Let's find your signature move so your versatility has a real edge.",
+  "Rim Protector": "You make your team feel safe just by being on the floor. To take the next step, we need to make sure you can move well enough on defense to handle being pulled away from the paint.",
+  "Stretch Big": "That combination of size and shooting is exactly what modern basketball is built around. Just make sure you don't become only a shooter. We still need you to win the physical battles in the paint.",
+};
+
 async function getEmailForUser(userId: string): Promise<string | null> {
   const [profile] = await db.select({ email: userProfiles.email }).from(userProfiles).where(eq(userProfiles.userId, userId));
   if (profile?.email) return profile.email;
@@ -801,12 +814,19 @@ Start now with a warm one-line greeting that briefly references something specif
         principles.lifePrinciple && `LIFE PRINCIPLE:\n${principles.lifePrinciple}`,
       ].filter(Boolean).join("\n\n") : "No additional PLAYR1 principles have been configured yet.";
 
+      const assessmentArchetypeName = typeof career?.assessmentArchetype === "string"
+        ? career.assessmentArchetype.replace(/^the\s+/i, "").trim()
+        : "";
+      const assessmentCoachPSays = COACH_P_ARCHETYPE_GUIDANCE[assessmentArchetypeName];
       const archetypeText = userArchetypes.length > 0
         ? userArchetypes.map((entry) => {
             const definition = entry.archetype;
-            return `${entry.role}: ${definition.name} (${entry.tier}, ${entry.tierPct ?? 0}% through tier)\nTagline: ${definition.tagline}\nDescription: ${definition.description}\nCharacteristics: ${(definition.traits ?? []).slice(0, 4).join(", ")}`;
+            const coachPSays = COACH_P_ARCHETYPE_GUIDANCE[definition.name];
+            return `${entry.role}: ${definition.name} (${entry.tier}, ${entry.tierPct ?? 0}% through tier)\nTagline: ${definition.tagline}\nDescription: ${definition.description}\nCharacteristics: ${(definition.traits ?? []).slice(0, 4).join(", ")}${coachPSays ? `\nCoach P Says: ${coachPSays}` : ""}`;
           }).join("\n\n")
-        : "No manually selected archetype yet.";
+        : assessmentCoachPSays
+          ? `Assessment archetype: ${assessmentArchetypeName}\nCoach P Says: ${assessmentCoachPSays}`
+          : "No manually selected archetype yet.";
 
       const assessmentAnswers = career?.assessmentAnswers
         ? JSON.stringify(career.assessmentAnswers).slice(0, 10000)
@@ -961,6 +981,7 @@ COACHING RULES:
 - Prefer drills that exist in the available drill catalog and reference active programs when they are relevant. Do not invent a drill or program title when a suitable catalog item exists.
 - Use dashboard trends, game stats, shot locations, heat-map patterns, and logged workout history when they help answer the question. Be clear when a data set is empty or too small to support a conclusion.
 - For goals, turn vague ambition into a concrete next action and a way to track it.
+- For the PLAYR1 Goal prompt, make the player's archetype Coach P Says guidance a central coaching lens. Show how the goal expresses that guidance, addresses the player's growth edge, and can be measured.
 - For game preparation, include one offensive priority, one defensive priority, and one mental cue.
 - Keep most answers to 4-8 short paragraphs or bullets. Give the player something they can do today.
 - Do not provide medical diagnosis. For pain or injury concerns, recommend a qualified professional.
@@ -978,7 +999,7 @@ COACHING RULES:
           { role: "system", content: systemPrompt },
           ...parsed.data.messages.map(message => ({ role: message.role, content: message.content })),
         ],
-        max_completion_tokens: 900,
+        max_completion_tokens: 4096,
       });
       const message = completion.choices[0]?.message?.content?.trim();
       if (!message) return res.status(500).json({ message: "Coach P returned no coaching response." });

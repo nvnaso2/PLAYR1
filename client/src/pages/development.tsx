@@ -13,7 +13,7 @@ import {
   STAGE_ORDER,
 } from "@/pages/welcome";
 import type { Archetype } from "@shared/schema";
-import { findArchetypeDefinition, getCoreCharacteristics } from "@/components/archetype-content";
+import { ARCHETYPE_DISPLAY_ORDER, findArchetypeDefinition, getCoreCharacteristics } from "@/components/archetype-content";
 
 function getCharIcon(value: string): string {
   const text = value.toLowerCase();
@@ -104,7 +104,7 @@ export default function DevelopmentPage() {
   const viewingBottleneck = selectedBottleneck || currentBottleneck;
   const bottleneckInfo = BOTTLENECKS[viewingBottleneck] || BOTTLENECKS["Basketball IQ"];
   const topGrowthAreas = parseArray(career?.assessmentCourtRoleDescription);
-  const archetypeOptions = Object.keys(ARCHETYPE_META);
+  const archetypeOptions = ARCHETYPE_DISPLAY_ORDER.filter(name => ARCHETYPE_META[name]);
   const bottleneckOptions = Object.keys(BOTTLENECKS);
   const displayName = profile?.displayName || [profile?.firstName, profile?.lastName].filter(Boolean).join(" ");
   const actualArchetypeLabel = career?.assessmentArchetype || currentArchetype;

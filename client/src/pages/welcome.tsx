@@ -39,19 +39,19 @@ export const ARCHETYPE_META: Record<string, {
     gradient: "from-blue-800 via-blue-700 to-blue-600",
     tagline: "Give me an inch of space, and it's already going in.",
     strengths: ["Elite shot mechanics", "Quick release", "Movement shooting", "Creates spacing"],
-    coachP: "Your shot isn't just a skill — it's a weapon defenses have to respect every second you're on the floor. My job is making sure you can get that shot off in more ways than standing still waiting for a pass.",
+    coachP: "Your shot isn't just a skill, it's a weapon defenses have to respect every second you're on the floor. My job is making sure you can get that shot off in more ways than standing still waiting for a pass.",
   },
   "Shot Creator": {
     icon: "⚡", primaryHex: "#f97316",
     gradient: "from-orange-800 via-orange-600 to-amber-500",
     tagline: "I don't need a screen. I make my own daylight.",
     strengths: ["Advanced ball handling", "One-on-one scoring", "Shot-making off the dribble", "Footwork & change of pace"],
-    coachP: "You can get a bucket when nobody else can. That's rare. The next step is making sure you're not just scoring — you're scoring efficiently, and when the defense sends extra help, you know exactly what to do.",
+    coachP: "You can get a bucket when nobody else can. That's rare. The next step is making sure you're not just scoring, you're scoring efficiently, and when the defense sends extra help, you know exactly what to do.",
   },
   "Floor General": {
     icon: "🧠", primaryHex: "#14b8a6",
     gradient: "from-teal-800 via-teal-600 to-cyan-500",
-    tagline: "The game runs through my hands — and through my head.",
+    tagline: "The game runs through my hands and through my head.",
     strengths: ["Court vision", "Pace control", "Decision-making under pressure", "Makes teammates better"],
     coachP: "The game slows down for you in a way it doesn't for most players. That gift is the foundation. Now we build the scoring punch that forces defenses to respect you as more than just a passer.",
   },
@@ -67,7 +67,7 @@ export const ARCHETYPE_META: Record<string, {
     gradient: "from-green-800 via-emerald-600 to-green-500",
     tagline: "If there's a gap, I'm already through it.",
     strengths: ["First-step burst", "Finishing through contact", "Transition scoring", "Vertical explosiveness"],
-    coachP: "Your speed and explosiveness create problems most defenders can't solve. We're going to make sure you're not one-dimensional — so when the lane gets crowded, you've still got an answer.",
+    coachP: "Your speed and explosiveness create problems most defenders can't solve. We're going to make sure you're not one-dimensional, so when the lane gets crowded, you've still got an answer.",
   },
   "Playmaking Wing": {
     icon: "🦅", primaryHex: "#6366f1",
@@ -79,9 +79,9 @@ export const ARCHETYPE_META: Record<string, {
   "Two-Way Player": {
     icon: "⚖️", primaryHex: "#a855f7",
     gradient: "from-purple-800 via-purple-600 to-violet-500",
-    tagline: "I'm not punting on either end.",
+    tagline: "I'm here for two reasons 3 & D",
     strengths: ["Defensive versatility", "Offensive reliability", "Conditioning & consistency", "Coachability"],
-    coachP: "You don't give anything away on either end, and that's incredibly valuable. The next step is finding the one thing you can become truly elite at — so you're not just reliable, you're a difference-maker.",
+    coachP: "You don't give anything away on either end, and that's incredibly valuable. The next step is finding the one thing you can become truly elite at, so you're not just reliable, you're a difference-maker.",
   },
   "Swiss Army Knife": {
     icon: "🛠️", primaryHex: "#94a3b8",
@@ -93,7 +93,7 @@ export const ARCHETYPE_META: Record<string, {
   "Rim Protector": {
     icon: "🏰", primaryHex: "#f59e0b",
     gradient: "from-amber-700 via-amber-500 to-yellow-400",
-    tagline: "Nothing gets through. Nothing gets easy.",
+    tagline: "Nothing gets through, No Easy Buckets",
     strengths: ["Shot-blocking instincts", "Rebounding", "Defensive anchor presence", "Physical advantage"],
     coachP: "You make your team feel safe just by being on the floor. To take the next step, we need to make sure you can move well enough on defense to handle being pulled away from the paint.",
   },

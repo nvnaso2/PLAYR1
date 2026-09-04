@@ -296,7 +296,7 @@ const ARCHETYPE_DEFINITIONS = [
     colorTheme: "slate",
     primaryHex: "#94a3b8",
     drillCategories: ["passing", "ball-handling"],
-    displayOrder: 3,
+    displayOrder: 8,
   },
   {
     id: "two-way-lockdown",
@@ -312,13 +312,13 @@ const ARCHETYPE_DEFINITIONS = [
   {
     id: "floor-general",
     name: "Floor General",
-    tagline: "The game runs through my hands — and through my head.",
+    tagline: "The game runs through my hands and through my head.",
     description: "The Floor General is the engine of every team they play on. They combine elite ball handling with an encyclopedic knowledge of the game, dictating tempo and reading defenses to put teammates in the best positions.",
     traits: ["Tempo control", "Court vision", "Leadership under pressure"],
     colorTheme: "teal",
     primaryHex: "#14b8a6",
     drillCategories: ["ball-handling", "passing", "film-session"],
-    displayOrder: 5,
+    displayOrder: 3,
   },
   {
     id: "stretch-big",
@@ -329,7 +329,7 @@ const ARCHETYPE_DEFINITIONS = [
     colorTheme: "sky",
     primaryHex: "#0ea5e9",
     drillCategories: ["shooting", "defense", "workouts"],
-    displayOrder: 6,
+    displayOrder: 10,
   },
   {
     id: "versatile-wing",
@@ -340,7 +340,7 @@ const ARCHETYPE_DEFINITIONS = [
     colorTheme: "indigo",
     primaryHex: "#6366f1",
     drillCategories: ["shooting", "defense", "finishing", "ball-handling"],
-    displayOrder: 7,
+    displayOrder: 6,
   },
   {
     id: "glass-cleaner",
@@ -351,12 +351,12 @@ const ARCHETYPE_DEFINITIONS = [
     colorTheme: "green",
     primaryHex: "#22c55e",
     drillCategories: ["workouts", "finishing", "defense"],
-    displayOrder: 8,
+    displayOrder: 5,
   },
   {
     id: "rim-protector",
     name: "Rim Protector",
-    tagline: "Nothing gets through. Nothing gets easy.",
+    tagline: "Nothing gets through, No Easy Buckets",
     description: "The Rim Protector anchors the defense with elite shot-blocking instincts and physical presence. Their ability to erase mistakes and alter shots makes their entire team more confident defensively.",
     traits: ["Shot-blocking instincts", "Rebounding", "Defensive anchor presence"],
     colorTheme: "amber",
@@ -367,13 +367,13 @@ const ARCHETYPE_DEFINITIONS = [
   {
     id: "two-way-player",
     name: "Two-Way Player",
-    tagline: "I'm not punting on either end.",
+    tagline: "I'm here for two reasons 3 & D",
     description: "The Two-Way Player refuses to be a liability on either end of the floor. They've built their game to contribute reliably in both scoring and defense, becoming one of the most valuable and coachable players in any lineup.",
     traits: ["Defensive versatility", "Offensive reliability", "Conditioning & consistency"],
     colorTheme: "purple",
     primaryHex: "#a855f7",
     drillCategories: ["defense", "shooting", "workouts"],
-    displayOrder: 10,
+    displayOrder: 7,
   },
 ];
 

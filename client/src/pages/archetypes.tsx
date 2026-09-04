@@ -17,7 +17,7 @@ import { Progress } from "@/components/ui/progress";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArchetypeRingChart, type RingSegment } from "@/components/archetype-ring-chart";
-import { getCoreCharacteristics } from "@/components/archetype-content";
+import { getCoreCharacteristics, sortArchetypeDefinitions } from "@/components/archetype-content";
 import { Link } from "wouter";
 
 type UserArchetypeWithDef = UserArchetype & { archetype: Archetype };
@@ -543,7 +543,7 @@ function BrowseTab({ definitions, userArchetypes }: { definitions: Archetype[]; 
       <div>
         <h2 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4">All Archetypes</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {definitions.map(def => {
+          {sortArchetypeDefinitions(definitions).map(def => {
             const Icon = ARCHETYPE_ICONS[def.id] ?? Target;
             const status = getStatus(def.id);
             const ua = getUserArchetype(def.id);
