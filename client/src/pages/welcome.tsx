@@ -150,20 +150,53 @@ export const BOTTLENECKS: Record<string, { description: string; unlocks: string 
 // ─── QUIZ STEPS ──────────────────────────────────────────────────────────────
 type QuizStep =
   | { type: "chapter"; chapterNum: number; title: string; sub?: string }
-  | { type: "question"; id: string; text: string; options: string[] }
+  | { type: "question"; id: string; text: string; options: string[]; instruction?: string; maxSelections?: number }
   | { type: "name" }
   | { type: "email" }
   | { type: "password" };
 
 const STEPS: QuizStep[] = [
   { type: "chapter", chapterNum: 1, title: "Let's Find the Best Parts of Your Game." },
-  { type: "question", id: "Q1", text: "When you have a great game, what usually happens?", options: ["Shots are falling", "I'm breaking down defenders", "I'm controlling the offense", "I'm locking people up", "I'm dominating inside"] },
-  { type: "question", id: "Q2", text: "What part of basketball comes most naturally to you?", options: ["Shooting the ball", "Creating my own shot off the dribble", "Setting up teammates / playmaking", "Defending and disrupting", "Attacking the rim / finishing through contact", "Rebounding and playing physical", "Doing a little bit of everything", "Protecting the rim / shot blocking"] },
+  { type: "question", id: "Q1", text: "When you have a great game, what usually happens?", instruction: "Select up to 3 options that best describe your best performances.", maxSelections: 3, options: [
+    "I'm catching fire from deep and pulling the defense out.",
+    "I'm creating my own shot off the dribble and hitting tough looks.",
+    "I'm controlling the tempo, finding open teammates, and making the right reads.",
+    "I'm locking down the opposing team's best scorer and turning defense into energy.",
+    "I'm blowing past defenders, finishing in transition, and attacking the rim.",
+    "I'm using my size to score, facilitate, and make plays from the wing.",
+    "I'm setting the tone on both ends — scoring when needed and locking down on defense.",
+    "I'm making all the winning plays that don't always show up in stats — offensive rebounds, steals, extra passes.",
+    "I'm walling off the paint, blocking shots, and owning the defensive glass.",
+    "I'm creating mismatches by using my size down low and stretching the floor with my jumper.",
+  ] },
+  { type: "question", id: "Q2", text: "What part of basketball comes most naturally to you?", instruction: "Select up to 3 options that represent your core strengths.", maxSelections: 3, options: [
+    "Shot mechanics, catch-and-shoot rhythm, and finding open space.",
+    "1-on-1 footwork, ball handling, and making space off the bounce.",
+    "Court vision, high basketball IQ, and knowing where everyone should be.",
+    "Lateral quickness, reading ball-handlers' hips, and relentless on-ball pressure.",
+    "First-step quickness, speed in the open court, and athletic finishing.",
+    "Versatility — passing over defenses, scoring over smaller guards, and positional flexibility.",
+    "Consistency, stamina, and refusing to be a liability on either end of the floor.",
+    "Adaptability — filling whatever gap the team needs on any given night.",
+    "Shot-blocking timing, rim intimidation, and controlling the paint.",
+    "Pick-and-pop execution, fluid shooting mechanics for my size, and post footwork.",
+  ] },
   { type: "name" },
   { type: "chapter", chapterNum: 2, title: "Let's Learn About Your Current Situation." },
   { type: "question", id: "Q3", text: "What best describes your current basketball situation?", options: ["Elementary School", "Middle School", "Freshman / JV", "Varsity", "College Basketball", "Intramural League", "Adult Rec League", "Just Playing For Fun"] },
   { type: "question", id: "Q4", text: "How would you describe your current role on your team?", options: ["Not On A Team / Learning the game", "Limited Minutes / Looking to Make a Team", "Rotation Player", "Starter / 6th Man", "Key Player", "Team Leader"] },
-  { type: "question", id: "Q5", text: "When your team needs a bucket, what are you most likely to do?", options: ["Take the shot", "Create a shot", "Drive", "Find an open teammate", "Get a teammate open", "Get the offensive rebound"] },
+  { type: "question", id: "Q5", text: "When it comes down to a tight game in the 4th quarter, what are you most likely to do?", instruction: "Select up to 3 options that describe your crunch-time instinct.", maxSelections: 3, options: [
+    "Relocate to an open spot behind the arc and let it fly with zero hesitation.",
+    "Call for an isolation, break down my man, and get a bucket.",
+    "Take the ball, call out the play, and make sure we get the best possible shot.",
+    "Demand to guard their hot hand and get a critical stop.",
+    "Rip through, attack the lane, and force the defense to foul or give up a layup.",
+    "Make the smart secondary pass or hit the clutch mid-range shot over a smaller defender.",
+    "Make a clutch defensive stop on one end, then execute the offense on the other.",
+    "Dive for a loose ball, grab a critical offensive rebound, or make the extra pass to win.",
+    "Anchor the backline, alter a game-winning layup attempt, and secure the final rebound.",
+    "Pop out to the perimeter for a clutch 3 or seal a smaller player in the post for an easy look.",
+  ] },
   { type: "chapter", chapterNum: 3, title: "Let's Understand What Will Take Your Game to the Next Level." },
   { type: "question", id: "Q6", text: "What frustrates you most during games?", options: ["Missing open shots", "Losing the ball", "Finishing at the rim", "Defending athletes and scorers", "Making quick decisions under pressure", "Confidence"] },
   { type: "question", id: "Q7", text: "When you struggle in games, why?", options: ["Can't create space", "Miss opportunities at the rim", "Lose confidence", "Get sped up mentally", "Too slow / physical limitations", "Defensive mistakes", "Poor shot selection"] },
@@ -200,47 +233,77 @@ interface AssessmentResult {
 
 function scoreArchetype(ans: Map<string, string>): string {
   const pts: Record<string, number> = {};
-  const qs: Record<string, Set<string>> = {};
-  const add = (a: string, p: number, q: string) => { pts[a] = (pts[a] || 0) + p; qs[a] = qs[a] || new Set(); qs[a].add(q); };
-
-  const q1 = ans.get("Q1");
-  if (q1 === "Shots are falling")              { add("Sharpshooter",4,"Q1"); add("Stretch Big",1,"Q1"); }
-  else if (q1 === "I'm breaking down defenders")     { add("Shot Creator",4,"Q1"); add("Athletic Slasher",1,"Q1"); }
-  else if (q1 === "I'm controlling the offense")     { add("Floor General",4,"Q1"); add("Playmaking Wing",1,"Q1"); }
-  else if (q1 === "I'm locking people up")           { add("Lockdown Defender",4,"Q1"); add("Two-Way Player",1,"Q1"); }
-  else if (q1 === "I'm dominating inside")           { add("Rim Protector",3,"Q1"); add("Athletic Slasher",2,"Q1"); }
-
-  const q2 = ans.get("Q2");
-  if (q2 === "Shooting the ball")                        { add("Sharpshooter",3,"Q2"); add("Stretch Big",1,"Q2"); }
-  else if (q2 === "Creating my own shot off the dribble") { add("Shot Creator",3,"Q2"); add("Athletic Slasher",1,"Q2"); }
-  else if (q2 === "Setting up teammates / playmaking")   { add("Floor General",3,"Q2"); add("Playmaking Wing",2,"Q2"); }
-  else if (q2 === "Defending and disrupting")            { add("Lockdown Defender",3,"Q2"); add("Two-Way Player",1,"Q2"); }
-  else if (q2 === "Attacking the rim / finishing through contact") { add("Athletic Slasher",3,"Q2"); add("Shot Creator",1,"Q2"); }
-  else if (q2 === "Rebounding and playing physical")     { add("Swiss Army Knife",3,"Q2"); add("Rim Protector",1,"Q2"); }
-  else if (q2 === "Doing a little bit of everything")    { add("Swiss Army Knife",3,"Q2"); add("Two-Way Player",2,"Q2"); }
-  else if (q2 === "Protecting the rim / shot blocking")  { add("Rim Protector",3,"Q2"); add("Lockdown Defender",1,"Q2"); }
-
-  const q5 = ans.get("Q5");
-  if (q5 === "Take the shot")          { add("Sharpshooter",2,"Q5"); add("Stretch Big",1,"Q5"); }
-  else if (q5 === "Create a shot")     { add("Shot Creator",2,"Q5"); add("Athletic Slasher",1,"Q5"); }
-  else if (q5 === "Drive")             { add("Athletic Slasher",2,"Q5"); add("Shot Creator",1,"Q5"); }
-  else if (q5 === "Find an open teammate") { add("Floor General",2,"Q5"); add("Playmaking Wing",1,"Q5"); }
-  else if (q5 === "Get a teammate open") { add("Playmaking Wing",2,"Q5"); add("Swiss Army Knife",1,"Q5"); }
-  else if (q5 === "Get the offensive rebound") { add("Rim Protector",2,"Q5"); add("Swiss Army Knife",1,"Q5"); }
-
-  const q6 = ans.get("Q6");
-  if (q6 === "Missing open shots")              { add("Sharpshooter",1,"Q6"); }
-  else if (q6 === "Losing the ball")            { add("Floor General",1,"Q6"); }
-  else if (q6 === "Finishing at the rim")       { add("Athletic Slasher",1,"Q6"); }
-  else if (q6 === "Defending athletes and scorers") { add("Lockdown Defender",1,"Q6"); add("Two-Way Player",1,"Q6"); }
-  else if (q6 === "Making quick decisions under pressure") { add("Floor General",1,"Q6"); }
-
-  if (ans.get("Q4") === "Team Leader") { add("Floor General",1,"Q4"); }
-  if (ans.get("Q14") === "I expect to be one of the best players on the court") { add("Shot Creator",1,"Q14"); add("Athletic Slasher",1,"Q14"); }
-
+  const questionCoverage: Record<string, Set<string>> = {};
+  const add = (archetype: string, questionId: string) => {
+    pts[archetype] = (pts[archetype] || 0) + 1;
+    questionCoverage[archetype] = questionCoverage[archetype] || new Set();
+    questionCoverage[archetype].add(questionId);
+  };
+  const archetypeByQuestion: Record<string, Record<string, string>> = {
+    Q1: {
+      "I'm catching fire from deep and pulling the defense out.": "Sharpshooter",
+      "I'm creating my own shot off the dribble and hitting tough looks.": "Shot Creator",
+      "I'm controlling the tempo, finding open teammates, and making the right reads.": "Floor General",
+      "I'm locking down the opposing team's best scorer and turning defense into energy.": "Lockdown Defender",
+      "I'm blowing past defenders, finishing in transition, and attacking the rim.": "Athletic Slasher",
+      "I'm using my size to score, facilitate, and make plays from the wing.": "Playmaking Wing",
+      "I'm setting the tone on both ends — scoring when needed and locking down on defense.": "Two-Way Player",
+      "I'm making all the winning plays that don't always show up in stats — offensive rebounds, steals, extra passes.": "Swiss Army Knife",
+      "I'm walling off the paint, blocking shots, and owning the defensive glass.": "Rim Protector",
+      "I'm creating mismatches by using my size down low and stretching the floor with my jumper.": "Stretch Big",
+    },
+    Q2: {
+      "Shot mechanics, catch-and-shoot rhythm, and finding open space.": "Sharpshooter",
+      "1-on-1 footwork, ball handling, and making space off the bounce.": "Shot Creator",
+      "Court vision, high basketball IQ, and knowing where everyone should be.": "Floor General",
+      "Lateral quickness, reading ball-handlers' hips, and relentless on-ball pressure.": "Lockdown Defender",
+      "First-step quickness, speed in the open court, and athletic finishing.": "Athletic Slasher",
+      "Versatility — passing over defenses, scoring over smaller guards, and positional flexibility.": "Playmaking Wing",
+      "Consistency, stamina, and refusing to be a liability on either end of the floor.": "Two-Way Player",
+      "Adaptability — filling whatever gap the team needs on any given night.": "Swiss Army Knife",
+      "Shot-blocking timing, rim intimidation, and controlling the paint.": "Rim Protector",
+      "Pick-and-pop execution, fluid shooting mechanics for my size, and post footwork.": "Stretch Big",
+    },
+    Q5: {
+      "Relocate to an open spot behind the arc and let it fly with zero hesitation.": "Sharpshooter",
+      "Call for an isolation, break down my man, and get a bucket.": "Shot Creator",
+      "Take the ball, call out the play, and make sure we get the best possible shot.": "Floor General",
+      "Demand to guard their hot hand and get a critical stop.": "Lockdown Defender",
+      "Rip through, attack the lane, and force the defense to foul or give up a layup.": "Athletic Slasher",
+      "Make the smart secondary pass or hit the clutch mid-range shot over a smaller defender.": "Playmaking Wing",
+      "Make a clutch defensive stop on one end, then execute the offense on the other.": "Two-Way Player",
+      "Dive for a loose ball, grab a critical offensive rebound, or make the extra pass to win.": "Swiss Army Knife",
+      "Anchor the backline, alter a game-winning layup attempt, and secure the final rebound.": "Rim Protector",
+      "Pop out to the perimeter for a clutch 3 or seal a smaller player in the post for an easy look.": "Stretch Big",
+    },
+  };
+  const getSelections = (questionId: string) => {
+    const raw = ans.get(questionId);
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed.filter((value): value is string => typeof value === "string");
+      if (typeof parsed === "string") return [parsed];
+    } catch {
+      // Older saved assessments stored one answer as a plain string.
+    }
+    return [raw];
+  };
+  for (const questionId of ["Q1", "Q2", "Q5"]) {
+    for (const answer of getSelections(questionId)) {
+      const archetype = archetypeByQuestion[questionId]?.[answer];
+      if (archetype) add(archetype, questionId);
+    }
+  }
   const all = Object.keys(pts);
   if (!all.length) return "Two-Way Player";
-  all.sort((a, b) => { if (pts[b] !== pts[a]) return pts[b] - pts[a]; const dq = (qs[b]?.size??0)-(qs[a]?.size??0); if (dq!==0) return dq; if (q2) { if (qs[b]?.has("Q2")&&!qs[a]?.has("Q2")) return 1; if (qs[a]?.has("Q2")&&!qs[b]?.has("Q2")) return -1; } return 0; });
+  const archetypeOrder = Object.keys(ARCHETYPE_META);
+  all.sort((a, b) => {
+    if (pts[b] !== pts[a]) return pts[b] - pts[a];
+    const coverageDifference = (questionCoverage[b]?.size ?? 0) - (questionCoverage[a]?.size ?? 0);
+    if (coverageDifference !== 0) return coverageDifference;
+    return archetypeOrder.indexOf(a) - archetypeOrder.indexOf(b);
+  });
   return all[0];
 }
 
@@ -368,6 +431,7 @@ export default function WelcomePage({
   const [stepIdx, setStepIdx] = useState(0);
   const [answers, setAnswers] = useState<Map<string, string>>(new Map());
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
   const [transitioning, setTransitioning] = useState(false);
   const [animIn, setAnimIn] = useState(true);
 
@@ -413,11 +477,40 @@ export default function WelcomePage({
     if (transitioning) return;
     const step = STEPS[stepIdx];
     if (step.type !== "question") return;
+    if ((step.maxSelections ?? 1) > 1) {
+      setSelectedOptions(current => {
+        if (current.includes(answer)) return current.filter(option => option !== answer);
+        if (current.length >= (step.maxSelections ?? 1)) return current;
+        return [...current, answer];
+      });
+      return;
+    }
     setSelectedOption(answer);
     setTransitioning(true);
     setTimeout(() => {
       const nextAnswers = new Map(answers).set(step.id, answer);
       setAnswers(nextAnswers);
+      setSelectedOption(null);
+      setTransitioning(false);
+
+      const nextStepIndex = getNextStepIndex(stepIdx);
+      if (authenticatedMode && nextStepIndex >= STEPS.length) {
+        handleSubmit(nextAnswers);
+      } else {
+        goToStep(nextStepIndex);
+      }
+    }, 280);
+  }
+
+  function handleMultiSelectContinue() {
+    if (transitioning || selectedOptions.length === 0) return;
+    const step = STEPS[stepIdx];
+    if (step.type !== "question" || (step.maxSelections ?? 1) <= 1) return;
+    setTransitioning(true);
+    setTimeout(() => {
+      const nextAnswers = new Map(answers).set(step.id, JSON.stringify(selectedOptions));
+      setAnswers(nextAnswers);
+      setSelectedOptions([]);
       setSelectedOption(null);
       setTransitioning(false);
 
@@ -800,9 +893,15 @@ export default function WelcomePage({
           <h2 className="text-white text-lg font-bold leading-snug mb-5 mt-2 shrink-0" data-testid="text-quiz-question">
             {step.text}
           </h2>
+          {step.instruction && (
+            <p className="text-zinc-500 text-xs leading-relaxed mb-4 -mt-2 shrink-0" data-testid="text-quiz-instruction">
+              {step.instruction}
+            </p>
+          )}
           <div className="space-y-2">
             {step.options.map((opt, i) => {
-              const isSel = selectedOption === opt;
+              const isMultiSelect = (step.maxSelections ?? 1) > 1;
+              const isSel = isMultiSelect ? selectedOptions.includes(opt) : selectedOption === opt;
               return (
                 <button key={i} onClick={() => handleAnswer(opt)} disabled={transitioning}
                   data-testid={`button-quiz-option-${i}`}
@@ -816,6 +915,21 @@ export default function WelcomePage({
               );
             })}
           </div>
+          {(step.maxSelections ?? 1) > 1 && (
+            <div className="mt-5 shrink-0">
+              <p className="text-zinc-600 text-[11px] mb-3">
+                {selectedOptions.length} of {step.maxSelections} selected
+              </p>
+              <button
+                onClick={handleMultiSelectContinue}
+                disabled={selectedOptions.length === 0 || transitioning}
+                className="w-full rounded-xl bg-orange-600 hover:bg-orange-500 disabled:bg-zinc-800 disabled:text-zinc-600 text-white py-3.5 font-bold transition-colors"
+                data-testid="button-multi-select-continue"
+              >
+                Continue <ArrowRight className="inline-block h-4 w-4 ml-1 -mt-0.5" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
