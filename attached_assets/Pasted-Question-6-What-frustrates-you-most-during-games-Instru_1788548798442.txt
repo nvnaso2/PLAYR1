@@ -1,0 +1,56 @@
+Question 6: What frustrates you most during games?
+Instruction: Select up to 2 things that frustrate you the most when playing.
+
+Missing open shots or rimming out jumper after jumper. (Shooting)
+
+Blowing layups or missing touches near the basket under contact. (Finishing)
+
+Fumbling the dribble, losing control, or getting ripped by defenders. (Ball Handling)
+
+Getting blown past, beaten off the bounce, or giving up easy buckets. (Defense)
+
+Feeling out-athlete’d — getting out-jumped, out-run, or overpowered. (Athleticism)
+
+Giving up second-chance points or getting out-worked on the glass. (Rebounding)
+
+Hesitating, second-guessing myself, or playing passive when things go wrong. (Confidence)
+
+Making bad reads, forcing passes, or feeling like the game is moving too fast. (Basketball IQ)
+
+Question 7: When you struggle in games, what is usually the root cause?
+Instruction: Select up to 2 statements that best describe your game struggles.
+
+I can’t create clean space or get into my rhythm from the outside. (Shooting)
+
+I struggle to absorb contact or adjust my finish around rim protectors. (Finishing)
+
+I get turned over when pressured or struggle to handle the ball in tight spaces. (Ball Handling)
+
+I make defensive mistakes, miss rotations, or struggle against quick scorers. (Defense)
+
+Physical limitations — feeling a step too slow, getting tired, or lacking pop. (Athleticism)
+
+I fail to box out or lose track of my man on shot attempts. (Rebounding)
+
+I lose my composure after a mistake and mentally check out of the game. (Confidence)
+
+I get sped up mentally, take poor shots, or misread what the defense gives me. (Basketball IQ)
+
+Question 8: If you could instantly fix ONE area of your game tomorrow, what would it be?
+Instruction: Select ONE primary focus.
+
+Shooting (Catch & shoot, range, pull-ups)
+
+Finishing (Contact finishes, touch, floaters, rim attacks)
+
+Ball Handling (Pressure control, space creation, handle purity)
+
+Defense (On-ball lockdown, rotations, lateral quickness)
+
+Athleticism (First-step explosion, vertical pop, conditioning)
+
+Rebounding (Positioning, box-outs, controlling the glass)
+
+Confidence (Mental toughness, aggressiveness, staying assertive)
+
+Basketball IQ (Court vision, decision making, game speed control)

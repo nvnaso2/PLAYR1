@@ -198,9 +198,36 @@ const STEPS: QuizStep[] = [
     "Pop out to the perimeter for a clutch 3 or seal a smaller player in the post for an easy look.",
   ] },
   { type: "chapter", chapterNum: 3, title: "Let's Understand What Will Take Your Game to the Next Level." },
-  { type: "question", id: "Q6", text: "What frustrates you most during games?", options: ["Missing open shots", "Losing the ball", "Finishing at the rim", "Defending athletes and scorers", "Making quick decisions under pressure", "Confidence"] },
-  { type: "question", id: "Q7", text: "When you struggle in games, why?", options: ["Can't create space", "Miss opportunities at the rim", "Lose confidence", "Get sped up mentally", "Too slow / physical limitations", "Defensive mistakes", "Poor shot selection"] },
-  { type: "question", id: "Q8", text: "If you could instantly improve one thing tomorrow, what would it be?", options: ["Shooting", "Finishing", "Ball Handling", "Defense", "Athleticism", "Rebounding", "Confidence", "Basketball IQ"] },
+  { type: "question", id: "Q6", text: "What frustrates you most during games?", instruction: "Select up to 2 things that frustrate you the most when playing.", maxSelections: 2, options: [
+    "Missing open shots or rimming out jumper after jumper.",
+    "Blowing layups or missing touches near the basket under contact.",
+    "Fumbling the dribble, losing control, or getting ripped by defenders.",
+    "Getting blown past, beaten off the bounce, or giving up easy buckets.",
+    "Feeling out-athlete’d — getting out-jumped, out-run, or overpowered.",
+    "Giving up second-chance points or getting out-worked on the glass.",
+    "Hesitating, second-guessing myself, or playing passive when things go wrong.",
+    "Making bad reads, forcing passes, or feeling like the game is moving too fast.",
+  ] },
+  { type: "question", id: "Q7", text: "When you struggle in games, what is usually the root cause?", instruction: "Select up to 2 statements that best describe your game struggles.", maxSelections: 2, options: [
+    "I can’t create clean space or get into my rhythm from the outside.",
+    "I struggle to absorb contact or adjust my finish around rim protectors.",
+    "I get turned over when pressured or struggle to handle the ball in tight spaces.",
+    "I make defensive mistakes, miss rotations, or struggle against quick scorers.",
+    "Physical limitations — feeling a step too slow, getting tired, or lacking pop.",
+    "I fail to box out or lose track of my man on shot attempts.",
+    "I lose my composure after a mistake and mentally check out of the game.",
+    "I get sped up mentally, take poor shots, or misread what the defense gives me.",
+  ] },
+  { type: "question", id: "Q8", text: "If you could instantly fix ONE area of your game tomorrow, what would it be?", instruction: "Select ONE primary focus.", options: [
+    "Shooting (Catch & shoot, range, pull-ups)",
+    "Finishing (Contact finishes, touch, floaters, rim attacks)",
+    "Ball Handling (Pressure control, space creation, handle purity)",
+    "Defense (On-ball lockdown, rotations, lateral quickness)",
+    "Athleticism (First-step explosion, vertical pop, conditioning)",
+    "Rebounding (Positioning, box-outs, controlling the glass)",
+    "Confidence (Mental toughness, aggressiveness, staying assertive)",
+    "Basketball IQ (Court vision, decision making, game speed control)",
+  ] },
   { type: "chapter", chapterNum: 4, title: "Your Basketball Life.", sub: "Whether you grind every day or play when life lets you — how does basketball fit into your life?" },
   { type: "question", id: "Q9", text: "How serious is basketball in your life right now?", options: ["Casual Hobby", "Serious Hobby", "Major Priority", "My Biggest Goal"] },
   { type: "question", id: "Q10", text: "How often do you train outside of team practice?", options: ["Never", "Rarely", "1–2 Times a Week", "3–4 Times a Week", "5–6 Times a Week", "Daily"] },
@@ -229,6 +256,19 @@ interface AssessmentResult {
   bottleneck: string; bottleneckDescription: string; bottleneckUnlocks: string; top3GrowthAreas: string[];
   mindsetScore: number; mindsetBand: string; dedicationScore: number; dedicationBand: string;
   experienceScore: number; experienceBand: string; primaryGoal: string;
+}
+
+function getAnswerSelections(ans: Map<string, string>, questionId: string): string[] {
+  const raw = ans.get(questionId);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed.filter((value): value is string => typeof value === "string");
+    if (typeof parsed === "string") return [parsed];
+  } catch {
+    // Older saved assessments stored one answer as a plain string.
+  }
+  return [raw];
 }
 
 function scoreArchetype(ans: Map<string, string>): string {
@@ -277,20 +317,8 @@ function scoreArchetype(ans: Map<string, string>): string {
       "Pop out to the perimeter for a clutch 3 or seal a smaller player in the post for an easy look.": "Stretch Big",
     },
   };
-  const getSelections = (questionId: string) => {
-    const raw = ans.get(questionId);
-    if (!raw) return [];
-    try {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed.filter((value): value is string => typeof value === "string");
-      if (typeof parsed === "string") return [parsed];
-    } catch {
-      // Older saved assessments stored one answer as a plain string.
-    }
-    return [raw];
-  };
   for (const questionId of ["Q1", "Q2", "Q5"]) {
-    for (const answer of getSelections(questionId)) {
+    for (const answer of getAnswerSelections(ans, questionId)) {
       const archetype = archetypeByQuestion[questionId]?.[answer];
       if (archetype) add(archetype, questionId);
     }
@@ -338,14 +366,46 @@ function scoreTeamRole(ans: Map<string, string>): string {
 function scoreBottleneck(ans: Map<string, string>): { bottleneck: string; top3: string[] } {
   const pts: Record<string,number> = {};
   const add = (cat: string, w: number) => { pts[cat]=(pts[cat]||0)+w; };
-  const q6m: Record<string,string> = {"Missing open shots":"Shooting","Losing the ball":"Ball Handling","Finishing at the rim":"Finishing","Defending athletes and scorers":"Defense","Making quick decisions under pressure":"Basketball IQ","Confidence":"Confidence"};
-  const q7m: Record<string,string> = {"Can't create space":"Ball Handling","Miss opportunities at the rim":"Finishing","Lose confidence":"Confidence","Get sped up mentally":"Basketball IQ","Too slow / physical limitations":"Athleticism","Defensive mistakes":"Defense","Poor shot selection":"Basketball IQ"};
-  const q6cat = q6m[ans.get("Q6")??""], q7cat = q7m[ans.get("Q7")??""], q8cat = ans.get("Q8");
-  if (q6cat) add(q6cat,4); if (q7cat) add(q7cat,3); if (q8cat&&BOTTLENECKS[q8cat]) add(q8cat,3);
+  const q6m: Record<string,string> = {
+    "Missing open shots or rimming out jumper after jumper.": "Shooting",
+    "Blowing layups or missing touches near the basket under contact.": "Finishing",
+    "Fumbling the dribble, losing control, or getting ripped by defenders.": "Ball Handling",
+    "Getting blown past, beaten off the bounce, or giving up easy buckets.": "Defense",
+    "Feeling out-athlete’d — getting out-jumped, out-run, or overpowered.": "Athleticism",
+    "Giving up second-chance points or getting out-worked on the glass.": "Rebounding",
+    "Hesitating, second-guessing myself, or playing passive when things go wrong.": "Confidence",
+    "Making bad reads, forcing passes, or feeling like the game is moving too fast.": "Basketball IQ",
+  };
+  const q7m: Record<string,string> = {
+    "I can’t create clean space or get into my rhythm from the outside.": "Shooting",
+    "I struggle to absorb contact or adjust my finish around rim protectors.": "Finishing",
+    "I get turned over when pressured or struggle to handle the ball in tight spaces.": "Ball Handling",
+    "I make defensive mistakes, miss rotations, or struggle against quick scorers.": "Defense",
+    "Physical limitations — feeling a step too slow, getting tired, or lacking pop.": "Athleticism",
+    "I fail to box out or lose track of my man on shot attempts.": "Rebounding",
+    "I lose my composure after a mistake and mentally check out of the game.": "Confidence",
+    "I get sped up mentally, take poor shots, or misread what the defense gives me.": "Basketball IQ",
+  };
+  const q8m: Record<string,string> = {
+    "Shooting (Catch & shoot, range, pull-ups)": "Shooting",
+    "Finishing (Contact finishes, touch, floaters, rim attacks)": "Finishing",
+    "Ball Handling (Pressure control, space creation, handle purity)": "Ball Handling",
+    "Defense (On-ball lockdown, rotations, lateral quickness)": "Defense",
+    "Athleticism (First-step explosion, vertical pop, conditioning)": "Athleticism",
+    "Rebounding (Positioning, box-outs, controlling the glass)": "Rebounding",
+    "Confidence (Mental toughness, aggressiveness, staying assertive)": "Confidence",
+    "Basketball IQ (Court vision, decision making, game speed control)": "Basketball IQ",
+  };
+  const q6Categories = getAnswerSelections(ans, "Q6").map(answer => q6m[answer]).filter(Boolean);
+  const q7Categories = getAnswerSelections(ans, "Q7").map(answer => q7m[answer]).filter(Boolean);
+  const q8Category = q8m[ans.get("Q8") ?? ""];
+  for (const category of q6Categories) add(category, 4);
+  for (const category of q7Categories) add(category, 3);
+  if (q8Category) add(q8Category, 3);
   const sorted = Object.entries(pts).sort((a,b)=>b[1]-a[1]).map(([k])=>k);
   const seen = new Set<string>(); const top3: string[] = [];
-  for (const s of [q6cat,q7cat,q8cat,...sorted]) { if(s&&!seen.has(s)&&top3.length<3){top3.push(s);seen.add(s);} }
-  return { bottleneck: sorted[0]??q8cat??"Basketball IQ", top3 };
+  for (const s of [...q6Categories, ...q7Categories, q8Category, ...sorted]) { if(s&&!seen.has(s)&&top3.length<3){top3.push(s);seen.add(s);} }
+  return { bottleneck: sorted[0]??q8Category??"Basketball IQ", top3 };
 }
 
 function scoreMindset(ans: Map<string, string>): { score: number; band: string } {
