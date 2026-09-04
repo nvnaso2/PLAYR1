@@ -16,10 +16,16 @@ import {
   Bot,
   Trophy,
   Dumbbell,
-  TrendingUp,
   X,
   Sparkles,
   Play,
+  PlayCircle,
+  ClipboardCheck,
+  UserRound,
+  MessageCircle,
+  BookOpen,
+  Layers3,
+  CheckCircle2,
 } from "lucide-react";
 import type { GoalProgram } from "@shared/schema";
 import introTrailer from "@assets/Welcome_To_PLAYR1_1781991119550.mp4";
@@ -59,23 +65,18 @@ function formatDate() {
 export default function HubPage() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
-  const [bannerDismissed, setBannerDismissed] = useState(() =>
-    localStorage.getItem("playr1_new_onboarding_dismissed") === "1"
-  );
   const [trailerDismissed, setTrailerDismissed] = useState(() =>
     localStorage.getItem("playr1_intro_trailer_dismissed") === "1"
   );
 
-  function dismissNewPlayerBanner() {
-    setBannerDismissed(true);
-    localStorage.setItem("playr1_new_onboarding_dismissed", "1");
-    // Also clear the "new onboarding" flag
-    localStorage.removeItem("playr1_new_onboarding");
-  }
-
   function dismissTrailer() {
     setTrailerDismissed(true);
     localStorage.setItem("playr1_intro_trailer_dismissed", "1");
+  }
+
+  function replayTrailer() {
+    setTrailerDismissed(false);
+    localStorage.removeItem("playr1_intro_trailer_dismissed");
   }
 
   const { data: profile } = useQuery<any>({ queryKey: ["/api/profile"] });
@@ -98,11 +99,9 @@ export default function HubPage() {
     enabled: !!user,
   });
 
-  // Show banner for new cinematic onboarding users with incomplete profiles
-  // Driven by durable server state (onboardingVersion) + local dismissal flag
-  const isCinematicOnboarding = careerData?.onboardingVersion === "cinematic-v1";
   const profileIncomplete = !profile?.lastName || !careerData?.positions?.length || !careerData?.aspiration;
-  const showNewPlayerBanner = isCinematicOnboarding && profileIncomplete && !bannerDismissed;
+  const fullOnboardingComplete = Boolean(careerData?.onboardingCompleted || fixData?.fullProfileCompleted);
+  const showProfileSetup = profileIncomplete || !fullOnboardingComplete;
 
   const firstName = profile?.firstName ?? user?.firstName;
   const { text: greetText, emoji } = greeting(firstName);
@@ -142,37 +141,6 @@ export default function HubPage() {
 
   return (
     <div className="min-h-full bg-background pb-6">
-      {/* New Player Welcome Banner (cinematic onboarding graduates) */}
-      {showNewPlayerBanner && (
-        <div className="mx-4 mt-4 rounded-2xl border border-orange-500/30 bg-gradient-to-r from-orange-500/15 via-orange-500/8 to-transparent p-4 relative" data-testid="banner-new-player">
-          <button
-            onClick={dismissNewPlayerBanner}
-            className="absolute top-3 right-3 text-zinc-500 hover:text-white transition-colors"
-            data-testid="button-dismiss-banner"
-          >
-            <X className="h-4 w-4" />
-          </button>
-          <div className="flex items-start gap-3 pr-6">
-            <div className="w-9 h-9 rounded-xl bg-orange-500/20 flex items-center justify-center shrink-0">
-              <Sparkles className="h-4 w-4 text-orange-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-white font-bold text-sm">Welcome to PLAYR1! 🏀</p>
-              <p className="text-zinc-400 text-xs mt-0.5 leading-snug">
-                Unlock 10% off your first session with a trainer when you complete your profile.
-              </p>
-              <button
-                onClick={() => navigate("/profile")}
-                className="mt-2.5 text-orange-400 text-xs font-bold flex items-center gap-1 hover:text-orange-300 transition-colors"
-                data-testid="button-banner-complete-profile"
-              >
-                Complete My Profile <ChevronRight className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Greeting Header */}
       <div className="px-5 pt-6 pb-2">
         <div className="flex items-start justify-between">
@@ -236,6 +204,131 @@ export default function HubPage() {
             </div>
           </div>
         )}
+
+        {/* Post-onboarding path */}
+        <section className="space-y-3" data-testid="section-post-onboarding">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.24em] text-orange-400 font-bold">YOUR PLAYR1 PATH</p>
+            <h2 className="text-xl font-black text-white mt-1">Your next steps are ready.</h2>
+            <p className="text-sm text-zinc-500 mt-1">Finish your setup, meet your coach, then get to work.</p>
+          </div>
+
+          {trailerDismissed && (
+            <button
+              onClick={replayTrailer}
+              className="w-full text-left rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 flex items-center gap-3 hover:border-orange-500/40 transition-colors"
+              data-testid="button-replay-trailer"
+            >
+              <div className="w-10 h-10 rounded-xl bg-orange-500/15 flex items-center justify-center shrink-0">
+                <PlayCircle className="w-5 h-5 text-orange-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-white font-bold text-sm">PLAYR1 App Trailer</p>
+                <p className="text-zinc-500 text-xs mt-0.5">Watch the intro again whenever you need it.</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-zinc-600 shrink-0" />
+            </button>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              onClick={() => navigate("/career")}
+              className="w-full text-left rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 hover:border-orange-500/40 transition-colors"
+              data-testid="button-regular-onboarding"
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0">
+                  {fullOnboardingComplete
+                    ? <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                    : <ClipboardCheck className="w-5 h-5 text-blue-400" />}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-white font-bold text-sm">Regular onboarding quiz</p>
+                  <p className="text-zinc-500 text-xs mt-0.5">
+                    {fullOnboardingComplete ? "Review your player assessment." : "Build your full PLAYR1 player profile."}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-3 flex items-center gap-1 text-orange-400 text-xs font-bold">
+                {fullOnboardingComplete ? "Review assessment" : "Take assessment"}
+                <ChevronRight className="w-3.5 h-3.5" />
+              </div>
+            </button>
+
+            <button
+              onClick={() => navigate("/profile")}
+              className="w-full text-left rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 hover:border-orange-500/40 transition-colors"
+              data-testid="button-complete-profile"
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center shrink-0">
+                  {showProfileSetup
+                    ? <UserRound className="w-5 h-5 text-purple-400" />
+                    : <CheckCircle2 className="w-5 h-5 text-emerald-400" />}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-white font-bold text-sm">Complete your profile</p>
+                  <p className="text-zinc-500 text-xs mt-0.5">
+                    {showProfileSetup ? "Add the details that make your player card yours." : "Your player profile is looking good."}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-3 flex items-center gap-1 text-orange-400 text-xs font-bold">
+                {showProfileSetup ? "Finish profile" : "View profile"}
+                <ChevronRight className="w-3.5 h-3.5" />
+              </div>
+            </button>
+          </div>
+
+          <button
+            onClick={() => navigate("/journal")}
+            className="w-full text-left rounded-2xl border border-orange-500/25 bg-gradient-to-r from-orange-500/15 via-orange-500/8 to-transparent p-4 flex items-center gap-3 hover:border-orange-500/50 transition-colors"
+            data-testid="button-try-coach-p"
+          >
+            <div className="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center shrink-0">
+              <MessageCircle className="w-5 h-5 text-orange-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <p className="text-white font-bold text-sm">Try Coach P</p>
+                <Badge className="bg-orange-500/15 text-orange-300 border-orange-500/20 text-[10px]">AI COACH</Badge>
+              </div>
+              <p className="text-zinc-400 text-xs mt-0.5">Reflect on your game and get a direct coaching response.</p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-orange-400/70 shrink-0" />
+          </button>
+        </section>
+
+        {/* Start training */}
+        <section className="space-y-3" data-testid="section-start-training">
+          <div className="flex items-end justify-between">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500 font-bold">START TRAINING</p>
+              <h2 className="text-lg font-black text-white mt-1">Choose your next rep.</h2>
+            </div>
+            <Dumbbell className="w-5 h-5 text-orange-400" />
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { label: "Start a program", detail: "Follow a plan", path: "/programs", icon: Layers3, testId: "button-start-program" },
+              { label: "Log a session", detail: "Track today's work", path: "/log", icon: Dumbbell, testId: "button-start-log" },
+              { label: "Drill library", detail: "Find your next drill", path: "/drills", icon: BookOpen, testId: "button-start-drills" },
+            ].map(({ label, detail, path, icon: Icon, testId }) => (
+              <button
+                key={path}
+                onClick={() => navigate(path)}
+                className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-3 text-left hover:border-orange-500/40 transition-colors"
+                data-testid={testId}
+              >
+                <div className="w-9 h-9 rounded-xl bg-zinc-800 flex items-center justify-center mb-3">
+                  <Icon className="w-4 h-4 text-orange-400" />
+                </div>
+                <p className="text-white font-bold text-xs leading-tight">{label}</p>
+                <p className="text-zinc-600 text-[11px] mt-1 leading-tight">{detail}</p>
+              </button>
+            ))}
+          </div>
+        </section>
 
         {fixData?.primaryFixDrill && (
           <div className="rounded-2xl overflow-hidden border border-orange-500/30 bg-gradient-to-br from-orange-500/20 via-orange-500/8 to-transparent p-5" data-testid="card-unlocked-fix-drill">
@@ -464,31 +557,6 @@ export default function HubPage() {
           <ContinueProgramsWidget />
         </div>
 
-        {/* Quick Actions */}
-        <div className="grid grid-cols-2 gap-3 pb-2">
-          <button
-            data-testid="button-quick-log"
-            onClick={() => navigate("/log")}
-            className="rounded-2xl bg-zinc-900 border border-zinc-800 p-4 flex flex-col gap-2 active:scale-[0.98] transition-transform text-left"
-          >
-            <div className="w-9 h-9 rounded-xl bg-zinc-800 flex items-center justify-center">
-              <Dumbbell className="w-4 h-4 text-zinc-300" />
-            </div>
-            <p className="text-white font-medium text-sm">Log Session</p>
-            <p className="text-zinc-500 text-xs">Track today's work</p>
-          </button>
-          <button
-            data-testid="button-quick-drills"
-            onClick={() => navigate("/drills")}
-            className="rounded-2xl bg-zinc-900 border border-zinc-800 p-4 flex flex-col gap-2 active:scale-[0.98] transition-transform text-left"
-          >
-            <div className="w-9 h-9 rounded-xl bg-zinc-800 flex items-center justify-center">
-              <TrendingUp className="w-4 h-4 text-zinc-300" />
-            </div>
-            <p className="text-white font-medium text-sm">Drill Library</p>
-            <p className="text-zinc-500 text-xs">Find your next drill</p>
-          </button>
-        </div>
       </div>
     </div>
   );
