@@ -49,7 +49,7 @@ const MOODS = [
   { value: 5, label: "On fire", emoji: "🔥" },
 ];
 const TYPE_LABELS: Record<JournalType, string> = {
-  "post-workout": "After workout", "post-game": "After game", open: "Open reflection",
+  "post-workout": "After practice / workout", "post-game": "After game", open: "Open reflection",
 };
 const PROMPTS: Record<JournalType, Array<{ id: string; question: string }>> = {
   "post-workout": [
@@ -133,6 +133,38 @@ function SourcePicker({
   );
 }
 
+function JournalTypePicker({ value, onChange }: { value: JournalType; onChange: (value: JournalType) => void }) {
+  const options: Array<{ value: JournalType; label: string; description: string; icon: typeof Dumbbell }> = [
+    { value: "post-workout", label: "After practice / workout", description: "Review the work you just put in", icon: Dumbbell },
+    { value: "post-game", label: "After game", description: "Process your performance and key moments", icon: Trophy },
+    { value: "open", label: "Open reflection", description: "Write about whatever is on your mind", icon: Brain },
+  ];
+  return (
+    <div className="space-y-2">
+      <p className="text-sm font-medium">What are you reflecting on?</p>
+      <div className="grid gap-2">
+        {options.map(({ value: optionValue, label, description, icon: Icon }) => (
+          <button
+            key={optionValue}
+            type="button"
+            onClick={() => onChange(optionValue)}
+            className={`flex items-center gap-3 rounded-lg border p-3 text-left transition-colors ${
+              value === optionValue ? "border-primary bg-primary/10" : "border-border hover:border-primary/50"
+            }`}
+            data-testid={`button-journal-type-${optionValue}`}
+          >
+            <Icon className={`w-4 h-4 shrink-0 ${value === optionValue ? "text-primary" : "text-muted-foreground"}`} />
+            <span className="min-w-0">
+              <span className="block text-sm font-medium">{label}</span>
+              <span className="block text-xs text-muted-foreground">{description}</span>
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function EntryEditor({
   entry, type, initialSourceKind, initialSourceId, sources, onDone, onBack,
 }: {
@@ -154,8 +186,8 @@ function EntryEditor({
     mutationFn: async () => {
       const responses = prompts.map((prompt) => ({ promptId: prompt.id, question: prompt.question, answer: (answers[prompt.id] || "").trim() }));
       if (responses.some((response) => !response.answer)) throw new Error("Answer each reflection question before saving.");
-      const payload = {
-        type, mood, responses,
+       const payload = {
+         ...(entry ? {} : { type }), mood, responses,
         trainingLogId: sourceKind === "workout" ? sourceId : null,
         gameId: sourceKind === "game" ? sourceId : null,
       };
@@ -348,9 +380,9 @@ export default function JournalPage() {
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-6">
       <div className="flex items-start justify-between gap-4"><div><h1 className="text-2xl font-bold flex items-center gap-2"><BookOpen className="w-6 h-6 text-primary" />Journal</h1><p className="text-sm text-muted-foreground mt-1">Reflect on your game. Grow as a player.</p></div><Button onClick={openNew} data-testid="button-new-journal-entry"><Plus className="w-4 h-4 mr-2" />New entry</Button></div>
-      <Card><CardContent className="p-4 space-y-3"><div className="relative"><Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search reflections and Coach P feedback..." className="pl-9" data-testid="input-journal-search" /></div><div className="grid grid-cols-2 sm:grid-cols-4 gap-2"><select value={type} onChange={(event) => setType(event.target.value)} className="h-9 rounded-md border border-input bg-background px-2 text-sm"><option value="">All types</option><option value="post-workout">After workout</option><option value="post-game">After game</option><option value="open">Open</option></select><select value={mood} onChange={(event) => setMood(event.target.value)} className="h-9 rounded-md border border-input bg-background px-2 text-sm"><option value="">Any mood</option>{MOODS.map((item) => <option key={item.value} value={item.value}>{item.emoji} {item.label}</option>)}</select><select value={coached} onChange={(event) => setCoached(event.target.value)} className="h-9 rounded-md border border-input bg-background px-2 text-sm"><option value="">Any coaching</option><option value="true">Coached</option><option value="false">Not coached</option></select><select value={linkedSource} onChange={(event) => setLinkedSource(event.target.value)} className="h-9 rounded-md border border-input bg-background px-2 text-sm"><option value="">Any source</option><option value="workout">Workout</option><option value="game">Game</option><option value="none">No source</option></select></div><div className="grid grid-cols-2 gap-2"><Input type="date" value={from} onChange={(event) => setFrom(event.target.value)} aria-label="From date" /><Input type="date" value={to} onChange={(event) => setTo(event.target.value)} aria-label="To date" /></div>{hasFilters && <Button variant="ghost" size="sm" onClick={clearFilters}>Clear filters</Button>}</CardContent></Card>
+       <Card><CardContent className="p-4 space-y-3"><div className="relative"><Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search reflections and Coach P feedback..." className="pl-9" data-testid="input-journal-search" /></div><div className="grid grid-cols-2 sm:grid-cols-4 gap-2"><select value={type} onChange={(event) => setType(event.target.value)} className="h-9 rounded-md border border-input bg-background px-2 text-sm"><option value="">All types</option><option value="post-workout">After practice / workout</option><option value="post-game">After game</option><option value="open">Open</option></select><select value={mood} onChange={(event) => setMood(event.target.value)} className="h-9 rounded-md border border-input bg-background px-2 text-sm"><option value="">Any mood</option>{MOODS.map((item) => <option key={item.value} value={item.value}>{item.emoji} {item.label}</option>)}</select><select value={coached} onChange={(event) => setCoached(event.target.value)} className="h-9 rounded-md border border-input bg-background px-2 text-sm"><option value="">Any coaching</option><option value="true">Coached</option><option value="false">Not coached</option></select><select value={linkedSource} onChange={(event) => setLinkedSource(event.target.value)} className="h-9 rounded-md border border-input bg-background px-2 text-sm"><option value="">Any source</option><option value="workout">Workout</option><option value="game">Game</option><option value="none">No source</option></select></div><div className="grid grid-cols-2 gap-2"><Input type="date" value={from} onChange={(event) => setFrom(event.target.value)} aria-label="From date" /><Input type="date" value={to} onChange={(event) => setTo(event.target.value)} aria-label="To date" /></div>{hasFilters && <Button variant="ghost" size="sm" onClick={clearFilters}>Clear filters</Button>}</CardContent></Card>
       {isLoading ? <div className="space-y-3">{[1, 2, 3].map((item) => <div key={item} className="h-24 rounded-xl bg-muted animate-pulse" />)}</div> : entries.length === 0 ? <Card className="border-dashed"><CardContent className="flex flex-col items-center text-center gap-3 py-12"><BookOpen className="w-10 h-10 text-muted-foreground" /><p className="font-medium">{hasFilters ? "No reflections match those filters" : "No entries yet"}</p><p className="text-sm text-muted-foreground">{hasFilters ? "Try a different search or clear the filters." : "Start reflecting after your next workout or game."}</p><Button onClick={hasFilters ? clearFilters : openNew}>{hasFilters ? "Clear filters" : "Write first entry"}</Button></CardContent></Card> : <div className="space-y-3">{entries.map((entry) => { const response = entry.responses?.[0]?.answer; const source = entry.gameId ? sources.games.find((item) => item.sourceId === entry.gameId) : entry.trainingLogId ? sources.workouts.find((item) => item.sourceId === entry.trainingLogId) : null; return <Card key={entry.id} className="group cursor-pointer hover:border-primary/40 transition-colors" onClick={() => setSelectedEntry(entry)} data-testid={`card-journal-${entry.id}`}><CardContent className="p-4 flex gap-3"><div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">{entry.type === "post-workout" ? <Dumbbell className="w-4 h-4 text-primary" /> : entry.type === "post-game" ? <Trophy className="w-4 h-4 text-primary" /> : <Brain className="w-4 h-4 text-primary" />}</div><div className="min-w-0 flex-1"><div className="flex gap-2 flex-wrap items-center"><span className="text-sm font-medium">{TYPE_LABELS[entry.type as JournalType]}</span>{entry.aiCoachFeedback && <Badge variant="secondary" className="text-xs gap-1"><Sparkles className="w-3 h-3" /> Coached</Badge>}<Badge variant="outline" className="text-xs">{sourceLabel(entry)}</Badge>{entry.mood && <span>{MOODS[entry.mood - 1].emoji}</span>}</div><p className="text-xs text-muted-foreground mt-1 flex items-center gap-1"><CalendarDays className="w-3 h-3" />{formatDate(entry.createdAt)}{source?.kind === "game" ? ` · vs ${source.opponent || "opponent"}` : source?.kind === "workout" ? ` · ${source.duration || 0} min` : ""}</p>{response && <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{response}</p>}</div><ChevronRight className="w-4 h-4 text-muted-foreground mt-1 shrink-0" /></CardContent></Card>; })}</div>}
-      <Dialog open={newOpen} onOpenChange={(open) => { if (!open) closeEditor(); else setNewOpen(true); }}><DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto"><DialogHeader className="sr-only"><DialogTitle>Journal entry</DialogTitle></DialogHeader><EntryEditor type={selectedType} initialSourceKind={initialSourceKind} initialSourceId={initialSourceId} sources={sources} onDone={closeEditor} onBack={() => setNewOpen(false)} /></DialogContent></Dialog>
+       <Dialog open={newOpen} onOpenChange={(open) => { if (!open) closeEditor(); else setNewOpen(true); }}><DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto"><DialogHeader className="sr-only"><DialogTitle>Journal entry</DialogTitle></DialogHeader><div className="space-y-5"><JournalTypePicker value={selectedType} onChange={setSelectedType} /><Separator />{(() => { const compatibleSource = (selectedType === "post-game" && initialSourceKind === "game") || (selectedType === "post-workout" && initialSourceKind === "workout"); return <EntryEditor key={`${selectedType}-${compatibleSource ? initialSourceKind : "none"}-${compatibleSource ? initialSourceId : "none"}`} type={selectedType} initialSourceKind={compatibleSource ? initialSourceKind : null} initialSourceId={compatibleSource ? initialSourceId : null} sources={sources} onDone={closeEditor} onBack={() => setNewOpen(false)} />; })()}</div></DialogContent></Dialog>
       <Dialog open={!!selectedEntry} onOpenChange={(open) => !open && setSelectedEntry(null)}><DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto"><DialogHeader><DialogTitle>Journal reflection</DialogTitle><DialogDescription>Private to you</DialogDescription></DialogHeader>{selectedEntry && <EntryDetail entry={selectedEntry} isPro={isPro} onClose={() => setSelectedEntry(null)} onDelete={() => setDeletingId(selectedEntry.id)} onEdit={() => { setEditing(selectedEntry); setSelectedEntry(null); }} />}</DialogContent></Dialog>
       <Dialog open={!!editing} onOpenChange={(open) => !open && setEditing(null)}><DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto"><DialogHeader className="sr-only"><DialogTitle>Edit journal entry</DialogTitle></DialogHeader>{editing && <EntryEditor entry={editing} type={editing.type as JournalType} sources={sources} onDone={() => setEditing(null)} />}</DialogContent></Dialog>
       {selectedEntry && <div className="sr-only"><button onClick={() => setDeletingId(selectedEntry.id)}>Delete</button></div>}

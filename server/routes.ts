@@ -10158,17 +10158,6 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
     }
   });
 
-  // Get single entry
-  app.get("/api/journal/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
-    try {
-      const entry = await storage.getJournalEntry(req.params.id, req.user.claims.sub);
-      if (!entry) return res.status(404).json({ message: "Entry not found" });
-      res.json(entry);
-    } catch (err) {
-      res.status(500).json({ message: "Failed to fetch journal entry" });
-    }
-  });
-
   // Create entry
   app.post("/api/journal", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
@@ -10188,16 +10177,43 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
         aiFollowUpAnswer: z.string().optional(),
       });
       const parsed = schema.safeParse(req.body);
-      if (!parsed.success) return res.status(400).json({ message: "Invalid input", errors: parsed.error.flatten() });
+      if (!parsed.success) {
+        console.warn("[journal] invalid create payload", parsed.error.issues.map((issue) => ({
+          path: issue.path,
+          code: issue.code,
+          message: issue.message,
+        })));
+        return res.status(400).json({ message: "Invalid input", errors: parsed.error.flatten() });
+      }
       const sourceError = await validateJournalSource(req.user.claims.sub, parsed.data.trainingLogId, parsed.data.gameId);
-      if (sourceError) return res.status(400).json({ message: sourceError });
-      if (parsed.data.type === "post-workout" && parsed.data.gameId) return res.status(400).json({ message: "Post-workout entries must link to a workout." });
-      if (parsed.data.type === "post-game" && parsed.data.trainingLogId) return res.status(400).json({ message: "Post-game entries must link to a game." });
+      if (sourceError) {
+        console.warn("[journal] source validation failed", {
+          type: parsed.data.type,
+          hasTrainingLog: Boolean(parsed.data.trainingLogId),
+          hasGame: Boolean(parsed.data.gameId),
+          reason: sourceError,
+        });
+        return res.status(400).json({ message: sourceError });
+      }
+      if (parsed.data.type === "post-workout" && parsed.data.gameId) return res.status(400).json({ message: "After practice / workout entries cannot link to a game." });
+      if (parsed.data.type === "post-game" && parsed.data.trainingLogId) return res.status(400).json({ message: "After game entries cannot link to a workout." });
       const entry = await storage.createJournalEntry({ ...parsed.data, userId: req.user.claims.sub });
       res.json(entry);
     } catch (err) {
       console.error("Error creating journal entry:", err);
       res.status(500).json({ message: "Failed to create journal entry" });
+    }
+  });
+
+  // Get single entry. Keep this after the named journal routes above so
+  // /api/journal/sources is not treated as an entry id.
+  app.get("/api/journal/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const entry = await storage.getJournalEntry(req.params.id, req.user.claims.sub);
+      if (!entry) return res.status(404).json({ message: "Entry not found" });
+      res.json(entry);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to fetch journal entry" });
     }
   });
 
