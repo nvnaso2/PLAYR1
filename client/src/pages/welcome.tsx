@@ -162,7 +162,7 @@ const STEPS: QuizStep[] = [
   { type: "name" },
   { type: "chapter", chapterNum: 2, title: "Let's Learn About Your Current Situation." },
   { type: "question", id: "Q3", text: "What best describes your current basketball situation?", options: ["Elementary School", "Middle School", "Freshman / JV", "Varsity", "College Basketball", "Intramural League", "Adult Rec League", "Just Playing For Fun"] },
-  { type: "question", id: "Q4", text: "How would you describe your current role on your team?", options: ["Not On A Team", "Limited Minutes", "Rotation Player", "Starter", "Team Leader"] },
+  { type: "question", id: "Q4", text: "How would you describe your current role on your team?", options: ["Not On A Team / Learning the game", "Limited Minutes / Looking to Make a Team", "Rotation Player", "Starter / 6th Man", "Key Player", "Team Leader"] },
   { type: "question", id: "Q5", text: "When your team needs a bucket, what are you most likely to do?", options: ["Take the shot", "Create a shot", "Drive", "Find an open teammate", "Get a teammate open", "Get the offensive rebound"] },
   { type: "chapter", chapterNum: 3, title: "Let's Understand What Will Take Your Game to the Next Level." },
   { type: "question", id: "Q6", text: "What frustrates you most during games?", options: ["Missing open shots", "Losing the ball", "Finishing at the rim", "Defending athletes and scorers", "Making quick decisions under pressure", "Confidence"] },
@@ -177,7 +177,7 @@ const STEPS: QuizStep[] = [
   { type: "question", id: "Q13", text: "When games get close, what do you do?", options: ["Tense up and get nervous", "Embrace the moment", "Drift to the sidelines mentally", "Don't think too much about it"] },
   { type: "question", id: "Q14", text: "How confident are you in your ability to impact games?", options: ["Still Learning", "Sometimes", "Usually", "Consistently", "I expect to be one of the best players on the court"] },
   { type: "question", id: "Q15", text: "After a bad game, what's your honest reaction?", options: ["I get frustrated and need time to cool off", "I replay it trying to figure out what went wrong", "I immediately think about what I need to fix", "I get back in the gym as soon as I can", "I'm already focused on the next one"] },
-  { type: "question", id: "Q16", text: "Which statement feels most like you right now?", options: ["I'm still learning the fundamentals and figuring out my game", "I work hard in practice but haven't found my role yet", "I've earned a steady spot and contribute when I'm needed", "I'm one of the players my team leans on to make plays", "I expect to dominate every time I step on the court"] },
+  { type: "question", id: "Q16", text: "Which statement feels most like you right now?", options: ["I'm still learning the fundamentals and getting comfortable with the game", "I work hard and have the basics, but haven't found my clear role or consistent payoff yet.", "I've earned a steady role and contribute as a trusted piece of the rotation.", "My performance noticeably swings the outcome of games.", "I'm one of the players my team leans on to make plays", "I operate at the highest level in my environment and set the standard"] },
   { type: "chapter", chapterNum: 6, title: "What Are You Chasing?", sub: "One last question. Then we show you everything we built for you." },
   { type: "question", id: "Q17", text: "What's your primary basketball goal right now?", options: ["Make a team I'm trying out for", "Earn more playing time / a bigger role", "Play at the next level (high school, college, etc.)", "Become the best version of my game, for myself", "Compete at the highest level I possibly can"] },
   { type: "email" },
@@ -245,17 +245,26 @@ function scoreArchetype(ans: Map<string, string>): string {
 }
 
 function scoreStage(ans: Map<string, string>): string {
-  const q4m: Record<string,number> = {"Not On A Team":0,"Limited Minutes":2,"Rotation Player":4,"Starter":6,"Team Leader":8};
-  const q16m: Record<string,number> = {"I'm still learning the fundamentals and figuring out my game":0,"I work hard in practice but haven't found my role yet":2,"I've earned a steady spot and contribute when I'm needed":4,"I'm one of the players my team leans on to make plays":6,"I expect to dominate every time I step on the court":8};
-  const q3m: Record<string,number> = {"Elementary School":0,"Middle School":1,"Freshman / JV":2,"Varsity":3,"College Basketball":4,"Intramural League":2,"Adult Rec League":2,"Just Playing For Fun":0};
-  const q14m: Record<string,number> = {"Still Learning":0,"Sometimes":1,"Usually":2,"Consistently":3,"I expect to be one of the best players on the court":4};
-  const total = (q4m[ans.get("Q4")??""]??0)+(q16m[ans.get("Q16")??""]??0)+(q3m[ans.get("Q3")??""]??0)+(q14m[ans.get("Q14")??""]??0);
-  if (total<=4)  return "Foundation Builder";
-  if (total<=9)  return "Aspiring Player";
-  if (total<=14) return "Team Contributor";
-  if (total<=18) return "Impact Player";
-  if (total<=21) return "Difference Maker";
-  return "Elite Competitor";
+  const q4Stage: Record<string, number> = {
+    "Not On A Team / Learning the game": 1,
+    "Limited Minutes / Looking to Make a Team": 2,
+    "Rotation Player": 3,
+    "Starter / 6th Man": 4,
+    "Key Player": 5,
+    "Team Leader": 6,
+  };
+  const q16Stage: Record<string, number> = {
+    "I'm still learning the fundamentals and getting comfortable with the game": 1,
+    "I work hard and have the basics, but haven't found my clear role or consistent payoff yet.": 2,
+    "I've earned a steady role and contribute as a trusted piece of the rotation.": 3,
+    "My performance noticeably swings the outcome of games.": 4,
+    "I'm one of the players my team leans on to make plays": 5,
+    "I operate at the highest level in my environment and set the standard": 6,
+  };
+  const q4Level = q4Stage[ans.get("Q4") ?? ""] ?? 1;
+  const q16Level = q16Stage[ans.get("Q16") ?? ""] ?? 1;
+  const averagedLevel = Math.round((q4Level + q16Level) / 2);
+  return STAGE_ORDER[averagedLevel - 1] ?? STAGE_ORDER[0];
 }
 
 function scoreTeamRole(ans: Map<string, string>): string {
