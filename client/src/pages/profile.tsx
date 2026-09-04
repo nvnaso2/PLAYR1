@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useLocation } from "wouter";
+import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -17,7 +17,7 @@ import {
   Eye, EyeOff, Globe, Lock, Save, Loader2, Camera, Share2,
   Ruler, GraduationCap, Video, Star, Zap, Trophy, Medal,
   School, Users, MapPin, Dumbbell, Clock, Target,
-  CheckCircle2, StickyNote, Copy, Check, Mail, ArrowLeft, ChevronRight, RotateCcw,
+  CheckCircle2, StickyNote, Copy, Check, Mail, ArrowLeft,
 } from "lucide-react";
 import { SiX, SiInstagram, SiTiktok, SiYoutube, SiWhatsapp } from "react-icons/si";
 
@@ -45,50 +45,6 @@ const GRADE_LABELS: Record<string, string> = {
   "college-sophomore": "College Sophomore", "college-junior": "College Junior",
   "college-senior": "College Senior", "post-college": "Post-College",
 };
-
-const DEVELOPMENT_STAGES = [
-  {
-    name: "Foundation Builder",
-    description: "Just starting to build real basketball habits — learning fundamentals, getting comfortable, figuring out how the game works.",
-    needsMost: "Repetition of the basics in a low-pressure environment. Confidence-building matters more than complex skill work right now.",
-  },
-  {
-    name: "Aspiring Player",
-    description: "Has the fundamentals but hasn't found a clear role yet — working hard without consistent payoff in games.",
-    needsMost: "Help identifying natural strengths so the effort starts pointing in one clear direction instead of everywhere at once.",
-  },
-  {
-    name: "Team Contributor",
-    description: "Has earned a steady role and reliably contributes — not yet a primary option, but a trusted piece of the rotation.",
-    needsMost: "Expanding their offensive or defensive role incrementally, and reps in slightly higher-pressure situations.",
-  },
-  {
-    name: "Impact Player",
-    description: "A player their team genuinely leans on — someone whose performance noticeably swings the outcome of games.",
-    needsMost: "Skill refinement at game speed and mental tools for handling pressure — the margin for error is smaller at this stage.",
-  },
-  {
-    name: "Difference Maker",
-    description: "A go-to player capable of single-handedly changing a game's outcome through scoring, defense, or both.",
-    needsMost: "Elite-level competition to stay challenged, and leadership development — how they affect teammates matters as much as their own production.",
-  },
-  {
-    name: "Elite Competitor",
-    description: "Operating at the highest level of their current environment — the standard others are measured against.",
-    needsMost: "A path to the next level of competition and structured habits around recovery, mindset, and consistency.",
-  },
-] as const;
-
-function parseGrowthAreas(value: unknown): string[] {
-  if (Array.isArray(value)) return value.filter((item): item is string => typeof item === "string");
-  if (typeof value !== "string") return [];
-  try {
-    const parsed = JSON.parse(value);
-    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
-  } catch {
-    return [];
-  }
-}
 
 function makeSlug(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "player";
@@ -291,7 +247,6 @@ type VisState = typeof VIS_DEFAULTS;
 export default function ProfilePage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [, navigate] = useLocation();
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [tab, setTab] = useState<"profile" | "visibility">("profile");
   const [saving, setSaving] = useState(false);
@@ -300,7 +255,6 @@ export default function ProfilePage() {
   const [visLoaded, setVisLoaded] = useState(false);
   const [logDetailId, setLogDetailId] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
-  const [selectedStage, setSelectedStage] = useState<string | null>(null);
 
   const { data: userProfile } = useQuery<any>({ queryKey: ["/api/profile"] });
   const { data: playerProfile, isLoading } = useQuery<any>({ queryKey: ["/api/player-profile"] });
@@ -342,10 +296,6 @@ export default function ProfilePage() {
       setVisLoaded(true);
     }
   }, [playerProfile, visLoaded]);
-
-  useEffect(() => {
-    if (career?.assessmentStage) setSelectedStage(career.assessmentStage);
-  }, [career?.assessmentStage]);
 
   const toggle = (key: keyof VisState, value: boolean) => setVis(prev => ({ ...prev, [key]: value }));
 
@@ -442,12 +392,6 @@ export default function ProfilePage() {
   const archetypeTagline = mainUserArchetype?.archetype?.tagline || _lookupArchetype?.tagline || career?.assessmentArchetypeTagline || null;
   const archetypeColorTheme = mainUserArchetype?.archetype?.colorTheme || _lookupArchetype?.colorTheme || null;
   const archetypeColors = archetypeColorTheme ? (ARCHETYPE_COLORS[archetypeColorTheme] ?? ARCHETYPE_COLORS.orange) : ARCHETYPE_COLORS.orange;
-  const assessmentArchetypeName = career?.assessmentArchetype || archetypeName;
-  const assessmentArchetypeTagline = career?.assessmentArchetypeTagline || archetypeTagline;
-  const hasAssessment = Boolean(career?.assessmentArchetype || career?.assessmentStage);
-  const activeStage = selectedStage || career?.assessmentStage || DEVELOPMENT_STAGES[0].name;
-  const stageInfo = DEVELOPMENT_STAGES.find(stage => stage.name === activeStage) || DEVELOPMENT_STAGES[0];
-  const growthAreas = parseGrowthAreas(career?.assessmentCourtRoleDescription);
 
   const totalGames = careerStats?.totalGames ?? 0;
   const hasGameStats = totalGames > 0;
@@ -722,116 +666,6 @@ export default function ProfilePage() {
           ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
           <div className="px-4 space-y-3">
             <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mt-1">Full Profile Sections</p>
-
-            <SectionCard icon={<Target className="h-4 w-4 text-orange-500" />} title="Development">
-              {!hasAssessment ? (
-                <div className="text-center py-2">
-                  <p className="text-sm font-semibold text-zinc-300">Discover your PLAYR1 profile</p>
-                  <p className="text-xs text-zinc-500 mt-1 mb-3">Take the onboarding assessment to see your role, stage, archetype, and growth areas.</p>
-                  <Button
-                    onClick={() => navigate("/assessment")}
-                    className="bg-orange-500 hover:bg-orange-600 text-white font-bold gap-2"
-                    data-testid="button-take-assessment"
-                  >
-                    Take the Quiz <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-black text-white">Your PLAYR1 Assessment</p>
-                      <p className="text-xs text-zinc-500 mt-0.5">Review your results or update them as your game evolves.</p>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigate("/assessment")}
-                      className="shrink-0 border-orange-500/30 text-orange-400 hover:bg-orange-500/10 gap-1.5"
-                      data-testid="button-retake-assessment"
-                    >
-                      <RotateCcw className="h-3.5 w-3.5" /> Retake
-                    </Button>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <div className="rounded-xl bg-zinc-800/50 border border-orange-500/20 p-3">
-                      <p className="text-[10px] font-bold tracking-widest uppercase text-orange-400/70 mb-1">Archetype</p>
-                      <p className="text-base font-black text-white">{assessmentArchetypeName || "Your player type"}</p>
-                      {assessmentArchetypeTagline && <p className="text-xs text-zinc-500 mt-1 leading-relaxed">{assessmentArchetypeTagline}</p>}
-                    </div>
-                    <div className="rounded-xl bg-zinc-800/50 border border-zinc-700/60 p-3">
-                      <p className="text-[10px] font-bold tracking-widest uppercase text-zinc-500 mb-1">Player Role</p>
-                      <p className="text-base font-black text-white">{career.assessmentCourtRole || "Not available"}</p>
-                      <p className="text-xs text-zinc-500 mt-1">How you currently show up on the court.</p>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl bg-zinc-800/40 border border-zinc-800 p-3">
-                    <div className="flex items-center justify-between gap-2 mb-2">
-                      <div>
-                        <p className="text-[10px] font-bold tracking-widest uppercase text-zinc-500">Development Stage</p>
-                        <p className="text-sm font-black text-white mt-0.5">{career.assessmentStage || "Not available"}</p>
-                      </div>
-                      <span className="text-[10px] text-orange-400 font-bold uppercase tracking-wider">Your current stage</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      {DEVELOPMENT_STAGES.map(stage => {
-                        const isCurrent = stage.name === career.assessmentStage;
-                        const isSelected = stage.name === activeStage;
-                        return (
-                          <button
-                            key={stage.name}
-                            onClick={() => setSelectedStage(stage.name)}
-                            className={`text-left px-2.5 py-2 rounded-lg border text-xs transition-colors ${
-                              isSelected
-                                ? "border-orange-500/60 bg-orange-500/15 text-white"
-                                : "border-zinc-800 bg-zinc-900/50 text-zinc-500 hover:border-zinc-600 hover:text-zinc-300"
-                            }`}
-                            data-testid={`button-development-stage-${stage.name.toLowerCase().replace(/\s+/g, "-")}`}
-                          >
-                            <span className={isCurrent ? "font-black" : "font-medium"}>{stage.name}</span>
-                            {isCurrent && <span className="block text-[9px] text-orange-400 mt-0.5">YOU ARE HERE</span>}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <div className="mt-3 pt-3 border-t border-zinc-800">
-                      <p className="text-sm font-bold text-white">{stageInfo.name}</p>
-                      <p className="text-xs text-zinc-400 leading-relaxed mt-1">{stageInfo.description}</p>
-                      <p className="text-[10px] font-bold tracking-widest uppercase text-orange-400/70 mt-3 mb-1">What you need most</p>
-                      <p className="text-xs text-zinc-500 leading-relaxed">{stageInfo.needsMost}</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <div className="rounded-xl bg-zinc-800/40 p-3">
-                      <p className="text-[10px] font-bold tracking-widest uppercase text-zinc-500 mb-1">Top Growth Area</p>
-                      <p className="text-sm font-black text-orange-400">{career.assessmentBottleneck || "Not available"}</p>
-                      {career.assessmentBottleneckDescription && <p className="text-xs text-zinc-500 mt-1 leading-relaxed">{career.assessmentBottleneckDescription}</p>}
-                    </div>
-                    <div className="rounded-xl bg-zinc-800/40 p-3">
-                      <p className="text-[10px] font-bold tracking-widest uppercase text-zinc-500 mb-1">Primary Goal</p>
-                      <p className="text-sm font-black text-white">{career.assessmentPrimaryGoal || "Keep building your game"}</p>
-                      {growthAreas.length > 0 && <p className="text-xs text-zinc-500 mt-1">Also focus on: {growthAreas.join(" · ")}</p>}
-                    </div>
-                  </div>
-
-                  {(career.assessmentMindsetBand || career.assessmentDedicationBand || career.assessmentExperienceBand) && (
-                    <div className="flex flex-wrap gap-2">
-                      {[["Mindset", career.assessmentMindsetBand], ["Dedication", career.assessmentDedicationBand], ["Experience", career.assessmentExperienceBand]]
-                        .filter(([, value]) => value)
-                        .map(([label, value]) => (
-                          <div key={label} className="px-2.5 py-1.5 rounded-lg bg-zinc-800/50 border border-zinc-800">
-                            <span className="text-[10px] text-zinc-600 uppercase tracking-wider">{label}</span>
-                            <span className="text-xs text-zinc-300 font-bold ml-1.5">{value}</span>
-                          </div>
-                        ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </SectionCard>
 
             {vis.showSkills && (
               <SectionCard icon={<Star className="h-4 w-4 text-orange-500" />} title="Skill Ratings">

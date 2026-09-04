@@ -41,6 +41,7 @@ const Dashboard = lazy(pageLoaders.dashboard);
 const Videos = lazy(pageLoaders.videos);
 const Profile = lazy(pageLoaders.profile);
 const Career = lazy(pageLoaders.career);
+const Development = lazy(pageLoaders.development);
 const PlayerPublic = lazy(pageLoaders.playerPublic);
 const TrainerPublic = lazy(pageLoaders.trainerPublic);
 const Admin = lazy(pageLoaders.admin);
@@ -328,6 +329,7 @@ function Router() {
                 <Route path="/log" component={TrainingLog} />
                 <Route path="/videos" component={Videos} />
                 <Route path="/career" component={Career} />
+                <Route path="/development" component={Development} />
                 <Route path="/profile" component={Profile} />
                 <Route path="/subscription" component={SubscriptionPage} />
                 <Route path="/settings">{() => <Suspense fallback={<LoadingScreen />}><SettingsPage /></Suspense>}</Route>

@@ -38,7 +38,7 @@ const playerTabs = [
     label: "Profile",
     icon: UserCircle,
     path: "/profile-hub",
-    activePatterns: ["/profile-hub", "/profile", "/subscription", "/career", "/archetypes", "/my-archetype", "/my-goal", "/game-day"],
+    activePatterns: ["/profile-hub", "/profile", "/subscription", "/career", "/development", "/archetypes", "/my-archetype", "/my-goal", "/game-day"],
   },
 ];
 
