@@ -22,6 +22,11 @@ type SubscriptionState = {
   coachP: CoachPUsage;
 };
 
+type CoachPStreamResult = {
+  message: string;
+  coachP: CoachPUsage;
+};
+
 const STARTER_PROMPTS = [
   {
     label: "Find my biggest opportunity",
@@ -86,6 +91,7 @@ export default function CoachPPage() {
   const [usage, setUsage] = useState<CoachPUsage | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [limitReached, setLimitReached] = useState(false);
+  const [thinkingStage, setThinkingStage] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const { data: subscription } = useQuery<SubscriptionState>({
@@ -97,17 +103,70 @@ export default function CoachPPage() {
   const canSend = isUnlimited || currentUsage?.remaining == null || currentUsage.remaining > 0;
 
   const chatMutation = useMutation({
-    mutationFn: async (history: ChatMessage[]) => {
+    mutationFn: async (history: ChatMessage[]): Promise<CoachPStreamResult> => {
       const response = await apiRequest("POST", "/api/coach-p/chat", { messages: history });
-      return response.json() as Promise<{ message: string; coachP: CoachPUsage }>;
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("Coach P streaming is unavailable.");
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let streamedMessage = "";
+      let result: CoachPStreamResult | null = null;
+      let assistantMessageAdded = false;
+
+      const appendAssistantText = (text: string) => {
+        streamedMessage += text;
+        setMessages((previous) => {
+          if (!assistantMessageAdded) {
+            assistantMessageAdded = true;
+            return [...previous, { role: "assistant", content: text }];
+          }
+          const last = previous[previous.length - 1];
+          if (last?.role !== "assistant") return [...previous, { role: "assistant", content: text }];
+          return [...previous.slice(0, -1), { ...last, content: last.content + text }];
+        });
+        requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "auto" }));
+      };
+
+      const handleFrame = (frame: string) => {
+        const lines = frame.split("\n");
+        const event = lines.find((line) => line.startsWith("event:"))?.slice(6).trim() ?? "message";
+        const data = lines.filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trim()).join("\n");
+        if (!data) return;
+        const payload = JSON.parse(data) as { stage?: string; text?: string; message?: string; coachP?: CoachPUsage };
+        if (event === "status" && payload.stage) {
+          setThinkingStage(payload.stage);
+        } else if (event === "delta" && payload.text) {
+          appendAssistantText(payload.text);
+        } else if (event === "done" && payload.message && payload.coachP) {
+          result = { message: payload.message, coachP: payload.coachP };
+          setThinkingStage(null);
+        } else if (event === "error") {
+          throw new Error(payload.message || "Coach P is unavailable right now.");
+        }
+      };
+
+      while (true) {
+        const { value, done } = await reader.read();
+        buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
+        const frames = buffer.split("\n\n");
+        buffer = frames.pop() ?? "";
+        frames.forEach(handleFrame);
+        if (done) break;
+      }
+      if (buffer.trim()) handleFrame(buffer);
+      if (!result) throw new Error(streamedMessage ? "Coach P response ended early." : "Coach P returned no coaching response.");
+      return result;
     },
     onSuccess: (data) => {
-      setMessages((previous) => [...previous, { role: "assistant", content: data.message }]);
       setUsage(data.coachP);
       setErrorMessage(null);
+      setThinkingStage(null);
       requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }));
     },
     onError: (error: Error) => {
+      setThinkingStage(null);
+      setMessages((previous) => previous[previous.length - 1]?.role === "assistant" ? previous.slice(0, -1) : previous);
       if (error.message.includes("COACH_P_LIMIT_REACHED")) {
         setLimitReached(true);
         setErrorMessage("You’ve used your 3 Coach P questions this month.");
@@ -125,6 +184,7 @@ export default function CoachPPage() {
     setDraft("");
     setErrorMessage(null);
     setLimitReached(false);
+    setThinkingStage("Starting Coach P...");
     chatMutation.mutate(nextHistory);
     requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }));
   };
@@ -185,9 +245,14 @@ export default function CoachPPage() {
                   <MessageBubble key={`${message.role}-${index}`} message={message} />
                 ))}
                 {chatMutation.isPending && (
-                  <div className="flex gap-3 items-center text-zinc-500 text-sm">
+                  <div className="flex gap-3 items-center text-zinc-500 text-sm" aria-live="polite">
                     <CoachPIcon />
-                    Coach P is thinking...
+                    <span>{thinkingStage ?? "Coach P is thinking..."}</span>
+                    <span className="inline-flex gap-1" aria-hidden="true">
+                      <span className="w-1 h-1 rounded-full bg-orange-400 animate-pulse" />
+                      <span className="w-1 h-1 rounded-full bg-orange-400 animate-pulse [animation-delay:150ms]" />
+                      <span className="w-1 h-1 rounded-full bg-orange-400 animate-pulse [animation-delay:300ms]" />
+                    </span>
                   </div>
                 )}
                 <div ref={bottomRef} />
