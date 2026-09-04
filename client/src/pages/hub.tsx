@@ -253,7 +253,7 @@ export default function HubPage() {
             </button>
 
             <button
-              onClick={() => navigate("/profile")}
+              onClick={() => navigate("/career")}
               className="w-full text-left rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 hover:border-orange-500/40 transition-colors"
               data-testid="button-complete-profile"
             >

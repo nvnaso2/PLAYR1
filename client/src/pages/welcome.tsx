@@ -352,7 +352,7 @@ export default function WelcomePage({
   const [, navigate] = useLocation();
   const qc = useQueryClient();
 
-  const [phase, setPhase] = useState<Phase>("intro");
+  const [phase, setPhase] = useState<Phase>(authenticatedMode ? "quiz" : "intro");
   const [videoEnded, setVideoEnded] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
