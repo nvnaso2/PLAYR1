@@ -236,21 +236,14 @@ export default function HubPage() {
               data-testid="button-regular-onboarding"
             >
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-zinc-950 flex items-center justify-center shrink-0">
                   {fullOnboardingComplete
                     ? <CheckCircle2 className="w-5 h-5 text-white" />
                     : <ClipboardCheck className="w-5 h-5 text-white" />}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-white font-bold text-sm">Tell us more about your basketball story</p>
-                  <p className="text-zinc-500 text-xs mt-0.5">
-                    {fullOnboardingComplete ? "Review your player assessment." : "Answer a few questions to customize your profile and app experience."}
-                  </p>
+                  <p className="text-white font-bold text-sm">Tell Us More About Your Basketball Story</p>
                 </div>
-              </div>
-              <div className="mt-3 flex items-center gap-1 text-orange-400 text-xs font-bold">
-                {fullOnboardingComplete ? "Review assessment" : "Take assessment"}
-                <ChevronRight className="w-3.5 h-3.5" />
               </div>
             </button>
 
@@ -260,7 +253,7 @@ export default function HubPage() {
               data-testid="button-complete-profile"
             >
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-zinc-950 flex items-center justify-center shrink-0">
                   {showProfileSetup
                     ? <UserRound className="w-5 h-5 text-white" />
                     : <CheckCircle2 className="w-5 h-5 text-white" />}
@@ -268,7 +261,7 @@ export default function HubPage() {
                 <div className="min-w-0">
                   <p className="text-white font-bold text-sm">Complete your profile</p>
                   <p className="text-zinc-500 text-xs mt-0.5">
-                    {showProfileSetup ? "Add the details to customize your PLAYR1 Card and Account." : "Your player profile is looking good."}
+                    {showProfileSetup ? "Add the details to customize your PLAYR1 Experience." : "Your player profile is looking good."}
                   </p>
                 </div>
               </div>
