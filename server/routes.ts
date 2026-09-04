@@ -978,7 +978,7 @@ COACHING RULES:
           { role: "system", content: systemPrompt },
           ...parsed.data.messages.map(message => ({ role: message.role, content: message.content })),
         ],
-        max_tokens: 900,
+        max_completion_tokens: 900,
       });
       const message = completion.choices[0]?.message?.content?.trim();
       if (!message) return res.status(500).json({ message: "Coach P returned no coaching response." });

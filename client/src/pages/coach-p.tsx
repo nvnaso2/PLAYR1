@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowLeft, ArrowUp, Bot, Crosshair, Dumbbell, Flag, Gamepad2, Loader2, Sparkles, Target } from "lucide-react";
@@ -72,10 +72,7 @@ export default function CoachPPage() {
   const [usage, setUsage] = useState<CoachPUsage | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [limitReached, setLimitReached] = useState(false);
-  const onboardingSent = useRef(false);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const onboardingMode = typeof window !== "undefined"
-    && new URLSearchParams(window.location.search).get("mode") === "goal";
 
   const { data: subscription } = useQuery<SubscriptionState>({
     queryKey: ["/api/billing/subscription"],
@@ -117,13 +114,6 @@ export default function CoachPPage() {
     chatMutation.mutate(nextHistory);
     requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }));
   };
-
-  useEffect(() => {
-    if (onboardingMode && !onboardingSent.current) {
-      onboardingSent.current = true;
-      sendMessage(STARTER_PROMPTS[3].prompt);
-    }
-  }, [onboardingMode]);
 
   return (
     <div className="min-h-screen bg-black text-white">

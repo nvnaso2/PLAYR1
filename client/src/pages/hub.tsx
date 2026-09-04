@@ -5,7 +5,6 @@ import { ContinueProgramsWidget } from "@/components/continue-programs-widget";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { useState, useEffect } from "react";
 import {
@@ -69,8 +68,6 @@ export default function HubPage() {
   const [trailerDismissed, setTrailerDismissed] = useState(() =>
     localStorage.getItem("playr1_intro_trailer_dismissed") === "1"
   );
-  const [coachStartOpen, setCoachStartOpen] = useState(false);
-
   function dismissTrailer() {
     setTrailerDismissed(true);
     localStorage.setItem("playr1_intro_trailer_dismissed", "1");
@@ -280,7 +277,7 @@ export default function HubPage() {
           </div>
 
           <button
-            onClick={() => setCoachStartOpen(true)}
+            onClick={() => navigate("/coach-p")}
             className="w-full text-left rounded-2xl border border-orange-500/25 bg-gradient-to-r from-orange-500/15 via-orange-500/8 to-transparent p-4 flex items-center gap-3 hover:border-orange-500/50 transition-colors"
             data-testid="button-try-coach-p"
           >
@@ -297,40 +294,6 @@ export default function HubPage() {
             <ChevronRight className="w-4 h-4 text-orange-400/70 shrink-0" />
           </button>
         </section>
-
-        <Dialog open={coachStartOpen} onOpenChange={setCoachStartOpen}>
-          <DialogContent className="bg-zinc-950 border-zinc-800 text-white sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Start with Coach P</DialogTitle>
-              <DialogDescription className="text-zinc-500">
-                Choose how you want to begin.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-3 mt-2">
-              <button
-                onClick={() => { setCoachStartOpen(false); navigate("/coach-p?mode=goal"); }}
-                className="rounded-xl border border-orange-500/40 bg-orange-500/10 p-4 text-left hover:bg-orange-500/15 transition-colors"
-                data-testid="button-coach-p-recommended-start"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-sm font-semibold">Build my PLAYR1 goal</span>
-                  <span className="text-[10px] uppercase tracking-wider text-orange-300">Recommended</span>
-                </div>
-                <p className="text-xs text-zinc-400 mt-1.5">
-                  Start with the basketball goal you shared during onboarding and turn it into a clear next step.
-                </p>
-              </button>
-              <button
-                onClick={() => { setCoachStartOpen(false); navigate("/coach-p"); }}
-                className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 text-left hover:border-zinc-700 transition-colors"
-                data-testid="button-coach-p-regular-start"
-              >
-                <span className="text-sm font-semibold">Use Coach P regularly</span>
-                <p className="text-xs text-zinc-500 mt-1.5">Ask anything about your training, game, profile, or goals.</p>
-              </button>
-            </div>
-          </DialogContent>
-        </Dialog>
 
         {/* Start training */}
         <section className="space-y-3" data-testid="section-start-training">
