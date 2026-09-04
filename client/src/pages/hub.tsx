@@ -278,7 +278,7 @@ export default function HubPage() {
           </div>
 
           <button
-            onClick={() => navigate("/journal")}
+            onClick={() => navigate("/coach-p")}
             className="w-full text-left rounded-2xl border border-orange-500/25 bg-gradient-to-r from-orange-500/15 via-orange-500/8 to-transparent p-4 flex items-center gap-3 hover:border-orange-500/50 transition-colors"
             data-testid="button-try-coach-p"
           >

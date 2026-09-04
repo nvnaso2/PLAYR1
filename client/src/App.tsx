@@ -73,6 +73,7 @@ const EventDetail = lazy(pageLoaders.eventDetail);
 const EventEditor = lazy(pageLoaders.eventEditor);
 const TrainerPrograms = lazy(pageLoaders.trainerPrograms);
 const Journal = lazy(pageLoaders.journal);
+const CoachP = lazy(pageLoaders.coachP);
 const GameDay = lazy(pageLoaders.gameDay);
 const Archetypes = lazy(pageLoaders.archetypes);
 const MyArchetype = lazy(pageLoaders.myArchetype);
@@ -353,6 +354,7 @@ function Router() {
                 <Route path="/connect" component={FindPeople} />
                 <Route path="/challenge-history" component={ChallengeHistory} />
                 <Route path="/journal" component={Journal} />
+                <Route path="/coach-p" component={CoachP} />
                 <Route path="/game-day" component={GameDay} />
                 <Route path="/hub" component={Hub} />
                 <Route path="/journey" component={Journey} />
