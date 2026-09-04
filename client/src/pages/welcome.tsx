@@ -30,7 +30,7 @@ function toRoman(n: number): string {
 
 // ─── ARCHETYPE META ──────────────────────────────────────────────────────────
 // Includes icon (for result slides), tagline, strengths, coach quote, gradient, primaryHex
-const ARCHETYPE_META: Record<string, {
+export const ARCHETYPE_META: Record<string, {
   icon: string; tagline: string; strengths: string[]; coachP: string;
   gradient: string; primaryHex: string;
 }> = {
@@ -107,7 +107,7 @@ const ARCHETYPE_META: Record<string, {
 };
 
 // ─── STAGE DATA ──────────────────────────────────────────────────────────────
-const STAGES: Record<string, { description: string; needsMost: string }> = {
+export const STAGES: Record<string, { description: string; needsMost: string }> = {
   "Foundation Builder": {
     description: "Just starting to build real basketball habits — learning fundamentals, getting comfortable, figuring out how the game works.",
     needsMost: "Repetition of the basics in a low-pressure environment. Confidence-building matters more than complex skill work right now.",
@@ -133,10 +133,10 @@ const STAGES: Record<string, { description: string; needsMost: string }> = {
     needsMost: "A path to the next level of competition and structured habits around recovery, mindset, and consistency.",
   },
 };
-const STAGE_ORDER = ["Foundation Builder","Aspiring Player","Team Contributor","Impact Player","Difference Maker","Elite Competitor"];
+export const STAGE_ORDER = ["Foundation Builder","Aspiring Player","Team Contributor","Impact Player","Difference Maker","Elite Competitor"];
 
 // ─── BOTTLENECK DATA ─────────────────────────────────────────────────────────
-const BOTTLENECKS: Record<string, { description: string; unlocks: string }> = {
+export const BOTTLENECKS: Record<string, { description: string; unlocks: string }> = {
   "Shooting": { description: "Inconsistent percentages on open looks, hesitation to shoot in-rhythm, a shot that breaks down under fatigue or pressure.", unlocks: "Defensive gravity — defenders are forced to respect you, which opens driving lanes and space for the rest of your game." },
   "Ball Handling": { description: "Turnovers under pressure, difficulty creating separation, getting stripped or trapped by aggressive defense.", unlocks: "Independence — the ability to create offense and escape pressure without relying entirely on teammates or set plays." },
   "Finishing": { description: "Getting blocked or losing the ball at the rim, finishing well in practice but not in live game contact.", unlocks: "Conversion — turning drives that are already happening into actual points, immediately raising scoring efficiency." },
