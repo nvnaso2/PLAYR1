@@ -109,27 +109,27 @@ export const ARCHETYPE_META: Record<string, {
 // ─── STAGE DATA ──────────────────────────────────────────────────────────────
 export const STAGES: Record<string, { description: string; needsMost: string }> = {
   "Foundation Builder": {
-    description: "Just starting to build real basketball habits — learning fundamentals, getting comfortable, figuring out how the game works.",
+    description: "Just starting to build real basketball habits, learning fundamentals, getting comfortable, figuring out how the game works.",
     needsMost: "Repetition of the basics in a low-pressure environment. Confidence-building matters more than complex skill work right now.",
   },
   "Aspiring Player": {
-    description: "Has the fundamentals but hasn't found a clear role yet — working hard without consistent payoff in games.",
+    description: "Has the fundamentals but hasn't found a clear role yet, working hard without consistent payoff in games.",
     needsMost: "Help identifying natural strengths so the effort starts pointing in one clear direction instead of everywhere at once.",
   },
   "Team Contributor": {
-    description: "Has earned a steady role and reliably contributes — not yet a primary option, but a trusted piece of the rotation.",
+    description: "Has earned a steady role and reliably contributes, not yet a primary option, but a trusted piece of the rotation.",
     needsMost: "Expanding their offensive or defensive role incrementally, and reps in slightly higher-pressure situations.",
   },
   "Impact Player": {
-    description: "A player their team genuinely leans on — someone whose performance noticeably swings the outcome of games.",
-    needsMost: "Skill refinement at game speed and mental tools for handling pressure — the margin for error is smaller at this stage.",
+    description: "A player their team genuinely leans on, someone whose performance noticeably swings the outcome of games.",
+    needsMost: "Skill refinement at game speed and mental tools for handling pressure, because the margin for error is smaller at this stage.",
   },
   "Difference Maker": {
     description: "A go-to player capable of single-handedly changing a game's outcome through scoring, defense, or both.",
-    needsMost: "Elite-level competition to stay challenged, and leadership development — how they affect teammates matters as much as their own production.",
+    needsMost: "Elite-level competition to stay challenged, and leadership development, because how they affect teammates matters as much as their own production.",
   },
   "Elite Competitor": {
-    description: "Operating at the highest level of their current environment — the standard others are measured against.",
+    description: "Operating at the highest level of their current environment, the standard others are measured against.",
     needsMost: "A path to the next level of competition and structured habits around recovery, mindset, and consistency.",
   },
 };
@@ -137,14 +137,14 @@ export const STAGE_ORDER = ["Foundation Builder","Aspiring Player","Team Contrib
 
 // ─── BOTTLENECK DATA ─────────────────────────────────────────────────────────
 export const BOTTLENECKS: Record<string, { description: string; unlocks: string }> = {
-  "Shooting": { description: "Inconsistent percentages on open looks, hesitation to shoot in-rhythm, a shot that breaks down under fatigue or pressure.", unlocks: "Defensive gravity — defenders are forced to respect you, which opens driving lanes and space for the rest of your game." },
-  "Ball Handling": { description: "Turnovers under pressure, difficulty creating separation, getting stripped or trapped by aggressive defense.", unlocks: "Independence — the ability to create offense and escape pressure without relying entirely on teammates or set plays." },
-  "Finishing": { description: "Getting blocked or losing the ball at the rim, finishing well in practice but not in live game contact.", unlocks: "Conversion — turning drives that are already happening into actual points, immediately raising scoring efficiency." },
-  "Defense": { description: "Getting beaten off the dribble, late or incorrect rotations, fouling out of position rather than through good habits.", unlocks: "Playing time and trust — defense is often the fastest path to earning a coach's confidence." },
-  "Athleticism": { description: "Getting beaten in transition, losing physical battles for position, fatigue affecting performance late in games.", unlocks: "A higher ceiling on every other skill — athleticism amplifies shooting range, finishing ability, and defensive reach simultaneously." },
-  "Basketball IQ": { description: "Poor shot selection, late reads on rotations or passing lanes, getting 'sped up' mentally in high-pressure moments.", unlocks: "Efficiency without needing more athleticism or skill — smarter decisions immediately reduce mistakes and increase impact." },
-  "Confidence": { description: "Hesitating on open shots, playing tighter in big moments than in practice, visible body language changes after mistakes.", unlocks: "Consistency — most of the gap between 'practice player' and 'game player' is confidence, not actual skill." },
-  "Rebounding": { description: "Getting boxed out easily, poor timing on box-outs, low second-chance opportunities created or denied.", unlocks: "Extra possessions — one of the most direct ways to single-handedly create more chances for a team to score." },
+  "Shooting": { description: "Inconsistent percentages on open looks, hesitation to shoot in-rhythm, a shot that breaks down under fatigue or pressure.", unlocks: "Defensive gravity. Defenders are forced to respect you, which opens driving lanes and space for the rest of your game." },
+  "Ball Handling": { description: "Turnovers under pressure, difficulty creating separation, getting stripped or trapped by aggressive defense.", unlocks: "Independence. The ability to create offense and escape pressure without relying entirely on teammates or set plays." },
+  "Finishing": { description: "Getting blocked or losing the ball at the rim, finishing well in practice but not in live game contact.", unlocks: "Conversion. Turning drives that are already happening into actual points, immediately raising scoring efficiency." },
+  "Defense": { description: "Getting beaten off the dribble, late or incorrect rotations, fouling out of position rather than through good habits.", unlocks: "Playing time and trust. Defense is often the fastest path to earning a coach's confidence and make an impact on the court." },
+  "Athleticism": { description: "Getting beaten in transition, losing physical battles for position, fatigue affecting performance late in games.", unlocks: "A higher ceiling on every other skill. Athleticism amplifies shooting range, finishing ability, and defensive reach simultaneously." },
+  "Basketball IQ": { description: "Poor shot selection, late reads on rotations or passing lanes, getting 'sped up' mentally in high-pressure moments.", unlocks: "Efficiency without needing more athleticism or skill. Smarter decisions immediately reduce mistakes and increase impact." },
+  "Confidence": { description: "Hesitating on open shots, playing tighter in big moments than in practice, visible body language changes after mistakes.", unlocks: "The game is 90% Mental. Most of the gap between 'practice player' and 'game player' is confidence not skill." },
+  "Rebounding": { description: "Getting boxed out easily, poor timing on box-outs, low second-chance opportunities created or denied.", unlocks: "Extra possessions. One of the most direct ways to single-handedly create more chances for a team to score." },
 };
 
 // ─── QUIZ STEPS ──────────────────────────────────────────────────────────────
@@ -164,8 +164,8 @@ const STEPS: QuizStep[] = [
     "I'm locking down the opposing team's best scorer and turning defense into energy.",
     "I'm blowing past defenders, finishing in transition, and attacking the rim.",
     "I'm using my size to score, facilitate, and make plays from the wing.",
-    "I'm setting the tone on both ends — scoring when needed and locking down on defense.",
-    "I'm making all the winning plays that don't always show up in stats — offensive rebounds, steals, extra passes.",
+    "I'm setting the tone on both ends, scoring when needed and locking down on defense.",
+    "I'm making all the winning plays that don't always show up in stats, offensive rebounds, steals, extra passes.",
     "I'm walling off the paint, blocking shots, and owning the defensive glass.",
     "I'm creating mismatches by using my size down low and stretching the floor with my jumper.",
   ] },
@@ -175,9 +175,9 @@ const STEPS: QuizStep[] = [
     "Court vision, high basketball IQ, and knowing where everyone should be.",
     "Lateral quickness, reading ball-handlers' hips, and relentless on-ball pressure.",
     "First-step quickness, speed in the open court, and athletic finishing.",
-    "Versatility — passing over defenses, scoring over smaller guards, and positional flexibility.",
+    "Versatility, passing over defenses, scoring over smaller guards, and positional flexibility.",
     "Consistency, stamina, and refusing to be a liability on either end of the floor.",
-    "Adaptability — filling whatever gap the team needs on any given night.",
+    "Adaptability, filling whatever gap the team needs on any given night.",
     "Shot-blocking timing, rim intimidation, and controlling the paint.",
     "Pick-and-pop execution, fluid shooting mechanics for my size, and post footwork.",
   ] },
@@ -203,7 +203,7 @@ const STEPS: QuizStep[] = [
     "Blowing layups or missing touches near the basket under contact.",
     "Fumbling the dribble, losing control, or getting ripped by defenders.",
     "Getting blown past, beaten off the bounce, or giving up easy buckets.",
-    "Feeling out-athlete’d — getting out-jumped, out-run, or overpowered.",
+    "Feeling out-athlete’d, getting out-jumped, out-run, or overpowered.",
     "Giving up second-chance points or getting out-worked on the glass.",
     "Hesitating, second-guessing myself, or playing passive when things go wrong.",
     "Making bad reads, forcing passes, or feeling like the game is moving too fast.",
@@ -213,7 +213,7 @@ const STEPS: QuizStep[] = [
     "I struggle to absorb contact or adjust my finish around rim protectors.",
     "I get turned over when pressured or struggle to handle the ball in tight spaces.",
     "I make defensive mistakes, miss rotations, or struggle against quick scorers.",
-    "Physical limitations — feeling a step too slow, getting tired, or lacking pop.",
+    "Physical limitations, feeling a step too slow, getting tired, or lacking pop.",
     "I fail to box out or lose track of my man on shot attempts.",
     "I lose my composure after a mistake and mentally check out of the game.",
     "I get sped up mentally, take poor shots, or misread what the defense gives me.",
@@ -228,11 +228,11 @@ const STEPS: QuizStep[] = [
     "Confidence (Mental toughness, aggressiveness, staying assertive)",
     "Basketball IQ (Court vision, decision making, game speed control)",
   ] },
-  { type: "chapter", chapterNum: 4, title: "Your Basketball Life.", sub: "Whether you grind every day or play when life lets you — how does basketball fit into your life?" },
+  { type: "chapter", chapterNum: 4, title: "Your Basketball Life.", sub: "Whether you grind every day or play when life lets you, how does basketball fit into your life?" },
   { type: "question", id: "Q9", text: "How serious is basketball in your life right now?", options: ["Casual Hobby", "Serious Hobby", "Major Priority", "My Biggest Goal"] },
-  { type: "question", id: "Q10", text: "How often do you train outside of team practice?", options: ["Never", "Rarely", "1–2 Times a Week", "3–4 Times a Week", "5–6 Times a Week", "Daily"] },
-  { type: "question", id: "Q11", text: "How many years have you played organized team basketball?", options: ["0", "1–3", "4–6", "7–10", "10+"] },
-  { type: "question", id: "Q12", text: "How many years have you played basketball in general?", options: ["0", "1–3", "4–6", "7–10", "10+"] },
+  { type: "question", id: "Q10", text: "How often do you train outside of team practice?", options: ["Never", "Rarely", "1 to 2 Times a Week", "3 to 4 Times a Week", "5 to 6 Times a Week", "Daily"] },
+  { type: "question", id: "Q11", text: "How many years have you played organized team basketball?", options: ["0", "1 to 3", "4 to 6", "7 to 10", "10+"] },
+  { type: "question", id: "Q12", text: "How many years have you played basketball in general?", options: ["0", "1 to 3", "4 to 6", "7 to 10", "10+"] },
   { type: "chapter", chapterNum: 5, title: "When It Gets Hard.", sub: "How you think when things aren't going your way is the most important thing we'll learn about you." },
   { type: "question", id: "Q13", text: "When games get close, what do you do?", options: ["Tense up and get nervous", "Embrace the moment", "Drift to the sidelines mentally", "Don't think too much about it"] },
   { type: "question", id: "Q14", text: "How confident are you in your ability to impact games?", options: ["Still Learning", "Sometimes", "Usually", "Consistently", "I expect to be one of the best players on the court"] },
@@ -287,8 +287,8 @@ function scoreArchetype(ans: Map<string, string>): string {
       "I'm locking down the opposing team's best scorer and turning defense into energy.": "Lockdown Defender",
       "I'm blowing past defenders, finishing in transition, and attacking the rim.": "Athletic Slasher",
       "I'm using my size to score, facilitate, and make plays from the wing.": "Playmaking Wing",
-      "I'm setting the tone on both ends — scoring when needed and locking down on defense.": "Two-Way Player",
-      "I'm making all the winning plays that don't always show up in stats — offensive rebounds, steals, extra passes.": "Swiss Army Knife",
+      "I'm setting the tone on both ends, scoring when needed and locking down on defense.": "Two-Way Player",
+      "I'm making all the winning plays that don't always show up in stats, offensive rebounds, steals, extra passes.": "Swiss Army Knife",
       "I'm walling off the paint, blocking shots, and owning the defensive glass.": "Rim Protector",
       "I'm creating mismatches by using my size down low and stretching the floor with my jumper.": "Stretch Big",
     },
@@ -298,9 +298,9 @@ function scoreArchetype(ans: Map<string, string>): string {
       "Court vision, high basketball IQ, and knowing where everyone should be.": "Floor General",
       "Lateral quickness, reading ball-handlers' hips, and relentless on-ball pressure.": "Lockdown Defender",
       "First-step quickness, speed in the open court, and athletic finishing.": "Athletic Slasher",
-      "Versatility — passing over defenses, scoring over smaller guards, and positional flexibility.": "Playmaking Wing",
+      "Versatility, passing over defenses, scoring over smaller guards, and positional flexibility.": "Playmaking Wing",
       "Consistency, stamina, and refusing to be a liability on either end of the floor.": "Two-Way Player",
-      "Adaptability — filling whatever gap the team needs on any given night.": "Swiss Army Knife",
+      "Adaptability, filling whatever gap the team needs on any given night.": "Swiss Army Knife",
       "Shot-blocking timing, rim intimidation, and controlling the paint.": "Rim Protector",
       "Pick-and-pop execution, fluid shooting mechanics for my size, and post footwork.": "Stretch Big",
     },
@@ -371,7 +371,7 @@ function scoreBottleneck(ans: Map<string, string>): { bottleneck: string; top3: 
     "Blowing layups or missing touches near the basket under contact.": "Finishing",
     "Fumbling the dribble, losing control, or getting ripped by defenders.": "Ball Handling",
     "Getting blown past, beaten off the bounce, or giving up easy buckets.": "Defense",
-    "Feeling out-athlete’d — getting out-jumped, out-run, or overpowered.": "Athleticism",
+    "Feeling out-athlete’d, getting out-jumped, out-run, or overpowered.": "Athleticism",
     "Giving up second-chance points or getting out-worked on the glass.": "Rebounding",
     "Hesitating, second-guessing myself, or playing passive when things go wrong.": "Confidence",
     "Making bad reads, forcing passes, or feeling like the game is moving too fast.": "Basketball IQ",
@@ -381,7 +381,7 @@ function scoreBottleneck(ans: Map<string, string>): { bottleneck: string; top3: 
     "I struggle to absorb contact or adjust my finish around rim protectors.": "Finishing",
     "I get turned over when pressured or struggle to handle the ball in tight spaces.": "Ball Handling",
     "I make defensive mistakes, miss rotations, or struggle against quick scorers.": "Defense",
-    "Physical limitations — feeling a step too slow, getting tired, or lacking pop.": "Athleticism",
+    "Physical limitations, feeling a step too slow, getting tired, or lacking pop.": "Athleticism",
     "I fail to box out or lose track of my man on shot attempts.": "Rebounding",
     "I lose my composure after a mistake and mentally check out of the game.": "Confidence",
     "I get sped up mentally, take poor shots, or misread what the defense gives me.": "Basketball IQ",
@@ -420,7 +420,7 @@ function scoreMindset(ans: Map<string, string>): { score: number; band: string }
 
 function scoreDedication(ans: Map<string, string>): { score: number; band: string } {
   const q9m: Record<string,number> = {"Casual Hobby":2,"Serious Hobby":5,"Major Priority":8,"My Biggest Goal":10};
-  const q10m: Record<string,number> = {"Never":0,"Rarely":2,"1–2 Times a Week":4,"3–4 Times a Week":7,"5–6 Times a Week":9,"Daily":10};
+  const q10m: Record<string,number> = {"Never":0,"Rarely":2,"1 to 2 Times a Week":4,"3 to 4 Times a Week":7,"5 to 6 Times a Week":9,"Daily":10};
   const total = (q9m[ans.get("Q9")??""]??3)+(q10m[ans.get("Q10")??""]??3);
   const score = Math.round((total/20)*100);
   const band = score<=20?"Just Getting Started":score<=40?"Building The Habit":score<=60?"Putting In Work":score<=80?"Grinding":"Obsessed";
@@ -428,7 +428,7 @@ function scoreDedication(ans: Map<string, string>): { score: number; band: strin
 }
 
 function scoreExperience(ans: Map<string, string>): { score: number; band: string } {
-  const ym: Record<string,number> = {"0":0,"1–3":2,"4–6":5,"7–10":8,"10+":10};
+  const ym: Record<string,number> = {"0":0,"1 to 3":2,"4 to 6":5,"7 to 10":8,"10+":10};
   const total = (ym[ans.get("Q11")??""]??0)+(ym[ans.get("Q12")??""]??0);
   const score = Math.round((total/20)*100);
   const band = score<=20?"New To The Game":score<=40?"Building A Foundation":score<=60?"Seasoned Player":score<=80?"Deep Roots":"Lifer";
@@ -1021,8 +1021,8 @@ export default function WelcomePage({
     // Per-slide config — slide 0 is always black per reference design
     const slideBgs = [
       "bg-black",
-      "bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900",
-      "bg-gradient-to-br from-zinc-950 via-red-950/40 to-zinc-950",
+      "bg-gradient-to-br from-black via-zinc-950 to-orange-950/35",
+      "bg-gradient-to-br from-zinc-950 via-orange-950/25 to-black",
       "bg-black",
     ];
     const slideLabels = ["YOUR ARCHETYPE", "YOUR DEVELOPMENT STAGE", "YOUR #1 GROWTH AREA", "YOUR PLAYR1 JOURNEY"];
@@ -1202,7 +1202,7 @@ export default function WelcomePage({
               {results.bottleneck.toUpperCase()}
             </h1>
             <p className="text-white/65 text-sm leading-relaxed mb-3">
-              This isn't a weakness call-out — it's the single highest-leverage area you can work on right now to get better, faster.
+              This isn't a weakness call-out, it's the single highest-leverage area you can work on right now to get better, faster.
             </p>
             <div className="rounded-2xl p-3.5 bg-white/8 border border-white/10">
               <p className="text-white/35 text-[10px] font-bold tracking-widest mb-1.5">WHAT IMPROVING THIS UNLOCKS</p>
@@ -1248,8 +1248,8 @@ export default function WelcomePage({
                   </div>
                   <div className="space-y-3">
                     <ScoreBar label="Mindset" score={results.mindsetScore} band={results.mindsetBand} />
-                    <ScoreBar label="Dedication" score={results.dedicationScore} band={results.dedicationBand} color="bg-blue-500" />
-                    <ScoreBar label="Experience" score={results.experienceScore} band={results.experienceBand} color="bg-purple-500" />
+                    <ScoreBar label="Dedication" score={results.dedicationScore} band={results.dedicationBand} color="bg-orange-500" />
+                    <ScoreBar label="Experience" score={results.experienceScore} band={results.experienceBand} color="bg-zinc-400" />
                   </div>
                   <div className="pt-2 border-t border-zinc-800/60 flex items-center justify-between">
                     <p className="text-zinc-700 text-[10px]">playr1.app</p>

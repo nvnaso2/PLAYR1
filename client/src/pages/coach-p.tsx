@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowUp, Bot, Crosshair, Dumbbell, Flag, Gamepad2, Loader2, Sparkles, Target } from "lucide-react";
+import { ArrowLeft, ArrowUp, Dumbbell, Flag, Gamepad2, GraduationCap, Loader2, Target } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -45,21 +45,35 @@ const STARTER_PROMPTS = [
   },
 ];
 
+function CoachPIcon({ size = "sm" }: { size?: "sm" | "lg" }) {
+  const isLarge = size === "lg";
+  return (
+    <div className={`relative shrink-0 ${isLarge ? "w-14 h-14" : "w-9 h-9"}`} aria-hidden="true">
+      <div className="absolute inset-0 rounded-full bg-orange-500/25 blur-md" />
+      <div className={`relative w-full h-full rounded-full bg-gradient-to-br from-orange-300 via-orange-500 to-orange-700 border border-orange-200/70 flex items-center justify-center shadow-[inset_0_1px_2px_rgba(255,255,255,0.7),0_5px_18px_rgba(249,115,22,0.35)] ${isLarge ? "rotate-[-4deg]" : ""}`}>
+        <GraduationCap className={`${isLarge ? "w-7 h-7" : "w-5 h-5"} text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]`} strokeWidth={2.4} />
+      </div>
+      <span className={`absolute -right-0.5 -bottom-0.5 rounded-full bg-zinc-950 border border-orange-400/70 text-orange-300 font-black leading-none flex items-center justify-center ${isLarge ? "w-5 h-5 text-[9px]" : "w-4 h-4 text-[8px]"}`}>
+        P
+      </span>
+    </div>
+  );
+}
+
 function MessageBubble({ message }: { message: ChatMessage }) {
   const isUser = message.role === "user";
   return (
     <div className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"}`}>
       {!isUser && (
-        <div className="w-8 h-8 rounded-full bg-orange-500/15 flex items-center justify-center shrink-0 mt-1">
-          <Sparkles className="w-4 h-4 text-orange-400" />
-        </div>
+        <div className="mt-1"><CoachPIcon /></div>
       )}
-      <div className={`max-w-[88%] rounded-2xl px-4 py-3 ${
+      <div className={`relative max-w-[88%] overflow-hidden rounded-2xl px-4 py-3 ${
         isUser
           ? "bg-orange-500 text-black rounded-tr-sm"
-          : "bg-zinc-900 border border-zinc-800 text-zinc-200 rounded-tl-sm"
+          : "bg-gradient-to-br from-white via-zinc-100 to-zinc-300 border border-white/80 text-zinc-900 rounded-tl-sm shadow-[0_10px_30px_rgba(255,255,255,0.08),inset_0_1px_0_rgba(255,255,255,0.95)]"
       }`}>
-        <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+        {!isUser && <span className="absolute inset-x-3 top-0 h-px bg-white/90" />}
+        <p className="relative z-10 text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
       </div>
     </div>
   );
@@ -129,7 +143,7 @@ export default function CoachPPage() {
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-orange-500" />
+            <CoachPIcon />
             <span className="font-semibold tracking-tight">Coach P</span>
           </div>
         </div>
@@ -144,9 +158,7 @@ export default function CoachPPage() {
             {messages.length === 0 ? (
               <div className="w-full max-w-2xl mx-auto">
                 <div className="flex items-center justify-center gap-2 mb-8">
-                  <div className="w-9 h-9 rounded-full bg-orange-500/15 flex items-center justify-center">
-                    <Bot className="w-5 h-5 text-orange-400" />
-                  </div>
+                  <CoachPIcon size="lg" />
                   <h1 className="text-2xl font-semibold tracking-tight">What are you working on?</h1>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -174,9 +186,7 @@ export default function CoachPPage() {
                 ))}
                 {chatMutation.isPending && (
                   <div className="flex gap-3 items-center text-zinc-500 text-sm">
-                    <div className="w-8 h-8 rounded-full bg-orange-500/15 flex items-center justify-center">
-                      <Loader2 className="w-4 h-4 text-orange-400 animate-spin" />
-                    </div>
+                    <CoachPIcon />
                     Coach P is thinking...
                   </div>
                 )}

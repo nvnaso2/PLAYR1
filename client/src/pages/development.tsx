@@ -111,8 +111,8 @@ export default function DevelopmentPage() {
   const actualMeta = ARCHETYPE_META[currentArchetype] || ARCHETYPE_META["Two-Way Player"];
   const slideBgs = [
     "bg-black",
-    "bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900",
-    "bg-gradient-to-br from-zinc-950 via-red-950/40 to-zinc-950",
+    "bg-gradient-to-br from-black via-zinc-950 to-orange-950/35",
+    "bg-gradient-to-br from-zinc-950 via-orange-950/25 to-black",
     "bg-black",
   ];
   const slideLabels = ["YOUR ARCHETYPE", "YOUR DEVELOPMENT STAGE", "YOUR #1 GROWTH AREA", "YOUR PLAYR1 JOURNEY"];
@@ -388,7 +388,7 @@ export default function DevelopmentPage() {
             )}
             <h1 className="text-white text-3xl font-black leading-tight mb-3" data-testid="text-development-bottleneck">{viewingBottleneck.toUpperCase()}</h1>
             <p className="text-white/65 text-sm leading-relaxed mb-3">
-              This isn't a weakness call-out — it's the single highest-leverage area you can work on right now to get better, faster.
+              This isn't a weakness call-out, it's the single highest-leverage area you can work on right now to get better, faster.
             </p>
             <div className="rounded-2xl p-3.5 bg-white/8 border border-white/10 mb-5">
               <p className="text-white/35 text-[10px] font-bold tracking-widest mb-1.5">WHAT IMPROVING THIS UNLOCKS</p>
@@ -450,8 +450,8 @@ export default function DevelopmentPage() {
                 </div>
                 <div className="space-y-3">
                   <ScoreBar label="Mindset" score={career.assessmentMindsetScore || 0} band={career.assessmentMindsetBand || "Not scored"} />
-                  <ScoreBar label="Dedication" score={career.assessmentDedicationScore || 0} band={career.assessmentDedicationBand || "Not scored"} color="bg-blue-500" />
-                  <ScoreBar label="Experience" score={career.assessmentExperienceScore || 0} band={career.assessmentExperienceBand || "Not scored"} color="bg-purple-500" />
+                  <ScoreBar label="Dedication" score={career.assessmentDedicationScore || 0} band={career.assessmentDedicationBand || "Not scored"} color="bg-orange-500" />
+                  <ScoreBar label="Experience" score={career.assessmentExperienceScore || 0} band={career.assessmentExperienceBand || "Not scored"} color="bg-zinc-400" />
                 </div>
                 <div className="pt-2 border-t border-zinc-800/60 flex items-center justify-between">
                   <p className="text-zinc-700 text-[10px]">playr1.app</p>
