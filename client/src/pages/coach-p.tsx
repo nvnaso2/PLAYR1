@@ -83,53 +83,136 @@ function CoachPIcon({ size = "sm" }: { size?: "sm" | "lg" }) {
   );
 }
 
-function MessageBubble({ message }: { message: ChatMessage }) {
-  const isUser = message.role === "user";
-  const paragraphs = message.content.split(/\n{2,}/).filter(Boolean);
+function inlineCoachPText(text: string) {
+  return text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).map((part, index) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={index} className="font-semibold text-white">{part.slice(2, -2)}</strong>;
+    }
+    if (part.startsWith("`") && part.endsWith("`")) {
+      return <code key={index} className="rounded bg-white/[0.08] px-1.5 py-0.5 text-[0.9em] text-orange-200">{part.slice(1, -1)}</code>;
+    }
+    return <span key={index}>{part}</span>;
+  });
+}
+
+function CoachPResponse({ content }: { content: string }) {
+  const lines = content.replace(/\r/g, "").split("\n");
+  const blocks: Array<
+    | { type: "paragraph"; lines: string[] }
+    | { type: "bullet" | "numbered"; items: string[] }
+    | { type: "heading" | "callout"; text: string }
+  > = [];
+  let paragraph: string[] = [];
+  let listType: "bullet" | "numbered" | null = null;
+  let listItems: string[] = [];
+
+  const flushParagraph = () => {
+    if (paragraph.length) {
+      blocks.push({ type: "paragraph", lines: paragraph });
+      paragraph = [];
+    }
+  };
+  const flushList = () => {
+    if (listType && listItems.length) blocks.push({ type: listType, items: listItems });
+    listType = null;
+    listItems = [];
+  };
+
+  lines.forEach((rawLine) => {
+    const line = rawLine.trim();
+    if (!line) {
+      flushParagraph();
+      flushList();
+      return;
+    }
+    const heading = line.match(/^#{1,3}\s+(.+)$/) || line.match(/^\*\*(.+)\*\*$/);
+    if (heading) {
+      flushParagraph();
+      flushList();
+      blocks.push({ type: "heading", text: heading[1] });
+      return;
+    }
+    const callout = line.match(/^(Key takeaway|Next step|Coach(?:'s|’s) cue|Try this):\s*(.+)$/i);
+    if (callout) {
+      flushParagraph();
+      flushList();
+      blocks.push({ type: "callout", text: `${callout[1]}: ${callout[2]}` });
+      return;
+    }
+    const bullet = line.match(/^[-•*]\s+(.+)$/);
+    const numbered = line.match(/^\d+[.)]\s+(.+)$/);
+    if (bullet || numbered) {
+      flushParagraph();
+      const nextType = bullet ? "bullet" : "numbered";
+      if (listType && listType !== nextType) flushList();
+      listType = nextType;
+      listItems.push((bullet ?? numbered)![1]);
+      return;
+    }
+    flushList();
+    paragraph.push(line);
+  });
+  flushParagraph();
+  flushList();
 
   return (
-    <div className={`flex items-start gap-3 ${isUser ? "justify-end" : "justify-start"}`}>
-      {!isUser && (
+    <div className="space-y-5 text-[15px] leading-7 text-zinc-200">
+      {blocks.map((block, index) => {
+        if (block.type === "heading") {
+          return <h3 key={index} className="pt-1 text-base font-semibold tracking-tight text-white">{inlineCoachPText(block.text)}</h3>;
+        }
+        if (block.type === "callout") {
+          return (
+            <div key={index} className="rounded-r-xl border-l-2 border-orange-400 bg-orange-400/[0.07] px-4 py-3 text-sm leading-6 text-orange-50">
+              {inlineCoachPText(block.text)}
+            </div>
+          );
+        }
+        if (block.type === "bullet" || block.type === "numbered") {
+          return (
+            <ol key={index} className="space-y-3">
+              {block.items.map((item, itemIndex) => (
+                <li key={itemIndex} className="flex gap-3">
+                  {block.type === "numbered" ? (
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-orange-400/30 bg-orange-400/10 text-xs font-semibold text-orange-300">{itemIndex + 1}</span>
+                  ) : (
+                    <span className="mt-3 h-1.5 w-1.5 shrink-0 rounded-full bg-orange-400 shadow-[0_0_8px_rgba(251,146,60,0.6)]" />
+                  )}
+                  <span>{inlineCoachPText(item)}</span>
+                </li>
+              ))}
+            </ol>
+          );
+        }
+        if (block.type === "paragraph") {
+          return <p key={index}>{block.lines.map((line, lineIndex) => <span key={lineIndex}>{line}{lineIndex < block.lines.length - 1 ? " " : ""}</span>)}</p>;
+        }
+        return null;
+      })}
+    </div>
+  );
+}
+
+function MessageBubble({ message }: { message: ChatMessage }) {
+  const isUser = message.role === "user";
+  if (!isUser) {
+    return (
+      <div className="flex items-start gap-3 py-2">
         <div className="mt-0.5"><CoachPIcon /></div>
-      )}
-      <div className={`relative max-w-[88%] sm:max-w-[82%] overflow-hidden ${
-        isUser
-          ? "rounded-2xl rounded-tr-md bg-gradient-to-br from-orange-400 to-orange-600 px-4 py-3 text-zinc-950 shadow-[0_8px_28px_rgba(249,115,22,0.18)]"
-          : "rounded-2xl rounded-tl-md border border-white/[0.07] bg-gradient-to-br from-zinc-900 to-zinc-950 px-4 py-4 text-zinc-100 shadow-[0_14px_40px_rgba(0,0,0,0.26)]"
-      }`}>
-        {!isUser && (
-          <>
-            <span className="absolute inset-y-4 left-0 w-px bg-gradient-to-b from-transparent via-orange-400/80 to-transparent" />
-            <span className="absolute -left-10 -top-10 h-24 w-24 rounded-full bg-orange-500/[0.06] blur-2xl" />
-          </>
-        )}
-        <div className={`relative z-10 text-[15px] leading-7 ${isUser ? "font-medium" : "space-y-3 text-zinc-200"}`}>
-          {isUser ? (
-            <p className="whitespace-pre-wrap">{message.content}</p>
-          ) : (
-            paragraphs.map((paragraph, index) => {
-              const lines = paragraph.split("\n");
-              const isList = lines.every((line) => /^[-•*]\s+/.test(line.trim()));
-              if (isList) {
-                return (
-                  <ul key={index} className="space-y-2 pl-0">
-                    {lines.map((line, lineIndex) => (
-                      <li key={lineIndex} className="flex gap-2.5">
-                        <span className="mt-[11px] h-1 w-1 shrink-0 rounded-full bg-orange-400" />
-                        <span>{line.trim().replace(/^[-•*]\s+/, "")}</span>
-                      </li>
-                    ))}
-                  </ul>
-                );
-              }
-              const heading = paragraph.match(/^(#{1,3}\s+|\*\*)(.+?)(\*\*)?$/);
-              if (heading && lines.length === 1) {
-                return <p key={index} className="font-semibold text-white">{heading[2]}</p>;
-              }
-              return <p key={index} className="whitespace-pre-wrap">{paragraph}</p>;
-            })
-          )}
+        <div className="min-w-0 max-w-[94%] flex-1">
+          <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-orange-300/80">
+            <span>Coach P</span>
+            <span className="h-px w-8 bg-orange-400/30" />
+          </div>
+          <CoachPResponse content={message.content} />
         </div>
+      </div>
+    );
+  }
+  return (
+    <div className="flex justify-end py-1">
+      <div className="max-w-[88%] rounded-2xl rounded-tr-md bg-gradient-to-br from-orange-400 to-orange-600 px-4 py-3 text-[15px] font-medium leading-7 text-zinc-950 shadow-[0_8px_28px_rgba(249,115,22,0.18)]">
+        <p className="whitespace-pre-wrap">{message.content}</p>
       </div>
     </div>
   );
@@ -529,9 +612,9 @@ export default function CoachPPage() {
                     sendMessage(draft);
                   }
                 }}
-                placeholder={canSend ? "Message Coach P..." : "Your monthly questions are used"}
-                disabled={!canSend || chatMutation.isPending}
-                className="min-h-[44px] max-h-32 resize-none border-0 bg-transparent text-[15px] text-zinc-100 placeholder:text-zinc-600 focus-visible:ring-0"
+                placeholder={canSend ? "Ask Coach P anything about your game..." : "Monthly limit reached — type here after upgrading"}
+                disabled={chatMutation.isPending}
+                className="min-h-[56px] max-h-32 resize-none rounded-xl border border-white/[0.08] bg-zinc-900/70 px-3 py-3 text-[15px] text-zinc-100 placeholder:text-zinc-500 focus-visible:border-orange-400/40 focus-visible:ring-2 focus-visible:ring-orange-400/10"
                 data-testid="textarea-coach-p"
               />
               <Button
