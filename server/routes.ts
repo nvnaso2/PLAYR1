@@ -9291,7 +9291,7 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
       const response = await openai.chat.completions.create({
         model: "gpt-5",
         messages: [{ role: "user", content }],
-        max_tokens: 400,
+        max_completion_tokens: 400,
       });
 
       const raw = response.choices[0]?.message?.content || '{"zones":[]}';
@@ -10591,7 +10591,7 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
           },
         ],
         response_format: { type: "json_object" },
-        max_tokens: 600,
+        max_completion_tokens: 600,
       });
 
       const content = completion.choices[0]?.message?.content;
@@ -10742,7 +10742,7 @@ Rules:
           { role: "system", content: GAME_DAY_SYSTEM_PROMPT },
           { role: "user", content: userContext },
         ],
-        max_tokens: 900,
+        max_completion_tokens: 900,
       });
 
       try {
@@ -11102,7 +11102,7 @@ Return ONLY valid JSON array, no markdown.`;
         model: "gpt-5",
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
-        max_tokens: 4000,
+        max_completion_tokens: 4000,
       });
 
       let items: any[];
@@ -11302,7 +11302,7 @@ Never repeat information already answered. Return ONLY the question text, with n
           content: `PLAYER CONTEXT:\n${formatGoalContext(context)}\n\n${prevContext}Player's starting thought: "${goalText}"\nThis is discovery question ${questionIndex + 1} of ${TOTAL_DISCOVERY_QUESTIONS}.`,
         },
       ],
-      max_tokens: 180,
+      max_completion_tokens: 180,
       temperature: 0.7,
     });
     return completion.choices[0].message.content?.trim() ?? "What would you love basketball to make possible for you right now?";
@@ -11354,7 +11354,7 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
 }`,
         },
       ],
-      max_tokens: 5000,
+      max_completion_tokens: 5000,
       temperature: 0.75,
     });
     const raw = completion.choices[0].message.content?.trim() ?? "{}";
@@ -11537,7 +11537,7 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
              content: `Player archetype: ${mainArch}. PLAYR1 Project: "${goal.projectTitle || goal.goalText}". Project type: ${goal.projectType || "not specified"}.\nCurrent phase: ${phase?.title || phaseNumber}. Purpose: ${phase?.purpose || "not specified"}.\nMilestones completed: ${completedMilestones.join(", ") || "none yet"}.\nPlayer check-in: "${userInput}"`,
           },
         ],
-        max_tokens: 400,
+        max_completion_tokens: 400,
         temperature: 0.75,
       });
 
