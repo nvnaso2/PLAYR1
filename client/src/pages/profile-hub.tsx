@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getObjectUrl } from "@/lib/queryClient";
 import {
-  BarChart3, BotMessageSquare, Zap,
+  BarChart3, BotMessageSquare, Zap, BookOpen,
   ChevronRight, UserCircle, Settings, Crown,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
@@ -38,6 +38,15 @@ const sections = [
     bg: "bg-blue-500/10",
     path: "/my-goal",
     testId: "card-profile-goal",
+  },
+  {
+    title: "Journal & Reflections",
+    description: "Reflect on your training, games and player growth",
+    icon: BookOpen,
+    color: "text-purple-400",
+    bg: "bg-purple-500/10",
+    path: "/journal",
+    testId: "card-profile-journal",
   },
   {
     title: "Game Day",

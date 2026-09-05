@@ -59,7 +59,6 @@ import {
   Eye,
   Megaphone,
   Sparkles,
-  BookOpen,
   Zap,
   Fingerprint,
   Star,
@@ -72,7 +71,6 @@ const playerNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: BarChart3 },
   { title: "Coach P", url: "/coach-p", icon: BotMessageSquare },
   { title: "Drill Library", url: "/drills", icon: Play },
-  { title: "Journal", url: "/journal", icon: BookOpen },
   { title: "My Film Room", url: "/videos", icon: Video },
   { title: "Feedback", url: "/feedback", icon: Megaphone },
 ];
