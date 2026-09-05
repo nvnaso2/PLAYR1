@@ -357,7 +357,7 @@ export default function CoachPPage() {
       </header>
 
       <main className="max-w-3xl mx-auto min-h-[calc(100vh-4rem)] px-4 sm:px-6 flex flex-col">
-        <section className={`flex-1 ${messages.length === 0 ? "flex items-center" : "pt-8"}`}>
+        <section className={`flex-1 ${messages.length === 0 ? "pt-10 sm:pt-14" : "pt-8"}`}>
           <div className="w-full">
             {messages.length === 0 ? (
               <div className="w-full max-w-2xl mx-auto">

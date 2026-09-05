@@ -1267,10 +1267,14 @@ COACHING RULES:
       });
       const useStrongModel = contextMode === "workout" || contextMode === "game" || contextMode === "goal";
       const model = useStrongModel ? "gpt-5" : "gpt-5-mini";
-      const maxCompletionTokens = useStrongModel ? 2600 : 1400;
+      // GPT-5 family models use part of max_completion_tokens for reasoning.
+      // Low effort keeps normal chat responsive while the larger budget leaves
+      // enough room for visible coaching text.
+      const maxCompletionTokens = useStrongModel ? 3200 : 2200;
       const modelStartedAt = Date.now();
       sendSse("status", { stage: "Coach P is writing..." });
       let tokenUsage: { prompt_tokens?: number; prompt_tokens_details?: { cached_tokens?: number }; completion_tokens?: number; total_tokens?: number } | null = null;
+      let finishReason: string | null = null;
       const completion = await openai.chat.completions.create({
         model,
         messages: [
@@ -1280,6 +1284,7 @@ COACHING RULES:
             : { role: message.role, content: message.content }),
         ],
         max_completion_tokens: maxCompletionTokens,
+        reasoning_effort: "low",
         stream: true,
         stream_options: { include_usage: true },
       });
@@ -1296,6 +1301,7 @@ COACHING RULES:
             total_tokens: chunk.usage.total_tokens,
           };
         }
+        if (chunk.choices[0]?.finish_reason) finishReason = chunk.choices[0].finish_reason;
         const token = chunk.choices[0]?.delta?.content;
         if (token) {
           message += token;
@@ -1303,6 +1309,14 @@ COACHING RULES:
         }
       }
       message = message.trim();
+      console.info("[Coach P stream]", {
+        userId,
+        mode: contextMode,
+        model,
+        finishReason,
+        messageChars: message.length,
+        completionTokens: tokenUsage?.completion_tokens ?? null,
+      });
       if (!message) throw new Error("Coach P returned no coaching response.");
 
       timings.model = Date.now() - modelStartedAt;
