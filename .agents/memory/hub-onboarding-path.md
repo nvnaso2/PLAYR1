@@ -3,8 +3,8 @@ name: Hub onboarding path
 description: Post-onboarding Hub priorities and the current Coach P entry point
 ---
 
-The authenticated Hub leads with the post-onboarding path: trailer, regular onboarding, profile completion, Coach P, and three training starts (program, session log, drill library). The Coach P card currently opens the existing Journal reflection flow because there is no standalone player chat route.
+The authenticated Hub leads with the post-onboarding path: trailer, regular onboarding, profile completion, Coach P, and three training starts (program, session log, drill library). Coach P is the primary entry point for building a PLAYR1 Project; the Project home is the place to review the saved plan and progress.
 
-**Why:** This keeps the Hub aligned with the onboarding briefing while reusing an existing Coach P surface instead of inventing a parallel chat experience.
+**Why:** Project discovery is conversational and quota-exempt, while the saved Project home should stay focused on the player’s plan, milestones, and continuation.
 
-**How to apply:** Keep these actions prominent for new and returning players; replace the Journal destination only when a dedicated Coach P player surface is implemented.
+**How to apply:** Keep “Try Coach P” and “Build Your PLAYR1 Project with Coach P” prominent for new and returning players; use the Project home for active or completed Projects.

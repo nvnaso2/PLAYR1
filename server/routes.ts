@@ -956,6 +956,7 @@ Start now with a warm one-line greeting that briefly references something specif
   app.post("/api/coach-p/chat", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     const userId = req.user!.claims.sub;
     let charged = false;
+    let projectBuilderRequest = false;
     let conversationId: string | null = null;
     let requestModel: string | null = null;
     let requestContextMode: CoachPContextMode | null = null;
@@ -976,11 +977,189 @@ Start now with a warm one-line greeting that briefly references something specif
           content: z.string().trim().min(1).max(3000),
         })).min(1).max(12).optional(),
         journalEntryId: z.string().optional(),
+        projectBuilder: z.boolean().optional(),
+        projectBuilderAction: z.enum(["start", "answer"]).optional(),
       }).safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: "Send a valid Coach P message." });
+      projectBuilderRequest = parsed.data.projectBuilder === true;
       const journalMessages = parsed.data.messages || (parsed.data.message ? [{ role: "user" as const, content: parsed.data.message }] : []);
       const lastUserMessage = [...journalMessages].reverse().find((message) => message.role === "user");
       if (!lastUserMessage) return res.status(400).json({ message: "Coach P needs a player question." });
+
+      // Project discovery is a free Coach P entry path. It uses the same
+      // clarification and plan records as /my-goal, but keeps every turn in
+      // the Coach P conversation so the player can continue where they left
+      // off.
+      if (projectBuilderRequest) {
+        requestContextMode = "goal";
+        requestModel = "gpt-5";
+        const builderAction = parsed.data.projectBuilderAction ?? "answer";
+        let conversation = parsed.data.conversationId
+          ? await storage.getCoachPConversation(userId, parsed.data.conversationId)
+          : undefined;
+        if (parsed.data.conversationId && !conversation) {
+          return res.status(404).json({ message: "Conversation not found." });
+        }
+        if (!conversation) {
+          conversation = await storage.createCoachPConversation({
+            userId,
+            title: "Build my PLAYR1 Project",
+            messageCount: 0,
+          });
+        }
+        conversationId = conversation.id;
+        const previousMessages = await storage.getCoachPMessages(conversation.id);
+        const activeGoal = await storage.getActiveGoal(userId);
+        let responseMessage = "";
+        let projectReady = activeGoal?.status === "active";
+
+        if (builderAction === "start") {
+          if (!activeGoal) {
+            const context = await getGoalPlayerContext(userId);
+            const startingThought = [
+              context.career?.assessmentPrimaryGoal,
+              context.career?.aspiration,
+              context.career?.playr1Moment,
+            ].find((value) => typeof value === "string" && value.trim().length >= 10)
+              ?? "I want to discover my basketball direction";
+            const goal = await storage.createGoal(userId, startingThought);
+            const question = await getClarifyingQuestion(userId, startingThought, 0, []);
+            await storage.addClarification(goal.id, 0, question);
+            responseMessage = `I’m in. We’ll build a Project around what you want basketball to make possible — not force you into a generic training plan.\n\n${question}`;
+            projectReady = false;
+          } else if (activeGoal.status === "clarifying") {
+            const clarifications = await storage.getClarifications(activeGoal.id);
+            const pending = clarifications.find((clarification) => !clarification.answer);
+            responseMessage = pending
+              ? `Let’s pick this back up. ${pending.question}`
+              : "Your Project discovery is ready for one last step. Tell me what you want basketball to make possible next.";
+            projectReady = false;
+          } else {
+            responseMessage = "Your PLAYR1 Project is already built. Open it to see your plan, milestones, and next action.";
+          }
+        } else if (!activeGoal) {
+          responseMessage = "Start with “Build my PLAYR1 Project” and I’ll help you discover the right direction.";
+          projectReady = false;
+        } else if (activeGoal.status !== "clarifying") {
+          responseMessage = "Your PLAYR1 Project is already built. Open it to see your plan, milestones, and next action.";
+        } else {
+          const clarifications = await storage.getClarifications(activeGoal.id);
+          const pending = clarifications.find((clarification) => !clarification.answer);
+          if (!pending) {
+            responseMessage = "Your Project discovery is already complete. Open My PLAYR1 Project to continue.";
+            projectReady = true;
+          } else {
+            await storage.answerClarification(pending.id, lastUserMessage.content);
+            const allClarifications = await storage.getClarifications(activeGoal.id);
+            const answeredCount = allClarifications.filter((clarification) => clarification.answer).length;
+
+            if (answeredCount < TOTAL_DISCOVERY_QUESTIONS) {
+              const prevQAs = allClarifications
+                .filter((clarification) => clarification.answer)
+                .map((clarification) => ({ question: clarification.question, answer: clarification.answer! }));
+              const nextQuestion = await getClarifyingQuestion(
+                userId,
+                activeGoal.goalText,
+                answeredCount,
+                prevQAs,
+              );
+              await storage.addClarification(activeGoal.id, answeredCount, nextQuestion);
+              responseMessage = nextQuestion;
+              projectReady = false;
+            } else {
+              const qaList = allClarifications.map((clarification) => ({
+                question: clarification.question,
+                answer: clarification.answer ?? "",
+              }));
+              const program = await generateGoalPlan(userId, activeGoal.goalText, qaList);
+              await Promise.all(
+                program.milestones.map((milestone) =>
+                  storage.createMilestone({
+                    goalId: activeGoal.id,
+                    userId,
+                    weekNumber: milestone.phase,
+                    milestoneType: milestone.type,
+                    targetDate: milestone.targetDate ?? null,
+                    title: milestone.title,
+                    description: milestone.description,
+                    completed: false,
+                  })
+                )
+              );
+              await storage.updateGoal(activeGoal.id, {
+                status: "active",
+                aiProgram: program,
+                projectTitle: program.projectTitle,
+                projectType: program.projectType,
+                whyItMatters: program.whyItMatters,
+                successDefinition: program.successDefinition,
+                timelineType: program.timelineSummary.toLowerCase().includes("open") ? "open" : "flexible",
+                currentChapter: program.currentChapter,
+                nextAction: program.nextAction?.title,
+                successSignals: program.successSignals,
+                totalWeeks: Math.max(1, program.phases?.length ?? 1),
+              });
+              responseMessage = `# Your PLAYR1 Project is ready\n\n**${program.projectTitle}**\n\n${program.coachNote}\n\nYour plan, milestones, and next action are saved. Open My PLAYR1 Project to see the full path.`;
+              projectReady = true;
+            }
+          }
+        }
+
+        await storage.createCoachPMessage({
+          conversationId: conversation.id,
+          role: "user",
+          content: lastUserMessage.content,
+          model: null,
+          contextMode: "goal",
+          promptTokens: null,
+          completionTokens: null,
+          totalTokens: null,
+          latencyMs: null,
+        });
+        await storage.createCoachPMessage({
+          conversationId: conversation.id,
+          role: "assistant",
+          content: responseMessage,
+          model: requestModel,
+          contextMode: "goal",
+          promptTokens: null,
+          completionTokens: null,
+          totalTokens: null,
+          latencyMs: Date.now() - requestStartedAt,
+        });
+        await storage.updateCoachPConversation(conversation.id, userId, {
+          messageCount: previousMessages.length + 2,
+        });
+        const snapshot = await getSubscriptionSnapshot(userId);
+        const timingsTotal = Date.now() - requestStartedAt;
+        await storage.recordCoachPRequest({
+          userId,
+          conversationId: conversation.id,
+          operation: "project_builder",
+          status: "completed",
+          model: requestModel,
+          contextMode: "goal",
+          totalMs: timingsTotal,
+        }).catch((analyticsError) => console.error("Project Builder analytics failed:", analyticsError));
+
+        res.status(200);
+        res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+        res.setHeader("Cache-Control", "no-cache, no-transform");
+        res.setHeader("Connection", "keep-alive");
+        res.setHeader("X-Accel-Buffering", "no");
+        res.flushHeaders?.();
+        sendSse("status", { stage: "Building your PLAYR1 Project..." });
+        sendSse("delta", { text: responseMessage });
+        sendSse("done", {
+          message: responseMessage,
+          coachP: snapshot.coachP,
+          conversationId: conversation.id,
+          projectReady,
+        });
+        res.end();
+        return;
+      }
+
       const journalEntry = parsed.data.journalEntryId
         ? await storage.getJournalEntry(parsed.data.journalEntryId, userId)
         : null;
@@ -1369,7 +1548,7 @@ COACHING RULES:
       await storage.recordCoachPRequest({
         userId,
         conversationId: conversation?.id ?? null,
-        operation: "chat",
+        operation: projectBuilderRequest ? "project_builder" : "chat",
         status: "completed",
         model,
         contextMode,

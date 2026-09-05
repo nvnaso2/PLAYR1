@@ -61,33 +61,11 @@ function UserBubble({ text }: { text: string }) {
   );
 }
 
-function GoalInputForm({ onCreated }: { onCreated: () => void }) {
-  const [goalText, setGoalText] = useState("");
-  const { toast } = useToast();
-
-  const createMutation = useMutation({
-    mutationFn: (text: string) => apiRequest("POST", "/api/goals", { goalText: text }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/goals/active"] });
-      onCreated();
-    },
-    onError: (err: any) => {
-      toast({ title: "Error", description: err.message ?? "Failed to create goal", variant: "destructive" });
-    },
-  });
-
-  const examples = [
-    "I want to make my middle school team and feel ready for tryouts",
-    "I'm not sure what my basketball project is yet — help me discover it",
-    "I want to learn the fundamentals and build a basketball identity",
-    "I want to play intramurals, have fun, and feel more confident",
-    "I want to build a basketball content project around my journey",
-  ];
-
+function ProjectStartView() {
+  const [, navigate] = useLocation();
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-xl space-y-8">
-        {/* Hero */}
         <div className="text-center space-y-3">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-orange-500/15 border border-orange-500/30 mb-2">
             <Target className="w-8 h-8 text-orange-400" />
@@ -98,53 +76,21 @@ function GoalInputForm({ onCreated }: { onCreated: () => void }) {
           </p>
         </div>
 
-        {/* Input */}
-        <div className="space-y-3">
-          <Textarea
-            data-testid="input-goal-text"
-            value={goalText}
-            onChange={(e) => setGoalText(e.target.value)}
-            placeholder="e.g. I’m not sure what my basketball project is yet — help me figure it out..."
-            className="min-h-[120px] bg-zinc-900 border-zinc-700 text-white placeholder:text-zinc-500 text-base resize-none focus-visible:ring-orange-500/50"
-          />
-          <Button
-            data-testid="button-submit-goal"
-            onClick={() => createMutation.mutate(goalText)}
-            disabled={goalText.trim().length < 10 || createMutation.isPending}
-            className="w-full bg-orange-500 hover:bg-orange-600 text-black font-semibold h-12 text-base"
-          >
-            {createMutation.isPending ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Your coach is thinking...
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-4 h-4 mr-2" />
-                Talk to My Coach
-              </>
-            )}
-          </Button>
-          <p className="text-center text-xs text-zinc-500">
-            Your full PLAYR1 Project Builder is free. Pro unlocks the coaching and progress loop after you finish.
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5 text-center space-y-4">
+          <p className="text-sm leading-relaxed text-zinc-300">
+            Your Project starts with a conversation, not a form. Coach P will help you discover the direction, shape the story, and turn it into a plan that fits your life.
           </p>
-        </div>
-
-        {/* Examples */}
-        <div className="space-y-2">
-          <p className="text-xs text-zinc-500 uppercase tracking-widest text-center">Try one of these</p>
-          <div className="grid grid-cols-1 gap-2">
-            {examples.map((ex) => (
-              <button
-                key={ex}
-                data-testid={`button-example-${ex.slice(0, 20).replace(/\s/g, "-")}`}
-                onClick={() => setGoalText(ex)}
-                className="text-left px-4 py-3 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-orange-500/40 hover:bg-zinc-800/80 transition-colors text-sm text-zinc-400 hover:text-zinc-200"
-              >
-                "{ex}"
-              </button>
-            ))}
-          </div>
+          <Button
+            data-testid="button-start-project-with-coach-p"
+            onClick={() => navigate("/coach-p")}
+            className="w-full h-12 bg-orange-500 text-black font-semibold hover:bg-orange-400"
+          >
+            <Sparkles className="w-4 h-4 mr-2" />
+            Start with Coach P
+          </Button>
+          <p className="text-xs text-zinc-500">
+            The full Project Builder is free. Pro unlocks the coaching and progress loop after you finish.
+          </p>
         </div>
       </div>
     </div>
@@ -734,7 +680,7 @@ export default function MyGoalPage() {
   }
 
   if (!goalData) {
-    return <GoalInputForm onCreated={refresh} />;
+    return <ProjectStartView />;
   }
 
   const { goal } = goalData;

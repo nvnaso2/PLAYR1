@@ -422,14 +422,14 @@ export default function HubPage() {
               !goalData && (
                 <button
                   data-testid="card-set-goal-cta"
-                  onClick={() => navigate("/my-goal")}
+                  onClick={() => navigate("/coach-p")}
                   className="w-full text-left rounded-2xl bg-gradient-to-br from-orange-500/10 to-transparent border border-orange-500/20 p-5 active:scale-[0.98] transition-transform"
                 >
                   <div className="flex items-center gap-3 mb-2">
                     <div className="w-8 h-8 rounded-full bg-orange-500/15 flex items-center justify-center">
                       <Bot className="w-4 h-4 text-orange-400" />
                     </div>
-                    <p className="text-white font-semibold">Set a Goal with Your AI Coach</p>
+                  <p className="text-white font-semibold">Build Your PLAYR1 Project with Coach P</p>
                   </div>
                   <p className="text-zinc-400 text-sm">Discover a personalized PLAYR1 Project built around your story and goals.</p>
                   <div className="mt-3 flex items-center gap-1 text-orange-400 text-sm font-medium">

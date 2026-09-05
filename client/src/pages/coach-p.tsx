@@ -53,6 +53,7 @@ type CoachPStreamResult = {
   message: string;
   coachP: CoachPUsage;
   conversationId: string;
+  projectReady?: boolean;
 };
 
 type SavedConversation = {
@@ -82,9 +83,10 @@ const STARTER_PROMPTS = [
     icon: Gamepad2,
   },
   {
-    label: "Build my PLAYR1 goal",
-    prompt: "Use the primary basketball goal I shared in my onboarding assessment and the Coach P Says guidance for my archetype to help me build a clear PLAYR1 goal. Make that Coach P Says guidance a central part of the goal: explain how the goal fits my player identity, addresses my growth edge, and can be measured. Start by telling me what you understood, then ask me the single best question to make it specific and achievable. Do not jump straight to a workout plan yet.",
+    label: "Build my PLAYR1 Project",
+    prompt: "I want to build my PLAYR1 Project with Coach P. Start the discovery conversation from my basketball story and help me figure out what I want basketball to make possible.",
     icon: Flag,
+    projectBuilder: true,
   },
 ];
 
@@ -272,6 +274,8 @@ export default function CoachPPage() {
   const [conversationToDelete, setConversationToDelete] = useState<SavedConversation | null>(null);
   const [conversationToRename, setConversationToRename] = useState<SavedConversation | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
+  const [projectBuilderMode, setProjectBuilderMode] = useState(false);
+  const [projectReady, setProjectReady] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const pendingAssistantTextRef = useRef("");
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -337,10 +341,15 @@ export default function CoachPPage() {
 
   const currentUsage = usage ?? subscription?.coachP ?? null;
   const isUnlimited = subscription?.plan === "pro" || (subscription?.plan as string | undefined) === "pro-infinity" || currentUsage?.limit === null;
-  const canSend = isUnlimited || currentUsage?.remaining == null || currentUsage.remaining > 0;
+  const canSend = projectBuilderMode || isUnlimited || currentUsage?.remaining == null || currentUsage.remaining > 0;
 
   const chatMutation = useMutation({
-    mutationFn: async (request: { message: string; conversationId: string | null }): Promise<CoachPStreamResult> => {
+    mutationFn: async (request: {
+      message: string;
+      conversationId: string | null;
+      projectBuilder?: boolean;
+      projectBuilderAction?: "start" | "answer";
+    }): Promise<CoachPStreamResult> => {
       const response = await apiRequest("POST", "/api/coach-p/chat", request);
       const reader = response.body?.getReader();
       if (!reader) throw new Error("Coach P streaming is unavailable.");
@@ -367,13 +376,25 @@ export default function CoachPPage() {
         const event = lines.find((line) => line.startsWith("event:"))?.slice(6).trim() ?? "message";
         const data = lines.filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trim()).join("\n");
         if (!data) return;
-         const payload = JSON.parse(data) as { stage?: string; text?: string; message?: string; coachP?: CoachPUsage; conversationId?: string };
+        const payload = JSON.parse(data) as {
+          stage?: string;
+          text?: string;
+          message?: string;
+          coachP?: CoachPUsage;
+          conversationId?: string;
+          projectReady?: boolean;
+        };
         if (event === "status" && payload.stage) {
           setThinkingStage(payload.stage);
         } else if (event === "delta" && payload.text) {
           appendAssistantText(payload.text);
         } else if (event === "done" && payload.message && payload.coachP && payload.conversationId) {
-          result = { message: payload.message, coachP: payload.coachP, conversationId: payload.conversationId };
+          result = {
+            message: payload.message,
+            coachP: payload.coachP,
+            conversationId: payload.conversationId,
+            projectReady: payload.projectReady,
+          };
           setThinkingStage(null);
         } else if (event === "error") {
           throw new Error(payload.message || "Coach P is unavailable right now.");
@@ -396,6 +417,10 @@ export default function CoachPPage() {
     onSuccess: (data) => {
       setUsage(data.coachP);
       setConversationId(data.conversationId);
+      if (data.projectReady) {
+        setProjectReady(true);
+        setProjectBuilderMode(false);
+      }
       setErrorMessage(null);
       setThinkingStage(null);
       queryClient.invalidateQueries({ queryKey: ["/api/coach-p/conversations"] });
@@ -435,17 +460,27 @@ export default function CoachPPage() {
     return () => window.clearInterval(timer);
   }, [chatMutation.isPending]);
 
-  const sendMessage = (value: string) => {
+  const sendMessage = (
+    value: string,
+    options?: { projectBuilder?: boolean; projectBuilderAction?: "start" | "answer" },
+  ) => {
     const content = value.trim();
-    if (!content || chatMutation.isPending || !canSend) return;
+    const isProjectBuilder = options?.projectBuilder ?? projectBuilderMode;
+    if (!content || chatMutation.isPending || (!isProjectBuilder && !canSend)) return;
     const nextHistory = [...messages, { role: "user" as const, content }];
     setMessages(nextHistory);
+    if (isProjectBuilder) setProjectBuilderMode(true);
     setDraft("");
     setErrorMessage(null);
     setLimitReached(false);
     stopTyping();
     setThinkingStage("Reading your question...");
-    chatMutation.mutate({ message: content, conversationId });
+    chatMutation.mutate({
+      message: content,
+      conversationId,
+      projectBuilder: isProjectBuilder,
+      projectBuilderAction: options?.projectBuilderAction ?? (isProjectBuilder ? "answer" : undefined),
+    });
     requestAnimationFrame(() => scrollToBottom("smooth"));
   };
 
@@ -458,6 +493,8 @@ export default function CoachPPage() {
     setErrorMessage(null);
     setLimitReached(false);
     setThinkingStage(null);
+    setProjectBuilderMode(false);
+    setProjectReady(false);
     setHistoryOpen(false);
   };
 
@@ -469,6 +506,10 @@ export default function CoachPPage() {
       const data = await response.json() as { conversation: SavedConversation; messages: ChatMessage[] };
       setConversationId(data.conversation.id);
       setMessages(data.messages);
+      const isProjectConversation = data.conversation.title === "Build my PLAYR1 Project";
+      const savedProjectReady = isProjectConversation && data.messages.some((message) => message.content.includes("Your PLAYR1 Project is ready"));
+      setProjectBuilderMode(isProjectConversation && !savedProjectReady);
+      setProjectReady(savedProjectReady);
       setDraft("");
       setErrorMessage(null);
       setLimitReached(false);
@@ -742,17 +783,25 @@ export default function CoachPPage() {
                   <h1 className="text-2xl font-semibold tracking-tight">What are you working on?</h1>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {STARTER_PROMPTS.map(({ label, prompt, icon: Icon }, index) => (
+                  {STARTER_PROMPTS.map(({ label, prompt, icon: Icon, projectBuilder }, index) => (
                     <button
                       key={label}
-                      onClick={() => sendMessage(prompt)}
-                      disabled={chatMutation.isPending || !canSend}
+                      onClick={() => {
+                        if (projectBuilder) {
+                          setProjectBuilderMode(true);
+                          setProjectReady(false);
+                          sendMessage(prompt, { projectBuilder: true, projectBuilderAction: "start" });
+                        } else {
+                          sendMessage(prompt);
+                        }
+                      }}
+                      disabled={chatMutation.isPending || (!projectBuilder && !canSend)}
                       className={`min-h-[58px] rounded-xl border bg-zinc-950 px-4 py-3 flex items-center gap-3 text-left transition-colors hover:bg-zinc-900 disabled:opacity-50 ${
-                        index === 3 ? "border-orange-500/35 hover:border-orange-500/60" : "border-zinc-800 hover:border-zinc-700"
+                        projectBuilder || index === 3 ? "border-orange-500/35 hover:border-orange-500/60" : "border-zinc-800 hover:border-zinc-700"
                       }`}
                       data-testid={`button-coach-p-starter-${label.toLowerCase().replace(/\s+/g, "-")}`}
                     >
-                      <Icon className={`w-4 h-4 shrink-0 ${index === 3 ? "text-orange-400" : "text-zinc-500"}`} />
+                      <Icon className={`w-4 h-4 shrink-0 ${projectBuilder || index === 3 ? "text-orange-400" : "text-zinc-500"}`} />
                       <span className="text-sm text-zinc-200">{label}</span>
                       <ArrowUp className="w-3.5 h-3.5 text-zinc-600 rotate-45 ml-auto shrink-0" />
                     </button>
@@ -779,6 +828,23 @@ export default function CoachPPage() {
             )}
           </div>
         </section>
+
+        {projectReady && (
+          <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-4 rounded-2xl border border-orange-500/25 bg-orange-500/[0.08] px-4 py-3">
+            <div>
+              <p className="text-sm font-semibold text-orange-100">Your Project is saved.</p>
+              <p className="mt-1 text-xs text-orange-100/65">Review your plan, milestones, and next action.</p>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => navigate("/my-goal")}
+              className="shrink-0 bg-orange-500 text-black hover:bg-orange-400"
+              data-testid="button-open-project-home"
+            >
+              Open Project
+            </Button>
+          </div>
+        )}
 
         {errorMessage && (
           <div className="flex items-center justify-between gap-3 text-xs text-red-300 py-3">
