@@ -1024,10 +1024,11 @@ Start now with a warm one-line greeting that briefly references something specif
       res.setHeader("Connection", "keep-alive");
       res.setHeader("X-Accel-Buffering", "no");
       res.flushHeaders?.();
-      sendSse("status", { stage: "Checking your player context..." });
+      sendSse("status", { stage: "Reading your question..." });
 
       const contextMode = classifyCoachPQuestion(lastUserMessage.content);
       requestContextMode = contextMode;
+      sendSse("status", { stage: "Checking your player profile..." });
       const isJournalCoach = !!journalEntry;
       const needsTraining = ["training", "workout", "game", "goal"].includes(contextMode) || isJournalCoach;
       const needsWorkoutCatalog = contextMode === "workout" || isJournalCoach;
@@ -1062,7 +1063,7 @@ Start now with a warm one-line greeting that briefly references something specif
         : null;
       timings.context = Date.now() - contextStartedAt;
       const promptStartedAt = Date.now();
-      sendSse("status", { stage: "Choosing the most relevant PLAYR1 information..." });
+      sendSse("status", { stage: "Finding what matters most..." });
 
       const principlesText = principles ? [
         principles.mission && `MISSION:\n${principles.mission}`,
@@ -1272,7 +1273,7 @@ COACHING RULES:
       // enough room for visible coaching text.
       const maxCompletionTokens = useStrongModel ? 3200 : 2200;
       const modelStartedAt = Date.now();
-      sendSse("status", { stage: "Coach P is writing..." });
+      sendSse("status", { stage: "Building your coaching plan..." });
       let tokenUsage: { prompt_tokens?: number; prompt_tokens_details?: { cached_tokens?: number }; completion_tokens?: number; total_tokens?: number } | null = null;
       let finishReason: string | null = null;
       const completion = await openai.chat.completions.create({

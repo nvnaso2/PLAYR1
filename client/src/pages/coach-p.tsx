@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowLeft, ArrowUp, Dumbbell, Flag, Gamepad2, GraduationCap, Loader2, Menu, MessageSquarePlus, Target, Trash2 } from "lucide-react";
@@ -85,18 +85,51 @@ function CoachPIcon({ size = "sm" }: { size?: "sm" | "lg" }) {
 
 function MessageBubble({ message }: { message: ChatMessage }) {
   const isUser = message.role === "user";
+  const paragraphs = message.content.split(/\n{2,}/).filter(Boolean);
+
   return (
-    <div className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"}`}>
+    <div className={`flex items-start gap-3 ${isUser ? "justify-end" : "justify-start"}`}>
       {!isUser && (
-        <div className="mt-1"><CoachPIcon /></div>
+        <div className="mt-0.5"><CoachPIcon /></div>
       )}
-      <div className={`relative max-w-[88%] overflow-hidden rounded-2xl px-4 py-3 ${
+      <div className={`relative max-w-[88%] sm:max-w-[82%] overflow-hidden ${
         isUser
-          ? "bg-orange-500 text-black rounded-tr-sm"
-          : "bg-gradient-to-br from-white via-zinc-100 to-zinc-300 border border-white/80 text-zinc-900 rounded-tl-sm shadow-[0_10px_30px_rgba(255,255,255,0.08),inset_0_1px_0_rgba(255,255,255,0.95)]"
+          ? "rounded-2xl rounded-tr-md bg-gradient-to-br from-orange-400 to-orange-600 px-4 py-3 text-zinc-950 shadow-[0_8px_28px_rgba(249,115,22,0.18)]"
+          : "rounded-2xl rounded-tl-md border border-white/[0.07] bg-gradient-to-br from-zinc-900 to-zinc-950 px-4 py-4 text-zinc-100 shadow-[0_14px_40px_rgba(0,0,0,0.26)]"
       }`}>
-        {!isUser && <span className="absolute inset-x-3 top-0 h-px bg-white/90" />}
-        <p className="relative z-10 text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+        {!isUser && (
+          <>
+            <span className="absolute inset-y-4 left-0 w-px bg-gradient-to-b from-transparent via-orange-400/80 to-transparent" />
+            <span className="absolute -left-10 -top-10 h-24 w-24 rounded-full bg-orange-500/[0.06] blur-2xl" />
+          </>
+        )}
+        <div className={`relative z-10 text-[15px] leading-7 ${isUser ? "font-medium" : "space-y-3 text-zinc-200"}`}>
+          {isUser ? (
+            <p className="whitespace-pre-wrap">{message.content}</p>
+          ) : (
+            paragraphs.map((paragraph, index) => {
+              const lines = paragraph.split("\n");
+              const isList = lines.every((line) => /^[-•*]\s+/.test(line.trim()));
+              if (isList) {
+                return (
+                  <ul key={index} className="space-y-2 pl-0">
+                    {lines.map((line, lineIndex) => (
+                      <li key={lineIndex} className="flex gap-2.5">
+                        <span className="mt-[11px] h-1 w-1 shrink-0 rounded-full bg-orange-400" />
+                        <span>{line.trim().replace(/^[-•*]\s+/, "")}</span>
+                      </li>
+                    ))}
+                  </ul>
+                );
+              }
+              const heading = paragraph.match(/^(#{1,3}\s+|\*\*)(.+?)(\*\*)?$/);
+              if (heading && lines.length === 1) {
+                return <p key={index} className="font-semibold text-white">{heading[2]}</p>;
+              }
+              return <p key={index} className="whitespace-pre-wrap">{paragraph}</p>;
+            })
+          )}
+        </div>
       </div>
     </div>
   );
@@ -113,7 +146,60 @@ export default function CoachPPage() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [loadingConversation, setLoadingConversation] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const pendingAssistantTextRef = useRef("");
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const assistantStreamStartedRef = useRef(false);
+
+  const scrollToBottom = (behavior: ScrollBehavior = "auto") => {
+    const element = scrollRef.current;
+    if (!element) return;
+    element.scrollTo({ top: element.scrollHeight, behavior });
+  };
+
+  const stopTyping = () => {
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    typingTimerRef.current = null;
+    pendingAssistantTextRef.current = "";
+    assistantStreamStartedRef.current = false;
+  };
+
+  const pumpAssistantText = () => {
+    if (typingTimerRef.current) return;
+    const tick = () => {
+      const pending = pendingAssistantTextRef.current;
+      if (!pending) {
+        typingTimerRef.current = null;
+        return;
+      }
+      const characterCount = Math.max(1, Math.min(4, Math.ceil(pending.length / 45)));
+      const visibleText = pending.slice(0, characterCount);
+      pendingAssistantTextRef.current = pending.slice(characterCount);
+      setMessages((previous) => {
+        const last = previous[previous.length - 1];
+        if (last?.role !== "assistant") return [...previous, { role: "assistant", content: visibleText }];
+        return [...previous.slice(0, -1), { ...last, content: last.content + visibleText }];
+      });
+      requestAnimationFrame(() => scrollToBottom());
+      typingTimerRef.current = setTimeout(tick, 14);
+    };
+    typingTimerRef.current = setTimeout(tick, 0);
+  };
+
+  const waitForAssistantText = () => new Promise<void>((resolve) => {
+    const check = () => {
+      if (!pendingAssistantTextRef.current && !typingTimerRef.current) {
+        resolve();
+        return;
+      }
+      setTimeout(check, 20);
+    };
+    check();
+  });
+
+  useEffect(() => () => {
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+  }, []);
 
   const { data: conversations = [] } = useQuery<SavedConversation[]>({
     queryKey: ["/api/coach-p/conversations"],
@@ -141,16 +227,13 @@ export default function CoachPPage() {
 
       const appendAssistantText = (text: string) => {
         streamedMessage += text;
-        setMessages((previous) => {
-          if (!assistantMessageAdded) {
-            assistantMessageAdded = true;
-            return [...previous, { role: "assistant", content: text }];
-          }
-          const last = previous[previous.length - 1];
-          if (last?.role !== "assistant") return [...previous, { role: "assistant", content: text }];
-          return [...previous.slice(0, -1), { ...last, content: last.content + text }];
-        });
-        requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "auto" }));
+        if (!assistantMessageAdded) {
+          assistantMessageAdded = true;
+          assistantStreamStartedRef.current = true;
+          setMessages((previous) => [...previous, { role: "assistant", content: "" }]);
+        }
+        pendingAssistantTextRef.current += text;
+        pumpAssistantText();
       };
 
       const handleFrame = (frame: string) => {
@@ -181,6 +264,7 @@ export default function CoachPPage() {
       }
       if (buffer.trim()) handleFrame(buffer);
       if (!result) throw new Error(streamedMessage ? "Coach P response ended early." : "Coach P returned no coaching response.");
+      await waitForAssistantText();
       return result;
     },
     onSuccess: (data) => {
@@ -189,9 +273,11 @@ export default function CoachPPage() {
       setErrorMessage(null);
       setThinkingStage(null);
       queryClient.invalidateQueries({ queryKey: ["/api/coach-p/conversations"] });
-      requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }));
+      assistantStreamStartedRef.current = false;
+      requestAnimationFrame(() => scrollToBottom("smooth"));
     },
     onError: (error: Error) => {
+      stopTyping();
       setThinkingStage(null);
       setMessages((previous) => previous[previous.length - 1]?.role === "assistant" ? previous.slice(0, -1) : previous);
       if (error.message.includes("COACH_P_LIMIT_REACHED")) {
@@ -211,13 +297,15 @@ export default function CoachPPage() {
     setDraft("");
     setErrorMessage(null);
     setLimitReached(false);
-    setThinkingStage("Starting Coach P...");
+    stopTyping();
+    setThinkingStage("Reading your question...");
     chatMutation.mutate({ message: content, conversationId });
-    requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }));
+    requestAnimationFrame(() => scrollToBottom("smooth"));
   };
 
   const startNewConversation = () => {
     if (chatMutation.isPending) return;
+    stopTyping();
     setConversationId(null);
     setMessages([]);
     setDraft("");
@@ -239,7 +327,7 @@ export default function CoachPPage() {
       setErrorMessage(null);
       setLimitReached(false);
       setHistoryOpen(false);
-      requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "auto" }));
+      requestAnimationFrame(() => scrollToBottom());
     } catch {
       setErrorMessage("That conversation could not be loaded.");
     } finally {
@@ -259,8 +347,8 @@ export default function CoachPPage() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <header className="h-16 border-b border-zinc-900 px-4 sm:px-6 flex items-center justify-between">
+    <div className="h-dvh overflow-hidden bg-[#080808] text-white">
+      <header className="relative z-40 h-16 border-b border-white/[0.06] bg-[#080808]/90 px-4 backdrop-blur-xl sm:px-6 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
             <SheetTrigger asChild>
@@ -351,13 +439,27 @@ export default function CoachPPage() {
             <span className="font-semibold tracking-tight">Coach P</span>
           </div>
         </div>
-        <span className="text-xs text-zinc-500">
-          {isUnlimited ? "Unlimited" : currentUsage ? `${currentUsage.remaining} left this month` : ""}
-        </span>
+        {(isUnlimited || currentUsage) && (
+          <div className="relative overflow-hidden rounded-full border border-orange-400/20 bg-zinc-950 px-3.5 py-2 shadow-[0_0_28px_rgba(249,115,22,0.12)]">
+            <span className="absolute -right-3 -top-4 h-10 w-10 rounded-full bg-orange-500/25 blur-xl" />
+            <span className="relative flex items-center gap-2 text-xs font-semibold tracking-wide text-orange-100">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-400 opacity-40" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-orange-400 shadow-[0_0_10px_rgba(251,146,60,0.85)]" />
+              </span>
+              {isUnlimited ? "Unlimited" : `${currentUsage?.remaining ?? 0} / ${currentUsage?.limit ?? 3} left`}
+            </span>
+          </div>
+        )}
       </header>
 
-      <main className="max-w-3xl mx-auto min-h-[calc(100vh-4rem)] px-4 sm:px-6 flex flex-col">
-        <section className={`flex-1 ${messages.length === 0 ? "pt-10 sm:pt-14" : "pt-8"}`}>
+      <main className="mx-auto flex h-[calc(100dvh-4rem)] min-h-0 w-full max-w-3xl flex-col px-4 sm:px-6">
+        <section
+          ref={scrollRef}
+          className={`min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-smooth ${
+            messages.length === 0 ? "pt-10 sm:pt-14" : "pt-7"
+          } pb-6 [scrollbar-color:rgb(63_63_70)_transparent]`}
+        >
           <div className="w-full">
             {messages.length === 0 ? (
               <div className="w-full max-w-2xl mx-auto">
@@ -384,14 +486,14 @@ export default function CoachPPage() {
                 </div>
               </div>
             ) : (
-              <div className="space-y-5">
+              <div className="space-y-5 pb-2">
                 {messages.map((message, index) => (
                   <MessageBubble key={`${message.role}-${index}`} message={message} />
                 ))}
-                {chatMutation.isPending && (
-                  <div className="flex gap-3 items-center text-zinc-500 text-sm" aria-live="polite">
+                {chatMutation.isPending && !assistantStreamStartedRef.current && (
+                  <div className="flex gap-3 items-center text-zinc-400 text-sm" aria-live="polite">
                     <CoachPIcon />
-                    <span>{thinkingStage ?? "Coach P is thinking..."}</span>
+                    <span className="transition-all">{thinkingStage ?? "Building your answer..."}</span>
                     <span className="inline-flex gap-1" aria-hidden="true">
                       <span className="w-1 h-1 rounded-full bg-orange-400 animate-pulse" />
                       <span className="w-1 h-1 rounded-full bg-orange-400 animate-pulse [animation-delay:150ms]" />
@@ -399,7 +501,6 @@ export default function CoachPPage() {
                     </span>
                   </div>
                 )}
-                <div ref={bottomRef} />
               </div>
             )}
           </div>
@@ -416,8 +517,8 @@ export default function CoachPPage() {
           </div>
         )}
 
-        <div className="sticky bottom-4 z-30 isolate -mx-1 px-1 py-4 bg-black shadow-[0_-18px_28px_rgba(0,0,0,0.98)]">
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-2">
+        <div className="relative z-30 shrink-0 border-t border-white/[0.05] bg-[#080808] pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+          <div className="rounded-2xl border border-white/[0.08] bg-zinc-950/95 p-2 shadow-[0_14px_50px_rgba(0,0,0,0.45),0_0_26px_rgba(249,115,22,0.04)] focus-within:border-orange-400/30">
             <div className="flex items-end gap-2">
               <Textarea
                 value={draft}
@@ -430,21 +531,21 @@ export default function CoachPPage() {
                 }}
                 placeholder={canSend ? "Message Coach P..." : "Your monthly questions are used"}
                 disabled={!canSend || chatMutation.isPending}
-                className="min-h-[44px] max-h-32 resize-none border-0 bg-transparent focus-visible:ring-0 text-sm"
+                className="min-h-[44px] max-h-32 resize-none border-0 bg-transparent text-[15px] text-zinc-100 placeholder:text-zinc-600 focus-visible:ring-0"
                 data-testid="textarea-coach-p"
               />
               <Button
                 size="icon"
                 onClick={() => sendMessage(draft)}
                 disabled={!draft.trim() || !canSend || chatMutation.isPending}
-                className="rounded-xl bg-orange-500 text-black hover:bg-orange-400 shrink-0"
+                className="rounded-xl bg-orange-500 text-black shadow-[0_0_20px_rgba(249,115,22,0.2)] hover:bg-orange-400 shrink-0"
                 data-testid="button-send-coach-p"
               >
                 {chatMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUp className="w-4 h-4" />}
               </Button>
             </div>
           </div>
-          <p className="text-center text-[10px] text-zinc-700 mt-2">Shift + Enter for a new line</p>
+          <p className="mt-2 text-center text-[10px] tracking-wide text-zinc-700">Shift + Enter for a new line</p>
         </div>
       </main>
     </div>
