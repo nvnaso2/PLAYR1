@@ -34,7 +34,8 @@ export default function SubscriptionPage() {
     onSuccess: ({ url }) => { window.location.href = url; },
   });
 
-  const isPro = data?.plan === "pro";
+  const isInfinity = (data?.plan as string | undefined) === "pro-infinity";
+  const isPro = data?.plan === "pro" || isInfinity;
   const renewal = data?.currentPeriodEnd
     ? new Date(data.currentPeriodEnd).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })
     : null;
@@ -49,12 +50,12 @@ export default function SubscriptionPage() {
       </div>
 
       <Card data-testid="card-current-plan">
-        <CardHeader><CardTitle className="flex items-center justify-between">Current plan <Badge>{isPro ? "PRO" : "FREE"}</Badge></CardTitle></CardHeader>
+        <CardHeader><CardTitle className="flex items-center justify-between">Current plan <Badge>{isInfinity ? "PRO INFINITY" : isPro ? "PRO" : "FREE"}</Badge></CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <div className="flex justify-between text-sm"><span className="text-muted-foreground">Status</span><span className="capitalize">{isLoading ? "Loading…" : data?.status}</span></div>
           {renewal && <div className="flex justify-between text-sm"><span className="text-muted-foreground">{data?.cancelAtPeriodEnd ? "Access ends" : "Renews"}</span><span>{renewal}</span></div>}
           {data?.cancelAtPeriodEnd && <p className="text-sm text-amber-400">Your subscription is cancelled and remains active through the date above.</p>}
-          {isPro && <Button variant="outline" onClick={() => portal.mutate()} disabled={portal.isPending}>Manage subscription</Button>}
+          {isPro && !isInfinity && <Button variant="outline" onClick={() => portal.mutate()} disabled={portal.isPending}>Manage subscription</Button>}
         </CardContent>
       </Card>
 

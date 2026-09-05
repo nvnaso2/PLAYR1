@@ -21,6 +21,7 @@ import {
   Gamepad2, Loader2, Plus, Search, Sparkles, Trash2, Trophy, X,
 } from "lucide-react";
 import type { Game, JournalEntry, TrainingLog } from "@shared/schema";
+import { getJournalPrompts, type JournalPrompt } from "@shared/journalPrompts";
 
 type JournalType = "post-workout" | "post-game" | "open";
 type SourceKind = "workout" | "game";
@@ -51,23 +52,15 @@ const MOODS = [
 const TYPE_LABELS: Record<JournalType, string> = {
   "post-workout": "After practice / workout", "post-game": "After game", open: "Open reflection",
 };
-const PROMPTS: Record<JournalType, Array<{ id: string; question: string }>> = {
-  "post-workout": [
-    { id: "pw1", question: "What clicked today that would have been hard three months ago?" },
-    { id: "pw2", question: "What shot or move kept breaking down, and why?" },
-    { id: "pw3", question: "How focused were you from 1–10? What pulled you out of it?" },
-  ],
-  "post-game": [
-    { id: "pg1", question: "What moment from today do you keep replaying?" },
-    { id: "pg2", question: "When did you stop trusting yourself, and what triggered it?" },
-    { id: "pg3", question: "What is the gap between how you played and how you know you can play?" },
-  ],
-  open: [
-    { id: "op1", question: "What's on your mind about your game right now?" },
-    { id: "op2", question: "What would your future self thank you for working on this week?" },
-    { id: "op3", question: "What's one belief about your game you want to challenge?" },
-  ],
+const PROMPTS: Record<JournalType, JournalPrompt[]> = {
+  "post-workout": getJournalPrompts("post-workout"),
+  "post-game": getJournalPrompts("post-game"),
+  open: getJournalPrompts("open"),
 };
+
+function chooseRandomPromptIds(type: JournalType, count: number) {
+  return [...PROMPTS[type]].sort(() => Math.random() - 0.5).slice(0, count).map((prompt) => prompt.id);
+}
 
 function formatDate(value?: string | Date | null, long = false) {
   if (!value) return "Unknown date";
@@ -134,30 +127,27 @@ function SourcePicker({
 }
 
 function JournalTypePicker({ value, onChange }: { value: JournalType; onChange: (value: JournalType) => void }) {
-  const options: Array<{ value: JournalType; label: string; description: string; icon: typeof Dumbbell }> = [
-    { value: "post-workout", label: "After practice / workout", description: "Review the work you just put in", icon: Dumbbell },
-    { value: "post-game", label: "After game", description: "Process your performance and key moments", icon: Trophy },
-    { value: "open", label: "Open reflection", description: "Write about whatever is on your mind", icon: Brain },
+  const options: Array<{ value: JournalType; label: string; icon: typeof Dumbbell }> = [
+    { value: "post-workout", label: "Practice", icon: Dumbbell },
+    { value: "post-game", label: "Game", icon: Trophy },
+    { value: "open", label: "Open", icon: Brain },
   ];
   return (
-    <div className="space-y-2">
-      <p className="text-sm font-medium">What are you reflecting on?</p>
-      <div className="grid gap-2">
-        {options.map(({ value: optionValue, label, description, icon: Icon }) => (
+    <div className="space-y-1.5">
+      <p className="text-xs font-medium text-muted-foreground">Reflecting on</p>
+      <div className="grid grid-cols-3 gap-1.5">
+        {options.map(({ value: optionValue, label, icon: Icon }) => (
           <button
             key={optionValue}
             type="button"
             onClick={() => onChange(optionValue)}
-            className={`flex items-center gap-3 rounded-lg border p-3 text-left transition-colors ${
+            className={`flex items-center justify-center gap-1.5 rounded-md border px-2 py-1.5 text-xs transition-colors ${
               value === optionValue ? "border-primary bg-primary/10" : "border-border hover:border-primary/50"
             }`}
             data-testid={`button-journal-type-${optionValue}`}
           >
-            <Icon className={`w-4 h-4 shrink-0 ${value === optionValue ? "text-primary" : "text-muted-foreground"}`} />
-            <span className="min-w-0">
-              <span className="block text-sm font-medium">{label}</span>
-              <span className="block text-xs text-muted-foreground">{description}</span>
-            </span>
+            <Icon className={`w-3.5 h-3.5 shrink-0 ${value === optionValue ? "text-primary" : "text-muted-foreground"}`} />
+            <span className="font-medium">{label}</span>
           </button>
         ))}
       </div>
@@ -177,17 +167,66 @@ function EntryEditor({
   onBack?: () => void;
 }) {
   const { toast } = useToast();
-  const prompts = useMemo(() => entry?.responses?.map((response) => ({ id: response.promptId, question: response.question })) || PROMPTS[type], [entry, type]);
+  const [promptCount, setPromptCount] = useState(() => entry ? Math.min(3, entry.responses?.length || 0) : 1);
+  const [selectionMode, setSelectionMode] = useState<"automatic" | "manual">("automatic");
+  const [selectedPromptIds, setSelectedPromptIds] = useState<string[]>(() =>
+    entry?.responses?.map((response) => response.promptId) || chooseRandomPromptIds(type, 1),
+  );
+  const prompts = useMemo(() => {
+    if (entry) return entry.responses?.map((response) => ({ id: response.promptId, question: response.question })) || [];
+    return selectedPromptIds
+      .map((id) => PROMPTS[type].find((prompt) => prompt.id === id))
+      .filter((prompt): prompt is JournalPrompt => Boolean(prompt));
+  }, [entry, selectedPromptIds, type]);
   const [answers, setAnswers] = useState<Record<string, string>>(() => Object.fromEntries((entry?.responses || []).map((response) => [response.promptId, response.answer])));
+  const [thoughts, setThoughts] = useState(entry?.thoughts || "");
   const [mood, setMood] = useState<number | null>(entry?.mood ?? null);
   const [sourceKind, setSourceKind] = useState<SourceKind | null>(entry?.gameId ? "game" : entry?.trainingLogId ? "workout" : initialSourceKind || null);
   const [sourceId, setSourceId] = useState<string | null>(entry?.gameId || entry?.trainingLogId || initialSourceId || null);
+  const { data: voteData } = useQuery<{ promptIds: string[] }>({
+    queryKey: ["/api/journal/prompt-votes"],
+    enabled: !entry,
+  });
+  const votedPromptIds = voteData?.promptIds || [];
+  const voteMutation = useMutation({
+    mutationFn: async (prompt: { id: string; question: string; category?: JournalType }) => {
+      const voted = votedPromptIds.includes(prompt.id);
+      return apiRequest(voted ? "DELETE" : "POST", voted ? `/api/journal/prompt-votes/${prompt.id}` : "/api/journal/prompt-votes", voted ? undefined : { promptId: prompt.id, category: prompt.category || type });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/journal/prompt-votes"] }),
+  });
+
+  useEffect(() => {
+    if (entry || selectionMode !== "automatic") return;
+    setSelectedPromptIds(chooseRandomPromptIds(type, promptCount));
+  }, [entry, promptCount, selectionMode, type]);
+
+  const setCount = (count: number) => {
+    setPromptCount(count);
+    if (selectionMode === "manual") {
+      setSelectedPromptIds((current) => {
+        const next = current.slice(0, count);
+        while (next.length < count) {
+          const nextPrompt = PROMPTS[type].find((prompt) => !next.includes(prompt.id));
+          if (!nextPrompt) break;
+          next.push(nextPrompt.id);
+        }
+        return next;
+      });
+    }
+  };
+
+  const selectPrompt = (index: number, promptId: string) => {
+    setSelectedPromptIds((current) => current.map((id, currentIndex) => currentIndex === index ? promptId : id));
+  };
+
   const mutation = useMutation({
     mutationFn: async () => {
       const responses = prompts.map((prompt) => ({ promptId: prompt.id, question: prompt.question, answer: (answers[prompt.id] || "").trim() }));
-      if (responses.some((response) => !response.answer)) throw new Error("Answer each reflection question before saving.");
+      if (responses.some((response) => !response.answer)) throw new Error("Answer each selected reflection question before saving.");
+      if (!responses.length && !thoughts.trim()) throw new Error("Add something to Your Thoughts before saving.");
        const payload = {
-         ...(entry ? {} : { type }), mood, responses,
+         ...(entry ? {} : { type }), mood, responses, thoughts: thoughts.trim() || null,
         trainingLogId: sourceKind === "workout" ? sourceId : null,
         gameId: sourceKind === "game" ? sourceId : null,
       };
@@ -209,18 +248,35 @@ function EntryEditor({
       </div>
       <SourcePicker kind={type} sourceId={sourceId} sources={sources} onChange={(nextKind, id) => { setSourceKind(nextKind); setSourceId(id); }} />
       <MoodPicker value={mood} onChange={setMood} />
-      {prompts.map((prompt) => (
-        <div key={prompt.id} className="space-y-2">
-          <p className="text-sm font-medium leading-relaxed">{prompt.question}</p>
-          <Textarea
-            value={answers[prompt.id] || ""}
-            onChange={(event) => setAnswers((current) => ({ ...current, [prompt.id]: event.target.value }))}
-            placeholder="Write what is actually true..."
-            className="min-h-[105px] resize-none"
-            data-testid={`textarea-journal-${prompt.id}`}
-          />
+      {!entry && <div className="rounded-lg border border-border/70 p-3 space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div><p className="text-sm font-medium">Reflection questions</p><p className="text-xs text-muted-foreground">Choose how much structure you want.</p></div>
+          <div className="flex rounded-md border p-0.5">
+            {[0, 1, 2, 3].map((count) => <button key={count} type="button" onClick={() => setCount(count)} className={`min-w-7 rounded px-1.5 py-1 text-xs ${promptCount === count ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`} data-testid={`button-journal-prompt-count-${count}`}>{count}</button>)}
+          </div>
         </div>
-      ))}
+        {promptCount > 0 && <div className="flex items-center justify-between gap-2">
+          <div className="flex rounded-md border p-0.5">
+            <button type="button" onClick={() => setSelectionMode("automatic")} className={`rounded px-2 py-1 text-xs ${selectionMode === "automatic" ? "bg-muted font-medium" : "text-muted-foreground"}`}>Auto pick</button>
+            <button type="button" onClick={() => setSelectionMode("manual")} className={`rounded px-2 py-1 text-xs ${selectionMode === "manual" ? "bg-muted font-medium" : "text-muted-foreground"}`}>Choose</button>
+          </div>
+          {selectionMode === "automatic" && <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setSelectedPromptIds(chooseRandomPromptIds(type, promptCount))}><Sparkles className="mr-1.5 h-3.5 w-3.5" />Shuffle</Button>}
+        </div>}
+        {promptCount === 0 && <p className="text-xs text-muted-foreground">No prompts selected. Use Your Thoughts below as a free write.</p>}
+        {promptCount > 0 && prompts.map((prompt, index) => (
+          <div key={`${prompt.id}-${index}`} className="space-y-2 rounded-md bg-muted/30 p-3">
+            <div className="flex items-start justify-between gap-2">
+              {selectionMode === "manual" ? <select value={prompt.id} onChange={(event) => selectPrompt(index, event.target.value)} className="min-w-0 flex-1 rounded-md border border-input bg-background px-2 py-1.5 text-sm"><option value={prompt.id}>{prompt.question}</option>{PROMPTS[type].filter((candidate) => candidate.id === prompt.id || !selectedPromptIds.includes(candidate.id)).map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.question}</option>)}</select> : <p className="flex-1 text-sm font-medium leading-relaxed">{prompt.question}</p>}
+              <Button type="button" variant="ghost" size="icon" className={`h-7 w-7 shrink-0 ${votedPromptIds.includes(prompt.id) ? "text-primary" : "text-muted-foreground"}`} onClick={() => voteMutation.mutate(prompt)} aria-label={votedPromptIds.includes(prompt.id) ? "Remove question upvote" : "Upvote question"}><ArrowUp className="h-3.5 w-3.5" /></Button>
+            </div>
+            <Textarea value={answers[prompt.id] || ""} onChange={(event) => setAnswers((current) => ({ ...current, [prompt.id]: event.target.value }))} placeholder="Write what is actually true..." className="min-h-[90px] resize-none" data-testid={`textarea-journal-${prompt.id}`} />
+          </div>
+        ))}
+      </div>}
+      <div className="space-y-2">
+        <p className="text-sm font-medium">Your thoughts <span className="text-xs font-normal text-muted-foreground">(optional with prompts)</span></p>
+        <Textarea value={thoughts} onChange={(event) => setThoughts(event.target.value)} placeholder="Write anything else you were feeling or thinking..." className="min-h-[120px] resize-none" data-testid="textarea-journal-thoughts" />
+      </div>
       <div className="flex gap-2">
         <Button variant="outline" className="flex-1" onClick={onDone}>Cancel</Button>
         <Button className="flex-1" disabled={mutation.isPending} onClick={() => mutation.mutate()} data-testid="button-save-journal">
@@ -320,7 +376,7 @@ function EntryDetail({ entry, isPro, onEdit, onDelete, onClose }: { entry: Journ
     <div className="space-y-5">
       <div className="flex items-start justify-between gap-3"><div><h2 className="text-lg font-semibold">{TYPE_LABELS[entry.type as JournalType]}</h2><p className="text-sm text-muted-foreground">{formatDate(entry.createdAt, true)}</p></div><div className="flex gap-1"><Button size="icon" variant="ghost" onClick={onEdit} aria-label="Edit"><Edit3 className="w-4 h-4" /></Button><Button size="icon" variant="ghost" onClick={onDelete} aria-label="Delete"><Trash2 className="w-4 h-4" /></Button><Button size="icon" variant="ghost" onClick={onClose} aria-label="Close"><X className="w-4 h-4" /></Button></div></div>
       {entry.mood && <div className="text-sm text-muted-foreground">{MOODS[entry.mood - 1].emoji} {MOODS[entry.mood - 1].label}</div>}
-      <div className="space-y-4">{(entry.responses || []).map((response) => <div key={response.promptId}><p className="text-sm font-medium text-muted-foreground">{response.question}</p><p className="mt-1 text-sm leading-relaxed whitespace-pre-wrap">{response.answer}</p></div>)}</div>
+      <div className="space-y-4">{(entry.responses || []).map((response) => <div key={response.promptId}><p className="text-sm font-medium text-muted-foreground">{response.question}</p><p className="mt-1 text-sm leading-relaxed whitespace-pre-wrap">{response.answer}</p></div>)}{entry.thoughts && <div><p className="text-sm font-medium text-muted-foreground">Your thoughts</p><p className="mt-1 text-sm leading-relaxed whitespace-pre-wrap">{entry.thoughts}</p></div>}</div>
       {source && <Card className="bg-muted/40"><CardContent className="p-4 text-sm"><div className="flex items-center gap-2 font-medium mb-2">{source.kind === "game" ? <Trophy className="w-4 h-4 text-primary" /> : <Dumbbell className="w-4 h-4 text-primary" />}{source.kind === "game" ? `${formatDate(source.gameDate)} · vs ${source.opponent || "opponent"}` : `Workout · ${formatDate(source.date)}`}</div>{source.kind === "game" ? <p className="text-muted-foreground">Stats: {source.points || 0} PTS · {source.rebounds || 0} REB · {source.assists || 0} AST</p> : <p className="text-muted-foreground">{source.duration || 0} minutes · {source.logs?.map((log: any) => log.drillTitle).join(", ")}</p>}</CardContent></Card>}
       {(entry as JournalView).feedbackStale && <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-muted-foreground">Your reflection changed, so the previous Coach P feedback was cleared. Start a fresh conversation for the updated version.</div>}
       {entry.aiCoachFeedback && <div className="rounded-lg border border-primary/20 bg-primary/5 p-4"><div className="flex items-center gap-2 text-sm font-semibold mb-2"><Sparkles className="w-4 h-4 text-primary" />Previous Coach P feedback</div><p className="text-sm whitespace-pre-wrap leading-relaxed">{entry.aiCoachFeedback}</p></div>}
@@ -364,8 +420,8 @@ export default function JournalPage() {
   if (to) query.set("to", to);
   const { data: entries = [], isLoading } = useQuery<JournalView[]>({ queryKey: ["/api/journal", query.toString()], queryFn: async () => (await fetch(`/api/journal${query.toString() ? `?${query}` : ""}`)).json() });
   const { data: sources = { workouts: [], games: [] } } = useQuery<{ workouts: Source[]; games: Source[] }>({ queryKey: ["/api/journal/sources"] });
-  const { data: subscription } = useQuery<{ plan: "free" | "pro" }>({ queryKey: ["/api/billing/subscription"] });
-  const isPro = subscription?.plan === "pro";
+  const { data: subscription } = useQuery<{ plan: "free" | "pro" | "pro-infinity" }>({ queryKey: ["/api/billing/subscription"] });
+  const isPro = subscription?.plan === "pro" || subscription?.plan === "pro-infinity";
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/journal/${id}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/journal"] }); setDeletingId(null); setSelectedEntry(null); toast({ title: "Entry deleted" }); },
@@ -381,8 +437,8 @@ export default function JournalPage() {
     <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-6">
       <div className="flex items-start justify-between gap-4"><div><h1 className="text-2xl font-bold flex items-center gap-2"><BookOpen className="w-6 h-6 text-primary" />Journal</h1><p className="text-sm text-muted-foreground mt-1">Reflect on your game. Grow as a player.</p></div><Button onClick={openNew} data-testid="button-new-journal-entry"><Plus className="w-4 h-4 mr-2" />New entry</Button></div>
        <Card><CardContent className="p-4 space-y-3"><div className="relative"><Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search reflections and Coach P feedback..." className="pl-9" data-testid="input-journal-search" /></div><div className="grid grid-cols-2 sm:grid-cols-4 gap-2"><select value={type} onChange={(event) => setType(event.target.value)} className="h-9 rounded-md border border-input bg-background px-2 text-sm"><option value="">All types</option><option value="post-workout">After practice / workout</option><option value="post-game">After game</option><option value="open">Open</option></select><select value={mood} onChange={(event) => setMood(event.target.value)} className="h-9 rounded-md border border-input bg-background px-2 text-sm"><option value="">Any mood</option>{MOODS.map((item) => <option key={item.value} value={item.value}>{item.emoji} {item.label}</option>)}</select><select value={coached} onChange={(event) => setCoached(event.target.value)} className="h-9 rounded-md border border-input bg-background px-2 text-sm"><option value="">Any coaching</option><option value="true">Coached</option><option value="false">Not coached</option></select><select value={linkedSource} onChange={(event) => setLinkedSource(event.target.value)} className="h-9 rounded-md border border-input bg-background px-2 text-sm"><option value="">Any source</option><option value="workout">Workout</option><option value="game">Game</option><option value="none">No source</option></select></div><div className="grid grid-cols-2 gap-2"><Input type="date" value={from} onChange={(event) => setFrom(event.target.value)} aria-label="From date" /><Input type="date" value={to} onChange={(event) => setTo(event.target.value)} aria-label="To date" /></div>{hasFilters && <Button variant="ghost" size="sm" onClick={clearFilters}>Clear filters</Button>}</CardContent></Card>
-      {isLoading ? <div className="space-y-3">{[1, 2, 3].map((item) => <div key={item} className="h-24 rounded-xl bg-muted animate-pulse" />)}</div> : entries.length === 0 ? <Card className="border-dashed"><CardContent className="flex flex-col items-center text-center gap-3 py-12"><BookOpen className="w-10 h-10 text-muted-foreground" /><p className="font-medium">{hasFilters ? "No reflections match those filters" : "No entries yet"}</p><p className="text-sm text-muted-foreground">{hasFilters ? "Try a different search or clear the filters." : "Start reflecting after your next workout or game."}</p><Button onClick={hasFilters ? clearFilters : openNew}>{hasFilters ? "Clear filters" : "Write first entry"}</Button></CardContent></Card> : <div className="space-y-3">{entries.map((entry) => { const response = entry.responses?.[0]?.answer; const source = entry.gameId ? sources.games.find((item) => item.sourceId === entry.gameId) : entry.trainingLogId ? sources.workouts.find((item) => item.sourceId === entry.trainingLogId) : null; return <Card key={entry.id} className="group cursor-pointer hover:border-primary/40 transition-colors" onClick={() => setSelectedEntry(entry)} data-testid={`card-journal-${entry.id}`}><CardContent className="p-4 flex gap-3"><div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">{entry.type === "post-workout" ? <Dumbbell className="w-4 h-4 text-primary" /> : entry.type === "post-game" ? <Trophy className="w-4 h-4 text-primary" /> : <Brain className="w-4 h-4 text-primary" />}</div><div className="min-w-0 flex-1"><div className="flex gap-2 flex-wrap items-center"><span className="text-sm font-medium">{TYPE_LABELS[entry.type as JournalType]}</span>{entry.aiCoachFeedback && <Badge variant="secondary" className="text-xs gap-1"><Sparkles className="w-3 h-3" /> Coached</Badge>}<Badge variant="outline" className="text-xs">{sourceLabel(entry)}</Badge>{entry.mood && <span>{MOODS[entry.mood - 1].emoji}</span>}</div><p className="text-xs text-muted-foreground mt-1 flex items-center gap-1"><CalendarDays className="w-3 h-3" />{formatDate(entry.createdAt)}{source?.kind === "game" ? ` · vs ${source.opponent || "opponent"}` : source?.kind === "workout" ? ` · ${source.duration || 0} min` : ""}</p>{response && <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{response}</p>}</div><ChevronRight className="w-4 h-4 text-muted-foreground mt-1 shrink-0" /></CardContent></Card>; })}</div>}
-       <Dialog open={newOpen} onOpenChange={(open) => { if (!open) closeEditor(); else setNewOpen(true); }}><DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto"><DialogHeader className="sr-only"><DialogTitle>Journal entry</DialogTitle></DialogHeader><div className="space-y-5"><JournalTypePicker value={selectedType} onChange={setSelectedType} /><Separator />{(() => { const compatibleSource = (selectedType === "post-game" && initialSourceKind === "game") || (selectedType === "post-workout" && initialSourceKind === "workout"); return <EntryEditor key={`${selectedType}-${compatibleSource ? initialSourceKind : "none"}-${compatibleSource ? initialSourceId : "none"}`} type={selectedType} initialSourceKind={compatibleSource ? initialSourceKind : null} initialSourceId={compatibleSource ? initialSourceId : null} sources={sources} onDone={closeEditor} onBack={() => setNewOpen(false)} />; })()}</div></DialogContent></Dialog>
+       {isLoading ? <div className="space-y-3">{[1, 2, 3].map((item) => <div key={item} className="h-24 rounded-xl bg-muted animate-pulse" />)}</div> : entries.length === 0 ? <Card className="border-dashed"><CardContent className="flex flex-col items-center text-center gap-3 py-12"><BookOpen className="w-10 h-10 text-muted-foreground" /><p className="font-medium">{hasFilters ? "No reflections match those filters" : "No entries yet"}</p><p className="text-sm text-muted-foreground">{hasFilters ? "Try a different search or clear the filters." : "Start reflecting after your next workout or game."}</p><Button onClick={hasFilters ? clearFilters : openNew}>{hasFilters ? "Clear filters" : "Write first entry"}</Button></CardContent></Card> : <div className="space-y-3">{entries.map((entry) => { const response = entry.responses?.[0]?.answer || entry.thoughts; const source = entry.gameId ? sources.games.find((item) => item.sourceId === entry.gameId) : entry.trainingLogId ? sources.workouts.find((item) => item.sourceId === entry.trainingLogId) : null; return <Card key={entry.id} className="group cursor-pointer hover:border-primary/40 transition-colors" onClick={() => setSelectedEntry(entry)} data-testid={`card-journal-${entry.id}`}><CardContent className="p-4 flex gap-3"><div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">{entry.type === "post-workout" ? <Dumbbell className="w-4 h-4 text-primary" /> : entry.type === "post-game" ? <Trophy className="w-4 h-4 text-primary" /> : <Brain className="w-4 h-4 text-primary" />}</div><div className="min-w-0 flex-1"><div className="flex gap-2 flex-wrap items-center"><span className="text-sm font-medium">{TYPE_LABELS[entry.type as JournalType]}</span>{entry.aiCoachFeedback && <Badge variant="secondary" className="text-xs gap-1"><Sparkles className="w-3 h-3" /> Coached</Badge>}<Badge variant="outline" className="text-xs">{sourceLabel(entry)}</Badge>{entry.mood && <span>{MOODS[entry.mood - 1].emoji}</span>}</div><p className="text-xs text-muted-foreground mt-1 flex items-center gap-1"><CalendarDays className="w-3 h-3" />{formatDate(entry.createdAt)}{source?.kind === "game" ? ` · vs ${source.opponent || "opponent"}` : source?.kind === "workout" ? ` · ${source.duration || 0} min` : ""}</p>{response && <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{response}</p>}</div><ChevronRight className="w-4 h-4 text-muted-foreground mt-1 shrink-0" /></CardContent></Card>; })}</div>}
+        <Dialog open={newOpen} onOpenChange={(open) => { if (!open) closeEditor(); else setNewOpen(true); }}><DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto"><DialogHeader><DialogTitle>New reflection</DialogTitle><DialogDescription>Choose a small amount of structure, or just write.</DialogDescription></DialogHeader><div className="space-y-4"><JournalTypePicker value={selectedType} onChange={setSelectedType} /><Separator />{(() => { const compatibleSource = (selectedType === "post-game" && initialSourceKind === "game") || (selectedType === "post-workout" && initialSourceKind === "workout"); return <EntryEditor key={`${selectedType}-${compatibleSource ? initialSourceKind : "none"}-${compatibleSource ? initialSourceId : "none"}`} type={selectedType} initialSourceKind={compatibleSource ? initialSourceKind : null} initialSourceId={compatibleSource ? initialSourceId : null} sources={sources} onDone={closeEditor} onBack={() => setNewOpen(false)} />; })()}</div></DialogContent></Dialog>
       <Dialog open={!!selectedEntry} onOpenChange={(open) => !open && setSelectedEntry(null)}><DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto"><DialogHeader><DialogTitle>Journal reflection</DialogTitle><DialogDescription>Private to you</DialogDescription></DialogHeader>{selectedEntry && <EntryDetail entry={selectedEntry} isPro={isPro} onClose={() => setSelectedEntry(null)} onDelete={() => setDeletingId(selectedEntry.id)} onEdit={() => { setEditing(selectedEntry); setSelectedEntry(null); }} />}</DialogContent></Dialog>
       <Dialog open={!!editing} onOpenChange={(open) => !open && setEditing(null)}><DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto"><DialogHeader className="sr-only"><DialogTitle>Edit journal entry</DialogTitle></DialogHeader>{editing && <EntryEditor entry={editing} type={editing.type as JournalType} sources={sources} onDone={() => setEditing(null)} />}</DialogContent></Dialog>
       {selectedEntry && <div className="sr-only"><button onClick={() => setDeletingId(selectedEntry.id)}>Delete</button></div>}

@@ -337,7 +337,7 @@ export const userProfiles = pgTable("user_profiles", {
   skillLevel: varchar("skill_level").$type<DifficultyLevel>().default("beginner"),
   profilePhotoUrl: varchar("profile_photo_url"),
   isAdmin: boolean("is_admin").default(false),
-  subscriptionPlan: varchar("subscription_plan").default("free"), // 'free' | 'pro'
+  subscriptionPlan: varchar("subscription_plan").default("free"), // 'free' | 'pro' | 'pro-infinity'
   initialQuizId: varchar("initial_quiz_id"),
   quizResponses: jsonb("quiz_responses"),
   assignedFixDrillIds: text("assigned_fix_drill_ids").array(),
@@ -2376,11 +2376,23 @@ export const journalEntries = pgTable("journal_entries", {
   gameId: varchar("game_id"),
   mood: integer("mood"), // 1–5
   responses: jsonb("responses").$type<Array<{ promptId: string; question: string; answer: string }>>().default([]),
+  thoughts: text("thoughts"),
   aiCoachFeedback: text("ai_coach_feedback"),
   aiFollowUpQuestion: text("ai_follow_up_question"),
   aiFollowUpAnswer: text("ai_follow_up_answer"),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+export const journalPromptVotes = pgTable("journal_prompt_votes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  promptId: varchar("prompt_id").notNull(),
+  category: varchar("category").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  userPromptUnique: uniqueIndex("journal_prompt_votes_user_prompt_uq").on(table.userId, table.promptId),
+  promptIndex: index("journal_prompt_votes_prompt_idx").on(table.promptId),
+}));
 
 export const insertJournalEntrySchema = createInsertSchema(journalEntries).omit({ id: true, createdAt: true });
 export type JournalEntry = typeof journalEntries.$inferSelect;

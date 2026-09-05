@@ -85,7 +85,9 @@ export function BottomTabBar() {
   const [location, navigate] = useLocation();
   const { activeView } = useRole();
 
-  const isTrainerView = activeView === "trainer";
+  // Keep trainer navigation code available without exposing trainer mode in
+  // the current player-facing app.
+  const isTrainerView = false;
   const tabs = isTrainerView ? trainerTabs : playerTabs;
 
   function isTabActive(tab: typeof tabs[0]): boolean {

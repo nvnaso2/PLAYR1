@@ -59,7 +59,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText, Play, ChevronDown, GraduationCap, MapPin, ListFilter, X, BarChart2, TrendingUp, TrendingDown, Activity, UserCheck, Wrench, Flame, Lightbulb, Zap, Globe, AlertTriangle, Trophy, Target, GitBranch, Clock, ArrowDown, Flag, ToggleLeft, ToggleRight, UserPlus, Copy, RotateCcw, ExternalLink, type LucideIcon } from "lucide-react";
+import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText, Play, ChevronDown, GraduationCap, MapPin, ListFilter, X, BarChart2, TrendingUp, TrendingDown, Activity, UserCheck, Wrench, Flame, Lightbulb, Zap, Globe, AlertTriangle, Trophy, Target, GitBranch, Clock, ArrowDown, Flag, ToggleLeft, ToggleRight, UserPlus, Copy, RotateCcw, ExternalLink, MessageCircle, type LucideIcon } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
 import type { Drill, DrillCategory, DifficultyLevel, DrillMetric, VideoLibrary, PdfLibrary, MetricTemplate, Workout, WorkoutDrill, TrainingLocation, ShotLocationDB, ShotTypeDB } from "@shared/schema";
@@ -4078,12 +4078,13 @@ export default function AdminPage() {
                               onValueChange={(val) => setSubscriptionMutation.mutate({ userId: user.id, subscriptionPlan: val })}
                               disabled={setSubscriptionMutation.isPending}
                             >
-                              <SelectTrigger className="h-8 w-[90px] text-xs" data-testid={`select-plan-${user.id}`}>
+                                 <SelectTrigger className="h-8 w-[118px] text-xs" data-testid={`select-plan-${user.id}`}>
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="free">Free</SelectItem>
                                 <SelectItem value="pro">Pro</SelectItem>
+                                 <SelectItem value="pro-infinity">Pro Infinity</SelectItem>
                               </SelectContent>
                             </Select>
                           </TableCell>
@@ -4850,6 +4851,9 @@ function AdminAnalyticsTab() {
           <TabsTrigger value="coach-p" data-testid="tab-analytics-coach-p" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <Calculator className="w-4 h-4 mr-1.5" /> Coach P
           </TabsTrigger>
+          <TabsTrigger value="journal" data-testid="tab-analytics-journal" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <MessageCircle className="w-4 h-4 mr-1.5" /> Journal
+          </TabsTrigger>
           <TabsTrigger value="ai" data-testid="tab-analytics-ai" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <Lightbulb className="w-4 h-4 mr-1.5" /> AI Insights
           </TabsTrigger>
@@ -4864,9 +4868,50 @@ function AdminAnalyticsTab() {
         <TabsContent value="users" className="mt-6"><UsersSubTab /></TabsContent>
         <TabsContent value="content" className="mt-6"><ContentSubTab /></TabsContent>
         <TabsContent value="coach-p" className="mt-6"><CoachPAnalyticsSubTab /></TabsContent>
+        <TabsContent value="journal" className="mt-6"><JournalPromptAnalyticsSubTab /></TabsContent>
         <TabsContent value="ai" className="mt-6"><AiInsightsSubTab /></TabsContent>
         <TabsContent value="live" className="mt-6"><LiveActivitySubTab /></TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+function JournalPromptAnalyticsSubTab() {
+  const { data: prompts, isLoading, isError } = useQuery<Array<{ id: string; category: string; question: string; votes: number }>>({
+    queryKey: ["/api/admin/journal/prompt-analytics"],
+  });
+  const categoryLabel: Record<string, string> = {
+    "post-workout": "Practice / workout",
+    "post-game": "Game",
+    open: "Open",
+  };
+  const totalVotes = prompts?.reduce((sum, prompt) => sum + prompt.votes, 0) || 0;
+  return (
+    <div className="space-y-6" data-testid="section-journal-prompt-analytics">
+      <div>
+        <h2 className="text-lg font-semibold">Journal prompt preferences</h2>
+        <p className="text-sm text-muted-foreground">See which reflection questions players choose to upvote.</p>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Card><CardContent className="pt-5"><p className="text-xs text-muted-foreground">Total upvotes</p><p className="mt-1 text-2xl font-semibold">{totalVotes}</p></CardContent></Card>
+        <Card><CardContent className="pt-5"><p className="text-xs text-muted-foreground">Questions with votes</p><p className="mt-1 text-2xl font-semibold">{prompts?.filter((prompt) => prompt.votes > 0).length || 0}</p></CardContent></Card>
+        <Card><CardContent className="pt-5"><p className="text-xs text-muted-foreground">Most preferred</p><p className="mt-1 line-clamp-2 text-sm font-medium">{prompts?.find((prompt) => prompt.votes > 0)?.question || "No votes yet"}</p></CardContent></Card>
+      </div>
+      <Card>
+        <CardContent className="pt-5">
+          {isLoading ? <div className="space-y-2">{[1, 2, 3].map((item) => <Skeleton key={item} className="h-12 w-full" />)}</div> : isError ? <p className="py-8 text-center text-sm text-destructive">Couldn’t load Journal prompt analytics.</p> : (
+            <div className="space-y-2">
+              {prompts?.map((prompt, index) => (
+                <div key={prompt.id} className="flex items-start gap-3 rounded-lg border p-3">
+                  <span className="w-6 shrink-0 text-sm text-muted-foreground">#{index + 1}</span>
+                  <div className="min-w-0 flex-1"><p className="text-sm">{prompt.question}</p><p className="mt-1 text-xs text-muted-foreground">{categoryLabel[prompt.category] || prompt.category}</p></div>
+                  <Badge variant={prompt.votes > 0 ? "default" : "outline"}>{prompt.votes} {prompt.votes === 1 ? "upvote" : "upvotes"}</Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

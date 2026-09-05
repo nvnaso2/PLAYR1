@@ -26,6 +26,7 @@ import { getMicroQuiz } from "@shared/micro-quizzes";
 import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, drills, trainingLogs, trainingLogMetrics, feedbackComments, insertProgramSchema, insertProgramItemSchema, insertEventSchema, events, insertStatChallengeSchema, programEnrollments, coachPUsage } from "@shared/schema";
 import { getUncachableStripeClient } from "./stripeClient";
 import { WebhookHandlers } from "./webhookHandlers";
+import { JOURNAL_PROMPTS } from "@shared/journalPrompts";
 
 const COACH_P_ARCHETYPE_GUIDANCE: Record<string, string> = {
   "Sharpshooter": "Your shot isn't just a skill, it's a weapon defenses have to respect every second you're on the floor. My job is making sure you can get that shot off in more ways than standing still waiting for a pass.",
@@ -187,11 +188,12 @@ export async function registerRoutes(
     ]);
     const stripeActive = user?.subscriptionPlan === "pro" &&
       (user.subscriptionStatus === "active" || user.subscriptionStatus === "trialing");
-    const isPro = stripeActive;
+    const isInfinity = user?.subscriptionPlan === "pro-infinity";
+    const isPro = stripeActive || isInfinity;
     const used = usageResult[0]?.questionCount ?? 0;
     return {
-      plan: isPro ? "pro" : "free",
-      status: user?.subscriptionStatus ?? "free",
+      plan: isInfinity ? "pro-infinity" : isPro ? "pro" : "free",
+      status: isInfinity ? "pro-infinity" : user?.subscriptionStatus ?? "free",
       interval: user?.subscriptionPriceInterval ?? null,
       currentPeriodEnd: user?.subscriptionCurrentPeriodEnd ?? null,
       cancelAtPeriodEnd: user?.subscriptionCancelAtPeriodEnd ?? false,
@@ -206,7 +208,7 @@ export async function registerRoutes(
 
   async function consumeCoachPQuestion(userId: string) {
     const snapshot = await getSubscriptionSnapshot(userId);
-    if (snapshot.plan === "pro") return { allowed: true, charged: false, ...snapshot.coachP };
+    if (snapshot.plan === "pro" || snapshot.plan === "pro-infinity") return { allowed: true, charged: false, ...snapshot.coachP };
     const result = await db.execute(sql`
       INSERT INTO coach_p_usage (user_id, month_key, question_count, updated_at)
       VALUES (${userId}, ${currentMonthKey()}, 1, NOW())
@@ -230,7 +232,8 @@ export async function registerRoutes(
   }
 
   async function hasProAccess(userId: string) {
-    return (await getSubscriptionSnapshot(userId)).plan === "pro";
+    const plan = (await getSubscriptionSnapshot(userId)).plan;
+    return plan === "pro" || plan === "pro-infinity";
   }
 
   const COACH_P_MODEL_PRICING: Record<string, { inputPerMillion: number; outputPerMillion: number }> = {
@@ -1091,7 +1094,7 @@ Start now with a warm one-line greeting that briefly references something specif
         : "Assessment answers were not needed for this question.";
       const recentJournal = journalEntries.slice(0, 5).map((entry: any) => {
         const answers = (entry.responses ?? []).map((response: any) => `${response.question}: ${response.answer}`).join(" | ");
-        return `${entry.createdAt ? new Date(entry.createdAt).toLocaleDateString() : "unknown date"}${entry.mood ? `, mood ${entry.mood}/5` : ""}: ${answers.slice(0, 500)}`;
+        return `${entry.createdAt ? new Date(entry.createdAt).toLocaleDateString() : "unknown date"}${entry.mood ? `, mood ${entry.mood}/5` : ""}: ${answers.slice(0, 500)}${entry.thoughts ? ` | Thoughts: ${entry.thoughts.slice(0, 500)}` : ""}`;
       }).join("\n") || "No journal reflections yet.";
       const goalText = activeGoal
         ? `Active goal: ${activeGoal.goalText}\nStatus: ${activeGoal.status}; week ${activeGoal.currentWeek} of ${activeGoal.totalWeeks}`
@@ -1157,7 +1160,7 @@ Start now with a warm one-line greeting that briefly references something specif
           }).slice(0, 30000)
         : "Game statistics and shot data were not loaded because they were not needed for this question.";
       const selectedJournalText = journalEntry
-        ? `\nSELECTED JOURNAL ENTRY\nType: ${journalEntry.type}; mood: ${journalEntry.mood ?? "not rated"}/5.\n${(journalEntry.responses || []).map((response: any) => `Q: ${response.question}\nA: ${response.answer}`).join("\n\n")}\nLINKED PERFORMANCE SOURCE\n${JSON.stringify(selectedJournalSource).slice(0, 12000)}`
+        ? `\nSELECTED JOURNAL ENTRY\nType: ${journalEntry.type}; mood: ${journalEntry.mood ?? "not rated"}/5.\n${(journalEntry.responses || []).map((response: any) => `Q: ${response.question}\nA: ${response.answer}`).join("\n\n")}${journalEntry.thoughts ? `\nYOUR THOUGHTS\n${journalEntry.thoughts}` : ""}\nLINKED PERFORMANCE SOURCE\n${JSON.stringify(selectedJournalSource).slice(0, 12000)}`
         : "";
 
       const contextModeLabel = contextMode === "general" ? "general coaching" : `${contextMode} coaching`;
@@ -10031,10 +10034,17 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
   app.put("/api/admin/users/:id/subscription", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const { z } = await import("zod");
-      const schema = z.object({ subscriptionPlan: z.enum(["free", "pro"]) });
+      const schema = z.object({ subscriptionPlan: z.enum(["free", "pro", "pro-infinity"]) });
       const parsed = schema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: "Invalid input" });
-      const updated = await storage.updateUserProfile(req.params.id, { subscriptionPlan: parsed.data.subscriptionPlan });
+      const [updated] = await db.update(users).set({
+        subscriptionPlan: parsed.data.subscriptionPlan,
+        ...(parsed.data.subscriptionPlan === "pro-infinity"
+          ? { subscriptionStatus: "pro-infinity", subscriptionPriceInterval: null, subscriptionCurrentPeriodEnd: null, subscriptionCancelAtPeriodEnd: false }
+          : { subscriptionStatus: "free", subscriptionPriceInterval: null, subscriptionCurrentPeriodEnd: null, subscriptionCancelAtPeriodEnd: false }),
+        updatedAt: new Date(),
+      }).where(eq(users.id, req.params.id)).returning();
+      if (!updated) return res.status(404).json({ message: "User not found" });
       res.json(updated);
     } catch (err) {
       res.status(500).json({ message: "Failed to update subscription" });
@@ -10042,6 +10052,53 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
   });
 
   // ===== REFLECTION JOURNAL =====
+
+  app.get("/api/journal/prompt-votes", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      res.json({ promptIds: await storage.getJournalPromptVotes(req.user.claims.sub) });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to load prompt preferences" });
+    }
+  });
+
+  app.post("/api/journal/prompt-votes", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const parsed = z.object({
+        promptId: z.string().min(1),
+        category: z.enum(["post-workout", "post-game", "open"]),
+      }).safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Unknown journal prompt" });
+      if (!JOURNAL_PROMPTS.some((prompt) => prompt.id === parsed.data.promptId && prompt.category === parsed.data.category)) {
+        return res.status(400).json({ message: "Unknown journal prompt" });
+      }
+      await storage.addJournalPromptVote(req.user.claims.sub, parsed.data.promptId, parsed.data.category);
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to save prompt preference" });
+    }
+  });
+
+  app.delete("/api/journal/prompt-votes/:promptId", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      await storage.removeJournalPromptVote(req.user.claims.sub, req.params.promptId);
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to remove prompt preference" });
+    }
+  });
+
+  app.get("/api/admin/journal/prompt-analytics", isAuthenticated, isAdmin, async (_req: AuthenticatedRequest, res) => {
+    try {
+      const counts = await storage.getJournalPromptVoteCounts();
+      const countMap = new Map(counts.map((row) => [row.promptId, row]));
+      res.json(JOURNAL_PROMPTS.map((prompt) => ({
+        ...prompt,
+        votes: countMap.get(prompt.id)?.votes ?? 0,
+      })).sort((a, b) => b.votes - a.votes || a.id.localeCompare(b.id)));
+    } catch (err) {
+      res.status(500).json({ message: "Failed to load Journal prompt analytics" });
+    }
+  });
 
   async function validateJournalSource(userId: string, trainingLogId?: string | null, gameId?: string | null) {
     if (trainingLogId && gameId) return "Choose either a workout or a game, not both.";
@@ -10167,6 +10224,7 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
         trainingLogId: z.string().nullable().optional(),
         gameId: z.string().nullable().optional(),
         mood: z.number().int().min(1).max(5).nullable().optional(),
+        thoughts: z.string().max(10000).nullable().optional(),
         responses: z.array(z.object({
           promptId: z.string(),
           question: z.string(),
@@ -10223,6 +10281,7 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
       const { z } = await import("zod");
       const schema = z.object({
         mood: z.number().int().min(1).max(5).nullable().optional(),
+        thoughts: z.string().max(10000).nullable().optional(),
         trainingLogId: z.string().nullable().optional(),
         gameId: z.string().nullable().optional(),
         responses: z.array(z.object({
@@ -10242,7 +10301,7 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
         parsed.data.gameId !== undefined ? parsed.data.gameId : existing.gameId,
       );
       if (sourceError) return res.status(400).json({ message: sourceError });
-      const reflectionChanged = parsed.data.responses !== undefined || parsed.data.mood !== undefined;
+      const reflectionChanged = parsed.data.responses !== undefined || parsed.data.mood !== undefined || parsed.data.thoughts !== undefined;
       const entry = await storage.updateJournalEntry(req.params.id, req.user.claims.sub, parsed.data);
       if (!entry) return res.status(404).json({ message: "Entry not found" });
       res.json({ ...entry, feedbackStale: reflectionChanged });
@@ -10290,6 +10349,7 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
       const responsesText = (entry.responses || [])
         .map((r: { question: string; answer: string }) => `Q: ${r.question}\nA: ${r.answer}`)
         .join("\n\n");
+      const reflectionText = `${responsesText}${entry.thoughts ? `${responsesText ? "\n\n" : ""}Your thoughts:\n${entry.thoughts}` : ""}`;
 
       const OpenAI = (await import("openai")).default;
       const openai = new OpenAI({
@@ -10306,7 +10366,7 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
           },
           {
             role: "user",
-            content: `Journal type: ${entry.type}\n${trainingContext}\n\nPlayer's reflection:\n${responsesText}`,
+             content: `Journal type: ${entry.type}\n${trainingContext}\n\nPlayer's reflection:\n${reflectionText}`,
           },
         ],
         response_format: { type: "json_object" },

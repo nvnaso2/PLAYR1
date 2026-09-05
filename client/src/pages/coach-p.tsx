@@ -124,7 +124,7 @@ export default function CoachPPage() {
   });
 
   const currentUsage = usage ?? subscription?.coachP ?? null;
-  const isUnlimited = subscription?.plan === "pro" || currentUsage?.limit === null;
+  const isUnlimited = subscription?.plan === "pro" || (subscription?.plan as string | undefined) === "pro-infinity" || currentUsage?.limit === null;
   const canSend = isUnlimited || currentUsage?.remaining == null || currentUsage.remaining > 0;
 
   const chatMutation = useMutation({

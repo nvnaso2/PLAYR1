@@ -136,7 +136,9 @@ export function AppSidebar() {
     return user.email || "User";
   };
 
-  const isTrainerView = activeView === "trainer";
+  // Trainer mode remains implemented but is intentionally hidden from the
+  // player-facing product until that experience is reintroduced.
+  const isTrainerView = false;
   const navItems = isTrainerView ? trainerNavItems : playerNavItems;
 
   // Warm up the most common page chunks in the background after the sidebar
@@ -181,7 +183,7 @@ export function AppSidebar() {
             <p className="text-xs text-muted-foreground font-medium">Parent View</p>
           </div>
         )}
-        {!isParentOnly && canToggle && (
+        {false && !isParentOnly && canToggle && (
           <div className="flex items-center gap-1 mt-1">
             <Button
               size="sm"

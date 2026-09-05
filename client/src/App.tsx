@@ -227,7 +227,7 @@ function HomeRedirect() {
   if (!isError && (!careerProfile || !careerProfile.onboardingCompleted)) {
     return <Redirect to="/career" />;
   }
-  if (activeView === "trainer") return <Redirect to="/trainer" />;
+  if (activeView === "trainer") return <Redirect to="/hub" />;
   return <Redirect to="/hub" />;
 }
 

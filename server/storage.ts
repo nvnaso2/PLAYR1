@@ -100,6 +100,7 @@ import {
   coachPConversations, coachPMessages, coachPRequests,
   type CoachPConversation, type CoachPMessage, type CoachPRequest,
   type InsertCoachPConversation, type InsertCoachPMessage, type InsertCoachPRequest,
+  journalPromptVotes,
 } from "@shared/schema";
 import { users, type User } from "@shared/models/auth";
 import { db, pool } from "./db";
@@ -132,7 +133,7 @@ export interface IStorage {
   // Brand Principles
   getBrandPrinciples(): Promise<BrandPrinciples | null>;
   upsertBrandPrinciples(data: Partial<Omit<BrandPrinciples, 'id' | 'updatedAt'>>): Promise<BrandPrinciples>;
-  getAllUsers(): Promise<Array<{ id: string; email: string | null; firstName: string | null; lastName: string | null; isAdmin: boolean; staffRole: string | null }>>;
+  getAllUsers(): Promise<Array<{ id: string; email: string | null; firstName: string | null; lastName: string | null; isAdmin: boolean; staffRole: string | null; subscriptionPlan: string }>>;
   createUser(userData: { email: string; firstName?: string; lastName?: string; isAdmin?: boolean }): Promise<{ id: string; email: string | null; firstName: string | null; lastName: string | null; isAdmin: boolean }>;
   deleteUser(userId: string): Promise<boolean>;
   setUserStaffRole(userId: string, staffRole: string | null): Promise<boolean>;
@@ -149,6 +150,11 @@ export interface IStorage {
   getUserProfile(userId: string): Promise<UserProfile | undefined>;
   upsertUserProfile(profile: InsertUserProfile): Promise<UserProfile>;
   updateUserProfile(userId: string, updates: Partial<UserProfile>): Promise<UserProfile | undefined>;
+
+  getJournalPromptVotes(userId: string): Promise<string[]>;
+  addJournalPromptVote(userId: string, promptId: string, category: string): Promise<boolean>;
+  removeJournalPromptVote(userId: string, promptId: string): Promise<boolean>;
+  getJournalPromptVoteCounts(): Promise<Array<{ promptId: string; category: string; votes: number }>>;
 
   // User Videos
   getUserVideos(userId: string): Promise<UserVideo[]>;
@@ -935,7 +941,7 @@ export class DatabaseStorage {
         lastName: user.lastName,
         isAdmin: isEnvAdmin || (profile?.isAdmin === true),
         staffRole: career?.staffRole ?? null,
-        subscriptionPlan: profile?.subscriptionPlan ?? "free",
+        subscriptionPlan: user.subscriptionPlan ?? "free",
       };
     });
   }
@@ -952,6 +958,37 @@ export class DatabaseStorage {
     await db.delete(coachPRequests).where(eq(coachPRequests.userId, userId));
     await db.delete(users).where(eq(users.id, userId));
     return true;
+  }
+
+  async getJournalPromptVotes(userId: string): Promise<string[]> {
+    const rows = await db.select({ promptId: journalPromptVotes.promptId })
+      .from(journalPromptVotes)
+      .where(eq(journalPromptVotes.userId, userId));
+    return rows.map((row) => row.promptId);
+  }
+
+  async addJournalPromptVote(userId: string, promptId: string, category: string): Promise<boolean> {
+    await db.insert(journalPromptVotes)
+      .values({ userId, promptId, category })
+      .onConflictDoNothing({ target: [journalPromptVotes.userId, journalPromptVotes.promptId] });
+    return true;
+  }
+
+  async removeJournalPromptVote(userId: string, promptId: string): Promise<boolean> {
+    await db.delete(journalPromptVotes)
+      .where(and(eq(journalPromptVotes.userId, userId), eq(journalPromptVotes.promptId, promptId)));
+    return true;
+  }
+
+  async getJournalPromptVoteCounts(): Promise<Array<{ promptId: string; category: string; votes: number }>> {
+    const rows = await db.select({
+      promptId: journalPromptVotes.promptId,
+      category: journalPromptVotes.category,
+      votes: sql<number>`count(*)::int`,
+    }).from(journalPromptVotes)
+      .groupBy(journalPromptVotes.promptId, journalPromptVotes.category)
+      .orderBy(desc(sql`count(*)`));
+    return rows.map((row) => ({ promptId: row.promptId, category: row.category, votes: Number(row.votes) }));
   }
 
   async setUserStaffRole(userId: string, staffRole: string | null): Promise<boolean> {
@@ -6717,6 +6754,7 @@ export class DatabaseStorage {
       gameId: row.game_id ?? null,
       mood: row.mood ?? null,
       responses: row.responses ?? [],
+      thoughts: row.thoughts ?? null,
       aiCoachFeedback: row.ai_coach_feedback ?? null,
       aiFollowUpQuestion: row.ai_follow_up_question ?? null,
       aiFollowUpAnswer: row.ai_follow_up_answer ?? null,
@@ -6739,7 +6777,7 @@ export class DatabaseStorage {
     if (filters.search?.trim()) {
       const term = `%${filters.search.trim()}%`;
       const p = add(term);
-      clauses.push(`(j.ai_coach_feedback ILIKE ${p} OR j.ai_follow_up_question ILIKE ${p} OR j.responses::text ILIKE ${p})`);
+      clauses.push(`(j.ai_coach_feedback ILIKE ${p} OR j.ai_follow_up_question ILIKE ${p} OR j.responses::text ILIKE ${p} OR j.thoughts ILIKE ${p})`);
     }
     if (filters.type && ["post-workout", "post-game", "open"].includes(filters.type)) clauses.push(`j.type = ${add(filters.type)}`);
     if (filters.mood != null && Number.isInteger(filters.mood)) clauses.push(`j.mood = ${add(filters.mood)}`);
@@ -6767,8 +6805,8 @@ export class DatabaseStorage {
 
   async createJournalEntry(entry: InsertJournalEntry): Promise<JournalEntry> {
     const result = await pool.query(
-      `INSERT INTO journal_entries (user_id, type, training_log_id, game_id, mood, responses, ai_coach_feedback, ai_follow_up_question, ai_follow_up_answer)
-       VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9)
+      `INSERT INTO journal_entries (user_id, type, training_log_id, game_id, mood, responses, thoughts, ai_coach_feedback, ai_follow_up_question, ai_follow_up_answer)
+       VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10)
        RETURNING *`,
       [
         String(entry.userId),
@@ -6777,6 +6815,7 @@ export class DatabaseStorage {
         entry.gameId ?? null,
         entry.mood ?? null,
         JSON.stringify(entry.responses ?? []),
+        entry.thoughts ?? null,
         entry.aiCoachFeedback ?? null,
         entry.aiFollowUpQuestion ?? null,
         entry.aiFollowUpAnswer ?? null,
@@ -6790,7 +6829,7 @@ export class DatabaseStorage {
     const setParts: string[] = [];
     const values: any[] = [];
     let idx = 1;
-    const reflectionChanged = updates.responses !== undefined || updates.mood !== undefined;
+    const reflectionChanged = updates.responses !== undefined || updates.mood !== undefined || updates.thoughts !== undefined;
 
     // Feedback is tied to the exact reflection it was generated from. Editing
     // the reflection makes that feedback stale rather than silently presenting
@@ -6820,6 +6859,10 @@ export class DatabaseStorage {
     if (updates.responses !== undefined) {
       setParts.push(`responses = $${idx++}::jsonb`);
       values.push(JSON.stringify(updates.responses));
+    }
+    if (updates.thoughts !== undefined) {
+      setParts.push(`thoughts = $${idx++}`);
+      values.push(updates.thoughts);
     }
     if (updates.trainingLogId !== undefined) {
       setParts.push(`training_log_id = $${idx++}`);
