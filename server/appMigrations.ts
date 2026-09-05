@@ -52,6 +52,7 @@ export async function runApplicationMigrations(): Promise<void> {
         created_at timestamp DEFAULT now(),
         updated_at timestamp DEFAULT now()
       );
+      ALTER TABLE coach_p_conversations ADD COLUMN IF NOT EXISTS pinned boolean NOT NULL DEFAULT false;
       CREATE INDEX IF NOT EXISTS coach_p_conversations_user_updated_idx
         ON coach_p_conversations (user_id, updated_at);
       CREATE TABLE IF NOT EXISTS coach_p_messages (

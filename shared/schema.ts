@@ -1864,6 +1864,7 @@ export const coachPConversations = pgTable("coach_p_conversations", {
   summary: text("summary"),
   summaryUpdatedAt: timestamp("summary_updated_at"),
   messageCount: integer("message_count").notNull().default(0),
+  pinned: boolean("pinned").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({

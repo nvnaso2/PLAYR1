@@ -906,7 +906,16 @@ Start now with a warm one-line greeting that briefly references something specif
       const userId = req.user!.claims.sub;
       const conversation = await storage.getCoachPConversation(userId, req.params.id);
       if (!conversation) return res.status(404).json({ message: "Conversation not found" });
-      const messages = await storage.getCoachPMessages(conversation.id);
+      const storedMessages = await storage.getCoachPMessages(conversation.id);
+      const messages = storedMessages[0]?.role === "user"
+        ? storedMessages
+        : [
+            {
+              role: "user" as const,
+              content: conversation.title,
+            },
+            ...storedMessages,
+          ];
       res.json({
         conversation,
         messages: messages.map(message => ({ role: message.role, content: message.content })),
@@ -919,12 +928,15 @@ Start now with a warm one-line greeting that briefly references something specif
 
   app.patch("/api/coach-p/conversations/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const { title } = z.object({ title: z.string().trim().min(1).max(200) }).parse(req.body);
-      const conversation = await storage.updateCoachPConversation(req.params.id, req.user!.claims.sub, { title });
+      const updates = z.object({
+        title: z.string().trim().min(1).max(200).optional(),
+        pinned: z.boolean().optional(),
+      }).refine((value) => value.title !== undefined || value.pinned !== undefined).parse(req.body);
+      const conversation = await storage.updateCoachPConversation(req.params.id, req.user!.claims.sub, updates);
       if (!conversation) return res.status(404).json({ message: "Conversation not found" });
       res.json(conversation);
     } catch (error) {
-      res.status(400).json({ message: "Enter a valid conversation title." });
+      res.status(400).json({ message: "Enter valid conversation updates." });
     }
   });
 
@@ -1327,6 +1339,17 @@ COACHING RULES:
       timings.total = Date.now() - requestStartedAt;
       const costs = getCoachPCost(model, tokenUsage);
       if (conversation) {
+        await storage.createCoachPMessage({
+          conversationId: conversation.id,
+          role: "user",
+          content: lastUserMessage.content,
+          model: null,
+          contextMode,
+          promptTokens: null,
+          completionTokens: null,
+          totalTokens: null,
+          latencyMs: null,
+        });
         await storage.createCoachPMessage({
           conversationId: conversation.id,
           role: "assistant",

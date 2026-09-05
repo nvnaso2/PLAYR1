@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowUp, Dumbbell, Flag, Gamepad2, GraduationCap, Loader2, Menu, MessageSquarePlus, Plus, Target, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowUp, Dumbbell, Flag, Gamepad2, GraduationCap, Loader2, Menu, MessageSquarePlus, Pin, PinOff, Plus, Target, Trash2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,6 +13,16 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -43,6 +53,7 @@ type SavedConversation = {
   summary: string | null;
   createdAt: string | null;
   updatedAt: string | null;
+  pinned?: boolean;
 };
 
 const STARTER_PROMPTS = [
@@ -249,6 +260,7 @@ export default function CoachPPage() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [loadingConversation, setLoadingConversation] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [conversationToDelete, setConversationToDelete] = useState<SavedConversation | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const pendingAssistantTextRef = useRef("");
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -469,8 +481,45 @@ export default function CoachPPage() {
     }
   };
 
+  const togglePinConversation = async (conversation: SavedConversation) => {
+    if (chatMutation.isPending) return;
+    try {
+      await apiRequest("PATCH", `/api/coach-p/conversations/${conversation.id}`, { pinned: !conversation.pinned });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach-p/conversations"] });
+    } catch {
+      setErrorMessage("That chat could not be updated.");
+    }
+  };
+
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#080808] text-white">
+      <AlertDialog
+        open={Boolean(conversationToDelete)}
+        onOpenChange={(open) => !open && setConversationToDelete(null)}
+      >
+        <AlertDialogContent className="border-zinc-800 bg-zinc-950 text-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this Coach P chat?</AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400">
+              This permanently removes the conversation and its coaching history. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-zinc-700 bg-transparent text-zinc-200 hover:bg-zinc-900 hover:text-white">
+              Keep chat
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-500 text-white hover:bg-red-400"
+              onClick={() => {
+                if (conversationToDelete) void deleteConversation(conversationToDelete.id);
+                setConversationToDelete(null);
+              }}
+            >
+              Delete chat
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <header className="relative z-40 h-16 border-b border-white/[0.06] bg-[#080808]/90 px-4 backdrop-blur-xl sm:px-6 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
@@ -530,10 +579,23 @@ export default function CoachPPage() {
                           title={conversation.title}
                           data-testid={`button-coach-p-drawer-conversation-${conversation.id}`}
                         >
-                          {conversation.title}
+                          <span className="flex min-w-0 items-center gap-2">
+                            {conversation.pinned && <Pin className="h-3 w-3 shrink-0 fill-orange-300 text-orange-300" />}
+                            <span className="truncate">{conversation.title}</span>
+                          </span>
                         </button>
                         <button
-                          onClick={() => deleteConversation(conversation.id)}
+                          onClick={() => void togglePinConversation(conversation)}
+                          disabled={chatMutation.isPending}
+                          className="rounded p-1.5 text-zinc-600 transition-colors hover:text-orange-300 disabled:opacity-50"
+                          aria-label={conversation.pinned ? `Unpin ${conversation.title}` : `Pin ${conversation.title}`}
+                          title={conversation.pinned ? "Unpin chat" : "Pin chat"}
+                          data-testid={`button-coach-p-drawer-pin-${conversation.id}`}
+                        >
+                          {conversation.pinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+                        </button>
+                        <button
+                          onClick={() => setConversationToDelete(conversation)}
                           disabled={chatMutation.isPending}
                           className="mr-1 rounded p-1.5 text-zinc-600 opacity-0 transition-opacity hover:text-red-300 group-hover:opacity-100 disabled:opacity-50"
                           aria-label={`Delete ${conversation.title}`}
@@ -644,9 +706,10 @@ export default function CoachPPage() {
           <div className="relative flex min-h-[58px] items-center gap-2 rounded-full border border-orange-400/20 bg-zinc-950/95 px-2 py-2 shadow-[0_12px_44px_rgba(0,0,0,0.42),0_0_30px_rgba(249,115,22,0.08)] transition-colors focus-within:border-orange-400/45 focus-within:shadow-[0_12px_44px_rgba(0,0,0,0.42),0_0_34px_rgba(249,115,22,0.16)]">
             <button
               type="button"
+              onClick={startNewConversation}
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-zinc-500 transition-colors hover:bg-orange-400/10 hover:text-orange-300"
-              aria-label="Add context to Coach P message"
-              title="Add context"
+              aria-label="Start a new Coach P chat"
+              title="New chat"
               data-testid="button-coach-p-add-context"
             >
               <Plus className="h-5 w-5" />

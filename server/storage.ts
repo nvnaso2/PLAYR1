@@ -4151,7 +4151,7 @@ export class DatabaseStorage {
   async getCoachPConversations(userId: string): Promise<CoachPConversation[]> {
     return db.select().from(coachPConversations)
       .where(eq(coachPConversations.userId, userId))
-      .orderBy(desc(coachPConversations.updatedAt));
+      .orderBy(desc(coachPConversations.pinned), desc(coachPConversations.updatedAt));
   }
 
   async getCoachPConversation(userId: string, id: string): Promise<CoachPConversation | undefined> {
