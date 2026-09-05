@@ -78,7 +78,7 @@ const STARTER_PROMPTS = [
   },
   {
     label: "Prepare me for game day",
-    prompt: "Based on my PLAYR1 profile, training history, game statistics, and assessment, give me a simple game plan for my next game: what to hunt on offense, what to prioritize on defense, and one mental cue I can use when the game gets hard.",
+    prompt: "Based on my PLAYR1 profile, training history, game statistics, and assessment, prepare me for my next game from start to finish. Give me practical pregame physical preparation (readiness, fueling and hydration guidance, movement prep, and a basketball-specific warm-up), pregame mental preparation (focus, confidence, visualization, and a simple reset routine), then a simple in-game plan: what to hunt on offense, what to prioritize on defense, and one mental cue I can use when the game gets hard. Keep it realistic for my context and do not give medical advice.",
     icon: Gamepad2,
   },
   {
