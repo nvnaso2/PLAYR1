@@ -11303,7 +11303,6 @@ Never repeat information already answered. Return ONLY the question text, with n
         },
       ],
       max_completion_tokens: 180,
-      temperature: 0.7,
     });
     return completion.choices[0].message.content?.trim() ?? "What would you love basketball to make possible for you right now?";
   }
@@ -11355,7 +11354,6 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
         },
       ],
       max_completion_tokens: 5000,
-      temperature: 0.75,
     });
     const raw = completion.choices[0].message.content?.trim() ?? "{}";
     const normalized = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
@@ -11538,7 +11536,6 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
           },
         ],
         max_completion_tokens: 400,
-        temperature: 0.75,
       });
 
       const aiResponse = completion.choices[0].message.content?.trim() ?? "";
