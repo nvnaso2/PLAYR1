@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowUp, Dumbbell, Flag, Gamepad2, GraduationCap, Loader2, Menu, MessageSquarePlus, Target, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowUp, Dumbbell, Flag, Gamepad2, GraduationCap, Loader2, Menu, MessageSquarePlus, Plus, Target, Trash2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -133,7 +133,11 @@ function CoachPResponse({ content }: { content: string }) {
       blocks.push({ type: "image", alt: image[1] || "Coach P visual", src: image[2] });
       return;
     }
-    const heading = line.match(/^#{1,3}\s+(.+)$/) || line.match(/^\*\*(.+)\*\*$/);
+    const heading = line.match(/^#{1,3}\s+(.+)$/)
+      || line.match(/^\*\*(.+)\*\*$/)
+      || (line.length <= 70 && (line.endsWith(":") || /^[A-Z][^.!?]{3,58}$/.test(line))
+        ? [line, line.replace(/:$/, "")]
+        : null);
     if (heading) {
       flushParagraph();
       flushList();
@@ -164,10 +168,10 @@ function CoachPResponse({ content }: { content: string }) {
   flushList();
 
   return (
-    <div className="space-y-5 text-[15px] leading-7 text-zinc-200">
+    <div className="space-y-6 text-[15px] leading-7 text-zinc-200">
       {blocks.map((block, index) => {
         if (block.type === "heading") {
-          return <h3 key={index} className="pt-1 text-base font-semibold tracking-tight text-white">{inlineCoachPText(block.text)}</h3>;
+          return <h3 key={index} className="pt-2 text-xl font-semibold leading-tight tracking-[-0.02em] text-white">{inlineCoachPText(block.text)}</h3>;
         }
         if (block.type === "callout") {
           return (
@@ -186,7 +190,7 @@ function CoachPResponse({ content }: { content: string }) {
         }
         if (block.type === "bullet" || block.type === "numbered") {
           return (
-            <ol key={index} className="space-y-3">
+            <ol key={index} className="space-y-3.5">
               {block.items.map((item, itemIndex) => (
                 <li key={itemIndex} className="flex gap-3">
                   {block.type === "numbered" ? (
@@ -271,7 +275,7 @@ export default function CoachPPage() {
         typingTimerRef.current = null;
         return;
       }
-      const characterCount = Math.max(1, Math.min(4, Math.ceil(pending.length / 45)));
+      const characterCount = Math.max(1, Math.min(2, Math.ceil(pending.length / 80)));
       const visibleText = pending.slice(0, characterCount);
       pendingAssistantTextRef.current = pending.slice(characterCount);
       setMessages((previous) => {
@@ -280,7 +284,7 @@ export default function CoachPPage() {
         return [...previous.slice(0, -1), { ...last, content: last.content + visibleText }];
       });
       requestAnimationFrame(() => scrollToBottom());
-      typingTimerRef.current = setTimeout(tick, 14);
+      typingTimerRef.current = setTimeout(tick, 30);
     };
     typingTimerRef.current = setTimeout(tick, 0);
   };
@@ -398,9 +402,13 @@ export default function CoachPPage() {
     ];
     let index = 0;
     const timer = window.setInterval(() => {
-      index = (index + 1) % stages.length;
+      if (index >= stages.length - 1) {
+        window.clearInterval(timer);
+        return;
+      }
+      index += 1;
       setThinkingStage(stages[index]);
-    }, 1800);
+    }, 2200);
     return () => window.clearInterval(timer);
   }, [chatMutation.isPending]);
 
@@ -633,8 +641,17 @@ export default function CoachPPage() {
         )}
 
         <div className="relative z-30 shrink-0 border-t border-white/[0.05] bg-[#080808] pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
-          <div className="rounded-2xl border border-white/[0.08] bg-zinc-950/95 p-2 shadow-[0_14px_50px_rgba(0,0,0,0.45),0_0_26px_rgba(249,115,22,0.04)] focus-within:border-orange-400/30">
-            <div className="flex items-end gap-2">
+          <div className="relative flex min-h-[58px] items-center gap-2 rounded-full border border-orange-400/20 bg-zinc-950/95 px-2 py-2 shadow-[0_12px_44px_rgba(0,0,0,0.42),0_0_30px_rgba(249,115,22,0.08)] transition-colors focus-within:border-orange-400/45 focus-within:shadow-[0_12px_44px_rgba(0,0,0,0.42),0_0_34px_rgba(249,115,22,0.16)]">
+            <button
+              type="button"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-zinc-500 transition-colors hover:bg-orange-400/10 hover:text-orange-300"
+              aria-label="Add context to Coach P message"
+              title="Add context"
+              data-testid="button-coach-p-add-context"
+            >
+              <Plus className="h-5 w-5" />
+            </button>
+            <div className="flex min-w-0 flex-1 items-center">
               <Textarea
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
@@ -646,19 +663,20 @@ export default function CoachPPage() {
                 }}
                 placeholder={canSend ? "Ask Coach P anything about your game..." : "Monthly limit reached — type here after upgrading"}
                 disabled={chatMutation.isPending}
-                className="min-h-[56px] max-h-32 resize-none rounded-xl border border-white/[0.08] bg-zinc-900/70 px-3 py-3 text-[15px] text-zinc-100 placeholder:text-zinc-500 focus-visible:border-orange-400/40 focus-visible:ring-2 focus-visible:ring-orange-400/10"
+                className="min-h-[40px] max-h-32 resize-none rounded-none border-0 bg-transparent px-2 py-2.5 text-[15px] text-zinc-100 placeholder:text-zinc-500 focus-visible:ring-0"
                 data-testid="textarea-coach-p"
               />
+            </div>
+            <span className="hidden shrink-0 px-2 text-xs font-medium tracking-wide text-zinc-600 sm:inline">Coach P</span>
               <Button
                 size="icon"
                 onClick={() => sendMessage(draft)}
                 disabled={!draft.trim() || !canSend || chatMutation.isPending}
-                className="rounded-xl bg-orange-500 text-black shadow-[0_0_20px_rgba(249,115,22,0.2)] hover:bg-orange-400 shrink-0"
+                className="h-10 w-10 shrink-0 rounded-full bg-orange-500 text-black shadow-[0_0_20px_rgba(249,115,22,0.22)] hover:bg-orange-400"
                 data-testid="button-send-coach-p"
               >
                 {chatMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUp className="w-4 h-4" />}
               </Button>
-            </div>
           </div>
           <p className="mt-2 text-center text-[10px] tracking-wide text-zinc-700">Shift + Enter for a new line</p>
         </div>
