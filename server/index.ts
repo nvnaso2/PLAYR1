@@ -20,6 +20,7 @@ app.use(
     threshold: 1024,
     filter: (req, res) => {
       if (req.headers["x-no-compression"]) return false;
+      if (req.headers.accept?.includes("text/event-stream")) return false;
       return compression.filter(req, res);
     },
   }),

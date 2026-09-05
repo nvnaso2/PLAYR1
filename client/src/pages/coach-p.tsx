@@ -101,6 +101,7 @@ function CoachPResponse({ content }: { content: string }) {
     | { type: "paragraph"; lines: string[] }
     | { type: "bullet" | "numbered"; items: string[] }
     | { type: "heading" | "callout"; text: string }
+    | { type: "image"; alt: string; src: string }
   > = [];
   let paragraph: string[] = [];
   let listType: "bullet" | "numbered" | null = null;
@@ -123,6 +124,13 @@ function CoachPResponse({ content }: { content: string }) {
     if (!line) {
       flushParagraph();
       flushList();
+      return;
+    }
+    const image = line.match(/^!\[([^\]]*)\]\((https?:\/\/[^)\s]+)\)$/i);
+    if (image) {
+      flushParagraph();
+      flushList();
+      blocks.push({ type: "image", alt: image[1] || "Coach P visual", src: image[2] });
       return;
     }
     const heading = line.match(/^#{1,3}\s+(.+)$/) || line.match(/^\*\*(.+)\*\*$/);
@@ -166,6 +174,14 @@ function CoachPResponse({ content }: { content: string }) {
             <div key={index} className="rounded-r-xl border-l-2 border-orange-400 bg-orange-400/[0.07] px-4 py-3 text-sm leading-6 text-orange-50">
               {inlineCoachPText(block.text)}
             </div>
+          );
+        }
+        if (block.type === "image") {
+          return (
+            <figure key={index} className="overflow-hidden rounded-2xl border border-white/[0.08] bg-zinc-950 shadow-[0_12px_36px_rgba(0,0,0,0.24)]">
+              <img src={block.src} alt={block.alt} loading="lazy" className="max-h-80 w-full object-cover" />
+              {block.alt && <figcaption className="px-4 py-2 text-xs text-zinc-500">{block.alt}</figcaption>}
+            </figure>
           );
         }
         if (block.type === "bullet" || block.type === "numbered") {
@@ -372,6 +388,22 @@ export default function CoachPPage() {
     },
   });
 
+  useEffect(() => {
+    if (!chatMutation.isPending) return;
+    const stages = [
+      "Reading your question...",
+      "Checking your player profile...",
+      "Finding what matters most...",
+      "Building your coaching plan...",
+    ];
+    let index = 0;
+    const timer = window.setInterval(() => {
+      index = (index + 1) % stages.length;
+      setThinkingStage(stages[index]);
+    }, 1800);
+    return () => window.clearInterval(timer);
+  }, [chatMutation.isPending]);
+
   const sendMessage = (value: string) => {
     const content = value.trim();
     if (!content || chatMutation.isPending || !canSend) return;
@@ -430,7 +462,7 @@ export default function CoachPPage() {
   };
 
   return (
-    <div className="h-dvh overflow-hidden bg-[#080808] text-white">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#080808] text-white">
       <header className="relative z-40 h-16 border-b border-white/[0.06] bg-[#080808]/90 px-4 backdrop-blur-xl sm:px-6 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
@@ -536,7 +568,7 @@ export default function CoachPPage() {
         )}
       </header>
 
-      <main className="mx-auto flex h-[calc(100dvh-4rem)] min-h-0 w-full max-w-3xl flex-col px-4 sm:px-6">
+      <main className="mx-auto flex min-h-0 flex-1 w-full max-w-3xl flex-col px-4 sm:px-6">
         <section
           ref={scrollRef}
           className={`min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-smooth ${
