@@ -2415,13 +2415,49 @@ export interface GoalWeeklyFocus {
   dailySchedule: GoalDaySchedule[];
 }
 
+export interface GoalPlanAction {
+  title: string;
+  description: string;
+  type: "train" | "learn" | "play" | "reflect" | "connect" | "create" | "recover";
+  estimatedMinutes?: number;
+}
+
+export interface GoalPlanPhase {
+  phase: number;
+  title: string;
+  purpose: string;
+  actions: GoalPlanAction[];
+  progressSignal: string;
+}
+
+export interface GoalPlanMilestone {
+  phase: number;
+  type: "outcome" | "capability" | "process" | "experience" | "evidence" | "reflection" | "opportunity";
+  title: string;
+  description: string;
+  targetDate?: string;
+}
+
+// The new plan is intentionally broader than a workout calendar. The legacy
+// weeklyFocus fields remain optional so older saved goals still render safely.
 export interface GoalProgram {
-  programTitle: string;
-  programSummary: string;
+  projectTitle: string;
+  projectType: string;
+  projectSummary: string;
+  programTitle?: string;
+  programSummary?: string;
   coachNote: string;
-  totalWeeks: number;
-  weeklyFocus: GoalWeeklyFocus[];
-  milestones: { week: number; title: string; description: string }[];
+  whyItMatters: string;
+  successDefinition: string;
+  timelineSummary: string;
+  currentChapter: string;
+  nextAction: GoalPlanAction;
+  focusAreas: string[];
+  successSignals: string[];
+  phases: GoalPlanPhase[];
+  milestones: GoalPlanMilestone[];
+  totalWeeks?: number;
+  weeklyFocus?: GoalWeeklyFocus[];
 }
 
 export const playerGoals = pgTable("player_goals", {
@@ -2430,6 +2466,16 @@ export const playerGoals = pgTable("player_goals", {
   goalText: text("goal_text").notNull(),
   status: varchar("status").notNull().default("clarifying"),
   aiProgram: jsonb("ai_program").$type<GoalProgram>(),
+  projectTitle: varchar("project_title"),
+  projectType: varchar("project_type"),
+  whyItMatters: text("why_it_matters"),
+  successDefinition: text("success_definition"),
+  timelineType: varchar("timeline_type"),
+  targetDate: varchar("target_date"),
+  seasonLabel: varchar("season_label"),
+  currentChapter: text("current_chapter"),
+  nextAction: text("next_action"),
+  successSignals: jsonb("success_signals").$type<string[]>(),
   currentWeek: integer("current_week").notNull().default(1),
   totalWeeks: integer("total_weeks").notNull().default(8),
   createdAt: timestamp("created_at").defaultNow(),
@@ -2449,6 +2495,8 @@ export const goalMilestones = pgTable("goal_milestones", {
   goalId: varchar("goal_id").notNull(),
   userId: varchar("user_id").notNull(),
   weekNumber: integer("week_number").notNull(),
+  milestoneType: varchar("milestone_type").notNull().default("progress"),
+  targetDate: varchar("target_date"),
   title: varchar("title").notNull(),
   description: text("description"),
   completed: boolean("completed").notNull().default(false),
@@ -2460,6 +2508,7 @@ export const goalCheckIns = pgTable("goal_check_ins", {
   goalId: varchar("goal_id").notNull(),
   userId: varchar("user_id").notNull(),
   weekNumber: integer("week_number").notNull(),
+  periodLabel: varchar("period_label"),
   userInput: text("user_input").notNull(),
   aiResponse: text("ai_response"),
   createdAt: timestamp("created_at").defaultNow(),

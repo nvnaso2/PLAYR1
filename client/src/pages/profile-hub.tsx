@@ -31,8 +31,8 @@ const sections = [
     testId: "card-profile-career",
   },
   {
-    title: "My Goal",
-    description: "Set and track your personal development goal",
+    title: "My PLAYR1 Project",
+    description: "Discover and follow the basketball project that fits your story",
     icon: BotMessageSquare,
     color: "text-blue-400",
     bg: "bg-blue-500/10",

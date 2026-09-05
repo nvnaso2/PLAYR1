@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
@@ -24,6 +25,8 @@ import {
   Bot,
   Send,
   RotateCcw,
+  LockKeyhole,
+  ArrowRight,
 } from "lucide-react";
 import type { PlayerGoal, GoalClarification, GoalMilestone, GoalCheckIn, GoalProgram } from "@shared/schema";
 
@@ -32,9 +35,8 @@ type GoalData = {
   clarifications: GoalClarification[];
   milestones: GoalMilestone[];
   checkIns: GoalCheckIn[];
+  isPro?: boolean;
 } | null;
-
-const WEEK_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 function AiBubble({ text }: { text: string }) {
   return (
@@ -75,10 +77,11 @@ function GoalInputForm({ onCreated }: { onCreated: () => void }) {
   });
 
   const examples = [
-    "Shoot 40% from three-point range this season",
-    "Become more explosive finishing at the rim",
-    "Improve my ball handling and reduce turnovers",
-    "Develop a consistent mid-range pull-up jumper",
+    "I want to make my middle school team and feel ready for tryouts",
+    "I'm not sure what my basketball project is yet — help me discover it",
+    "I want to learn the fundamentals and build a basketball identity",
+    "I want to play intramurals, have fun, and feel more confident",
+    "I want to build a basketball content project around my journey",
   ];
 
   return (
@@ -89,9 +92,9 @@ function GoalInputForm({ onCreated }: { onCreated: () => void }) {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-orange-500/15 border border-orange-500/30 mb-2">
             <Target className="w-8 h-8 text-orange-400" />
           </div>
-          <h1 className="text-3xl font-bold text-white">My Career</h1>
+          <h1 className="text-3xl font-bold text-white">My PLAYR1 Project</h1>
           <p className="text-zinc-400 text-base leading-relaxed">
-            Tell your AI coach what you want to achieve. It'll ask a few quick questions, then build you a personalized 8-week program.
+            Your basketball journey is bigger than one skill. Tell Coach P what you want basketball to make possible, and discover the project that fits your story.
           </p>
         </div>
 
@@ -101,7 +104,7 @@ function GoalInputForm({ onCreated }: { onCreated: () => void }) {
             data-testid="input-goal-text"
             value={goalText}
             onChange={(e) => setGoalText(e.target.value)}
-            placeholder="e.g. I want to shoot 40% from three by the end of the season..."
+            placeholder="e.g. I’m not sure what my basketball project is yet — help me figure it out..."
             className="min-h-[120px] bg-zinc-900 border-zinc-700 text-white placeholder:text-zinc-500 text-base resize-none focus-visible:ring-orange-500/50"
           />
           <Button
@@ -122,6 +125,9 @@ function GoalInputForm({ onCreated }: { onCreated: () => void }) {
               </>
             )}
           </Button>
+          <p className="text-center text-xs text-zinc-500">
+            Your full PLAYR1 Project Builder is free. Pro unlocks the coaching and progress loop after you finish.
+          </p>
         </div>
 
         {/* Examples */}
@@ -182,12 +188,12 @@ function ClarifyingView({
 
   function handleSubmit() {
     if (!pending || !answer.trim()) return;
-    const isLast = answered.length === 2;
+    const isLast = answered.length === 4;
     if (isLast) setIsGenerating(true);
     answerMutation.mutate({ clarificationId: pending.id, answerText: answer.trim() });
   }
 
-  const totalQuestions = 3;
+  const totalQuestions = 5;
   const progress = Math.round((answered.length / totalQuestions) * 100);
 
   if (isGenerating) {
@@ -199,9 +205,9 @@ function ClarifyingView({
           </div>
         </div>
         <div className="space-y-2">
-          <h2 className="text-2xl font-bold text-white">Building Your Program</h2>
+          <h2 className="text-2xl font-bold text-white">Discovering Your Project</h2>
           <p className="text-zinc-400 max-w-xs mx-auto">
-            Your AI coach is analyzing your goal and archetype to design a personalized 8-week plan...
+            Coach P is connecting your answers, your player profile, and your basketball story into a path that belongs to you...
           </p>
         </div>
         <div className="flex gap-1.5">
@@ -280,21 +286,21 @@ function ClarifyingView({
   );
 }
 
-function WeekCard({ week, isExpanded, onToggle }: { week: NonNullable<GoalProgram["weeklyFocus"]>[0]; isExpanded: boolean; onToggle: () => void }) {
+function PhaseCard({ phase, isExpanded, onToggle }: { phase: NonNullable<GoalProgram["phases"]>[0]; isExpanded: boolean; onToggle: () => void }) {
   return (
     <div className="border border-zinc-800 rounded-xl overflow-hidden">
       <button
-        data-testid={`button-week-toggle-${week.week}`}
+        data-testid={`button-phase-toggle-${phase.phase}`}
         onClick={onToggle}
         className="w-full flex items-center justify-between px-5 py-4 bg-zinc-900 hover:bg-zinc-800/80 transition-colors text-left"
       >
         <div className="flex items-center gap-4">
           <div className="flex-shrink-0 w-10 h-10 rounded-full bg-orange-500/10 border border-orange-500/30 flex items-center justify-center">
-            <span className="text-sm font-bold text-orange-400">{week.week}</span>
+            <span className="text-sm font-bold text-orange-400">{phase.phase}</span>
           </div>
           <div>
-            <p className="text-sm font-semibold text-white">{week.theme}</p>
-            <p className="text-xs text-zinc-400">{week.focus}</p>
+            <p className="text-sm font-semibold text-white">{phase.title}</p>
+            <p className="text-xs text-zinc-400">{phase.purpose}</p>
           </div>
         </div>
         {isExpanded ? <ChevronUp className="w-4 h-4 text-zinc-500" /> : <ChevronDown className="w-4 h-4 text-zinc-500" />}
@@ -303,29 +309,23 @@ function WeekCard({ week, isExpanded, onToggle }: { week: NonNullable<GoalProgra
       {isExpanded && (
         <div className="px-5 pb-4 bg-zinc-900/60 space-y-2">
           <div className="h-px bg-zinc-800 mb-3" />
-          {week.dailySchedule?.map((day, i) => (
-            <div key={i} className="flex items-start gap-3 py-2">
-              <div className="w-20 flex-shrink-0">
-                <span className="text-xs font-medium text-zinc-400">{day.day.slice(0, 3)}</span>
+          <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Actions in this phase</p>
+          {phase.actions?.map((action, i) => (
+            <div key={i} className="flex items-start gap-3 py-3 border-b border-zinc-800/70 last:border-0">
+              <div className="w-16 flex-shrink-0">
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-orange-500/30 text-orange-300 capitalize">{action.type}</Badge>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-white font-medium">{day.activity}</p>
-                {day.details && <p className="text-xs text-zinc-500 mt-0.5">{day.details}</p>}
+                <p className="text-sm text-white font-medium">{action.title}</p>
+                <p className="text-xs text-zinc-500 mt-0.5">{action.description}</p>
               </div>
-              <div className="flex-shrink-0 text-right">
-                <span className="text-xs text-zinc-400">{day.duration}</span>
-                {day.drillCategories?.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-1 justify-end">
-                    {day.drillCategories.map((cat) => (
-                      <Badge key={cat} variant="outline" className="text-xs px-1.5 py-0 border-zinc-700 text-zinc-400">
-                        {cat}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-              </div>
+              {action.estimatedMinutes && <span className="flex-shrink-0 text-xs text-zinc-400">{action.estimatedMinutes} min</span>}
             </div>
           ))}
+          <div className="mt-3 rounded-lg bg-orange-500/5 border border-orange-500/15 px-3 py-2">
+            <p className="text-[10px] uppercase tracking-wider text-orange-400/80">Progress signal</p>
+            <p className="text-xs text-zinc-300 mt-1">{phase.progressSignal}</p>
+          </div>
         </div>
       )}
     </div>
@@ -334,7 +334,8 @@ function WeekCard({ week, isExpanded, onToggle }: { week: NonNullable<GoalProgra
 
 function ActiveGoalView({ data, onAbandoned }: { data: GoalData; onAbandoned: () => void }) {
   const { toast } = useToast();
-  const [expandedWeek, setExpandedWeek] = useState<number | null>(1);
+  const [, navigate] = useLocation();
+  const [expandedPhase, setExpandedPhase] = useState<number | null>(1);
   const [checkInText, setCheckInText] = useState("");
   const [expandedCheckIn, setExpandedCheckIn] = useState<string | null>(null);
 
@@ -342,10 +343,26 @@ function ActiveGoalView({ data, onAbandoned }: { data: GoalData; onAbandoned: ()
   const milestones = data!.milestones;
   const checkIns = data!.checkIns;
   const program = goal.aiProgram as GoalProgram | null;
+  const phases = program?.phases?.length
+    ? program.phases
+    : (program?.weeklyFocus ?? []).map((week) => ({
+        phase: week.week,
+        title: week.theme,
+        purpose: week.focus,
+        actions: (week.dailySchedule ?? []).map((day) => ({
+          title: day.activity,
+          description: day.details,
+          type: day.activity.toLowerCase().includes("rest") ? "recover" as const : "train" as const,
+          estimatedMinutes: Number.parseInt(day.duration, 10) || undefined,
+        })),
+        progressSignal: "Complete the focus for this phase and notice what feels more available in your game.",
+      }));
 
-  const progressPct = Math.round(((goal.currentWeek - 1) / goal.totalWeeks) * 100);
+  const progressPct = milestones.length
+    ? Math.round((milestones.filter((m) => m.completed).length / milestones.length) * 100)
+    : 0;
   const completedMilestones = milestones.filter((m) => m.completed).length;
-  const hasCheckInThisWeek = checkIns.some((c) => c.weekNumber === goal.currentWeek);
+  const hasCheckInThisPhase = checkIns.some((c) => c.weekNumber === goal.currentWeek);
 
   const completeMilestoneMutation = useMutation({
     mutationFn: (milestoneId: string) =>
@@ -362,7 +379,7 @@ function ActiveGoalView({ data, onAbandoned }: { data: GoalData; onAbandoned: ()
 
   const checkInMutation = useMutation({
     mutationFn: (input: string) =>
-      apiRequest("POST", `/api/goals/${goal.id}/checkin`, { userInput: input, weekNumber: goal.currentWeek }),
+      apiRequest("POST", `/api/goals/${goal.id}/checkin`, { userInput: input, phaseNumber: goal.currentWeek }),
     onSuccess: () => {
       setCheckInText("");
       queryClient.invalidateQueries({ queryKey: ["/api/goals/active"] });
@@ -389,9 +406,10 @@ function ActiveGoalView({ data, onAbandoned }: { data: GoalData; onAbandoned: ()
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 text-orange-400 text-xs font-medium mb-1">
               <Target className="w-3.5 h-3.5" />
-              YOUR GOAL
+              YOUR PLAYR1 PROJECT
             </div>
-            <p className="text-white font-semibold text-base leading-snug">{goal.goalText}</p>
+            <h1 className="text-white font-semibold text-xl leading-snug">{goal.projectTitle || program?.projectTitle || "My PLAYR1 Project"}</h1>
+            <p className="text-zinc-300 text-sm leading-relaxed mt-2">{goal.goalText}</p>
           </div>
           <Badge
             data-testid="badge-goal-status"
@@ -414,10 +432,22 @@ function ActiveGoalView({ data, onAbandoned }: { data: GoalData; onAbandoned: ()
           </div>
         )}
 
+        {program?.whyItMatters && (
+          <div className="rounded-xl bg-zinc-800/50 border border-zinc-700/60 px-4 py-3">
+            <p className="text-[10px] uppercase tracking-wider text-zinc-500">Why this matters</p>
+            <p className="text-sm text-zinc-300 mt-1 leading-relaxed">{program.whyItMatters}</p>
+          </div>
+        )}
+
+        <div className="flex flex-wrap gap-2">
+          {goal.projectType && <Badge variant="outline" className="border-orange-500/30 text-orange-300">{goal.projectType}</Badge>}
+          {program?.timelineSummary && <Badge variant="outline" className="border-zinc-700 text-zinc-400">{program.timelineSummary}</Badge>}
+        </div>
+
         {/* Progress */}
         <div className="space-y-1.5">
           <div className="flex justify-between text-xs text-zinc-400">
-            <span>Week {goal.currentWeek} of {goal.totalWeeks}</span>
+            <span>{program?.currentChapter ? `Current chapter: ${program.currentChapter}` : `Phase ${goal.currentWeek} of ${goal.totalWeeks}`}</span>
             <span>{completedMilestones}/{milestones.length} milestones</span>
           </div>
           <Progress value={progressPct} className="h-2 bg-zinc-800" />
@@ -425,8 +455,8 @@ function ActiveGoalView({ data, onAbandoned }: { data: GoalData; onAbandoned: ()
 
         {program && (
           <div className="pt-1">
-            <h3 className="text-base font-semibold text-white">{program.programTitle}</h3>
-            <p className="text-sm text-zinc-400 mt-0.5">{program.programSummary}</p>
+            <h3 className="text-base font-semibold text-white">{program.projectSummary || program.programSummary}</h3>
+            {program.successDefinition && <p className="text-sm text-zinc-400 mt-2"><span className="text-zinc-500">Success looks like:</span> {program.successDefinition}</p>}
           </div>
         )}
       </div>
@@ -436,7 +466,7 @@ function ActiveGoalView({ data, onAbandoned }: { data: GoalData; onAbandoned: ()
         <TabsList className="bg-zinc-900 border border-zinc-800 w-full">
           <TabsTrigger data-testid="tab-program" value="program" className="flex-1 data-[state=active]:bg-zinc-800">
             <CalendarDays className="w-4 h-4 mr-1.5" />
-            Program
+            Plan
           </TabsTrigger>
           <TabsTrigger data-testid="tab-milestones" value="milestones" className="flex-1 data-[state=active]:bg-zinc-800">
             <Trophy className="w-4 h-4 mr-1.5" />
@@ -450,17 +480,33 @@ function ActiveGoalView({ data, onAbandoned }: { data: GoalData; onAbandoned: ()
 
         {/* Program Tab */}
         <TabsContent value="program" className="mt-4 space-y-3">
-          {program?.weeklyFocus?.length ? (
-            program.weeklyFocus.map((week) => (
-              <WeekCard
-                key={week.week}
-                week={week}
-                isExpanded={expandedWeek === week.week}
-                onToggle={() => setExpandedWeek(expandedWeek === week.week ? null : week.week)}
+          {program?.nextAction && (
+            <Card className="bg-orange-500/10 border-orange-500/25">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm text-orange-300 flex items-center gap-2"><Sparkles className="w-4 h-4" />Start here</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-white font-semibold">{program.nextAction.title}</p>
+                <p className="text-sm text-zinc-300 mt-1">{program.nextAction.description}</p>
+              </CardContent>
+            </Card>
+          )}
+          {program?.focusAreas?.length ? (
+            <div className="flex flex-wrap gap-2">
+              {program.focusAreas.map((area) => <Badge key={area} variant="outline" className="border-zinc-700 text-zinc-300">{area}</Badge>)}
+            </div>
+          ) : null}
+          {phases.length ? (
+            phases.map((phase) => (
+              <PhaseCard
+                key={phase.phase}
+                phase={phase}
+                isExpanded={expandedPhase === phase.phase}
+                onToggle={() => setExpandedPhase(expandedPhase === phase.phase ? null : phase.phase)}
               />
             ))
           ) : (
-            <p className="text-zinc-500 text-sm text-center py-8">Program data not available</p>
+            <p className="text-zinc-500 text-sm text-center py-8">Your project plan is being prepared.</p>
           )}
         </TabsContent>
 
@@ -491,8 +537,8 @@ function ActiveGoalView({ data, onAbandoned }: { data: GoalData; onAbandoned: ()
                     <p className={`text-sm font-semibold ${m.completed ? "text-green-300 line-through" : "text-white"}`}>
                       {m.title}
                     </p>
-                    <Badge variant="outline" className="text-xs border-zinc-700 text-zinc-500 px-1.5 py-0">
-                      Week {m.weekNumber}
+                    <Badge variant="outline" className="text-xs border-zinc-700 text-zinc-500 px-1.5 py-0 capitalize">
+                      {m.milestoneType || "Progress"} · Phase {m.weekNumber}
                     </Badge>
                   </div>
                   {m.description && (
@@ -505,10 +551,10 @@ function ActiveGoalView({ data, onAbandoned }: { data: GoalData; onAbandoned: ()
                     size="sm"
                     variant="outline"
                     className="flex-shrink-0 border-orange-500/40 text-orange-400 hover:bg-orange-500/10 hover:border-orange-500/60 text-xs"
-                    onClick={() => completeMilestoneMutation.mutate(m.id)}
+                    onClick={() => data?.isPro ? completeMilestoneMutation.mutate(m.id) : navigate("/subscription")}
                     disabled={completeMilestoneMutation.isPending}
                   >
-                    {completeMilestoneMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Mark Done"}
+                    {completeMilestoneMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : data?.isPro ? "Mark Done" : <><LockKeyhole className="w-3 h-3 mr-1" />Unlock</>}
                   </Button>
                 )}
               </div>
@@ -519,35 +565,50 @@ function ActiveGoalView({ data, onAbandoned }: { data: GoalData; onAbandoned: ()
         {/* Check-ins Tab */}
         <TabsContent value="checkins" className="mt-4 space-y-4">
           {/* New check-in form */}
-          {goal.status === "active" && !hasCheckInThisWeek && (
+          {goal.status === "active" && !hasCheckInThisPhase && (
             <Card className="bg-zinc-900 border-zinc-800">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
                   <MessageSquare className="w-4 h-4 text-orange-400" />
-                  Week {goal.currentWeek} Check-in
+                  Phase {goal.currentWeek} Check-in
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <p className="text-sm text-zinc-400">How's it going? What have you been working on this week?</p>
-                <Textarea
-                  data-testid="input-checkin-text"
-                  value={checkInText}
-                  onChange={(e) => setCheckInText(e.target.value)}
-                  placeholder="Share your progress, wins, struggles, or anything on your mind..."
-                  className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500 min-h-[100px] resize-none focus-visible:ring-orange-500/50"
-                />
-                <Button
-                  data-testid="button-submit-checkin"
-                  onClick={() => checkInMutation.mutate(checkInText)}
-                  disabled={!checkInText.trim() || checkInMutation.isPending}
-                  className="w-full bg-orange-500 hover:bg-orange-600 text-black font-semibold"
-                >
-                  {checkInMutation.isPending ? (
-                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Coach is responding...</>
-                  ) : (
-                    <><Send className="w-4 h-4 mr-2" />Submit Check-in</>
-                  )}
-                </Button>
+                {!data?.isPro ? (
+                  <div className="rounded-xl border border-orange-500/25 bg-orange-500/10 p-4">
+                    <div className="flex items-start gap-3">
+                      <LockKeyhole className="w-5 h-5 text-orange-300 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-white">Your project is ready.</p>
+                        <p className="text-sm text-zinc-300 mt-1">Upgrade to Pro to keep checking in with Coach P, adapt your plan, and keep building momentum.</p>
+                        <Button onClick={() => navigate("/subscription")} className="mt-3 bg-orange-500 hover:bg-orange-600 text-black font-semibold">
+                          Continue with Pro <ArrowRight className="w-4 h-4 ml-2" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ) : <>
+                  <p className="text-sm text-zinc-400">What have you tried, noticed, or learned in this chapter?</p>
+                  <Textarea
+                    data-testid="input-checkin-text"
+                    value={checkInText}
+                    onChange={(e) => setCheckInText(e.target.value)}
+                    placeholder="Share your progress, wins, struggles, or anything on your mind..."
+                    className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500 min-h-[100px] resize-none focus-visible:ring-orange-500/50"
+                  />
+                  <Button
+                    data-testid="button-submit-checkin"
+                    onClick={() => checkInMutation.mutate(checkInText)}
+                    disabled={!checkInText.trim() || checkInMutation.isPending}
+                    className="w-full bg-orange-500 hover:bg-orange-600 text-black font-semibold"
+                  >
+                    {checkInMutation.isPending ? (
+                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Coach is responding...</>
+                    ) : (
+                      <><Send className="w-4 h-4 mr-2" />Submit Check-in</>
+                    )}
+                  </Button>
+                </>}
               </CardContent>
             </Card>
           )}
@@ -566,7 +627,7 @@ function ActiveGoalView({ data, onAbandoned }: { data: GoalData; onAbandoned: ()
                     <div className="flex items-center gap-3">
                       <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
                       <div>
-                        <p className="text-sm font-medium text-white">Week {ci.weekNumber} Check-in</p>
+                        <p className="text-sm font-medium text-white">{ci.periodLabel || `Phase ${ci.weekNumber}`} Check-in</p>
                         <p className="text-xs text-zinc-500 line-clamp-1">{ci.userInput}</p>
                       </div>
                     </div>

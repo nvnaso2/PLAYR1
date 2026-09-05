@@ -1111,7 +1111,7 @@ Start now with a warm one-line greeting that briefly references something specif
         return `${entry.createdAt ? new Date(entry.createdAt).toLocaleDateString() : "unknown date"}${entry.mood ? `, mood ${entry.mood}/5` : ""}: ${answers.slice(0, 500)}${entry.thoughts ? ` | Thoughts: ${entry.thoughts.slice(0, 500)}` : ""}`;
       }).join("\n") || "No journal reflections yet.";
       const goalText = activeGoal
-        ? `Active goal: ${activeGoal.goalText}\nStatus: ${activeGoal.status}; week ${activeGoal.currentWeek} of ${activeGoal.totalWeeks}`
+        ? `Active PLAYR1 Project: ${activeGoal.projectTitle || activeGoal.goalText}\nStatus: ${activeGoal.status}; phase ${activeGoal.currentWeek} of ${activeGoal.totalWeeks}`
         : "No active goal yet.";
       const drillCatalog = availableDrills.map((drill: any) => ({
         title: drill.title,
@@ -11033,10 +11033,66 @@ Return ONLY valid JSON array, no markdown.`;
     }
   });
 
-  // ===== GOAL COACH ROUTES =====
-  const TOTAL_CLARIFYING_QUESTIONS = 3;
+  // ===== PLAYR1 PROJECT ROUTES =====
+  // Project discovery is intentionally quota-exempt. It is the free diagnostic
+  // intake that helps a player understand their direction; Pro unlocks the
+  // ongoing coaching loop after the project is built.
+  const TOTAL_DISCOVERY_QUESTIONS = 5;
+
+  async function getGoalPlayerContext(userId: string) {
+    const [profile, career, userArchetypes, principles] = await Promise.all([
+      storage.getUserProfile(userId),
+      storage.getCareerProfile(userId),
+      storage.getUserArchetypes(userId),
+      storage.getBrandPrinciples(),
+    ]);
+    const main = userArchetypes.find((a) => a.role === "main");
+    const secondary = userArchetypes.find((a) => a.role === "secondary");
+    const principlesText = principles
+      ? [
+          principles.mission && `Mission: ${principles.mission}`,
+          principles.trainingPhilosophy && `Training philosophy: ${principles.trainingPhilosophy}`,
+          principles.lifePrinciple && `Life principle: ${principles.lifePrinciple}`,
+          principles.toneReferences && `Tone: ${principles.toneReferences}`,
+        ].filter(Boolean).join("\n")
+      : "";
+    return {
+      profile,
+      career,
+      mainArchetype: main?.archetype?.name,
+      secondaryArchetype: secondary?.archetype?.name,
+      principlesText,
+    };
+  }
+
+  function formatGoalContext(context: Awaited<ReturnType<typeof getGoalPlayerContext>>) {
+    const career = context.career;
+    const profile = context.profile;
+    return [
+      `Player name: ${profile?.displayName || "Player"}`,
+      `Age: ${profile?.age ?? "not specified"}`,
+      `Skill level: ${profile?.skillLevel || "not specified"}`,
+      `Position(s): ${(career?.positions ?? []).join(", ") || "not specified"}`,
+      `Grade or life stage: ${career?.gradeLevel || "not specified"}`,
+      `School/team: ${[career?.schoolName, career?.teamName].filter(Boolean).join(" / ") || "not specified"}`,
+      `Aspiration: ${career?.aspiration || "not specified"}`,
+      `Focus skill: ${career?.focusSkill || "not specified"}`,
+      `Basketball lifestyle: ${(career?.basketballLifestyle ?? []).join(", ") || "not specified"}`,
+      `PLAYR1 moment: ${career?.playr1Moment || "not specified"}`,
+      `Assessment archetype: ${career?.assessmentArchetype || context.mainArchetype || "not completed"}`,
+      `Development stage: ${career?.assessmentStage || "not specified"}`,
+      `Bottleneck: ${career?.assessmentBottleneck || "not specified"}`,
+      `Primary onboarding goal: ${career?.assessmentPrimaryGoal || "not specified"}`,
+      `Mindset score: ${career?.assessmentMindsetScore ?? "not scored"}`,
+      `Dedication score: ${career?.assessmentDedicationScore ?? "not scored"}`,
+      `Experience score: ${career?.assessmentExperienceScore ?? "not scored"}`,
+      `Selected archetypes: ${[context.mainArchetype, context.secondaryArchetype].filter(Boolean).join(", ") || "none"}`,
+      context.principlesText ? `PLAYR1 principles:\n${context.principlesText}` : "",
+    ].filter(Boolean).join("\n");
+  }
 
   async function getClarifyingQuestion(
+    userId: string,
     goalText: string,
     questionIndex: number,
     prevQAs: { question: string; answer: string }[]
@@ -11046,61 +11102,106 @@ Return ONLY valid JSON array, no markdown.`;
       apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
       baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
     });
-    const topics = ["time availability and weekly training schedule", "current skill level and specific weaknesses", "what success looks like and what motivates you"];
+    const context = await getGoalPlayerContext(userId);
     const prevContext = prevQAs.length
-      ? "Previous questions and answers:\n" + prevQAs.map((qa, i) => `Q${i + 1}: ${qa.question}\nA${i + 1}: ${qa.answer}`).join("\n\n") + "\n\n"
-      : "";
+      ? "Previous discovery questions and answers:\n" + prevQAs.map((qa, i) => `Q${i + 1}: ${qa.question}\nA${i + 1}: ${qa.answer}`).join("\n\n") + "\n\n"
+      : "No discovery answers yet.\n\n";
     const completion = await openai.chat.completions.create({
       model: "gpt-5",
       messages: [
         {
           role: "system",
-          content: `You are an elite basketball AI coach on the PLAYR1 platform. Ask ONE short, specific, personal clarifying question about: ${topics[questionIndex]}. Return ONLY the question text, no preamble, no numbering.`,
+          content: `You are Coach P helping a basketball player discover their personal PLAYR1 Project.
+Ask ONE short, warm, specific question at a time. Use the player's existing context and previous answers.
+Do not assume the player wants to play professionally, improve a skill, or follow a fixed training schedule.
+If they are unsure, help them explore what they want basketball to make possible.
+Across the interview, learn the player's desired direction, why it matters, what success would look like, current reality/constraints, and timing or important opportunities.
+Never repeat information already answered. Return ONLY the question text, with no preamble or numbering.`,
         },
         {
           role: "user",
-          content: `${prevContext}Player's stated goal: "${goalText}"\n\nAsk clarifying question ${questionIndex + 1} of ${TOTAL_CLARIFYING_QUESTIONS}.`,
+          content: `PLAYER CONTEXT:\n${formatGoalContext(context)}\n\n${prevContext}Player's starting thought: "${goalText}"\nThis is discovery question ${questionIndex + 1} of ${TOTAL_DISCOVERY_QUESTIONS}.`,
         },
       ],
-      max_tokens: 120,
+      max_tokens: 180,
       temperature: 0.7,
     });
-    return completion.choices[0].message.content?.trim() ?? "How many days per week can you dedicate to training?";
+    return completion.choices[0].message.content?.trim() ?? "What would you love basketball to make possible for you right now?";
   }
 
-  async function generateGoalProgram(
+  async function generateGoalPlan(
+    userId: string,
     goalText: string,
     clarifications: { question: string; answer: string }[],
-    mainArchetype?: string,
-    secondaryArchetype?: string
   ): Promise<import("@shared/schema").GoalProgram> {
     const OpenAI = (await import("openai")).default;
     const openai = new OpenAI({
       apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
       baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
     });
-    const archetypeCtx = mainArchetype
-      ? `Player archetype: ${mainArchetype} (main)${secondaryArchetype ? `, ${secondaryArchetype} (secondary)` : ""}. `
-      : "";
+    const context = await getGoalPlayerContext(userId);
     const qaContext = clarifications.map((c, i) => `Q${i + 1}: ${c.question}\nA${i + 1}: ${c.answer}`).join("\n\n");
-
     const completion = await openai.chat.completions.create({
       model: "gpt-5",
       messages: [
         {
           role: "system",
-          content: `You are an elite basketball AI coach on the PLAYR1 platform. Generate a personalized 8-week training program. Return ONLY valid JSON with no markdown, no code fences.`,
+          content: `You are Coach P on PLAYR1. Turn a player's discovery conversation into a personalized PLAYR1 Project.
+The project is the player's personal basketball story, not automatically a workout plan. It may be about making a team, preparing for an opportunity, learning fundamentals, improving a skill, playing for joy, building community, creating basketball content, returning to the game, or pursuing a long-term competitive ambition.
+Honor the player's own definition of success. Do not invent deadlines. Use a flexible timeline if none was provided. Make the plan actionable without forcing every goal into the same duration.
+Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action. Mix training, learning, playing, reflecting, connecting, creating, and recovery actions as appropriate to this player's project. Never give medical advice.`,
         },
         {
           role: "user",
-          content: `${archetypeCtx}Player's goal: "${goalText}"\n\nClarifying answers:\n${qaContext}\n\nGenerate an 8-week program as JSON:\n{\n  "programTitle": "inspiring title",\n  "programSummary": "2-3 sentence overview",\n  "coachNote": "personal 1-2 sentence message from AI coach",\n  "totalWeeks": 8,\n  "weeklyFocus": [\n    {\n      "week": 1,\n      "theme": "e.g. Foundation",\n      "focus": "what this week builds",\n      "dailySchedule": [\n        {"day":"Monday","activity":"activity name","duration":"30 min","drillCategories":["ball-handling"],"details":"brief description"},\n        {"day":"Tuesday","activity":"Rest","duration":"—","drillCategories":[],"details":"Recovery"},\n        {"day":"Wednesday","activity":"...","duration":"...","drillCategories":[],"details":"..."},\n        {"day":"Thursday","activity":"...","duration":"...","drillCategories":[],"details":"..."},\n        {"day":"Friday","activity":"...","duration":"...","drillCategories":[],"details":"..."},\n        {"day":"Saturday","activity":"...","duration":"...","drillCategories":[],"details":"..."},\n        {"day":"Sunday","activity":"Rest","duration":"—","drillCategories":[],"details":"Full rest"}\n      ]\n    }\n  ],\n  "milestones": [\n    {"week":2,"title":"milestone title","description":"what achieving this means"},\n    {"week":4,"title":"...","description":"..."},\n    {"week":6,"title":"...","description":"..."},\n    {"week":8,"title":"Goal Achieved","description":"..."}\n  ]\n}`,
+          content: `PLAYER CONTEXT:\n${formatGoalContext(context)}\n\nSTARTING THOUGHT:\n${goalText}\n\nDISCOVERY CONVERSATION:\n${qaContext}\n\nReturn this exact shape:
+{
+  "projectTitle": "short player-owned project name",
+  "projectType": "one concise category",
+  "projectSummary": "2-3 sentences describing the player's project",
+  "coachNote": "personal 2-3 sentence message from Coach P",
+  "whyItMatters": "the player's deeper reason",
+  "successDefinition": "what success means for this specific player",
+  "timelineSummary": "specific season/date if known, otherwise a flexible honest timeline",
+  "currentChapter": "where the player is starting",
+  "nextAction": {"title":"...", "description":"...", "type":"train|learn|play|reflect|connect|create|recover", "estimatedMinutes":30},
+  "focusAreas": ["2-4 focus areas"],
+  "successSignals": ["3-5 ways progress can be noticed"],
+  "phases": [
+    {"phase":1,"title":"...","purpose":"...","actions":[{"title":"...","description":"...","type":"train|learn|play|reflect|connect|create|recover","estimatedMinutes":30}],"progressSignal":"..."}
+  ],
+  "milestones": [
+    {"phase":1,"type":"outcome|capability|process|experience|evidence|reflection|opportunity","title":"...","description":"...","targetDate":"optional date or season, otherwise omit"}
+  ]
+}`,
         },
       ],
-      max_tokens: 4000,
-      temperature: 0.8,
+      max_tokens: 5000,
+      temperature: 0.75,
     });
-    const raw = completion.choices[0].message.content ?? "{}";
-    return JSON.parse(raw);
+    const raw = completion.choices[0].message.content?.trim() ?? "{}";
+    const normalized = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
+    const plan = JSON.parse(normalized) as Partial<import("@shared/schema").GoalProgram>;
+    if (
+      typeof plan.projectTitle !== "string" ||
+      typeof plan.projectType !== "string" ||
+      typeof plan.projectSummary !== "string" ||
+      typeof plan.coachNote !== "string" ||
+      typeof plan.whyItMatters !== "string" ||
+      typeof plan.successDefinition !== "string" ||
+      typeof plan.timelineSummary !== "string" ||
+      typeof plan.currentChapter !== "string" ||
+      !plan.nextAction ||
+      !Array.isArray(plan.focusAreas) ||
+      !Array.isArray(plan.successSignals) ||
+      !Array.isArray(plan.phases) ||
+      plan.phases.length === 0 ||
+      !Array.isArray(plan.milestones) ||
+      plan.milestones.length === 0 ||
+      plan.milestones.some((milestone) => !Number.isInteger(Number(milestone.phase)) || Number(milestone.phase) < 1)
+    ) {
+      throw new Error("Coach P returned an incomplete PLAYR1 Project plan");
+    }
+    return plan as import("@shared/schema").GoalProgram;
   }
 
   app.post("/api/goals", isAuthenticated, async (req: AuthenticatedRequest, res) => {
@@ -11111,11 +11212,11 @@ Return ONLY valid JSON array, no markdown.`;
       const existing = await storage.getActiveGoal(userId);
       if (existing) return res.status(409).json({ message: "You already have an active goal. Abandon it first to start a new one." });
 
-      const goal = await storage.createGoal(userId, goalText);
-      const question = await getClarifyingQuestion(goalText, 0, []);
+       const goal = await storage.createGoal(userId, goalText);
+       const question = await getClarifyingQuestion(userId, goalText, 0, []);
       const clarification = await storage.addClarification(goal.id, 0, question);
 
-      res.json({ goal, clarification });
+       res.json({ goal, clarification, builderQuotaExempt: true });
     } catch (err) {
       console.error("[goals] create:", err);
       res.status(500).json({ message: "Failed to create goal" });
@@ -11134,7 +11235,7 @@ Return ONLY valid JSON array, no markdown.`;
         storage.getCheckIns(goal.id),
       ]);
 
-      res.json({ goal, clarifications, milestones, checkIns });
+       res.json({ goal, clarifications, milestones, checkIns, isPro: await hasProAccess(userId) });
     } catch (err) {
       console.error("[goals] active:", err);
       res.status(500).json({ message: "Failed to fetch goal" });
@@ -11143,7 +11244,6 @@ Return ONLY valid JSON array, no markdown.`;
 
   app.post("/api/goals/:id/answer", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     const userId = req.user!.claims.sub;
-    let charged = false;
     try {
       const goalId = req.params.id;
       const { clarificationId, answer } = z.object({
@@ -11153,54 +11253,56 @@ Return ONLY valid JSON array, no markdown.`;
 
       const goal = await storage.getGoalById(goalId);
       if (!goal || goal.userId !== userId) return res.status(404).json({ message: "Goal not found" });
-      const coachPAccess = await consumeCoachPQuestion(userId);
-      if (!coachPAccess.allowed) {
-        return res.status(402).json({
-          message: "You've used all 3 free Coach P questions this month.",
-          code: "COACH_P_LIMIT_REACHED",
-          coachP: coachPAccess,
-        });
-      }
-      charged = coachPAccess.charged;
-
       await storage.answerClarification(clarificationId, answer);
       const allClarifications = await storage.getClarifications(goalId);
       const answeredCount = allClarifications.filter((c) => c.answer).length;
 
-      if (answeredCount < TOTAL_CLARIFYING_QUESTIONS) {
+       if (answeredCount < TOTAL_DISCOVERY_QUESTIONS) {
         const prevQAs = allClarifications
           .filter((c) => c.answer)
           .map((c) => ({ question: c.question, answer: c.answer! }));
-        const nextQuestion = await getClarifyingQuestion(goal.goalText, answeredCount, prevQAs);
+         const nextQuestion = await getClarifyingQuestion(userId, goal.goalText, answeredCount, prevQAs);
         const nextClarification = await storage.addClarification(goalId, answeredCount, nextQuestion);
         return res.json({ done: false, clarification: nextClarification });
       }
 
       // All answered — generate program
-      const userArchetypes = await storage.getUserArchetypes(userId);
-      const mainArch = userArchetypes.find((ua) => ua.role === "main")?.archetype?.name;
-      const secArch = userArchetypes.find((ua) => ua.role === "secondary")?.archetype?.name;
       const qaList = allClarifications.map((c) => ({ question: c.question, answer: c.answer ?? "" }));
-
-      const program = await generateGoalProgram(goal.goalText, qaList, mainArch, secArch);
+       const program = await generateGoalPlan(userId, goal.goalText, qaList);
 
       // Persist milestones
       await Promise.all(
         program.milestones.map((m) =>
-          storage.createMilestone({ goalId, userId, weekNumber: m.week, title: m.title, description: m.description, completed: false })
+           storage.createMilestone({
+             goalId,
+             userId,
+             weekNumber: m.phase,
+             milestoneType: m.type,
+             targetDate: m.targetDate ?? null,
+             title: m.title,
+             description: m.description,
+             completed: false,
+           })
         )
       );
 
       const updatedGoal = await storage.updateGoal(goalId, {
         status: "active",
         aiProgram: program,
-        totalWeeks: program.totalWeeks,
+         projectTitle: program.projectTitle,
+         projectType: program.projectType,
+         whyItMatters: program.whyItMatters,
+         successDefinition: program.successDefinition,
+         timelineType: program.timelineSummary.toLowerCase().includes("open") ? "open" : "flexible",
+         currentChapter: program.currentChapter,
+         nextAction: program.nextAction?.title,
+         successSignals: program.successSignals,
+         totalWeeks: Math.max(1, program.phases?.length ?? 1),
       });
       const milestones = await storage.getGoalMilestones(goalId);
 
       res.json({ done: true, goal: updatedGoal, milestones, clarifications: allClarifications });
     } catch (err) {
-      if (charged) await refundCoachPQuestion(userId).catch((e) => console.error("Coach P quota refund failed:", e));
       console.error("[goals] answer:", err);
       res.status(500).json({ message: "Failed to process answer" });
     }
@@ -11208,16 +11310,21 @@ Return ONLY valid JSON array, no markdown.`;
 
   app.post("/api/goals/:id/checkin", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     const userId = req.user!.claims.sub;
-    let charged = false;
     try {
       const goalId = req.params.id;
-      const { userInput, weekNumber } = z.object({
+      const { userInput, phaseNumber } = z.object({
         userInput: z.string().min(1),
-        weekNumber: z.number().int().positive(),
+        phaseNumber: z.number().int().positive(),
       }).parse(req.body);
 
       const goal = await storage.getGoalById(goalId);
       if (!goal || goal.userId !== userId) return res.status(404).json({ message: "Goal not found" });
+      if (!(await hasProAccess(userId))) {
+        return res.status(402).json({
+          message: "Your PLAYR1 Project is ready. Upgrade to Pro to keep checking in with Coach P and continue the journey.",
+          code: "GOAL_PRO_REQUIRED",
+        });
+      }
 
       const [milestones, existingCheckIns, userArchetypes] = await Promise.all([
         storage.getGoalMilestones(goalId),
@@ -11225,20 +11332,13 @@ Return ONLY valid JSON array, no markdown.`;
         storage.getUserArchetypes(userId),
       ]);
 
-      const already = existingCheckIns.find((c) => c.weekNumber === weekNumber);
-      if (already) return res.status(409).json({ message: "Check-in for this week already submitted" });
-      const coachPAccess = await consumeCoachPQuestion(userId);
-      if (!coachPAccess.allowed) {
-        return res.status(402).json({
-          message: "You've used all 3 free Coach P questions this month.",
-          code: "COACH_P_LIMIT_REACHED",
-          coachP: coachPAccess,
-        });
-      }
-      charged = coachPAccess.charged;
+       const already = existingCheckIns.find((c) => c.weekNumber === phaseNumber);
+       if (already) return res.status(409).json({ message: "Check-in for this phase already submitted" });
 
       const completedMilestones = milestones.filter((m) => m.completed).map((m) => m.title);
-      const mainArch = userArchetypes.find((ua) => ua.role === "main")?.archetype?.name ?? "";
+       const mainArch = userArchetypes.find((ua) => ua.role === "main")?.archetype?.name ?? "";
+       const plan = goal.aiProgram as import("@shared/schema").GoalProgram | null;
+       const phase = plan?.phases?.find((p) => p.phase === phaseNumber);
 
       const OpenAI = (await import("openai")).default;
       const openai = new OpenAI({
@@ -11255,7 +11355,7 @@ Return ONLY valid JSON array, no markdown.`;
           },
           {
             role: "user",
-            content: `Player archetype: ${mainArch}. Goal: "${goal.goalText}". Week ${weekNumber} of ${goal.totalWeeks}.\nMilestones completed: ${completedMilestones.join(", ") || "none yet"}.\nPlayer check-in: "${userInput}"`,
+             content: `Player archetype: ${mainArch}. PLAYR1 Project: "${goal.projectTitle || goal.goalText}". Project type: ${goal.projectType || "not specified"}.\nCurrent phase: ${phase?.title || phaseNumber}. Purpose: ${phase?.purpose || "not specified"}.\nMilestones completed: ${completedMilestones.join(", ") || "none yet"}.\nPlayer check-in: "${userInput}"`,
           },
         ],
         max_tokens: 400,
@@ -11263,10 +11363,16 @@ Return ONLY valid JSON array, no markdown.`;
       });
 
       const aiResponse = completion.choices[0].message.content?.trim() ?? "";
-      const checkIn = await storage.createCheckIn({ goalId, userId, weekNumber, userInput, aiResponse });
+       const checkIn = await storage.createCheckIn({
+         goalId,
+         userId,
+         weekNumber: phaseNumber,
+         periodLabel: phase?.title || `Phase ${phaseNumber}`,
+         userInput,
+         aiResponse,
+       });
       res.json(checkIn);
     } catch (err) {
-      if (charged) await refundCoachPQuestion(userId).catch((e) => console.error("Coach P quota refund failed:", e));
       console.error("[goals] checkin:", err);
       res.status(500).json({ message: "Failed to submit check-in" });
     }
@@ -11289,11 +11395,25 @@ Return ONLY valid JSON array, no markdown.`;
       const userId = req.user!.claims.sub;
       const goal = await storage.getGoalById(req.params.id);
       if (!goal || goal.userId !== userId) return res.status(404).json({ message: "Goal not found" });
+      if (!(await hasProAccess(userId))) {
+        return res.status(402).json({
+          message: "Your PLAYR1 Project is ready. Upgrade to Pro to start completing milestones and continue the journey.",
+          code: "GOAL_PRO_REQUIRED",
+        });
+      }
 
+      const projectMilestones = await storage.getGoalMilestones(req.params.id);
+      const requestedMilestone = projectMilestones.find((candidate) => candidate.id === req.params.milestoneId);
+      if (!requestedMilestone) return res.status(404).json({ message: "Milestone not found" });
       const milestone = await storage.completeMilestone(req.params.milestoneId);
       const allMilestones = await storage.getGoalMilestones(req.params.id);
       const allDone = allMilestones.every((m) => m.completed);
-      if (allDone) await storage.updateGoal(req.params.id, { status: "completed" });
+      if (allDone) {
+        await storage.updateGoal(req.params.id, { status: "completed" });
+      } else {
+        const nextPhase = allMilestones.find((m) => !m.completed)?.weekNumber ?? goal.currentWeek;
+        await storage.updateGoal(req.params.id, { currentWeek: nextPhase });
+      }
 
       res.json({ milestone, goalCompleted: allDone });
     } catch (err) {

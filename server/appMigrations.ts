@@ -16,6 +16,19 @@ export async function runApplicationMigrations(): Promise<void> {
       ALTER TABLE programs ADD COLUMN IF NOT EXISTS trailer_video_url varchar;
       ALTER TABLE programs ADD COLUMN IF NOT EXISTS is_pro boolean DEFAULT false;
       ALTER TABLE player_profiles ADD COLUMN IF NOT EXISTS school_name varchar;
+      ALTER TABLE player_goals ADD COLUMN IF NOT EXISTS project_title varchar;
+      ALTER TABLE player_goals ADD COLUMN IF NOT EXISTS project_type varchar;
+      ALTER TABLE player_goals ADD COLUMN IF NOT EXISTS why_it_matters text;
+      ALTER TABLE player_goals ADD COLUMN IF NOT EXISTS success_definition text;
+      ALTER TABLE player_goals ADD COLUMN IF NOT EXISTS timeline_type varchar;
+      ALTER TABLE player_goals ADD COLUMN IF NOT EXISTS target_date varchar;
+      ALTER TABLE player_goals ADD COLUMN IF NOT EXISTS season_label varchar;
+      ALTER TABLE player_goals ADD COLUMN IF NOT EXISTS current_chapter text;
+      ALTER TABLE player_goals ADD COLUMN IF NOT EXISTS next_action text;
+      ALTER TABLE player_goals ADD COLUMN IF NOT EXISTS success_signals jsonb;
+      ALTER TABLE goal_milestones ADD COLUMN IF NOT EXISTS milestone_type varchar NOT NULL DEFAULT 'progress';
+      ALTER TABLE goal_milestones ADD COLUMN IF NOT EXISTS target_date varchar;
+      ALTER TABLE goal_check_ins ADD COLUMN IF NOT EXISTS period_label varchar;
       CREATE TABLE IF NOT EXISTS coach_p_usage (
         id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id varchar NOT NULL,

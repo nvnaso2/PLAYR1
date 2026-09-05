@@ -115,10 +115,17 @@ export default function HubPage() {
   const totalMilestones = activeGoal?.milestones?.length ?? 0;
   const goalWeek = activeGoal?.goal?.currentWeek ?? 1;
   const goalTotalWeeks = activeGoal?.goal?.totalWeeks ?? 8;
-  const goalPct = Math.round(((goalWeek - 1) / goalTotalWeeks) * 100);
+  const goalPct = totalMilestones
+    ? Math.round((completedMilestones / totalMilestones) * 100)
+    : 0;
 
   // Today's training from goal program
   const todayProgram = (() => {
+    const currentPhase = program?.phases?.find((phase: any) => phase.phase === goalWeek);
+    if (currentPhase?.actions?.[0]) {
+      const action = currentPhase.actions[0];
+      return { activity: action.title, duration: action.estimatedMinutes ? `${action.estimatedMinutes} min` : "", drillCategories: [], details: action.description };
+    }
     if (!program?.weeklyFocus) return null;
     const todayName = new Date().toLocaleDateString("en-US", { weekday: "long" });
     const currentWeekData = program.weeklyFocus.find((w: any) => w.week === goalWeek);
@@ -384,7 +391,7 @@ export default function HubPage() {
                     </div>
                     <div>
                       <p className="text-xs text-orange-400 font-medium">TODAY'S TRAINING</p>
-                      <p className="text-xs text-zinc-400">Week {goalWeek} of {goalTotalWeeks}</p>
+                      <p className="text-xs text-zinc-400">Phase {goalWeek} of {goalTotalWeeks}</p>
                     </div>
                   </div>
                   <ChevronRight className="w-4 h-4 text-orange-400/60" />
@@ -424,7 +431,7 @@ export default function HubPage() {
                     </div>
                     <p className="text-white font-semibold">Set a Goal with Your AI Coach</p>
                   </div>
-                  <p className="text-zinc-400 text-sm">Get a personalized 8-week program built around your archetype and goals.</p>
+                  <p className="text-zinc-400 text-sm">Discover a personalized PLAYR1 Project built around your story and goals.</p>
                   <div className="mt-3 flex items-center gap-1 text-orange-400 text-sm font-medium">
                     Start now <ChevronRight className="w-4 h-4" />
                   </div>
@@ -530,7 +537,7 @@ export default function HubPage() {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Target className="w-4 h-4 text-orange-400" />
-                <p className="text-white font-semibold text-sm">My Goal</p>
+                 <p className="text-white font-semibold text-sm">My PLAYR1 Project</p>
               </div>
               <div className="flex items-center gap-1 text-zinc-400 text-xs">
                 {completedMilestones}/{totalMilestones} milestones
@@ -540,7 +547,7 @@ export default function HubPage() {
             <p className="text-zinc-300 text-sm line-clamp-1 mb-3">"{activeGoal.goal.goalText}"</p>
             <div className="space-y-1.5">
               <div className="flex justify-between text-xs text-zinc-500">
-                <span>Week {goalWeek} of {goalTotalWeeks}</span>
+                 <span>Phase {goalWeek} of {goalTotalWeeks}</span>
                 <span>{goalPct}%</span>
               </div>
               <Progress value={goalPct} className="h-1.5 bg-zinc-800" />

@@ -7363,7 +7363,7 @@ Object.assign(DatabaseStorage.prototype, {
   async createGoal(userId: string, goalText: string): Promise<PlayerGoal> {
     const [goal] = await db
       .insert(playerGoals)
-      .values({ userId, goalText, status: "clarifying", currentWeek: 1, totalWeeks: 8 })
+      .values({ userId, goalText, status: "clarifying", currentWeek: 1, totalWeeks: 1 })
       .returning();
     return goal;
   },

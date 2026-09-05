@@ -127,8 +127,8 @@ export default function JourneyPage() {
         {/* MY GOAL */}
         <section data-testid="section-my-goal">
           <SectionHeader
-            label="My Career"
-            action={activeGoal || clarifyingGoal ? "View Program" : "Set a Goal"}
+            label="My PLAYR1 Project"
+            action={activeGoal || clarifyingGoal ? "View Project" : "Discover Your Project"}
             onAction={() => navigate("/my-goal")}
           />
           {goalLoading ? (
@@ -149,7 +149,7 @@ export default function JourneyPage() {
               </div>
               <div className="space-y-2 mb-3">
                 <div className="flex justify-between text-xs text-zinc-400">
-                  <span>Week {activeGoal.goal.currentWeek} of {activeGoal.goal.totalWeeks}</span>
+                  <span>Phase {activeGoal.goal.currentWeek} of {activeGoal.goal.totalWeeks}</span>
                   <span>{completedMilestones}/{totalMilestones} milestones</span>
                 </div>
                 <Progress value={goalPct} className="h-1.5 bg-zinc-800" />
@@ -159,7 +159,7 @@ export default function JourneyPage() {
                   <CheckCircle2 className="w-3.5 h-3.5 text-zinc-600 flex-shrink-0" />
                   <span className="line-clamp-1">Next: {nextMilestone.title}</span>
                   <Badge variant="outline" className="text-xs border-zinc-700 text-zinc-500 px-1.5 py-0 ml-auto flex-shrink-0">
-                    Wk {nextMilestone.weekNumber}
+                    Phase {nextMilestone.weekNumber}
                   </Badge>
                 </div>
               )}
@@ -188,8 +188,8 @@ export default function JourneyPage() {
                   <Target className="w-4 h-4 text-orange-400" />
                 </div>
                 <div>
-                  <p className="text-white font-semibold text-sm">Set Your First Goal</p>
-                  <p className="text-zinc-400 text-xs">AI coach builds a personalized 8-week program</p>
+                  <p className="text-white font-semibold text-sm">Discover Your PLAYR1 Project</p>
+                  <p className="text-zinc-400 text-xs">Coach P helps turn your basketball story into a path</p>
                 </div>
               </div>
               <div className="flex items-center gap-1 text-orange-400 text-sm font-medium mt-3">
