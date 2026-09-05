@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowUp, Dumbbell, Flag, Gamepad2, GraduationCap, Loader2, Menu, MessageSquarePlus, Pin, PinOff, Plus, Target, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowUp, Dumbbell, Flag, Gamepad2, GraduationCap, Loader2, Menu, MessageSquarePlus, Pin, PinOff, Target, Trash2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -712,7 +712,7 @@ export default function CoachPPage() {
               title="New chat"
               data-testid="button-coach-p-add-context"
             >
-              <Plus className="h-5 w-5" />
+              <MessageSquarePlus className="h-5 w-5" />
             </button>
             <div className="flex min-w-0 flex-1 items-center">
               <Textarea

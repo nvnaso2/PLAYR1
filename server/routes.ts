@@ -907,7 +907,7 @@ Start now with a warm one-line greeting that briefly references something specif
       const conversation = await storage.getCoachPConversation(userId, req.params.id);
       if (!conversation) return res.status(404).json({ message: "Conversation not found" });
       const storedMessages = await storage.getCoachPMessages(conversation.id);
-      const messages = storedMessages[0]?.role === "user"
+      const messages = storedMessages.some((message) => message.role === "user")
         ? storedMessages
         : [
             {
