@@ -48,7 +48,9 @@ import {
   User,
   Share2,
   Plus,
-  Trash2
+  Trash2,
+  Check,
+  X
 } from "lucide-react";
 import type { Drill, DrillCategory, DifficultyLevel } from "@shared/schema";
 
@@ -63,7 +65,7 @@ const categoryInfo: Record<string, { label: string; icon: React.ReactNode; color
   "workouts": { label: "Workouts", icon: <Dumbbell className="w-4 h-4" />, color: "#14b8a6" },
 };
 
-function DrillGrid({ drills, viewMode, searchQuery, isLoading, showShareToggle, onToggleShare, onDelete }: { 
+function DrillGrid({ drills, viewMode, searchQuery, isLoading, showShareToggle, onToggleShare, onDelete, selectionMode, selectedDrillIds, onSelect }: {
   drills: Drill[] | undefined; 
   viewMode: "grid" | "list"; 
   searchQuery: string;
@@ -71,6 +73,9 @@ function DrillGrid({ drills, viewMode, searchQuery, isLoading, showShareToggle, 
   showShareToggle?: boolean;
   onToggleShare?: (drillId: string, isShared: boolean) => void;
   onDelete?: (drillId: string) => void;
+  selectionMode?: boolean;
+  selectedDrillIds?: Set<string>;
+  onSelect?: (drillId: string) => void;
 }) {
   if (isLoading) {
     return (
@@ -116,7 +121,12 @@ function DrillGrid({ drills, viewMode, searchQuery, isLoading, showShareToggle, 
       }>
         {drills.map((drill) => (
           <div key={drill.id} className="relative">
-            <DrillCard drill={drill} />
+            <DrillCard
+              drill={drill}
+              selectable={selectionMode}
+              selected={selectedDrillIds?.has(drill.id)}
+              onSelect={onSelect}
+            />
             {(showShareToggle || onDelete) && (
               <div 
                 className="mt-2 flex items-center justify-between gap-2 px-2 py-1.5 rounded-md bg-muted/50"
@@ -185,15 +195,50 @@ export default function Drills() {
   const searchParams = useSearch();
   const urlCategory = new URLSearchParams(searchParams).get('category') || 'all';
   const urlTab = new URLSearchParams(searchParams).get('tab') || 'handlz';
+  const launchedFromTrain = new URLSearchParams(searchParams).get("build") === "1";
   
   const [activeTab, setActiveTab] = useState(urlTab);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState(urlCategory);
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [selectionMode, setSelectionMode] = useState(launchedFromTrain);
+  const [selectedDrillIds, setSelectedDrillIds] = useState<Set<string>>(new Set());
   const [, setLocation] = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
+
+  const toggleDrillSelection = (drillId: string) => {
+    setSelectedDrillIds((current) => {
+      const next = new Set(current);
+      if (next.has(drillId)) next.delete(drillId);
+      else next.add(drillId);
+      return next;
+    });
+  };
+
+  const closeSelectionMode = () => {
+    if (launchedFromTrain) {
+      setLocation("/log", { replace: true });
+      return;
+    }
+    setSelectionMode(false);
+    setSelectedDrillIds(new Set());
+  };
+
+  const startSelectedWorkout = (mode: "complete" | "track") => {
+    if (selectedDrillIds.size === 0) return;
+    const ids = Array.from(selectedDrillIds).join(",");
+    track("drill_library_workout_started", { mode, drillCount: selectedDrillIds.size });
+    setLocation(`/log?startDrills=${encodeURIComponent(ids)}&mode=${mode}`);
+  };
+
+  const saveSelectedWorkout = () => {
+    if (selectedDrillIds.size < 2) return;
+    const ids = Array.from(selectedDrillIds).join(",");
+    track("drill_library_workout_save_started", { drillCount: selectedDrillIds.size });
+    setLocation(`/log?startDrills=${encodeURIComponent(ids)}&mode=track&saveTemplate=1`);
+  };
 
   useEffect(() => {
     track("drill_library_view", {
@@ -312,24 +357,50 @@ export default function Drills() {
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto">
-      <div className="flex items-start justify-between gap-4">
+    <div className={selectionMode
+      ? "mx-auto flex h-full min-h-0 max-w-7xl flex-col gap-4 overflow-hidden p-4 sm:p-6"
+      : "mx-auto max-w-7xl space-y-6 p-4 sm:p-6"
+    }>
+      <div className={selectionMode
+        ? "flex shrink-0 items-start justify-between gap-4"
+        : "flex items-start justify-between gap-4"
+      }>
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold mb-1" data-testid="text-page-title">Drill Library</h1>
+          <h1 className="text-xl sm:text-2xl font-bold mb-1" data-testid="text-page-title">
+            {selectionMode ? "Build Your Workout" : "Drill Library"}
+          </h1>
           <p className="text-sm sm:text-base text-muted-foreground">
-            Browse our collection of professional basketball drills
+            {selectionMode ? "Browse and tap drills to add them" : "Browse our collection of professional basketball drills"}
           </p>
         </div>
         {user && (
-          <Button onClick={() => setLocation("/log?create=1")} className="gap-2 shrink-0" data-testid="button-create-drill-nav">
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">Create a Drill</span>
-            <span className="sm:hidden">Create</span>
-          </Button>
+          <div className="flex gap-2 shrink-0">
+            <Button
+              variant={selectionMode ? "secondary" : "default"}
+              onClick={() => selectionMode ? closeSelectionMode() : setSelectionMode(true)}
+              className="gap-2"
+              data-testid="button-build-workout"
+            >
+              {selectionMode ? <X className="w-4 h-4" /> : <Check className="w-4 h-4" />}
+              <span className="hidden sm:inline">{selectionMode && launchedFromTrain ? "Back to Train" : selectionMode ? "Cancel Selection" : "Build Workout"}</span>
+              <span className="sm:hidden">{selectionMode && launchedFromTrain ? "Back" : selectionMode ? "Cancel" : "Select"}</span>
+            </Button>
+            {!selectionMode && (
+              <Button onClick={() => setLocation("/log?create=1")} variant="outline" className="gap-2" data-testid="button-create-drill-nav">
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">Create a Drill</span>
+                <span className="sm:hidden">Create</span>
+              </Button>
+            )}
+          </div>
         )}
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className={selectionMode ? "workout-builder-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain pb-2 pr-1" : undefined}
+      >
         <TabsList className="w-full" data-testid="tabs-drill-library">
           <TabsTrigger value="handlz" data-testid="tab-handlz-drills" className="flex-1 gap-1.5 text-xs sm:text-sm">
             <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -426,7 +497,10 @@ export default function Drills() {
               drills={filteredHandlzDrills} 
               viewMode={viewMode} 
               searchQuery={searchQuery}
-              isLoading={isLoading} 
+              isLoading={isLoading}
+              selectionMode={selectionMode}
+              selectedDrillIds={selectedDrillIds}
+              onSelect={toggleDrillSelection}
             />
           </TabsContent>
 
@@ -435,7 +509,10 @@ export default function Drills() {
               drills={filteredCommunityDrills} 
               viewMode={viewMode} 
               searchQuery={searchQuery}
-              isLoading={communityLoading} 
+              isLoading={communityLoading}
+              selectionMode={selectionMode}
+              selectedDrillIds={selectedDrillIds}
+              onSelect={toggleDrillSelection}
             />
           </TabsContent>
 
@@ -449,11 +526,66 @@ export default function Drills() {
                 showShareToggle={true}
                 onToggleShare={handleToggleShare}
                 onDelete={(drillId) => deleteDrillMutation.mutate(drillId)}
+                selectionMode={selectionMode}
+                selectedDrillIds={selectedDrillIds}
+                onSelect={toggleDrillSelection}
               />
             </TabsContent>
           )}
         </div>
       </Tabs>
+      {selectionMode && (
+        <div className="z-30 shrink-0 rounded-xl border border-zinc-700 bg-zinc-950/95 p-2.5 shadow-xl backdrop-blur" data-testid="drill-selection-tray">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-orange-500 text-xs font-bold text-black">
+                {selectedDrillIds.size}
+              </span>
+              <p className="font-heading text-xs uppercase tracking-wide text-white sm:text-sm">
+                {selectedDrillIds.size} drill{selectedDrillIds.size === 1 ? "" : "s"} selected
+              </p>
+              <p className="hidden text-xs text-zinc-500 lg:block">Save it or start training now.</p>
+            </div>
+            <div className="grid w-full grid-cols-3 gap-1.5 sm:w-auto">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={selectedDrillIds.size < 2}
+                onClick={saveSelectedWorkout}
+                className="h-9 min-w-0 gap-1 border-zinc-600 px-2 text-xs sm:px-3"
+                data-testid="button-save-selected-workout"
+              >
+                <Dumbbell className="h-3.5 w-3.5 shrink-0" />
+                <span className="sm:hidden">Save</span>
+                <span className="hidden sm:inline">Save Workout</span>
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={selectedDrillIds.size === 0}
+                onClick={() => startSelectedWorkout("complete")}
+                className="h-9 min-w-0 gap-1 border-zinc-600 px-2 text-xs sm:px-3"
+                data-testid="button-start-quick-complete"
+              >
+                <Check className="h-3.5 w-3.5 shrink-0" />
+                <span className="sm:hidden">Quick</span>
+                <span className="hidden sm:inline">Quick Complete</span>
+              </Button>
+              <Button
+                size="sm"
+                disabled={selectedDrillIds.size === 0}
+                onClick={() => startSelectedWorkout("track")}
+                className="h-9 min-w-0 gap-1 px-2 text-xs sm:px-3"
+                data-testid="button-start-track-stats"
+              >
+                <Target className="h-3.5 w-3.5 shrink-0" />
+                <span className="sm:hidden">Track</span>
+                <span className="hidden sm:inline">Track Stats</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

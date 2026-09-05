@@ -10,3 +10,5 @@
 - [Coach P conversation memory](coach-p-conversation-memory.md) — persist full chats, send a rolling summary plus recent messages, and keep request cost records separate from content
 - [Coach P navigation](coach-p-navigation.md) — Coach P is a top-level menu destination, with Hub launch access and an internal saved-chat drawer
 - [Subscription entitlement boundary](subscription-entitlement-boundary.md) — effective plan and Stripe status are read from the users table, while Pro Infinity bypasses Stripe activity
+- [Training streak activity](training-streak-activity.md) — any saved workout advances the streak once per server day; daily challenge completion remains drill-specific
+- [Workout builder flow](workout-builder-flow.md) — Start and Create Workout both enter the Drill Library card selector before save or logging-mode choice

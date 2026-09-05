@@ -299,3 +299,25 @@ html.plt-capacitor textarea {
   }
 }
 
+.workout-builder-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(82 82 91 / 0.8) transparent;
+}
+
+.workout-builder-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.workout-builder-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.workout-builder-scroll::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: linear-gradient(to bottom, rgb(249 115 22 / 0.75), rgb(82 82 91 / 0.75));
+}
+
+.workout-builder-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(to bottom, rgb(251 146 60 / 0.9), rgb(113 113 122 / 0.9));
+}
+

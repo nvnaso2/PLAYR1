@@ -547,6 +547,7 @@ export interface IStorage {
   getDailyChallenge(dateStr: string): Promise<{ challenge: DailyChallenge; drill: Drill } | null>;
   getTodayCompletion(userId: string, dateStr: string): Promise<DailyCompletion | null>;
   completeDailyChallenge(userId: string, drillId: string, dateStr: string, trainingLogId?: string): Promise<{ completion: DailyCompletion; streak: UserStreak; milestoneReached: number | null }>;
+  recordTrainingStreakActivity(userId: string, dateStr: string): Promise<{ streak: UserStreak; milestoneReached: number | null }>;
   getUserStreak(userId: string): Promise<UserStreak>;
   getStreakLeaderboard(): Promise<Array<{ userId: string; displayName: string; currentStreak: number; profilePhotoUrl: string | null }>>;
 
@@ -5637,7 +5638,20 @@ export class DatabaseStorage {
       .values({ userId, challengeDate: dateStr, drillId, trainingLogId })
       .returning();
 
-    // Update streak
+    const streakResult = await this.recordTrainingStreakActivity(userId, dateStr);
+
+    return { completion, ...streakResult };
+  }
+
+  async recordTrainingStreakActivity(
+    userId: string,
+    dateStr: string
+  ): Promise<{ streak: UserStreak; milestoneReached: number | null }> {
+    const streak = await this.getUserStreak(userId);
+    if (streak.lastCompletedDate && streak.lastCompletedDate >= dateStr) {
+      return { streak, milestoneReached: null };
+    }
+
     const yesterday = new Date(`${dateStr}T00:00:00Z`);
     yesterday.setUTCDate(yesterday.getUTCDate() - 1);
     const yesterdayStr = yesterday.toISOString().split("T")[0];
@@ -5661,7 +5675,7 @@ export class DatabaseStorage {
       })
       .returning();
 
-    return { completion, streak: updatedStreak, milestoneReached };
+    return { streak: updatedStreak, milestoneReached };
   }
 
   async getStreakLeaderboard(): Promise<Array<{ userId: string; displayName: string; currentStreak: number; profilePhotoUrl: string | null }>> {

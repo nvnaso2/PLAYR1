@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import {
-  Play, Video, LogOut, Megaphone, Settings, ChevronRight,
+  Video, LogOut, Megaphone, Settings, ChevronRight,
   BarChart3, Users, Dumbbell, MessageCircle, CalendarDays,
   ClipboardCheck, UserCircle, Shield,
 } from "lucide-react";
@@ -22,7 +22,6 @@ interface MoreDrawerProps {
 
 const playerMenuItems = [
   { title: "Dashboard", url: "/dashboard", icon: BarChart3 },
-  { title: "Drill Library", url: "/drills", icon: Play },
   { title: "My Film Room", url: "/videos", icon: Video },
   { title: "Feedback", url: "/feedback", icon: Megaphone },
 ];

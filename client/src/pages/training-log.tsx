@@ -44,7 +44,6 @@ import {
   Clock, 
   Target, 
   Calendar,
-  ArrowRight,
   ClipboardList,
   Play,
   Save,
@@ -74,8 +73,6 @@ import {
   Loader2,
   Share2,
   Info,
-  BookOpen,
-  Lock,
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Drill, TrainingLog, DrillMetric, MetricTemplate, Workout, WorkoutDrill, ShotLocationDB, Challenge, UserChallenge } from "@shared/schema";
@@ -108,6 +105,8 @@ type WorkoutDrillEntry = {
   shotsMade?: number;
   trackToChallengeIds?: string[]; // IDs of challenges to update progress for
 };
+
+type WorkoutMode = "complete" | "track";
 
 // Use insert schemas from shared/schema.ts with UI-specific extensions
 const createDrillFormSchema = insertDrillSchema.pick({
@@ -142,6 +141,8 @@ export default function TrainingLogPage() {
   const [selectedDrillIds, setSelectedDrillIds] = useState<Set<string>>(new Set());
   const [workoutInProgress, setWorkoutInProgress] = useState(false);
   const [workoutEntries, setWorkoutEntries] = useState<WorkoutDrillEntry[]>([]);
+  const [workoutMode, setWorkoutMode] = useState<WorkoutMode>("track");
+  const [quickCompletedDrillIds, setQuickCompletedDrillIds] = useState<Set<string>>(new Set());
   const [isCreateDrillOpen, setIsCreateDrillOpen] = useState(() => {
     return new URLSearchParams(searchParams).get('create') === '1';
   });
@@ -174,7 +175,6 @@ export default function TrainingLogPage() {
   });
   
   const [challengesSectionOpen, setChallengesSectionOpen] = useState(false);
-  const [programsSectionOpen, setProgramsSectionOpen] = useState(true);
   const [isSavingWorkout, setIsSavingWorkout] = useState(false);
   
   // Single workout-level timer state
@@ -199,6 +199,12 @@ export default function TrainingLogPage() {
         setWorkoutInProgress(true);
         if (draft.workoutStartTime) setWorkoutStartTime(draft.workoutStartTime);
         if (draft.drillStartTimes) setDrillStartTimes(draft.drillStartTimes);
+        if (draft.workoutMode === "complete" || draft.workoutMode === "track") {
+          setWorkoutMode(draft.workoutMode);
+        }
+        if (Array.isArray(draft.quickCompletedDrillIds)) {
+          setQuickCompletedDrillIds(new Set(draft.quickCompletedDrillIds));
+        }
         if (draft.activeView === "workout") setActiveView("workout");
       }
     } catch {
@@ -215,13 +221,15 @@ export default function TrainingLogPage() {
           workoutEntries,
           workoutStartTime,
           drillStartTimes,
+          workoutMode,
+          quickCompletedDrillIds: Array.from(quickCompletedDrillIds),
           activeView,
         }));
       } catch {
         // Ignore storage errors (e.g. quota exceeded)
       }
     }
-  }, [workoutInProgress, workoutEntries, workoutStartTime, drillStartTimes, activeView]);
+  }, [workoutInProgress, workoutEntries, workoutStartTime, drillStartTimes, workoutMode, quickCompletedDrillIds, activeView]);
 
   // Auto-start the timer the moment a workout begins — no manual button needed
   useEffect(() => {
@@ -316,6 +324,11 @@ export default function TrainingLogPage() {
     return combined;
   }, [handlzDrills, personalDrills, communityDrills]);
 
+  const quickWorkoutEntries = useMemo(
+    () => Array.from(new Map(workoutEntries.map((entry) => [entry.drillId, entry])).values()),
+    [workoutEntries]
+  );
+
   // Handle drill query parameter - auto-start workout with specified drill
   const [location, setLocation] = useLocation();
   const drillParamHandled = useRef(false);
@@ -361,6 +374,8 @@ export default function TrainingLogPage() {
           autoShotLocation = 'free-throw';
         }
 
+        setWorkoutMode("track");
+        setQuickCompletedDrillIds(new Set());
         setWorkoutEntries([{
           drillId: drill.id,
           drill,
@@ -412,16 +427,6 @@ export default function TrainingLogPage() {
 
   const { data: favoriteDrillIds } = useQuery<string[]>({
     queryKey: ['/api/user/favorite-drills'],
-  });
-
-  const { data: programEnrollments } = useQuery<any[]>({
-    queryKey: ["/api/programs/me"],
-    staleTime: 30_000,
-  });
-
-  const { data: allAvailablePrograms } = useQuery<any[]>({
-    queryKey: ["/api/programs"],
-    staleTime: 60_000,
   });
 
   // Group drills by category
@@ -921,7 +926,7 @@ export default function TrainingLogPage() {
   };
 
   // Start workout with selected drills
-  const startWorkoutFromDrills = async () => {
+  const startWorkoutFromDrills = async (mode: WorkoutMode = "track") => {
     if (selectedDrillIds.size === 0) {
       toast({ title: "Please select at least one drill", variant: "destructive" });
       return;
@@ -936,6 +941,8 @@ export default function TrainingLogPage() {
     );
 
     const entries = entriesArrays.flat();
+    setWorkoutMode(mode);
+    setQuickCompletedDrillIds(new Set());
     setWorkoutEntries(entries);
     setWorkoutInProgress(true);
     setActiveView("workout");
@@ -1010,6 +1017,8 @@ export default function TrainingLogPage() {
     }
 
     const entries = await buildDrillEntries(drillId, drill);
+    setWorkoutMode("track");
+    setQuickCompletedDrillIds(new Set());
     setWorkoutEntries(entries);
     setWorkoutInProgress(true);
     setActiveView("workout");
@@ -1047,6 +1056,8 @@ export default function TrainingLogPage() {
         });
       });
 
+      setWorkoutMode("track");
+      setQuickCompletedDrillIds(new Set());
       setWorkoutEntries(entries);
       setWorkoutInProgress(true);
       setActiveView("workout");
@@ -1072,7 +1083,9 @@ export default function TrainingLogPage() {
     if (!list) return;
     const programItemId = params.get("programItemId");
     const enrollmentId = params.get("enrollmentId");
-    const dedupKey = [list, programItemId, enrollmentId].filter(Boolean).join("|");
+    const saveTemplate = params.get("saveTemplate") === "1";
+    const mode: WorkoutMode = params.get("mode") === "complete" ? "complete" : "track";
+    const dedupKey = [list, programItemId, enrollmentId, mode, saveTemplate ? "save" : ""].filter(Boolean).join("|");
     if (dedupKey === lastAutoStartKey) return;
     const ids = list.split(",").map((s) => s.trim()).filter(Boolean);
     if (ids.length === 0) {
@@ -1105,9 +1118,14 @@ export default function TrainingLogPage() {
         toast({ title: "Couldn't find those drills", variant: "destructive" });
         return;
       }
+      setWorkoutMode(mode);
+      setQuickCompletedDrillIds(new Set());
       setWorkoutEntries(entries);
       setWorkoutInProgress(true);
       setActiveView("workout");
+      if (saveTemplate && entries.length >= 2) {
+        setIsSaveWorkoutOpen(true);
+      }
       const now = Date.now();
       setDrillStartTimes(
         entries.reduce(
@@ -1239,7 +1257,22 @@ export default function TrainingLogPage() {
 
   // Save workout
   const saveWorkout = async () => {
-    if (!validateRequiredMetrics()) return;
+    const quickEntries = Array.from(
+      new Map(workoutEntries.map((entry) => [entry.drillId, entry])).values()
+    );
+    const entriesToSave = workoutMode === "complete"
+      ? quickEntries.filter((entry) => quickCompletedDrillIds.has(entry.drillId))
+      : workoutEntries;
+
+    if (workoutMode === "complete" && entriesToSave.length === 0) {
+      toast({
+        title: "Check off at least one drill",
+        description: "Only checked drills will be saved to your history.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (workoutMode === "track" && !validateRequiredMetrics()) return;
     if (isSavingWorkout) return;
     setIsSavingWorkout(true);
 
@@ -1264,7 +1297,7 @@ export default function TrainingLogPage() {
           : workoutEntries.reduce((s, e) => s + (e.duration || 0), 0);
 
       // Build bulk payload synchronously (no awaits)
-      const bulkEntries = workoutEntries.map((entry, entryIdx) => {
+      const bulkEntries = entriesToSave.map((entry, entryIdx) => {
         const isShootingDrill = entry.drill.trackShots;
         let derivedAttempted: number | undefined;
         let derivedMade: number | undefined;
@@ -1284,7 +1317,7 @@ export default function TrainingLogPage() {
         }
 
         // Accumulate challenge updates
-        if (entry.trackToChallengeIds && entry.trackToChallengeIds.length > 0) {
+        if (workoutMode === "track" && entry.trackToChallengeIds && entry.trackToChallengeIds.length > 0) {
           for (const userChallengeId of entry.trackToChallengeIds) {
             const userChallenge = activeChallenges?.find(uc => uc.id === userChallengeId);
             if (!userChallenge) continue;
@@ -1325,17 +1358,19 @@ export default function TrainingLogPage() {
           }
         }
 
-        const metrics = Object.entries(entry.metrics).map(([metricId, value]) => ({ metricId, value: Number(value) }));
+        const metrics = workoutMode === "track"
+          ? Object.entries(entry.metrics).map(([metricId, value]) => ({ metricId, value: Number(value) }))
+          : [];
         return {
           drillId: entry.drillId,
           // Put the entire timer-measured session total on the first entry; others
           // get 0. SUM(duration) across the session = real total time, no inflation.
           duration: entryIdx === 0 ? totalSessionMinutes : 0,
           notes: entry.notes || undefined,
-          workoutSessionId: workoutEntries.length > 1 ? sessionId : undefined,
-          shotLocation: isShootingDrill ? entry.shotLocation : undefined,
-          shotsAttempted: derivedAttempted ?? entry.shotsAttempted,
-          shotsMade: derivedMade ?? entry.shotsMade,
+          workoutSessionId: entriesToSave.length > 1 ? sessionId : undefined,
+          shotLocation: workoutMode === "track" && isShootingDrill ? entry.shotLocation : undefined,
+          shotsAttempted: workoutMode === "track" ? (derivedAttempted ?? entry.shotsAttempted) : undefined,
+          shotsMade: workoutMode === "track" ? (derivedMade ?? entry.shotsMade) : undefined,
           metrics,
         };
       });
@@ -1366,7 +1401,7 @@ export default function TrainingLogPage() {
 
       // Compute summary before state is cleared
       const challengeCount = Object.keys(challengeUpdates).length;
-      const drillCount = workoutEntries.length;
+      const drillCount = entriesToSave.length;
       const elapsedLabel = workoutStartTime ? ` · ${formatMs(Date.now() - workoutStartTime)}` : "";
 
       // Transition UI state — clear heavy workout entries immediately to free memory,
@@ -1379,7 +1414,9 @@ export default function TrainingLogPage() {
         setWorkoutStartTime(null);
         setDrillStartTimes({});
         setManualDurationMinutes("");
-        setShareSessionId(workoutEntries.length > 1 ? sessionId : null);
+        setQuickCompletedDrillIds(new Set());
+        setWorkoutMode("track");
+        setShareSessionId(entriesToSave.length > 1 ? sessionId : null);
         setShowFavoriteDialog(true);
       });
 
@@ -1417,12 +1454,16 @@ export default function TrainingLogPage() {
       if (streakResult?.streak) {
         const newStreak = streakResult.streak.currentStreak;
         const milestone = streakResult.milestoneReached;
+        const activityOnly = streakResult.activityOnly === true;
         setTimeout(() => {
           queryClient.invalidateQueries({ queryKey: ['/api/daily-challenge'] }); // matches all daily-challenge keys regardless of clientDate
+          queryClient.invalidateQueries({ queryKey: ['/api/streak/me'] });
           toast({
             title: milestone
               ? `🏆 ${newStreak}-Day Milestone!`
-              : `🔥 Daily Challenge Complete!`,
+              : activityOnly
+                ? `🔥 Training Streak Updated!`
+                : `🔥 Daily Challenge Complete!`,
             description: milestone
               ? `You hit a ${newStreak}-day streak — keep it going!`
               : `${newStreak}-day streak! Keep it up.`,
@@ -1431,10 +1472,12 @@ export default function TrainingLogPage() {
       }
 
       toast({
-        title: "Workout Complete!",
+        title: workoutMode === "complete" ? "Workout Checked Off!" : "Workout Complete!",
         description: challengeCount > 0
           ? `Logged ${drillCount} drill${drillCount > 1 ? 's' : ''} and updated ${challengeCount} challenge${challengeCount > 1 ? 's' : ''}${elapsedLabel}`
-          : `Logged ${drillCount} drill${drillCount > 1 ? 's' : ''}${elapsedLabel}`,
+          : workoutMode === "complete"
+            ? `Saved ${drillCount} completed drill${drillCount > 1 ? 's' : ''} to your history${elapsedLabel}`
+            : `Logged ${drillCount} drill${drillCount > 1 ? 's' : ''}${elapsedLabel}`,
       });
 
       // Defer non-critical stat/challenge invalidations so they don't race with the UI transition
@@ -1464,6 +1507,8 @@ export default function TrainingLogPage() {
     setWorkoutStartTime(null);
     setDrillStartTimes({});
     setManualDurationMinutes("");
+    setQuickCompletedDrillIds(new Set());
+    setWorkoutMode("track");
     setPendingProgramCompletion(null);
     setActiveView("library");
   };
@@ -1918,84 +1963,91 @@ export default function TrainingLogPage() {
         <div className="space-y-6">
           {!showCreateWorkoutMode ? (
             <>
-              {/* Action Buttons — 2×2 on mobile, 4-across on desktop */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                {/* Start Workout — primary action */}
-                <div
-                  className="cursor-pointer rounded-xl border border-primary/40 bg-primary/10 p-4 flex flex-col gap-3 active:opacity-75 transition-opacity"
-                  onClick={() => { setDrillSearchQuery(""); setIsStartWorkoutDialogOpen(true); }}
+              {/* Main action layout: 2×2 on mobile, 4-across on desktop. */}
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                <button
+                  type="button"
+                  className="group flex min-h-[132px] cursor-pointer flex-col gap-3 rounded-xl border border-orange-400/70 bg-gradient-to-br from-orange-500 to-orange-700 p-4 text-left text-white shadow-lg shadow-orange-950/30 transition hover:from-orange-400 hover:to-orange-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
+                  onClick={() => setLocation("/drills?build=1")}
                   data-testid="action-start-workout"
+                  aria-label="Start a workout"
                 >
-                  <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center shrink-0">
-                    <Play className="w-4 h-4 text-white fill-white" />
-                  </div>
-                  <div>
-                    <h3 className="font-heading text-sm uppercase tracking-wide leading-tight">Start Workout</h3>
-                    <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight">Select drills and go</p>
-                  </div>
-                </div>
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-white via-zinc-300 to-white p-[2px]">
+                    <span className="flex h-full w-full items-center justify-center rounded-[6px] bg-black">
+                      <Play className="h-4 w-4 fill-current" />
+                    </span>
+                  </span>
+                  <span>
+                    <span className="block font-heading text-sm uppercase tracking-wide leading-tight">Start Workout</span>
+                    <span className="mt-0.5 block text-[11px] text-orange-50/80">Select drills and go</span>
+                  </span>
+                </button>
 
-                {/* Create a Drill */}
-                <div
-                  className="cursor-pointer rounded-xl border border-border bg-card p-4 flex flex-col gap-3 active:opacity-75 transition-opacity"
+                <button
+                  type="button"
+                  className="group flex min-h-[132px] cursor-pointer flex-col gap-3 rounded-xl border border-zinc-700 bg-zinc-900 p-4 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
                   onClick={() => setIsCreateDrillOpen(true)}
                   data-testid="action-create-drill"
+                  aria-label="Create a drill"
                 >
-                  <div className="w-10 h-10 rounded-lg bg-card border border-border flex items-center justify-center shrink-0">
-                    <Plus className="w-4 h-4 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-heading text-sm uppercase tracking-wide leading-tight">Create a Drill</h3>
-                    <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight">Add a custom drill</p>
-                  </div>
-                </div>
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 text-orange-400">
+                    <Plus className="h-4 w-4" />
+                  </span>
+                  <span>
+                    <span className="block font-heading text-sm uppercase tracking-wide leading-tight">Create a Drill</span>
+                    <span className="mt-0.5 block text-[11px] text-zinc-500">Add a custom drill</span>
+                  </span>
+                </button>
 
-                {/* Create a Workout */}
-                <div
-                  className="cursor-pointer rounded-xl border border-border bg-card p-4 flex flex-col gap-3 active:opacity-75 transition-opacity"
-                  onClick={() => { setShowCreateWorkoutMode(true); setSelectedDrillIds(new Set()); }}
+                <button
+                  type="button"
+                  className="group flex min-h-[132px] cursor-pointer flex-col gap-3 rounded-xl border border-zinc-700 bg-zinc-900 p-4 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
+                  onClick={() => setLocation("/drills?build=1")}
                   data-testid="action-create-workout"
+                  aria-label="Create a workout"
                 >
-                  <div className="w-10 h-10 rounded-lg bg-card border border-border flex items-center justify-center shrink-0">
-                    <Layers className="w-4 h-4 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-heading text-sm uppercase tracking-wide leading-tight">Create a Workout</h3>
-                    <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight">Combine 2+ drills</p>
-                  </div>
-                </div>
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 text-orange-400">
+                    <Layers className="h-4 w-4" />
+                  </span>
+                  <span>
+                    <span className="block font-heading text-sm uppercase tracking-wide leading-tight">Create a Workout</span>
+                    <span className="mt-0.5 block text-[11px] text-zinc-500">Combine 2+ drills</span>
+                  </span>
+                </button>
 
-                {/* Create a Challenge */}
-                <div
-                  className="cursor-pointer rounded-xl border border-border bg-card p-4 flex flex-col gap-3 active:opacity-75 transition-opacity"
+                <button
+                  type="button"
+                  className="group flex min-h-[132px] cursor-pointer flex-col gap-3 rounded-xl border border-zinc-700 bg-zinc-900 p-4 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
                   onClick={() => setShowChallengeDialog(true)}
                   data-testid="action-create-challenge"
+                  aria-label="Create a challenge"
                 >
-                  <div className="w-10 h-10 rounded-lg bg-card border border-border flex items-center justify-center shrink-0">
-                    <Trophy className="w-4 h-4 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-heading text-sm uppercase tracking-wide leading-tight">Create a Challenge</h3>
-                    <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight">Set goals & track</p>
-                  </div>
-                </div>
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 text-orange-400">
+                    <Trophy className="h-4 w-4" />
+                  </span>
+                  <span>
+                    <span className="block font-heading text-sm uppercase tracking-wide leading-tight">Create a Challenge</span>
+                    <span className="mt-0.5 block text-[11px] text-zinc-500">Set goals & track</span>
+                  </span>
+                </button>
               </div>
 
-              {/* Free Shoot — full-width row, also capped */}
-              <div
-                className="cursor-pointer rounded-xl border border-border bg-card px-4 py-3.5 flex items-center gap-3.5 active:opacity-75 transition-opacity"
+              <button
+                type="button"
+                className="group flex min-h-[68px] w-full cursor-pointer items-center gap-3.5 rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3.5 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.99]"
                 onClick={() => setShowFreeShotMode(true)}
                 data-testid="action-free-shoot"
+                aria-label="Start free shoot"
               >
-                <div className="w-10 h-10 rounded-lg bg-card border border-border flex items-center justify-center shrink-0">
-                  <Target className="w-4 h-4 text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-heading text-sm uppercase tracking-wide leading-tight">Free Shoot</h3>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">Tap zones to log shots live</p>
-                </div>
-                <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-              </div>
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 text-orange-400">
+                  <Target className="h-4 w-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-heading text-sm uppercase tracking-wide leading-tight">Free Shoot</span>
+                  <span className="mt-0.5 block text-[11px] text-zinc-500">Tap zones to log shots live</span>
+                </span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-zinc-500 transition group-hover:translate-x-1 group-hover:text-orange-400" />
+              </button>
 
               {/* Favorite Workouts Section */}
               {(() => {
@@ -2189,119 +2241,45 @@ export default function TrainingLogPage() {
                 );
               })()}
 
-              {/* Daily Free Drills Section */}
-              {(() => {
-                const freeDrills = (allDrills || []).filter(d => !d.userId).slice(0, 3);
-                if (freeDrills.length === 0) return null;
-                return (
-                  <div className="space-y-3" data-testid="section-daily-drills">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-                        Daily Free Drills
-                      </h3>
-                      <button
-                        className="text-xs text-primary font-medium flex items-center gap-1 hover:opacity-80 transition-opacity"
-                        onClick={() => {
-                          const librarySection = document.querySelector('[data-testid="section-drill-library"]');
-                          librarySection?.scrollIntoView({ behavior: 'smooth' });
-                        }}
-                        data-testid="link-drill-library"
-                      >
-                        <BookOpen className="w-3 h-3" />
-                        Drill Library
-                      </button>
-                    </div>
-                    <div className="space-y-2">
-                      {freeDrills.map(drill => (
-                        <div
-                          key={drill.id}
-                          className="rounded-xl border border-border bg-card px-4 py-3 flex items-center gap-4 cursor-pointer active:scale-[0.99] transition-transform"
-                          onClick={() => quickStartDrill(drill.id)}
-                          data-testid={`daily-drill-${drill.id}`}
-                        >
-                          <div className="w-8 h-8 flex items-center justify-center shrink-0">
-                            <Play className="w-4 h-4 text-primary fill-primary" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold leading-tight truncate">{drill.title}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              {drill.duration ? `${Math.ceil(drill.duration / 60)} min · ` : ""}{drill.category?.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
-                            </p>
-                          </div>
-                          <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Programs Section — active enrollments + available programs */}
-              {(() => {
-                const activePrograms = (programEnrollments ?? []).filter((e: any) => e.status === "active");
-                const enrolledIds = new Set(activePrograms.map((e: any) => e.programId));
-                const availablePrograms = (allAvailablePrograms ?? []).filter((p: any) => !enrolledIds.has(p.id));
-                const hasAnything = activePrograms.length > 0 || availablePrograms.length > 0;
-                if (!hasAnything) return null;
-
-                return (
-                  <div className="space-y-3" data-testid="section-programs">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Programs</h3>
-                      <Link href="/programs">
-                        <span className="text-xs text-primary font-medium flex items-center gap-1 hover:opacity-80 transition-opacity" data-testid="link-all-programs">
-                          View all <ArrowRight className="w-3 h-3" />
-                        </span>
-                      </Link>
-                    </div>
-
-                    {/* Active enrollments */}
-                    {activePrograms.map((e: any) => {
-                      const pct = e.totalItemCount > 0 ? Math.round((e.completedItemCount / e.totalItemCount) * 100) : 0;
-                      const slug = e.program?.slug;
-                      const href = slug ? `/programs/${slug}/today` : `/programs`;
-                      return (
-                        <Link key={e.id} href={href} data-testid={`link-program-${e.programId}`}>
-                          <div className="rounded-xl border border-primary/30 bg-card px-4 py-3 flex items-center gap-4 cursor-pointer active:scale-[0.99] transition-transform">
-                            <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center shrink-0 text-primary font-heading text-lg">
-                              {e.currentDay}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs text-primary font-semibold uppercase tracking-wide">{(e.program?.title ?? "Program").slice(0,30)}</p>
-                              <p className="text-sm font-semibold truncate">Day {e.currentDay} of {e.program?.lengthDays} · {pct}% complete</p>
-                              <div className="mt-1.5 h-1 bg-muted rounded-full overflow-hidden">
-                                <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
-                              </div>
-                            </div>
-                            <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-                          </div>
-                        </Link>
-                      );
-                    })}
-
-                    {/* Available (locked) programs */}
-                    {availablePrograms.slice(0, 4).map((p: any) => (
-                      <Link key={p.id} href={`/programs/${p.slug}`} data-testid={`link-available-program-${p.id}`}>
-                        <div className="rounded-xl border border-border bg-card px-4 py-4 flex items-start gap-4 cursor-pointer active:scale-[0.99] transition-transform">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold leading-snug">{p.title}</p>
-                            {p.tagline && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{p.tagline}</p>}
-                            <p className="text-xs text-muted-foreground mt-0.5">{p.lengthDays} sessions</p>
-                          </div>
-                          {p.tier === "pro" ? (
-                            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider bg-zinc-800 border border-border text-muted-foreground px-2 py-1 rounded-md shrink-0">
-                              <Lock className="w-3 h-3 text-primary" />
-                              Pro
-                            </div>
-                          ) : (
-                            <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-                          )}
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                );
-              })()}
+              {/* Training destinations — separate from actions and challenge tracking. */}
+              <section className="space-y-3" data-testid="section-training-destinations">
+                <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                  <Layers className="h-4 w-4 text-primary" />
+                  Explore Training
+                </h3>
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                  <Link
+                    href="/drills"
+                    className="group flex min-h-[76px] items-center gap-3 rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    data-testid="action-drill-library"
+                    aria-label="Open Drill Library"
+                  >
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 text-orange-400">
+                      <ClipboardList className="h-4 w-4" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-heading text-base uppercase tracking-wide leading-none">Drill Library</span>
+                      <span className="mt-1 block text-[11px] text-zinc-500">Browse every drill</span>
+                    </span>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-zinc-500 transition group-hover:translate-x-1 group-hover:text-orange-400" />
+                  </Link>
+                  <Link
+                    href="/programs"
+                    className="group flex min-h-[76px] items-center gap-3 rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    data-testid="action-programs"
+                    aria-label="Open Programs"
+                  >
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 text-orange-400">
+                      <Layers className="h-4 w-4" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-heading text-base uppercase tracking-wide leading-none">Programs</span>
+                      <span className="mt-1 block text-[11px] text-zinc-500">Follow a structured plan</span>
+                    </span>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-zinc-500 transition group-hover:translate-x-1 group-hover:text-orange-400" />
+                  </Link>
+                </div>
+              </section>
 
               {/* Create Challenge Dialog */}
               <Dialog open={showChallengeDialog} onOpenChange={setShowChallengeDialog}>
@@ -2422,21 +2400,37 @@ export default function TrainingLogPage() {
                     />
                   </div>
                   {selectedDrillIds.size > 0 && (
-                    <div className="flex items-center justify-between py-2 px-1">
+                    <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
                       <span className="text-sm text-muted-foreground">{selectedDrillIds.size} drill{selectedDrillIds.size !== 1 ? 's' : ''} selected</span>
-                      <Button
-                        size="sm"
-                        className="gap-1.5"
-                        onClick={() => {
-                          setIsStartWorkoutDialogOpen(false);
-                          setDrillSearchQuery("");
-                          startWorkoutFromDrills();
-                        }}
-                        data-testid="button-start-selected-drills"
-                      >
-                        <Play className="w-3.5 h-3.5" />
-                        Start Workout
-                      </Button>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5"
+                          onClick={() => {
+                            setIsStartWorkoutDialogOpen(false);
+                            setDrillSearchQuery("");
+                            startWorkoutFromDrills("complete");
+                          }}
+                          data-testid="button-start-quick-complete"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          Quick Complete
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="gap-1.5"
+                          onClick={() => {
+                            setIsStartWorkoutDialogOpen(false);
+                            setDrillSearchQuery("");
+                            startWorkoutFromDrills("track");
+                          }}
+                          data-testid="button-start-track-stats"
+                        >
+                          <Target className="w-3.5 h-3.5" />
+                          Track Stats
+                        </Button>
+                      </div>
                     </div>
                   )}
                   <div className="flex-1 overflow-y-auto space-y-2 pr-2">
@@ -2805,8 +2799,34 @@ export default function TrainingLogPage() {
                     Active Workout
                   </CardTitle>
                   <CardDescription>
-                    {workoutEntries.length} drill{workoutEntries.length > 1 ? 's' : ''} in this session
+                    {quickWorkoutEntries.length} drill{quickWorkoutEntries.length > 1 ? 's' : ''} in this session
                   </CardDescription>
+                </div>
+                <div className="flex rounded-lg border border-zinc-700 bg-zinc-950 p-1" aria-label="Workout logging mode">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className={workoutMode === "complete" ? "bg-white text-black hover:bg-zinc-200 hover:text-black" : "text-zinc-400"}
+                    onClick={() => setWorkoutMode("complete")}
+                    aria-pressed={workoutMode === "complete"}
+                    data-testid="button-mode-quick-complete"
+                  >
+                    <Check className="mr-1.5 h-4 w-4" />
+                    Quick Complete
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className={workoutMode === "track" ? "bg-orange-500 text-black hover:bg-orange-400 hover:text-black" : "text-zinc-400"}
+                    onClick={() => setWorkoutMode("track")}
+                    aria-pressed={workoutMode === "track"}
+                    data-testid="button-mode-track-stats"
+                  >
+                    <Target className="mr-1.5 h-4 w-4" />
+                    Track Stats
+                  </Button>
                 </div>
                 {/* Single workout elapsed timer — auto-starts when workout begins */}
                 <div className="flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-lg px-3 py-1.5" data-testid="workout-elapsed-timer">
@@ -2914,14 +2934,85 @@ export default function TrainingLogPage() {
                     </DialogContent>
                   </Dialog>
                 )}
-                <Button onClick={saveWorkout} className="gap-2" disabled={isSavingWorkout} data-testid="button-finish-workout">
+                <Button
+                  onClick={saveWorkout}
+                  className="gap-2"
+                  disabled={isSavingWorkout || (workoutMode === "complete" && quickCompletedDrillIds.size === 0)}
+                  data-testid="button-finish-workout"
+                >
                   {isSavingWorkout ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                  {isSavingWorkout ? "Saving..." : "Finish Workout"}
+                  {isSavingWorkout
+                    ? "Saving..."
+                    : workoutMode === "complete"
+                      ? `Save ${quickCompletedDrillIds.size} Completed`
+                      : "Finish Workout"}
                 </Button>
               </div>
             </div>
           </CardHeader>
           <CardContent>
+            {workoutMode === "complete" ? (
+              <div className="space-y-4" data-testid="quick-complete-checklist">
+                <div className="rounded-xl border border-white/10 bg-zinc-950 p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-black">
+                      <Check className="h-5 w-5" strokeWidth={3} />
+                    </div>
+                    <div>
+                      <h3 className="font-heading text-base uppercase tracking-wide">Just check off what you finish</h3>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        No numbers are required. Checked drills will be saved to History and count toward your training activity.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  {quickWorkoutEntries.map((entry) => {
+                    const completed = quickCompletedDrillIds.has(entry.drillId);
+                    return (
+                      <button
+                        key={entry.drillId}
+                        type="button"
+                        onClick={() => {
+                          setQuickCompletedDrillIds((current) => {
+                            const next = new Set(current);
+                            if (next.has(entry.drillId)) next.delete(entry.drillId);
+                            else next.add(entry.drillId);
+                            return next;
+                          });
+                        }}
+                        className={`flex min-h-20 w-full items-center gap-4 rounded-xl border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 ${
+                          completed
+                            ? "border-emerald-500/70 bg-emerald-500/10"
+                            : "border-zinc-700 bg-zinc-950 hover:border-zinc-500"
+                        }`}
+                        aria-pressed={completed}
+                        data-testid={`quick-complete-drill-${entry.drillId}`}
+                      >
+                        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 ${
+                          completed
+                            ? "border-emerald-400 bg-emerald-500 text-black"
+                            : "border-zinc-500 bg-black text-transparent"
+                        }`}>
+                          <Check className="h-5 w-5" strokeWidth={3} />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className={`block font-heading text-sm uppercase tracking-wide ${completed ? "text-emerald-300" : "text-white"}`}>
+                            {entry.drill.title}
+                          </span>
+                          <span className="mt-1 block text-xs capitalize text-zinc-400">
+                            {formatCategory(entry.drill.category)} · {entry.drill.difficulty}
+                          </span>
+                        </span>
+                        <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                          {completed ? "Done" : "Tap to finish"}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
             <div className="space-y-6">
               {/* Global challenge quick-apply — visible when the user has active challenges */}
               {activeChallenges && activeChallenges.filter(uc => !uc.isCompleted).length > 0 && (
@@ -3293,6 +3384,7 @@ export default function TrainingLogPage() {
                 </DialogContent>
               </Dialog>
             </div>
+            )}
           </CardContent>
         </Card>
           </div>

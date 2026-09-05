@@ -2620,10 +2620,7 @@ COACHING RULES:
       // Auto-complete daily challenge if any logged drill matches today's challenge
       let streakResult: any = null;
       try {
-        const { clientDate } = req.body;
-        const todayStr = (typeof clientDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(clientDate))
-          ? clientDate
-          : new Date().toISOString().split("T")[0];
+        const todayStr = new Date().toISOString().split("T")[0];
         const challengeData = await storage.getDailyChallenge(todayStr);
         if (challengeData) {
           const alreadyDone = await storage.getTodayCompletion(userId, todayStr);
@@ -2633,6 +2630,10 @@ COACHING RULES:
               streakResult = await storage.completeDailyChallenge(userId, challengeData.drill.id, todayStr, matchingLog.id);
             }
           }
+        }
+        if (!streakResult) {
+          const activityStreak = await storage.recordTrainingStreakActivity(userId, todayStr);
+          streakResult = { ...activityStreak, activityOnly: true };
         }
       } catch (e) { /* non-fatal */ }
 
@@ -2651,7 +2652,7 @@ COACHING RULES:
           if (streakResult?.milestoneReached && STREAK_MILESTONES.has(streakResult.milestoneReached)) {
             fireActivity(userId, "streak_milestone",
               `Hit a ${streakResult.milestoneReached}-day training streak 🔥`,
-              `${streakResult.milestoneReached} days in a row on the daily challenge`);
+              `${streakResult.milestoneReached} days in a row training`);
           }
         } catch { /* non-fatal */ }
       })();

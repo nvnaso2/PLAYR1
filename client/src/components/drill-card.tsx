@@ -1,15 +1,19 @@
 import { Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Play, Clock, Target, Trophy } from "lucide-react";
+import { Play, Clock, Target, Trophy, Check } from "lucide-react";
 import type { Drill } from "@shared/schema";
 import { BasketballRating } from "@/components/basketball-rating";
 import { getObjectUrl } from "@/lib/queryClient";
+import { cn } from "@/lib/utils";
 
 interface DrillCardProps {
   drill: Drill;
   personalBest?: number | null;
   totalSessions?: number;
+  selectable?: boolean;
+  selected?: boolean;
+  onSelect?: (drillId: string) => void;
 }
 
 const difficultyColors = {
@@ -29,18 +33,32 @@ const categoryLabels: Record<string, string> = {
   "workouts": "Workouts",
 };
 
-export function DrillCard({ drill, personalBest, totalSessions }: DrillCardProps) {
+export function DrillCard({ drill, personalBest, totalSessions, selectable = false, selected = false, onSelect }: DrillCardProps) {
   const formatDuration = (seconds?: number | null) => {
     if (!seconds) return "N/A";
     const mins = Math.floor(seconds / 60);
     return `${mins} min`;
   };
 
-  return (
-    <Link href={`/drill/${drill.id}`}>
-      <Card 
-        className="group hover-elevate cursor-pointer transition-all duration-300 overflow-hidden"
+  const card = (
+      <Card
+        className={cn(
+          "group cursor-pointer transition-all duration-300 overflow-hidden",
+          selectable ? "relative hover:border-orange-400/70" : "hover-elevate",
+          selected && "border-orange-400 ring-2 ring-orange-400/40"
+        )}
         data-testid={`card-drill-${drill.id}`}
+        data-selected={selected ? "true" : "false"}
+        role={selectable ? "checkbox" : undefined}
+        aria-checked={selectable ? selected : undefined}
+        tabIndex={selectable ? 0 : undefined}
+        onClick={selectable ? () => onSelect?.(drill.id) : undefined}
+        onKeyDown={selectable ? (event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onSelect?.(drill.id);
+          }
+        } : undefined}
       >
         <div className="relative aspect-video bg-muted">
           {drill.videoUrl ? (
@@ -73,8 +91,14 @@ export function DrillCard({ drill, personalBest, totalSessions }: DrillCardProps
               <Target className="w-12 h-12 text-primary/50" />
             </div>
           )}
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
-            <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity transform scale-75 group-hover:scale-100">
+          <div className={cn(
+            "absolute inset-0 transition-colors flex items-center justify-center",
+            selectable ? "bg-black/0" : "bg-black/0 group-hover:bg-black/40"
+          )}>
+            <div className={cn(
+              "w-14 h-14 rounded-full bg-primary items-center justify-center opacity-0 transition-opacity transform scale-75",
+              selectable ? "hidden" : "flex group-hover:opacity-100 group-hover:scale-100"
+            )}>
               <Play className="w-6 h-6 text-primary-foreground fill-current ml-1" />
             </div>
           </div>
@@ -83,8 +107,19 @@ export function DrillCard({ drill, personalBest, totalSessions }: DrillCardProps
               {drill.difficulty || 'beginner'}
             </Badge>
           </div>
+          {selectable && (
+            <div className={cn(
+              "absolute top-3 right-3 flex h-8 w-8 items-center justify-center rounded-full border-2 shadow-sm transition-colors",
+              selected
+                ? "border-orange-400 bg-orange-500 text-black"
+                : "border-white/80 bg-black/60 text-transparent"
+            )}>
+              <Check className="h-4 w-4" strokeWidth={3} />
+              <span className="sr-only">{selected ? "Selected" : "Select drill"}</span>
+            </div>
+          )}
           {personalBest !== undefined && personalBest !== null && (
-            <div className="absolute top-3 right-3">
+            <div className={cn("absolute top-3 right-3", selectable && "top-14")}>
               <Badge className="bg-yellow-500/90 text-yellow-950 flex items-center gap-1" data-testid={`badge-personal-best-${drill.id}`}>
                 <Trophy className="w-3 h-3" />
                 PB: {personalBest}/10
@@ -122,6 +157,8 @@ export function DrillCard({ drill, personalBest, totalSessions }: DrillCardProps
           </div>
         </CardContent>
       </Card>
-    </Link>
   );
+
+  if (selectable) return card;
+  return <Link href={`/drill/${drill.id}`}>{card}</Link>;
 }
