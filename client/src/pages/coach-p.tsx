@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowUp, Dumbbell, Flag, Gamepad2, GraduationCap, Loader2, Menu, MessageSquarePlus, Pin, PinOff, Target, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowUp, Dumbbell, Flag, Gamepad2, GraduationCap, Loader2, Menu, MessageSquarePlus, Pencil, Pin, PinOff, Target, Trash2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Sheet,
@@ -23,6 +24,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -261,6 +270,8 @@ export default function CoachPPage() {
   const [loadingConversation, setLoadingConversation] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState<SavedConversation | null>(null);
+  const [conversationToRename, setConversationToRename] = useState<SavedConversation | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const pendingAssistantTextRef = useRef("");
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -491,6 +502,19 @@ export default function CoachPPage() {
     }
   };
 
+  const saveConversationRename = async () => {
+    const title = renameDraft.trim();
+    if (!conversationToRename || !title || chatMutation.isPending) return;
+    try {
+      await apiRequest("PATCH", `/api/coach-p/conversations/${conversationToRename.id}`, { title });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach-p/conversations"] });
+      setConversationToRename(null);
+      setRenameDraft("");
+    } catch {
+      setErrorMessage("That chat could not be renamed.");
+    }
+  };
+
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#080808] text-white">
       <AlertDialog
@@ -520,6 +544,58 @@ export default function CoachPPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <Dialog
+        open={Boolean(conversationToRename)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setConversationToRename(null);
+            setRenameDraft("");
+          }
+        }}
+      >
+        <DialogContent className="border-zinc-800 bg-zinc-950 text-white">
+          <DialogHeader>
+            <DialogTitle>Rename chat</DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              Give this Coach P conversation a name you’ll recognize later.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void saveConversationRename();
+            }}
+          >
+            <Input
+              value={renameDraft}
+              onChange={(event) => setRenameDraft(event.target.value)}
+              maxLength={200}
+              autoFocus
+              placeholder="e.g. Game-day confidence plan"
+              className="border-zinc-700 bg-zinc-900 text-white placeholder:text-zinc-600 focus-visible:ring-orange-400/40"
+              data-testid="input-coach-p-rename"
+            />
+            <DialogFooter className="mt-5">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setConversationToRename(null)}
+                className="border-zinc-700 bg-transparent text-zinc-200 hover:bg-zinc-900 hover:text-white"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={!renameDraft.trim() || chatMutation.isPending}
+                className="bg-orange-500 text-black hover:bg-orange-400"
+                data-testid="button-coach-p-save-rename"
+              >
+                Save name
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
       <header className="relative z-40 h-16 border-b border-white/[0.06] bg-[#080808]/90 px-4 backdrop-blur-xl sm:px-6 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
@@ -583,6 +659,19 @@ export default function CoachPPage() {
                             {conversation.pinned && <Pin className="h-3 w-3 shrink-0 fill-orange-300 text-orange-300" />}
                             <span className="truncate">{conversation.title}</span>
                           </span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setConversationToRename(conversation);
+                            setRenameDraft(conversation.title);
+                          }}
+                          disabled={chatMutation.isPending}
+                          className="rounded p-1.5 text-zinc-600 opacity-0 transition-opacity hover:text-orange-300 group-hover:opacity-100 disabled:opacity-50"
+                          aria-label={`Rename ${conversation.title}`}
+                          title="Rename chat"
+                          data-testid={`button-coach-p-drawer-rename-${conversation.id}`}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
                         </button>
                         <button
                           onClick={() => void togglePinConversation(conversation)}
@@ -703,17 +792,7 @@ export default function CoachPPage() {
         )}
 
         <div className="relative z-30 shrink-0 border-t border-white/[0.05] bg-[#080808] pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
-          <div className="relative flex min-h-[58px] items-center gap-2 rounded-full border border-orange-400/20 bg-zinc-950/95 px-2 py-2 shadow-[0_12px_44px_rgba(0,0,0,0.42),0_0_30px_rgba(249,115,22,0.08)] transition-colors focus-within:border-orange-400/45 focus-within:shadow-[0_12px_44px_rgba(0,0,0,0.42),0_0_34px_rgba(249,115,22,0.16)]">
-            <button
-              type="button"
-              onClick={startNewConversation}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-zinc-500 transition-colors hover:bg-orange-400/10 hover:text-orange-300"
-              aria-label="Start a new Coach P chat"
-              title="New chat"
-              data-testid="button-coach-p-add-context"
-            >
-              <MessageSquarePlus className="h-5 w-5" />
-            </button>
+          <div className="relative flex min-h-[58px] items-center gap-2 rounded-full border border-orange-400/20 bg-zinc-950/95 px-3 py-2 shadow-[0_12px_44px_rgba(0,0,0,0.42),0_0_30px_rgba(249,115,22,0.08)] transition-colors focus-within:border-orange-400/45 focus-within:shadow-[0_12px_44px_rgba(0,0,0,0.42),0_0_34px_rgba(249,115,22,0.16)]">
             <div className="flex min-w-0 flex-1 items-center">
               <Textarea
                 value={draft}
