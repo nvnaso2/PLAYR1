@@ -29,6 +29,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { StreakChallenge, StreakChallengeParticipant, StreakChallengeAttempt } from "@shared/schema";
 
+const SIGNATURE_CHALLENGE_RULES = "Shoot from behind the 3-point line until you miss. Log every session honestly and see how many you can make in a row. You can attempt it multiple times with your best scoring counting on the leaderboard. Optional: record your attempt and share the link to be featured in creator content.";
+
 type ChallengeDetail = {
   challenge: StreakChallenge;
   participantCount: number;
@@ -375,42 +377,41 @@ export default function StreakChallengePage() {
   const recentScoreLabel = todayAttempt ? "Today's Score" : myParticipation?.isDaily ? "Last Daily Score" : "Latest Score";
 
   const hasVideo = videoMode === "file" ? Boolean(selectedFile) : Boolean(videoUrl);
+  const displayedRules = challenge.slug === "fifty-in-a-row" ? SIGNATURE_CHALLENGE_RULES : challenge.rules;
 
   return (
     <div className="min-h-screen bg-black pb-16" data-testid="page-streak-challenge">
 
       {/* ─── Hero ─── */}
-      <div className="relative overflow-hidden border-b border-white/5">
-        <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: `linear-gradient(rgba(249,115,22,0.6) 1px,transparent 1px),linear-gradient(90deg,rgba(249,115,22,0.6) 1px,transparent 1px)`, backgroundSize: "40px 40px" }} />
-        <div className="absolute -top-20 -left-20 w-96 h-96 rounded-full opacity-25 blur-3xl pointer-events-none" style={{ background: accent }} />
-        <div className="absolute -bottom-20 right-0 w-64 h-64 rounded-full opacity-15 blur-3xl pointer-events-none" style={{ background: accent }} />
-
-        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 py-10">
+      <div className="relative overflow-hidden border-b border-zinc-800/80 bg-zinc-950">
+        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 py-6 md:py-7">
           <Link href="/events">
-            <Button variant="ghost" size="sm" className="mb-5 -ml-2 text-zinc-500 hover:text-white" data-testid="button-back-compete">
+            <Button variant="ghost" size="sm" className="mb-4 -ml-2 text-zinc-500 hover:text-white" data-testid="button-back-compete">
               <ChevronLeft className="w-4 h-4 mr-1" />Compete
             </Button>
           </Link>
-          <div className="flex items-center gap-2 mb-3 flex-wrap">
-            <Badge className="bg-orange-500/15 text-orange-400 border-orange-500/30 animate-pulse font-medium">
-              <Flame className="w-3 h-3 mr-1" />Always Live
-            </Badge>
-            <Badge className="bg-white/5 text-zinc-400 border-white/10">
-              <Users className="w-3 h-3 mr-1" />{participantCount} players
-            </Badge>
+          <div className="border-l-2 border-orange-400 pl-4 sm:pl-5" style={{ borderColor: accent }}>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge className="border-orange-500/30 bg-orange-500/10 text-orange-300">
+                <Flame className="w-3 h-3 mr-1" aria-hidden="true" />Live now
+              </Badge>
+              <Badge className="border-white/10 bg-white/[0.04] text-zinc-400">
+                <Users className="w-3 h-3 mr-1" aria-hidden="true" />{participantCount} players
+              </Badge>
+            </div>
+            <h1 className="mt-4 text-3xl font-heading uppercase tracking-wide leading-none text-white md:text-4xl" data-testid="text-challenge-title">
+              {challenge.title}
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-400 md:text-base">{challenge.description}</p>
+            {displayedRules && (
+              <details className="mt-3">
+                <summary className="flex w-fit cursor-pointer items-center gap-1 text-xs text-zinc-500 transition-colors hover:text-zinc-300">
+                  <Info className="h-3 w-3" aria-hidden="true" />Rules & how it works
+                </summary>
+                <p className="mt-2 max-w-xl border-l border-zinc-700 pl-3 text-xs leading-relaxed text-zinc-500">{displayedRules}</p>
+              </details>
+            )}
           </div>
-          <h1 className="text-3xl md:text-5xl font-black tracking-tight bg-gradient-to-r from-orange-400 via-amber-300 to-orange-500 bg-clip-text text-transparent" data-testid="text-challenge-title">
-            {challenge.title}
-          </h1>
-          <p className="text-zinc-400 mt-3 max-w-2xl text-sm md:text-base leading-relaxed">{challenge.description}</p>
-          {challenge.rules && (
-            <details className="mt-4">
-              <summary className="text-xs text-zinc-600 cursor-pointer flex items-center gap-1 w-fit hover:text-zinc-400 transition-colors">
-                <Info className="w-3 h-3" />Rules & how it works
-              </summary>
-              <p className="text-xs text-zinc-500 mt-2 max-w-xl leading-relaxed border-l-2 border-orange-500/30 pl-3">{challenge.rules}</p>
-            </details>
-          )}
         </div>
       </div>
 

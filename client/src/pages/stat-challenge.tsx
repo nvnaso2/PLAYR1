@@ -105,7 +105,7 @@ export default function StatChallengePage() {
         <div className="text-center space-y-3">
           <Trophy className="w-12 h-12 mx-auto text-muted-foreground opacity-30" />
           <p className="text-lg font-semibold">Challenge not found</p>
-          <Link href="/compete">
+          <Link href="/events">
             <Button variant="outline">Back to Compete</Button>
           </Link>
         </div>
@@ -133,7 +133,7 @@ export default function StatChallengePage() {
           }}
         />
         <div className="relative max-w-3xl mx-auto px-4 sm:px-6 py-10">
-          <Link href="/compete">
+          <Link href="/events">
             <Button variant="ghost" size="sm" className="mb-4 -ml-2 text-muted-foreground" data-testid="button-back">
               <ChevronLeft className="w-4 h-4 mr-1" /> Compete
             </Button>

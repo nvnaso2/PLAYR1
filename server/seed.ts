@@ -749,7 +749,7 @@ export async function seedDatabase() {
         metricLabel: "Consecutive 3-Pointers Made",
         defaultGoal: 10,
         accentColor: "#f97316",
-        rules: "Stand behind the 3-point line. Shoot until you miss — that's your score. Log every session honestly. You can attempt multiple times; only your best score counts on the leaderboard. Optional: record your attempt and share the link to be featured in creator content.",
+        rules: "Shoot from behind the 3-point line until you miss. Log every session honestly and see how many you can make in a row. You can attempt it multiple times with your best scoring counting on the leaderboard. Optional: record your attempt and share the link to be featured in creator content.",
         isActive: true,
       });
       console.log("Streak challenge 'fifty-in-a-row' seeded");
