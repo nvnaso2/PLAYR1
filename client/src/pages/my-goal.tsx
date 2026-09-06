@@ -692,6 +692,12 @@ export default function MyGoalPage() {
     setForceRefresh((n) => n + 1);
   };
 
+  useEffect(() => {
+    if (goalData?.goal.status === "clarifying") {
+      navigate("/coach-p?project=continue");
+    }
+  }, [goalData?.goal.status, navigate]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -705,12 +711,6 @@ export default function MyGoalPage() {
   }
 
   const { goal } = goalData;
-
-  useEffect(() => {
-    if (goalData?.goal.status === "clarifying") {
-      navigate("/coach-p?project=continue");
-    }
-  }, [goalData?.goal.status, navigate]);
 
   if (goal.status === "completed") {
     return <CompletedView data={goalData} onReset={refresh} />;

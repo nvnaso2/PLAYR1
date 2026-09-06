@@ -283,6 +283,7 @@ export default function CoachPPage() {
   const [projectBuilderMode, setProjectBuilderMode] = useState(false);
   const [projectReady, setProjectReady] = useState(false);
   const [projectPrompt, setProjectPrompt] = useState<ProjectBuilderPrompt | null>(null);
+  const projectResumeAttemptedRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const pendingAssistantTextRef = useRef("");
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -349,6 +350,8 @@ export default function CoachPPage() {
   const currentUsage = usage ?? subscription?.coachP ?? null;
   const isUnlimited = subscription?.plan === "pro" || (subscription?.plan as string | undefined) === "pro-infinity" || currentUsage?.limit === null;
   const canSend = projectBuilderMode || isUnlimited || currentUsage?.remaining == null || currentUsage.remaining > 0;
+  const shouldResumeProject = typeof window !== "undefined"
+    && new URLSearchParams(window.location.search).get("project") === "continue";
 
   const chatMutation = useMutation({
     mutationFn: async (request: {
@@ -552,6 +555,22 @@ export default function CoachPPage() {
       setLoadingConversation(false);
     }
   };
+
+  useEffect(() => {
+    if (
+      !shouldResumeProject
+      || projectResumeAttemptedRef.current
+      || loadingConversation
+      || conversationId
+      || messages.length > 0
+    ) {
+      return;
+    }
+    const projectConversation = conversations.find((conversation) => conversation.title === "Build my PLAYR1 Project");
+    if (!projectConversation) return;
+    projectResumeAttemptedRef.current = true;
+    void openConversation(projectConversation.id);
+  }, [conversations, conversationId, loadingConversation, messages.length, openConversation, shouldResumeProject]);
 
   const deleteConversation = async (id: string) => {
     if (chatMutation.isPending) return;
