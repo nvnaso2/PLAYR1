@@ -1074,7 +1074,15 @@ Start now with a warm one-line greeting that briefly references something specif
               pending = await storage.addClarification(activeGoal.id, answered.length, projectPrompt.question, projectPrompt.options);
               clarifications = [...clarifications, pending];
             } else {
-              responseMessage = "Your Project discovery is already complete. Open My PLAYR1 Project to continue.";
+              const qaList = clarifications.map((clarification) => ({
+                question: clarification.question,
+                answer: clarification.answer ?? "",
+              }));
+              const program = await generateGoalPlan(userId, activeGoal.goalText, qaList);
+              await saveGoalPlan(activeGoal.id, userId, program);
+              const finalAnswer = answered[answered.length - 1]?.answer ?? lastUserMessage.content;
+              responseMessage = `${builderReflection(finalAnswer, answered.length - 1)}\n\n# Your PLAYR1 Project is ready\n\n**${program.projectTitle}**\n\n${program.coachNote}\n\nYour plan, milestones, and next action are saved. Open My PLAYR1 Project to see the full path.`;
+              projectPrompt = null;
               projectReady = true;
             }
           }
@@ -1104,33 +1112,7 @@ Start now with a warm one-line greeting that briefly references something specif
                 answer: clarification.answer ?? "",
               }));
               const program = await generateGoalPlan(userId, activeGoal.goalText, qaList);
-              await Promise.all(
-                program.milestones.map((milestone) =>
-                  storage.createMilestone({
-                    goalId: activeGoal.id,
-                    userId,
-                    weekNumber: milestone.phase,
-                    milestoneType: milestone.type,
-                    targetDate: milestone.targetDate ?? null,
-                    title: milestone.title,
-                    description: milestone.description,
-                    completed: false,
-                  })
-                )
-              );
-              await storage.updateGoal(activeGoal.id, {
-                status: "active",
-                aiProgram: program,
-                projectTitle: program.projectTitle,
-                projectType: program.projectType,
-                whyItMatters: program.whyItMatters,
-                successDefinition: program.successDefinition,
-                timelineType: program.timelineSummary.toLowerCase().includes("open") ? "open" : "flexible",
-                currentChapter: program.currentChapter,
-                nextAction: program.nextAction?.title,
-                successSignals: program.successSignals,
-                totalWeeks: Math.max(1, program.phases?.length ?? 1),
-              });
+              await saveGoalPlan(activeGoal.id, userId, program);
               responseMessage = `${builderReflection(lastUserMessage.content, pending.questionIndex)}\n\n# Your PLAYR1 Project is ready\n\n**${program.projectTitle}**\n\n${program.coachNote}\n\nYour plan, milestones, and next action are saved. Open My PLAYR1 Project to see the full path.`;
               projectPrompt = null;
               projectReady = true;
@@ -11493,19 +11475,17 @@ Return ONLY valid JSON array, no markdown.`;
     });
     const context = await getGoalPlayerContext(userId);
     const qaContext = clarifications.map((c, i) => `Q${i + 1}: ${c.question}\nA${i + 1}: ${c.answer}`).join("\n\n");
-    const completion = await openai.chat.completions.create({
-      model: "gpt-5",
-      messages: [
-        {
-          role: "system",
-          content: `You are Coach P on PLAYR1. Turn a player's discovery conversation into a personalized PLAYR1 Project.
+    const messages = [
+      {
+        role: "system" as const,
+        content: `You are Coach P on PLAYR1. Turn a player's discovery conversation into a personalized PLAYR1 Project.
 The project is the player's personal basketball story, not automatically a workout plan. It may be about making a team, preparing for an opportunity, learning fundamentals, improving a skill, playing for joy, building community, creating basketball content, returning to the game, or pursuing a long-term competitive ambition.
 Honor the player's own definition of success. Do not invent deadlines. Use a flexible timeline if none was provided. Make the plan actionable without forcing every goal into the same duration.
-Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action. Mix training, learning, playing, reflecting, connecting, creating, and recovery actions as appropriate to this player's project. Never give medical advice.`,
-        },
-        {
-          role: "user",
-          content: `PLAYER CONTEXT:\n${formatGoalContext(context)}\n\nSTARTING THOUGHT:\n${goalText}\n\nDISCOVERY CONVERSATION:\n${qaContext}\n\nReturn this exact shape:
+Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action. Keep descriptions concise and use no more than 3 actions per phase. Mix training, learning, playing, reflecting, connecting, creating, and recovery actions as appropriate to this player's project. Never give medical advice.`,
+      },
+      {
+        role: "user" as const,
+        content: `PLAYER CONTEXT:\n${formatGoalContext(context)}\n\nSTARTING THOUGHT:\n${goalText}\n\nDISCOVERY CONVERSATION:\n${qaContext}\n\nReturn this exact shape:
 {
   "projectTitle": "short player-owned project name",
   "projectType": "one concise category",
@@ -11525,34 +11505,103 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
     {"phase":1,"type":"outcome|capability|process|experience|evidence|reflection|opportunity","title":"...","description":"...","targetDate":"optional date or season, otherwise omit"}
   ]
 }`,
-        },
-      ],
-      max_completion_tokens: 5000,
-    });
-    const raw = completion.choices[0].message.content?.trim() ?? "{}";
-    const normalized = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
-    const plan = JSON.parse(normalized) as Partial<import("@shared/schema").GoalProgram>;
-    if (
-      typeof plan.projectTitle !== "string" ||
-      typeof plan.projectType !== "string" ||
-      typeof plan.projectSummary !== "string" ||
-      typeof plan.coachNote !== "string" ||
-      typeof plan.whyItMatters !== "string" ||
-      typeof plan.successDefinition !== "string" ||
-      typeof plan.timelineSummary !== "string" ||
-      typeof plan.currentChapter !== "string" ||
-      !plan.nextAction ||
-      !Array.isArray(plan.focusAreas) ||
-      !Array.isArray(plan.successSignals) ||
-      !Array.isArray(plan.phases) ||
-      plan.phases.length === 0 ||
-      !Array.isArray(plan.milestones) ||
-      plan.milestones.length === 0 ||
-      plan.milestones.some((milestone) => !Number.isInteger(Number(milestone.phase)) || Number(milestone.phase) < 1)
-    ) {
-      throw new Error("Coach P returned an incomplete PLAYR1 Project plan");
+      },
+    ];
+    let lastError: Error | null = null;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const completion = await openai.chat.completions.create({
+        model: "gpt-5",
+        messages: attempt === 0
+          ? messages
+          : [
+              ...messages,
+              {
+                role: "user" as const,
+                content: "Retry with compact valid JSON only. Do not use markdown fences, commentary, or extra keys.",
+              },
+            ],
+        response_format: { type: "json_object" },
+        reasoning_effort: "low",
+        max_completion_tokens: attempt === 0 ? 6000 : 5000,
+      });
+      const raw = completion.choices[0]?.message?.content?.trim() ?? "";
+      const normalized = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
+      console.info("[Coach P project plan]", {
+        userId,
+        attempt: attempt + 1,
+        finishReason: completion.choices[0]?.finish_reason ?? null,
+        messageChars: raw.length,
+      });
+      try {
+        const plan = JSON.parse(normalized || "{}") as Partial<import("@shared/schema").GoalProgram>;
+        if (
+          typeof plan.projectTitle !== "string" ||
+          typeof plan.projectType !== "string" ||
+          typeof plan.projectSummary !== "string" ||
+          typeof plan.coachNote !== "string" ||
+          typeof plan.whyItMatters !== "string" ||
+          typeof plan.successDefinition !== "string" ||
+          typeof plan.timelineSummary !== "string" ||
+          typeof plan.currentChapter !== "string" ||
+          !plan.nextAction ||
+          !Array.isArray(plan.focusAreas) ||
+          !Array.isArray(plan.successSignals) ||
+          !Array.isArray(plan.phases) ||
+          plan.phases.length === 0 ||
+          !Array.isArray(plan.milestones) ||
+          plan.milestones.length === 0 ||
+          plan.milestones.some((milestone) => !Number.isInteger(Number(milestone.phase)) || Number(milestone.phase) < 1)
+        ) {
+          throw new Error("Coach P returned an incomplete PLAYR1 Project plan");
+        }
+        return plan as import("@shared/schema").GoalProgram;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error("Coach P returned invalid Project JSON");
+        console.error("[Coach P project plan] invalid response", {
+          attempt: attempt + 1,
+          error: lastError.message,
+          finishReason: completion.choices[0]?.finish_reason ?? null,
+        });
+      }
     }
-    return plan as import("@shared/schema").GoalProgram;
+    throw lastError ?? new Error("Coach P could not build the Project plan");
+  }
+
+  async function saveGoalPlan(
+    goalId: string,
+    userId: string,
+    program: import("@shared/schema").GoalProgram,
+  ) {
+    const existingMilestones = await storage.getGoalMilestones(goalId);
+    if (existingMilestones.length === 0) {
+      await Promise.all(
+        program.milestones.map((milestone) =>
+          storage.createMilestone({
+            goalId,
+            userId,
+            weekNumber: milestone.phase,
+            milestoneType: milestone.type,
+            targetDate: milestone.targetDate ?? null,
+            title: milestone.title,
+            description: milestone.description,
+            completed: false,
+          })
+        )
+      );
+    }
+    return storage.updateGoal(goalId, {
+      status: "active",
+      aiProgram: program,
+      projectTitle: program.projectTitle,
+      projectType: program.projectType,
+      whyItMatters: program.whyItMatters,
+      successDefinition: program.successDefinition,
+      timelineType: program.timelineSummary.toLowerCase().includes("open") ? "open" : "flexible",
+      currentChapter: program.currentChapter,
+      nextAction: program.nextAction?.title,
+      successSignals: program.successSignals,
+      totalWeeks: Math.max(1, program.phases?.length ?? 1),
+    });
   }
 
   app.post("/api/goals", isAuthenticated, async (req: AuthenticatedRequest, res) => {
