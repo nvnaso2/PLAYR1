@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -675,6 +675,7 @@ function CompletedView({ data, onReset }: { data: GoalData; onReset: () => void 
 
 export default function MyGoalPage() {
   const { user } = useAuth();
+  const [, navigate] = useLocation();
   const [forceRefresh, setForceRefresh] = useState(0);
 
   const { data: goalData, isLoading } = useQuery<GoalData>({
@@ -705,12 +706,25 @@ export default function MyGoalPage() {
 
   const { goal } = goalData;
 
+  useEffect(() => {
+    if (goalData?.goal.status === "clarifying") {
+      navigate("/coach-p?project=continue");
+    }
+  }, [goalData?.goal.status, navigate]);
+
   if (goal.status === "completed") {
     return <CompletedView data={goalData} onReset={refresh} />;
   }
 
   if (goal.status === "clarifying") {
-    return <ClarifyingView data={goalData} onProgramReady={refresh} />;
+    return (
+      <div className="flex min-h-screen items-center justify-center px-4 text-center">
+        <div className="space-y-2">
+          <Sparkles className="mx-auto h-8 w-8 animate-pulse text-orange-400" />
+          <p className="text-sm text-zinc-400">Continuing your Project with Coach P...</p>
+        </div>
+      </div>
+    );
   }
 
   return <ActiveGoalView data={goalData} onAbandoned={refresh} />;
