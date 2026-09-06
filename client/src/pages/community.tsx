@@ -5,6 +5,11 @@ import {
   Activity,
   Check,
   Clock3,
+  ChevronDown,
+  ChevronUp,
+  Dumbbell,
+  Flame,
+  Info,
   MapPin,
   Plus,
   Search,
@@ -44,6 +49,7 @@ type CommunityTab = "activity" | "challenges" | "players";
 
 type Player = {
   userId: string;
+  profileSlug?: string | null;
   displayName?: string | null;
   firstName?: string | null;
   lastName?: string | null;
@@ -57,6 +63,26 @@ type Player = {
   connectionStatus?: string | null;
   score?: number;
 };
+
+const ACTIVITY_EXPLANATIONS = [
+  { type: "completed_workout", label: "Workout completed", description: "A player logged a finished training session.", icon: Dumbbell },
+  { type: "completed_challenge", label: "Challenge completed", description: "A player reached a shared challenge target.", icon: Trophy },
+  { type: "new_personal_record", label: "Personal best", description: "A player beat a previous training record.", icon: Trophy },
+  { type: "started_program", label: "Program started", description: "A player committed to a new development plan.", icon: Activity },
+  { type: "completed_program_day", label: "Program day completed", description: "A player finished the next day in a program.", icon: Check },
+  { type: "streak_milestone", label: "Streak milestone", description: "A player reached a meaningful consistency milestone.", icon: Flame },
+  { type: "level_up", label: "Level up", description: "A player advanced in their PLAYR1 progression.", icon: Flame },
+  { type: "badge_earned", label: "Badge earned", description: "A player unlocked a new achievement badge.", icon: Trophy },
+  { type: "finished_challenge", label: "Challenge finished", description: "A player completed the full challenge block.", icon: Swords },
+] as const;
+
+function profileHref(player: { userId: string; profileSlug?: string | null }) {
+  return `/player/${player.profileSlug || player.userId}`;
+}
+
+function activityTypeDetails(type?: string) {
+  return ACTIVITY_EXPLANATIONS.find((item) => item.type === type) || ACTIVITY_EXPLANATIONS[0];
+}
 
 const tabs: Array<{ id: CommunityTab; label: string; description: string; icon: typeof Activity }> = [
   { id: "activity", label: "Activity", description: "See your circle’s progress", icon: Activity },
@@ -121,6 +147,8 @@ function PanelError({ message }: { message: string }) {
 
 function ActivityPanel({ user }: { user: unknown }) {
   const { toast } = useToast();
+  const [feedOpen, setFeedOpen] = useState(true);
+  const [guideOpen, setGuideOpen] = useState(false);
   const { data: feed = [], isLoading: feedLoading, isError: feedError } = useQuery<any[]>({
     queryKey: ["/api/friends/activity"],
     enabled: !!user,
@@ -163,11 +191,11 @@ function ActivityPanel({ user }: { user: unknown }) {
           <CardContent className="space-y-3">
             {requests.map((request: any) => (
               <div key={request.friendship.id} className="flex items-center gap-3">
-                <Link href={`/player/${request.requester.id}`} aria-label={`View ${request.requester.displayName}'s profile`}>
+                  <Link href={profileHref({ userId: request.requester.id, profileSlug: request.requester.profileSlug })} aria-label={`View ${request.requester.displayName}'s profile`}>
                   <PlayerAvatar player={request.requester} />
                 </Link>
                 <div className="min-w-0 flex-1">
-                  <Link href={`/player/${request.requester.id}`} className="font-medium text-sm hover:text-orange-400">
+                   <Link href={profileHref({ userId: request.requester.id, profileSlug: request.requester.profileSlug })} className="font-medium text-sm hover:text-orange-400">
                     {request.requester.displayName}
                   </Link>
                   <p className="text-xs text-muted-foreground">wants to connect</p>
@@ -199,15 +227,44 @@ function ActivityPanel({ user }: { user: unknown }) {
       )}
 
       <div>
-        <div className="mb-3 flex items-end justify-between">
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
           <div>
             <h2 className="text-lg font-semibold">Friend activity</h2>
-            <p className="text-sm text-muted-foreground">Automatic updates from the players you follow.</p>
+            <p className="text-sm text-muted-foreground">Small signals from the players in your circle.</p>
           </div>
-          <Badge variant="outline" className="border-zinc-700 text-zinc-400">{friends.length} {friends.length === 1 ? "friend" : "friends"}</Badge>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-white" onClick={() => setGuideOpen((open) => !open)} aria-expanded={guideOpen}>
+              <Info className="h-3.5 w-3.5" /> What shows up here?
+            </Button>
+            <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-white" onClick={() => setFeedOpen((open) => !open)} aria-expanded={feedOpen}>
+              {feedOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+              {feedOpen ? "Hide feed" : "Show feed"}
+            </Button>
+          </div>
         </div>
 
-        {feedError ? (
+        {guideOpen && (
+          <Card className="mb-3 border-zinc-800/70 bg-zinc-900/30">
+            <CardContent className="grid gap-3 p-4 sm:grid-cols-2">
+              {ACTIVITY_EXPLANATIONS.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <div key={item.type} className="flex gap-2.5">
+                    <div className="mt-0.5 rounded-lg bg-orange-500/10 p-1.5"><Icon className="h-3.5 w-3.5 text-orange-300" /></div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-zinc-200">{item.label}</p>
+                      <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">{item.description}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        )}
+
+        {!feedOpen ? (
+          <div className="rounded-xl border border-dashed border-zinc-800 px-4 py-3 text-xs text-muted-foreground">Your activity feed is hidden for now. Show it whenever you want to catch up.</div>
+        ) : feedError ? (
           <PanelError message="Activity could not be loaded. Try refreshing the page." />
         ) : feedLoading || friendsLoading ? (
           <div className="space-y-3" aria-label="Loading friend activity" aria-busy="true">
@@ -229,49 +286,30 @@ function ActivityPanel({ user }: { user: unknown }) {
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-3" data-testid="community-activity-feed">
+          <div className="space-y-2" data-testid="community-activity-feed">
             {feed.map((item: any) => (
-              <Card key={item.id} className="border-zinc-800/70 bg-zinc-900/30">
-                <CardContent className="flex items-start gap-3 p-4">
-                  <Link href={`/player/${item.user.id}`} aria-label={`View ${item.user.displayName}'s profile`}>
-                    <PlayerAvatar player={item.user} />
+              <Card key={item.id} className="border-zinc-800/70 bg-zinc-900/25 transition-colors hover:border-zinc-700">
+                <CardContent className="flex items-center gap-2.5 p-2.5 sm:p-3">
+                  <Link href={profileHref({ userId: item.user.id, profileSlug: item.user.profileSlug })} aria-label={`View ${item.user.displayName}'s profile`}>
+                    <PlayerAvatar player={item.user} size="h-8 w-8" />
                   </Link>
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <Link href={`/player/${item.user.id}`} className="font-medium text-sm hover:text-orange-400">
-                          {item.user.displayName}
-                        </Link>
-                        <p className="text-sm text-zinc-200">{item.title}</p>
-                      </div>
-                      <span className="shrink-0 text-xs text-muted-foreground">{relativeDate(item.createdAt)}</span>
+                    <div className="flex items-center gap-2">
+                      <Link href={profileHref({ userId: item.user.id, profileSlug: item.user.profileSlug })} className="truncate text-xs font-semibold hover:text-orange-400">
+                        {item.user.displayName}
+                      </Link>
+                      <span className="shrink-0 text-[11px] text-muted-foreground">{relativeDate(item.createdAt)}</span>
                     </div>
-                    {item.description && <p className="mt-1 text-xs text-muted-foreground">{item.description}</p>}
+                    <p className="truncate text-xs text-zinc-300">{item.title}</p>
+                    {item.description && <p className="truncate text-[11px] text-muted-foreground">{item.description}</p>}
                   </div>
+                  {(() => { const Icon = activityTypeDetails(item.activityType).icon; return <div className="rounded-lg bg-orange-500/10 p-2"><Icon className="h-3.5 w-3.5 text-orange-300" aria-hidden="true" /></div>; })()}
                 </CardContent>
               </Card>
             ))}
           </div>
         )}
       </div>
-
-      {friends.length > 0 && (
-        <Card className="border-zinc-800/70 bg-zinc-900/20">
-          <CardHeader className="pb-3"><CardTitle className="text-base">Your circle</CardTitle></CardHeader>
-          <CardContent className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {friends.map((item: any) => (
-              <Link
-                key={item.friendship.id}
-                href={`/player/${item.friend.id}`}
-                className="flex min-w-0 items-center gap-2 rounded-lg border border-zinc-800 p-2 transition-colors hover:border-orange-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
-              >
-                <PlayerAvatar player={item.friend} size="h-8 w-8" />
-                <span className="truncate text-xs font-medium">{item.friend.displayName}</span>
-              </Link>
-            ))}
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }
@@ -321,12 +359,12 @@ function ChallengeCard({ challenge, isOwner, onInvite }: { challenge: any; isOwn
             return (
               <div key={member.id} className="flex items-center gap-3">
                 <span className="w-4 text-center text-xs text-muted-foreground">{index + 1}</span>
-                <Link href={`/player/${member.user.id}`} aria-label={`View ${member.user.displayName}'s profile`}>
+                <Link href={profileHref({ userId: member.user.id, profileSlug: member.user.profileSlug })} aria-label={`View ${member.user.displayName}'s profile`}>
                   <PlayerAvatar player={member.user} size="h-8 w-8" />
                 </Link>
                 <div className="min-w-0 flex-1">
                   <div className="flex justify-between gap-2 text-xs">
-                    <Link href={`/player/${member.user.id}`} className="truncate font-medium hover:text-orange-400">{member.user.displayName}</Link>
+                    <Link href={profileHref({ userId: member.user.id, profileSlug: member.user.profileSlug })} className="truncate font-medium hover:text-orange-400">{member.user.displayName}</Link>
                     <span className="shrink-0 text-muted-foreground">{progress.toLocaleString()} / {goal.toLocaleString()} ({percent}%)</span>
                   </div>
                   <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-800">
@@ -347,6 +385,7 @@ function ChallengesPanel({ user }: { user: unknown }) {
   const myId = (user as any)?.claims?.sub ?? (user as any)?.id;
   const [createOpen, setCreateOpen] = useState(false);
   const [inviteChallengeId, setInviteChallengeId] = useState<string | null>(null);
+  const [challengesOpen, setChallengesOpen] = useState(true);
   const [name, setName] = useState("");
   const [goalType, setGoalType] = useState<string>("training_sessions");
   const [goalAmount, setGoalAmount] = useState("5");
@@ -434,7 +473,13 @@ function ChallengesPanel({ user }: { user: unknown }) {
           <h2 className="text-lg font-semibold">Train toward something together</h2>
           <p className="text-sm text-muted-foreground">Shared goals, visible progress, friendly competition.</p>
         </div>
-        <Button onClick={() => setCreateOpen(true)} data-testid="button-create-community-challenge"><Plus className="mr-2 h-4 w-4" /> Create challenge</Button>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" className="h-9 gap-1.5 text-xs text-muted-foreground hover:text-white" onClick={() => setChallengesOpen((open) => !open)} aria-expanded={challengesOpen}>
+            {challengesOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            {challengesOpen ? "Hide challenges" : "Show challenges"}
+          </Button>
+          <Button onClick={() => setCreateOpen(true)} data-testid="button-create-community-challenge"><Plus className="mr-2 h-4 w-4" /> Create challenge</Button>
+        </div>
       </div>
 
       {pendingInvites.length > 0 && (
@@ -457,7 +502,9 @@ function ChallengesPanel({ user }: { user: unknown }) {
         </Card>
       )}
 
-      {challengesQuery.isError || invitesQuery.isError ? (
+      {!challengesOpen ? (
+        <div className="rounded-xl border border-dashed border-zinc-800 px-4 py-3 text-xs text-muted-foreground">Active challenges are hidden for now. Show them whenever you want to check progress.</div>
+      ) : challengesQuery.isError || invitesQuery.isError ? (
         <PanelError message="Challenges could not be loaded. Try refreshing the page." />
       ) : challengesQuery.isLoading ? (
         <div className="space-y-3" aria-label="Loading challenges" aria-busy="true">{[1, 2].map((item) => <Skeleton key={item} className="h-56 w-full bg-zinc-900" />)}</div>
@@ -538,9 +585,9 @@ function PlayerCard({ player, onAdd, onAccept, adding }: { player: Player; onAdd
   return (
     <Card className="border-zinc-800/70 bg-zinc-900/30">
       <CardContent className="flex items-center gap-3 p-3">
-        <Link href={`/player/${player.userId}`} aria-label={`View ${name}'s profile`}><PlayerAvatar player={player} /></Link>
+        <Link href={profileHref(player)} aria-label={`View ${name}'s profile`}><PlayerAvatar player={player} /></Link>
         <div className="min-w-0 flex-1">
-          <Link href={`/player/${player.userId}`} className="block truncate text-sm font-medium hover:text-orange-400">{name}</Link>
+          <Link href={profileHref(player)} className="block truncate text-sm font-medium hover:text-orange-400">{name}</Link>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
             {player.skillLevel && <span className="capitalize">{player.skillLevel}</span>}
             {player.positions?.[0] && <span>{positions.find((position) => position.value === player.positions?.[0])?.label || player.positions[0]}</span>}
@@ -616,9 +663,35 @@ function PlayersPanel({ user }: { user: unknown }) {
 
   return (
     <div className="space-y-5">
+      {friendsQuery.data && friendsQuery.data.length > 0 && (
+        <Card className="border-orange-500/15 bg-orange-500/[0.035]">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+            <div>
+              <CardTitle className="text-base">Your inner circle</CardTitle>
+              <p className="mt-1 text-xs text-muted-foreground">Players whose progress you want close at hand.</p>
+            </div>
+            <Badge variant="outline" className="border-orange-500/25 text-orange-300">{friendsQuery.data.length}</Badge>
+          </CardHeader>
+          <CardContent className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {friendsQuery.data.map((item: any) => (
+              <Link
+                key={item.friendship.id}
+                href={profileHref({ userId: item.friend.id, profileSlug: item.friend.profileSlug })}
+                className="flex min-w-0 items-center gap-2 rounded-xl border border-zinc-800/80 bg-zinc-950/35 p-2.5 transition-colors hover:border-orange-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+              >
+                <PlayerAvatar player={item.friend} size="h-8 w-8" />
+                <div className="min-w-0">
+                  <span className="block truncate text-xs font-medium">{item.friend.displayName}</span>
+                  {item.friend.skillLevel && <span className="block truncate text-[10px] capitalize text-muted-foreground">{item.friend.skillLevel}</span>}
+                </div>
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+      )}
       <div>
         <h2 className="text-lg font-semibold">Find players</h2>
-        <p className="text-sm text-muted-foreground">Search by name, then narrow by the details that matter on court.</p>
+        <p className="text-sm text-muted-foreground">Keep your circle close, then find more players who fit your game.</p>
       </div>
       <Card className="border-orange-500/20 bg-orange-500/[0.04]">
         <CardContent className="space-y-3 p-4">
@@ -682,33 +755,33 @@ export default function CommunityPage() {
 
   return (
     <main className="mx-auto max-w-4xl px-4 pb-24 pt-5 sm:px-6" data-testid="community-shell">
-      <header className="relative mb-7 overflow-hidden rounded-3xl border border-orange-500/20 bg-gradient-to-br from-orange-500/[0.16] via-zinc-950 to-purple-950/30 p-5 shadow-2xl shadow-orange-950/20 sm:p-7">
-        <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full border-[28px] border-orange-400/10" />
-        <div className="pointer-events-none absolute -bottom-24 left-1/3 h-48 w-48 rounded-full bg-orange-500/10 blur-3xl" />
+      <header className="relative mb-5 overflow-hidden rounded-2xl border border-orange-500/15 bg-gradient-to-br from-orange-500/[0.12] via-zinc-950 to-zinc-950 p-4 shadow-xl shadow-orange-950/10 sm:p-5">
+        <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full border-[22px] border-orange-400/10" />
+        <div className="pointer-events-none absolute -bottom-24 left-1/3 h-40 w-40 rounded-full bg-orange-500/10 blur-3xl" />
         <div className="relative">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-orange-300/20 bg-black/20 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-orange-300">
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-orange-300/20 bg-black/20 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-orange-300">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]" />
                 PLAYR1 Community
               </div>
-              <h1 className="max-w-xl text-3xl font-bold tracking-tight text-white sm:text-4xl" data-testid="text-community-title">Your game is better together.</h1>
-              <p className="mt-3 max-w-xl text-sm leading-6 text-zinc-300">See the work happening around you, challenge your circle, and find players who are building toward the same next step.</p>
+              <h1 className="max-w-xl text-2xl font-bold tracking-tight text-white sm:text-3xl" data-testid="text-community-title">Your game is better together.</h1>
+              <p className="mt-2 max-w-xl text-sm leading-5 text-zinc-300">See the work happening around you, challenge your circle, and find players who are building toward the same next step.</p>
             </div>
-            <div className="hidden h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-black/20 sm:flex">
-              <ActiveIcon className="h-8 w-8 text-orange-300" aria-hidden="true" />
+            <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-black/20 sm:flex">
+              <ActiveIcon className="h-6 w-6 text-orange-300" aria-hidden="true" />
             </div>
           </div>
-          <div className="mt-7 grid grid-cols-3 gap-2 sm:max-w-xl sm:gap-3">
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+          <div className="mt-5 grid grid-cols-3 gap-2 sm:max-w-xl sm:gap-3">
+            <div className="rounded-xl border border-white/10 bg-black/20 p-2.5">
               <p className="text-lg font-bold text-white">{friends.length}</p>
               <p className="mt-0.5 text-[11px] text-zinc-400">in your circle</p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+            <div className="rounded-xl border border-white/10 bg-black/20 p-2.5">
               <p className="text-lg font-bold text-white">{activeChallenges.length}</p>
               <p className="mt-0.5 text-[11px] text-zinc-400">active challenges</p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+            <div className="rounded-xl border border-white/10 bg-black/20 p-2.5">
               <p className="text-lg font-bold text-white">{requests.length + challengeInvites.length}</p>
               <p className="mt-0.5 text-[11px] text-zinc-400">things to review</p>
             </div>

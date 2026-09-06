@@ -378,12 +378,12 @@ const ARCHETYPE_DEFINITIONS = [
 ];
 
 const communityDemoPlayers = [
-  { key: "maya", id: "playr1-demo-maya", firstName: "Maya", lastName: "Torres", city: "Brooklyn", state: "NY", age: 17, skillLevel: "advanced" as const, positions: ["PG"], archetype: "Floor General", headline: "Reads the floor early and makes the extra pass." },
-  { key: "jalen", id: "playr1-demo-jalen", firstName: "Jalen", lastName: "Brooks", city: "Atlanta", state: "GA", age: 19, skillLevel: "intermediate" as const, positions: ["SG"], archetype: "Shot Creator", headline: "Building a more consistent three-level scoring game." },
-  { key: "imani", id: "playr1-demo-imani", firstName: "Imani", lastName: "Reed", city: "Chicago", state: "IL", age: 16, skillLevel: "beginner" as const, positions: ["SF"], archetype: "Two-Way Player", headline: "Chasing stronger habits on both ends of the floor." },
-  { key: "noah", id: "playr1-demo-noah", firstName: "Noah", lastName: "Williams", city: "Dallas", state: "TX", age: 21, skillLevel: "advanced" as const, positions: ["PF"], archetype: "Rim Protector", headline: "Turning defense and rebounding into a bigger role." },
-  { key: "zoe", id: "playr1-demo-zoe", firstName: "Zoe", lastName: "Carter", city: "Los Angeles", state: "CA", age: 18, skillLevel: "intermediate" as const, positions: ["C"], archetype: "Glass Cleaner", headline: "Making every possession count around the rim." },
-  { key: "cam", id: "playr1-demo-cam", firstName: "Cam", lastName: "Foster", city: "Philadelphia", state: "PA", age: 20, skillLevel: "beginner" as const, positions: ["SG"], archetype: "Hustle Guard", headline: "Starting with fundamentals and showing up consistently." },
+  { key: "maya", id: "playr1-demo-maya", firstName: "Maya", lastName: "Torres", city: "Brooklyn", state: "NY", age: 17, skillLevel: "advanced" as const, positions: ["PG"], archetype: "Floor General", headline: "Reads the floor early and makes the extra pass.", bio: "Maya is building a complete lead-guard game around pace, poise, and making the right read. Her current focus is creating advantages without forcing the play.", schoolName: "Brooklyn Arts Academy", teamName: "Brooklyn Select 17U", gradeLevel: "junior", jerseyNumber: 4, aspiration: "college", heightFeet: 5, heightInches: 8, weight: 142, wingspan: "5'10\"", gradYear: 2027, gpa: "3.8", instagram: "@maya.torres" },
+  { key: "jalen", id: "playr1-demo-jalen", firstName: "Jalen", lastName: "Brooks", city: "Atlanta", state: "GA", age: 19, skillLevel: "intermediate" as const, positions: ["SG"], archetype: "Shot Creator", headline: "Building a more consistent three-level scoring game.", bio: "Jalen is turning his natural scoring instincts into a more dependable offensive package. He is tracking shot quality, footwork, and decision-making one rep at a time.", schoolName: "Georgia State University", teamName: "Atlanta Metro Hoops", gradeLevel: "college-freshman", jerseyNumber: 11, aspiration: "college", heightFeet: 6, heightInches: 2, weight: 178, wingspan: "6'5\"", gradYear: 2025, gpa: "3.4", instagram: "@jalen.brooks" },
+  { key: "imani", id: "playr1-demo-imani", firstName: "Imani", lastName: "Reed", city: "Chicago", state: "IL", age: 16, skillLevel: "beginner" as const, positions: ["SF"], archetype: "Two-Way Player", headline: "Chasing stronger habits on both ends of the floor.", bio: "Imani is learning how to impact every possession with effort, communication, and simple decisions. Her next step is building confidence with the ball in her hands.", schoolName: "Southside Prep", teamName: "Chicago Rise 16U", gradeLevel: "sophomore", jerseyNumber: 22, aspiration: "high-school", heightFeet: 5, heightInches: 7, weight: 135, wingspan: "5'9\"", gradYear: 2028, gpa: "3.7", instagram: "@imani.reed" },
+  { key: "noah", id: "playr1-demo-noah", firstName: "Noah", lastName: "Williams", city: "Dallas", state: "TX", age: 21, skillLevel: "advanced" as const, positions: ["PF"], archetype: "Rim Protector", headline: "Turning defense and rebounding into a bigger role.", bio: "Noah brings physicality, communication, and second-effort energy to every lineup. He is sharpening his face-up game while continuing to own the paint defensively.", schoolName: "Dallas College", teamName: "North Texas Select", gradeLevel: "college-sophomore", jerseyNumber: 35, aspiration: "professional-non-nba", heightFeet: 6, heightInches: 7, weight: 218, wingspan: "7'0\"", gradYear: 2026, gpa: "3.2", instagram: "@noah.williams" },
+  { key: "zoe", id: "playr1-demo-zoe", firstName: "Zoe", lastName: "Carter", city: "Los Angeles", state: "CA", age: 18, skillLevel: "intermediate" as const, positions: ["C"], archetype: "Glass Cleaner", headline: "Making every possession count around the rim.", bio: "Zoe is becoming the player teammates trust to finish possessions. Her current block is centered on rebounding angles, physical finishes, and conditioning.", schoolName: "Westside High", teamName: "LA Flight 18U", gradeLevel: "senior", jerseyNumber: 15, aspiration: "college", heightFeet: 6, heightInches: 1, weight: 176, wingspan: "6'4\"", gradYear: 2026, gpa: "3.5", instagram: "@zoe.carter" },
+  { key: "cam", id: "playr1-demo-cam", firstName: "Cam", lastName: "Foster", city: "Philadelphia", state: "PA", age: 20, skillLevel: "beginner" as const, positions: ["SG"], archetype: "Hustle Guard", headline: "Starting with fundamentals and showing up consistently.", bio: "Cam is rebuilding a relationship with the game through repeatable fundamentals and consistent sessions. The goal is simple: become more comfortable every time he steps on the floor.", schoolName: "Community College of Philadelphia", teamName: "Philly Open Run", gradeLevel: "college-freshman", jerseyNumber: 3, aspiration: "recreational", heightFeet: 5, heightInches: 11, weight: 165, wingspan: "6'1\"", gradYear: 2027, gpa: "3.1", instagram: "@cam.foster" },
 ] as const;
 
 const communityDemoChallenges = [
@@ -426,33 +426,108 @@ async function seedCommunityDemo() {
       country: "USA",
       skillLevel: player.skillLevel,
       fullProfileCompleted: true,
-    }).onConflictDoNothing();
+    }).onConflictDoUpdate({
+      target: userProfiles.userId,
+      set: {
+        displayName: `${player.firstName} ${player.lastName}`,
+        age: player.age,
+        city: player.city,
+        state: player.state,
+        country: "USA",
+        skillLevel: player.skillLevel,
+        fullProfileCompleted: true,
+      },
+    });
 
     await db.insert(careerProfiles).values({
       id: `playr1-demo-career-${player.key}`,
       userId: player.id,
       positions: [...player.positions],
-      aspiration: "college",
+      teamName: player.teamName,
+      schoolName: player.schoolName,
+      gradeLevel: player.gradeLevel,
+      jerseyNumber: player.jerseyNumber,
+      aspiration: player.aspiration,
       skillBallHandling: player.skillLevel === "advanced" ? 8 : player.skillLevel === "intermediate" ? 6 : 4,
       skillShooting: player.skillLevel === "advanced" ? 8 : player.skillLevel === "intermediate" ? 7 : 4,
       skillDefense: player.skillLevel === "advanced" ? 8 : player.skillLevel === "intermediate" ? 6 : 5,
       skillAthletics: player.skillLevel === "advanced" ? 8 : player.skillLevel === "intermediate" ? 6 : 5,
+      skillBasketballIQ: player.skillLevel === "advanced" ? 8 : player.skillLevel === "intermediate" ? 6 : 5,
       assessmentArchetype: player.archetype,
-    }).onConflictDoNothing();
+    }).onConflictDoUpdate({
+      target: careerProfiles.userId,
+      set: {
+        positions: [...player.positions],
+        teamName: player.teamName,
+        schoolName: player.schoolName,
+        gradeLevel: player.gradeLevel,
+        jerseyNumber: player.jerseyNumber,
+        aspiration: player.aspiration,
+        skillBallHandling: player.skillLevel === "advanced" ? 8 : player.skillLevel === "intermediate" ? 6 : 4,
+        skillShooting: player.skillLevel === "advanced" ? 8 : player.skillLevel === "intermediate" ? 7 : 4,
+        skillDefense: player.skillLevel === "advanced" ? 8 : player.skillLevel === "intermediate" ? 6 : 5,
+        skillAthletics: player.skillLevel === "advanced" ? 8 : player.skillLevel === "intermediate" ? 6 : 5,
+        skillBasketballIQ: player.skillLevel === "advanced" ? 8 : player.skillLevel === "intermediate" ? 6 : 5,
+        assessmentArchetype: player.archetype,
+      },
+    });
 
     await db.insert(playerProfiles).values({
       id: `playr1-demo-public-${player.key}`,
       userId: player.id,
       slug: `community-${player.key}`,
       headline: player.headline,
-      bio: `${player.headline} Follow along with ${player.firstName}'s PLAYR1 progress.`,
-      schoolName: "PLAYR1 Community Demo",
+      bio: player.bio,
+      heightFeet: player.heightFeet,
+      heightInches: player.heightInches,
+      weight: player.weight,
+      wingspan: player.wingspan,
+      schoolName: player.schoolName,
+      gradYear: player.gradYear,
+      gpa: player.gpa,
+      socialInstagram: player.instagram,
       isPublic: true,
       isPrivate: false,
+      showStats: true,
+      showAchievements: true,
+      showVideos: true,
+      showPersonalRecords: true,
+      showPhysical: true,
+      showAcademic: true,
+      showSocialLinks: true,
+      showHighlightReel: true,
       showLocation: true,
       showSkills: true,
       showArchetype: true,
-    }).onConflictDoNothing();
+    }).onConflictDoUpdate({
+      target: playerProfiles.userId,
+      set: {
+        slug: `community-${player.key}`,
+        headline: player.headline,
+        bio: player.bio,
+        heightFeet: player.heightFeet,
+        heightInches: player.heightInches,
+        weight: player.weight,
+        wingspan: player.wingspan,
+        schoolName: player.schoolName,
+        gradYear: player.gradYear,
+        gpa: player.gpa,
+        socialInstagram: player.instagram,
+        isPublic: true,
+        isPrivate: false,
+        showStats: true,
+        showAchievements: true,
+        showVideos: true,
+        showPersonalRecords: true,
+        showPhysical: true,
+        showAcademic: true,
+        showSocialLinks: true,
+        showHighlightReel: true,
+        showLocation: true,
+        showSkills: true,
+        showArchetype: true,
+      },
+    });
 
     const streak = player.key === "maya" ? 12 : player.key === "jalen" ? 9 : player.key === "imani" ? 7 : player.key === "noah" ? 16 : player.key === "zoe" ? 5 : 3;
     const [existingStreak] = await db.select({ id: userStreaks.id }).from(userStreaks).where(eq(userStreaks.userId, player.id));

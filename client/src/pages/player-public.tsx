@@ -31,7 +31,7 @@ interface PublicProfileData {
     skillShooting: number | null;
     skillDefense: number | null;
     skillAthleticism: number | null;
-    skillIQ: number | null;
+    skillBasketballIQ: number | null;
     assessmentArchetype: string | null;
   } | null;
   careerStats?: {
@@ -145,7 +145,7 @@ export default function PlayerPublicPage() {
   const hasPhysical = profile.heightFeet || profile.weight || profile.wingspan;
   const hasAcademic = profile.schoolName || profile.gradYear || profile.gpa;
   const hasSocials = profile.socialTwitter || profile.socialInstagram || profile.socialTiktok || profile.socialYoutube;
-  const hasSkills = career && (career.skillBallHandling || career.skillShooting || career.skillDefense || career.skillAthleticism || career.skillIQ);
+  const hasSkills = career && (career.skillBallHandling || career.skillShooting || career.skillDefense || career.skillAthleticism || career.skillBasketballIQ);
 
   return (
     <div className="min-h-screen bg-background pb-16">
@@ -358,7 +358,7 @@ export default function PlayerPublicPage() {
               <SkillBar label="Shooting" value={career?.skillShooting ?? null} />
               <SkillBar label="Defense" value={career?.skillDefense ?? null} />
               <SkillBar label="Athleticism" value={career?.skillAthleticism ?? null} />
-              <SkillBar label="IQ" value={career?.skillIQ ?? null} />
+              <SkillBar label="Basketball IQ" value={career?.skillBasketballIQ ?? null} />
             </CardContent>
           </Card>
         )}

@@ -7680,7 +7680,7 @@ Object.assign(DatabaseStorage.prototype, {
     return f;
   },
 
-  async getFriends(userId: string): Promise<Array<{ friendship: Friendship; friend: { id: string; displayName: string; profilePhotoUrl: string | null; skillLevel: string | null } }>> {
+  async getFriends(userId: string): Promise<Array<{ friendship: Friendship; friend: { id: string; profileSlug: string | null; displayName: string; profilePhotoUrl: string | null; skillLevel: string | null } }>> {
     const rows = await db.select().from(friendships).where(
       and(
         or(eq(friendships.requesterId, userId), eq(friendships.addresseeId, userId)),
@@ -7691,11 +7691,13 @@ Object.assign(DatabaseStorage.prototype, {
     for (const f of rows) {
       const friendId = f.requesterId === userId ? f.addresseeId : f.requesterId;
       const [profile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, friendId));
+      const [publicProfile] = await db.select({ slug: playerProfiles.slug }).from(playerProfiles).where(eq(playerProfiles.userId, friendId));
       const [user] = await db.select().from(users).where(eq(users.id, friendId));
       result.push({
         friendship: f,
         friend: {
           id: friendId,
+          profileSlug: publicProfile?.slug || null,
           displayName: profile?.displayName || `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || user?.email || "Player",
           profilePhotoUrl: profile?.profilePhotoUrl || user?.profileImageUrl || null,
           skillLevel: profile?.skillLevel || null,
@@ -7705,18 +7707,20 @@ Object.assign(DatabaseStorage.prototype, {
     return result;
   },
 
-  async getPendingFriendRequests(userId: string): Promise<Array<{ friendship: Friendship; requester: { id: string; displayName: string; profilePhotoUrl: string | null } }>> {
+  async getPendingFriendRequests(userId: string): Promise<Array<{ friendship: Friendship; requester: { id: string; profileSlug: string | null; displayName: string; profilePhotoUrl: string | null } }>> {
     const rows = await db.select().from(friendships).where(
       and(eq(friendships.addresseeId, userId), eq(friendships.status, "pending"))
     );
     const result = [];
     for (const f of rows) {
       const [profile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, f.requesterId));
+      const [publicProfile] = await db.select({ slug: playerProfiles.slug }).from(playerProfiles).where(eq(playerProfiles.userId, f.requesterId));
       const [user] = await db.select().from(users).where(eq(users.id, f.requesterId));
       result.push({
         friendship: f,
         requester: {
           id: f.requesterId,
+          profileSlug: publicProfile?.slug || null,
           displayName: profile?.displayName || `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || user?.email || "Player",
           profilePhotoUrl: profile?.profilePhotoUrl || user?.profileImageUrl || null,
         },
@@ -7770,11 +7774,13 @@ Object.assign(DatabaseStorage.prototype, {
     const result = [];
     for (const a of activities) {
       const [profile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, a.userId));
+      const [publicProfile] = await db.select({ slug: playerProfiles.slug }).from(playerProfiles).where(eq(playerProfiles.userId, a.userId));
       const [user] = await db.select().from(users).where(eq(users.id, a.userId));
       result.push({
         ...a,
         user: {
           id: a.userId,
+          profileSlug: publicProfile?.slug || null,
           displayName: profile?.displayName || `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || "Player",
           profilePhotoUrl: profile?.profilePhotoUrl || user?.profileImageUrl || null,
         },
@@ -7814,11 +7820,13 @@ Object.assign(DatabaseStorage.prototype, {
       const membersWithUsers = [];
       for (const m of allMembers) {
         const [profile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, m.userId));
+        const [publicProfile] = await db.select({ slug: playerProfiles.slug }).from(playerProfiles).where(eq(playerProfiles.userId, m.userId));
         const [user] = await db.select().from(users).where(eq(users.id, m.userId));
         membersWithUsers.push({
           ...m,
           user: {
             id: m.userId,
+            profileSlug: publicProfile?.slug || null,
             displayName: profile?.displayName || `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || "Player",
             profilePhotoUrl: profile?.profilePhotoUrl || user?.profileImageUrl || null,
           },
