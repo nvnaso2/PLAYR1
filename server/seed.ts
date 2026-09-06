@@ -1,9 +1,9 @@
 import { db } from "./db";
-import { drills, benchmarks, evaluationAttributes, shotLocations, shotTypes, userProfiles, metricTemplates, drillMetrics, teamClubs, leagues, archetypes, archetypeRoadmapItems, streakChallenges, type ArchetypeTier, type ArchetypeRoadmapItemType } from "@shared/schema";
+import { drills, benchmarks, evaluationAttributes, shotLocations, shotTypes, userProfiles, metricTemplates, drillMetrics, teamClubs, leagues, archetypes, archetypeRoadmapItems, streakChallenges, type ArchetypeTier, type ArchetypeRoadmapItemType, careerProfiles, playerProfiles, friendships, friendActivityFeed, groupChallenges, groupChallengeMembers, userStreaks, trainingLogs } from "@shared/schema";
 // seedPrograms disabled — generic programs removed per user request
 // import { seedPrograms } from "./seed-programs";
 import { users } from "@shared/models/auth";
-import { eq, sql, notInArray, isNull } from "drizzle-orm";
+import { eq, sql, notInArray, isNull, and, or } from "drizzle-orm";
 import { readFileSync } from "fs";
 import { join } from "path";
 
@@ -376,6 +376,190 @@ const ARCHETYPE_DEFINITIONS = [
     displayOrder: 7,
   },
 ];
+
+const communityDemoPlayers = [
+  { key: "maya", id: "playr1-demo-maya", firstName: "Maya", lastName: "Torres", city: "Brooklyn", state: "NY", age: 17, skillLevel: "advanced" as const, positions: ["PG"], archetype: "Floor General", headline: "Reads the floor early and makes the extra pass." },
+  { key: "jalen", id: "playr1-demo-jalen", firstName: "Jalen", lastName: "Brooks", city: "Atlanta", state: "GA", age: 19, skillLevel: "intermediate" as const, positions: ["SG"], archetype: "Shot Creator", headline: "Building a more consistent three-level scoring game." },
+  { key: "imani", id: "playr1-demo-imani", firstName: "Imani", lastName: "Reed", city: "Chicago", state: "IL", age: 16, skillLevel: "beginner" as const, positions: ["SF"], archetype: "Two-Way Player", headline: "Chasing stronger habits on both ends of the floor." },
+  { key: "noah", id: "playr1-demo-noah", firstName: "Noah", lastName: "Williams", city: "Dallas", state: "TX", age: 21, skillLevel: "advanced" as const, positions: ["PF"], archetype: "Rim Protector", headline: "Turning defense and rebounding into a bigger role." },
+  { key: "zoe", id: "playr1-demo-zoe", firstName: "Zoe", lastName: "Carter", city: "Los Angeles", state: "CA", age: 18, skillLevel: "intermediate" as const, positions: ["C"], archetype: "Glass Cleaner", headline: "Making every possession count around the rim." },
+  { key: "cam", id: "playr1-demo-cam", firstName: "Cam", lastName: "Foster", city: "Philadelphia", state: "PA", age: 20, skillLevel: "beginner" as const, positions: ["SG"], archetype: "Hustle Guard", headline: "Starting with fundamentals and showing up consistently." },
+] as const;
+
+const communityDemoChallenges = [
+  { id: "playr1-demo-challenge-streak", name: "The Consistency Run", goalType: "streak_days" as const, goalAmount: 14, durationDays: 21, startDaysAgo: 3, endDaysFromNow: 18 },
+  { id: "playr1-demo-challenge-defense", name: "Own Your Role", goalType: "streak_days" as const, goalAmount: 21, durationDays: 30, startDaysAgo: 8, endDaysFromNow: 22 },
+  { id: "playr1-demo-challenge-sessions", name: "Weekend Work", goalType: "training_sessions" as const, goalAmount: 10, durationDays: 14, startDaysAgo: 2, endDaysFromNow: 12 },
+] as const;
+
+async function seedCommunityDemo() {
+  if (process.env.NODE_ENV === "production") return;
+
+  const demoIds = communityDemoPlayers.map((player) => player.id);
+  const realUsers = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(notInArray(users.id, demoIds))
+    .limit(50);
+
+  if (realUsers.length === 0) {
+    console.log("Community demo skipped: no signed-in player exists yet");
+    return;
+  }
+
+  await db.insert(users).values(communityDemoPlayers.map((player) => ({
+    id: player.id,
+    email: `${player.key}@community-demo.playr1.local`,
+    firstName: player.firstName,
+    lastName: player.lastName,
+    role: "player",
+  }))).onConflictDoNothing();
+
+  for (const player of communityDemoPlayers) {
+    await db.insert(userProfiles).values({
+      id: `playr1-demo-profile-${player.key}`,
+      userId: player.id,
+      displayName: `${player.firstName} ${player.lastName}`,
+      age: player.age,
+      city: player.city,
+      state: player.state,
+      country: "USA",
+      skillLevel: player.skillLevel,
+      fullProfileCompleted: true,
+    }).onConflictDoNothing();
+
+    await db.insert(careerProfiles).values({
+      id: `playr1-demo-career-${player.key}`,
+      userId: player.id,
+      positions: [...player.positions],
+      aspiration: "college",
+      skillBallHandling: player.skillLevel === "advanced" ? 8 : player.skillLevel === "intermediate" ? 6 : 4,
+      skillShooting: player.skillLevel === "advanced" ? 8 : player.skillLevel === "intermediate" ? 7 : 4,
+      skillDefense: player.skillLevel === "advanced" ? 8 : player.skillLevel === "intermediate" ? 6 : 5,
+      skillAthletics: player.skillLevel === "advanced" ? 8 : player.skillLevel === "intermediate" ? 6 : 5,
+      assessmentArchetype: player.archetype,
+    }).onConflictDoNothing();
+
+    await db.insert(playerProfiles).values({
+      id: `playr1-demo-public-${player.key}`,
+      userId: player.id,
+      slug: `community-${player.key}`,
+      headline: player.headline,
+      bio: `${player.headline} Follow along with ${player.firstName}'s PLAYR1 progress.`,
+      schoolName: "PLAYR1 Community Demo",
+      isPublic: true,
+      isPrivate: false,
+      showLocation: true,
+      showSkills: true,
+      showArchetype: true,
+    }).onConflictDoNothing();
+
+    const streak = player.key === "maya" ? 12 : player.key === "jalen" ? 9 : player.key === "imani" ? 7 : player.key === "noah" ? 16 : player.key === "zoe" ? 5 : 3;
+    const [existingStreak] = await db.select({ id: userStreaks.id }).from(userStreaks).where(eq(userStreaks.userId, player.id));
+    if (existingStreak) {
+      await db.update(userStreaks).set({ currentStreak: streak, longestStreak: Math.max(streak + 3, 18), updatedAt: new Date() }).where(eq(userStreaks.id, existingStreak.id));
+    } else {
+      await db.insert(userStreaks).values({
+        id: `playr1-demo-streak-${player.key}`,
+        userId: player.id,
+        currentStreak: streak,
+        longestStreak: Math.max(streak + 3, 18),
+        lastCompletedDate: new Date().toISOString().slice(0, 10),
+      });
+    }
+  }
+
+  for (const [index, player] of communityDemoPlayers.entries()) {
+    const activityRows = [
+      {
+        id: `playr1-demo-activity-${player.key}-workout`,
+        userId: player.id,
+        activityType: "completed_workout" as const,
+        title: `Completed a ${index % 2 === 0 ? "shooting" : "finishing"} workout`,
+        description: index % 2 === 0 ? "Stayed locked in for 42 minutes." : "Finished strong and logged every rep.",
+        metadata: { demo: true, score: 8 + (index % 3) },
+        createdAt: new Date(Date.now() - (index + 1) * 2 * 60 * 60 * 1000),
+      },
+      {
+        id: `playr1-demo-activity-${player.key}-milestone`,
+        userId: player.id,
+        activityType: index % 2 === 0 ? "streak_milestone" as const : "new_personal_record" as const,
+        title: index % 2 === 0 ? `Hit a ${[12, 9, 7, 16, 5, 3][index]}-day training streak` : "Set a new personal best",
+        description: index % 2 === 0 ? "Small habits are starting to stack." : "Consistency showed up today.",
+        metadata: { demo: true },
+        createdAt: new Date(Date.now() - (index + 1) * 7 * 60 * 60 * 1000),
+      },
+    ];
+    await db.insert(friendActivityFeed).values(activityRows).onConflictDoNothing();
+  }
+
+  const now = new Date();
+  for (const challenge of communityDemoChallenges) {
+    const startsAt = new Date(now.getTime() - challenge.startDaysAgo * 86400000);
+    const endsAt = new Date(now.getTime() + challenge.endDaysFromNow * 86400000);
+    await db.insert(groupChallenges).values({
+      id: challenge.id,
+      creatorId: communityDemoPlayers[0].id,
+      name: challenge.name,
+      goalType: challenge.goalType,
+      goalAmount: challenge.goalAmount,
+      durationDays: challenge.durationDays,
+      startsAt,
+      endsAt,
+    }).onConflictDoNothing();
+    await db.update(groupChallenges).set({ startsAt, endsAt }).where(eq(groupChallenges.id, challenge.id));
+  }
+
+  const addFriendship = async (userId: string, demoId: string) => {
+    const [existing] = await db.select({ id: friendships.id }).from(friendships).where(or(
+      and(eq(friendships.requesterId, userId), eq(friendships.addresseeId, demoId)),
+      and(eq(friendships.requesterId, demoId), eq(friendships.addresseeId, userId)),
+    ));
+    if (!existing) {
+      await db.insert(friendships).values({ requesterId: userId, addresseeId: demoId, status: "accepted" });
+    }
+  };
+
+  const addMember = async (challengeId: string, userId: string, status: "accepted" | "invited", progress: number) => {
+    const [existing] = await db.select({ id: groupChallengeMembers.id }).from(groupChallengeMembers).where(and(
+      eq(groupChallengeMembers.challengeId, challengeId),
+      eq(groupChallengeMembers.userId, userId),
+    ));
+    if (!existing) {
+      await db.insert(groupChallengeMembers).values({
+        challengeId,
+        userId,
+        status,
+        progress,
+        joinedAt: status === "accepted" ? new Date() : null,
+      });
+    }
+  };
+
+  for (const realUser of realUsers) {
+    for (const player of communityDemoPlayers) await addFriendship(realUser.id, player.id);
+    await addMember(communityDemoChallenges[0].id, realUser.id, "accepted", 0);
+    await addMember(communityDemoChallenges[1].id, realUser.id, "accepted", 0);
+    await addMember(communityDemoChallenges[2].id, realUser.id, "invited", 0);
+  }
+  for (const [index, player] of communityDemoPlayers.entries()) {
+    await addMember(communityDemoChallenges[0].id, player.id, "accepted", [12, 9, 7, 16, 5, 3][index]);
+    await addMember(communityDemoChallenges[1].id, player.id, "accepted", [18, 15, 11, 21, 8, 6][index]);
+    await addMember(communityDemoChallenges[2].id, player.id, "accepted", 0);
+    for (let session = 0; session < Math.min(8, index + 3); session++) {
+      await db.insert(trainingLogs).values({
+        id: `playr1-demo-training-${player.key}-${session}`,
+        userId: player.id,
+        duration: 35 + session * 5,
+        score: 7 + (session % 3),
+        notes: "Community demo training session",
+        completedAt: new Date(now.getTime() - (session + 1) * 86400000),
+      }).onConflictDoNothing();
+    }
+  }
+
+  console.log(`Community demo seeded for ${realUsers.length} local player account(s)`);
+}
 
 export async function seedDatabase() {
   console.log("Seeding database...");
@@ -757,6 +941,7 @@ export async function seedDatabase() {
       console.log("Streak challenge already seeded, skipping");
     }
 
+    await seedCommunityDemo();
     console.log("Database seeding complete!");
 
     const adminEmail = process.env.ADMIN_EMAIL;

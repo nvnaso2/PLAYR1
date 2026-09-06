@@ -65,7 +65,13 @@ const tabs: Array<{ id: CommunityTab; label: string; description: string; icon: 
 ];
 
 const skillLevels = ["beginner", "developing", "intermediate", "advanced", "elite"];
-const positions = ["Point Guard", "Shooting Guard", "Small Forward", "Power Forward", "Center"];
+const positions = [
+  { value: "PG", label: "Point Guard" },
+  { value: "SG", label: "Shooting Guard" },
+  { value: "SF", label: "Small Forward" },
+  { value: "PF", label: "Power Forward" },
+  { value: "C", label: "Center" },
+];
 
 function getTabFromLocation(location: string): CommunityTab {
   const query = location.split("?")[1] || "";
@@ -270,7 +276,7 @@ function ActivityPanel({ user }: { user: unknown }) {
   );
 }
 
-function ChallengeCard({ challenge }: { challenge: any }) {
+function ChallengeCard({ challenge, isOwner, onInvite }: { challenge: any; isOwner: boolean; onInvite: () => void }) {
   const goal = Math.max(1, Number(challenge.goalAmount));
   const endsAt = new Date(challenge.endsAt);
   const daysLeft = Math.max(0, Math.ceil((endsAt.getTime() - Date.now()) / 86400000));
@@ -290,9 +296,12 @@ function ChallengeCard({ challenge }: { challenge: any }) {
               {GROUP_CHALLENGE_GOAL_LABELS[challenge.goalType as keyof typeof GROUP_CHALLENGE_GOAL_LABELS] || challenge.goalType} · {goal.toLocaleString()} per player
             </p>
           </div>
-          <Badge variant="outline" className={ended ? "border-zinc-700 text-zinc-500" : "border-orange-500/30 text-orange-300"}>
-            <Clock3 className="mr-1 h-3 w-3" /> {ended ? "Complete" : `${daysLeft}d left`}
-          </Badge>
+          <div className="flex items-center gap-2">
+            {isOwner && <Button variant="outline" size="sm" className="h-8 border-orange-500/30 text-orange-300" onClick={onInvite}><UserPlus className="mr-1.5 h-3.5 w-3.5" /> Invite</Button>}
+            <Badge variant="outline" className={ended ? "border-zinc-700 text-zinc-500" : "border-orange-500/30 text-orange-300"}>
+              <Clock3 className="mr-1 h-3 w-3" /> {ended ? "Complete" : `${daysLeft}d left`}
+            </Badge>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -335,13 +344,16 @@ function ChallengeCard({ challenge }: { challenge: any }) {
 
 function ChallengesPanel({ user }: { user: unknown }) {
   const { toast } = useToast();
+  const myId = (user as any)?.claims?.sub ?? (user as any)?.id;
   const [createOpen, setCreateOpen] = useState(false);
+  const [inviteChallengeId, setInviteChallengeId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [goalType, setGoalType] = useState<string>("training_sessions");
   const [goalAmount, setGoalAmount] = useState("5");
   const [durationDays, setDurationDays] = useState("14");
   const [inviteSearch, setInviteSearch] = useState("");
   const [selectedInviteIds, setSelectedInviteIds] = useState<string[]>([]);
+  const [manageInviteSearch, setManageInviteSearch] = useState("");
 
   const challengesQuery = useQuery<any[]>({
     queryKey: ["/api/group-challenges"],
@@ -361,6 +373,15 @@ function ChallengesPanel({ user }: { user: unknown }) {
       return response.json();
     },
     enabled: inviteSearch.trim().length >= 2,
+  });
+  const manageInvitePlayersQuery = useQuery<Player[]>({
+    queryKey: ["/api/users/search", "challenge-manage-invite", manageInviteSearch],
+    queryFn: async () => {
+      const response = await fetch(buildUrl(`/api/users/search?q=${encodeURIComponent(manageInviteSearch)}`), { credentials: "include", headers: getAuthHeaders() });
+      if (!response.ok) throw new Error("Could not search players");
+      return response.json();
+    },
+    enabled: manageInviteSearch.trim().length >= 2 && !!inviteChallengeId,
   });
 
   const createChallenge = useMutation({
@@ -389,6 +410,17 @@ function ChallengesPanel({ user }: { user: unknown }) {
       queryClient.invalidateQueries({ queryKey: ["/api/group-challenges/invites"] });
     },
     onError: () => toast({ title: "Could not update challenge invite", variant: "destructive" }),
+  });
+  const invitePlayer = useMutation({
+    mutationFn: ({ challengeId, playerId }: { challengeId: string; playerId: string }) =>
+      apiRequest("POST", `/api/group-challenges/${challengeId}/invite`, { userId: playerId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/group-challenges/invites"] });
+      setInviteChallengeId(null);
+      setManageInviteSearch("");
+      toast({ title: "Challenge invite sent" });
+    },
+    onError: () => toast({ title: "Could not send challenge invite", variant: "destructive" }),
   });
 
   const validForm = name.trim().length > 1 && Number(goalAmount) > 0 && Number(durationDays) > 0;
@@ -440,7 +472,7 @@ function ChallengesPanel({ user }: { user: unknown }) {
         </Card>
       ) : (
         <div className="space-y-4" data-testid="community-challenges-list">
-          {challenges.map((challenge: any) => <ChallengeCard key={challenge.id} challenge={challenge} />)}
+          {challenges.map((challenge: any) => <ChallengeCard key={challenge.id} challenge={challenge} isOwner={challenge.creatorId === myId} onInvite={() => setInviteChallengeId(challenge.id)} />)}
         </div>
       )}
 
@@ -476,6 +508,26 @@ function ChallengesPanel({ user }: { user: unknown }) {
           <DialogFooter><Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button><Button onClick={() => createChallenge.mutate()} disabled={!validForm || createChallenge.isPending} data-testid="button-submit-community-challenge">{createChallenge.isPending ? "Creating…" : "Create challenge"}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!inviteChallengeId} onOpenChange={(open) => { if (!open) { setInviteChallengeId(null); setManageInviteSearch(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Invite to this challenge</DialogTitle>
+            <DialogDescription>Search for another player and add them without leaving the challenge.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input value={manageInviteSearch} onChange={(event) => setManageInviteSearch(event.target.value)} placeholder="Search player names" autoFocus />
+            {manageInvitePlayersQuery.data?.map((player) => (
+              <div key={player.userId} className="flex items-center gap-3 rounded-lg border border-zinc-800 p-2">
+                <PlayerAvatar player={player} size="h-8 w-8" />
+                <span className="min-w-0 flex-1 truncate text-sm">{playerName(player)}</span>
+                <Button size="sm" onClick={() => inviteChallengeId && invitePlayer.mutate({ challengeId: inviteChallengeId, playerId: player.userId })} disabled={invitePlayer.isPending}>Invite</Button>
+              </div>
+            ))}
+            {manageInviteSearch.length >= 2 && !manageInvitePlayersQuery.isLoading && !manageInvitePlayersQuery.data?.length && <p className="text-sm text-muted-foreground">No players found.</p>}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -491,7 +543,7 @@ function PlayerCard({ player, onAdd, onAccept, adding }: { player: Player; onAdd
           <Link href={`/player/${player.userId}`} className="block truncate text-sm font-medium hover:text-orange-400">{name}</Link>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
             {player.skillLevel && <span className="capitalize">{player.skillLevel}</span>}
-            {player.positions?.[0] && <span>{player.positions[0]}</span>}
+            {player.positions?.[0] && <span>{positions.find((position) => position.value === player.positions?.[0])?.label || player.positions[0]}</span>}
             {locationLabel(player) && <span className="flex items-center gap-0.5"><MapPin className="h-3 w-3" />{locationLabel(player)}</span>}
           </div>
         </div>
@@ -576,7 +628,7 @@ function PlayersPanel({ user }: { user: unknown }) {
           </div>
           <div className="grid gap-2 sm:grid-cols-3">
             <Select value={skill} onValueChange={setSkill}><SelectTrigger aria-label="Filter by skill level"><SelectValue placeholder="Skill level" /></SelectTrigger><SelectContent><SelectItem value="all">All skill levels</SelectItem>{skillLevels.map((level) => <SelectItem key={level} value={level} className="capitalize">{level}</SelectItem>)}</SelectContent></Select>
-            <Select value={position} onValueChange={setPosition}><SelectTrigger aria-label="Filter by position"><SelectValue placeholder="Position" /></SelectTrigger><SelectContent><SelectItem value="all">All positions</SelectItem>{positions.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent></Select>
+            <Select value={position} onValueChange={setPosition}><SelectTrigger aria-label="Filter by position"><SelectValue placeholder="Position" /></SelectTrigger><SelectContent><SelectItem value="all">All positions</SelectItem>{positions.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent></Select>
             <Input value={state} onChange={(event) => setState(event.target.value)} placeholder="State (optional)" aria-label="Filter by state" />
           </div>
         </CardContent>
@@ -607,6 +659,8 @@ export default function CommunityPage() {
   const [activeTab, setActiveTab] = useState<CommunityTab>(getTabFromLocation(location));
   const { data: requests = [] } = useQuery<any[]>({ queryKey: ["/api/friends/requests"], enabled: !!user });
   const { data: challengeInvites = [] } = useQuery<any[]>({ queryKey: ["/api/group-challenges/invites"], enabled: !!user });
+  const { data: friends = [] } = useQuery<any[]>({ queryKey: ["/api/friends"], enabled: !!user });
+  const { data: activeChallenges = [] } = useQuery<any[]>({ queryKey: ["/api/group-challenges"], enabled: !!user });
 
   useEffect(() => {
     setActiveTab(getTabFromLocation(location));
@@ -628,18 +682,41 @@ export default function CommunityPage() {
 
   return (
     <main className="mx-auto max-w-4xl px-4 pb-24 pt-5 sm:px-6" data-testid="community-shell">
-      <header className="mb-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="mb-1 text-xs font-semibold uppercase tracking-[0.2em] text-orange-400">PLAYR1 Community</p>
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl" data-testid="text-community-title">Keep your game connected.</h1>
-            <p className="mt-2 max-w-xl text-sm text-muted-foreground">Share progress, compete with your people, and find players who are working on the same kind of growth.</p>
+      <header className="relative mb-7 overflow-hidden rounded-3xl border border-orange-500/20 bg-gradient-to-br from-orange-500/[0.16] via-zinc-950 to-purple-950/30 p-5 shadow-2xl shadow-orange-950/20 sm:p-7">
+        <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full border-[28px] border-orange-400/10" />
+        <div className="pointer-events-none absolute -bottom-24 left-1/3 h-48 w-48 rounded-full bg-orange-500/10 blur-3xl" />
+        <div className="relative">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-orange-300/20 bg-black/20 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-orange-300">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]" />
+                PLAYR1 Community
+              </div>
+              <h1 className="max-w-xl text-3xl font-bold tracking-tight text-white sm:text-4xl" data-testid="text-community-title">Your game is better together.</h1>
+              <p className="mt-3 max-w-xl text-sm leading-6 text-zinc-300">See the work happening around you, challenge your circle, and find players who are building toward the same next step.</p>
+            </div>
+            <div className="hidden h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-black/20 sm:flex">
+              <ActiveIcon className="h-8 w-8 text-orange-300" aria-hidden="true" />
+            </div>
           </div>
-          <ActiveIcon className="mt-1 h-7 w-7 shrink-0 text-orange-400" aria-hidden="true" />
+          <div className="mt-7 grid grid-cols-3 gap-2 sm:max-w-xl sm:gap-3">
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+              <p className="text-lg font-bold text-white">{friends.length}</p>
+              <p className="mt-0.5 text-[11px] text-zinc-400">in your circle</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+              <p className="text-lg font-bold text-white">{activeChallenges.length}</p>
+              <p className="mt-0.5 text-[11px] text-zinc-400">active challenges</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+              <p className="text-lg font-bold text-white">{requests.length + challengeInvites.length}</p>
+              <p className="mt-0.5 text-[11px] text-zinc-400">things to review</p>
+            </div>
+          </div>
         </div>
       </header>
 
-      <nav className="mb-7 grid grid-cols-3 gap-1 rounded-xl border border-zinc-800 bg-zinc-950/60 p-1" aria-label="Community sections" role="tablist">
+      <nav className="mb-7 grid grid-cols-3 gap-1 rounded-2xl border border-zinc-800/80 bg-zinc-950/80 p-1.5 shadow-lg shadow-black/20" aria-label="Community sections" role="tablist">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const selected = activeTab === tab.id;
@@ -651,7 +728,7 @@ export default function CommunityPage() {
               aria-selected={selected}
               aria-controls={`community-panel-${tab.id}`}
               onClick={() => selectTab(tab.id)}
-              className={`relative flex min-w-0 items-center justify-center gap-2 rounded-lg px-2 py-3 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 ${selected ? "bg-orange-500 text-black" : "text-zinc-400 hover:bg-zinc-900 hover:text-white"}`}
+              className={`relative flex min-w-0 items-center justify-center gap-2 rounded-xl px-2 py-3.5 text-left text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 ${selected ? "bg-gradient-to-r from-orange-500 to-amber-400 text-black shadow-lg shadow-orange-950/30" : "text-zinc-400 hover:bg-zinc-900 hover:text-white"}`}
               data-testid={`tab-community-${tab.id}`}
             >
               <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
