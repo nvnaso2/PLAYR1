@@ -1046,11 +1046,21 @@ Start now with a warm one-line greeting that briefly references something specif
               );
               pending = await storage.updateClarificationPrompt(pending.id, projectPrompt.question, projectPrompt.options);
             }
-            projectPrompt = projectPrompt ?? (pending ? { question: pending.question, options: pending.options ?? [] } : null);
-            responseMessage = pending
-              ? `Let’s pick this back up. ${pending.question}`
-              : "Your Project discovery is ready. Open My PLAYR1 Project to review it.";
-            projectReady = !pending;
+            if (!pending && answered.length >= TOTAL_DISCOVERY_QUESTIONS) {
+              const qaList = clarifications.map((clarification) => ({
+                question: clarification.question,
+                answer: clarification.answer ?? "",
+              }));
+              const program = await generateGoalPlan(userId, activeGoal.goalText, qaList);
+              await saveGoalPlan(activeGoal.id, userId, program);
+              responseMessage = `Your Project is ready.\n\n# ${program.projectTitle}\n\n${program.coachNote}\n\nYour plan, milestones, and next action are saved. Open My PLAYR1 Project to see the full path.`;
+              projectPrompt = null;
+              projectReady = true;
+            } else {
+              projectPrompt = projectPrompt ?? (pending ? { question: pending.question, options: pending.options ?? [] } : null);
+              responseMessage = `Let’s pick this back up. ${pending!.question}`;
+              projectReady = false;
+            }
           } else {
             responseMessage = "Your PLAYR1 Project is already built. Open it to see your plan, milestones, and next action.";
           }

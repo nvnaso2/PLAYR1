@@ -533,6 +533,7 @@ export default function CoachPPage() {
       if (isProjectConversation && !savedProjectReady) {
         const goalResponse = await apiRequest("GET", "/api/goals/active");
         const goalData = await goalResponse.json() as {
+          goal?: { status?: string };
           clarifications?: Array<{
             answer: string | null;
             question: string;
@@ -542,6 +543,20 @@ export default function CoachPPage() {
         const pending = goalData.clarifications?.find((clarification) => !clarification.answer);
         if (pending) {
           setProjectPrompt({ question: pending.question, options: pending.options ?? [] });
+        } else if (
+          goalData.goal?.status === "clarifying"
+          && (goalData.clarifications?.filter((clarification) => clarification.answer).length ?? 0) >= 5
+        ) {
+          const recoveryMessage = "Finish building my PLAYR1 Project.";
+          setProjectBuilderMode(true);
+          setMessages((previous) => [...previous, { role: "user", content: recoveryMessage }]);
+          setThinkingStage("Finishing your Project...");
+          chatMutation.mutate({
+            message: recoveryMessage,
+            conversationId: data.conversation.id,
+            projectBuilder: true,
+            projectBuilderAction: "start",
+          });
         }
       }
       setDraft("");
