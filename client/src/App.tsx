@@ -62,7 +62,6 @@ const TrainerEvaluations = lazy(pageLoaders.trainerEvaluations);
 const TrainerPlayerDetail = lazy(pageLoaders.trainerPlayerDetail);
 const MyTrainer = lazy(pageLoaders.myTrainer);
 const ParentDashboard = lazy(pageLoaders.parentDashboard);
-const FindPeople = lazy(pageLoaders.findPeople);
 const FeedbackPage = lazy(pageLoaders.feedback);
 const Programs = lazy(pageLoaders.programs);
 const ProgramDetail = lazy(pageLoaders.programDetail);
@@ -82,9 +81,6 @@ const Hub = lazy(pageLoaders.hub);
 const Journey = lazy(pageLoaders.journey);
 const OnboardingPreview = lazy(() => import("@/pages/onboarding-preview"));
 const CommunityPage = lazy(() => import("@/pages/community"));
-const CommunityFriendsPage = lazy(() => import("@/pages/community-friends"));
-const CommunityChallengePage = lazy(() => import("@/pages/community-challenges"));
-const CommunityFindPlayersPage = lazy(() => import("@/pages/community-find-players"));
 const ProfileHubPage = lazy(() => import("@/pages/profile-hub"));
 
 const SubscriptionPage = lazy(() => import("@/pages/subscription"));
@@ -351,7 +347,7 @@ function Router() {
                 <Route path="/trainer/evaluations">{() => <TrainerGuard><TrainerEvaluations /></TrainerGuard>}</Route>
                 <Route path="/trainer/programs">{() => <TrainerGuard><TrainerPrograms /></TrainerGuard>}</Route>
                 <Route path="/teams" component={Finder} />
-                <Route path="/connect" component={FindPeople} />
+                <Route path="/connect">{() => <Redirect to="/community?tab=players" />}</Route>
                 <Route path="/challenge-history" component={ChallengeHistory} />
                 <Route path="/journal" component={Journal} />
                 <Route path="/coach-p" component={CoachP} />
@@ -359,9 +355,9 @@ function Router() {
                 <Route path="/hub" component={Hub} />
                 <Route path="/journey" component={Journey} />
                 <Route path="/community" component={CommunityPage} />
-                <Route path="/community/friends" component={CommunityFriendsPage} />
-                <Route path="/community/challenges" component={CommunityChallengePage} />
-                <Route path="/community/find-players" component={CommunityFindPlayersPage} />
+                <Route path="/community/friends">{() => <Redirect to="/community?tab=activity" />}</Route>
+                <Route path="/community/challenges">{() => <Redirect to="/community?tab=challenges" />}</Route>
+                <Route path="/community/find-players">{() => <Redirect to="/community?tab=players" />}</Route>
                 <Route path="/profile-hub" component={ProfileHubPage} />
                 <Route path="/streaks" component={StreaksPage} />
                 <Route path="/archetypes" component={Archetypes} />

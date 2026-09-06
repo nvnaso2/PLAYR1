@@ -23,7 +23,7 @@ import {
 import { sendPushNotification, getVapidPublicKey } from "./push";
 import { ensureOnboardingSchema, getDiagnosticSummary, getFixCategory, validateMicroQuizPayload } from "./onboarding";
 import { getMicroQuiz } from "@shared/micro-quizzes";
-import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, drills, trainingLogs, trainingLogMetrics, feedbackComments, insertProgramSchema, insertProgramItemSchema, insertEventSchema, events, insertStatChallengeSchema, programEnrollments, coachPUsage } from "@shared/schema";
+import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, drills, trainingLogs, trainingLogMetrics, feedbackComments, insertProgramSchema, insertProgramItemSchema, insertEventSchema, events, insertStatChallengeSchema, programEnrollments, coachPUsage, friendships } from "@shared/schema";
 import { getUncachableStripeClient } from "./stripeClient";
 import { WebhookHandlers } from "./webhookHandlers";
 import { JOURNAL_PROMPTS } from "@shared/journalPrompts";
@@ -8288,10 +8288,25 @@ COACHING RULES:
     try {
       const userId = req.user.claims.sub;
       const q = (req.query.q as string || "").trim();
+      const skillLevel = (req.query.skillLevel as string || "").trim();
+      const position = (req.query.position as string || "").trim();
+      const state = (req.query.state as string || "").trim();
       if (q.length < 2) {
         return res.json([]);
       }
       const searchPattern = `%${q}%`;
+      const searchConditions = [
+        or(
+          ilike(users.firstName, searchPattern),
+          ilike(users.lastName, searchPattern),
+          ilike(users.email, searchPattern),
+          ilike(userProfiles.displayName, searchPattern),
+          sql`CONCAT(${users.firstName}, ' ', ${users.lastName}) ILIKE ${searchPattern}`,
+        ),
+      ];
+      if (skillLevel) searchConditions.push(eq(userProfiles.skillLevel, skillLevel as "beginner" | "intermediate" | "advanced" | "elite"));
+      if (state) searchConditions.push(ilike(userProfiles.state, state));
+      if (position) searchConditions.push(sql`${position} = ANY(${careerProfiles.positions})`);
       const results = await db
         .select({
           userId: users.id,
@@ -8303,6 +8318,8 @@ COACHING RULES:
           profilePhotoUrl: userProfiles.profilePhotoUrl,
           city: userProfiles.city,
           state: userProfiles.state,
+          age: userProfiles.age,
+          skillLevel: userProfiles.skillLevel,
           positions: careerProfiles.positions,
           staffRole: careerProfiles.staffRole,
         })
@@ -8310,16 +8327,11 @@ COACHING RULES:
         .leftJoin(userProfiles, eq(userProfiles.userId, users.id))
         .leftJoin(careerProfiles, eq(careerProfiles.userId, users.id))
         .where(
-          or(
-            ilike(users.firstName, searchPattern),
-            ilike(users.lastName, searchPattern),
-            ilike(users.email, searchPattern),
-            ilike(userProfiles.displayName, searchPattern),
-            sql`CONCAT(${users.firstName}, ' ', ${users.lastName}) ILIKE ${searchPattern}`
-          )
+          and(...searchConditions)
         )
         .limit(20);
 
+      const relationshipStates = await getCommunityConnectionStates(userId, results.map((result) => result.userId));
       const filtered = results
         .filter(r => r.userId !== userId)
         .map(r => ({
@@ -8330,8 +8342,12 @@ COACHING RULES:
           profilePhotoUrl: r.profilePhotoUrl || r.profileImageUrl,
           city: r.city,
           state: r.state,
+          age: r.age,
+          skillLevel: r.skillLevel,
           positions: r.positions,
           staffRole: r.staffRole,
+          connectionId: relationshipStates.get(r.userId)?.id ?? null,
+          connectionStatus: relationshipStates.get(r.userId)?.status ?? null,
         }));
 
       res.json(filtered);
@@ -12100,6 +12116,31 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
     }
   });
 
+  // ─── Community connection state ─────────────────────────────────────────────
+  async function getCommunityConnectionStates(userId: string, targetIds: string[]) {
+    if (targetIds.length === 0) return new Map<string, { id: string; status: string }>();
+    const rows = await db.select({
+      id: friendships.id,
+      requesterId: friendships.requesterId,
+      addresseeId: friendships.addresseeId,
+      status: friendships.status,
+    }).from(friendships).where(and(
+      or(eq(friendships.requesterId, userId), eq(friendships.addresseeId, userId)),
+      or(inArray(friendships.requesterId, targetIds), inArray(friendships.addresseeId, targetIds)),
+    ));
+    const states = new Map<string, { id: string; status: string }>();
+    for (const row of rows) {
+      const otherId = row.requesterId === userId ? row.addresseeId : row.requesterId;
+      const status = row.status === "accepted"
+        ? "friends"
+        : row.status === "pending"
+          ? row.requesterId === userId ? "outgoing_pending" : "incoming_pending"
+          : row.status;
+      states.set(otherId, { id: row.id, status });
+    }
+    return states;
+  }
+
   // ─── Recommended Users ───────────────────────────────────────────────────────
   app.get("/api/users/recommended", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
@@ -12148,8 +12189,9 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
           return { ...r, score };
         })
         .sort((a, b) => b.score - a.score)
-        .slice(0, limit)
-        .map(r => ({
+        .slice(0, limit);
+      const relationshipStates = await getCommunityConnectionStates(userId, scored.map((result) => result.userId));
+      const response = scored.map(r => ({
           userId: r.userId,
           firstName: r.firstName,
           lastName: r.lastName,
@@ -12161,9 +12203,11 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
           age: r.age,
           positions: r.positions,
           score: r.score,
+          connectionId: relationshipStates.get(r.userId)?.id ?? null,
+          connectionStatus: relationshipStates.get(r.userId)?.status ?? null,
         }));
 
-      res.json(scored);
+      res.json(response);
     } catch (err) {
       console.error("Recommended users error:", err);
       res.status(500).json({ message: "Failed to get recommendations" });
@@ -12209,6 +12253,10 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
       const userId = req.user!.claims.sub;
       const { status } = req.body as { status: "accepted" | "declined" };
       if (!["accepted", "declined"].includes(status)) return res.status(400).json({ message: "Invalid status" });
+      const pendingRequests = await storage.getPendingFriendRequests(userId);
+      if (!pendingRequests.some((request) => request.friendship.id === req.params.id)) {
+        return res.status(403).json({ message: "You cannot respond to this request" });
+      }
       const friendship = await storage.respondFriendRequest(req.params.id, status);
       res.json(friendship);
     } catch (err) {
@@ -12253,7 +12301,8 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
     try {
       const userId = req.user!.claims.sub;
       const challenges = await storage.getGroupChallengesForUser(userId);
-      res.json(challenges);
+      await Promise.all(challenges.map((challenge) => storage.syncGroupChallengeProgress(challenge.id)));
+      res.json(await storage.getGroupChallengesForUser(userId));
     } catch (err) {
       res.status(500).json({ message: "Failed to get group challenges" });
     }
@@ -12301,6 +12350,10 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
 
   app.post("/api/group-challenges/:id/invite", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
+      const userId = req.user!.claims.sub;
+      const challenge = await storage.getGroupChallengeById(req.params.id);
+      if (!challenge) return res.status(404).json({ message: "Challenge not found" });
+      if (challenge.creatorId !== userId) return res.status(403).json({ message: "Only the challenge creator can invite players" });
       const { userId: invitedUserId } = req.body;
       if (!invitedUserId) return res.status(400).json({ message: "userId required" });
       const member = await storage.inviteToGroupChallenge(req.params.id, invitedUserId);

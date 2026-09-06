@@ -1,97 +1,677 @@
-import { useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useLocation } from "wouter";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import {
+  Activity,
+  Check,
+  Clock3,
+  MapPin,
+  Plus,
+  Search,
+  Swords,
+  Trophy,
+  UserPlus,
+  UsersRound,
+  X,
+} from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import { Card, CardContent } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, buildUrl, getAuthHeaders, getObjectUrl, queryClient } from "@/lib/queryClient";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ChevronRight, Users, Swords, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { GROUP_CHALLENGE_GOAL_LABELS, GROUP_CHALLENGE_GOAL_TYPES } from "@shared/schema";
 
-export default function CommunityPage() {
-  const [, navigate] = useLocation();
-  const { user } = useAuth();
+type CommunityTab = "activity" | "challenges" | "players";
 
-  const { data: friendRequests } = useQuery<any[]>({
+type Player = {
+  userId: string;
+  displayName?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  profilePhotoUrl?: string | null;
+  city?: string | null;
+  state?: string | null;
+  age?: number | null;
+  skillLevel?: string | null;
+  positions?: string[] | null;
+  connectionId?: string | null;
+  connectionStatus?: string | null;
+  score?: number;
+};
+
+const tabs: Array<{ id: CommunityTab; label: string; description: string; icon: typeof Activity }> = [
+  { id: "activity", label: "Activity", description: "See your circle’s progress", icon: Activity },
+  { id: "challenges", label: "Challenges", description: "Compete together", icon: Swords },
+  { id: "players", label: "Players", description: "Find your people", icon: UsersRound },
+];
+
+const skillLevels = ["beginner", "developing", "intermediate", "advanced", "elite"];
+const positions = ["Point Guard", "Shooting Guard", "Small Forward", "Power Forward", "Center"];
+
+function getTabFromLocation(location: string): CommunityTab {
+  const query = location.split("?")[1] || "";
+  const tab = new URLSearchParams(query).get("tab");
+  return tab === "challenges" || tab === "players" ? tab : "activity";
+}
+
+function initials(name: string) {
+  return name.split(" ").map((part) => part[0]).join("").toUpperCase().slice(0, 2) || "P";
+}
+
+function playerName(player: Player | { displayName?: string | null; firstName?: string | null; lastName?: string | null }) {
+  return player.displayName || `${player.firstName || ""} ${player.lastName || ""}`.trim() || "Player";
+}
+
+function relativeDate(value: string | Date | null | undefined) {
+  if (!value) return "Recently";
+  const date = new Date(value);
+  const minutes = Math.max(1, Math.round((Date.now() - date.getTime()) / 60000));
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.round(hours / 24)}d ago`;
+}
+
+function locationLabel(player: Player) {
+  return [player.city, player.state].filter(Boolean).join(", ");
+}
+
+function PlayerAvatar({ player, size = "h-10 w-10" }: { player: Player; size?: string }) {
+  const name = playerName(player);
+  return (
+    <Avatar className={`${size} shrink-0`}>
+      <AvatarImage src={getObjectUrl(player.profilePhotoUrl) ?? player.profilePhotoUrl ?? undefined} alt="" />
+      <AvatarFallback className="bg-orange-500/10 text-orange-300 text-xs">{initials(name)}</AvatarFallback>
+    </Avatar>
+  );
+}
+
+function PanelError({ message }: { message: string }) {
+  return (
+    <Card className="border-red-500/20 bg-red-500/5">
+      <CardContent className="p-5 text-sm text-red-200">{message}</CardContent>
+    </Card>
+  );
+}
+
+function ActivityPanel({ user }: { user: unknown }) {
+  const { toast } = useToast();
+  const { data: feed = [], isLoading: feedLoading, isError: feedError } = useQuery<any[]>({
+    queryKey: ["/api/friends/activity"],
+    enabled: !!user,
+    refetchInterval: 30000,
+  });
+  const { data: friends = [], isLoading: friendsLoading } = useQuery<any[]>({
+    queryKey: ["/api/friends"],
+    enabled: !!user,
+  });
+  const { data: requests = [], isLoading: requestsLoading, isError: requestsError } = useQuery<any[]>({
     queryKey: ["/api/friends/requests"],
     enabled: !!user,
   });
-  const { data: challengeInvites } = useQuery<any[]>({
-    queryKey: ["/api/group-challenges/invites"],
-    enabled: !!user,
+
+  const respondRequest = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: "accepted" | "declined" }) =>
+      apiRequest("PATCH", `/api/friends/requests/${id}`, { status }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/friends"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/friends/requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/friends/activity"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users/recommended"] });
+      toast({ title: variables.status === "accepted" ? "Friend request accepted" : "Request declined" });
+    },
+    onError: () => toast({ title: "Could not update request", variant: "destructive" }),
   });
 
-  const friendReqCount  = friendRequests?.length ?? 0;
-  const challengeCount  = challengeInvites?.length ?? 0;
+  return (
+    <div className="space-y-5">
+      {requestsError && <PanelError message="Friend requests could not be loaded. Try refreshing the page." />}
+      {requests.length > 0 && (
+        <Card className="border-orange-500/20 bg-orange-500/[0.04]" data-testid="community-friend-requests">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <UserPlus className="h-4 w-4 text-orange-400" />
+              Friend requests
+              <Badge className="bg-orange-500 text-black hover:bg-orange-500">{requests.length}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {requests.map((request: any) => (
+              <div key={request.friendship.id} className="flex items-center gap-3">
+                <Link href={`/player/${request.requester.id}`} aria-label={`View ${request.requester.displayName}'s profile`}>
+                  <PlayerAvatar player={request.requester} />
+                </Link>
+                <div className="min-w-0 flex-1">
+                  <Link href={`/player/${request.requester.id}`} className="font-medium text-sm hover:text-orange-400">
+                    {request.requester.displayName}
+                  </Link>
+                  <p className="text-xs text-muted-foreground">wants to connect</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => respondRequest.mutate({ id: request.friendship.id, status: "accepted" })}
+                    disabled={respondRequest.isPending}
+                    data-testid={`button-accept-friend-${request.friendship.id}`}
+                  >
+                    <Check className="mr-1 h-3.5 w-3.5" /> Accept
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => respondRequest.mutate({ id: request.friendship.id, status: "declined" })}
+                    disabled={respondRequest.isPending}
+                    aria-label={`Decline request from ${request.requester.displayName}`}
+                    data-testid={`button-decline-friend-${request.friendship.id}`}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
-  const sections = [
-    {
-      key: "friends",
-      label: "Friends",
-      description: "Activity feed, friend requests & connections",
-      icon: Users,
-      iconBg: "bg-orange-500/10",
-      iconColor: "text-orange-400",
-      path: "/community/friends",
-      badge: friendReqCount,
-    },
-    {
-      key: "challenges",
-      label: "Group Challenges",
-      description: "Compete with friends on shared goals",
-      icon: Swords,
-      iconBg: "bg-yellow-500/10",
-      iconColor: "text-yellow-400",
-      path: "/community/challenges",
-      badge: challengeCount,
-    },
-    {
-      key: "find-players",
-      label: "Find Players",
-      description: "Discover players matched to your skill & location",
-      icon: Search,
-      iconBg: "bg-green-500/10",
-      iconColor: "text-green-400",
-      path: "/community/find-players",
-      badge: 0,
-    },
-  ];
+      <div>
+        <div className="mb-3 flex items-end justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">Friend activity</h2>
+            <p className="text-sm text-muted-foreground">Automatic updates from the players you follow.</p>
+          </div>
+          <Badge variant="outline" className="border-zinc-700 text-zinc-400">{friends.length} {friends.length === 1 ? "friend" : "friends"}</Badge>
+        </div>
+
+        {feedError ? (
+          <PanelError message="Activity could not be loaded. Try refreshing the page." />
+        ) : feedLoading || friendsLoading ? (
+          <div className="space-y-3" aria-label="Loading friend activity" aria-busy="true">
+            {[1, 2, 3].map((item) => <Skeleton key={item} className="h-20 w-full bg-zinc-900" />)}
+          </div>
+        ) : feed.length === 0 ? (
+          <Card className="border-dashed border-zinc-700 bg-transparent">
+            <CardContent className="flex flex-col items-center justify-center px-6 py-12 text-center">
+              <div className="mb-4 rounded-full bg-orange-500/10 p-3"><Activity className="h-6 w-6 text-orange-400" /></div>
+              <h3 className="font-semibold">{friends.length ? "No new activity yet" : "Build your basketball circle"}</h3>
+              <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                {friends.length
+                  ? "When your friends train, hit milestones, or finish challenges, you’ll see it here."
+                  : "Find players you know or players working toward a similar game. Their progress will appear here automatically."}
+              </p>
+              <Button className="mt-5" onClick={() => window.dispatchEvent(new CustomEvent("community-tab", { detail: "players" }))}>
+                <UsersRound className="mr-2 h-4 w-4" /> Find players
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-3" data-testid="community-activity-feed">
+            {feed.map((item: any) => (
+              <Card key={item.id} className="border-zinc-800/70 bg-zinc-900/30">
+                <CardContent className="flex items-start gap-3 p-4">
+                  <Link href={`/player/${item.user.id}`} aria-label={`View ${item.user.displayName}'s profile`}>
+                    <PlayerAvatar player={item.user} />
+                  </Link>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <Link href={`/player/${item.user.id}`} className="font-medium text-sm hover:text-orange-400">
+                          {item.user.displayName}
+                        </Link>
+                        <p className="text-sm text-zinc-200">{item.title}</p>
+                      </div>
+                      <span className="shrink-0 text-xs text-muted-foreground">{relativeDate(item.createdAt)}</span>
+                    </div>
+                    {item.description && <p className="mt-1 text-xs text-muted-foreground">{item.description}</p>}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {friends.length > 0 && (
+        <Card className="border-zinc-800/70 bg-zinc-900/20">
+          <CardHeader className="pb-3"><CardTitle className="text-base">Your circle</CardTitle></CardHeader>
+          <CardContent className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {friends.map((item: any) => (
+              <Link
+                key={item.friendship.id}
+                href={`/player/${item.friend.id}`}
+                className="flex min-w-0 items-center gap-2 rounded-lg border border-zinc-800 p-2 transition-colors hover:border-orange-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+              >
+                <PlayerAvatar player={item.friend} size="h-8 w-8" />
+                <span className="truncate text-xs font-medium">{item.friend.displayName}</span>
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function ChallengeCard({ challenge }: { challenge: any }) {
+  const goal = Math.max(1, Number(challenge.goalAmount));
+  const endsAt = new Date(challenge.endsAt);
+  const daysLeft = Math.max(0, Math.ceil((endsAt.getTime() - Date.now()) / 86400000));
+  const ended = endsAt.getTime() < Date.now();
+  const members = [...(challenge.members || [])].sort((a, b) => Number(b.progress) - Number(a.progress));
+  const totalProgress = members.reduce((sum, member) => sum + Number(member.progress || 0), 0);
+  const totalGoal = goal * Math.max(1, members.length);
+  const completion = Math.min(100, Math.round((totalProgress / totalGoal) * 100));
 
   return (
-    <div className="pb-24 max-w-2xl mx-auto px-4 pt-5">
-      <div className="mb-5">
-        <h1 className="text-2xl font-bold" data-testid="text-community-title">Community</h1>
-        <p className="text-muted-foreground text-sm mt-0.5">Connect, compete, and grow together</p>
+    <Card className="border-zinc-800/70 bg-zinc-900/30" data-testid={`card-group-challenge-${challenge.id}`}>
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <CardTitle className="text-base">{challenge.name}</CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {GROUP_CHALLENGE_GOAL_LABELS[challenge.goalType as keyof typeof GROUP_CHALLENGE_GOAL_LABELS] || challenge.goalType} · {goal.toLocaleString()} per player
+            </p>
+          </div>
+          <Badge variant="outline" className={ended ? "border-zinc-700 text-zinc-500" : "border-orange-500/30 text-orange-300"}>
+            <Clock3 className="mr-1 h-3 w-3" /> {ended ? "Complete" : `${daysLeft}d left`}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div>
+          <div className="mb-1.5 flex justify-between text-xs">
+            <span className="text-muted-foreground">Group completion</span>
+            <span className="font-medium text-orange-300">{completion}%</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-zinc-800" role="progressbar" aria-valuenow={completion} aria-valuemin={0} aria-valuemax={100} aria-label={`${challenge.name} group completion`}>
+            <div className="h-full rounded-full bg-orange-500 transition-all" style={{ width: `${completion}%` }} />
+          </div>
+        </div>
+        <div className="space-y-3">
+          {members.map((member: any, index: number) => {
+            const progress = Number(member.progress || 0);
+            const percent = Math.min(100, Math.round((progress / goal) * 100));
+            return (
+              <div key={member.id} className="flex items-center gap-3">
+                <span className="w-4 text-center text-xs text-muted-foreground">{index + 1}</span>
+                <Link href={`/player/${member.user.id}`} aria-label={`View ${member.user.displayName}'s profile`}>
+                  <PlayerAvatar player={member.user} size="h-8 w-8" />
+                </Link>
+                <div className="min-w-0 flex-1">
+                  <div className="flex justify-between gap-2 text-xs">
+                    <Link href={`/player/${member.user.id}`} className="truncate font-medium hover:text-orange-400">{member.user.displayName}</Link>
+                    <span className="shrink-0 text-muted-foreground">{progress.toLocaleString()} / {goal.toLocaleString()} ({percent}%)</span>
+                  </div>
+                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-800">
+                    <div className="h-full rounded-full bg-emerald-500" style={{ width: `${percent}%` }} />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ChallengesPanel({ user }: { user: unknown }) {
+  const { toast } = useToast();
+  const [createOpen, setCreateOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [goalType, setGoalType] = useState<string>("training_sessions");
+  const [goalAmount, setGoalAmount] = useState("5");
+  const [durationDays, setDurationDays] = useState("14");
+  const [inviteSearch, setInviteSearch] = useState("");
+  const [selectedInviteIds, setSelectedInviteIds] = useState<string[]>([]);
+
+  const challengesQuery = useQuery<any[]>({
+    queryKey: ["/api/group-challenges"],
+    enabled: !!user,
+    refetchInterval: 30000,
+  });
+  const invitesQuery = useQuery<any[]>({
+    queryKey: ["/api/group-challenges/invites"],
+    enabled: !!user,
+    refetchInterval: 30000,
+  });
+  const invitePlayersQuery = useQuery<Player[]>({
+    queryKey: ["/api/users/search", "challenge-invite", inviteSearch],
+    queryFn: async () => {
+      const response = await fetch(buildUrl(`/api/users/search?q=${encodeURIComponent(inviteSearch)}`), { credentials: "include", headers: getAuthHeaders() });
+      if (!response.ok) throw new Error("Could not search players");
+      return response.json();
+    },
+    enabled: inviteSearch.trim().length >= 2,
+  });
+
+  const createChallenge = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/group-challenges", {
+      name: name.trim(),
+      goalType,
+      goalAmount: Number(goalAmount),
+      durationDays: Number(durationDays),
+      inviteIds: selectedInviteIds,
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/group-challenges"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/group-challenges/invites"] });
+      setCreateOpen(false);
+      setName("");
+      setSelectedInviteIds([]);
+      toast({ title: "Challenge created" });
+    },
+    onError: () => toast({ title: "Could not create challenge", variant: "destructive" }),
+  });
+  const respondInvite = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: "accepted" | "declined" }) =>
+      apiRequest("PATCH", `/api/group-challenges/members/${id}`, { status }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/group-challenges"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/group-challenges/invites"] });
+    },
+    onError: () => toast({ title: "Could not update challenge invite", variant: "destructive" }),
+  });
+
+  const validForm = name.trim().length > 1 && Number(goalAmount) > 0 && Number(durationDays) > 0;
+  const challenges = challengesQuery.data || [];
+  const pendingInvites = invitesQuery.data || [];
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+        <div>
+          <h2 className="text-lg font-semibold">Train toward something together</h2>
+          <p className="text-sm text-muted-foreground">Shared goals, visible progress, friendly competition.</p>
+        </div>
+        <Button onClick={() => setCreateOpen(true)} data-testid="button-create-community-challenge"><Plus className="mr-2 h-4 w-4" /> Create challenge</Button>
       </div>
 
-      <div className="space-y-3">
-        {sections.map(s => {
-          const Icon = s.icon;
+      {pendingInvites.length > 0 && (
+        <Card className="border-yellow-500/20 bg-yellow-500/[0.04]" data-testid="community-challenge-invites">
+          <CardHeader className="pb-3"><CardTitle className="text-base flex items-center gap-2"><Trophy className="h-4 w-4 text-yellow-300" /> Challenge invites <Badge className="bg-yellow-400 text-black hover:bg-yellow-400">{pendingInvites.length}</Badge></CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            {pendingInvites.map((invite: any) => (
+              <div key={invite.id} className="flex flex-col gap-3 rounded-lg border border-zinc-800 p-3 sm:flex-row sm:items-center">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">{invite.challenge.name}</p>
+                  <p className="text-xs text-muted-foreground">Invited by {invite.challenge.creator.displayName}</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={() => respondInvite.mutate({ id: invite.id, status: "accepted" })} disabled={respondInvite.isPending}><Check className="mr-1 h-3.5 w-3.5" /> Join</Button>
+                  <Button size="sm" variant="ghost" onClick={() => respondInvite.mutate({ id: invite.id, status: "declined" })} disabled={respondInvite.isPending}>Decline</Button>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {challengesQuery.isError || invitesQuery.isError ? (
+        <PanelError message="Challenges could not be loaded. Try refreshing the page." />
+      ) : challengesQuery.isLoading ? (
+        <div className="space-y-3" aria-label="Loading challenges" aria-busy="true">{[1, 2].map((item) => <Skeleton key={item} className="h-56 w-full bg-zinc-900" />)}</div>
+      ) : challenges.length === 0 ? (
+        <Card className="border-dashed border-zinc-700 bg-transparent">
+          <CardContent className="flex flex-col items-center justify-center px-6 py-12 text-center">
+            <div className="mb-4 rounded-full bg-yellow-500/10 p-3"><Swords className="h-6 w-6 text-yellow-300" /></div>
+            <h3 className="font-semibold">No active challenges</h3>
+            <p className="mt-1 max-w-sm text-sm text-muted-foreground">Create a measurable challenge and invite friends to make your next block of training more social.</p>
+            <Button className="mt-5" onClick={() => setCreateOpen(true)}><Plus className="mr-2 h-4 w-4" /> Start a challenge</Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-4" data-testid="community-challenges-list">
+          {challenges.map((challenge: any) => <ChallengeCard key={challenge.id} challenge={challenge} />)}
+        </div>
+      )}
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create a challenge</DialogTitle>
+            <DialogDescription>Keep it simple and measurable. You can invite friends now or later.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <label className="block space-y-1.5 text-sm"><span className="font-medium">Challenge name</span><Input value={name} onChange={(event) => setName(event.target.value)} placeholder="14-day training streak" data-testid="input-challenge-name" /></label>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block space-y-1.5 text-sm"><span className="font-medium">Measure</span>
+                <Select value={goalType} onValueChange={setGoalType}><SelectTrigger data-testid="select-challenge-goal"><SelectValue /></SelectTrigger><SelectContent>{GROUP_CHALLENGE_GOAL_TYPES.map((type) => <SelectItem key={type} value={type}>{GROUP_CHALLENGE_GOAL_LABELS[type]}</SelectItem>)}</SelectContent></Select>
+              </label>
+              <label className="block space-y-1.5 text-sm"><span className="font-medium">Target per player</span><Input type="number" min="1" value={goalAmount} onChange={(event) => setGoalAmount(event.target.value)} data-testid="input-challenge-target" /></label>
+            </div>
+            <label className="block space-y-1.5 text-sm"><span className="font-medium">Length in days</span><Input type="number" min="1" value={durationDays} onChange={(event) => setDurationDays(event.target.value)} data-testid="input-challenge-duration" /></label>
+            <div className="space-y-2">
+              <label className="text-sm font-medium" htmlFor="challenge-invite-search">Invite friends</label>
+              <Input id="challenge-invite-search" value={inviteSearch} onChange={(event) => setInviteSearch(event.target.value)} placeholder="Search by name" />
+              {selectedInviteIds.length > 0 && <p className="text-xs text-orange-300">{selectedInviteIds.length} player{selectedInviteIds.length === 1 ? "" : "s"} selected</p>}
+              {invitePlayersQuery.data?.map((player) => {
+                const selected = selectedInviteIds.includes(player.userId);
+                return (
+                  <button key={player.userId} type="button" onClick={() => setSelectedInviteIds((current) => selected ? current.filter((id) => id !== player.userId) : [...current, player.userId])} className={`flex w-full items-center gap-3 rounded-lg border p-2 text-left transition-colors ${selected ? "border-orange-500/50 bg-orange-500/10" : "border-zinc-800 hover:border-zinc-700"}`}>
+                    <PlayerAvatar player={player} size="h-8 w-8" /><span className="flex-1 truncate text-sm">{playerName(player)}</span>{selected && <Check className="h-4 w-4 text-orange-400" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <DialogFooter><Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button><Button onClick={() => createChallenge.mutate()} disabled={!validForm || createChallenge.isPending} data-testid="button-submit-community-challenge">{createChallenge.isPending ? "Creating…" : "Create challenge"}</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function PlayerCard({ player, onAdd, onAccept, adding }: { player: Player; onAdd: () => void; onAccept: () => void; adding: boolean }) {
+  const name = playerName(player);
+  const status = player.connectionStatus;
+  return (
+    <Card className="border-zinc-800/70 bg-zinc-900/30">
+      <CardContent className="flex items-center gap-3 p-3">
+        <Link href={`/player/${player.userId}`} aria-label={`View ${name}'s profile`}><PlayerAvatar player={player} /></Link>
+        <div className="min-w-0 flex-1">
+          <Link href={`/player/${player.userId}`} className="block truncate text-sm font-medium hover:text-orange-400">{name}</Link>
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+            {player.skillLevel && <span className="capitalize">{player.skillLevel}</span>}
+            {player.positions?.[0] && <span>{player.positions[0]}</span>}
+            {locationLabel(player) && <span className="flex items-center gap-0.5"><MapPin className="h-3 w-3" />{locationLabel(player)}</span>}
+          </div>
+        </div>
+        {status === "friends" ? <Badge variant="outline" className="shrink-0 border-emerald-500/30 text-emerald-300"><Check className="mr-1 h-3 w-3" /> Friends</Badge>
+          : status === "outgoing_pending" ? <Badge variant="outline" className="shrink-0 border-zinc-700 text-zinc-400">Pending</Badge>
+            : status === "incoming_pending" ? <Button size="sm" onClick={onAccept} disabled={adding} data-testid={`button-accept-player-${player.userId}`}><Check className="mr-1 h-3 w-3" /> Accept</Button>
+              : <Button size="sm" variant="outline" className="shrink-0 border-orange-500/40 text-orange-300 hover:bg-orange-500/10" onClick={onAdd} disabled={adding} data-testid={`button-add-player-${player.userId}`}><UserPlus className="mr-1 h-3 w-3" /> Add</Button>}
+      </CardContent>
+    </Card>
+  );
+}
+
+function PlayersPanel({ user }: { user: unknown }) {
+  const { toast } = useToast();
+  const [search, setSearch] = useState("");
+  const [skill, setSkill] = useState("all");
+  const [position, setPosition] = useState("all");
+  const [state, setState] = useState("");
+  const [addingId, setAddingId] = useState<string | null>(null);
+  const recommendedQuery = useQuery<Player[]>({ queryKey: ["/api/users/recommended"], enabled: !!user });
+  const friendsQuery = useQuery<any[]>({ queryKey: ["/api/friends"], enabled: !!user });
+  const requestsQuery = useQuery<any[]>({ queryKey: ["/api/friends/requests"], enabled: !!user });
+  const hasSearch = search.trim().length >= 2;
+  const searchQuery = useQuery<Player[]>({
+    queryKey: ["/api/users/search", search.trim(), skill, position, state.trim()],
+    queryFn: async () => {
+      const params = new URLSearchParams({ q: search.trim() });
+      if (skill !== "all") params.set("skillLevel", skill);
+      if (position !== "all") params.set("position", position);
+      if (state.trim()) params.set("state", state.trim());
+      const response = await fetch(buildUrl(`/api/users/search?${params.toString()}`), { credentials: "include", headers: getAuthHeaders() });
+      if (!response.ok) throw new Error("Could not search players");
+      return response.json();
+    },
+    enabled: hasSearch,
+  });
+  const sendRequest = useMutation({
+    mutationFn: (playerId: string) => apiRequest("POST", "/api/friends/request", { addresseeId: playerId }),
+    onMutate: (playerId) => setAddingId(playerId),
+    onSettled: () => setAddingId(null),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/friends"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/friends/requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users/recommended"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users/search"] });
+      toast({ title: "Friend request sent" });
+    },
+    onError: () => toast({ title: "Could not send friend request", variant: "destructive" }),
+  });
+  const acceptRequest = useMutation({
+    mutationFn: (requestId: string) => apiRequest("PATCH", `/api/friends/requests/${requestId}`, { status: "accepted" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/friends"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/friends/requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users/recommended"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users/search"] });
+      toast({ title: "Friend request accepted" });
+    },
+    onError: () => toast({ title: "Could not accept request", variant: "destructive" }),
+  });
+
+  const incomingByUser = useMemo(() => new Map((requestsQuery.data || []).map((request: any) => [request.requester.id, request])), [requestsQuery.data]);
+  const filteredRecommended = useMemo(() => (recommendedQuery.data || []).filter((player) => {
+    const skillMatch = skill === "all" || player.skillLevel === skill;
+    const positionMatch = position === "all" || player.positions?.includes(position);
+    const stateMatch = !state.trim() || player.state?.toLowerCase().includes(state.trim().toLowerCase());
+    return skillMatch && positionMatch && stateMatch;
+  }), [recommendedQuery.data, position, skill, state]);
+  const players = hasSearch ? (searchQuery.data || []) : filteredRecommended;
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h2 className="text-lg font-semibold">Find players</h2>
+        <p className="text-sm text-muted-foreground">Search by name, then narrow by the details that matter on court.</p>
+      </div>
+      <Card className="border-orange-500/20 bg-orange-500/[0.04]">
+        <CardContent className="space-y-3 p-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input value={search} onChange={(event) => setSearch(event.target.value)} className="pl-9" placeholder="Search player names" aria-label="Search player names" data-testid="input-community-player-search" />
+          </div>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <Select value={skill} onValueChange={setSkill}><SelectTrigger aria-label="Filter by skill level"><SelectValue placeholder="Skill level" /></SelectTrigger><SelectContent><SelectItem value="all">All skill levels</SelectItem>{skillLevels.map((level) => <SelectItem key={level} value={level} className="capitalize">{level}</SelectItem>)}</SelectContent></Select>
+            <Select value={position} onValueChange={setPosition}><SelectTrigger aria-label="Filter by position"><SelectValue placeholder="Position" /></SelectTrigger><SelectContent><SelectItem value="all">All positions</SelectItem>{positions.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent></Select>
+            <Input value={state} onChange={(event) => setState(event.target.value)} placeholder="State (optional)" aria-label="Filter by state" />
+          </div>
+        </CardContent>
+      </Card>
+
+      {hasSearch && <p className="text-sm text-muted-foreground">{searchQuery.isLoading ? "Searching…" : `${players.length} player${players.length === 1 ? "" : "s"} found`}</p>}
+      {!hasSearch && <div><h3 className="font-medium">Similar profiles</h3><p className="mt-1 text-xs text-muted-foreground">Based on your skill level, position, and location.</p></div>}
+      {recommendedQuery.isError || searchQuery.isError ? <PanelError message="Players could not be loaded. Try again in a moment." /> : recommendedQuery.isLoading || (hasSearch && searchQuery.isLoading) ? (
+        <div className="grid gap-3 md:grid-cols-2" aria-label="Loading players" aria-busy="true">{[1, 2, 3, 4].map((item) => <Skeleton key={item} className="h-20 bg-zinc-900" />)}</div>
+      ) : players.length === 0 ? (
+        <Card className="border-dashed border-zinc-700 bg-transparent"><CardContent className="p-10 text-center"><Search className="mx-auto mb-3 h-6 w-6 text-zinc-500" /><h3 className="font-medium">{hasSearch ? "No players found" : "No player suggestions yet"}</h3><p className="mt-1 text-sm text-muted-foreground">{hasSearch ? "Try another name or remove a filter." : "Complete more of your profile or search for someone by name."}</p></CardContent></Card>
+      ) : (
+        <div className="grid gap-3 md:grid-cols-2" data-testid="community-player-results">
+          {players.map((player) => {
+            const incoming = incomingByUser.get(player.userId);
+            const normalizedPlayer = incoming ? { ...player, connectionStatus: "incoming_pending" } : player;
+            return <PlayerCard key={player.userId} player={normalizedPlayer} adding={addingId === player.userId || acceptRequest.isPending} onAdd={() => sendRequest.mutate(player.userId)} onAccept={() => incoming && acceptRequest.mutate(incoming.friendship.id)} />;
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function CommunityPage() {
+  const [location, navigate] = useLocation();
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState<CommunityTab>(getTabFromLocation(location));
+  const { data: requests = [] } = useQuery<any[]>({ queryKey: ["/api/friends/requests"], enabled: !!user });
+  const { data: challengeInvites = [] } = useQuery<any[]>({ queryKey: ["/api/group-challenges/invites"], enabled: !!user });
+
+  useEffect(() => {
+    setActiveTab(getTabFromLocation(location));
+  }, [location]);
+
+  useEffect(() => {
+    const handleTabEvent = (event: Event) => selectTab((event as CustomEvent<CommunityTab>).detail);
+    window.addEventListener("community-tab", handleTabEvent);
+    return () => window.removeEventListener("community-tab", handleTabEvent);
+  });
+
+  function selectTab(tab: CommunityTab) {
+    setActiveTab(tab);
+    navigate(`/community?tab=${tab}`);
+  }
+
+  const active = tabs.find((tab) => tab.id === activeTab) || tabs[0];
+  const ActiveIcon = active.icon;
+
+  return (
+    <main className="mx-auto max-w-4xl px-4 pb-24 pt-5 sm:px-6" data-testid="community-shell">
+      <header className="mb-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="mb-1 text-xs font-semibold uppercase tracking-[0.2em] text-orange-400">PLAYR1 Community</p>
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl" data-testid="text-community-title">Keep your game connected.</h1>
+            <p className="mt-2 max-w-xl text-sm text-muted-foreground">Share progress, compete with your people, and find players who are working on the same kind of growth.</p>
+          </div>
+          <ActiveIcon className="mt-1 h-7 w-7 shrink-0 text-orange-400" aria-hidden="true" />
+        </div>
+      </header>
+
+      <nav className="mb-7 grid grid-cols-3 gap-1 rounded-xl border border-zinc-800 bg-zinc-950/60 p-1" aria-label="Community sections" role="tablist">
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          const selected = activeTab === tab.id;
+          const count = tab.id === "activity" ? requests.length : tab.id === "challenges" ? challengeInvites.length : 0;
           return (
-            <Card
-              key={s.key}
-              className="cursor-pointer hover:bg-zinc-900/60 transition-colors border-zinc-800/60 bg-zinc-900/40"
-              onClick={() => navigate(s.path)}
-              data-testid={`card-community-${s.key}`}
+            <button
+              key={tab.id}
+              role="tab"
+              aria-selected={selected}
+              aria-controls={`community-panel-${tab.id}`}
+              onClick={() => selectTab(tab.id)}
+              className={`relative flex min-w-0 items-center justify-center gap-2 rounded-lg px-2 py-3 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 ${selected ? "bg-orange-500 text-black" : "text-zinc-400 hover:bg-zinc-900 hover:text-white"}`}
+              data-testid={`tab-community-${tab.id}`}
             >
-              <CardContent className="p-4 flex items-center gap-4">
-                <div className={`w-11 h-11 rounded-xl ${s.iconBg} flex items-center justify-center shrink-0`}>
-                  <Icon className={`w-5 h-5 ${s.iconColor}`} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-sm text-white">{s.label}</h3>
-                    {s.badge > 0 && (
-                      <Badge variant="destructive" className="text-[10px] h-4 px-1.5 shrink-0">
-                        {s.badge}
-                      </Badge>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5 truncate">{s.description}</p>
-                </div>
-                <ChevronRight className="w-4 h-4 text-zinc-600 shrink-0" />
-              </CardContent>
-            </Card>
+              <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span className="truncate font-medium">{tab.label}</span>
+              {count > 0 && <span className={`rounded-full px-1.5 text-[10px] font-bold ${selected ? "bg-black/15 text-black" : "bg-orange-500 text-black"}`}>{count}</span>}
+            </button>
           );
         })}
+      </nav>
+
+      <div className="mb-5 flex items-center gap-2 text-sm text-muted-foreground">
+        <ActiveIcon className="h-4 w-4 text-orange-400" aria-hidden="true" />
+        <span>{active.description}</span>
       </div>
-    </div>
+
+      <section id={`community-panel-${activeTab}`} role="tabpanel" aria-label={active.label}>
+        {activeTab === "activity" && <ActivityPanel user={user} />}
+        {activeTab === "challenges" && <ChallengesPanel user={user} />}
+        {activeTab === "players" && <PlayersPanel user={user} />}
+      </section>
+    </main>
   );
 }
