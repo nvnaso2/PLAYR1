@@ -1037,7 +1037,7 @@ Start now with a warm one-line greeting that briefly references something specif
               );
               pending = await storage.addClarification(activeGoal.id, answered.length, projectPrompt.question, projectPrompt.options);
               clarifications = [...clarifications, pending];
-            } else if (pending && (!pending.options || pending.options.length === 0)) {
+            } else if (pending && (pending.questionIndex === 0 || !pending.options || pending.options.length === 0)) {
               projectPrompt = await getProjectBuilderPrompt(
                 userId,
                 activeGoal.goalText,
@@ -11346,6 +11346,13 @@ Return ONLY valid JSON array, no markdown.`;
         summary: "find the right competitive opportunity and prepare to contribute when it arrives",
       };
     }
+    if (clues.includes("playing time") || clues.includes("bigger role") || clues.includes("more playing")) {
+      return {
+        title: "Earn a Bigger Role",
+        type: "make-a-team",
+        summary: "become more dependable, confident, and impactful when your team needs you",
+      };
+    }
     if (clues.includes("team") || clues.includes("varsity") || clues.includes("tryout") || clues.includes("school")) {
       return {
         title: "Prepare to Make My Next Team",
@@ -11591,7 +11598,7 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
           );
           pending = await storage.addClarification(goal.id, answered.length, prompt.question, prompt.options);
           clarifications = [...clarifications, pending];
-        } else if (pending && (!pending.options || pending.options.length === 0)) {
+        } else if (pending && (pending.questionIndex === 0 || !pending.options || pending.options.length === 0)) {
           const prompt = await getProjectBuilderPrompt(
             userId,
             goal.goalText,
