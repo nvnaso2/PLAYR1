@@ -1012,28 +1012,45 @@ Start now with a warm one-line greeting that briefly references something specif
         const activeGoal = await storage.getActiveGoal(userId);
         let responseMessage = "";
         let projectReady = activeGoal?.status === "active";
+        let projectPrompt: ProjectBuilderPrompt | null = null;
 
         if (builderAction === "start") {
           if (!activeGoal) {
             const context = await getGoalPlayerContext(userId);
-            const startingThought = [
-              context.career?.assessmentPrimaryGoal,
-              context.career?.aspiration,
-              context.career?.playr1Moment,
-            ].find((value) => typeof value === "string" && value.trim().length >= 10)
-              ?? "I want to discover my basketball direction";
+            const proposal = getProjectProposal(context);
+            const startingThought = `${proposal.title}: ${proposal.summary}`;
             const goal = await storage.createGoal(userId, startingThought);
-            const question = await getClarifyingQuestion(userId, startingThought, 0, []);
-            await storage.addClarification(goal.id, 0, question);
-            responseMessage = `I’m in. We’ll build a Project around what you want basketball to make possible — not force you into a generic training plan.\n\n${question}`;
+            projectPrompt = await getProjectBuilderPrompt(userId, startingThought, 0, []);
+            await storage.addClarification(goal.id, 0, projectPrompt.question, projectPrompt.options);
+            responseMessage = `I’m in. We’ll build a Project around what you want basketball to make possible — not force you into a generic training plan.\n\n${projectPrompt.question}`;
             projectReady = false;
           } else if (activeGoal.status === "clarifying") {
-            const clarifications = await storage.getClarifications(activeGoal.id);
-            const pending = clarifications.find((clarification) => !clarification.answer);
+            let clarifications = await storage.getClarifications(activeGoal.id);
+            let pending = clarifications.find((clarification) => !clarification.answer);
+            const answered = clarifications.filter((clarification) => clarification.answer);
+            if (!pending && answered.length < TOTAL_DISCOVERY_QUESTIONS) {
+              projectPrompt = await getProjectBuilderPrompt(
+                userId,
+                activeGoal.goalText,
+                answered.length,
+                answered.map((clarification) => ({ question: clarification.question, answer: clarification.answer! })),
+              );
+              pending = await storage.addClarification(activeGoal.id, answered.length, projectPrompt.question, projectPrompt.options);
+              clarifications = [...clarifications, pending];
+            } else if (pending && (!pending.options || pending.options.length === 0)) {
+              projectPrompt = await getProjectBuilderPrompt(
+                userId,
+                activeGoal.goalText,
+                pending.questionIndex,
+                answered.map((clarification) => ({ question: clarification.question, answer: clarification.answer! })),
+              );
+              pending = await storage.updateClarificationPrompt(pending.id, projectPrompt.question, projectPrompt.options);
+            }
+            projectPrompt = projectPrompt ?? (pending ? { question: pending.question, options: pending.options ?? [] } : null);
             responseMessage = pending
               ? `Let’s pick this back up. ${pending.question}`
-              : "Your Project discovery is ready for one last step. Tell me what you want basketball to make possible next.";
-            projectReady = false;
+              : "Your Project discovery is ready. Open My PLAYR1 Project to review it.";
+            projectReady = !pending;
           } else {
             responseMessage = "Your PLAYR1 Project is already built. Open it to see your plan, milestones, and next action.";
           }
@@ -1043,12 +1060,26 @@ Start now with a warm one-line greeting that briefly references something specif
         } else if (activeGoal.status !== "clarifying") {
           responseMessage = "Your PLAYR1 Project is already built. Open it to see your plan, milestones, and next action.";
         } else {
-          const clarifications = await storage.getClarifications(activeGoal.id);
-          const pending = clarifications.find((clarification) => !clarification.answer);
+          let clarifications = await storage.getClarifications(activeGoal.id);
+          let pending = clarifications.find((clarification) => !clarification.answer);
           if (!pending) {
-            responseMessage = "Your Project discovery is already complete. Open My PLAYR1 Project to continue.";
-            projectReady = true;
-          } else {
+            const answered = clarifications.filter((clarification) => clarification.answer);
+            if (answered.length < TOTAL_DISCOVERY_QUESTIONS) {
+              projectPrompt = await getProjectBuilderPrompt(
+                userId,
+                activeGoal.goalText,
+                answered.length,
+                answered.map((clarification) => ({ question: clarification.question, answer: clarification.answer! })),
+              );
+              pending = await storage.addClarification(activeGoal.id, answered.length, projectPrompt.question, projectPrompt.options);
+              clarifications = [...clarifications, pending];
+            } else {
+              responseMessage = "Your Project discovery is already complete. Open My PLAYR1 Project to continue.";
+              projectReady = true;
+            }
+          }
+          if (pending) {
+            projectPrompt = projectPrompt ?? { question: pending.question, options: pending.options ?? [] };
             await storage.answerClarification(pending.id, lastUserMessage.content);
             const allClarifications = await storage.getClarifications(activeGoal.id);
             const answeredCount = allClarifications.filter((clarification) => clarification.answer).length;
@@ -1057,14 +1088,15 @@ Start now with a warm one-line greeting that briefly references something specif
               const prevQAs = allClarifications
                 .filter((clarification) => clarification.answer)
                 .map((clarification) => ({ question: clarification.question, answer: clarification.answer! }));
-              const nextQuestion = await getClarifyingQuestion(
+              const nextPrompt = await getProjectBuilderPrompt(
                 userId,
                 activeGoal.goalText,
                 answeredCount,
                 prevQAs,
               );
-              await storage.addClarification(activeGoal.id, answeredCount, nextQuestion);
-              responseMessage = nextQuestion;
+              await storage.addClarification(activeGoal.id, answeredCount, nextPrompt.question, nextPrompt.options);
+              projectPrompt = nextPrompt;
+              responseMessage = `${builderReflection(lastUserMessage.content, pending.questionIndex)}\n\n${nextPrompt.question}`;
               projectReady = false;
             } else {
               const qaList = allClarifications.map((clarification) => ({
@@ -1099,9 +1131,12 @@ Start now with a warm one-line greeting that briefly references something specif
                 successSignals: program.successSignals,
                 totalWeeks: Math.max(1, program.phases?.length ?? 1),
               });
-              responseMessage = `# Your PLAYR1 Project is ready\n\n**${program.projectTitle}**\n\n${program.coachNote}\n\nYour plan, milestones, and next action are saved. Open My PLAYR1 Project to see the full path.`;
+              responseMessage = `${builderReflection(lastUserMessage.content, pending.questionIndex)}\n\n# Your PLAYR1 Project is ready\n\n**${program.projectTitle}**\n\n${program.coachNote}\n\nYour plan, milestones, and next action are saved. Open My PLAYR1 Project to see the full path.`;
+              projectPrompt = null;
               projectReady = true;
             }
+          } else {
+            responseMessage = "Your Project discovery is already complete. Open My PLAYR1 Project to continue.";
           }
         }
 
@@ -1155,6 +1190,7 @@ Start now with a warm one-line greeting that briefly references something specif
           coachP: snapshot.coachP,
           conversationId: conversation.id,
           projectReady,
+          projectPrompt,
         });
         res.end();
         return;
@@ -11270,41 +11306,172 @@ Return ONLY valid JSON array, no markdown.`;
     ].filter(Boolean).join("\n");
   }
 
-  async function getClarifyingQuestion(
+  type ProjectBuilderPrompt = {
+    question: string;
+    options: import("@shared/schema").GoalClarificationOption[];
+  };
+
+  const PROJECT_DIRECTION_OPTIONS: import("@shared/schema").GoalClarificationOption[] = [
+    { value: "make-a-team", label: "Make a team or earn a bigger role" },
+    { value: "college-prep", label: "Prepare for college or higher-level basketball" },
+    { value: "travel-team", label: "Find the right travel or competitive team" },
+    { value: "fundamentals", label: "Learn the fundamentals and build confidence" },
+    { value: "intramurals", label: "Play intramurals or stay active for fun" },
+    { value: "identity", label: "Build a stronger basketball identity" },
+    { value: "creator", label: "Create basketball content and connect with people" },
+    { value: "return", label: "Return to basketball after time away" },
+    { value: "explore", label: "Explore what direction fits me" },
+  ];
+
+  function getProjectProposal(context: Awaited<ReturnType<typeof getGoalPlayerContext>>) {
+    const career = context.career;
+    const clues = [
+      career?.assessmentPrimaryGoal,
+      career?.aspiration,
+      career?.playr1Moment,
+      career?.basketballLifestyle?.join(" "),
+    ].filter(Boolean).join(" ").toLowerCase();
+
+    if (clues.includes("college") || clues.includes("professional") || clues.includes("nba")) {
+      return {
+        title: "Prepare for the Next Level",
+        type: "college-prep",
+        summary: "build the habits, game readiness, and basketball identity you need for higher-level opportunities",
+      };
+    }
+    if (clues.includes("travel") || clues.includes("aau") || clues.includes("competitive")) {
+      return {
+        title: "Find My Competitive Path",
+        type: "travel-team",
+        summary: "find the right competitive opportunity and prepare to contribute when it arrives",
+      };
+    }
+    if (clues.includes("team") || clues.includes("varsity") || clues.includes("tryout") || clues.includes("school")) {
+      return {
+        title: "Prepare to Make My Next Team",
+        type: "make-a-team",
+        summary: "turn your current skills and habits into a clear path toward your next roster opportunity",
+      };
+    }
+    if (clues.includes("beginner") || clues.includes("fundamental") || clues.includes("learn")) {
+      return {
+        title: "Build My Basketball Foundation",
+        type: "fundamentals",
+        summary: "learn the fundamentals, build confidence, and make basketball feel more natural",
+      };
+    }
+    if (clues.includes("content") || clues.includes("creator") || clues.includes("social")) {
+      return {
+        title: "Build My Basketball Voice",
+        type: "creator",
+        summary: "use basketball to create, connect, and develop a point of view that feels like yours",
+      };
+    }
+    if (clues.includes("return") || clues.includes("back to") || clues.includes("again")) {
+      return {
+        title: "Return to Basketball with Confidence",
+        type: "return",
+        summary: "rebuild your rhythm, confidence, and place in the game at a pace that fits your life",
+      };
+    }
+    return {
+      title: "Make Basketball Part of My Life",
+      type: "identity",
+      summary: "discover a sustainable direction that makes basketball meaningful, enjoyable, and yours",
+    };
+  }
+
+  async function getProjectBuilderPrompt(
     userId: string,
     goalText: string,
     questionIndex: number,
     prevQAs: { question: string; answer: string }[]
-  ): Promise<string> {
-    const OpenAI = (await import("openai")).default;
-    const openai = new OpenAI({
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-    });
+  ): Promise<ProjectBuilderPrompt> {
     const context = await getGoalPlayerContext(userId);
-    const prevContext = prevQAs.length
-      ? "Previous discovery questions and answers:\n" + prevQAs.map((qa, i) => `Q${i + 1}: ${qa.question}\nA${i + 1}: ${qa.answer}`).join("\n\n") + "\n\n"
-      : "No discovery answers yet.\n\n";
-    const completion = await openai.chat.completions.create({
-      model: "gpt-5",
-      messages: [
-        {
-          role: "system",
-          content: `You are Coach P helping a basketball player discover their personal PLAYR1 Project.
-Ask ONE short, warm, specific question at a time. Use the player's existing context and previous answers.
-Do not assume the player wants to play professionally, improve a skill, or follow a fixed training schedule.
-If they are unsure, help them explore what they want basketball to make possible.
-Across the interview, learn the player's desired direction, why it matters, what success would look like, current reality/constraints, and timing or important opportunities.
-Never repeat information already answered. Return ONLY the question text, with no preamble or numbering.`,
-        },
-        {
-          role: "user",
-          content: `PLAYER CONTEXT:\n${formatGoalContext(context)}\n\n${prevContext}Player's starting thought: "${goalText}"\nThis is discovery question ${questionIndex + 1} of ${TOTAL_DISCOVERY_QUESTIONS}.`,
-        },
+    const proposal = getProjectProposal(context);
+    const redirected = prevQAs[0]?.answer.toLowerCase().includes("different direction")
+      || prevQAs[0]?.answer.toLowerCase().includes("redirect");
+
+    if (questionIndex === 0) {
+      return {
+        question: `Based on your PLAYR1 story, I’d start with **${proposal.title}** — a Project to ${proposal.summary}. Does that feel like the right direction?`,
+        options: [
+          { value: "confirm", label: "Yes, let’s build this" },
+          { value: "redirect", label: "I want a different direction" },
+        ],
+      };
+    }
+
+    if (questionIndex === 1 && redirected) {
+      return {
+        question: "What direction feels most useful for your life right now?",
+        options: PROJECT_DIRECTION_OPTIONS,
+      };
+    }
+
+    if (questionIndex === 1) {
+      return {
+        question: "What should be most central to this Project so it feels meaningful to you?",
+        options: [
+          { value: "team-opportunity", label: "Making a team or earning a bigger role" },
+          { value: "game-confidence", label: "Feeling more ready and confident in games" },
+          { value: "skill-growth", label: "Building a specific skill or foundation" },
+          { value: "higher-level", label: "Preparing for a higher level of basketball" },
+          { value: "fun-identity", label: "Keeping basketball fun and part of my identity" },
+          { value: "creative-community", label: "Creating, connecting, or sharing basketball" },
+        ],
+      };
+    }
+
+    if (questionIndex === 2) {
+      return {
+        question: "When would you most like to feel real progress, or is this an open-ended direction?",
+        options: [
+          { value: "next-30-days", label: "In the next 30 days" },
+          { value: "this-season", label: "Before my current season or next tryout" },
+          { value: "next-3-months", label: "Over the next 3 months" },
+          { value: "this-year", label: "Over the next year" },
+          { value: "open-ended", label: "No fixed deadline — I’m exploring" },
+        ],
+      };
+    }
+
+    if (questionIndex === 3) {
+      return {
+        question: "What does your basketball life look like right now?",
+        options: [
+          { value: "active-team", label: "I’m on a team and playing regularly" },
+          { value: "between-teams", label: "I’m between teams, seasons, or opportunities" },
+          { value: "pickup", label: "I mostly play pickup or casually" },
+          { value: "limited-access", label: "My time, gym access, or equipment is limited" },
+          { value: "returning", label: "I’m coming back after time away" },
+          { value: "not-playing", label: "I’m not playing consistently yet" },
+        ],
+      };
+    }
+
+    return {
+      question: "What should this Project make room for along the way?",
+      options: [
+        { value: "skill-work", label: "Skill work and better workouts" },
+        { value: "mental-game", label: "Mental and game preparation" },
+        { value: "competition", label: "Playing opportunities and competition" },
+        { value: "learning", label: "Learning, film, and basketball IQ" },
+        { value: "creative-social", label: "Creative or social basketball content" },
+        { value: "mix", label: "A mix of these — I’m still figuring it out" },
       ],
-      max_completion_tokens: 180,
-    });
-    return completion.choices[0].message.content?.trim() ?? "What would you love basketball to make possible for you right now?";
+    };
+  }
+
+  function builderReflection(answer: string, questionIndex: number) {
+    const normalized = answer.trim().replace(/\s+/g, " ");
+    if (questionIndex === 0 && normalized.toLowerCase().includes("yes")) {
+      return "Perfect — we have a clear starting direction.";
+    }
+    if (questionIndex === 0 && (normalized.toLowerCase().includes("different") || normalized.toLowerCase().includes("redirect"))) {
+      return "That makes sense. We’ll make the Project fit your direction instead of forcing the first idea.";
+    }
+    return `That helps — I’ll carry “${normalized.slice(0, 140)}${normalized.length > 140 ? "…" : ""}” into your Project.`;
   }
 
   async function generateGoalPlan(
@@ -11389,9 +11556,9 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
       const existing = await storage.getActiveGoal(userId);
       if (existing) return res.status(409).json({ message: "You already have an active goal. Abandon it first to start a new one." });
 
-       const goal = await storage.createGoal(userId, goalText);
-       const question = await getClarifyingQuestion(userId, goalText, 0, []);
-      const clarification = await storage.addClarification(goal.id, 0, question);
+      const goal = await storage.createGoal(userId, goalText);
+      const prompt = await getProjectBuilderPrompt(userId, goalText, 0, []);
+      const clarification = await storage.addClarification(goal.id, 0, prompt.question, prompt.options);
 
        res.json({ goal, clarification, builderQuotaExempt: true });
     } catch (err) {
@@ -11406,11 +11573,35 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
       const goal = await storage.getActiveGoal(userId);
       if (!goal) return res.json(null);
 
-      const [clarifications, milestones, checkIns] = await Promise.all([
+      let [clarifications, milestones, checkIns] = await Promise.all([
         storage.getClarifications(goal.id),
         storage.getGoalMilestones(goal.id),
         storage.getCheckIns(goal.id),
       ]);
+
+      if (goal.status === "clarifying") {
+        const answered = clarifications.filter((clarification) => clarification.answer);
+        let pending = clarifications.find((clarification) => !clarification.answer);
+        if (!pending && answered.length < TOTAL_DISCOVERY_QUESTIONS) {
+          const prompt = await getProjectBuilderPrompt(
+            userId,
+            goal.goalText,
+            answered.length,
+            answered.map((clarification) => ({ question: clarification.question, answer: clarification.answer! })),
+          );
+          pending = await storage.addClarification(goal.id, answered.length, prompt.question, prompt.options);
+          clarifications = [...clarifications, pending];
+        } else if (pending && (!pending.options || pending.options.length === 0)) {
+          const prompt = await getProjectBuilderPrompt(
+            userId,
+            goal.goalText,
+            pending.questionIndex,
+            answered.map((clarification) => ({ question: clarification.question, answer: clarification.answer! })),
+          );
+          pending = await storage.updateClarificationPrompt(pending.id, prompt.question, prompt.options);
+          clarifications = clarifications.map((clarification) => clarification.id === pending!.id ? pending! : clarification);
+        }
+      }
 
        res.json({ goal, clarifications, milestones, checkIns, isPro: await hasProAccess(userId) });
     } catch (err) {
@@ -11438,8 +11629,8 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
         const prevQAs = allClarifications
           .filter((c) => c.answer)
           .map((c) => ({ question: c.question, answer: c.answer! }));
-         const nextQuestion = await getClarifyingQuestion(userId, goal.goalText, answeredCount, prevQAs);
-        const nextClarification = await storage.addClarification(goalId, answeredCount, nextQuestion);
+        const nextPrompt = await getProjectBuilderPrompt(userId, goal.goalText, answeredCount, prevQAs);
+        const nextClarification = await storage.addClarification(goalId, answeredCount, nextPrompt.question, nextPrompt.options);
         return res.json({ done: false, clarification: nextClarification });
       }
 

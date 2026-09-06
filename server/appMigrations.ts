@@ -26,6 +26,7 @@ export async function runApplicationMigrations(): Promise<void> {
       ALTER TABLE player_goals ADD COLUMN IF NOT EXISTS current_chapter text;
       ALTER TABLE player_goals ADD COLUMN IF NOT EXISTS next_action text;
       ALTER TABLE player_goals ADD COLUMN IF NOT EXISTS success_signals jsonb;
+      ALTER TABLE goal_clarifications ADD COLUMN IF NOT EXISTS options jsonb;
       ALTER TABLE goal_milestones ADD COLUMN IF NOT EXISTS milestone_type varchar NOT NULL DEFAULT 'progress';
       ALTER TABLE goal_milestones ADD COLUMN IF NOT EXISTS target_date varchar;
       ALTER TABLE goal_check_ins ADD COLUMN IF NOT EXISTS period_label varchar;

@@ -49,11 +49,17 @@ type SubscriptionState = {
   coachP: CoachPUsage;
 };
 
+type ProjectBuilderPrompt = {
+  question: string;
+  options: Array<{ label: string; value: string }>;
+};
+
 type CoachPStreamResult = {
   message: string;
   coachP: CoachPUsage;
   conversationId: string;
   projectReady?: boolean;
+  projectPrompt?: ProjectBuilderPrompt | null;
 };
 
 type SavedConversation = {
@@ -276,6 +282,7 @@ export default function CoachPPage() {
   const [renameDraft, setRenameDraft] = useState("");
   const [projectBuilderMode, setProjectBuilderMode] = useState(false);
   const [projectReady, setProjectReady] = useState(false);
+  const [projectPrompt, setProjectPrompt] = useState<ProjectBuilderPrompt | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const pendingAssistantTextRef = useRef("");
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -383,6 +390,7 @@ export default function CoachPPage() {
           coachP?: CoachPUsage;
           conversationId?: string;
           projectReady?: boolean;
+          projectPrompt?: ProjectBuilderPrompt | null;
         };
         if (event === "status" && payload.stage) {
           setThinkingStage(payload.stage);
@@ -394,6 +402,7 @@ export default function CoachPPage() {
             coachP: payload.coachP,
             conversationId: payload.conversationId,
             projectReady: payload.projectReady,
+            projectPrompt: payload.projectPrompt,
           };
           setThinkingStage(null);
         } else if (event === "error") {
@@ -420,6 +429,9 @@ export default function CoachPPage() {
       if (data.projectReady) {
         setProjectReady(true);
         setProjectBuilderMode(false);
+        setProjectPrompt(null);
+      } else if (data.projectPrompt) {
+        setProjectPrompt(data.projectPrompt);
       }
       setErrorMessage(null);
       setThinkingStage(null);
@@ -475,6 +487,9 @@ export default function CoachPPage() {
     setLimitReached(false);
     stopTyping();
     setThinkingStage("Reading your question...");
+    if (isProjectBuilder && (options?.projectBuilderAction ?? "answer") === "answer") {
+      setProjectPrompt(null);
+    }
     chatMutation.mutate({
       message: content,
       conversationId,
@@ -495,6 +510,7 @@ export default function CoachPPage() {
     setThinkingStage(null);
     setProjectBuilderMode(false);
     setProjectReady(false);
+    setProjectPrompt(null);
     setHistoryOpen(false);
   };
 
@@ -510,6 +526,21 @@ export default function CoachPPage() {
       const savedProjectReady = isProjectConversation && data.messages.some((message) => message.content.includes("Your PLAYR1 Project is ready"));
       setProjectBuilderMode(isProjectConversation && !savedProjectReady);
       setProjectReady(savedProjectReady);
+      setProjectPrompt(null);
+      if (isProjectConversation && !savedProjectReady) {
+        const goalResponse = await apiRequest("GET", "/api/goals/active");
+        const goalData = await goalResponse.json() as {
+          clarifications?: Array<{
+            answer: string | null;
+            question: string;
+            options?: Array<{ label: string; value: string }> | null;
+          }>;
+        };
+        const pending = goalData.clarifications?.find((clarification) => !clarification.answer);
+        if (pending) {
+          setProjectPrompt({ question: pending.question, options: pending.options ?? [] });
+        }
+      }
       setDraft("");
       setErrorMessage(null);
       setLimitReached(false);
@@ -813,6 +844,25 @@ export default function CoachPPage() {
                 {messages.map((message, index) => (
                   <MessageBubble key={`${message.role}-${index}`} message={message} />
                 ))}
+                {projectBuilderMode && projectPrompt && projectPrompt.options.length > 0 && !chatMutation.isPending && (
+                  <div className="ml-12 max-w-[94%] space-y-2" aria-label="Project Builder answer choices">
+                    <p className="text-xs font-medium uppercase tracking-[0.14em] text-zinc-500">Choose one, or type your own answer</p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {projectPrompt.options.map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => sendMessage(option.label, { projectBuilder: true, projectBuilderAction: "answer" })}
+                          className="rounded-xl border border-orange-500/25 bg-orange-500/[0.06] px-3 py-2.5 text-left text-sm text-orange-50 transition-colors hover:border-orange-400/60 hover:bg-orange-500/[0.12] disabled:opacity-50"
+                          disabled={chatMutation.isPending}
+                          data-testid={`button-project-builder-option-${option.value}`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {chatMutation.isPending && !assistantStreamStartedRef.current && (
                   <div className="flex gap-3 items-center text-zinc-400 text-sm" aria-live="polite">
                     <CoachPIcon />
@@ -869,7 +919,7 @@ export default function CoachPPage() {
                     sendMessage(draft);
                   }
                 }}
-                placeholder={canSend ? "Ask Coach P anything about your game..." : "Monthly limit reached — type here after upgrading"}
+                placeholder={projectBuilderMode ? "Or type your own answer..." : canSend ? "Ask Coach P anything about your game..." : "Monthly limit reached — type here after upgrading"}
                 disabled={chatMutation.isPending}
                 className="min-h-[40px] max-h-32 resize-none rounded-none border-0 bg-transparent px-2 py-2.5 text-[15px] text-zinc-100 placeholder:text-zinc-500 focus-visible:ring-0"
                 data-testid="textarea-coach-p"

@@ -740,7 +740,8 @@ export interface IStorage {
   getGoalById(goalId: string): Promise<PlayerGoal | null>;
   updateGoal(goalId: string, data: Partial<InsertPlayerGoal>): Promise<PlayerGoal>;
   abandonGoal(goalId: string): Promise<void>;
-  addClarification(goalId: string, questionIndex: number, question: string): Promise<GoalClarification>;
+  addClarification(goalId: string, questionIndex: number, question: string, options?: GoalClarification["options"]): Promise<GoalClarification>;
+  updateClarificationPrompt(clarificationId: string, question: string, options: GoalClarification["options"]): Promise<GoalClarification>;
   answerClarification(clarificationId: string, answer: string): Promise<GoalClarification>;
   getClarifications(goalId: string): Promise<GoalClarification[]>;
   createMilestone(data: InsertGoalMilestone): Promise<GoalMilestone>;
@@ -7397,10 +7398,19 @@ Object.assign(DatabaseStorage.prototype, {
     await db.update(playerGoals).set({ status: "abandoned" }).where(eq(playerGoals.id, goalId));
   },
 
-  async addClarification(goalId: string, questionIndex: number, question: string): Promise<GoalClarification> {
+  async addClarification(goalId: string, questionIndex: number, question: string, options?: GoalClarification["options"]): Promise<GoalClarification> {
     const [row] = await db
       .insert(goalClarifications)
-      .values({ goalId, questionIndex, question })
+      .values({ goalId, questionIndex, question, options: options ?? null })
+      .returning();
+    return row;
+  },
+
+  async updateClarificationPrompt(clarificationId: string, question: string, options: GoalClarification["options"]): Promise<GoalClarification> {
+    const [row] = await db
+      .update(goalClarifications)
+      .set({ question, options: options ?? null })
+      .where(eq(goalClarifications.id, clarificationId))
       .returning();
     return row;
   },

@@ -8,3 +8,5 @@ The primary goal experience is a player-owned PLAYR1 Project, not a fixed workou
 **Why:** A single text goal plus a fixed eight-week training schedule could not represent the different basketball stories PLAYR1 is meant to support.
 
 **How to apply:** Keep project identity, meaning, success definition, timeline, phases, typed milestones, and next actions separate from workouts. The full Project Builder is free and quota-exempt; Pro gates the ongoing coaching loop, milestone progression, and check-ins after the Project is built.
+
+The Builder uses a short, structured discovery sequence: Coach P proposes a direction from existing player context, offers confirmation or redirection, then collects focused answers about direction, timing, current reality, and the mix of skill, mental, competition, learning, or creative support the player wants. Each prompt stores its answer options with the clarification so the choice UI can be restored after refresh.

@@ -2460,6 +2460,11 @@ export interface GoalProgram {
   weeklyFocus?: GoalWeeklyFocus[];
 }
 
+export type GoalClarificationOption = {
+  label: string;
+  value: string;
+};
+
 export const playerGoals = pgTable("player_goals", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull(),
@@ -2486,6 +2491,7 @@ export const goalClarifications = pgTable("goal_clarifications", {
   goalId: varchar("goal_id").notNull(),
   questionIndex: integer("question_index").notNull(),
   question: text("question").notNull(),
+  options: jsonb("options").$type<GoalClarificationOption[]>(),
   answer: text("answer"),
   createdAt: timestamp("created_at").defaultNow(),
 });

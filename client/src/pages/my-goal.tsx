@@ -198,6 +198,26 @@ function ClarifyingView({
             {c.answer && <UserBubble text={c.answer} />}
             {!c.answer && c === pending && (
               <div className="space-y-3 pt-1">
+                {c.options && c.options.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium uppercase tracking-[0.14em] text-zinc-500">Choose one, or type your own answer</p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {c.options.map((option) => (
+                        <Button
+                          key={option.value}
+                          type="button"
+                          variant="outline"
+                          onClick={() => answerMutation.mutate({ clarificationId: c.id, answerText: option.label })}
+                          disabled={answerMutation.isPending}
+                          className="h-auto justify-start whitespace-normal border-orange-500/25 bg-orange-500/[0.06] px-3 py-2.5 text-left text-sm text-orange-50 hover:border-orange-400/60 hover:bg-orange-500/[0.12] hover:text-white"
+                          data-testid={`button-clarification-option-${option.value}`}
+                        >
+                          {option.label}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <Textarea
                   data-testid="input-clarification-answer"
                   value={answer}
