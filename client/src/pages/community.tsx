@@ -85,6 +85,25 @@ function activityTypeDetails(type?: string) {
   return ACTIVITY_EXPLANATIONS.find((item) => item.type === type) || ACTIVITY_EXPLANATIONS[0];
 }
 
+const SPOTLIGHT_TYPES = new Set([
+  "game_logged",
+  "game_day",
+  "three_point_challenge_score",
+  "project_milestone_completed",
+  "completed_program",
+]);
+
+function timelineLabel(value: string | Date | null | undefined) {
+  if (!value) return "Recently";
+  const date = new Date(value);
+  const now = new Date();
+  if (date.toDateString() === now.toDateString()) return "Today";
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
 const tabs: Array<{ id: CommunityTab; label: string; description: string; icon: typeof Activity }> = [
   { id: "activity", label: "Activity", description: "See your circle’s progress", icon: Activity },
   { id: "challenges", label: "Challenges", description: "Compete together", icon: Swords },
@@ -176,6 +195,16 @@ function ActivityPanel({ user }: { user: unknown }) {
     },
     onError: () => toast({ title: "Could not update feed visibility", variant: "destructive" }),
   });
+  const timeline = useMemo(() => {
+    const groups = new Map<string, any[]>();
+    for (const item of feed) {
+      const label = timelineLabel(item.createdAt);
+      const group = groups.get(label) || [];
+      group.push(item);
+      groups.set(label, group);
+    }
+    return Array.from(groups.entries()).map(([label, items]) => ({ label, items }));
+  }, [feed]);
 
   const respondRequest = useMutation({
     mutationFn: ({ id, status }: { id: string; status: "accepted" | "declined" }) =>
@@ -260,49 +289,64 @@ function ActivityPanel({ user }: { user: unknown }) {
           </div>
         </div>
 
-        {guideOpen && (
-          <Card className="mb-3 border-zinc-800/70 bg-zinc-900/30">
-            <CardContent className="grid gap-3 p-4 sm:grid-cols-2">
+        <Dialog open={guideOpen} onOpenChange={setGuideOpen}>
+          <DialogContent className="max-h-[82vh] overflow-y-auto border-zinc-800 bg-zinc-950 sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>What shows up here?</DialogTitle>
+              <DialogDescription>Real basketball actions from the players in your circle. Each color matches the activity in your feed.</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-2 pt-2 sm:grid-cols-2">
               {ACTIVITY_EXPLANATIONS.map((item) => {
                 const Icon = item.icon;
                 return (
-                  <div key={item.type} className="flex gap-2.5">
-                    <div className="mt-0.5 rounded-lg bg-orange-500/10 p-1.5"><Icon className="h-3.5 w-3.5 text-orange-300" /></div>
+                  <div key={item.type} className="flex items-start gap-3 rounded-xl border border-zinc-800 bg-zinc-900/50 p-3">
+                    <div className={`shrink-0 rounded-lg bg-gradient-to-br ${item.color} p-[1px]`}>
+                      <div className="rounded-[7px] bg-zinc-950 p-1.5"><Icon className="h-3.5 w-3.5 text-white" /></div>
+                    </div>
                     <div className="min-w-0">
-                      <p className="text-xs font-medium text-zinc-200">{item.label}</p>
-                      <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">{item.description}</p>
+                      <p className="text-xs font-semibold text-zinc-100">{item.label}</p>
+                      <p className="mt-1 text-[11px] leading-4 text-zinc-400">{item.description}</p>
                     </div>
                   </div>
                 );
               })}
-            </CardContent>
-          </Card>
-        )}
+            </div>
+          </DialogContent>
+        </Dialog>
 
-        {visibilityOpen && (
-          <Card className="mb-3 border-zinc-800/70 bg-zinc-900/30">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm">Choose what your circle can see</CardTitle>
-              <p className="text-xs text-muted-foreground">These settings control your activity only. You can keep training private while still sharing game days, for example.</p>
-            </CardHeader>
-            <CardContent className="grid gap-2 sm:grid-cols-2">
-              {ACTIVITY_EXPLANATIONS.map((item) => (
-                <div key={item.type} className="flex items-center justify-between gap-3 rounded-xl border border-zinc-800 px-3 py-2.5">
-                  <div className="min-w-0">
-                    <p className="truncate text-xs font-medium">{item.label}</p>
-                    <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{item.description}</p>
+        <Dialog open={visibilityOpen} onOpenChange={setVisibilityOpen}>
+          <DialogContent className="max-h-[82vh] overflow-y-auto border-zinc-800 bg-zinc-950 sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Choose what your circle can see</DialogTitle>
+              <DialogDescription>These settings control your activity only. Keep training private while still sharing game days, scores, or Project progress.</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-2 pt-2 sm:grid-cols-2">
+              {ACTIVITY_EXPLANATIONS.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <div key={item.type} className="flex items-start justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-900/50 p-3">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <div className={`shrink-0 rounded-lg bg-gradient-to-br ${item.color} p-[1px]`}>
+                        <div className="rounded-[7px] bg-zinc-950 p-1.5"><Icon className="h-3.5 w-3.5 text-white" /></div>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-zinc-100">{item.label}</p>
+                        <p className="mt-1 text-[11px] leading-4 text-zinc-400">{item.description}</p>
+                      </div>
+                    </div>
+                    <Switch
+                      className="mt-1 shrink-0"
+                      checked={activityVisibility[item.type] !== false}
+                      onCheckedChange={(checked) => updateVisibility.mutate({ ...activityVisibility, [item.type]: checked })}
+                      aria-label={`Show ${item.label.toLowerCase()} in your friends' feeds`}
+                      disabled={updateVisibility.isPending}
+                    />
                   </div>
-                  <Switch
-                    checked={activityVisibility[item.type] !== false}
-                    onCheckedChange={(checked) => updateVisibility.mutate({ ...activityVisibility, [item.type]: checked })}
-                    aria-label={`Show ${item.label.toLowerCase()} in your friends' feeds`}
-                    disabled={updateVisibility.isPending}
-                  />
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
+                );
+              })}
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {!feedOpen ? (
           <div className="rounded-xl border border-dashed border-zinc-800 px-4 py-3 text-xs text-muted-foreground">Your activity feed is hidden for now. Show it whenever you want to catch up.</div>
@@ -328,37 +372,49 @@ function ActivityPanel({ user }: { user: unknown }) {
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-2" data-testid="community-activity-feed">
-            {feed.map((item: any) => {
-              const details = activityTypeDetails(item.activityType);
-              const Icon = details.icon;
-              const statLabel = item.metadata?.statLabel;
-              const statValue = item.metadata?.statValue;
-              return (
-                <Card key={item.id} className="group overflow-hidden border-zinc-800/70 bg-zinc-900/25 transition-all hover:-translate-y-0.5 hover:border-zinc-700 hover:bg-zinc-900/60">
-                  <div className={`h-0.5 bg-gradient-to-r ${details.color}`} />
-                  <CardContent className="flex items-center gap-3 p-3">
-                    <div className={`rounded-xl bg-gradient-to-br ${details.color} p-[1px]`}>
-                      <div className="rounded-[10px] bg-zinc-950 p-2"><Icon className="h-4 w-4 text-white" aria-hidden="true" /></div>
-                    </div>
-                    <Link href={profileHref({ userId: item.user.id, profileSlug: item.user.profileSlug })} aria-label={`View ${item.user.displayName}'s profile`}>
-                      <PlayerAvatar player={item.user} size="h-9 w-9" />
-                    </Link>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <Link href={profileHref({ userId: item.user.id, profileSlug: item.user.profileSlug })} className="truncate text-xs font-semibold hover:text-orange-400">
-                          {item.user.displayName}
-                        </Link>
-                        <span className="shrink-0 text-[11px] text-muted-foreground">{relativeDate(item.createdAt)}</span>
-                      </div>
-                      <p className="mt-0.5 truncate text-sm font-medium text-zinc-100">{item.title}</p>
-                      {item.description && <p className="truncate text-[11px] text-muted-foreground">{item.description}</p>}
-                    </div>
-                    {statValue && <div className="hidden shrink-0 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-right sm:block"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{statLabel}</p><p className="text-xs font-bold text-white">{statValue}</p></div>}
-                  </CardContent>
-                </Card>
-              );
-            })}
+          <div className="space-y-6" data-testid="community-activity-feed">
+            {timeline.map((group) => (
+              <section key={group.label} className="relative">
+                <div className="mb-2 flex items-center gap-3">
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.16em] text-zinc-500">{group.label}</h3>
+                  <div className="h-px flex-1 bg-zinc-800" />
+                </div>
+                <div className="relative space-y-2 pl-4">
+                  <div className="absolute bottom-3 left-[5px] top-3 w-px bg-zinc-800" aria-hidden="true" />
+                  {group.items.map((item: any) => {
+                    const details = activityTypeDetails(item.activityType);
+                    const Icon = details.icon;
+                    const spotlight = SPOTLIGHT_TYPES.has(item.activityType);
+                    const statLabel = item.metadata?.statLabel;
+                    const statValue = item.metadata?.statValue;
+                    return (
+                      <Card key={item.id} className={`group relative overflow-hidden border-zinc-800/70 transition-all hover:-translate-y-0.5 hover:border-zinc-700 ${spotlight ? "bg-zinc-900/70 shadow-lg shadow-black/20" : "bg-zinc-900/25 hover:bg-zinc-900/60"}`}>
+                        <div className={`h-0.5 bg-gradient-to-r ${details.color}`} />
+                        <CardContent className={`flex items-center gap-3 ${spotlight ? "p-3.5" : "p-2.5"}`}>
+                          <div className={`shrink-0 rounded-xl bg-gradient-to-br ${details.color} p-[1px]`}>
+                            <div className={`rounded-[10px] bg-zinc-950 ${spotlight ? "p-2.5" : "p-2"}`}><Icon className={`${spotlight ? "h-4 w-4" : "h-3.5 w-3.5"} text-white`} aria-hidden="true" /></div>
+                          </div>
+                          <Link href={profileHref({ userId: item.user.id, profileSlug: item.user.profileSlug })} aria-label={`View ${item.user.displayName}'s profile`}>
+                            <PlayerAvatar player={item.user} size={spotlight ? "h-10 w-10" : "h-8 w-8"} />
+                          </Link>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <Link href={profileHref({ userId: item.user.id, profileSlug: item.user.profileSlug })} className="truncate text-xs font-semibold hover:text-orange-400">
+                                {item.user.displayName}
+                              </Link>
+                              <span className="shrink-0 text-[11px] text-muted-foreground">{relativeDate(item.createdAt)}</span>
+                            </div>
+                            <p className={`${spotlight ? "text-sm" : "text-xs"} mt-0.5 truncate font-medium text-zinc-100`}>{item.title}</p>
+                            {item.description && <p className="truncate text-[11px] text-muted-foreground">{item.description}</p>}
+                          </div>
+                          {statValue && <div className={`hidden shrink-0 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-right sm:block ${spotlight ? "min-w-[88px]" : ""}`}><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{statLabel}</p><p className={`${spotlight ? "text-sm" : "text-xs"} font-bold text-white`}>{statValue}</p></div>}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
           </div>
         )}
       </div>

@@ -4216,13 +4216,18 @@ COACHING RULES:
         return res.status(404).json({ message: "Profile not found" });
       }
       
-      const [career, [user], awards, personalRecords, allVideos, statsData] = await Promise.all([
+      const [career, [user], [userProfile], awards, personalRecords, allVideos, statsData] = await Promise.all([
         storage.getCareerProfile(profile.userId),
         db.select({
           firstName: users.firstName,
           lastName: users.lastName,
           profileImageUrl: users.profileImageUrl,
         }).from(users).where(eq(users.id, profile.userId)),
+        db.select({
+          city: userProfiles.city,
+          state: userProfiles.state,
+          email: userProfiles.email,
+        }).from(userProfiles).where(eq(userProfiles.userId, profile.userId)),
         profile.showAchievements ? storage.getUserTeamAwards(profile.userId) : null,
         profile.showPersonalRecords === true ? storage.getUserPersonalRecords(profile.userId) : null,
         profile.showVideos ? storage.getUserVideos(profile.userId) : null,
@@ -4235,6 +4240,11 @@ COACHING RULES:
       const publicData: any = {
         profile,
         user: user ? { firstName: user.firstName, lastName: user.lastName, profileImageUrl: user.profileImageUrl } : null,
+        userProfile: userProfile ? {
+          city: profile.showLocation ? userProfile.city : null,
+          state: profile.showLocation ? userProfile.state : null,
+          email: profile.showEmail ? userProfile.email : null,
+        } : null,
         career: career ? {
           positions: career.positions,
           teamName: career.teamName,

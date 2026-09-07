@@ -13,12 +13,14 @@ import {
   Globe, Lock, Zap, Star,
 } from "lucide-react";
 import { ShareMenu } from "@/components/share-menu";
+import { BaseballCard } from "@/pages/career";
 import { SiX, SiInstagram, SiTiktok, SiYoutube } from "react-icons/si";
 import type { PlayerProfile, TeamAward, PersonalRecord, UserVideo } from "@shared/schema";
 
 interface PublicProfileData {
   profile: PlayerProfile;
   user: { firstName: string | null; lastName: string | null; profileImageUrl: string | null } | null;
+  userProfile: { city: string | null; state: string | null; email: string | null } | null;
   career: {
     positions: string[] | null;
     teamName: string | null;
@@ -85,6 +87,117 @@ function SkillBar({ label, value }: { label: string; value: number | null }) {
           className="h-full rounded-full bg-gradient-to-r from-orange-500 to-orange-400 transition-all duration-500"
           style={{ width: `${pct}%` }}
         />
+      </div>
+    </div>
+  );
+}
+
+function PublicPlayerCard({ data }: { data: PublicProfileData }) {
+  const { profile, user, userProfile, career, careerStats } = data;
+  const displayName = user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() : "Player";
+  const initials = displayName.split(" ").map((part) => part[0]).join("").toUpperCase().slice(0, 2) || "P";
+  const photoSrc = career?.cardPhotoUrl
+    ? getObjectUrl(career.cardPhotoUrl)
+    : user?.profileImageUrl ? getObjectUrl(user.profileImageUrl) : undefined;
+  const hasSocials = Boolean(profile.socialTwitter || profile.socialInstagram || profile.socialTiktok || profile.socialYoutube);
+  const hasPhysical = Boolean(profile.heightFeet || profile.weight || profile.wingspan);
+  const hasAcademic = Boolean(profile.schoolName || profile.gradYear || profile.gpa);
+  const hasStats = Boolean(profile.showStats && careerStats && careerStats.totalGames > 0);
+
+  return (
+    <div className="relative mx-auto max-w-2xl overflow-hidden rounded-3xl border border-orange-500/15 bg-zinc-950">
+      <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,1) 1px, transparent 1px), linear-gradient(90deg,rgba(255,255,255,1) 1px, transparent 1px)", backgroundSize: "32px 32px" }} />
+      <div className="relative">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_80%_at_top_right,rgba(234,88,12,0.3),transparent)]" />
+        <div className="relative flex gap-3 px-4 pt-5 pb-4">
+          <div className="min-w-0 flex-1 space-y-3">
+            <div className="flex items-center gap-3">
+              <Avatar className="h-14 w-14 shrink-0 border border-orange-500/30">
+                <AvatarFallback className="bg-zinc-900 text-lg font-black text-orange-400">{initials}</AvatarFallback>
+                {photoSrc && <AvatarImage src={photoSrc} alt={displayName} className="object-cover" />}
+              </Avatar>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-baseline gap-1.5">
+                  {career?.jerseyNumber != null && <span className="text-sm font-black text-orange-400">#{career.jerseyNumber}</span>}
+                  <h2 className="text-base font-black uppercase leading-tight tracking-tight text-white">{displayName}</h2>
+                </div>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {career?.positions?.map((pos) => <Badge key={pos} className="border border-orange-500/30 bg-orange-500/20 px-1.5 py-0 text-[10px] font-bold text-orange-300">{POSITION_LABELS[pos] || pos}</Badge>)}
+                </div>
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 text-[11px] text-zinc-500">
+                  {career?.schoolName && <span>{career.schoolName}</span>}
+                  {career?.gradeLevel && <span>{GRADE_LABELS[career.gradeLevel] || career.gradeLevel}</span>}
+                </div>
+              </div>
+            </div>
+
+            {profile.cardShowBio !== false && (profile.headline || profile.bio) && (
+              <div className="space-y-1">
+                {profile.headline && <p className="text-[11px] font-semibold leading-snug text-orange-300/70">{profile.headline}</p>}
+                {profile.bio && <p className="line-clamp-3 text-[11px] leading-relaxed text-zinc-400">{profile.bio}</p>}
+              </div>
+            )}
+
+            {profile.cardShowArchetype !== false && profile.showArchetype && career?.assessmentArchetype && (
+              <div className="flex items-start gap-2">
+                <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-purple-500/20"><Zap className="h-3 w-3 text-purple-400" /></div>
+                <div className="min-w-0"><p className="text-xs font-black leading-tight text-white">{career.assessmentArchetype}</p><p className="mt-0.5 text-[11px] text-purple-300/70">Player archetype</p></div>
+              </div>
+            )}
+
+            {(userProfile?.city || userProfile?.state) && profile.showLocation && (
+              <p className="flex items-center gap-1 text-[11px] text-orange-400/60"><MapPin className="h-3 w-3 shrink-0" />{[userProfile.city, userProfile.state].filter(Boolean).join(", ")}</p>
+            )}
+          </div>
+
+          {profile.cardShowPlayerCard !== false && career && (
+            <div className="hidden shrink-0 sm:block" style={{ width: 150, height: 178, overflow: "hidden", position: "relative" }}>
+              <div style={{ transform: "scale(0.46875)", transformOrigin: "top left", width: 320, height: 380 }}>
+                <BaseballCard profile={career as any} careerStats={careerStats as any} userName={displayName} />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {hasStats && (
+        <div className="border-t border-orange-500/10 px-4 py-3">
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-orange-400/50">Career Averages · {careerStats!.totalGames}G · {careerStats!.wins}W–{careerStats!.losses}L</p>
+          <div className="grid grid-cols-5 gap-1.5">
+            {[
+              ["PPG", careerStats!.avgPoints],
+              ["RPG", careerStats!.avgRebounds],
+              ["APG", careerStats!.avgAssists],
+              ["SPG", careerStats!.avgSteals],
+              ["BPG", careerStats!.avgBlocks],
+            ].map(([label, value]) => <StatPill key={label} label={label as string} value={Number(value).toFixed(1)} testId={`public-card-${String(label).toLowerCase()}`} />)}
+          </div>
+        </div>
+      )}
+
+      {((profile.cardShowSocials !== false && profile.showSocialLinks && hasSocials) || (profile.cardShowHighlightReel !== false && profile.showHighlightReel && profile.highlightVideoUrl)) && (
+        <div className="flex flex-wrap items-center gap-2 border-t border-orange-500/10 px-4 py-3">
+          {profile.cardShowSocials !== false && profile.showSocialLinks && hasSocials && (
+            <div className="flex items-center gap-1.5">
+              {profile.socialTwitter && <a href={profile.socialTwitter.startsWith("http") ? profile.socialTwitter : `https://twitter.com/${profile.socialTwitter.replace("@", "")}`} target="_blank" rel="noopener noreferrer" className="flex h-7 w-7 items-center justify-center rounded-full border border-zinc-700 bg-zinc-800"><SiX className="h-3 w-3 text-zinc-300" /></a>}
+              {profile.socialInstagram && <a href={profile.socialInstagram.startsWith("http") ? profile.socialInstagram : `https://instagram.com/${profile.socialInstagram.replace("@", "")}`} target="_blank" rel="noopener noreferrer" className="flex h-7 w-7 items-center justify-center rounded-full border border-zinc-700 bg-zinc-800"><SiInstagram className="h-3 w-3 text-pink-400" /></a>}
+              {profile.socialTiktok && <a href={profile.socialTiktok.startsWith("http") ? profile.socialTiktok : `https://tiktok.com/@${profile.socialTiktok.replace("@", "")}`} target="_blank" rel="noopener noreferrer" className="flex h-7 w-7 items-center justify-center rounded-full border border-zinc-700 bg-zinc-800"><SiTiktok className="h-3 w-3 text-zinc-300" /></a>}
+              {profile.socialYoutube && <a href={profile.socialYoutube.startsWith("http") ? profile.socialYoutube : `https://youtube.com/${profile.socialYoutube}`} target="_blank" rel="noopener noreferrer" className="flex h-7 w-7 items-center justify-center rounded-full border border-zinc-700 bg-zinc-800"><SiYoutube className="h-3 w-3 text-red-400" /></a>}
+            </div>
+          )}
+          {profile.cardShowHighlightReel !== false && profile.showHighlightReel && profile.highlightVideoUrl && <a href={profile.highlightVideoUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 rounded-full border border-orange-500/30 bg-orange-500/15 px-3 py-1.5 text-xs font-bold text-orange-300"><Video className="h-3 w-3" />Highlights</a>}
+        </div>
+      )}
+
+      {profile.cardShowMeasurements && hasPhysical && (
+        <div className="border-t border-orange-500/10 px-4 py-2.5"><p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-zinc-600">Measurements</p><p className="text-xs text-zinc-400">{profile.heightFeet && `${profile.heightFeet}'${profile.heightInches || 0}"`}{profile.weight ? ` · ${profile.weight} lbs` : ""}{profile.wingspan ? ` · ${profile.wingspan}" wingspan` : ""}</p></div>
+      )}
+      {profile.cardShowAcademic && hasAcademic && (
+        <div className="border-t border-orange-500/10 px-4 py-2.5"><p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-zinc-600">Academic</p><p className="text-xs text-zinc-400">{profile.schoolName}{profile.gradYear ? ` · Class of ${profile.gradYear}` : ""}{profile.gpa ? ` · ${profile.gpa} GPA` : ""}</p></div>
+      )}
+      <div className="flex items-center justify-between border-t border-zinc-800/50 px-4 py-3">
+        <p className="text-[10px] font-black uppercase tracking-[0.15em] text-zinc-700">PLAYR1</p>
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-600">Player card</span>
       </div>
     </div>
   );
@@ -169,10 +282,14 @@ export default function PlayerPublicPage() {
         </div>
       </div>
 
+      <div className="px-4 pt-5">
+        <PublicPlayerCard data={data} />
+      </div>
+
       {/* ═══════════════════════════════════════════════
           SPORTS CARD HERO — holographic athlete vibe
       ════════════════════════════════════════════════ */}
-      <div className="relative overflow-hidden">
+      <div className="relative hidden overflow-hidden">
         {/* Holographic gradient background */}
         <div className="absolute inset-0 bg-gradient-to-br from-orange-600/30 via-purple-900/20 to-cyan-900/20" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(251,146,60,0.2),transparent_60%)]" />
