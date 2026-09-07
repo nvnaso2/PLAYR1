@@ -546,24 +546,29 @@ async function seedCommunityDemo() {
 
   await db.delete(friendActivityFeed).where(like(friendActivityFeed.userId, "playr1-demo-%"));
   const demoActivities = [
-    { key: "maya", type: "completed_workout" as const, title: "Finished a shooting workout", description: "Spot-up shooting · 42 min", metadata: { statLabel: "42 min", statValue: "42" } },
-    { key: "jalen", type: "completed_personal_challenge" as const, title: "Completed a personal challenge", description: "Made 100 left-hand finishes", metadata: { statLabel: "Challenge", statValue: "100 finishes" } },
-    { key: "imani", type: "started_program" as const, title: "Started a new program", description: "Building a stronger two-way foundation", metadata: { statLabel: "Program", statValue: "Two-Way Foundation" } },
-    { key: "noah", type: "completed_program" as const, title: "Finished a training program", description: "Rim Protection: 4-week block", metadata: { statLabel: "Program", statValue: "Rim Protection" } },
-    { key: "zoe", type: "three_point_challenge_score" as const, title: "Logged a 3-point challenge score", description: "New best from the corner", metadata: { statLabel: "Best", statValue: "18 makes" } },
-    { key: "cam", type: "group_challenge_progress" as const, title: "Made progress on a group challenge", description: "Weekend Work · 4 of 10 sessions", metadata: { statLabel: "Progress", statValue: "40%" } },
-    { key: "maya", type: "project_milestone_completed" as const, title: "Completed a Project milestone", description: "Earn a Bigger Role · Film 3 games", metadata: { statLabel: "Project", statValue: "Milestone complete" } },
-    { key: "jalen", type: "game_logged" as const, title: "Logged a game", description: "Atlanta Metro Hoops · W 68–61", metadata: { statLabel: "Line", statValue: "22 PTS · 6 REB · 4 AST" } },
-    { key: "imani", type: "game_day" as const, title: "Has a game today", description: "Southside Prep tips at 6:30 PM", metadata: { statLabel: "Game day", statValue: "Tonight · 6:30 PM" } },
+    { key: "maya", type: "completed_workout" as const, ageHours: 2, title: "Finished a shooting workout", description: "Spot-up shooting · 42 min", metadata: { statLabel: "42 min", statValue: "42" } },
+    { key: "jalen", type: "completed_personal_challenge" as const, ageHours: 9, title: "Completed a personal challenge", description: "Made 100 left-hand finishes", metadata: { statLabel: "Challenge", statValue: "100 finishes" } },
+    { key: "imani", type: "started_program" as const, ageHours: 25, title: "Started a new program", description: "Building a stronger two-way foundation", metadata: { statLabel: "Program", statValue: "Two-Way Foundation" } },
+    { key: "noah", type: "completed_program" as const, ageHours: 46, title: "Finished a training program", description: "Rim Protection: 4-week block", metadata: { statLabel: "Program", statValue: "Rim Protection" } },
+    { key: "zoe", type: "three_point_challenge_score" as const, ageHours: 68, title: "Logged a 3-point challenge score", description: "New best from the corner", metadata: { statLabel: "Best", statValue: "18 makes" } },
+    { key: "cam", type: "group_challenge_progress" as const, ageHours: 91, title: "Made progress on a group challenge", description: "Weekend Work · 4 of 10 sessions", metadata: { statLabel: "Progress", statValue: "40%" } },
+    { key: "maya", type: "project_milestone_completed" as const, ageHours: 118, title: "Completed a Project milestone", description: "Earn a Bigger Role · Film 3 games", metadata: { statLabel: "Project", statValue: "Milestone complete" } },
+    { key: "jalen", type: "game_logged" as const, ageHours: 143, title: "Logged a game", description: "Atlanta Metro Hoops · W 68–61", metadata: { statLabel: "Line", statValue: "22 PTS · 6 REB · 4 AST" } },
+    { key: "imani", type: "game_day" as const, ageHours: 166, title: "Has a game today", description: "Southside Prep tips at 6:30 PM", metadata: { statLabel: "Game day", statValue: "Tonight · 6:30 PM" } },
+    { key: "noah", type: "completed_workout" as const, ageHours: 192, title: "Finished a defensive workout", description: "Closeouts and rebounding · 55 min", metadata: { statLabel: "55 min", statValue: "55" } },
+    { key: "zoe", type: "game_logged" as const, ageHours: 214, title: "Logged a game", description: "LA Flight 18U · W 54–49", metadata: { statLabel: "Line", statValue: "14 PTS · 12 REB" } },
+    { key: "cam", type: "completed_personal_challenge" as const, ageHours: 242, title: "Completed a personal challenge", description: "Made 50 controlled right-hand finishes", metadata: { statLabel: "Challenge", statValue: "50 finishes" } },
+    { key: "maya", type: "game_logged" as const, ageHours: 250, title: "Logged a game", description: "Brooklyn Select 17U · W 61–57", metadata: { statLabel: "Line", statValue: "11 PTS · 8 AST" } },
+    { key: "cam", type: "started_program" as const, ageHours: 360, title: "Started a fundamentals block", description: "An older activity kept outside the rolling week", metadata: { statLabel: "Program", statValue: "Fundamentals Reset" } },
   ];
   await db.insert(friendActivityFeed).values(demoActivities.map((activity, index) => ({
-    id: `playr1-demo-activity-${activity.key}-${activity.type}`,
+    id: `playr1-demo-activity-${activity.key}-${activity.type}-${index}`,
     userId: communityDemoPlayers.find((player) => player.key === activity.key)!.id,
     activityType: activity.type,
     title: activity.title,
     description: activity.description,
     metadata: { demo: true, ...activity.metadata },
-    createdAt: new Date(Date.now() - (index + 1) * 2 * 60 * 60 * 1000),
+    createdAt: new Date(Date.now() - activity.ageHours * 60 * 60 * 1000),
   }))).onConflictDoNothing();
 
   const now = new Date();

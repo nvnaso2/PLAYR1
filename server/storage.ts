@@ -7686,7 +7686,7 @@ Object.assign(DatabaseStorage.prototype, {
     return f;
   },
 
-  async getFriends(userId: string): Promise<Array<{ friendship: Friendship; friend: { id: string; profileSlug: string | null; displayName: string; profilePhotoUrl: string | null; skillLevel: string | null } }>> {
+  async getFriends(userId: string): Promise<Array<{ friendship: Friendship; friend: { id: string; profileSlug: string | null; displayName: string; profilePhotoUrl: string | null; skillLevel: string | null; isFollowing: boolean } }>> {
     const rows = await db.select().from(friendships).where(
       and(
         or(eq(friendships.requesterId, userId), eq(friendships.addresseeId, userId)),
@@ -7699,6 +7699,10 @@ Object.assign(DatabaseStorage.prototype, {
       const [profile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, friendId));
       const [publicProfile] = await db.select({ slug: playerProfiles.slug }).from(playerProfiles).where(eq(playerProfiles.userId, friendId));
       const [user] = await db.select().from(users).where(eq(users.id, friendId));
+      const [follow] = await db.select({ id: userFollows.id }).from(userFollows).where(and(
+        eq(userFollows.followerId, userId),
+        eq(userFollows.followingId, friendId),
+      )).limit(1);
       result.push({
         friendship: f,
         friend: {
@@ -7707,6 +7711,7 @@ Object.assign(DatabaseStorage.prototype, {
           displayName: profile?.displayName || `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || user?.email || "Player",
           profilePhotoUrl: profile?.profilePhotoUrl || user?.profileImageUrl || null,
           skillLevel: profile?.skillLevel || null,
+          isFollowing: Boolean(follow),
           isFavorite: Boolean((await db.select({ id: friendFavorites.id }).from(friendFavorites).where(and(eq(friendFavorites.userId, userId), eq(friendFavorites.friendId, friendId))).limit(1))[0]),
           isFavoritedByFriend: Boolean((await db.select({ id: friendFavorites.id }).from(friendFavorites).where(and(eq(friendFavorites.userId, friendId), eq(friendFavorites.friendId, userId))).limit(1))[0]),
         },
@@ -7816,18 +7821,13 @@ Object.assign(DatabaseStorage.prototype, {
     const friendIds = friendRows.map(f => f.requesterId === userId ? f.addresseeId : f.requesterId);
     if (friendIds.length === 0) return [];
 
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const activities = await db.select().from(friendActivityFeed)
-      .where(inArray(friendActivityFeed.userId, friendIds))
+      .where(and(
+        inArray(friendActivityFeed.userId, friendIds),
+        gte(friendActivityFeed.createdAt, weekAgo),
+      ))
       .orderBy(desc(friendActivityFeed.createdAt));
-    const favoriteRows = await db.select({ friendId: friendFavorites.friendId })
-      .from(friendFavorites)
-      .where(and(eq(friendFavorites.userId, userId), inArray(friendFavorites.friendId, friendIds)));
-    const favoriteIds = new Set(favoriteRows.map((row) => row.friendId));
-    activities.sort((a, b) => {
-      const favoriteDelta = Number(favoriteIds.has(b.userId)) - Number(favoriteIds.has(a.userId));
-      if (favoriteDelta !== 0) return favoriteDelta;
-      return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
-    });
 
     const result = [];
     for (const a of activities) {
@@ -7853,11 +7853,26 @@ Object.assign(DatabaseStorage.prototype, {
     const followingRows = await db.select({ followingId: userFollows.followingId })
       .from(userFollows)
       .where(eq(userFollows.followerId, userId));
-    const followingIds = followingRows.map((row) => row.followingId);
+    const friendRows = await db.select().from(friendships).where(
+      and(
+        or(eq(friendships.requesterId, userId), eq(friendships.addresseeId, userId)),
+        eq(friendships.status, "accepted"),
+      )
+    );
+    const friendIds = new Set(friendRows.map((friendship) =>
+      friendship.requesterId === userId ? friendship.addresseeId : friendship.requesterId
+    ));
+    const followingIds = followingRows
+      .map((row) => row.followingId)
+      .filter((followingId) => !friendIds.has(followingId));
     if (followingIds.length === 0) return [];
 
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const activities = await db.select().from(friendActivityFeed)
-      .where(inArray(friendActivityFeed.userId, followingIds))
+      .where(and(
+        inArray(friendActivityFeed.userId, followingIds),
+        gte(friendActivityFeed.createdAt, weekAgo),
+      ))
       .orderBy(desc(friendActivityFeed.createdAt));
     const result = [];
     for (const a of activities) {

@@ -6,8 +6,6 @@ import {
   Check,
   Clock3,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   ChevronUp,
   Dumbbell,
   Flame,
@@ -153,7 +151,6 @@ function ActivityPanel({ user }: { user: unknown }) {
   const { toast } = useToast();
   const [feedOpen, setFeedOpen] = useState(true);
   const [activityScope, setActivityScope] = useState<"friends" | "following">("friends");
-  const [feedIndex, setFeedIndex] = useState(0);
   const [guideOpen, setGuideOpen] = useState(false);
   const [visibilityOpen, setVisibilityOpen] = useState(false);
   const activityFeedUrl = activityScope === "friends" ? "/api/friends/activity" : "/api/follows/activity";
@@ -199,11 +196,6 @@ function ActivityPanel({ user }: { user: unknown }) {
     },
     onError: () => toast({ title: "Could not update request", variant: "destructive" }),
   });
-  useEffect(() => {
-    setFeedIndex(0);
-  }, [activityScope, feed.length]);
-
-  const activeActivity = feed[feedIndex];
   const scopeLabel = activityScope === "friends" ? "Friends" : "Following";
 
   return (
@@ -260,7 +252,7 @@ function ActivityPanel({ user }: { user: unknown }) {
         <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
           <div>
             <h2 className="text-lg font-semibold">Activity</h2>
-            <p className="text-sm text-muted-foreground">One basketball moment at a time from people you connect with.</p>
+            <p className="text-sm text-muted-foreground">Recent basketball moments from the last week.</p>
           </div>
           <div className="flex items-center gap-1">
             <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-white" onClick={() => setGuideOpen((open) => !open)} aria-expanded={guideOpen}>
@@ -377,42 +369,42 @@ function ActivityPanel({ user }: { user: unknown }) {
           </Card>
         ) : (
           <div className="space-y-3" data-testid="community-activity-feed">
-            {activeActivity && (() => {
-              const details = activityTypeDetails(activeActivity.activityType);
+            {feed.map((activity: any) => {
+              const details = activityTypeDetails(activity.activityType);
               const Icon = details.icon;
-              const statLabel = activeActivity.metadata?.statLabel;
-              const statValue = activeActivity.metadata?.statValue;
+              const statLabel = activity.metadata?.statLabel;
+              const statValue = activity.metadata?.statValue;
+              const activityPlayer = {
+                userId: activity.user.id,
+                displayName: activity.user.displayName,
+                profilePhotoUrl: activity.user.profilePhotoUrl,
+              };
               return (
-                <Card className="group relative min-h-[240px] overflow-hidden border-zinc-800/70 bg-zinc-900/35 transition-colors hover:border-zinc-700 hover:bg-zinc-900/60">
+                <Card key={activity.id} className="group relative min-h-[104px] overflow-hidden border-zinc-800/70 bg-zinc-900/35 transition-colors hover:border-zinc-700 hover:bg-zinc-900/60">
                   <div className={`absolute inset-y-0 left-0 w-1.5 bg-gradient-to-b ${details.color}`} />
-                  <CardContent className="flex min-h-[240px] flex-col justify-center gap-5 p-6 pl-7">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${details.color} p-[1px]`}>
-                        <div className="flex h-full w-full items-center justify-center rounded-[15px] bg-zinc-950"><Icon className="h-5 w-5 text-white" aria-hidden="true" /></div>
-                      </div>
-                      <span className="text-xs text-muted-foreground">{relativeDate(activeActivity.createdAt)}</span>
+                  <CardContent className="grid min-h-[104px] grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-3 p-4 pl-6 sm:grid-cols-[auto_auto_minmax(0,1fr)_minmax(92px,0.35fr)] sm:gap-4">
+                    <PlayerAvatar player={activityPlayer} size="h-10 w-10" />
+                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${details.color} p-[1px]`}>
+                      <div className="flex h-full w-full items-center justify-center rounded-[11px] bg-zinc-950"><Icon className="h-4 w-4 text-white" aria-hidden="true" /></div>
                     </div>
                     <div className="min-w-0">
-                      <Link href={profileHref({ userId: activeActivity.user.id, profileSlug: activeActivity.user.profileSlug })} className="text-sm font-semibold hover:text-orange-400">
-                        {activeActivity.user.displayName}
-                      </Link>
-                      <p className="mt-2 text-xl font-semibold tracking-tight text-zinc-100">{activeActivity.title}</p>
-                      {activeActivity.description && <p className="mt-2 text-sm leading-6 text-muted-foreground">{activeActivity.description}</p>}
+                      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                        <Link href={profileHref({ userId: activity.user.id, profileSlug: activity.user.profileSlug })} className="truncate text-sm font-semibold hover:text-orange-400">
+                          {activity.user.displayName}
+                        </Link>
+                        <span className="shrink-0 text-[11px] text-muted-foreground">{relativeDate(activity.createdAt)}</span>
+                      </div>
+                      <p className="mt-1 truncate text-sm font-medium text-zinc-100">{activity.title}</p>
+                      {activity.description && <p className="mt-0.5 truncate text-xs text-muted-foreground">{activity.description}</p>}
                     </div>
-                    {statValue && <div className="w-fit rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{statLabel}</p><p className="text-lg font-bold text-white">{statValue}</p></div>}
+                    <div className="hidden min-w-0 border-l border-zinc-800 pl-4 sm:block">
+                      <p className="truncate text-[10px] uppercase tracking-wide text-muted-foreground">{statLabel || "Activity"}</p>
+                      <p className="truncate text-sm font-bold text-white">{statValue || "—"}</p>
+                    </div>
                   </CardContent>
                 </Card>
               );
-            })()}
-            <div className="flex items-center justify-between">
-              <Button variant="outline" size="sm" onClick={() => setFeedIndex((index) => Math.max(0, index - 1))} disabled={feedIndex === 0} aria-label="Previous activity">
-                <ChevronLeft className="mr-1 h-4 w-4" /> Previous
-              </Button>
-              <span className="text-xs tabular-nums text-muted-foreground">{feedIndex + 1} of {feed.length}</span>
-              <Button variant="outline" size="sm" onClick={() => setFeedIndex((index) => Math.min(feed.length - 1, index + 1))} disabled={feedIndex >= feed.length - 1} aria-label="Next activity">
-                Next <ChevronRight className="ml-1 h-4 w-4" />
-              </Button>
-            </div>
+            })}
           </div>
         )}
       </div>
@@ -726,7 +718,7 @@ function ChallengesPanel({ user }: { user: unknown }) {
   );
 }
 
-function PlayerCard({ player, onAdd, onAccept, onFollow, adding, following }: { player: Player; onAdd: () => void; onAccept: () => void; onFollow: () => void; adding: boolean; following: boolean }) {
+function PlayerCard({ player, onAdd, onAccept, onFollow, onRemoveFriend, adding, following, removingFriend }: { player: Player; onAdd: () => void; onAccept: () => void; onFollow: () => void; onRemoveFriend: () => void; adding: boolean; following: boolean; removingFriend: boolean }) {
   const name = playerName(player);
   const status = player.connectionStatus;
   return (
@@ -745,7 +737,7 @@ function PlayerCard({ player, onAdd, onAccept, onFollow, adding, following }: { 
           <Button size="sm" variant={player.isFollowing ? "secondary" : "outline"} className={player.isFollowing ? "text-orange-200" : "border-orange-500/40 text-orange-300 hover:bg-orange-500/10"} onClick={onFollow} disabled={following} data-testid={`button-follow-player-${player.userId}`}>
             {player.isFollowing ? "Following" : "Follow"}
           </Button>
-          {status === "friends" ? <Badge variant="outline" className="hidden border-emerald-500/30 text-emerald-300 sm:inline-flex"><Check className="mr-1 h-3 w-3" /> Friends</Badge>
+          {status === "friends" ? <Button size="sm" variant="ghost" className="hidden text-emerald-300 hover:bg-red-500/10 hover:text-red-300 sm:inline-flex" onClick={onRemoveFriend} disabled={removingFriend} data-testid={`button-unfriend-player-${player.userId}`}>Unfriend</Button>
             : status === "outgoing_pending" ? <Badge variant="outline" className="hidden border-zinc-700 text-zinc-400 sm:inline-flex">Pending</Badge>
               : status === "incoming_pending" ? <Button size="sm" onClick={onAccept} disabled={adding} data-testid={`button-accept-player-${player.userId}`}><Check className="mr-1 h-3 w-3" /> Accept</Button>
                 : <Button size="sm" variant="outline" className="hidden border-orange-500/40 text-orange-300 hover:bg-orange-500/10 sm:inline-flex" onClick={onAdd} disabled={adding} data-testid={`button-add-player-${player.userId}`}><UserPlus className="mr-1 h-3 w-3" /> Friend</Button>}
@@ -811,12 +803,25 @@ function PlayersPanel({ user }: { user: unknown }) {
     onSettled: () => setFollowingId(null),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/follows"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/friends"] });
       queryClient.invalidateQueries({ queryKey: ["/api/follows/activity"] });
       queryClient.invalidateQueries({ queryKey: ["/api/users/recommended"] });
       queryClient.invalidateQueries({ queryKey: ["/api/users/search"] });
       toast({ title: variables.following ? "Now following player" : "Unfollowed player" });
     },
     onError: () => toast({ title: "Could not update follow", variant: "destructive" }),
+  });
+  const removeFriend = useMutation({
+    mutationFn: (friendId: string) => apiRequest("DELETE", `/api/friends/${friendId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/friends"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/friends/activity"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/follows/activity"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users/recommended"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users/search"] });
+      toast({ title: "Friend removed" });
+    },
+    onError: () => toast({ title: "Could not unfriend player", variant: "destructive" }),
   });
 
   const incomingByUser = useMemo(() => new Map((requestsQuery.data || []).map((request: any) => [request.requester.id, request])), [requestsQuery.data]);
@@ -852,6 +857,26 @@ function PlayersPanel({ user }: { user: unknown }) {
                     {item.friend.skillLevel && <span className="block truncate text-[10px] capitalize text-muted-foreground">{item.friend.skillLevel}</span>}
                   </div>
                 </Link>
+                <Button
+                  variant={item.friend.isFollowing ? "secondary" : "outline"}
+                  size="sm"
+                  className={item.friend.isFollowing ? "shrink-0 text-xs text-orange-200" : "shrink-0 border-orange-500/40 text-xs text-orange-300"}
+                  onClick={() => toggleFollow.mutate({ userId: item.friend.id, following: !item.friend.isFollowing })}
+                  disabled={followingId === item.friend.id || toggleFollow.isPending}
+                  data-testid={`button-follow-friend-${item.friend.id}`}
+                >
+                  {item.friend.isFollowing ? "Following" : "Follow"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="shrink-0 text-xs text-muted-foreground hover:text-red-300"
+                  onClick={() => removeFriend.mutate(item.friend.id)}
+                  disabled={removeFriend.isPending}
+                  data-testid={`button-unfriend-${item.friend.id}`}
+                >
+                  Unfriend
+                </Button>
               </div>
             ))}
           </CardContent>
@@ -886,7 +911,7 @@ function PlayersPanel({ user }: { user: unknown }) {
           {players.map((player) => {
             const incoming = incomingByUser.get(player.userId);
             const normalizedPlayer = incoming ? { ...player, connectionStatus: "incoming_pending" } : player;
-            return <PlayerCard key={player.userId} player={normalizedPlayer} adding={addingId === player.userId || acceptRequest.isPending} following={followingId === player.userId || toggleFollow.isPending} onAdd={() => sendRequest.mutate(player.userId)} onAccept={() => incoming && acceptRequest.mutate(incoming.friendship.id)} onFollow={() => toggleFollow.mutate({ userId: player.userId, following: !player.isFollowing })} />;
+             return <PlayerCard key={player.userId} player={normalizedPlayer} adding={addingId === player.userId || acceptRequest.isPending} following={followingId === player.userId || toggleFollow.isPending} removingFriend={removeFriend.isPending} onAdd={() => sendRequest.mutate(player.userId)} onAccept={() => incoming && acceptRequest.mutate(incoming.friendship.id)} onFollow={() => toggleFollow.mutate({ userId: player.userId, following: !player.isFollowing })} onRemoveFriend={() => removeFriend.mutate(player.userId)} />;
           })}
         </div>
       )}
