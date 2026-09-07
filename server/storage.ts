@@ -7670,6 +7670,12 @@ Object.assign(DatabaseStorage.prototype, {
 
   // ─── Friendships ────────────────────────────────────────────────────────────
   async sendFriendRequest(requesterId: string, addresseeId: string): Promise<Friendship> {
+    const [follow] = await db.select({ id: userFollows.id }).from(userFollows).where(and(
+      eq(userFollows.followerId, requesterId),
+      eq(userFollows.followingId, addresseeId),
+    )).limit(1);
+    if (!follow) throw new Error("You must follow this player before sending a friend request");
+
     const [existing] = await db.select().from(friendships).where(
       or(
         and(eq(friendships.requesterId, requesterId), eq(friendships.addresseeId, addresseeId)),
@@ -7752,6 +7758,12 @@ Object.assign(DatabaseStorage.prototype, {
 
   async setFollowing(userId: string, followingId: string, following: boolean): Promise<boolean> {
     if (userId === followingId) throw new Error("You cannot follow yourself");
+    if (!following) {
+      const friendship = await this.getFriendshipBetween(userId, followingId);
+      if (friendship?.status === "accepted") {
+        throw new Error("You must unfriend this player before unfollowing");
+      }
+    }
     if (following) {
       await db.insert(userFollows)
         .values({ followerId: userId, followingId })

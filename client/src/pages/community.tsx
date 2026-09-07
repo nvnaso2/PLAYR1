@@ -382,22 +382,22 @@ function ActivityPanel({ user }: { user: unknown }) {
               return (
                 <Card key={activity.id} className="group relative min-h-[104px] overflow-hidden border-zinc-800/70 bg-zinc-900/35 transition-colors hover:border-zinc-700 hover:bg-zinc-900/60">
                   <div className={`absolute inset-y-0 left-0 w-1.5 bg-gradient-to-b ${details.color}`} />
-                  <CardContent className="grid min-h-[104px] grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-3 p-4 pl-6 sm:grid-cols-[auto_auto_minmax(0,1fr)_minmax(92px,0.35fr)] sm:gap-4">
-                    <PlayerAvatar player={activityPlayer} size="h-10 w-10" />
-                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${details.color} p-[1px]`}>
+                  <CardContent className="grid min-h-[88px] grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-3 p-3 pl-5 sm:grid-cols-[auto_auto_minmax(0,1fr)_minmax(110px,0.35fr)] sm:gap-4">
+                    <PlayerAvatar player={activityPlayer} size="h-9 w-9" />
+                    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${details.color} p-[1px]`}>
                       <div className="flex h-full w-full items-center justify-center rounded-[11px] bg-zinc-950"><Icon className="h-4 w-4 text-white" aria-hidden="true" /></div>
                     </div>
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                        <Link href={profileHref({ userId: activity.user.id, profileSlug: activity.user.profileSlug })} className="truncate text-sm font-semibold hover:text-orange-400">
+                        <Link href={profileHref({ userId: activity.user.id, profileSlug: activity.user.profileSlug })} className="text-sm font-semibold hover:text-orange-400">
                           {activity.user.displayName}
                         </Link>
                         <span className="shrink-0 text-[11px] text-muted-foreground">{relativeDate(activity.createdAt)}</span>
                       </div>
-                      <p className="mt-1 truncate text-sm font-medium text-zinc-100">{activity.title}</p>
-                      {activity.description && <p className="mt-0.5 truncate text-xs text-muted-foreground">{activity.description}</p>}
+                      <p className="mt-1 text-sm font-medium leading-5 text-zinc-100">{activity.title}</p>
+                      {activity.description && <p className="mt-0.5 text-xs leading-4 text-muted-foreground">{activity.description}</p>}
                     </div>
-                    <div className="hidden min-w-0 border-l border-zinc-800 pl-4 sm:block">
+                    <div className="col-span-3 flex min-w-0 items-baseline gap-2 border-t border-zinc-800 pt-2 sm:col-span-1 sm:block sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">
                       <p className="truncate text-[10px] uppercase tracking-wide text-muted-foreground">{statLabel || "Activity"}</p>
                       <p className="truncate text-sm font-bold text-white">{statValue || "—"}</p>
                     </div>
@@ -734,13 +734,13 @@ function PlayerCard({ player, onAdd, onAccept, onFollow, onRemoveFriend, adding,
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
-          <Button size="sm" variant={player.isFollowing ? "secondary" : "outline"} className={player.isFollowing ? "text-orange-200" : "border-orange-500/40 text-orange-300 hover:bg-orange-500/10"} onClick={onFollow} disabled={following} data-testid={`button-follow-player-${player.userId}`}>
+          <Button size="sm" variant={player.isFollowing ? "secondary" : "outline"} className={player.isFollowing ? "text-orange-200" : "border-orange-500/40 text-orange-300 hover:bg-orange-500/10"} onClick={onFollow} disabled={following || status === "friends"} title={status === "friends" ? "Unfriend this player before unfollowing" : undefined} data-testid={`button-follow-player-${player.userId}`}>
             {player.isFollowing ? "Following" : "Follow"}
           </Button>
-          {status === "friends" ? <Button size="sm" variant="ghost" className="hidden text-emerald-300 hover:bg-red-500/10 hover:text-red-300 sm:inline-flex" onClick={onRemoveFriend} disabled={removingFriend} data-testid={`button-unfriend-player-${player.userId}`}>Unfriend</Button>
-            : status === "outgoing_pending" ? <Badge variant="outline" className="hidden border-zinc-700 text-zinc-400 sm:inline-flex">Pending</Badge>
+          {status === "friends" ? <Button size="sm" variant="ghost" className="text-emerald-300 hover:bg-red-500/10 hover:text-red-300" onClick={onRemoveFriend} disabled={removingFriend} data-testid={`button-unfriend-player-${player.userId}`}>Unfriend</Button>
+            : status === "outgoing_pending" ? <Badge variant="outline" className="border-zinc-700 text-zinc-400">Pending</Badge>
               : status === "incoming_pending" ? <Button size="sm" onClick={onAccept} disabled={adding} data-testid={`button-accept-player-${player.userId}`}><Check className="mr-1 h-3 w-3" /> Accept</Button>
-                : <Button size="sm" variant="outline" className="hidden border-orange-500/40 text-orange-300 hover:bg-orange-500/10 sm:inline-flex" onClick={onAdd} disabled={adding} data-testid={`button-add-player-${player.userId}`}><UserPlus className="mr-1 h-3 w-3" /> Friend</Button>}
+                : <Button size="sm" variant="outline" className="border-orange-500/40 text-orange-300 hover:bg-orange-500/10" onClick={onAdd} disabled={adding || !player.isFollowing} title={!player.isFollowing ? "Follow this player before friending them" : undefined} data-testid={`button-add-player-${player.userId}`}><UserPlus className="mr-1 h-3 w-3" /> Friend</Button>}
         </div>
       </CardContent>
     </Card>
@@ -858,14 +858,14 @@ function PlayersPanel({ user }: { user: unknown }) {
                   </div>
                 </Link>
                 <Button
-                  variant={item.friend.isFollowing ? "secondary" : "outline"}
+                  variant="secondary"
                   size="sm"
-                  className={item.friend.isFollowing ? "shrink-0 text-xs text-orange-200" : "shrink-0 border-orange-500/40 text-xs text-orange-300"}
-                  onClick={() => toggleFollow.mutate({ userId: item.friend.id, following: !item.friend.isFollowing })}
-                  disabled={followingId === item.friend.id || toggleFollow.isPending}
+                  className="shrink-0 text-xs text-orange-200"
+                  disabled
+                  title="Unfriend this player before unfollowing"
                   data-testid={`button-follow-friend-${item.friend.id}`}
                 >
-                  {item.friend.isFollowing ? "Following" : "Follow"}
+                  Following
                 </Button>
                 <Button
                   variant="ghost"
