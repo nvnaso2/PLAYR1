@@ -51,6 +51,15 @@ interface PublicProfileData {
   awards?: TeamAward[];
   personalRecords?: Array<PersonalRecord & { drill: { title: string } }>;
   videos?: UserVideo[];
+  recentTraining?: Array<{
+    id: string;
+    duration: number;
+    reps: number | null;
+    sets: number | null;
+    score: number | null;
+    shotLocation: string | null;
+    completedAt: string | Date | null;
+  }>;
 }
 
 const POSITION_LABELS: Record<string, string> = {
@@ -253,7 +262,7 @@ export default function PlayerPublicPage() {
     );
   }
 
-  const { profile, user, career, careerStats, awards, personalRecords, videos } = data;
+  const { profile, user, career, careerStats, awards, personalRecords, videos, recentTraining } = data;
   const playerName = user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() : "Player";
   const playerInitials = user
     ? `${(user.firstName || "")[0] || ""}${(user.lastName || "")[0] || ""}`.toUpperCase()
@@ -400,8 +409,8 @@ export default function PlayerPublicPage() {
       <div className="max-w-2xl mx-auto px-4 space-y-4 mt-4">
 
         {/* Archetype badge — punchy single row */}
-        {profile.showArchetype && career?.assessmentArchetype && (
-          <div className="hidden flex items-center gap-3 p-4 rounded-2xl border bg-gradient-to-r from-purple-500/10 to-orange-500/10 border-purple-500/20" data-testid="section-archetype">
+        {profile.showArchetype && profile.cardShowArchetype === false && career?.assessmentArchetype && (
+          <div className="flex items-center gap-3 p-4 rounded-2xl border bg-gradient-to-r from-purple-500/10 to-orange-500/10 border-purple-500/20" data-testid="section-archetype">
             <div className="w-9 h-9 rounded-xl bg-purple-500/20 flex items-center justify-center shrink-0">
               <Zap className="w-4 h-4 text-purple-400" />
             </div>
@@ -413,8 +422,8 @@ export default function PlayerPublicPage() {
         )}
 
         {/* Bio */}
-        {profile.bio && (
-          <Card className="hidden rounded-2xl border-border/50" data-testid="section-bio">
+        {profile.bio && profile.cardShowBio === false && (
+          <Card className="rounded-2xl border-border/50" data-testid="section-bio">
             <CardContent className="p-4">
               <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed" data-testid="text-bio">
                 {profile.bio}
@@ -424,8 +433,8 @@ export default function PlayerPublicPage() {
         )}
 
         {/* Social links — Instagram-style row */}
-        {profile.showSocialLinks && hasSocials && (
-          <div className="hidden flex items-center justify-center gap-3 py-2" data-testid="section-socials">
+        {profile.showSocialLinks && profile.cardShowSocials === false && hasSocials && (
+          <div className="flex items-center justify-center gap-3 py-2" data-testid="section-socials">
             {profile.socialTwitter && (
               <a
                 href={profile.socialTwitter.startsWith("http") ? profile.socialTwitter : `https://twitter.com/${profile.socialTwitter.replace("@","")}`}
@@ -467,7 +476,7 @@ export default function PlayerPublicPage() {
 
         {/* Skills — only if showSkills */}
         {profile.showSkills && hasSkills && (
-          <Card className="hidden rounded-2xl border-border/50" data-testid="section-skills">
+          <Card className="rounded-2xl border-border/50" data-testid="section-skills">
             <CardHeader className="pb-3 pt-4 px-4">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <Star className="h-4 w-4 text-orange-500" />Skill Ratings
@@ -484,12 +493,12 @@ export default function PlayerPublicPage() {
         )}
 
         {/* Highlight video — big tap target */}
-        {profile.highlightVideoUrl && (
+        {profile.showHighlightReel && profile.highlightVideoUrl && (
           <a
             href={profile.highlightVideoUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden block"
+            className="block"
             data-testid="link-highlight-video"
           >
             <div className="flex items-center gap-4 p-4 rounded-2xl border bg-gradient-to-r from-orange-500/10 to-red-500/10 border-orange-500/20 hover:border-orange-500/40 transition-colors">
@@ -507,7 +516,7 @@ export default function PlayerPublicPage() {
 
         {/* Physical attributes */}
         {profile.showPhysical && hasPhysical && (
-          <Card className="hidden rounded-2xl border-border/50" data-testid="section-physical">
+          <Card className="rounded-2xl border-border/50" data-testid="section-physical">
             <CardHeader className="pb-3 pt-4 px-4">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <Ruler className="h-4 w-4" />Measurements
@@ -540,7 +549,7 @@ export default function PlayerPublicPage() {
 
         {/* Academic */}
         {profile.showAcademic && hasAcademic && (
-          <Card className="hidden rounded-2xl border-border/50" data-testid="section-academic">
+          <Card className="rounded-2xl border-border/50" data-testid="section-academic">
             <CardHeader className="pb-3 pt-4 px-4">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <GraduationCap className="h-4 w-4" />Academic
@@ -614,6 +623,28 @@ export default function PlayerPublicPage() {
                   </div>
                 ))}
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {profile.showTrainingLog && recentTraining && recentTraining.length > 0 && (
+          <Card className="rounded-2xl border-border/50" data-testid="section-recent-training">
+            <CardHeader className="pb-3 pt-4 px-4">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Dumbbell className="h-4 w-4 text-sky-500" />Recent Training
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 px-4 pb-4">
+              {recentTraining.map((log) => (
+                <div key={log.id} className="flex items-center gap-3 rounded-xl bg-muted/40 p-3" data-testid={`training-${log.id}`}>
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-500/15"><Dumbbell className="h-4 w-4 text-sky-500" /></div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium">{log.shotLocation ? `${log.shotLocation} session` : "Training session"}</p>
+                    <p className="text-xs text-muted-foreground">{log.completedAt ? new Date(log.completedAt).toLocaleDateString() : "Recently"} · {log.duration} min{log.reps ? ` · ${log.reps} reps` : ""}</p>
+                  </div>
+                  {log.score != null && <span className="text-sm font-bold text-sky-400">{log.score}/10</span>}
+                </div>
+              ))}
             </CardContent>
           </Card>
         )}

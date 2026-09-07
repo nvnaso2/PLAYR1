@@ -2673,6 +2673,19 @@ export const friendFavorites = pgTable("friend_favorites", {
 
 export type FriendFavorite = typeof friendFavorites.$inferSelect;
 
+export const userFollows = pgTable("user_follows", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  followerId: varchar("follower_id").notNull(),
+  followingId: varchar("following_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (t) => ({
+  byFollower: index("user_follows_follower_idx").on(t.followerId),
+  byFollowing: index("user_follows_following_idx").on(t.followingId),
+  uniqueFollow: uniqueIndex("user_follows_follower_following_uq").on(t.followerId, t.followingId),
+}));
+
+export type UserFollow = typeof userFollows.$inferSelect;
+
 // ─── Friend Activity Feed ─────────────────────────────────────────────────────
 export const FRIEND_ACTIVITY_TYPES = [
   "completed_workout",
@@ -2729,6 +2742,7 @@ export const groupChallenges = pgTable("group_challenges", {
   startsAt: timestamp("starts_at").notNull(),
   endsAt: timestamp("ends_at").notNull(),
   shotFilter: varchar("shot_filter"),
+  audience: varchar("audience").$type<"friends" | "followers" | "public">().notNull().default("friends"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

@@ -25,6 +25,16 @@ export async function runApplicationMigrations(): Promise<void> {
       );
       CREATE INDEX IF NOT EXISTS friend_favorites_user_idx ON friend_favorites (user_id);
       CREATE UNIQUE INDEX IF NOT EXISTS friend_favorites_user_friend_uq ON friend_favorites (user_id, friend_id);
+      CREATE TABLE IF NOT EXISTS user_follows (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        follower_id varchar NOT NULL,
+        following_id varchar NOT NULL,
+        created_at timestamp DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS user_follows_follower_idx ON user_follows (follower_id);
+      CREATE INDEX IF NOT EXISTS user_follows_following_idx ON user_follows (following_id);
+      CREATE UNIQUE INDEX IF NOT EXISTS user_follows_follower_following_uq ON user_follows (follower_id, following_id);
+      ALTER TABLE group_challenges ADD COLUMN IF NOT EXISTS audience varchar NOT NULL DEFAULT 'friends';
       ALTER TABLE player_goals ADD COLUMN IF NOT EXISTS project_title varchar;
       ALTER TABLE player_goals ADD COLUMN IF NOT EXISTS project_type varchar;
       ALTER TABLE player_goals ADD COLUMN IF NOT EXISTS why_it_matters text;

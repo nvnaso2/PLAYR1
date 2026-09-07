@@ -23,7 +23,7 @@ import {
 import { sendPushNotification, getVapidPublicKey } from "./push";
 import { ensureOnboardingSchema, getDiagnosticSummary, getFixCategory, validateMicroQuizPayload } from "./onboarding";
 import { getMicroQuiz } from "@shared/micro-quizzes";
- import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, playerProfiles, drills, trainingLogs, trainingLogMetrics, feedbackComments, insertProgramSchema, insertProgramItemSchema, insertEventSchema, events, insertStatChallengeSchema, programEnrollments, coachPUsage, friendships, FRIEND_ACTIVITY_TYPES, type FriendActivityType } from "@shared/schema";
+ import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, playerProfiles, drills, trainingLogs, trainingLogMetrics, feedbackComments, insertProgramSchema, insertProgramItemSchema, insertEventSchema, events, insertStatChallengeSchema, programEnrollments, coachPUsage, friendships, userFollows, FRIEND_ACTIVITY_TYPES, type FriendActivityType } from "@shared/schema";
 import { getUncachableStripeClient } from "./stripeClient";
 import { WebhookHandlers } from "./webhookHandlers";
 import { JOURNAL_PROMPTS } from "@shared/journalPrompts";
@@ -4216,7 +4216,7 @@ COACHING RULES:
         return res.status(404).json({ message: "Profile not found" });
       }
       
-      const [career, [user], [userProfile], awards, personalRecords, allVideos, statsData, userArchetypes, archetypeCatalog] = await Promise.all([
+      const [career, [user], [userProfile], awards, personalRecords, allVideos, recentTraining, statsData, userArchetypes, archetypeCatalog] = await Promise.all([
         storage.getCareerProfile(profile.userId),
         db.select({
           firstName: users.firstName,
@@ -4231,6 +4231,7 @@ COACHING RULES:
         profile.showAchievements ? storage.getUserTeamAwards(profile.userId) : null,
         profile.showPersonalRecords === true ? storage.getUserPersonalRecords(profile.userId) : null,
         profile.showVideos ? storage.getUserVideos(profile.userId) : null,
+        profile.showTrainingLog ? storage.getRecentTrainingLogs(profile.userId, 8) : null,
         profile.showStats ? Promise.all([
           storage.getPublicUserSeasons(profile.userId),
           storage.getCareerStats(profile.userId),
@@ -4313,6 +4314,17 @@ COACHING RULES:
       }
       if (allVideos) {
         publicData.videos = allVideos.filter(v => v.isPublic);
+      }
+      if (recentTraining) {
+        publicData.recentTraining = recentTraining.map((log) => ({
+          id: log.id,
+          duration: log.duration,
+          reps: log.reps,
+          sets: log.sets,
+          score: log.score,
+          shotLocation: log.shotLocation,
+          completedAt: log.completedAt,
+        }));
       }
 
       res.json(publicData);
@@ -8358,6 +8370,7 @@ COACHING RULES:
         .limit(20);
 
       const relationshipStates = await getCommunityConnectionStates(userId, results.map((result) => result.userId));
+      const followingIds = await getCommunityFollowStates(userId, results.map((result) => result.userId));
       const filtered = results
         .filter(r => r.userId !== userId)
         .map(r => ({
@@ -8374,6 +8387,7 @@ COACHING RULES:
           staffRole: r.staffRole,
           connectionId: relationshipStates.get(r.userId)?.id ?? null,
           connectionStatus: relationshipStates.get(r.userId)?.status ?? null,
+          isFollowing: followingIds.has(r.userId),
         }));
 
       res.json(filtered);
@@ -12163,6 +12177,14 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
     return states;
   }
 
+  async function getCommunityFollowStates(userId: string, targetIds: string[]) {
+    if (targetIds.length === 0) return new Set<string>();
+    const rows = await db.select({ followingId: userFollows.followingId })
+      .from(userFollows)
+      .where(and(eq(userFollows.followerId, userId), inArray(userFollows.followingId, targetIds)));
+    return new Set(rows.map((row) => row.followingId));
+  }
+
   // ─── Recommended Users ───────────────────────────────────────────────────────
   app.get("/api/users/recommended", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
@@ -12213,6 +12235,7 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
         .sort((a, b) => b.score - a.score)
         .slice(0, limit);
       const relationshipStates = await getCommunityConnectionStates(userId, scored.map((result) => result.userId));
+      const followingIds = await getCommunityFollowStates(userId, scored.map((result) => result.userId));
       const response = scored.map(r => ({
           userId: r.userId,
           firstName: r.firstName,
@@ -12227,6 +12250,7 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
           score: r.score,
           connectionId: relationshipStates.get(r.userId)?.id ?? null,
           connectionStatus: relationshipStates.get(r.userId)?.status ?? null,
+          isFollowing: followingIds.has(r.userId),
         }));
 
       res.json(response);
@@ -12244,6 +12268,24 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
       res.json(friends);
     } catch (err) {
       res.status(500).json({ message: "Failed to get friends" });
+    }
+  });
+
+  app.get("/api/follows", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const following = await storage.getFollowing(req.user!.claims.sub);
+      res.json(following);
+    } catch {
+      res.status(500).json({ message: "Failed to get following" });
+    }
+  });
+
+  app.patch("/api/follows/:userId", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const following = await storage.setFollowing(req.user!.claims.sub, req.params.userId, Boolean(req.body?.following));
+      res.json({ following });
+    } catch (err: any) {
+      res.status(err?.message?.includes("yourself") ? 400 : 500).json({ message: err?.message || "Failed to update follow" });
     }
   });
 
@@ -12329,6 +12371,15 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
     }
   });
 
+  app.get("/api/follows/activity", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const limit = parseInt(String(req.query.limit ?? "50"));
+      res.json(await storage.getFollowingActivityFeed(req.user!.claims.sub, limit));
+    } catch {
+      res.status(500).json({ message: "Failed to get following activity" });
+    }
+  });
+
   app.get("/api/community/activity-settings", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user!.claims.sub;
@@ -12384,6 +12435,14 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
     }
   });
 
+  app.get("/api/group-challenges/discover", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      res.json(await storage.getDiscoverableGroupChallenges(req.user!.claims.sub));
+    } catch {
+      res.status(500).json({ message: "Failed to discover group challenges" });
+    }
+  });
+
   app.get("/api/group-challenges/invites", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user!.claims.sub;
@@ -12397,9 +12456,12 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
   app.post("/api/group-challenges", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user!.claims.sub;
-      const { name, goalType, goalAmount, durationDays, inviteIds } = req.body;
+      const { name, goalType, goalAmount, durationDays, audience = "friends", inviteIds } = req.body;
       if (!name || !goalType || !goalAmount || !durationDays) {
         return res.status(400).json({ message: "name, goalType, goalAmount, durationDays required" });
+      }
+      if (!["friends", "followers", "public"].includes(audience)) {
+        return res.status(400).json({ message: "Invalid challenge audience" });
       }
       const startsAt = new Date();
       const endsAt = new Date(startsAt);
@@ -12412,6 +12474,7 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
         durationDays: Number(durationDays),
         startsAt,
         endsAt,
+        audience,
       });
       if (Array.isArray(inviteIds)) {
         for (const id of inviteIds) {
@@ -12421,6 +12484,14 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
       res.json(challenge);
     } catch (err) {
       res.status(500).json({ message: "Failed to create group challenge" });
+    }
+  });
+
+  app.post("/api/group-challenges/:id/join", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      res.json(await storage.joinGroupChallenge(req.params.id, req.user!.claims.sub));
+    } catch (err: any) {
+      res.status(err?.message === "Challenge not found" ? 404 : 403).json({ message: err?.message || "Failed to join challenge" });
     }
   });
 

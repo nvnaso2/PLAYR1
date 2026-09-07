@@ -6,6 +6,8 @@ import {
   Check,
   Clock3,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ChevronUp,
   Dumbbell,
   Flame,
@@ -14,7 +16,6 @@ import {
   Plus,
   Search,
   Swords,
-  Star,
   Trophy,
   UserPlus,
   UsersRound,
@@ -63,8 +64,7 @@ type Player = {
   positions?: string[] | null;
   connectionId?: string | null;
   connectionStatus?: string | null;
-  isFavorite?: boolean;
-  isFavoritedByFriend?: boolean;
+  isFollowing?: boolean;
   score?: number;
 };
 
@@ -152,15 +152,22 @@ function PanelError({ message }: { message: string }) {
 function ActivityPanel({ user }: { user: unknown }) {
   const { toast } = useToast();
   const [feedOpen, setFeedOpen] = useState(true);
+  const [activityScope, setActivityScope] = useState<"friends" | "following">("friends");
+  const [feedIndex, setFeedIndex] = useState(0);
   const [guideOpen, setGuideOpen] = useState(false);
   const [visibilityOpen, setVisibilityOpen] = useState(false);
+  const activityFeedUrl = activityScope === "friends" ? "/api/friends/activity" : "/api/follows/activity";
   const { data: feed = [], isLoading: feedLoading, isError: feedError } = useQuery<any[]>({
-    queryKey: ["/api/friends/activity"],
+    queryKey: [activityFeedUrl],
     enabled: !!user,
     refetchInterval: 30000,
   });
   const { data: friends = [], isLoading: friendsLoading } = useQuery<any[]>({
     queryKey: ["/api/friends"],
+    enabled: !!user,
+  });
+  const { data: following = [] } = useQuery<any[]>({
+    queryKey: ["/api/follows"],
     enabled: !!user,
   });
   const { data: requests = [], isLoading: requestsLoading, isError: requestsError } = useQuery<any[]>({
@@ -186,11 +193,18 @@ function ActivityPanel({ user }: { user: unknown }) {
       queryClient.invalidateQueries({ queryKey: ["/api/friends"] });
       queryClient.invalidateQueries({ queryKey: ["/api/friends/requests"] });
       queryClient.invalidateQueries({ queryKey: ["/api/friends/activity"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/follows/activity"] });
       queryClient.invalidateQueries({ queryKey: ["/api/users/recommended"] });
       toast({ title: variables.status === "accepted" ? "Friend request accepted" : "Request declined" });
     },
     onError: () => toast({ title: "Could not update request", variant: "destructive" }),
   });
+  useEffect(() => {
+    setFeedIndex(0);
+  }, [activityScope, feed.length]);
+
+  const activeActivity = feed[feedIndex];
+  const scopeLabel = activityScope === "friends" ? "Friends" : "Following";
 
   return (
     <div className="space-y-5">
@@ -245,8 +259,8 @@ function ActivityPanel({ user }: { user: unknown }) {
       <div>
         <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
           <div>
-            <h2 className="text-lg font-semibold">Friend activity</h2>
-            <p className="text-sm text-muted-foreground">Small signals from the players in your circle.</p>
+            <h2 className="text-lg font-semibold">Activity</h2>
+            <p className="text-sm text-muted-foreground">One basketball moment at a time from people you connect with.</p>
           </div>
           <div className="flex items-center gap-1">
             <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-white" onClick={() => setGuideOpen((open) => !open)} aria-expanded={guideOpen}>
@@ -260,6 +274,23 @@ function ActivityPanel({ user }: { user: unknown }) {
               {feedOpen ? "Hide feed" : "Show feed"}
             </Button>
           </div>
+        </div>
+
+        <div className="mb-4 flex items-center gap-1 rounded-xl border border-zinc-800 bg-zinc-950/50 p-1" role="tablist" aria-label="Activity feed">
+          {(["friends", "following"] as const).map((scope) => (
+            <Button
+              key={scope}
+              variant={activityScope === scope ? "secondary" : "ghost"}
+              size="sm"
+              className={`flex-1 ${activityScope === scope ? "bg-orange-500/15 text-orange-200 hover:bg-orange-500/20" : "text-muted-foreground"}`}
+              onClick={() => setActivityScope(scope)}
+              role="tab"
+              aria-selected={activityScope === scope}
+            >
+              {scope === "friends" ? "Friends" : "Following"}
+              <span className="ml-1.5 text-[10px] opacity-60">{scope === "friends" ? friends.length : following.length}</span>
+            </Button>
+          ))}
         </div>
 
         <Dialog open={guideOpen} onOpenChange={setGuideOpen}>
@@ -325,19 +356,19 @@ function ActivityPanel({ user }: { user: unknown }) {
           <div className="rounded-xl border border-dashed border-zinc-800 px-4 py-3 text-xs text-muted-foreground">Your activity feed is hidden for now. Show it whenever you want to catch up.</div>
         ) : feedError ? (
           <PanelError message="Activity could not be loaded. Try refreshing the page." />
-        ) : feedLoading || friendsLoading ? (
-          <div className="space-y-3" aria-label="Loading friend activity" aria-busy="true">
-            {[1, 2, 3].map((item) => <Skeleton key={item} className="h-20 w-full bg-zinc-900" />)}
+        ) : feedLoading || (activityScope === "friends" && friendsLoading) ? (
+          <div className="space-y-3" aria-label={`Loading ${scopeLabel.toLowerCase()} activity`} aria-busy="true">
+            <Skeleton className="h-56 w-full bg-zinc-900" />
           </div>
         ) : feed.length === 0 ? (
           <Card className="border-dashed border-zinc-700 bg-transparent">
             <CardContent className="flex flex-col items-center justify-center px-6 py-12 text-center">
               <div className="mb-4 rounded-full bg-orange-500/10 p-3"><Activity className="h-6 w-6 text-orange-400" /></div>
-              <h3 className="font-semibold">{friends.length ? "No new activity yet" : "Build your basketball circle"}</h3>
+              <h3 className="font-semibold">{(activityScope === "friends" ? friends.length : following.length) ? "No new activity yet" : activityScope === "friends" ? "Build your basketball circle" : "Follow players to fill this feed"}</h3>
               <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-                {friends.length
-                  ? "When your friends train, hit milestones, or finish challenges, you’ll see it here."
-                  : "Find players you know or players working toward a similar game. Their progress will appear here automatically."}
+                {(activityScope === "friends" ? friends.length : following.length)
+                  ? `When ${activityScope === "friends" ? "your friends" : "players you follow"} train, hit milestones, or finish challenges, you’ll see it here.`
+                  : activityScope === "friends" ? "Find players you know or players working toward a similar game. Their progress will appear here automatically." : "Follow players whose work, games, and progress you want to keep up with."}
               </p>
               <Button className="mt-5" onClick={() => window.dispatchEvent(new CustomEvent("community-tab", { detail: "players" }))}>
                 <UsersRound className="mr-2 h-4 w-4" /> Find players
@@ -345,39 +376,43 @@ function ActivityPanel({ user }: { user: unknown }) {
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-2" data-testid="community-activity-feed">
-            {feed.map((item: any) => {
-              const details = activityTypeDetails(item.activityType);
+          <div className="space-y-3" data-testid="community-activity-feed">
+            {activeActivity && (() => {
+              const details = activityTypeDetails(activeActivity.activityType);
               const Icon = details.icon;
-              const statLabel = item.metadata?.statLabel;
-              const statValue = item.metadata?.statValue;
+              const statLabel = activeActivity.metadata?.statLabel;
+              const statValue = activeActivity.metadata?.statValue;
               return (
-                <Card key={item.id} className="group relative min-h-[76px] overflow-hidden border-zinc-800/70 bg-zinc-900/35 transition-colors hover:border-zinc-700 hover:bg-zinc-900/60">
-                  <div className={`absolute inset-y-0 left-0 w-1 bg-gradient-to-b ${details.color}`} />
-                  <CardContent className="flex min-h-[76px] items-center gap-3 p-3 pl-4">
-                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${details.color} p-[1px]`}>
-                      <div className="flex h-full w-full items-center justify-center rounded-[10px] bg-zinc-950"><Icon className="h-4 w-4 text-white" aria-hidden="true" /></div>
-                    </div>
-                    <Link href={profileHref({ userId: item.user.id, profileSlug: item.user.profileSlug })} aria-label={`View ${item.user.displayName}'s profile`}>
-                      <PlayerAvatar player={item.user} size="h-9 w-9" />
-                    </Link>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <Link href={profileHref({ userId: item.user.id, profileSlug: item.user.profileSlug })} className="truncate text-xs font-semibold hover:text-orange-400">
-                          {item.user.displayName}
-                        </Link>
-                        <span className="shrink-0 text-[11px] text-muted-foreground">{relativeDate(item.createdAt)}</span>
+                <Card className="group relative min-h-[240px] overflow-hidden border-zinc-800/70 bg-zinc-900/35 transition-colors hover:border-zinc-700 hover:bg-zinc-900/60">
+                  <div className={`absolute inset-y-0 left-0 w-1.5 bg-gradient-to-b ${details.color}`} />
+                  <CardContent className="flex min-h-[240px] flex-col justify-center gap-5 p-6 pl-7">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${details.color} p-[1px]`}>
+                        <div className="flex h-full w-full items-center justify-center rounded-[15px] bg-zinc-950"><Icon className="h-5 w-5 text-white" aria-hidden="true" /></div>
                       </div>
-                      <p className="mt-0.5 truncate text-sm font-medium text-zinc-100">{item.title}</p>
-                      {item.description && <p className="truncate text-[11px] text-muted-foreground">{item.description}</p>}
+                      <span className="text-xs text-muted-foreground">{relativeDate(activeActivity.createdAt)}</span>
                     </div>
-                    <div className="hidden w-[88px] shrink-0 text-right sm:block">
-                      {statValue && <><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{statLabel}</p><p className="text-sm font-bold text-white">{statValue}</p></>}
+                    <div className="min-w-0">
+                      <Link href={profileHref({ userId: activeActivity.user.id, profileSlug: activeActivity.user.profileSlug })} className="text-sm font-semibold hover:text-orange-400">
+                        {activeActivity.user.displayName}
+                      </Link>
+                      <p className="mt-2 text-xl font-semibold tracking-tight text-zinc-100">{activeActivity.title}</p>
+                      {activeActivity.description && <p className="mt-2 text-sm leading-6 text-muted-foreground">{activeActivity.description}</p>}
                     </div>
+                    {statValue && <div className="w-fit rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{statLabel}</p><p className="text-lg font-bold text-white">{statValue}</p></div>}
                   </CardContent>
                 </Card>
               );
-            })}
+            })()}
+            <div className="flex items-center justify-between">
+              <Button variant="outline" size="sm" onClick={() => setFeedIndex((index) => Math.max(0, index - 1))} disabled={feedIndex === 0} aria-label="Previous activity">
+                <ChevronLeft className="mr-1 h-4 w-4" /> Previous
+              </Button>
+              <span className="text-xs tabular-nums text-muted-foreground">{feedIndex + 1} of {feed.length}</span>
+              <Button variant="outline" size="sm" onClick={() => setFeedIndex((index) => Math.min(feed.length - 1, index + 1))} disabled={feedIndex >= feed.length - 1} aria-label="Next activity">
+                Next <ChevronRight className="ml-1 h-4 w-4" />
+              </Button>
+            </div>
           </div>
         )}
       </div>
@@ -385,7 +420,7 @@ function ActivityPanel({ user }: { user: unknown }) {
   );
 }
 
-function ChallengeCard({ challenge, isOwner, onInvite }: { challenge: any; isOwner: boolean; onInvite: () => void }) {
+function ChallengeCard({ challenge, isOwner, onInvite, canJoin, onJoin }: { challenge: any; isOwner: boolean; onInvite: () => void; canJoin?: boolean; onJoin?: () => void }) {
   const goal = Math.max(1, Number(challenge.goalAmount));
   const endsAt = new Date(challenge.endsAt);
   const daysLeft = Math.max(0, Math.ceil((endsAt.getTime() - Date.now()) / 86400000));
@@ -402,10 +437,11 @@ function ChallengeCard({ challenge, isOwner, onInvite }: { challenge: any; isOwn
           <div>
             <CardTitle className="text-base">{challenge.name}</CardTitle>
             <p className="mt-1 text-xs text-muted-foreground">
-              {GROUP_CHALLENGE_GOAL_LABELS[challenge.goalType as keyof typeof GROUP_CHALLENGE_GOAL_LABELS] || challenge.goalType} · {goal.toLocaleString()} per player
+              {GROUP_CHALLENGE_GOAL_LABELS[challenge.goalType as keyof typeof GROUP_CHALLENGE_GOAL_LABELS] || challenge.goalType} · {goal.toLocaleString()} per player · {challenge.audience === "public" ? "Anyone can join" : challenge.audience === "followers" ? "Followers can join" : "Friends only"}
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {canJoin && onJoin && <Button size="sm" className="h-8 bg-orange-500 text-black hover:bg-orange-400" onClick={onJoin}>Join</Button>}
             {isOwner && <Button variant="outline" size="sm" className="h-8 border-orange-500/30 text-orange-300" onClick={onInvite}><UserPlus className="mr-1.5 h-3.5 w-3.5" /> Invite</Button>}
             <Badge variant="outline" className={ended ? "border-zinc-700 text-zinc-500" : "border-orange-500/30 text-orange-300"}>
               <Clock3 className="mr-1 h-3 w-3" /> {ended ? "Complete" : `${daysLeft}d left`}
@@ -461,6 +497,7 @@ function ChallengesPanel({ user }: { user: unknown }) {
   const [goalType, setGoalType] = useState<string>("training_sessions");
   const [goalAmount, setGoalAmount] = useState("5");
   const [durationDays, setDurationDays] = useState("14");
+  const [audience, setAudience] = useState<"friends" | "followers" | "public">("friends");
   const [inviteSearch, setInviteSearch] = useState("");
   const [selectedInviteIds, setSelectedInviteIds] = useState<string[]>([]);
   const [manageInviteSearch, setManageInviteSearch] = useState("");
@@ -472,6 +509,11 @@ function ChallengesPanel({ user }: { user: unknown }) {
   });
   const invitesQuery = useQuery<any[]>({
     queryKey: ["/api/group-challenges/invites"],
+    enabled: !!user,
+    refetchInterval: 30000,
+  });
+  const discoverQuery = useQuery<any[]>({
+    queryKey: ["/api/group-challenges/discover"],
     enabled: !!user,
     refetchInterval: 30000,
   });
@@ -500,14 +542,17 @@ function ChallengesPanel({ user }: { user: unknown }) {
       goalType,
       goalAmount: Number(goalAmount),
       durationDays: Number(durationDays),
+      audience,
       inviteIds: selectedInviteIds,
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/group-challenges"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/group-challenges/discover"] });
       queryClient.invalidateQueries({ queryKey: ["/api/group-challenges/invites"] });
       setCreateOpen(false);
       setName("");
       setSelectedInviteIds([]);
+      setAudience("friends");
       toast({ title: "Challenge created" });
     },
     onError: () => toast({ title: "Could not create challenge", variant: "destructive" }),
@@ -536,6 +581,16 @@ function ChallengesPanel({ user }: { user: unknown }) {
   const validForm = name.trim().length > 1 && Number(goalAmount) > 0 && Number(durationDays) > 0;
   const challenges = challengesQuery.data || [];
   const pendingInvites = invitesQuery.data || [];
+  const discoverableChallenges = (discoverQuery.data || []).filter((challenge: any) => !challenges.some((current: any) => current.id === challenge.id));
+  const joinChallenge = useMutation({
+    mutationFn: (challengeId: string) => apiRequest("POST", `/api/group-challenges/${challengeId}/join`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/group-challenges"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/group-challenges/discover"] });
+      toast({ title: "Joined challenge" });
+    },
+    onError: (error: any) => toast({ title: error?.message || "Could not join challenge", variant: "destructive" }),
+  });
 
   return (
     <div className="space-y-5">
@@ -594,6 +649,20 @@ function ChallengesPanel({ user }: { user: unknown }) {
         </div>
       )}
 
+      {discoverableChallenges.length > 0 && (
+        <section className="space-y-3" data-testid="community-public-challenges">
+          <div>
+            <h3 className="text-base font-semibold">Open challenges</h3>
+            <p className="text-sm text-muted-foreground">Join public challenges or challenges opened to players who follow the creator.</p>
+          </div>
+          <div className="space-y-4">
+            {discoverableChallenges.map((challenge: any) => (
+              <ChallengeCard key={challenge.id} challenge={challenge} isOwner={false} onInvite={() => undefined} canJoin onJoin={() => joinChallenge.mutate(challenge.id)} />
+            ))}
+          </div>
+        </section>
+      )}
+
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -609,6 +678,13 @@ function ChallengesPanel({ user }: { user: unknown }) {
               <label className="block space-y-1.5 text-sm"><span className="font-medium">Target per player</span><Input type="number" min="1" value={goalAmount} onChange={(event) => setGoalAmount(event.target.value)} data-testid="input-challenge-target" /></label>
             </div>
             <label className="block space-y-1.5 text-sm"><span className="font-medium">Length in days</span><Input type="number" min="1" value={durationDays} onChange={(event) => setDurationDays(event.target.value)} data-testid="input-challenge-duration" /></label>
+            <label className="block space-y-1.5 text-sm"><span className="font-medium">Who can join?</span>
+              <Select value={audience} onValueChange={(value: "friends" | "followers" | "public") => setAudience(value)}><SelectTrigger data-testid="select-challenge-audience"><SelectValue /></SelectTrigger><SelectContent>
+                <SelectItem value="friends">Friends only — invite players</SelectItem>
+                <SelectItem value="followers">Followers — anyone following you</SelectItem>
+                <SelectItem value="public">Public — anyone can join</SelectItem>
+              </SelectContent></Select>
+            </label>
             <div className="space-y-2">
               <label className="text-sm font-medium" htmlFor="challenge-invite-search">Invite friends</label>
               <Input id="challenge-invite-search" value={inviteSearch} onChange={(event) => setInviteSearch(event.target.value)} placeholder="Search by name" />
@@ -650,7 +726,7 @@ function ChallengesPanel({ user }: { user: unknown }) {
   );
 }
 
-function PlayerCard({ player, onAdd, onAccept, adding }: { player: Player; onAdd: () => void; onAccept: () => void; adding: boolean }) {
+function PlayerCard({ player, onAdd, onAccept, onFollow, adding, following }: { player: Player; onAdd: () => void; onAccept: () => void; onFollow: () => void; adding: boolean; following: boolean }) {
   const name = playerName(player);
   const status = player.connectionStatus;
   return (
@@ -665,10 +741,15 @@ function PlayerCard({ player, onAdd, onAccept, adding }: { player: Player; onAdd
             {locationLabel(player) && <span className="flex items-center gap-0.5"><MapPin className="h-3 w-3" />{locationLabel(player)}</span>}
           </div>
         </div>
-        {status === "friends" ? <Badge variant="outline" className="shrink-0 border-emerald-500/30 text-emerald-300"><Check className="mr-1 h-3 w-3" /> Friends</Badge>
-          : status === "outgoing_pending" ? <Badge variant="outline" className="shrink-0 border-zinc-700 text-zinc-400">Pending</Badge>
-            : status === "incoming_pending" ? <Button size="sm" onClick={onAccept} disabled={adding} data-testid={`button-accept-player-${player.userId}`}><Check className="mr-1 h-3 w-3" /> Accept</Button>
-              : <Button size="sm" variant="outline" className="shrink-0 border-orange-500/40 text-orange-300 hover:bg-orange-500/10" onClick={onAdd} disabled={adding} data-testid={`button-add-player-${player.userId}`}><UserPlus className="mr-1 h-3 w-3" /> Add</Button>}
+        <div className="flex shrink-0 items-center gap-1.5">
+          <Button size="sm" variant={player.isFollowing ? "secondary" : "outline"} className={player.isFollowing ? "text-orange-200" : "border-orange-500/40 text-orange-300 hover:bg-orange-500/10"} onClick={onFollow} disabled={following} data-testid={`button-follow-player-${player.userId}`}>
+            {player.isFollowing ? "Following" : "Follow"}
+          </Button>
+          {status === "friends" ? <Badge variant="outline" className="hidden border-emerald-500/30 text-emerald-300 sm:inline-flex"><Check className="mr-1 h-3 w-3" /> Friends</Badge>
+            : status === "outgoing_pending" ? <Badge variant="outline" className="hidden border-zinc-700 text-zinc-400 sm:inline-flex">Pending</Badge>
+              : status === "incoming_pending" ? <Button size="sm" onClick={onAccept} disabled={adding} data-testid={`button-accept-player-${player.userId}`}><Check className="mr-1 h-3 w-3" /> Accept</Button>
+                : <Button size="sm" variant="outline" className="hidden border-orange-500/40 text-orange-300 hover:bg-orange-500/10 sm:inline-flex" onClick={onAdd} disabled={adding} data-testid={`button-add-player-${player.userId}`}><UserPlus className="mr-1 h-3 w-3" /> Friend</Button>}
+        </div>
       </CardContent>
     </Card>
   );
@@ -681,6 +762,7 @@ function PlayersPanel({ user }: { user: unknown }) {
   const [position, setPosition] = useState("all");
   const [state, setState] = useState("");
   const [addingId, setAddingId] = useState<string | null>(null);
+  const [followingId, setFollowingId] = useState<string | null>(null);
   const recommendedQuery = useQuery<Player[]>({ queryKey: ["/api/users/recommended"], enabled: !!user });
   const friendsQuery = useQuery<any[]>({ queryKey: ["/api/friends"], enabled: !!user });
   const requestsQuery = useQuery<any[]>({ queryKey: ["/api/friends/requests"], enabled: !!user });
@@ -722,15 +804,19 @@ function PlayersPanel({ user }: { user: unknown }) {
     },
     onError: () => toast({ title: "Could not accept request", variant: "destructive" }),
   });
-  const favoriteFriend = useMutation({
-    mutationFn: ({ friendId, favorite }: { friendId: string; favorite: boolean }) =>
-      apiRequest("PATCH", `/api/friends/${friendId}/favorite`, { favorite }),
+  const toggleFollow = useMutation({
+    mutationFn: ({ userId, following }: { userId: string; following: boolean }) =>
+      apiRequest("PATCH", `/api/follows/${userId}`, { following }),
+    onMutate: ({ userId }) => setFollowingId(userId),
+    onSettled: () => setFollowingId(null),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/friends"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/friends/activity"] });
-      toast({ title: variables.favorite ? "Added to favorite friends" : "Removed from favorite friends" });
+      queryClient.invalidateQueries({ queryKey: ["/api/follows"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/follows/activity"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users/recommended"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users/search"] });
+      toast({ title: variables.following ? "Now following player" : "Unfollowed player" });
     },
-    onError: () => toast({ title: "Could not update favorite friend", variant: "destructive" }),
+    onError: () => toast({ title: "Could not update follow", variant: "destructive" }),
   });
 
   const incomingByUser = useMemo(() => new Map((requestsQuery.data || []).map((request: any) => [request.requester.id, request])), [requestsQuery.data]);
@@ -748,8 +834,8 @@ function PlayersPanel({ user }: { user: unknown }) {
         <Card className="border-orange-500/15 bg-orange-500/[0.035]">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
             <div>
-              <CardTitle className="text-base">Your inner circle</CardTitle>
-              <p className="mt-1 text-xs text-muted-foreground">Players whose progress you want close at hand.</p>
+              <CardTitle className="text-base">Your friends</CardTitle>
+              <p className="mt-1 text-xs text-muted-foreground">Players you have a two-way connection with.</p>
             </div>
             <Badge variant="outline" className="border-orange-500/25 text-orange-300">{friendsQuery.data.length}</Badge>
           </CardHeader>
@@ -764,20 +850,8 @@ function PlayersPanel({ user }: { user: unknown }) {
                   <div className="min-w-0">
                     <span className="block truncate text-xs font-medium">{item.friend.displayName}</span>
                     {item.friend.skillLevel && <span className="block truncate text-[10px] capitalize text-muted-foreground">{item.friend.skillLevel}</span>}
-                    {item.friend.isFavoritedByFriend && <span className="flex items-center gap-0.5 text-[10px] text-orange-300"><Star className="h-2.5 w-2.5 fill-current" /> They favorited you</span>}
                   </div>
                 </Link>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={`h-8 w-8 shrink-0 ${item.friend.isFavorite ? "text-orange-300 hover:text-orange-200" : "text-zinc-600 hover:text-orange-300"}`}
-                  onClick={() => favoriteFriend.mutate({ friendId: item.friend.id, favorite: !item.friend.isFavorite })}
-                  disabled={favoriteFriend.isPending}
-                  aria-label={item.friend.isFavorite ? `Remove ${item.friend.displayName} from favorite friends` : `Favorite ${item.friend.displayName}`}
-                  title={item.friend.isFavorite ? "Remove from favorite friends" : "Favorite friend"}
-                >
-                  <Star className={`h-4 w-4 ${item.friend.isFavorite ? "fill-current" : ""}`} />
-                </Button>
               </div>
             ))}
           </CardContent>
@@ -812,7 +886,7 @@ function PlayersPanel({ user }: { user: unknown }) {
           {players.map((player) => {
             const incoming = incomingByUser.get(player.userId);
             const normalizedPlayer = incoming ? { ...player, connectionStatus: "incoming_pending" } : player;
-            return <PlayerCard key={player.userId} player={normalizedPlayer} adding={addingId === player.userId || acceptRequest.isPending} onAdd={() => sendRequest.mutate(player.userId)} onAccept={() => incoming && acceptRequest.mutate(incoming.friendship.id)} />;
+            return <PlayerCard key={player.userId} player={normalizedPlayer} adding={addingId === player.userId || acceptRequest.isPending} following={followingId === player.userId || toggleFollow.isPending} onAdd={() => sendRequest.mutate(player.userId)} onAccept={() => incoming && acceptRequest.mutate(incoming.friendship.id)} onFollow={() => toggleFollow.mutate({ userId: player.userId, following: !player.isFollowing })} />;
           })}
         </div>
       )}

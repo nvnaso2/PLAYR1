@@ -89,7 +89,7 @@ import {
   type GoalCheckIn, type InsertGoalCheckIn,
   statChallenges, type StatChallenge, type InsertStatChallenge,
   type StatChallengeMetric,
-  friendships, friendFavorites, type Friendship, type InsertFriendship,
+  friendships, friendFavorites, userFollows, type Friendship, type InsertFriendship,
   friendActivityFeed, type FriendActivity, type InsertFriendActivity, FRIEND_ACTIVITY_TYPES,
   groupChallenges, type GroupChallenge, type InsertGroupChallenge,
   groupChallengeMembers, type GroupChallengeMember, type InsertGroupChallengeMember,
@@ -755,6 +755,8 @@ export interface IStorage {
   respondFriendRequest(id: string, status: "accepted" | "declined"): Promise<Friendship>;
   getFriends(userId: string): Promise<Array<{ friendship: Friendship; friend: { id: string; displayName: string; profilePhotoUrl: string | null; skillLevel: string | null } }>>;
   setFriendFavorite(userId: string, friendId: string, favorite: boolean): Promise<boolean>;
+  getFollowing(userId: string): Promise<Array<{ userId: string; displayName: string; profilePhotoUrl: string | null }>>;
+  setFollowing(userId: string, followingId: string, following: boolean): Promise<boolean>;
   getPendingFriendRequests(userId: string): Promise<Array<{ friendship: Friendship; requester: { id: string; displayName: string; profilePhotoUrl: string | null } }>>;
   getFriendshipBetween(userId1: string, userId2: string): Promise<Friendship | undefined>;
   removeFriend(userId: string, friendId: string): Promise<boolean>;
@@ -762,10 +764,13 @@ export interface IStorage {
   // Friend Activity
   logFriendActivity(data: InsertFriendActivity): Promise<FriendActivity>;
   getFriendActivityFeed(userId: string, limit?: number): Promise<Array<FriendActivity & { user: { id: string; profileSlug: string | null; displayName: string; profilePhotoUrl: string | null } }>>;
+  getFollowingActivityFeed(userId: string, limit?: number): Promise<Array<FriendActivity & { user: { id: string; profileSlug: string | null; displayName: string; profilePhotoUrl: string | null } }>>;
 
   // Group Challenges
   createGroupChallenge(data: InsertGroupChallenge): Promise<GroupChallenge>;
   getGroupChallengesForUser(userId: string): Promise<Array<GroupChallenge & { members: Array<GroupChallengeMember & { user: { id: string; displayName: string; profilePhotoUrl: string | null } }> }>>;
+  getDiscoverableGroupChallenges(userId: string): Promise<GroupChallenge[]>;
+  joinGroupChallenge(challengeId: string, userId: string): Promise<GroupChallengeMember>;
   getGroupChallengeById(id: string): Promise<GroupChallenge | undefined>;
   inviteToGroupChallenge(challengeId: string, invitedUserId: string): Promise<GroupChallengeMember>;
   respondGroupChallengeInvite(memberId: string, userId: string, status: "accepted" | "declined"): Promise<GroupChallengeMember>;
@@ -7725,6 +7730,33 @@ Object.assign(DatabaseStorage.prototype, {
     return favorite;
   },
 
+  async getFollowing(userId: string): Promise<Array<{ userId: string; displayName: string; profilePhotoUrl: string | null }>> {
+    const follows = await db.select().from(userFollows).where(eq(userFollows.followerId, userId));
+    const result = [];
+    for (const follow of follows) {
+      const [profile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, follow.followingId));
+      const [user] = await db.select().from(users).where(eq(users.id, follow.followingId));
+      result.push({
+        userId: follow.followingId,
+        displayName: profile?.displayName || `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || user?.email || "Player",
+        profilePhotoUrl: profile?.profilePhotoUrl || user?.profileImageUrl || null,
+      });
+    }
+    return result;
+  },
+
+  async setFollowing(userId: string, followingId: string, following: boolean): Promise<boolean> {
+    if (userId === followingId) throw new Error("You cannot follow yourself");
+    if (following) {
+      await db.insert(userFollows)
+        .values({ followerId: userId, followingId })
+        .onConflictDoNothing({ target: [userFollows.followerId, userFollows.followingId] });
+    } else {
+      await db.delete(userFollows).where(and(eq(userFollows.followerId, userId), eq(userFollows.followingId, followingId)));
+    }
+    return following;
+  },
+
   async getPendingFriendRequests(userId: string): Promise<Array<{ friendship: Friendship; requester: { id: string; profileSlug: string | null; displayName: string; profilePhotoUrl: string | null } }>> {
     const rows = await db.select().from(friendships).where(
       and(eq(friendships.addresseeId, userId), eq(friendships.status, "pending"))
@@ -7817,6 +7849,36 @@ Object.assign(DatabaseStorage.prototype, {
     return result.slice(0, limit);
   },
 
+  async getFollowingActivityFeed(userId: string, limit = 50): Promise<Array<FriendActivity & { user: { id: string; profileSlug: string | null; displayName: string; profilePhotoUrl: string | null } }>> {
+    const followingRows = await db.select({ followingId: userFollows.followingId })
+      .from(userFollows)
+      .where(eq(userFollows.followerId, userId));
+    const followingIds = followingRows.map((row) => row.followingId);
+    if (followingIds.length === 0) return [];
+
+    const activities = await db.select().from(friendActivityFeed)
+      .where(inArray(friendActivityFeed.userId, followingIds))
+      .orderBy(desc(friendActivityFeed.createdAt));
+    const result = [];
+    for (const a of activities) {
+      if (!FRIEND_ACTIVITY_TYPES.includes(a.activityType as typeof FRIEND_ACTIVITY_TYPES[number])) continue;
+      const [profile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, a.userId));
+      if (profile?.activityVisibility && profile.activityVisibility[a.activityType] === false) continue;
+      const [publicProfile] = await db.select({ slug: playerProfiles.slug }).from(playerProfiles).where(eq(playerProfiles.userId, a.userId));
+      const [user] = await db.select().from(users).where(eq(users.id, a.userId));
+      result.push({
+        ...a,
+        user: {
+          id: a.userId,
+          profileSlug: publicProfile?.slug || null,
+          displayName: profile?.displayName || `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || "Player",
+          profilePhotoUrl: profile?.profilePhotoUrl || user?.profileImageUrl || null,
+        },
+      });
+    }
+    return result.slice(0, limit);
+  },
+
   // ─── Group Challenges ────────────────────────────────────────────────────────
   async createGroupChallenge(data: InsertGroupChallenge): Promise<GroupChallenge> {
     const [c] = await db.insert(groupChallenges).values(data as any).returning();
@@ -7863,6 +7925,49 @@ Object.assign(DatabaseStorage.prototype, {
       result.push({ ...c, members: membersWithUsers });
     }
     return result;
+  },
+
+  async getDiscoverableGroupChallenges(userId: string): Promise<GroupChallenge[]> {
+    const candidates = await db.select().from(groupChallenges).where(gte(groupChallenges.endsAt, new Date()));
+    const acceptedFriends = await this.getFriends(userId);
+    const friendIds = new Set(acceptedFriends.map((item: any) => item.friend.id));
+    const followed = await db.select({ followingId: userFollows.followingId })
+      .from(userFollows)
+      .where(eq(userFollows.followerId, userId));
+    const followingIds = new Set(followed.map((row) => row.followingId));
+    return candidates.filter((challenge) => {
+      if (challenge.creatorId === userId || challenge.audience === "public") return true;
+      if (challenge.audience === "followers") return followingIds.has(challenge.creatorId) || friendIds.has(challenge.creatorId);
+      return friendIds.has(challenge.creatorId);
+    });
+  },
+
+  async joinGroupChallenge(challengeId: string, userId: string): Promise<GroupChallengeMember> {
+    const [challenge] = await db.select().from(groupChallenges).where(eq(groupChallenges.id, challengeId));
+    if (!challenge) throw new Error("Challenge not found");
+    const existing = await db.select().from(groupChallengeMembers).where(
+      and(eq(groupChallengeMembers.challengeId, challengeId), eq(groupChallengeMembers.userId, userId))
+    );
+    if (existing[0]) {
+      if (existing[0].status === "accepted") return existing[0];
+      const [updated] = await db.update(groupChallengeMembers).set({ status: "accepted", joinedAt: new Date() })
+        .where(eq(groupChallengeMembers.id, existing[0].id)).returning();
+      return updated;
+    }
+    if (challenge.creatorId !== userId && challenge.audience !== "public") {
+      const friendship = await this.getFriendshipBetween(userId, challenge.creatorId);
+      const follows = await db.select().from(userFollows).where(and(eq(userFollows.followerId, userId), eq(userFollows.followingId, challenge.creatorId)));
+      const allowed = friendship?.status === "accepted" || (challenge.audience === "followers" && follows.length > 0);
+      if (!allowed) throw new Error("You cannot join this challenge");
+    }
+    const [member] = await db.insert(groupChallengeMembers).values({
+      challengeId,
+      userId,
+      status: "accepted",
+      joinedAt: new Date(),
+      progress: 0,
+    }).returning();
+    return member;
   },
 
   async getGroupChallengeById(id: string): Promise<GroupChallenge | undefined> {
