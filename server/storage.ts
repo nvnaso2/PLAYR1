@@ -7688,6 +7688,14 @@ Object.assign(DatabaseStorage.prototype, {
   },
 
   async respondFriendRequest(id: string, status: "accepted" | "declined"): Promise<Friendship> {
+    const [existing] = await db.select().from(friendships).where(eq(friendships.id, id)).limit(1);
+    if (status === "accepted" && existing) {
+      const [follow] = await db.select({ id: userFollows.id }).from(userFollows).where(and(
+        eq(userFollows.followerId, existing.requesterId),
+        eq(userFollows.followingId, existing.addresseeId),
+      )).limit(1);
+      if (!follow) throw new Error("The requester must follow this player before becoming a friend");
+    }
     const [f] = await db.update(friendships).set({ status, updatedAt: new Date() }).where(eq(friendships.id, id)).returning();
     return f;
   },

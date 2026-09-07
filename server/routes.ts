@@ -12285,7 +12285,7 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
       const following = await storage.setFollowing(req.user!.claims.sub, req.params.userId, Boolean(req.body?.following));
       res.json({ following });
     } catch (err: any) {
-      res.status(err?.message?.includes("yourself") ? 400 : 500).json({ message: err?.message || "Failed to update follow" });
+      res.status(err?.message?.includes("yourself") || err?.message?.includes("unfriend") ? 400 : 500).json({ message: err?.message || "Failed to update follow" });
     }
   });
 
@@ -12307,8 +12307,8 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
       if (addresseeId === userId) return res.status(400).json({ message: "Cannot friend yourself" });
       const friendship = await storage.sendFriendRequest(userId, addresseeId);
       res.json(friendship);
-    } catch (err) {
-      res.status(500).json({ message: "Failed to send friend request" });
+    } catch (err: any) {
+      res.status(err?.message?.includes("follow this player") ? 400 : 500).json({ message: err?.message || "Failed to send friend request" });
     }
   });
 
@@ -12323,8 +12323,8 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
       }
       const friendship = await storage.respondFriendRequest(req.params.id, status);
       res.json(friendship);
-    } catch (err) {
-      res.status(500).json({ message: "Failed to respond to friend request" });
+    } catch (err: any) {
+      res.status(err?.message?.includes("must follow") ? 400 : 500).json({ message: err?.message || "Failed to respond to friend request" });
     }
   });
 

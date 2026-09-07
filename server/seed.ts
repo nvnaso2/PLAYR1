@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { drills, benchmarks, evaluationAttributes, shotLocations, shotTypes, userProfiles, metricTemplates, drillMetrics, teamClubs, leagues, archetypes, archetypeRoadmapItems, streakChallenges, type ArchetypeTier, type ArchetypeRoadmapItemType, careerProfiles, playerProfiles, friendships, friendActivityFeed, groupChallenges, groupChallengeMembers, userStreaks, trainingLogs } from "@shared/schema";
+import { drills, benchmarks, evaluationAttributes, shotLocations, shotTypes, userProfiles, metricTemplates, drillMetrics, teamClubs, leagues, archetypes, archetypeRoadmapItems, streakChallenges, type ArchetypeTier, type ArchetypeRoadmapItemType, careerProfiles, playerProfiles, friendships, userFollows, friendActivityFeed, groupChallenges, groupChallengeMembers, userStreaks, trainingLogs } from "@shared/schema";
 // seedPrograms disabled — generic programs removed per user request
 // import { seedPrograms } from "./seed-programs";
 import { users } from "@shared/models/auth";
@@ -596,6 +596,9 @@ async function seedCommunityDemo() {
     if (!existing) {
       await db.insert(friendships).values({ requesterId: userId, addresseeId: demoId, status: "accepted" });
     }
+    await db.insert(userFollows).values({ followerId: userId, followingId: demoId }).onConflictDoNothing({
+      target: [userFollows.followerId, userFollows.followingId],
+    });
   };
 
   const addMember = async (challengeId: string, userId: string, status: "accepted" | "invited", progress: number) => {

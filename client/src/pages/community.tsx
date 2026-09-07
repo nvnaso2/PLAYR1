@@ -380,7 +380,7 @@ function ActivityPanel({ user }: { user: unknown }) {
                 profilePhotoUrl: activity.user.profilePhotoUrl,
               };
               return (
-                <Card key={activity.id} className="group relative min-h-[104px] overflow-hidden border-zinc-800/70 bg-zinc-900/35 transition-colors hover:border-zinc-700 hover:bg-zinc-900/60">
+                <Card key={activity.id} className="group relative min-h-[88px] overflow-hidden border-zinc-800/70 bg-zinc-900/35 transition-colors hover:border-zinc-700 hover:bg-zinc-900/60">
                   <div className={`absolute inset-y-0 left-0 w-1.5 bg-gradient-to-b ${details.color}`} />
                   <CardContent className="grid min-h-[88px] grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-3 p-3 pl-5 sm:grid-cols-[auto_auto_minmax(0,1fr)_minmax(110px,0.35fr)] sm:gap-4">
                     <PlayerAvatar player={activityPlayer} size="h-9 w-9" />
@@ -740,7 +740,7 @@ function PlayerCard({ player, onAdd, onAccept, onFollow, onRemoveFriend, adding,
           {status === "friends" ? <Button size="sm" variant="ghost" className="text-emerald-300 hover:bg-red-500/10 hover:text-red-300" onClick={onRemoveFriend} disabled={removingFriend} data-testid={`button-unfriend-player-${player.userId}`}>Unfriend</Button>
             : status === "outgoing_pending" ? <Badge variant="outline" className="border-zinc-700 text-zinc-400">Pending</Badge>
               : status === "incoming_pending" ? <Button size="sm" onClick={onAccept} disabled={adding} data-testid={`button-accept-player-${player.userId}`}><Check className="mr-1 h-3 w-3" /> Accept</Button>
-                : <Button size="sm" variant="outline" className="border-orange-500/40 text-orange-300 hover:bg-orange-500/10" onClick={onAdd} disabled={adding || !player.isFollowing} title={!player.isFollowing ? "Follow this player before friending them" : undefined} data-testid={`button-add-player-${player.userId}`}><UserPlus className="mr-1 h-3 w-3" /> Friend</Button>}
+                : <Button size="sm" variant="outline" className="border-orange-500/40 text-orange-300 hover:bg-orange-500/10" onClick={onAdd} disabled={adding || !player.isFollowing} title={!player.isFollowing ? "Follow this player before friending them" : undefined} data-testid={`button-add-player-${player.userId}`}><UserPlus className="mr-1 h-3 w-3" /> {player.isFollowing ? "Friend" : "Follow to friend"}</Button>}
         </div>
       </CardContent>
     </Card>
