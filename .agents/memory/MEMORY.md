@@ -13,3 +13,4 @@
 - [Training streak activity](training-streak-activity.md) — any saved workout advances the streak once per server day; daily challenge completion remains drill-specific
 - [Workout builder flow](workout-builder-flow.md) — Start and Create Workout both enter the Drill Library card selector before save or logging-mode choice
 - [PLAYR1 Project goal system](playr1-project-goal-system.md) — player-owned projects are broader than workouts; discovery is free, while ongoing coaching is Pro
+- [Community feed baseline](community-feed-baseline.md) — uniform, multi-item activity feed is the approved rollback baseline before single-activity browsing
