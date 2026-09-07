@@ -23,7 +23,7 @@ import {
 import { sendPushNotification, getVapidPublicKey } from "./push";
 import { ensureOnboardingSchema, getDiagnosticSummary, getFixCategory, validateMicroQuizPayload } from "./onboarding";
 import { getMicroQuiz } from "@shared/micro-quizzes";
-import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, playerProfiles, drills, trainingLogs, trainingLogMetrics, feedbackComments, insertProgramSchema, insertProgramItemSchema, insertEventSchema, events, insertStatChallengeSchema, programEnrollments, coachPUsage, friendships } from "@shared/schema";
+import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, playerProfiles, drills, trainingLogs, trainingLogMetrics, feedbackComments, insertProgramSchema, insertProgramItemSchema, insertEventSchema, events, insertStatChallengeSchema, programEnrollments, coachPUsage, friendships, FRIEND_ACTIVITY_TYPES, type FriendActivityType } from "@shared/schema";
 import { getUncachableStripeClient } from "./stripeClient";
 import { WebhookHandlers } from "./webhookHandlers";
 import { JOURNAL_PROMPTS } from "@shared/journalPrompts";
@@ -147,8 +147,8 @@ export async function registerRoutes(
 
   // ─── Friend Activity Helper ───────────────────────────────────────────────────
   // Fire-and-forget: logs an activity event so a user's friends see it in the feed.
-  function fireActivity(userId: string, activityType: string, title: string, description?: string) {
-    storage.logFriendActivity({ userId, activityType, title, description: description ?? null })
+  function fireActivity(userId: string, activityType: FriendActivityType, title: string, description?: string, metadata?: Record<string, unknown>) {
+    storage.logFriendActivity({ userId, activityType, title, description: description ?? null, metadata: metadata ?? null })
       .catch(err => console.error("[FriendActivity]", activityType, err));
   }
 
@@ -2883,11 +2883,6 @@ COACHING RULES:
           const totalMin = logs.reduce((s: number, l: any) => s + (l.duration ?? 0), 0);
           fireActivity(userId, "completed_workout", "Finished a workout session",
             `${drillLabel}${totalMin > 0 ? ` · ${totalMin} min` : ""}`);
-          if (streakResult?.milestoneReached && STREAK_MILESTONES.has(streakResult.milestoneReached)) {
-            fireActivity(userId, "streak_milestone",
-              `Hit a ${streakResult.milestoneReached}-day training streak 🔥`,
-              `${streakResult.milestoneReached} days in a row training`);
-          }
         } catch { /* non-fatal */ }
       })();
     } catch (error) {
@@ -3641,8 +3636,6 @@ COACHING RULES:
       ;(async () => {
         try {
           const challenge = await storage.getChallengeById(challengeId);
-          fireActivity(userId, "started_program", `Entered a challenge`,
-            challenge?.name ?? "a challenge");
         } catch { /* non-fatal */ }
       })();
     } catch (error) {
@@ -3685,8 +3678,8 @@ COACHING RULES:
       ;(async () => {
         try {
           const challenge = await storage.getChallengeById(completed.challengeId);
-          fireActivity(userId, "completed_challenge", `Completed a challenge 🏆`,
-            challenge?.name ?? "a challenge");
+          fireActivity(userId, "completed_personal_challenge", `Completed a personal challenge`,
+            challenge?.name ?? "a challenge", { challengeId: completed.challengeId });
         } catch { /* non-fatal */ }
       })();
     } catch (error) {
@@ -3978,6 +3971,14 @@ COACHING RULES:
       } catch (e) { console.error("Game PR check error:", e); }
       
       res.status(201).json(game);
+      fireActivity(userId, "game_logged", "Logged a game",
+        `${game.opponent || "Game"} · ${game.result || "Stats recorded"}`, {
+          gameId: game.id,
+          points: game.points ?? 0,
+          rebounds: game.rebounds ?? 0,
+          assists: game.assists ?? 0,
+          result: game.result ?? null,
+        });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid data", errors: error.errors });
@@ -9431,13 +9432,8 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
       // Friend activity — fire-and-forget
       ;(async () => {
         try {
-          fireActivity(userId, "finished_challenge", "Completed the daily challenge 🏀",
-            `Daily training streak: day ${result.streak.currentStreak}`);
-          if (result.milestoneReached && STREAK_MILESTONES.has(result.milestoneReached)) {
-            fireActivity(userId, "streak_milestone",
-              `Hit a ${result.milestoneReached}-day training streak 🔥`,
-              `${result.milestoneReached} days in a row on the daily challenge`);
-          }
+          fireActivity(userId, "completed_personal_challenge", "Completed a personal challenge",
+            `Daily challenge · training streak day ${result.streak.currentStreak}`);
         } catch { /* non-fatal */ }
       })();
     } catch (err) {
@@ -9639,11 +9635,7 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
             const prog = preEnroll?.programId ? await storage.getProgramById(preEnroll.programId) : null;
             const progTitle = prog?.title ?? "a program";
             if (result.programCompleted) {
-              fireActivity(userId, "completed_challenge", `Completed a training program 🏆`, progTitle);
-            } else if (result.enrollment.currentDay > (preEnroll?.currentDay ?? 0)) {
-              fireActivity(userId, "completed_program_day",
-                `Completed Day ${preEnroll?.currentDay ?? result.enrollment.currentDay} of ${progTitle}`,
-                prog ? `${result.enrollment.currentDay - 1} of ${prog.lengthDays} days done` : undefined);
+              fireActivity(userId, "completed_program", `Finished a training program`, progTitle, { programId: preEnroll?.programId });
             }
           } catch { /* non-fatal */ }
         })();
@@ -11866,6 +11858,13 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
       }
 
       res.json({ milestone, goalCompleted: allDone });
+      fireActivity(userId, "project_milestone_completed", "Completed a Project milestone",
+        `${goal.projectTitle || "My PLAYR1 Project"} · ${milestone.title}`, {
+          goalId: goal.id,
+          milestoneId: milestone.id,
+          projectTitle: goal.projectTitle,
+          projectCompleted: allDone,
+        });
     } catch (err) {
       console.error("[goals] milestone complete:", err);
       res.status(500).json({ message: "Failed to complete milestone" });
@@ -12020,8 +12019,6 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
         initialBestRecord: Number(req.body.currentBest) || 0,
       } as any);
       res.json(participant);
-      fireActivity(userId, "started_program", `Joined a streak challenge`,
-        `${challenge.title} · goal: ${participant.personalGoal}`);
     } catch (err) {
       console.error("[streak] join:", err);
       res.status(500).json({ message: "Failed to join challenge" });
@@ -12063,8 +12060,8 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
         submitToCreator: Boolean(req.body.submitToCreator),
       } as any);
       res.json(result);
-      fireActivity(userId, "completed_program_day", `Logged a streak challenge attempt`,
-        `${challenge.title} · score: ${score}`);
+      fireActivity(userId, "three_point_challenge_score", `Logged a 3-point challenge score`,
+        `${challenge.title} · score: ${score}`, { score, challengeSlug: req.params.slug });
     } catch (err) {
       console.error("[streak] attempt:", err);
       res.status(500).json({ message: "Failed to log attempt" });
@@ -12297,12 +12294,55 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
     }
   });
 
+  app.get("/api/community/activity-settings", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const [profile] = await db.select({ activityVisibility: userProfiles.activityVisibility })
+        .from(userProfiles)
+        .where(eq(userProfiles.userId, userId));
+      const visibility = Object.fromEntries(FRIEND_ACTIVITY_TYPES.map((type) => [type, profile?.activityVisibility?.[type] !== false]));
+      res.json(visibility);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to get activity settings" });
+    }
+  });
+
+  app.patch("/api/community/activity-settings", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const requested = req.body?.visibility;
+      if (!requested || typeof requested !== "object" || Array.isArray(requested)) {
+        return res.status(400).json({ message: "visibility object required" });
+      }
+      const visibility = Object.fromEntries(FRIEND_ACTIVITY_TYPES.map((type) => [type, requested[type] !== false]));
+      const [updated] = await db.update(userProfiles)
+        .set({ activityVisibility: visibility, updatedAt: new Date() })
+        .where(eq(userProfiles.userId, userId))
+        .returning({ activityVisibility: userProfiles.activityVisibility });
+      if (!updated) return res.status(404).json({ message: "Player profile not found" });
+      res.json(visibility);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to update activity settings" });
+    }
+  });
+
   // ─── Group Challenges ────────────────────────────────────────────────────────
   app.get("/api/group-challenges", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user!.claims.sub;
       const challenges = await storage.getGroupChallengesForUser(userId);
-      await Promise.all(challenges.map((challenge) => storage.syncGroupChallengeProgress(challenge.id)));
+      const changes = (await Promise.all(challenges.map((challenge) => storage.syncGroupChallengeProgress(challenge.id)))).flat();
+      for (const change of changes) {
+        const challenge = challenges.find((item) => item.id === change.challengeId);
+        if (challenge) {
+          fireActivity(change.userId, "group_challenge_progress", "Made progress on a group challenge",
+            `${challenge.name} · ${change.progress} of ${challenge.goalAmount}`, {
+              challengeId: challenge.id,
+              progress: change.progress,
+              goalAmount: challenge.goalAmount,
+            });
+        }
+      }
       res.json(await storage.getGroupChallengesForUser(userId));
     } catch (err) {
       res.status(500).json({ message: "Failed to get group challenges" });
@@ -12378,7 +12418,16 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
 
   app.post("/api/group-challenges/:id/sync", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      await storage.syncGroupChallengeProgress(req.params.id);
+      const changes = await storage.syncGroupChallengeProgress(req.params.id);
+      const challenge = await storage.getGroupChallengeById(req.params.id);
+      for (const change of changes) {
+        fireActivity(change.userId, "group_challenge_progress", "Made progress on a group challenge",
+          `${challenge?.name ?? "Group challenge"} · ${change.progress} of ${challenge?.goalAmount ?? "?"}`, {
+            challengeId: req.params.id,
+            progress: change.progress,
+            goalAmount: challenge?.goalAmount,
+          });
+      }
       res.json({ ok: true });
     } catch (err) {
       res.status(500).json({ message: "Failed to sync" });

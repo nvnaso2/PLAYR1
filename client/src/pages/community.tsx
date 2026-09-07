@@ -26,6 +26,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -65,15 +66,15 @@ type Player = {
 };
 
 const ACTIVITY_EXPLANATIONS = [
-  { type: "completed_workout", label: "Workout completed", description: "A player logged a finished training session.", icon: Dumbbell },
-  { type: "completed_challenge", label: "Challenge completed", description: "A player reached a shared challenge target.", icon: Trophy },
-  { type: "new_personal_record", label: "Personal best", description: "A player beat a previous training record.", icon: Trophy },
-  { type: "started_program", label: "Program started", description: "A player committed to a new development plan.", icon: Activity },
-  { type: "completed_program_day", label: "Program day completed", description: "A player finished the next day in a program.", icon: Check },
-  { type: "streak_milestone", label: "Streak milestone", description: "A player reached a meaningful consistency milestone.", icon: Flame },
-  { type: "level_up", label: "Level up", description: "A player advanced in their PLAYR1 progression.", icon: Flame },
-  { type: "badge_earned", label: "Badge earned", description: "A player unlocked a new achievement badge.", icon: Trophy },
-  { type: "finished_challenge", label: "Challenge finished", description: "A player completed the full challenge block.", icon: Swords },
+  { type: "completed_workout", label: "Workout completed", description: "A player logged a finished training session.", icon: Dumbbell, color: "from-orange-500 to-amber-300" },
+  { type: "completed_personal_challenge", label: "Personal challenge completed", description: "A player finished a challenge they set for themselves.", icon: Check, color: "from-emerald-500 to-lime-300" },
+  { type: "started_program", label: "Program started", description: "A player committed to a structured training program.", icon: Activity, color: "from-sky-500 to-cyan-300" },
+  { type: "completed_program", label: "Program finished", description: "A player completed an entire training program.", icon: Trophy, color: "from-violet-500 to-fuchsia-300" },
+  { type: "three_point_challenge_score", label: "3-point score logged", description: "A player recorded a score in the Community 3-point Challenge.", icon: Swords, color: "from-yellow-500 to-orange-300" },
+  { type: "group_challenge_progress", label: "Group challenge progress", description: "A player moved their team closer to a shared target.", icon: UsersRound, color: "from-pink-500 to-rose-300" },
+  { type: "project_milestone_completed", label: "Project milestone completed", description: "A player finished a step in their My PLAYR1 Project.", icon: Trophy, color: "from-purple-500 to-indigo-300" },
+  { type: "game_logged", label: "Game logged", description: "A player recorded a game and shared their box score.", icon: Dumbbell, color: "from-blue-500 to-sky-300" },
+  { type: "game_day", label: "Game day", description: "A player has a game or competition on their calendar today.", icon: Flame, color: "from-red-500 to-orange-300" },
 ] as const;
 
 function profileHref(player: { userId: string; profileSlug?: string | null }) {
@@ -149,6 +150,7 @@ function ActivityPanel({ user }: { user: unknown }) {
   const { toast } = useToast();
   const [feedOpen, setFeedOpen] = useState(true);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [visibilityOpen, setVisibilityOpen] = useState(false);
   const { data: feed = [], isLoading: feedLoading, isError: feedError } = useQuery<any[]>({
     queryKey: ["/api/friends/activity"],
     enabled: !!user,
@@ -161,6 +163,18 @@ function ActivityPanel({ user }: { user: unknown }) {
   const { data: requests = [], isLoading: requestsLoading, isError: requestsError } = useQuery<any[]>({
     queryKey: ["/api/friends/requests"],
     enabled: !!user,
+  });
+  const { data: activityVisibility = {} } = useQuery<Record<string, boolean>>({
+    queryKey: ["/api/community/activity-settings"],
+    enabled: !!user,
+  });
+  const updateVisibility = useMutation({
+    mutationFn: (visibility: Record<string, boolean>) => apiRequest("PATCH", "/api/community/activity-settings", { visibility }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/community/activity-settings"] });
+      toast({ title: "Feed visibility updated" });
+    },
+    onError: () => toast({ title: "Could not update feed visibility", variant: "destructive" }),
   });
 
   const respondRequest = useMutation({
@@ -236,6 +250,9 @@ function ActivityPanel({ user }: { user: unknown }) {
             <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-white" onClick={() => setGuideOpen((open) => !open)} aria-expanded={guideOpen}>
               <Info className="h-3.5 w-3.5" /> What shows up here?
             </Button>
+            <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-white" onClick={() => setVisibilityOpen((open) => !open)} aria-expanded={visibilityOpen}>
+              <UsersRound className="h-3.5 w-3.5" /> Visibility
+            </Button>
             <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-white" onClick={() => setFeedOpen((open) => !open)} aria-expanded={feedOpen}>
               {feedOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
               {feedOpen ? "Hide feed" : "Show feed"}
@@ -258,6 +275,31 @@ function ActivityPanel({ user }: { user: unknown }) {
                   </div>
                 );
               })}
+            </CardContent>
+          </Card>
+        )}
+
+        {visibilityOpen && (
+          <Card className="mb-3 border-zinc-800/70 bg-zinc-900/30">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Choose what your circle can see</CardTitle>
+              <p className="text-xs text-muted-foreground">These settings control your activity only. You can keep training private while still sharing game days, for example.</p>
+            </CardHeader>
+            <CardContent className="grid gap-2 sm:grid-cols-2">
+              {ACTIVITY_EXPLANATIONS.map((item) => (
+                <div key={item.type} className="flex items-center justify-between gap-3 rounded-xl border border-zinc-800 px-3 py-2.5">
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-medium">{item.label}</p>
+                    <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{item.description}</p>
+                  </div>
+                  <Switch
+                    checked={activityVisibility[item.type] !== false}
+                    onCheckedChange={(checked) => updateVisibility.mutate({ ...activityVisibility, [item.type]: checked })}
+                    aria-label={`Show ${item.label.toLowerCase()} in your friends' feeds`}
+                    disabled={updateVisibility.isPending}
+                  />
+                </div>
+              ))}
             </CardContent>
           </Card>
         )}
@@ -287,26 +329,36 @@ function ActivityPanel({ user }: { user: unknown }) {
           </Card>
         ) : (
           <div className="space-y-2" data-testid="community-activity-feed">
-            {feed.map((item: any) => (
-              <Card key={item.id} className="border-zinc-800/70 bg-zinc-900/25 transition-colors hover:border-zinc-700">
-                <CardContent className="flex items-center gap-2.5 p-2.5 sm:p-3">
-                  <Link href={profileHref({ userId: item.user.id, profileSlug: item.user.profileSlug })} aria-label={`View ${item.user.displayName}'s profile`}>
-                    <PlayerAvatar player={item.user} size="h-8 w-8" />
-                  </Link>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <Link href={profileHref({ userId: item.user.id, profileSlug: item.user.profileSlug })} className="truncate text-xs font-semibold hover:text-orange-400">
-                        {item.user.displayName}
-                      </Link>
-                      <span className="shrink-0 text-[11px] text-muted-foreground">{relativeDate(item.createdAt)}</span>
+            {feed.map((item: any) => {
+              const details = activityTypeDetails(item.activityType);
+              const Icon = details.icon;
+              const statLabel = item.metadata?.statLabel;
+              const statValue = item.metadata?.statValue;
+              return (
+                <Card key={item.id} className="group overflow-hidden border-zinc-800/70 bg-zinc-900/25 transition-all hover:-translate-y-0.5 hover:border-zinc-700 hover:bg-zinc-900/60">
+                  <div className={`h-0.5 bg-gradient-to-r ${details.color}`} />
+                  <CardContent className="flex items-center gap-3 p-3">
+                    <div className={`rounded-xl bg-gradient-to-br ${details.color} p-[1px]`}>
+                      <div className="rounded-[10px] bg-zinc-950 p-2"><Icon className="h-4 w-4 text-white" aria-hidden="true" /></div>
                     </div>
-                    <p className="truncate text-xs text-zinc-300">{item.title}</p>
-                    {item.description && <p className="truncate text-[11px] text-muted-foreground">{item.description}</p>}
-                  </div>
-                  {(() => { const Icon = activityTypeDetails(item.activityType).icon; return <div className="rounded-lg bg-orange-500/10 p-2"><Icon className="h-3.5 w-3.5 text-orange-300" aria-hidden="true" /></div>; })()}
-                </CardContent>
-              </Card>
-            ))}
+                    <Link href={profileHref({ userId: item.user.id, profileSlug: item.user.profileSlug })} aria-label={`View ${item.user.displayName}'s profile`}>
+                      <PlayerAvatar player={item.user} size="h-9 w-9" />
+                    </Link>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <Link href={profileHref({ userId: item.user.id, profileSlug: item.user.profileSlug })} className="truncate text-xs font-semibold hover:text-orange-400">
+                          {item.user.displayName}
+                        </Link>
+                        <span className="shrink-0 text-[11px] text-muted-foreground">{relativeDate(item.createdAt)}</span>
+                      </div>
+                      <p className="mt-0.5 truncate text-sm font-medium text-zinc-100">{item.title}</p>
+                      {item.description && <p className="truncate text-[11px] text-muted-foreground">{item.description}</p>}
+                    </div>
+                    {statValue && <div className="hidden shrink-0 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-right sm:block"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{statLabel}</p><p className="text-xs font-bold text-white">{statValue}</p></div>}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>

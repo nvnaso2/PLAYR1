@@ -90,7 +90,7 @@ import {
   statChallenges, type StatChallenge, type InsertStatChallenge,
   type StatChallengeMetric,
   friendships, type Friendship, type InsertFriendship,
-  friendActivityFeed, type FriendActivity, type InsertFriendActivity,
+  friendActivityFeed, type FriendActivity, type InsertFriendActivity, FRIEND_ACTIVITY_TYPES,
   groupChallenges, type GroupChallenge, type InsertGroupChallenge,
   groupChallengeMembers, type GroupChallengeMember, type InsertGroupChallengeMember,
   brandPrinciples, type BrandPrinciples,
@@ -760,7 +760,7 @@ export interface IStorage {
 
   // Friend Activity
   logFriendActivity(data: InsertFriendActivity): Promise<FriendActivity>;
-  getFriendActivityFeed(userId: string, limit?: number): Promise<Array<FriendActivity & { user: { id: string; displayName: string; profilePhotoUrl: string | null } }>>;
+  getFriendActivityFeed(userId: string, limit?: number): Promise<Array<FriendActivity & { user: { id: string; profileSlug: string | null; displayName: string; profilePhotoUrl: string | null } }>>;
 
   // Group Challenges
   createGroupChallenge(data: InsertGroupChallenge): Promise<GroupChallenge>;
@@ -768,7 +768,7 @@ export interface IStorage {
   getGroupChallengeById(id: string): Promise<GroupChallenge | undefined>;
   inviteToGroupChallenge(challengeId: string, invitedUserId: string): Promise<GroupChallengeMember>;
   respondGroupChallengeInvite(memberId: string, userId: string, status: "accepted" | "declined"): Promise<GroupChallengeMember>;
-  syncGroupChallengeProgress(challengeId: string): Promise<void>;
+  syncGroupChallengeProgress(challengeId: string): Promise<Array<{ challengeId: string; userId: string; progress: number; previousProgress: number }>>;
   getPendingGroupChallengeInvites(userId: string): Promise<Array<GroupChallengeMember & { challenge: GroupChallenge & { creator: { id: string; displayName: string } } }>>;
 }
 
@@ -7755,7 +7755,7 @@ Object.assign(DatabaseStorage.prototype, {
     return a;
   },
 
-  async getFriendActivityFeed(userId: string, limit = 50): Promise<Array<FriendActivity & { user: { id: string; displayName: string; profilePhotoUrl: string | null } }>> {
+  async getFriendActivityFeed(userId: string, limit = 50): Promise<Array<FriendActivity & { user: { id: string; profileSlug: string | null; displayName: string; profilePhotoUrl: string | null } }>> {
     // Get accepted friends
     const friendRows = await db.select().from(friendships).where(
       and(
@@ -7773,7 +7773,9 @@ Object.assign(DatabaseStorage.prototype, {
 
     const result = [];
     for (const a of activities) {
+      if (!FRIEND_ACTIVITY_TYPES.includes(a.activityType as typeof FRIEND_ACTIVITY_TYPES[number])) continue;
       const [profile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, a.userId));
+      if (profile?.activityVisibility && profile.activityVisibility[a.activityType] === false) continue;
       const [publicProfile] = await db.select({ slug: playerProfiles.slug }).from(playerProfiles).where(eq(playerProfiles.userId, a.userId));
       const [user] = await db.select().from(users).where(eq(users.id, a.userId));
       result.push({
@@ -7864,9 +7866,10 @@ Object.assign(DatabaseStorage.prototype, {
     return m;
   },
 
-  async syncGroupChallengeProgress(challengeId: string): Promise<void> {
+  async syncGroupChallengeProgress(challengeId: string): Promise<Array<{ challengeId: string; userId: string; progress: number; previousProgress: number }>> {
     const challenge = await this.getGroupChallengeById(challengeId);
-    if (!challenge) return;
+    if (!challenge) return [];
+    const changes: Array<{ challengeId: string; userId: string; progress: number; previousProgress: number }> = [];
     const members = await db.select().from(groupChallengeMembers).where(
       and(eq(groupChallengeMembers.challengeId, challengeId), eq(groupChallengeMembers.status, "accepted"))
     );
@@ -7911,8 +7914,13 @@ Object.assign(DatabaseStorage.prototype, {
         progress = parseInt(result.rows[0]?.total ?? "0") || 0;
       }
 
+      const previousProgress = Number(m.progress || 0);
       await db.update(groupChallengeMembers).set({ progress }).where(eq(groupChallengeMembers.id, m.id));
+      if (previousProgress !== progress) {
+        changes.push({ challengeId, userId: m.userId, progress, previousProgress });
+      }
     }
+    return changes;
   },
 
   async getPendingGroupChallengeInvites(userId: string): Promise<Array<GroupChallengeMember & { challenge: GroupChallenge & { creator: { id: string; displayName: string } } }>> {
