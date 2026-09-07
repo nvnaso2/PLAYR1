@@ -17,6 +17,14 @@ export async function runApplicationMigrations(): Promise<void> {
       ALTER TABLE programs ADD COLUMN IF NOT EXISTS is_pro boolean DEFAULT false;
       ALTER TABLE player_profiles ADD COLUMN IF NOT EXISTS school_name varchar;
       ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS activity_visibility jsonb DEFAULT '{}'::jsonb;
+      CREATE TABLE IF NOT EXISTS friend_favorites (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id varchar NOT NULL,
+        friend_id varchar NOT NULL,
+        created_at timestamp DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS friend_favorites_user_idx ON friend_favorites (user_id);
+      CREATE UNIQUE INDEX IF NOT EXISTS friend_favorites_user_friend_uq ON friend_favorites (user_id, friend_id);
       ALTER TABLE player_goals ADD COLUMN IF NOT EXISTS project_title varchar;
       ALTER TABLE player_goals ADD COLUMN IF NOT EXISTS project_type varchar;
       ALTER TABLE player_goals ADD COLUMN IF NOT EXISTS why_it_matters text;

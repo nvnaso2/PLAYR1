@@ -23,7 +23,7 @@ import {
 import { sendPushNotification, getVapidPublicKey } from "./push";
 import { ensureOnboardingSchema, getDiagnosticSummary, getFixCategory, validateMicroQuizPayload } from "./onboarding";
 import { getMicroQuiz } from "@shared/micro-quizzes";
-import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, playerProfiles, drills, trainingLogs, trainingLogMetrics, feedbackComments, insertProgramSchema, insertProgramItemSchema, insertEventSchema, events, insertStatChallengeSchema, programEnrollments, coachPUsage, friendships, FRIEND_ACTIVITY_TYPES, type FriendActivityType } from "@shared/schema";
+ import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, playerProfiles, drills, trainingLogs, trainingLogMetrics, feedbackComments, insertProgramSchema, insertProgramItemSchema, insertEventSchema, events, insertStatChallengeSchema, programEnrollments, coachPUsage, friendships, FRIEND_ACTIVITY_TYPES, type FriendActivityType } from "@shared/schema";
 import { getUncachableStripeClient } from "./stripeClient";
 import { WebhookHandlers } from "./webhookHandlers";
 import { JOURNAL_PROMPTS } from "@shared/journalPrompts";
@@ -4216,7 +4216,7 @@ COACHING RULES:
         return res.status(404).json({ message: "Profile not found" });
       }
       
-      const [career, [user], [userProfile], awards, personalRecords, allVideos, statsData] = await Promise.all([
+      const [career, [user], [userProfile], awards, personalRecords, allVideos, statsData, userArchetypes, archetypeCatalog] = await Promise.all([
         storage.getCareerProfile(profile.userId),
         db.select({
           firstName: users.firstName,
@@ -4235,7 +4235,15 @@ COACHING RULES:
           storage.getPublicUserSeasons(profile.userId),
           storage.getCareerStats(profile.userId),
         ]) : null,
+        storage.getUserArchetypes(profile.userId),
+        storage.getArchetypes(),
       ]);
+      const mainArchetype = userArchetypes.find((item) => item.role === "main")?.archetype;
+      const fallbackArchetype = archetypeCatalog.find((item) =>
+        item.name === career?.assessmentArchetype ||
+        item.id === career?.assessmentArchetype?.toLowerCase().replace(/\s+/g, "-")
+      );
+      const publicArchetype = profile.showArchetype ? (mainArchetype || fallbackArchetype || null) : null;
 
       const publicData: any = {
         profile,
@@ -4256,10 +4264,16 @@ COACHING RULES:
           skillBallHandling: profile.showSkills ? career.skillBallHandling : null,
           skillShooting: profile.showSkills ? career.skillShooting : null,
           skillDefense: profile.showSkills ? career.skillDefense : null,
-          skillAthletics: profile.showSkills ? career.skillAthletics : null,
+           skillAthleticism: profile.showSkills ? career.skillAthletics : null,
           skillBasketballIQ: profile.showSkills ? career.skillBasketballIQ : null,
-          assessmentArchetype: profile.showArchetype ? career.assessmentArchetype : null,
+           assessmentArchetype: profile.showArchetype ? (publicArchetype?.name || career.assessmentArchetype) : null,
         } : null,
+         archetype: publicArchetype ? {
+           name: publicArchetype.name,
+           tagline: publicArchetype.tagline,
+           colorTheme: publicArchetype.colorTheme,
+           primaryHex: publicArchetype.primaryHex,
+         } : null,
       };
 
       if (statsData) {
@@ -12279,6 +12293,17 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
       res.json({ ok: true });
     } catch (err) {
       res.status(500).json({ message: "Failed to remove friend" });
+    }
+  });
+
+  app.patch("/api/friends/:friendId/favorite", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const favorite = Boolean(req.body?.favorite);
+      const isFavorite = await storage.setFriendFavorite(userId, req.params.friendId, favorite);
+      res.json({ isFavorite });
+    } catch (err: any) {
+      res.status(err?.message?.includes("accepted friend") ? 403 : 500).json({ message: err?.message || "Failed to update favorite" });
     }
   });
 

@@ -89,7 +89,7 @@ import {
   type GoalCheckIn, type InsertGoalCheckIn,
   statChallenges, type StatChallenge, type InsertStatChallenge,
   type StatChallengeMetric,
-  friendships, type Friendship, type InsertFriendship,
+  friendships, friendFavorites, type Friendship, type InsertFriendship,
   friendActivityFeed, type FriendActivity, type InsertFriendActivity, FRIEND_ACTIVITY_TYPES,
   groupChallenges, type GroupChallenge, type InsertGroupChallenge,
   groupChallengeMembers, type GroupChallengeMember, type InsertGroupChallengeMember,
@@ -754,6 +754,7 @@ export interface IStorage {
   sendFriendRequest(requesterId: string, addresseeId: string): Promise<Friendship>;
   respondFriendRequest(id: string, status: "accepted" | "declined"): Promise<Friendship>;
   getFriends(userId: string): Promise<Array<{ friendship: Friendship; friend: { id: string; displayName: string; profilePhotoUrl: string | null; skillLevel: string | null } }>>;
+  setFriendFavorite(userId: string, friendId: string, favorite: boolean): Promise<boolean>;
   getPendingFriendRequests(userId: string): Promise<Array<{ friendship: Friendship; requester: { id: string; displayName: string; profilePhotoUrl: string | null } }>>;
   getFriendshipBetween(userId1: string, userId2: string): Promise<Friendship | undefined>;
   removeFriend(userId: string, friendId: string): Promise<boolean>;
@@ -7701,10 +7702,27 @@ Object.assign(DatabaseStorage.prototype, {
           displayName: profile?.displayName || `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || user?.email || "Player",
           profilePhotoUrl: profile?.profilePhotoUrl || user?.profileImageUrl || null,
           skillLevel: profile?.skillLevel || null,
+          isFavorite: Boolean((await db.select({ id: friendFavorites.id }).from(friendFavorites).where(and(eq(friendFavorites.userId, userId), eq(friendFavorites.friendId, friendId))).limit(1))[0]),
+          isFavoritedByFriend: Boolean((await db.select({ id: friendFavorites.id }).from(friendFavorites).where(and(eq(friendFavorites.userId, friendId), eq(friendFavorites.friendId, userId))).limit(1))[0]),
         },
       });
     }
     return result;
+  },
+
+  async setFriendFavorite(userId: string, friendId: string, favorite: boolean): Promise<boolean> {
+    const friendship = await this.getFriendshipBetween(userId, friendId);
+    if (!friendship || friendship.status !== "accepted") {
+      throw new Error("You can only favorite an accepted friend");
+    }
+    if (favorite) {
+      await db.insert(friendFavorites)
+        .values({ userId, friendId })
+        .onConflictDoNothing({ target: [friendFavorites.userId, friendFavorites.friendId] });
+    } else {
+      await db.delete(friendFavorites).where(and(eq(friendFavorites.userId, userId), eq(friendFavorites.friendId, friendId)));
+    }
+    return favorite;
   },
 
   async getPendingFriendRequests(userId: string): Promise<Array<{ friendship: Friendship; requester: { id: string; profileSlug: string | null; displayName: string; profilePhotoUrl: string | null } }>> {
@@ -7768,8 +7786,16 @@ Object.assign(DatabaseStorage.prototype, {
 
     const activities = await db.select().from(friendActivityFeed)
       .where(inArray(friendActivityFeed.userId, friendIds))
-      .orderBy(desc(friendActivityFeed.createdAt))
-      .limit(limit);
+      .orderBy(desc(friendActivityFeed.createdAt));
+    const favoriteRows = await db.select({ friendId: friendFavorites.friendId })
+      .from(friendFavorites)
+      .where(and(eq(friendFavorites.userId, userId), inArray(friendFavorites.friendId, friendIds)));
+    const favoriteIds = new Set(favoriteRows.map((row) => row.friendId));
+    activities.sort((a, b) => {
+      const favoriteDelta = Number(favoriteIds.has(b.userId)) - Number(favoriteIds.has(a.userId));
+      if (favoriteDelta !== 0) return favoriteDelta;
+      return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+    });
 
     const result = [];
     for (const a of activities) {
@@ -7788,7 +7814,7 @@ Object.assign(DatabaseStorage.prototype, {
         },
       });
     }
-    return result;
+    return result.slice(0, limit);
   },
 
   // ─── Group Challenges ────────────────────────────────────────────────────────

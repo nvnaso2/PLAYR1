@@ -2661,6 +2661,18 @@ export const insertFriendshipSchema = createInsertSchema(friendships).omit({ id:
 export type InsertFriendship = z.infer<typeof insertFriendshipSchema>;
 export type Friendship = typeof friendships.$inferSelect;
 
+export const friendFavorites = pgTable("friend_favorites", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  friendId: varchar("friend_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (t) => ({
+  byUser: index("friend_favorites_user_idx").on(t.userId),
+  uniqueFavorite: uniqueIndex("friend_favorites_user_friend_uq").on(t.userId, t.friendId),
+}));
+
+export type FriendFavorite = typeof friendFavorites.$inferSelect;
+
 // ─── Friend Activity Feed ─────────────────────────────────────────────────────
 export const FRIEND_ACTIVITY_TYPES = [
   "completed_workout",

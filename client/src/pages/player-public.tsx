@@ -21,6 +21,7 @@ interface PublicProfileData {
   profile: PlayerProfile;
   user: { firstName: string | null; lastName: string | null; profileImageUrl: string | null } | null;
   userProfile: { city: string | null; state: string | null; email: string | null } | null;
+  archetype: { name: string; tagline: string; colorTheme: string; primaryHex: string } | null;
   career: {
     positions: string[] | null;
     teamName: string | null;
@@ -35,6 +36,7 @@ interface PublicProfileData {
     skillAthleticism: number | null;
     skillBasketballIQ: number | null;
     assessmentArchetype: string | null;
+    assessmentArchetypeTagline: string | null;
   } | null;
   careerStats?: {
     totalGames: number;
@@ -93,7 +95,7 @@ function SkillBar({ label, value }: { label: string; value: number | null }) {
 }
 
 function PublicPlayerCard({ data }: { data: PublicProfileData }) {
-  const { profile, user, userProfile, career, careerStats } = data;
+  const { profile, user, userProfile, career, careerStats, archetype } = data;
   const displayName = user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() : "Player";
   const initials = displayName.split(" ").map((part) => part[0]).join("").toUpperCase().slice(0, 2) || "P";
   const photoSrc = career?.cardPhotoUrl
@@ -140,13 +142,19 @@ function PublicPlayerCard({ data }: { data: PublicProfileData }) {
 
             {profile.cardShowArchetype !== false && profile.showArchetype && career?.assessmentArchetype && (
               <div className="flex items-start gap-2">
-                <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-purple-500/20"><Zap className="h-3 w-3 text-purple-400" /></div>
-                <div className="min-w-0"><p className="text-xs font-black leading-tight text-white">{career.assessmentArchetype}</p><p className="mt-0.5 text-[11px] text-purple-300/70">Player archetype</p></div>
+                <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md" style={{ backgroundColor: `${archetype?.primaryHex || "#f97316"}2f` }}><Zap className="h-3 w-3" style={{ color: archetype?.primaryHex || "#f97316" }} /></div>
+                <div className="min-w-0">
+                  <p className="text-xs font-black leading-tight text-white">{archetype?.name || career.assessmentArchetype}</p>
+                  {(archetype?.tagline || career.assessmentArchetypeTagline) && <p className="mt-0.5 line-clamp-2 text-[11px]" style={{ color: archetype?.primaryHex || "#fb923c" }}>{archetype?.tagline || career.assessmentArchetypeTagline}</p>}
+                </div>
               </div>
             )}
 
             {(userProfile?.city || userProfile?.state) && profile.showLocation && (
               <p className="flex items-center gap-1 text-[11px] text-orange-400/60"><MapPin className="h-3 w-3 shrink-0" />{[userProfile.city, userProfile.state].filter(Boolean).join(", ")}</p>
+            )}
+            {profile.showEmail && userProfile?.email && (
+              <p className="flex items-center gap-1 text-[11px] text-zinc-500"><span aria-hidden="true">✉</span>{userProfile.email}</p>
             )}
           </div>
 
@@ -268,17 +276,12 @@ export default function PlayerPublicPage() {
           <Button variant="ghost" size="sm" onClick={() => window.history.back()} className="gap-1.5" data-testid="button-back">
             <ArrowLeft className="h-4 w-4" />Back
           </Button>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => window.location.href = "/auth"} data-testid="button-sign-in">
-              Join PLAYR1
-            </Button>
-            <ShareMenu
-              url={`/player/${slug}`}
-              title={`${playerName} - PLAYR1`}
-              description={`Check out ${playerName}'s basketball profile on PLAYR1!`}
-              testId="button-share-profile"
-            />
-          </div>
+          <ShareMenu
+            url={`/player/${slug}`}
+            title={`${playerName} - PLAYR1`}
+            description={`Check out ${playerName}'s basketball profile on PLAYR1!`}
+            testId="button-share-profile"
+          />
         </div>
       </div>
 
@@ -398,7 +401,7 @@ export default function PlayerPublicPage() {
 
         {/* Archetype badge — punchy single row */}
         {profile.showArchetype && career?.assessmentArchetype && (
-          <div className="flex items-center gap-3 p-4 rounded-2xl border bg-gradient-to-r from-purple-500/10 to-orange-500/10 border-purple-500/20" data-testid="section-archetype">
+          <div className="hidden flex items-center gap-3 p-4 rounded-2xl border bg-gradient-to-r from-purple-500/10 to-orange-500/10 border-purple-500/20" data-testid="section-archetype">
             <div className="w-9 h-9 rounded-xl bg-purple-500/20 flex items-center justify-center shrink-0">
               <Zap className="w-4 h-4 text-purple-400" />
             </div>
@@ -411,7 +414,7 @@ export default function PlayerPublicPage() {
 
         {/* Bio */}
         {profile.bio && (
-          <Card className="rounded-2xl border-border/50" data-testid="section-bio">
+          <Card className="hidden rounded-2xl border-border/50" data-testid="section-bio">
             <CardContent className="p-4">
               <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed" data-testid="text-bio">
                 {profile.bio}
@@ -422,7 +425,7 @@ export default function PlayerPublicPage() {
 
         {/* Social links — Instagram-style row */}
         {profile.showSocialLinks && hasSocials && (
-          <div className="flex items-center justify-center gap-3 py-2" data-testid="section-socials">
+          <div className="hidden flex items-center justify-center gap-3 py-2" data-testid="section-socials">
             {profile.socialTwitter && (
               <a
                 href={profile.socialTwitter.startsWith("http") ? profile.socialTwitter : `https://twitter.com/${profile.socialTwitter.replace("@","")}`}
@@ -464,7 +467,7 @@ export default function PlayerPublicPage() {
 
         {/* Skills — only if showSkills */}
         {profile.showSkills && hasSkills && (
-          <Card className="rounded-2xl border-border/50" data-testid="section-skills">
+          <Card className="hidden rounded-2xl border-border/50" data-testid="section-skills">
             <CardHeader className="pb-3 pt-4 px-4">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <Star className="h-4 w-4 text-orange-500" />Skill Ratings
@@ -486,7 +489,7 @@ export default function PlayerPublicPage() {
             href={profile.highlightVideoUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="block"
+            className="hidden block"
             data-testid="link-highlight-video"
           >
             <div className="flex items-center gap-4 p-4 rounded-2xl border bg-gradient-to-r from-orange-500/10 to-red-500/10 border-orange-500/20 hover:border-orange-500/40 transition-colors">
@@ -504,7 +507,7 @@ export default function PlayerPublicPage() {
 
         {/* Physical attributes */}
         {profile.showPhysical && hasPhysical && (
-          <Card className="rounded-2xl border-border/50" data-testid="section-physical">
+          <Card className="hidden rounded-2xl border-border/50" data-testid="section-physical">
             <CardHeader className="pb-3 pt-4 px-4">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <Ruler className="h-4 w-4" />Measurements
@@ -537,7 +540,7 @@ export default function PlayerPublicPage() {
 
         {/* Academic */}
         {profile.showAcademic && hasAcademic && (
-          <Card className="rounded-2xl border-border/50" data-testid="section-academic">
+          <Card className="hidden rounded-2xl border-border/50" data-testid="section-academic">
             <CardHeader className="pb-3 pt-4 px-4">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <GraduationCap className="h-4 w-4" />Academic
@@ -646,13 +649,9 @@ export default function PlayerPublicPage() {
           </Card>
         )}
 
-        {/* Footer CTA */}
-        <div className="pt-4 pb-2 text-center space-y-3">
+        <div className="pt-4 pb-2 text-center">
           <Separator />
-          <p className="text-xs text-muted-foreground">Powered by PLAYR1</p>
-          <Button onClick={() => window.location.href = "/auth"} className="gap-2 w-full sm:w-auto" data-testid="button-join-playr1">
-            Join PLAYR1 — Start Your Journey
-          </Button>
+          <p className="pt-3 text-xs text-muted-foreground">Powered by PLAYR1</p>
         </div>
       </div>
     </div>
