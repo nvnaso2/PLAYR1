@@ -78,6 +78,7 @@ const Archetypes = lazy(pageLoaders.archetypes);
 const MyArchetype = lazy(pageLoaders.myArchetype);
 const MyGoal = lazy(pageLoaders.myGoal);
 const Hub = lazy(pageLoaders.hub);
+const HubStatCustomize = lazy(() => import("@/pages/hub-stat-customize"));
 const Journey = lazy(pageLoaders.journey);
 const OnboardingPreview = lazy(() => import("@/pages/onboarding-preview"));
 const CommunityPage = lazy(() => import("@/pages/community"));
@@ -353,6 +354,7 @@ function Router() {
                 <Route path="/coach-p" component={CoachP} />
                 <Route path="/game-day" component={GameDay} />
                 <Route path="/hub" component={Hub} />
+                <Route path="/progress/customize" component={HubStatCustomize} />
                 <Route path="/journey" component={Journey} />
                 <Route path="/community" component={CommunityPage} />
                 <Route path="/community/friends">{() => <Redirect to="/community?tab=activity" />}</Route>

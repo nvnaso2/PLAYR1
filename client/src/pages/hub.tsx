@@ -1,23 +1,27 @@
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { ContinueProgramsWidget } from "@/components/continue-programs-widget";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { useState, useEffect } from "react";
+import { nativeFetch, statsUrl } from "@/lib/queryClient";
+import {
+  HUB_STAT_DEFINITIONS,
+  HUB_STAT_ACCENTS,
+  HUB_STAT_STORAGE_KEY,
+  readHubStatOrder,
+  type HubStatKey,
+  type HubStatOrder,
+} from "@/lib/dashboard-stats";
+import { useEffect, useState } from "react";
 import {
   Flame,
-  Zap,
   ChevronRight,
+  ChevronLeft,
   Target,
-  CalendarDays,
-  Bot,
-  Trophy,
   Dumbbell,
+  Clock3,
   X,
-  Sparkles,
   Play,
   PlayCircle,
   ClipboardCheck,
@@ -26,8 +30,8 @@ import {
   BookOpen,
   Layers3,
   CheckCircle2,
+  Users,
 } from "lucide-react";
-import type { GoalProgram } from "@shared/schema";
 import introTrailer from "@assets/Welcome_To_PLAYR1_1781991119550.mp4";
 
 type GoalData = {
@@ -37,18 +41,60 @@ type GoalData = {
   checkIns: any[];
 } | null;
 
-const TIER_COLORS: Record<string, string> = {
-  prospect: "text-zinc-400 bg-zinc-700/40",
-  rising: "text-amber-400 bg-amber-500/10",
-  starter: "text-blue-400 bg-blue-500/10",
-  star: "text-purple-400 bg-purple-500/10",
-  elite: "text-yellow-400 bg-yellow-500/10",
-  playr1: "text-orange-400 bg-orange-500/10",
+type HubMode = "onboarding" | "everyday";
+type WeeklyStatPoint = { date: string; minutes: number; sessions: number };
+type WeeklyTrendPoint = {
+  shotsMade: number;
+  shotsAttempted: number;
+  threesMade: number;
+  threesAttempted: number;
+  freeThrowsMade: number;
+  freeThrowsAttempted: number;
+  layupsMade: number;
+  layupsAttempted: number;
+  midRangeMade: number;
+  midRangeAttempted: number;
 };
+type CategoryStatPoint = { category: string; minutes: number; sessions: number };
 
-const TIER_ORDER = ["prospect", "rising", "starter", "star", "elite", "playr1"];
-const TIER_XP: Record<string, number> = {
-  prospect: 0, rising: 500, starter: 1500, star: 3500, elite: 7000, playr1: 12000,
+const HUB_STAT_GLOW_COLORS: Partial<Record<HubStatKey, string>> = {
+  totalDrills: "#38bdf8",
+  workoutsCompleted: "#22d3ee",
+  streak: "#f97316",
+  activeDays: "#a78bfa",
+  hoursTrained: "#34d399",
+  shotsMade: "#fb7185",
+  shotsAttempted: "#fbbf24",
+  threePointersMade: "#a3e635",
+  threePointersAttempted: "#ffffff",
+  freeThrowsMade: "#60a5fa",
+  freeThrowsAttempted: "#38bdf8",
+  midRangeMade: "#f472b6",
+  midRangeAttempted: "#e879f9",
+  layupsMade: "#e879f9",
+  layupsAttempted: "#c084fc",
+  fgPct: "#f87171",
+  threePointPct: "#a3e635",
+  freeThrowPct: "#60a5fa",
+  midRangePct: "#f472b6",
+  layupPct: "#c084fc",
+  conditioningTime: "#f97316",
+  ballHandlingMinutes: "#2dd4bf",
+  ballHandlingDrills: "#22d3ee",
+  finishingMinutes: "#e879f9",
+  finishingDrills: "#f472b6",
+  defenseMinutes: "#818cf8",
+  defenseDrills: "#a78bfa",
+  shootingMinutes: "#f87171",
+  shootingDrills: "#fb7185",
+  passingMinutes: "#38bdf8",
+  passingDrills: "#60a5fa",
+  basketballIqMinutes: "#facc15",
+  basketballIqDrills: "#fbbf24",
+  filmSessionMinutes: "#a1a1aa",
+  filmSessionDrills: "#a8a29e",
+  workoutsMinutes: "#4ade80",
+  workoutsDrills: "#34d399",
 };
 
 function greeting(firstName?: string | null) {
@@ -80,17 +126,60 @@ export default function HubPage() {
 
   const { data: profile } = useQuery<any>({ queryKey: ["/api/profile"] });
   const { data: careerData } = useQuery<any>({ queryKey: ["/api/career"] });
-  const { data: overview, isLoading: overviewLoading } = useQuery<any>({ queryKey: ["/api/stats/overview"] });
+  const { data: overview, isLoading: overviewLoading } = useQuery<any>({
+    queryKey: ["/api/stats/overview", "hub-monthly"],
+    queryFn: async () => {
+      const res = await nativeFetch(statsUrl("/api/stats/overview", "monthly"));
+      if (!res.ok) throw new Error("Failed to fetch monthly stats");
+      return res.json();
+    },
+  });
+  const { data: weeklyStats, isLoading: weeklyStatsLoading } = useQuery<WeeklyStatPoint[]>({
+    queryKey: ["/api/stats/weekly", "hub"],
+    queryFn: async () => {
+      const res = await nativeFetch(statsUrl("/api/stats/weekly", "weekly"));
+      if (!res.ok) throw new Error("Failed to fetch weekly recap");
+      return res.json();
+    },
+  });
+  const { data: monthlyStats, isLoading: monthlyStatsLoading } = useQuery<WeeklyStatPoint[]>({
+    queryKey: ["/api/stats/weekly", "hub-monthly"],
+    queryFn: async () => {
+      const res = await nativeFetch(statsUrl("/api/stats/weekly", "monthly"));
+      if (!res.ok) throw new Error("Failed to fetch monthly stats");
+      return res.json();
+    },
+  });
+  const { data: dashboardTraining, isLoading: dashboardTrainingLoading } = useQuery<Record<string, number>>({
+    queryKey: ["/api/stats/dashboard-training", "hub-monthly"],
+    queryFn: async () => {
+      const res = await nativeFetch(statsUrl("/api/stats/dashboard-training", "monthly"));
+      if (!res.ok) throw new Error("Failed to fetch dashboard training stats");
+      return res.json();
+    },
+  });
+  const { data: monthlyCategoryStats, isLoading: monthlyCategoryStatsLoading } = useQuery<CategoryStatPoint[]>({
+    queryKey: ["/api/stats/by-category", "hub-monthly"],
+    queryFn: async () => {
+      const res = await nativeFetch(statsUrl("/api/stats/by-category", "monthly"));
+      if (!res.ok) throw new Error("Failed to fetch category stats");
+      return res.json();
+    },
+  });
+  const { data: monthlyTrends, isLoading: monthlyTrendsLoading } = useQuery<WeeklyTrendPoint[]>({
+    queryKey: ["/api/stats/trends", "hub-monthly"],
+    queryFn: async () => {
+      const res = await nativeFetch(statsUrl("/api/stats/trends", "monthly"));
+      if (!res.ok) throw new Error("Failed to fetch monthly shooting stats");
+      return res.json();
+    },
+  });
   const { data: goalData, isLoading: goalLoading } = useQuery<GoalData>({
     queryKey: ["/api/goals/active"],
     queryFn: () =>
       fetch("/api/goals/active", { credentials: "include" })
         .then((r) => r.json())
         .then((d) => d ?? null),
-    enabled: !!user,
-  });
-  const { data: archetypes, isLoading: archLoading } = useQuery<any[]>({
-    queryKey: ["/api/archetypes/user"],
     enabled: !!user,
   });
   const { data: fixData } = useQuery<any>({
@@ -101,49 +190,318 @@ export default function HubPage() {
   const profileIncomplete = !profile?.lastName || !careerData?.positions?.length || !careerData?.aspiration;
   const fullOnboardingComplete = Boolean(careerData?.onboardingCompleted || fixData?.fullProfileCompleted);
   const showProfileSetup = profileIncomplete || !fullOnboardingComplete;
+  const [hubModeOverride, setHubModeOverride] = useState<HubMode | null>(null);
+  const defaultHubMode: HubMode = showProfileSetup ? "onboarding" : "everyday";
+  const hubMode = hubModeOverride ?? defaultHubMode;
 
   const firstName = profile?.firstName ?? user?.firstName;
   const { text: greetText, emoji } = greeting(firstName);
   const streak = overview?.streak ?? 0;
   const totalSessions = overview?.totalSessions ?? 0;
-
-  const mainArch = archetypes?.find((a: any) => a.role === "main");
   const activeGoal = goalData?.goal?.status === "active" ? goalData : null;
-  const hasGoalProgram = !!activeGoal?.goal?.aiProgram;
-  const program = activeGoal?.goal?.aiProgram as GoalProgram | null;
   const completedMilestones = activeGoal?.milestones?.filter((m: any) => m.completed).length ?? 0;
   const totalMilestones = activeGoal?.milestones?.length ?? 0;
   const goalWeek = activeGoal?.goal?.currentWeek ?? 1;
   const goalTotalWeeks = activeGoal?.goal?.totalWeeks ?? 8;
-  const goalPct = totalMilestones
-    ? Math.round((completedMilestones / totalMilestones) * 100)
-    : 0;
+  const goalPct = Math.min(100, Math.max(0, Math.round(((goalWeek - 1) / goalTotalWeeks) * 100)));
+  const totalMinutes = overview?.totalMinutes ?? 0;
+  const activeDays = monthlyStats?.filter((day) => day.sessions > 0).length ?? 0;
+  const maxDailyMinutes = Math.max(...(weeklyStats?.map((day) => day.minutes) ?? [0]), 1);
+  const maxDailySessions = Math.max(...(weeklyStats?.map((day) => day.sessions) ?? [0]), 1);
+  const trendTotals = monthlyTrends?.reduce((totals, day) => ({
+    shotsMade: totals.shotsMade + day.shotsMade,
+    shotsAttempted: totals.shotsAttempted + day.shotsAttempted,
+    threesMade: totals.threesMade + day.threesMade,
+    threesAttempted: totals.threesAttempted + day.threesAttempted,
+    freeThrowsMade: totals.freeThrowsMade + day.freeThrowsMade,
+    freeThrowsAttempted: totals.freeThrowsAttempted + day.freeThrowsAttempted,
+    layupsMade: totals.layupsMade + day.layupsMade,
+    layupsAttempted: totals.layupsAttempted + day.layupsAttempted,
+    midRangeMade: totals.midRangeMade + day.midRangeMade,
+    midRangeAttempted: totals.midRangeAttempted + day.midRangeAttempted,
+  }), {
+    shotsMade: 0,
+    shotsAttempted: 0,
+    threesMade: 0,
+    threesAttempted: 0,
+    freeThrowsMade: 0,
+    freeThrowsAttempted: 0,
+    layupsMade: 0,
+    layupsAttempted: 0,
+    midRangeMade: 0,
+    midRangeAttempted: 0,
+  }) ?? {
+    shotsMade: 0,
+    shotsAttempted: 0,
+    threesMade: 0,
+    threesAttempted: 0,
+    freeThrowsMade: 0,
+    freeThrowsAttempted: 0,
+    layupsMade: 0,
+    layupsAttempted: 0,
+    midRangeMade: 0,
+    midRangeAttempted: 0,
+  };
+  const categoryStatsByKey = new Map((monthlyCategoryStats ?? []).map((stat) => [stat.category, stat]));
+  const [statOrder, setStatOrder] = useState<HubStatOrder>(() => readHubStatOrder());
+  const [activeGroup, setActiveGroup] = useState(0);
+  const [activeStatIndexes, setActiveStatIndexes] = useState<[number, number, number]>([0, 0, 0]);
 
-  // Today's training from goal program
-  const todayProgram = (() => {
-    const currentPhase = program?.phases?.find((phase: any) => phase.phase === goalWeek);
-    if (currentPhase?.actions?.[0]) {
-      const action = currentPhase.actions[0];
-      return { activity: action.title, duration: action.estimatedMinutes ? `${action.estimatedMinutes} min` : "", drillCategories: [], details: action.description };
-    }
-    if (!program?.weeklyFocus) return null;
-    const todayName = new Date().toLocaleDateString("en-US", { weekday: "long" });
-    const currentWeekData = program.weeklyFocus.find((w: any) => w.week === goalWeek);
-    return currentWeekData?.dailySchedule?.find((d: any) => d.day === todayName) ?? currentWeekData?.dailySchedule?.[0] ?? null;
-  })();
+  useEffect(() => {
+    localStorage.setItem(HUB_STAT_STORAGE_KEY, JSON.stringify(statOrder));
+  }, [statOrder]);
 
-  // Archetype XP progress
-  const archProgress = (() => {
-    if (!mainArch) return null;
-    const tierIdx = TIER_ORDER.indexOf(mainArch.tier);
-    const nextTier = TIER_ORDER[tierIdx + 1];
-    const currentThreshold = TIER_XP[mainArch.tier] ?? 0;
-    const nextThreshold = nextTier ? TIER_XP[nextTier] : null;
-    const pct = nextThreshold
-      ? Math.round(((mainArch.totalXp - currentThreshold) / (nextThreshold - currentThreshold)) * 100)
-      : 100;
-    return { pct, nextTier, xpToNext: nextThreshold ? nextThreshold - mainArch.totalXp : 0 };
-  })();
+  const formatMinutes = (minutes: number) => minutes >= 60
+    ? `${Math.round((minutes / 60) * 10) / 10}h`
+    : `${minutes}m`;
+  const percentage = (made: number, attempted: number) => attempted > 0 ? Math.round((made / attempted) * 100) : 0;
+  const categoryStatValue = (category: string, field: "minutes" | "sessions") =>
+    categoryStatsByKey.get(category)?.[field] ?? 0;
+  const rawStatValues: Partial<Record<HubStatKey, number>> = {
+    totalDrills: totalSessions,
+    workoutsCompleted: dashboardTraining?.workoutsCompleted ?? 0,
+    streak,
+    activeDays,
+    hoursTrained: Math.round((totalMinutes / 60) * 10) / 10,
+    shotsMade: trendTotals.shotsMade,
+    shotsAttempted: trendTotals.shotsAttempted,
+    threePointersMade: trendTotals.threesMade,
+    threePointersAttempted: trendTotals.threesAttempted,
+    freeThrowsMade: trendTotals.freeThrowsMade,
+    freeThrowsAttempted: trendTotals.freeThrowsAttempted,
+    midRangeMade: trendTotals.midRangeMade,
+    midRangeAttempted: trendTotals.midRangeAttempted,
+    layupsMade: trendTotals.layupsMade,
+    layupsAttempted: trendTotals.layupsAttempted,
+    threePointPct: percentage(trendTotals.threesMade, trendTotals.threesAttempted),
+    freeThrowPct: percentage(trendTotals.freeThrowsMade, trendTotals.freeThrowsAttempted),
+    midRangePct: percentage(trendTotals.midRangeMade, trendTotals.midRangeAttempted),
+    layupPct: percentage(trendTotals.layupsMade, trendTotals.layupsAttempted),
+    fgPct: dashboardTraining?.fgPct ?? percentage(trendTotals.shotsMade, trendTotals.shotsAttempted),
+    conditioningTime: categoryStatValue("workouts", "minutes"),
+    ballHandlingMinutes: categoryStatValue("ball-handling", "minutes"),
+    ballHandlingDrills: categoryStatValue("ball-handling", "sessions"),
+    finishingMinutes: categoryStatValue("finishing", "minutes"),
+    finishingDrills: categoryStatValue("finishing", "sessions"),
+    defenseMinutes: categoryStatValue("defense", "minutes"),
+    defenseDrills: categoryStatValue("defense", "sessions"),
+    shootingMinutes: categoryStatValue("shooting", "minutes"),
+    shootingDrills: categoryStatValue("shooting", "sessions"),
+    passingMinutes: categoryStatValue("passing", "minutes"),
+    passingDrills: categoryStatValue("passing", "sessions"),
+    basketballIqMinutes: categoryStatValue("basketball-iq", "minutes"),
+    basketballIqDrills: categoryStatValue("basketball-iq", "sessions"),
+    filmSessionMinutes: categoryStatValue("film-session", "minutes"),
+    filmSessionDrills: categoryStatValue("film-session", "sessions"),
+    workoutsMinutes: categoryStatValue("workouts", "minutes"),
+    workoutsDrills: categoryStatValue("workouts", "sessions"),
+  };
+  const formatStatValue = (key: HubStatKey, value: number) => {
+    if (key === "hoursTrained") return `${value}h`;
+    if (key === "conditioningTime" || key.endsWith("Minutes")) return formatMinutes(value);
+    if (key.endsWith("Pct")) return `${value}%`;
+    return `${value}`;
+  };
+  const iconForStat = (key: HubStatKey) => {
+    if (key === "streak") return Flame;
+    if (key.endsWith("Minutes") || key === "hoursTrained" || key === "conditioningTime") return Clock3;
+    if (key.includes("Drills") || key === "totalDrills" || key === "workoutsCompleted") return Dumbbell;
+    if (key.includes("Pct")) return Target;
+    return Target;
+  };
+  const recapMetrics: Record<HubStatKey, {
+    key: HubStatKey;
+    label: string;
+    valueLabel: string;
+    detail: string;
+    icon: typeof Flame;
+    tabClass: string;
+    iconClass: string;
+    glowClass: string;
+    glowColor: string;
+    barValue: (day: WeeklyStatPoint) => number;
+  }> = Object.fromEntries(HUB_STAT_DEFINITIONS.map((definition) => {
+    const key = definition.key;
+    const rawValue = rawStatValues[key] ?? 0;
+    const accent = HUB_STAT_ACCENTS[key];
+    const Icon = iconForStat(key);
+    const isWorkload = key === "hoursTrained" || key === "conditioningTime" || key.endsWith("Minutes");
+    return [key, {
+      key,
+      label: definition.label,
+      valueLabel: formatStatValue(key, rawValue),
+      detail: definition.description,
+      icon: Icon,
+      tabClass: `${accent.cardClass} ${accent.textClass}`,
+      iconClass: `${accent.cardClass} ${accent.textClass}`,
+      glowClass: accent.cardClass.replace("border-", "from-").replace(/ bg-[^ ]+/, " via-transparent"),
+      glowColor: HUB_STAT_GLOW_COLORS[key] ?? "#f97316",
+      barValue: (day: WeeklyStatPoint) => isWorkload
+        ? day.minutes / maxDailyMinutes
+        : (key === "totalDrills" || key.endsWith("Drills") ? day.sessions / maxDailySessions : day.sessions > 0 ? 1 : 0.08),
+    }];
+  })) as Record<HubStatKey, {
+    key: HubStatKey;
+    label: string;
+    valueLabel: string;
+    detail: string;
+    icon: typeof Flame;
+    tabClass: string;
+    iconClass: string;
+    glowClass: string;
+    glowColor: string;
+    barValue: (day: WeeklyStatPoint) => number;
+  }>;
+  const statPages = [0, 1, 2].map((page) => statOrder.slice(page * 3, page * 3 + 3));
+  const activePage = statPages[activeGroup] ?? statPages[0];
+  const activeStatIndex = activeStatIndexes[activeGroup] ?? 0;
+  const activeRecap = activePage[activeStatIndex] ?? activePage[0] ?? "streak";
+  const activeRecapMetric = recapMetrics[activeRecap] ?? recapMetrics.streak;
+  const ActiveRecapIcon = activeRecapMetric.icon;
+  const selectGroup = (groupIndex: number) => {
+    setActiveGroup(groupIndex);
+  };
+  const cycleRecapStat = (direction: 1 | -1) => {
+    const nextStat = (activeStatIndex + direction + activePage.length) % activePage.length;
+    setActiveStatIndexes((current) => {
+      const next = [...current] as [number, number, number];
+      next[activeGroup] = nextStat;
+      return next;
+    });
+  };
+
+  const weeklyRecapSection = (
+    <section className="space-y-3" data-testid="card-progress-preview">
+      <div className="flex items-end justify-between">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500 font-bold">TRAINING SNAPSHOT</p>
+          <h2 className="text-lg font-black text-white mt-1">See your work add up.</h2>
+        </div>
+        <button
+            type="button"
+            onClick={() => navigate("/progress?from=hub")}
+            className="group flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-orange-400 transition hover:text-orange-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 rounded-sm"
+            data-testid="button-view-progress"
+          >
+            Full dashboard
+            <ChevronRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
+          </button>
+      </div>
+      <div className="flex items-center justify-between">
+         <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-600">Past month</p>
+        <span className="text-[11px] text-zinc-600">Category {activeGroup + 1} of 3 · {activeDays} active {activeDays === 1 ? "day" : "days"}</span>
+      </div>
+      {overviewLoading || weeklyStatsLoading || monthlyStatsLoading || dashboardTrainingLoading || monthlyCategoryStatsLoading || monthlyTrendsLoading ? (
+        <div className="space-y-2.5" aria-label="Loading weekly recap">
+          <Skeleton className="h-[164px] rounded-2xl" data-testid="hub-recap-loading" />
+          <div className="grid grid-cols-3 gap-2">
+            {[0, 1, 2].map((slot) => (
+              <Skeleton key={slot} className="h-[68px] rounded-xl" data-testid={`hub-stat-slot-${slot}-loading`} />
+            ))}
+          </div>
+        </div>
+      ) : (
+        <>
+          <div
+            className={`relative overflow-hidden rounded-2xl border border-zinc-700 bg-zinc-950 p-4 ${
+              activeRecap === "streak" ? "ring-1 ring-orange-500/40" : ""
+            }`}
+            aria-live="polite"
+            data-testid="card-active-weekly-recap"
+          >
+            <div
+              className="absolute inset-0 opacity-20"
+              style={{ background: `linear-gradient(135deg, ${activeRecapMetric.glowColor} 0%, transparent 62%)` }}
+            />
+            <div className="absolute -right-10 -top-12 h-36 w-36 rounded-full bg-white/[0.03] blur-2xl" />
+            <div className="relative flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${activeRecapMetric.iconClass}`}>
+                  <ActiveRecapIcon className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+                    {activeRecap === "streak" ? "YOUR DAILY ANCHOR" : activeRecapMetric.label}
+                  </p>
+                  <p className="mt-1 text-xs text-zinc-300">{activeRecapMetric.detail}</p>
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => cycleRecapStat(-1)}
+                  className="flex h-8 w-8 items-center justify-center rounded-full border border-zinc-700 bg-zinc-950/60 text-zinc-400 transition hover:border-zinc-500 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                  aria-label={`Show previous stat in category ${activeGroup + 1}`}
+                  data-testid="button-previous-weekly-recap"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => cycleRecapStat(1)}
+                  className="flex h-8 w-8 items-center justify-center rounded-full border border-zinc-700 bg-zinc-950/60 text-zinc-400 transition hover:border-zinc-500 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                  aria-label={`Show next stat in category ${activeGroup + 1}`}
+                  data-testid="button-next-weekly-recap"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+            <div className="relative mt-4 flex items-end justify-between gap-4">
+              <div>
+                <p className="text-4xl font-black leading-none text-white">
+                  {activeRecapMetric.valueLabel}
+                </p>
+                <p className="mt-2 text-[11px] font-medium text-zinc-500">Use the arrows to browse this group.</p>
+              </div>
+              <div className="flex h-11 items-end gap-1" aria-label="Seven day activity">
+                {(weeklyStats ?? []).map((day) => (
+                  <span
+                    key={day.date}
+                    className={`w-1.5 rounded-full ${activeRecapMetric.iconClass.split(" ").find((token) => token.startsWith("bg-")) ?? "bg-orange-500/70"}`}
+                    style={{ height: `${Math.max(6, Math.round(activeRecapMetric.barValue(day) * 40))}px` }}
+                    title={`${day.date}: ${day.sessions} ${day.sessions === 1 ? "session" : "sessions"}, ${day.minutes} min`}
+                  />
+                ))}
+              </div>
+            </div>
+            <div className="relative mt-3 flex items-center justify-between border-t border-white/10 pt-2.5 text-[9px] font-bold uppercase tracking-[0.15em] text-zinc-500">
+              <span>{activeRecap === "streak" ? "Keep the run alive" : "7-day activity"}</span>
+              <span>Stat {activeStatIndex + 1} of {activePage.length} in category {activeGroup + 1}</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2" role="group" aria-label="Hub stat groups">
+            {statPages.map((group, groupIndex) => {
+              const groupStatIndex = activeStatIndexes[groupIndex] ?? 0;
+              const groupMetric = recapMetrics[group[groupStatIndex] ?? group[0] ?? "streak"];
+              const GroupMetricIcon = groupMetric.icon;
+              const isActive = groupIndex === activeGroup;
+              return (
+                <button
+                    key={groupIndex}
+                    type="button"
+                    onClick={() => selectGroup(groupIndex)}
+                    aria-pressed={isActive}
+                    className={`min-w-0 rounded-xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 ${
+                      isActive ? `${groupMetric.tabClass} border-zinc-500` : "border-zinc-700 bg-zinc-900 text-zinc-400 hover:border-zinc-500"
+                    }`}
+                    data-testid={`hub-stat-slot-${groupIndex}`}
+                  >
+                    <span className="flex items-center justify-between gap-1">
+                      <GroupMetricIcon className="h-3.5 w-3.5 shrink-0" />
+                      {isActive && <span className="text-[8px] font-bold uppercase tracking-wider">Active</span>}
+                    </span>
+                    <span className="mt-1.5 block truncate text-base font-black leading-none text-white">{groupMetric.valueLabel}</span>
+                    <span className="mt-1 block truncate text-[9px] uppercase tracking-wide text-zinc-500">{groupMetric.label}</span>
+                  </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </section>
+  );
 
   return (
     <div className="min-h-full bg-background pb-6">
@@ -157,30 +515,64 @@ export default function HubPage() {
             </h1>
           </div>
           {streak > 0 && (() => {
-              const sa = streak >= 30 ? { bg: "bg-red-500/20", border: "border-red-400/40", color: "text-red-300", flames: 3, pulse: true }
-                       : streak >= 14 ? { bg: "bg-orange-500/20", border: "border-orange-400/40", color: "text-orange-300", flames: 3, pulse: true }
-                       : streak >= 7  ? { bg: "bg-orange-500/15", border: "border-orange-400/30", color: "text-orange-400", flames: 2, pulse: false }
-                       : streak >= 3  ? { bg: "bg-orange-500/10", border: "border-orange-500/25", color: "text-orange-400", flames: 1, pulse: false }
-                       :                { bg: "bg-orange-500/10", border: "border-orange-500/20", color: "text-orange-400", flames: 1, pulse: false };
+              const sa = streak >= 30
+                ? { bg: "bg-red-500/20", border: "border-red-400/50", color: "text-red-200", flames: 3, pulse: true, scale: "scale-125", glow: "shadow-[0_0_24px_rgba(248,113,113,0.55)]" }
+                : streak >= 14
+                  ? { bg: "bg-orange-500/20", border: "border-orange-400/50", color: "text-orange-200", flames: 3, pulse: true, scale: "scale-115", glow: "shadow-[0_0_20px_rgba(251,146,60,0.45)]" }
+                  : streak >= 7
+                    ? { bg: "bg-orange-500/15", border: "border-orange-400/40", color: "text-orange-300", flames: 2, pulse: false, scale: "scale-110", glow: "shadow-[0_0_15px_rgba(251,146,60,0.32)]" }
+                    : streak >= 3
+                      ? { bg: "bg-orange-500/10", border: "border-orange-500/30", color: "text-orange-400", flames: 1, pulse: false, scale: "scale-105", glow: "" }
+                      : { bg: "bg-orange-500/10", border: "border-orange-500/20", color: "text-orange-400", flames: 1, pulse: false, scale: "scale-100", glow: "" };
               return (
-                <button
-                  onClick={() => navigate("/streaks")}
+                 <div
                   data-testid="button-streak"
-                  className={`flex items-center gap-1.5 rounded-2xl px-3 py-2 mt-1 border active:scale-95 transition-all ${sa.bg} ${sa.border}`}
+                   role="img"
+                   aria-label={`${streak} day training streak`}
+                   title={`${streak} day training streak`}
+                   className={`group flex cursor-default items-center gap-1.5 rounded-2xl border px-3 py-2 mt-1 transition-all hover:scale-105 ${sa.bg} ${sa.border} ${sa.glow}`}
                 >
-                  <Flame className={`w-4 h-4 ${sa.color} ${sa.pulse ? "animate-pulse" : ""}`} />
-                  {sa.flames >= 2 && <Flame className={`w-3 h-3 ${sa.color} -ml-2.5 opacity-70`} />}
-                  {sa.flames >= 3 && <Flame className={`w-3 h-3 ${sa.color} -ml-2.5 opacity-50`} />}
+                   <span className={`relative flex items-center transition-transform duration-300 ${sa.scale} group-hover:scale-110`}>
+                     <Flame className={`h-4 w-4 ${sa.color} ${sa.pulse ? "animate-pulse" : ""}`} />
+                     {sa.flames >= 2 && <Flame className={`-ml-2.5 h-3 w-3 ${sa.color} opacity-75`} />}
+                     {sa.flames >= 3 && <Flame className={`-ml-2.5 h-3 w-3 ${sa.color} opacity-55`} />}
+                   </span>
                   <span className={`${sa.color} font-bold text-sm`}>{streak}</span>
-                </button>
+                 </div>
               );
             })()}
+        </div>
+        <div className="mt-4 flex items-center justify-between gap-3 border-t border-zinc-800/80 pt-3" data-testid="hub-mode-toggle">
+          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-600">Hub view</span>
+          <div className="flex rounded-lg border border-zinc-700 bg-zinc-900 p-0.5" role="group" aria-label="Choose Hub view">
+            {([
+              { value: "onboarding" as const, label: "Onboarding" },
+              { value: "everyday" as const, label: "Everyday" },
+            ]).map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setHubModeOverride(value)}
+                aria-pressed={hubMode === value}
+                data-testid={`button-hub-mode-${value}`}
+                className={`rounded-md px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 ${
+                  hubMode === value
+                    ? "bg-orange-500 text-black"
+                    : "text-zinc-500 hover:text-zinc-200"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
       <div className="px-4 space-y-4 mt-4">
-        {!trailerDismissed && (
-          <div className="relative rounded-2xl overflow-hidden border border-zinc-800 bg-black" data-testid="card-intro-trailer">
+        {hubMode === "onboarding" && (
+          <>
+            {!trailerDismissed && (
+              <div className="relative rounded-2xl overflow-hidden border border-zinc-800 bg-black" data-testid="card-intro-trailer">
             <video
               src={introTrailer}
               autoPlay
@@ -208,11 +600,11 @@ export default function HubPage() {
                 Watch the Trailer
               </div>
             </div>
-          </div>
-        )}
+              </div>
+            )}
 
-        {/* Post-onboarding path */}
-        <section className="space-y-3" data-testid="section-post-onboarding">
+            {/* Post-onboarding path */}
+            <section className="space-y-3" data-testid="section-post-onboarding">
           <div>
             <h2 className="text-xl font-black text-white mt-1">Your next steps are ready.</h2>
             <p className="text-sm text-zinc-500 mt-1">Finish your setup, meet your coach, then get to work.</p>
@@ -300,7 +692,11 @@ export default function HubPage() {
             </div>
             <ChevronRight className="w-4 h-4 text-orange-400/70 shrink-0" />
           </button>
-        </section>
+            </section>
+          </>
+        )}
+
+        {hubMode === "everyday" && weeklyRecapSection}
 
         {/* Start training */}
         <section className="space-y-3" data-testid="section-start-training">
@@ -311,254 +707,104 @@ export default function HubPage() {
             </div>
             <Dumbbell className="w-5 h-5 text-orange-400" />
           </div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             {[
-              { label: "Start a program", detail: "Follow a plan", path: "/programs", icon: Layers3, testId: "button-start-program" },
               { label: "Log a session", detail: "Track today's work", path: "/log", icon: Dumbbell, testId: "button-start-log" },
+              { label: "Start a program", detail: "Follow a plan", path: "/programs", icon: Layers3, testId: "button-start-program" },
               { label: "Drill library", detail: "Find your next drill", path: "/drills", icon: BookOpen, testId: "button-start-drills" },
             ].map(({ label, detail, path, icon: Icon, testId }) => (
               <button
                 key={path}
                 onClick={() => navigate(path)}
-                className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-3 text-left hover:border-orange-500/40 transition-colors"
+                className="group flex min-h-[104px] cursor-pointer flex-col gap-3 rounded-xl border border-zinc-700 bg-zinc-900 p-4 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
                 data-testid={testId}
               >
-                <div className="w-9 h-9 rounded-xl bg-zinc-800 flex items-center justify-center mb-3">
-                  <Icon className="w-4 h-4 text-orange-400" />
-                </div>
-                <p className="text-white font-bold text-xs leading-tight">{label}</p>
-                <p className="text-zinc-600 text-[11px] mt-1 leading-tight">{detail}</p>
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 text-orange-400">
+                  <Icon className="h-4 w-4" />
+                </span>
+                <span>
+                  <span className="block font-heading text-sm uppercase tracking-wide leading-tight">{label}</span>
+                  <span className="mt-0.5 block text-[11px] text-zinc-500">{detail}</span>
+                </span>
               </button>
             ))}
           </div>
         </section>
 
-        {fixData?.primaryFixDrill && (
-          <div className="rounded-2xl overflow-hidden border border-orange-500/30 bg-gradient-to-br from-orange-500/20 via-orange-500/8 to-transparent p-5" data-testid="card-unlocked-fix-drill">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center">
-                <Target className="w-4 h-4 text-orange-400" />
-              </div>
-              <p className="text-xs text-orange-400 font-bold uppercase tracking-wider">Your unlocked fix</p>
-            </div>
-            <h2 className="text-xl font-black text-white">{fixData.primaryFixDrill.title}</h2>
-            <p className="text-sm text-zinc-400 mt-1 line-clamp-2">
-              {fixData.diagnosticSummary || fixData.primaryFixDrill.description || "A focused drill built around your diagnostic."}
-            </p>
-            <Button
-              size="sm"
-              className="mt-4 bg-orange-500 hover:bg-orange-400 text-black font-bold"
-              onClick={() => navigate(`/drill/${fixData.primaryFixDrill.id}`)}
-              data-testid="button-open-fix-drill"
-            >
-              Start your fix <ChevronRight className="w-4 h-4 ml-1" />
-            </Button>
-          </div>
-        )}
-
-        {fixData?.quizId && !fixData.fullProfileCompleted && (
-          <button
-            onClick={() => navigate("/career")}
-            className="w-full text-left rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4 hover:border-zinc-700 transition-colors"
-            data-testid="banner-full-profile-assessment"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-orange-400" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm text-white font-bold">Go deeper when you’re ready</p>
-                <p className="text-xs text-zinc-500 mt-0.5">Complete the full 17-question player assessment.</p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-zinc-600" />
-            </div>
-          </button>
-        )}
-
-        {/* Today's Training Card */}
-        {!goalLoading && (
-          <>
-            {todayProgram ? (
-              <div
-                data-testid="card-today-training"
-                onClick={() => navigate("/my-goal")}
-                className="cursor-pointer rounded-2xl overflow-hidden bg-gradient-to-br from-orange-500/15 via-orange-500/8 to-transparent border border-orange-500/25 p-5 active:scale-[0.98] transition-transform"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center">
-                      <Target className="w-4 h-4 text-orange-400" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-orange-400 font-medium">TODAY'S TRAINING</p>
-                      <p className="text-xs text-zinc-400">Phase {goalWeek} of {goalTotalWeeks}</p>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-orange-400/60" />
-                </div>
-                <p className="text-white font-bold text-lg leading-tight">{todayProgram.activity}</p>
-                <div className="flex items-center gap-3 mt-2">
-                  <span className="text-zinc-400 text-sm">{todayProgram.duration}</span>
-                  {todayProgram.drillCategories?.[0] && (
-                    <Badge variant="outline" className="text-xs border-orange-500/30 text-orange-300 py-0">
-                      {todayProgram.drillCategories[0]}
-                    </Badge>
-                  )}
-                </div>
-                {todayProgram.details && (
-                  <p className="text-zinc-400 text-xs mt-1.5 line-clamp-1">{todayProgram.details}</p>
-                )}
-                <Button
-                  data-testid="button-log-today"
-                  onClick={(e) => { e.stopPropagation(); navigate("/log"); }}
-                  size="sm"
-                  className="mt-3 bg-orange-500 hover:bg-orange-600 text-black font-semibold text-xs h-8"
-                >
-                  <Dumbbell className="w-3.5 h-3.5 mr-1.5" />
-                  Log This Session
-                </Button>
-              </div>
-            ) : (
-              !goalData && (
-                <button
-                  data-testid="card-set-goal-cta"
-                  onClick={() => navigate("/coach-p")}
-                  className="w-full text-left rounded-2xl bg-gradient-to-br from-orange-500/10 to-transparent border border-orange-500/20 p-5 active:scale-[0.98] transition-transform"
-                >
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-8 h-8 rounded-full bg-orange-500/15 flex items-center justify-center">
-                      <Bot className="w-4 h-4 text-orange-400" />
-                    </div>
-                  <p className="text-white font-semibold">Build Your PLAYR1 Project with Coach P</p>
-                  </div>
-                  <p className="text-zinc-400 text-sm">Discover a personalized PLAYR1 Project built around your story and goals.</p>
-                  <div className="mt-3 flex items-center gap-1 text-orange-400 text-sm font-medium">
-                    Start now <ChevronRight className="w-4 h-4" />
-                  </div>
-                </button>
-              )
-            )}
-          </>
-        )}
-
-        {/* Stats Row */}
-        {!overviewLoading ? (
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              { label: "Streak", value: streak, icon: Flame, color: "text-orange-400", bg: "bg-orange-500/10" },
-              { label: "Sessions", value: totalSessions, icon: Dumbbell, color: "text-blue-400", bg: "bg-blue-500/10" },
-              { label: "Milestones", value: completedMilestones, icon: Trophy, color: "text-yellow-400", bg: "bg-yellow-500/10" },
-            ].map(({ label, value, icon: Icon, color, bg }) => (
-              <div key={label} className="rounded-2xl bg-zinc-900 border border-zinc-800 p-4 flex flex-col items-center gap-1">
-                <div className={`w-8 h-8 rounded-full ${bg} flex items-center justify-center`}>
-                  <Icon className={`w-4 h-4 ${color}`} />
-                </div>
-                <p className="text-white font-bold text-xl">{value}</p>
-                <p className="text-zinc-500 text-xs">{label}</p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-3 gap-3">
-            {[0, 1, 2].map(i => <Skeleton key={i} className="h-24 rounded-2xl" />)}
-          </div>
-        )}
-
-        {/* Archetype Identity Strip */}
-        {!archLoading && mainArch ? (
-          <button
-            data-testid="card-identity-strip"
-            onClick={() => navigate("/journey")}
-            className="w-full text-left rounded-2xl bg-zinc-900 border border-zinc-800 p-4 active:scale-[0.98] transition-transform"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center border"
-                  style={{
-                    backgroundColor: mainArch.archetype.primaryHex + "22",
-                    borderColor: mainArch.archetype.primaryHex + "44",
-                  }}
-                >
-                  <Zap className="w-5 h-5" style={{ color: mainArch.archetype.primaryHex }} />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="text-white font-semibold text-sm">{mainArch.archetype.name}</p>
-                    <Badge
-                      variant="outline"
-                      className={`text-xs py-0 px-1.5 border-transparent capitalize ${TIER_COLORS[mainArch.tier] ?? ""}`}
-                    >
-                      {mainArch.tier}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-2 mt-1">
-                    <div className="w-24 h-1.5 bg-zinc-700 rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{
-                          width: `${archProgress?.pct ?? 0}%`,
-                          backgroundColor: mainArch.archetype.primaryHex,
-                        }}
-                      />
-                    </div>
-                    {archProgress?.nextTier && (
-                      <p className="text-zinc-500 text-xs">{archProgress.xpToNext} XP to {archProgress.nextTier}</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-zinc-600" />
-            </div>
-          </button>
-        ) : !archLoading && !mainArch ? (
-          <button
-            data-testid="card-pick-archetype"
-            onClick={() => navigate("/archetypes")}
-            className="w-full text-left rounded-2xl bg-zinc-900 border border-zinc-800 p-4"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-white font-semibold text-sm">Pick Your Archetype</p>
-                <p className="text-zinc-400 text-xs mt-0.5">Define your play style and unlock your identity</p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-zinc-600" />
-            </div>
-          </button>
-        ) : null}
+        {hubMode !== "everyday" && weeklyRecapSection}
 
         {/* Goal Progress (if active) */}
         {!goalLoading && activeGoal && (
           <button
             data-testid="card-goal-progress"
             onClick={() => navigate("/my-goal")}
-            className="w-full text-left rounded-2xl bg-zinc-900 border border-zinc-800 p-4 active:scale-[0.98] transition-transform"
+            className="group w-full text-left rounded-xl border border-zinc-700 bg-zinc-900 p-4 text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.99]"
           >
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <Target className="w-4 h-4 text-orange-400" />
-                 <p className="text-white font-semibold text-sm">My PLAYR1 Project</p>
+                <Target className="h-4 w-4 text-orange-400" />
+                <p className="font-heading text-sm uppercase tracking-wide text-white">Active goal</p>
               </div>
-              <div className="flex items-center gap-1 text-zinc-400 text-xs">
+              <div className="flex items-center gap-1 text-xs text-zinc-500">
                 {completedMilestones}/{totalMilestones} milestones
-                <ChevronRight className="w-3.5 h-3.5" />
+                <ChevronRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5 group-hover:text-orange-400" />
               </div>
             </div>
-            <p className="text-zinc-300 text-sm line-clamp-1 mb-3">"{activeGoal.goal.goalText}"</p>
+            <p className="mb-3 line-clamp-1 text-sm text-zinc-300">"{activeGoal.goal.goalText}"</p>
             <div className="space-y-1.5">
               <div className="flex justify-between text-xs text-zinc-500">
-                 <span>Phase {goalWeek} of {goalTotalWeeks}</span>
+                <span>Week {goalWeek} of {goalTotalWeeks}</span>
                 <span>{goalPct}%</span>
               </div>
-              <Progress value={goalPct} className="h-1.5 bg-zinc-800" />
+              <Progress value={goalPct} className="h-1.5 bg-zinc-800" aria-label={`Goal progress: ${goalPct}%`} />
             </div>
           </button>
         )}
 
-        {/* Programs */}
-        <div data-testid="section-continue-programs">
-          <ContinueProgramsWidget />
-        </div>
+        {hubMode === "everyday" && (
+          <section className="space-y-3" data-testid="section-everyday-connections">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500 font-bold">STAY CONNECTED</p>
+              <h2 className="text-lg font-black text-white mt-1">Keep playing with your community.</h2>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => navigate("/community")}
+                className="group flex min-h-[88px] items-center gap-3 rounded-xl border border-zinc-700 bg-zinc-900 p-4 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.99]"
+                data-testid="button-hub-community"
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 text-orange-400">
+                  <Users className="h-4 w-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-heading text-sm uppercase tracking-wide leading-tight">Community</span>
+                  <span className="mt-1 block text-[11px] text-zinc-500">Find players, friends, and challenges</span>
+                </span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-zinc-500 transition group-hover:translate-x-1 group-hover:text-orange-400" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => navigate("/coach-p")}
+                className="group flex min-h-[88px] items-center gap-3 rounded-xl border border-orange-500/30 bg-gradient-to-r from-orange-500/15 via-orange-500/8 to-transparent p-4 text-left text-zinc-100 transition hover:border-orange-500/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.99]"
+                data-testid="button-hub-coach-p"
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-orange-500/30 bg-orange-500/15 text-orange-400">
+                  <MessageCircle className="h-4 w-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-2">
+                    <span className="block font-heading text-sm uppercase tracking-wide leading-tight">Coach P</span>
+                    <Badge className="border-orange-500/20 bg-orange-500/15 text-[10px] text-orange-300">AI COACH</Badge>
+                  </span>
+                  <span className="mt-1 block text-[11px] text-zinc-400">Get your next question answered</span>
+                </span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-orange-400/70 transition group-hover:translate-x-1" />
+              </button>
+            </div>
+          </section>
+        )}
 
       </div>
     </div>

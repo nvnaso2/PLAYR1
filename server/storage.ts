@@ -1552,9 +1552,15 @@ export class DatabaseStorage {
     let threePointersMade = 0;
     let freeThrowsMade = 0;
     let fieldGoalsMade = 0;
+    let fieldGoalsAttempted = 0;
+    let fieldGoalsMadeIncludingThrees = 0;
     let layupsMade = 0;
+    const completedWorkoutSessions = new Set<string>();
 
     for (const log of logs) {
+      if (log.workoutSessionId) {
+        completedWorkoutSessions.add(log.workoutSessionId);
+      }
       if (log.shotsMade && log.shotsMade > 0) {
         // Count ALL made shots regardless of location
         totalShotsMade += log.shotsMade;
@@ -1578,13 +1584,25 @@ export class DatabaseStorage {
           }
         }
       }
+      if (log.shotLocation && (log.shotsAttempted || log.shotsMade)) {
+        const classification = LOCATION_CLASSIFICATIONS[log.shotLocation as ShotLocation];
+        if (classification === "2-pointer" || classification === "3-pointer") {
+          fieldGoalsAttempted += log.shotsAttempted || 0;
+          fieldGoalsMadeIncludingThrees += log.shotsMade || 0;
+        }
+      }
     }
 
     if (totalShotsMade > 0) result["totalShotsMade"] = totalShotsMade;
     if (threePointersMade > 0) result["threePointersMade"] = threePointersMade;
     if (freeThrowsMade > 0) result["freeThrowsMade"] = freeThrowsMade;
     if (fieldGoalsMade > 0) result["fieldGoalsMade"] = fieldGoalsMade;
+    if (fieldGoalsAttempted > 0) {
+      result["fieldGoalsAttempted"] = fieldGoalsAttempted;
+      result["fgPct"] = Math.round((fieldGoalsMadeIncludingThrees / fieldGoalsAttempted) * 100);
+    }
     if (layupsMade > 0) result["layupsMade"] = layupsMade;
+    result["workoutsCompleted"] = completedWorkoutSessions.size;
 
     const totalConditioningMinutes = logs.reduce((sum, l) => sum + (l.duration || 0), 0);
     if (totalConditioningMinutes > 0) result["conditioningTime"] = totalConditioningMinutes;

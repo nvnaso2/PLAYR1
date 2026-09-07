@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { nativeFetch, statsUrl } from "@/lib/queryClient";
@@ -7,13 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { StatsCard } from "@/components/stats-card";
 import { ShootingHeatmap, type ShotData } from "@/components/shooting-heatmap";
 import {
@@ -39,13 +32,14 @@ import {
   CircleDot,
   Flame,
   HandMetal,
-  Timer,
   BarChart3,
   Activity,
   PlayCircle,
   BookOpen,
   TrendingDown,
   LineChart,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 const CHART_COLORS = ["#f97316", "#22c55e", "#3b82f6", "#8b5cf6", "#ec4899", "#14b8a6", "#ef4444"];
@@ -83,7 +77,7 @@ const TRAINING_STAT_DEFS: TrainingStatDef[] = [
   { key: "leftHandBallHandling", title: "Left-Hand Handling", icon: <HandMetal className="w-4 h-4" />, testId: "stats-left-hand", skillType: "ball-handling" },
   { key: "rightHandBallHandling", title: "Right-Hand Handling", icon: <HandMetal className="w-4 h-4" />, testId: "stats-right-hand", skillType: "ball-handling" },
   { key: "passesMade", title: "Passes Made", icon: <Crosshair className="w-4 h-4" />, testId: "stats-passes", skillType: "passing" },
-  { key: "conditioningTime", title: "Conditioning Time", icon: <Timer className="w-4 h-4" />, format: (v) => { const h = Math.floor(v / 60); const m = v % 60; return h > 0 ? `${h}h ${m}m` : `${m}m`; }, testId: "stats-conditioning", skillType: "workouts" },
+  { key: "fgPct", title: "FG%", icon: <Target className="w-4 h-4" />, format: (v) => `${v}%`, testId: "stats-fg-pct", skillType: "shooting" },
 ];
 
 type SkillTab = { key: string; label: string };
@@ -193,7 +187,8 @@ export default function ProgressPage() {
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("weekly");
   const [activeSkill, setActiveSkill] = useState("all");
   const [selectedMetric, setSelectedMetric] = useState<MetricKey>("shotsMade");
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
+  const fromHub = location.includes("from=hub");
 
   const { data: weeklyStats } = useQuery<{ date: string; minutes: number; sessions: number }[]>({
     queryKey: ['/api/stats/weekly', timePeriod],
@@ -286,6 +281,22 @@ export default function ProgressPage() {
   const showShootingHeatmap = activeSkill === "all" || activeSkill === "shooting";
 
   const activeDef = METRIC_DEFS.find(m => m.key === selectedMetric) || METRIC_DEFS[0];
+  const activeMetricIndex = Math.max(0, METRIC_DEFS.findIndex((metric) => metric.key === activeDef.key));
+  const chartTouchStart = useRef<number | null>(null);
+  const changeMetric = (direction: 1 | -1) => {
+    const nextIndex = (activeMetricIndex + direction + METRIC_DEFS.length) % METRIC_DEFS.length;
+    setSelectedMetric(METRIC_DEFS[nextIndex].key);
+  };
+  const handleChartTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    chartTouchStart.current = event.touches[0]?.clientX ?? null;
+  };
+  const handleChartTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
+    const startX = chartTouchStart.current;
+    const endX = event.changedTouches[0]?.clientX;
+    chartTouchStart.current = null;
+    if (startX === null || endX === undefined || Math.abs(endX - startX) < 40) return;
+    changeMetric(endX < startX ? 1 : -1);
+  };
   const chartData = trendsData?.map(p => ({
     label: p.label,
     value: activeDef.getValue(p),
@@ -310,30 +321,45 @@ export default function ProgressPage() {
   const isNewUser = !overviewLoading && totalSessions === 0;
 
   return (
-    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="min-h-full bg-[#090909] p-4 sm:p-6 max-w-7xl mx-auto space-y-5 sm:space-y-6">
+      <header className="space-y-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold mb-1" data-testid="text-page-title">Dashboard</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">
+          <p className="font-heading text-[10px] font-bold uppercase tracking-[0.24em] text-orange-400">Player dashboard</p>
+          <h1 className="mt-1 text-2xl sm:text-3xl font-black uppercase tracking-wide text-white" data-testid="text-page-title">Dashboard</h1>
+          <p className="mt-1 text-sm sm:text-base text-zinc-500">
             Track your improvement and training performance
           </p>
         </div>
-        <div className="flex gap-1 flex-wrap">
-          {(["daily", "weekly", "monthly", "annual"] as TimePeriod[]).map((period) => (
-            <Button
-              key={period}
-              size="sm"
-              variant={timePeriod === period ? "default" : "outline"}
-              onClick={() => setTimePeriod(period)}
-              data-testid={`button-period-${period}`}
-            >
-              {TIME_PERIOD_LABELS[period]}
-            </Button>
-          ))}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setLocation(`/progress/customize${fromHub ? "?from=hub" : ""}`)}
+            className="h-10 w-full border-white/35 bg-white/5 text-white hover:bg-white/10 hover:text-white sm:min-w-[136px] sm:w-auto"
+            data-testid="button-customize-dashboard-stats"
+          >
+            Customize Hub
+          </Button>
+          <div className="grid w-full grid-cols-4 gap-1 sm:flex sm:w-auto" role="group" aria-label="Choose dashboard time range">
+            {(["daily", "weekly", "monthly", "annual"] as TimePeriod[]).map((period) => (
+              <Button
+                key={period}
+                size="sm"
+                variant={timePeriod === period ? "default" : "outline"}
+                onClick={() => setTimePeriod(period)}
+                className={timePeriod === period
+                  ? "h-10 min-w-0 bg-orange-500 px-2 text-[10px] font-bold text-black hover:bg-orange-400 sm:text-xs"
+                  : "h-10 min-w-0 border-zinc-800 bg-transparent px-2 text-[10px] text-zinc-400 hover:border-orange-500/40 hover:bg-orange-500/10 hover:text-orange-300 sm:text-xs"}
+                data-testid={`button-period-${period}`}
+              >
+                {TIME_PERIOD_LABELS[period]}
+              </Button>
+            ))}
+          </div>
         </div>
-      </div>
+      </header>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+      <section className="grid grid-cols-1 gap-3 sm:max-w-[780px] sm:grid-cols-3 sm:gap-4" aria-label="Training summary">
         {overviewLoading ? (
           <>
             <Skeleton className="h-[72px] rounded-lg" />
@@ -362,17 +388,17 @@ export default function ProgressPage() {
             />
           </>
         )}
-      </div>
+      </section>
 
       {isNewUser ? (
-        <Card className="border-primary/20 bg-primary/5">
+        <Card className="border-orange-500/25 bg-orange-500/5 shadow-none">
           <CardContent className="p-8 text-center space-y-5">
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
               <Activity className="w-8 h-8 text-primary" />
             </div>
             <div>
-              <h2 className="text-xl font-bold mb-2">Ready to start your journey?</h2>
-              <p className="text-muted-foreground text-sm max-w-sm mx-auto">
+              <h2 className="text-xl font-black text-white mb-2">Ready to start your journey?</h2>
+              <p className="text-zinc-500 text-sm max-w-sm mx-auto">
                 Log your first drill to start tracking your progress. Your stats, streaks, and improvement charts will all appear right here.
               </p>
             </div>
@@ -402,7 +428,11 @@ export default function ProgressPage() {
       ) : (
         <>
           <div className="space-y-4">
-            <div className="flex gap-1.5 flex-wrap" data-testid="skill-tabs">
+            <div className="space-y-2" data-testid="skill-tabs">
+              <div className="flex items-center justify-between">
+                <p className="font-heading text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Breakdown by skill</p>
+              </div>
+              <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1" role="tablist" aria-label="Filter stats by skill">
               {SKILL_TABS.map((tab) => {
                 const hasData = tab.key === "all" || skillsWithData.has(tab.key);
                 return (
@@ -411,13 +441,18 @@ export default function ProgressPage() {
                     size="sm"
                     variant={activeSkill === tab.key ? "default" : "outline"}
                     onClick={() => setActiveSkill(tab.key)}
-                    className={`gap-1.5 ${!hasData && tab.key !== "all" ? "opacity-50" : ""}`}
+                    className={`h-9 shrink-0 gap-1.5 whitespace-nowrap ${activeSkill === tab.key
+                      ? "bg-orange-500 text-black hover:bg-orange-400"
+                      : "border-zinc-800 bg-zinc-950/60 text-zinc-400 hover:border-orange-500/40 hover:bg-orange-500/10 hover:text-orange-300"} ${!hasData && tab.key !== "all" ? "opacity-50" : ""}`}
+                    role="tab"
+                    aria-selected={activeSkill === tab.key}
                     data-testid={`button-skill-${tab.key}`}
                   >
                     {tab.label}
                   </Button>
                 );
               })}
+              </div>
             </div>
 
             {trainingLoading ? (
@@ -446,7 +481,7 @@ export default function ProgressPage() {
                 })}
               </div>
             ) : (
-              <Card>
+              <Card className="min-w-0 border-zinc-800 bg-zinc-950/70 shadow-none">
                 <CardContent className="p-6 text-center">
                   <Activity className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
                   <h3 className="font-semibold mb-1">
@@ -467,7 +502,7 @@ export default function ProgressPage() {
               shotHeatmapData.length > 0 ? (
                 <ShootingHeatmap shotData={shotHeatmapData} title="Shooting Heatmap" />
               ) : (
-                <Card>
+                <Card className="border-zinc-800 bg-zinc-950/70 shadow-none">
                   <CardHeader>
                     <CardTitle className="text-base sm:text-lg flex items-center gap-2">
                       <Crosshair className="w-5 h-5 text-primary" />
@@ -487,32 +522,45 @@ export default function ProgressPage() {
             )}
           </div>
 
-          {/* Progress Chart — single chart with metric selector */}
-          <Card>
+          {/* Progress Chart — single chart with swipeable metric carousel */}
+          <Card className="min-w-0 border-zinc-800 bg-zinc-950/70 shadow-none">
             <CardHeader className="pb-3">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-center justify-between gap-2">
                 <CardTitle className="text-base sm:text-lg flex items-center gap-2">
                   <LineChart className="w-5 h-5 text-primary" />
-                  Progress — {periodChartTitle[timePeriod]}
+                  Progress {periodChartTitle[timePeriod]}
                 </CardTitle>
-                <Select
-                  value={selectedMetric}
-                  onValueChange={(v) => setSelectedMetric(v as MetricKey)}
-                >
-                  <SelectTrigger className="w-full sm:w-52" data-testid="select-chart-metric">
-                    <SelectValue placeholder="Select metric" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {METRIC_DEFS.map((m) => (
-                      <SelectItem key={m.key} value={m.key} data-testid={`option-metric-${m.key}`}>
-                        {m.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex shrink-0 items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => changeMetric(-1)}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-400 transition hover:border-orange-500/50 hover:text-orange-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                    aria-label="Show previous progress metric"
+                    data-testid="button-previous-chart-metric"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <span className="max-w-[92px] truncate text-[10px] font-bold uppercase tracking-[0.08em] text-zinc-500 sm:max-w-none sm:text-xs">
+                    {activeDef.label}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => changeMetric(1)}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-400 transition hover:border-orange-500/50 hover:text-orange-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                    aria-label="Show next progress metric"
+                    data-testid="button-next-chart-metric"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             </CardHeader>
-            <CardContent className="px-2 sm:px-6 pb-4">
+            <CardContent
+              className="px-3 pb-4 sm:px-6 touch-pan-y"
+              data-testid="select-chart-metric"
+              onTouchStart={handleChartTouchStart}
+              onTouchEnd={handleChartTouchEnd}
+            >
               {hasTrendData ? (
                 <ResponsiveContainer width="100%" height={220}>
                   <AreaChart data={chartData} margin={{ left: -10, right: 8, top: 4, bottom: 0 }}>
@@ -573,8 +621,8 @@ export default function ProgressPage() {
             </CardContent>
           </Card>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-            <Card>
+          <div className="grid min-w-0 grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2">
+            <Card className="min-w-0 border-zinc-800 bg-zinc-950/70 shadow-none">
               <CardHeader>
                 <CardTitle className="text-base sm:text-lg flex items-center gap-2">
                   <BarChart3 className="w-5 h-5 text-primary" />
@@ -629,7 +677,7 @@ export default function ProgressPage() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="min-w-0 border-zinc-800 bg-zinc-950/70 shadow-none">
               <CardHeader>
                 <CardTitle className="text-base sm:text-lg flex items-center gap-2">
                   <Target className="w-5 h-5 text-primary" />
