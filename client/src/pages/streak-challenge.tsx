@@ -207,6 +207,7 @@ export default function StreakChallengePage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  const [challengeView, setChallengeView] = useState<"progress" | "leaderboard">("progress");
   const [leaderSort, setLeaderSort] = useState<"best" | "closest" | "percent">("best");
   const [showLogModal, setShowLogModal] = useState(false);
   const [showJoinForm, setShowJoinForm] = useState(false);
@@ -416,10 +417,35 @@ export default function StreakChallengePage() {
       </div>
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6">
+        <div className="mb-5 grid grid-cols-2 gap-1 rounded-xl border border-white/[0.08] bg-zinc-950 p-1" role="tablist" aria-label="Challenge view">
+          <Button
+            type="button"
+            variant="ghost"
+            className={`h-10 rounded-lg text-sm font-semibold ${challengeView === "progress" ? "bg-orange-500/15 text-orange-300 hover:bg-orange-500/20 hover:text-orange-200" : "text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-200"}`}
+            onClick={() => setChallengeView("progress")}
+            role="tab"
+            aria-selected={challengeView === "progress"}
+            data-testid="tab-challenge-progress"
+          >
+            <Target className="mr-2 h-4 w-4" />My Progress
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            className={`h-10 rounded-lg text-sm font-semibold ${challengeView === "leaderboard" ? "bg-orange-500/15 text-orange-300 hover:bg-orange-500/20 hover:text-orange-200" : "text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-200"}`}
+            onClick={() => setChallengeView("leaderboard")}
+            role="tab"
+            aria-selected={challengeView === "leaderboard"}
+            data-testid="tab-challenge-leaderboard"
+          >
+            <Trophy className="mr-2 h-4 w-4" />Leaderboard
+          </Button>
+        </div>
+
+        <div>
 
           {/* ─── Left: My Progress / Join ─── */}
-          <div className="space-y-4">
+          <div className={challengeView === "progress" ? "mx-auto max-w-2xl space-y-4" : "hidden"}>
             {myParticipation ? (
               <div
                 className="rounded-2xl border overflow-hidden"
@@ -637,7 +663,7 @@ export default function StreakChallengePage() {
           </div>
 
           {/* ─── Right: Leaderboard ─── */}
-          <div>
+          <div className={challengeView === "leaderboard" ? "mx-auto max-w-3xl" : "hidden"}>
             <div className="rounded-2xl border overflow-hidden" style={{ background: "linear-gradient(160deg,#0d0d0d 0%,#000 100%)", borderColor: "rgba(255,255,255,0.06)" }}>
               <div className="h-[2px] w-full" style={{ background: `linear-gradient(90deg,transparent,${accent}88,transparent)` }} />
 
