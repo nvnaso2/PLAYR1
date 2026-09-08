@@ -206,7 +206,7 @@ function ActivityFeedCard({ activity }: { activity: any }) {
 }
 
 function locationLabel(player: Player) {
-  return [player.city, player.state].filter(Boolean).join(" · ");
+  return [player.city, player.state].filter(Boolean).join(", ");
 }
 
 function challengeTrackingText(challenge: any) {
@@ -225,6 +225,29 @@ function challengeTrackingText(challenge: any) {
     default:
       return `Reach ${goal} total progress before the challenge ends.`;
   }
+}
+
+function challengeIconSizeClass(size: "compact" | "default" | "large") {
+  if (size === "compact") return "h-9 w-9 rounded-lg text-lg";
+  if (size === "large") return "h-12 w-12 rounded-2xl text-2xl";
+  return "h-10 w-10 rounded-xl text-xl";
+}
+
+function ChallengeIcon({ challenge, size = "default" }: { challenge: any; size?: "compact" | "default" | "large" }) {
+  const accent = challengeColor(challenge);
+  return (
+    <span
+      className={`flex shrink-0 items-center justify-center border ${challengeIconSizeClass(size)}`}
+      style={{
+        background: `radial-gradient(circle at 32% 24%, ${colorWithAlpha(accent, "55")} 0%, ${colorWithAlpha(accent, "20")} 36%, rgba(9,9,11,0.88) 100%)`,
+        borderColor: colorWithAlpha(accent, "aa"),
+        boxShadow: `0 0 14px ${colorWithAlpha(accent, "55")}, 0 0 30px ${colorWithAlpha(accent, "22")}, inset 0 0 12px ${colorWithAlpha(accent, "22")}`,
+      }}
+      aria-hidden="true"
+    >
+      {challenge.emoji || <Swords className="h-5 w-5" style={{ color: accent, filter: `drop-shadow(0 0 6px ${colorWithAlpha(accent, "cc")})` }} />}
+    </span>
+  );
 }
 
 function PlayerAvatar({ player, size = "h-10 w-10" }: { player: Player; size?: string }) {
@@ -543,9 +566,7 @@ function ChallengeCard({ challenge, isOwner, onInvite, canJoin, onJoin, joining 
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border text-xl shadow-inner" style={{ backgroundColor: colorWithAlpha(accent, "30"), borderColor: colorWithAlpha(accent, "80"), boxShadow: `0 0 18px ${colorWithAlpha(accent, "44")}` }}>
-              {challenge.emoji || <Swords className="h-5 w-5" style={{ color: accent }} />}
-            </div>
+            <ChallengeIcon challenge={challenge} />
             <div className="min-w-0">
             <CardTitle className="truncate text-base">{challenge.name}</CardTitle>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -733,21 +754,21 @@ function ChallengesPanel({ user }: { user: unknown }) {
   return (
     <div className="space-y-5">
       <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/90 p-4 shadow-lg shadow-black/20 sm:p-5">
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto_minmax(168px,190px)] lg:items-center">
           <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange-400">Community</p>
-            <h2 className="mt-1 text-2xl font-black tracking-tight text-white sm:text-3xl">Challenges</h2>
+            <p className="font-heading text-sm uppercase tracking-[0.22em] text-orange-400">Community</p>
+            <h2 className="mt-1 font-heading text-4xl uppercase leading-none tracking-wide text-white sm:text-5xl">Challenges</h2>
           </div>
-          <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-            <Button variant="outline" size="sm" className="h-9 gap-1.5 border-sky-500/30 bg-zinc-950/50 text-sky-200 hover:bg-sky-500/10" onClick={() => setPublicChallengesOpen(true)} data-testid="button-open-public-challenges">
-              <Globe2 className="h-3.5 w-3.5" /> Public challenges
+          <Button variant="ghost" size="sm" className="h-9 justify-self-start gap-1.5 px-0 text-xs text-zinc-400 hover:bg-transparent hover:text-white lg:justify-self-center" onClick={() => setChallengesOpen((open) => !open)} aria-expanded={challengesOpen}>
+            {challengesOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            {challengesOpen ? "Hide challenges" : "Show challenges"}
+          </Button>
+          <div className="flex flex-col gap-2">
+            <Button variant="outline" size="sm" className="h-9 w-full justify-between gap-1.5 border-sky-500/30 bg-zinc-950/50 text-sky-200 hover:bg-sky-500/10" onClick={() => setPublicChallengesOpen(true)} data-testid="button-open-public-challenges">
+              <span className="flex items-center gap-1.5"><Globe2 className="h-3.5 w-3.5" /> Public challenges</span>
               <Badge variant="secondary" className="ml-0.5 bg-sky-500/15 px-1.5 text-[10px] text-sky-200">{discoverableChallenges.length}</Badge>
             </Button>
-            <Button variant="ghost" size="sm" className="h-9 gap-1.5 text-xs text-zinc-400 hover:text-white" onClick={() => setChallengesOpen((open) => !open)} aria-expanded={challengesOpen}>
-              {challengesOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-              {challengesOpen ? "Hide challenges" : "Show challenges"}
-            </Button>
-            <Button size="sm" onClick={() => setCreateOpen(true)} data-testid="button-create-community-challenge"><Plus className="mr-2 h-4 w-4" /> Create challenge</Button>
+            <Button size="sm" className="h-9 w-full" onClick={() => setCreateOpen(true)} data-testid="button-create-community-challenge"><Plus className="mr-2 h-4 w-4" /> Create challenge</Button>
           </div>
         </div>
       </div>
@@ -805,7 +826,7 @@ function ChallengesPanel({ user }: { user: unknown }) {
             <div className="grid gap-2 sm:grid-cols-2">
               {joinedChallenges.map((challenge: any) => (
                 <button key={challenge.id} type="button" onClick={() => setDetailChallenge(challenge)} className="group flex items-center gap-3 rounded-xl border border-zinc-800/80 bg-zinc-900/45 p-3 text-left transition-all hover:-translate-y-0.5 hover:border-orange-500/40 hover:bg-zinc-900/80">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-lg" style={{ backgroundColor: challenge.color || "#f97316" }}>{challenge.emoji || <Swords className="h-4 w-4 text-black/70" />}</span>
+                  <ChallengeIcon challenge={challenge} size="compact" />
                    <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-zinc-100">{challenge.name}</span><span className="mt-1 block text-[11px] leading-4 text-zinc-400">{challengeTrackingText(challenge)}</span><span className="mt-0.5 block text-[10px] text-zinc-600">{challenge.members?.length || 0} players · Open details</span></span>
                   <ChevronDown className="h-4 w-4 -rotate-90 text-zinc-600 transition-transform group-hover:translate-x-0.5 group-hover:text-orange-300" />
                 </button>
@@ -820,7 +841,7 @@ function ChallengesPanel({ user }: { user: unknown }) {
           {detailChallenge && (
             <>
               <DialogHeader>
-                <DialogTitle className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl text-xl" style={{ backgroundColor: detailChallenge.color || "#f97316" }}>{detailChallenge.emoji || <Swords className="h-5 w-5 text-black/70" />}</span>{detailChallenge.name}</DialogTitle>
+                <DialogTitle className="flex items-center gap-3"><ChallengeIcon challenge={detailChallenge} />{detailChallenge.name}</DialogTitle>
                 <DialogDescription>See the full leaderboard and decide if this is your next shared target.</DialogDescription>
               </DialogHeader>
               <ChallengeCard challenge={detailChallenge} isOwner={detailChallenge.creatorId === myId} onInvite={() => { setDetailChallenge(null); setInviteChallengeId(detailChallenge.id); }} canJoin={discoverableChallenges.some((item: any) => item.id === detailChallenge.id)} joining={joiningChallengeId === detailChallenge.id} onJoin={() => joinChallenge.mutate(detailChallenge.id)} />
@@ -843,7 +864,7 @@ function ChallengesPanel({ user }: { user: unknown }) {
                 const accent = challengeColor(challenge);
                 return (
                   <button key={challenge.id} type="button" onClick={() => { setPublicChallengesOpen(false); setDetailChallenge(challenge); }} className="group rounded-2xl border bg-zinc-900/45 p-4 text-left transition-all hover:-translate-y-0.5" style={{ borderColor: colorWithAlpha(accent, "55"), background: `linear-gradient(135deg, ${colorWithAlpha(accent, "13")}, rgba(24,24,27,0.45))`, boxShadow: `0 0 24px ${colorWithAlpha(accent, "12")}` }}>
-                     <div className="flex items-start gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border text-xl" style={{ backgroundColor: colorWithAlpha(accent, "30"), borderColor: colorWithAlpha(accent, "80"), boxShadow: `0 0 16px ${colorWithAlpha(accent, "44")}` }}>{challenge.emoji || <Swords className="h-5 w-5" style={{ color: accent }} />}</span><span className="min-w-0 flex-1"><span className="block truncate font-semibold">{challenge.name}</span><span className="mt-1 block text-xs leading-4 text-zinc-300">{challengeTrackingText(challenge)}</span><span className="mt-1 block text-[10px] text-zinc-500">{challenge.members?.length || 0} players joined</span></span><ChevronDown className="h-4 w-4 -rotate-90 transition-transform group-hover:translate-x-0.5" style={{ color: accent }} /></div>
+                      <div className="flex items-start gap-3"><ChallengeIcon challenge={challenge} /><span className="min-w-0 flex-1"><span className="block truncate font-semibold">{challenge.name}</span><span className="mt-1 block text-xs leading-4 text-zinc-300">{challengeTrackingText(challenge)}</span><span className="mt-1 block text-[10px] text-zinc-500">{challenge.members?.length || 0} players joined</span></span><ChevronDown className="h-4 w-4 -rotate-90 transition-transform group-hover:translate-x-0.5" style={{ color: accent }} /></div>
                     <div className="mt-4 flex items-center justify-between text-[11px] text-zinc-500"><span>{challenge.members?.length || 0} players joined</span><span className="font-semibold" style={{ color: accent }}>View & join</span></div>
                   </button>
                 );
@@ -957,19 +978,21 @@ function PlayerCard({ player, onFollow, following }: { player: Player; onFollow:
   const status = player.connectionStatus;
   const followDisabled = following || status === "friends" || status === "outgoing_pending";
   const followLabel = status === "friends" ? "Friends" : status === "outgoing_pending" ? "Pending" : player.isFollowing ? "Following" : "Follow";
+  const position = player.positions?.[0];
+  const positionLabel = positions.find((item) => item.value === position)?.label || position;
   return (
-    <Card className="border-zinc-800/80 bg-zinc-950/80 shadow-lg shadow-black/10">
-      <CardContent className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 p-3.5">
-        <Link href={profileHref(player, "/community?tab=players")} aria-label={`View ${name}'s profile`}><PlayerAvatar player={player} /></Link>
+    <Card className="border-zinc-800/80 bg-zinc-950/80 shadow-lg shadow-black/10 transition-colors hover:border-zinc-700">
+      <CardContent className="flex min-w-0 items-center gap-3 p-3.5 sm:p-4">
+        <Link href={profileHref(player, "/community?tab=players")} aria-label={`View ${name}'s profile`} className="shrink-0"><PlayerAvatar player={player} size="h-11 w-11" /></Link>
         <div className="min-w-0 flex-1">
-          <Link href={profileHref(player, "/community?tab=players")} className="block truncate text-sm font-medium hover:text-orange-400">{name}</Link>
-          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
-            {player.skillLevel && <span className="capitalize">{player.skillLevel}</span>}
-            {player.positions?.[0] && <span>{positions.find((position) => position.value === player.positions?.[0])?.label || player.positions[0]}</span>}
-            {locationLabel(player) && <span className="flex items-center gap-0.5"><MapPin className="h-3 w-3" />{locationLabel(player)}</span>}
+          <Link href={profileHref(player, "/community?tab=players")} className="block truncate text-sm font-semibold text-white hover:text-orange-400">{name}</Link>
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            {player.skillLevel && <span className="rounded-full border border-zinc-700 bg-zinc-900 px-2 py-0.5 text-[10px] font-semibold capitalize text-zinc-300">{player.skillLevel}</span>}
+            {position && <span className="rounded-full border border-orange-500/25 bg-orange-500/[0.08] px-2 py-0.5 text-[10px] font-semibold text-orange-200" title={positionLabel}>{position}</span>}
           </div>
+          {locationLabel(player) && <div className="mt-2 flex min-w-0 items-center gap-1 text-[11px] text-zinc-500"><MapPin className="h-3 w-3 shrink-0 text-zinc-600" /><span className="truncate">{locationLabel(player)}</span></div>}
         </div>
-        <Button size="sm" variant={player.isFollowing ? "secondary" : "outline"} className={`h-9 min-w-[92px] ${player.isFollowing ? "border-orange-500/30 bg-orange-500/10 text-orange-200 hover:bg-orange-500/15" : "border-zinc-700 bg-zinc-900 text-zinc-200 hover:border-orange-500/50 hover:bg-orange-500/10 hover:text-orange-200"}`} onClick={onFollow} disabled={followDisabled} data-testid={`button-follow-player-${player.userId}`}>
+        <Button size="sm" variant={player.isFollowing ? "secondary" : "outline"} className={`h-9 shrink-0 min-w-[82px] px-3 ${player.isFollowing ? "border-orange-500/30 bg-orange-500/10 text-orange-200 hover:bg-orange-500/15" : "border-zinc-700 bg-zinc-900 text-zinc-200 hover:border-orange-500/50 hover:bg-orange-500/10 hover:text-orange-200"}`} onClick={onFollow} disabled={followDisabled} data-testid={`button-follow-player-${player.userId}`}>
           {followLabel}
         </Button>
       </CardContent>
