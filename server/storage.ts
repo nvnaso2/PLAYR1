@@ -8087,9 +8087,10 @@ Object.assign(DatabaseStorage.prototype, {
            FROM training_log_metrics tlm
            JOIN training_logs tl ON tl.id = tlm.training_log_id
            JOIN drill_metrics dm ON dm.id = tlm.metric_id
+           JOIN metric_templates mt ON mt.id = dm.metric_template_id
            WHERE tl.user_id = $1
              AND tl.completed_at >= $2
-             AND dm.name ILIKE $3
+             AND mt.name ILIKE $3
              ${shotFilter ? "AND tl.notes ILIKE $4" : ""}`,
           shotFilter
             ? [m.userId, startDate, `%${metricName}%`, `%${shotFilter}%`]

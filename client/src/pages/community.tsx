@@ -710,23 +710,25 @@ function ChallengesPanel({ user }: { user: unknown }) {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col justify-between gap-4 rounded-2xl border border-zinc-800/70 bg-zinc-950/40 p-4 sm:flex-row sm:items-end">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-orange-300">Challenges</p>
-          <h2 className="mt-1 text-lg font-semibold">Train toward something together</h2>
-        </div>
-        <div className="flex flex-col gap-3 sm:items-end">
-          <p className="max-w-xs text-left text-xs leading-5 text-muted-foreground sm:text-right">Shared goals, visible progress, friendly competition.</p>
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <Button variant="outline" size="sm" className="h-9 gap-1.5 border-sky-500/30 text-sky-200 hover:bg-sky-500/10" onClick={() => setPublicChallengesOpen(true)} data-testid="button-open-public-challenges">
+      <div className="rounded-xl border border-zinc-700 bg-zinc-900 p-4 sm:p-5">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-400">Challenges</p>
+            <h2 className="mt-1 text-xl font-black tracking-tight text-white sm:text-2xl">Train toward something together.</h2>
+          </div>
+          <div className="flex min-w-0 flex-col gap-3 lg:items-end">
+            <p className="text-sm text-zinc-400 lg:text-right">Shared goals. Visible progress. Friendly competition.</p>
+            <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+            <Button variant="outline" size="sm" className="h-9 gap-1.5 border-sky-500/30 bg-zinc-950/50 text-sky-200 hover:bg-sky-500/10" onClick={() => setPublicChallengesOpen(true)} data-testid="button-open-public-challenges">
               <Globe2 className="h-3.5 w-3.5" /> Public challenges
               <Badge variant="secondary" className="ml-0.5 bg-sky-500/15 px-1.5 text-[10px] text-sky-200">{discoverableChallenges.length}</Badge>
             </Button>
-            <Button variant="ghost" size="sm" className="h-9 gap-1.5 text-xs text-muted-foreground hover:text-white" onClick={() => setChallengesOpen((open) => !open)} aria-expanded={challengesOpen}>
+            <Button variant="ghost" size="sm" className="h-9 gap-1.5 text-xs text-zinc-400 hover:text-white" onClick={() => setChallengesOpen((open) => !open)} aria-expanded={challengesOpen}>
               {challengesOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
               {challengesOpen ? "Hide challenges" : "Show challenges"}
             </Button>
             <Button size="sm" onClick={() => setCreateOpen(true)} data-testid="button-create-community-challenge"><Plus className="mr-2 h-4 w-4" /> Create challenge</Button>
+            </div>
           </div>
         </div>
       </div>
@@ -931,12 +933,14 @@ function ChallengesPanel({ user }: { user: unknown }) {
   );
 }
 
-function PlayerCard({ player, onAdd, onAccept, onFollow, onRemoveFriend, adding, following, removingFriend }: { player: Player; onAdd: () => void; onAccept: () => void; onFollow: () => void; onRemoveFriend: () => void; adding: boolean; following: boolean; removingFriend: boolean }) {
+function PlayerCard({ player, onFollow, following }: { player: Player; onFollow: () => void; following: boolean }) {
   const name = playerName(player);
   const status = player.connectionStatus;
+  const followDisabled = following || status === "friends" || status === "outgoing_pending";
+  const followLabel = status === "friends" ? "Friends" : status === "outgoing_pending" ? "Pending" : player.isFollowing ? "Following" : "Follow";
   return (
-    <Card className="border-zinc-700 bg-zinc-900">
-      <CardContent className="flex items-center gap-3 p-3.5">
+    <Card className="border-zinc-800 bg-zinc-950/60">
+      <CardContent className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 p-3.5">
         <Link href={profileHref(player)} aria-label={`View ${name}'s profile`}><PlayerAvatar player={player} /></Link>
         <div className="min-w-0 flex-1">
           <Link href={profileHref(player)} className="block truncate text-sm font-medium hover:text-orange-400">{name}</Link>
@@ -946,15 +950,9 @@ function PlayerCard({ player, onAdd, onAccept, onFollow, onRemoveFriend, adding,
             {locationLabel(player) && <span className="flex items-center gap-0.5"><MapPin className="h-3 w-3" />{locationLabel(player)}</span>}
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-1.5">
-          <Button size="sm" variant={player.isFollowing ? "secondary" : "outline"} className={player.isFollowing ? "text-orange-200" : "border-orange-500/40 text-orange-300 hover:bg-orange-500/10"} onClick={onFollow} disabled={following || status === "friends"} title={status === "friends" ? "Unfriend this player before unfollowing" : undefined} data-testid={`button-follow-player-${player.userId}`}>
-            {player.isFollowing ? "Following" : "Follow"}
-          </Button>
-          {status === "friends" ? <Button size="sm" variant="ghost" className="text-emerald-300 hover:bg-red-500/10 hover:text-red-300" onClick={onRemoveFriend} disabled={removingFriend} data-testid={`button-unfriend-player-${player.userId}`}>Unfriend</Button>
-            : status === "outgoing_pending" ? <Badge variant="outline" className="border-zinc-700 text-zinc-400">Pending</Badge>
-              : status === "incoming_pending" ? <Button size="sm" onClick={onAccept} disabled={adding} data-testid={`button-accept-player-${player.userId}`}><Check className="mr-1 h-3 w-3" /> Accept</Button>
-                : <Button size="sm" variant="outline" className="border-orange-500/40 text-orange-300 hover:bg-orange-500/10" onClick={onAdd} disabled={adding || !player.isFollowing} title={!player.isFollowing ? "Follow this player before friending them" : undefined} data-testid={`button-add-player-${player.userId}`}><UserPlus className="mr-1 h-3 w-3" /> {player.isFollowing ? "Friend" : "Follow to friend"}</Button>}
-        </div>
+        <Button size="sm" variant={player.isFollowing ? "secondary" : "outline"} className={`h-9 min-w-[92px] ${player.isFollowing ? "border-orange-500/30 bg-orange-500/10 text-orange-200 hover:bg-orange-500/15" : "border-zinc-700 bg-zinc-900 text-zinc-200 hover:border-orange-500/50 hover:bg-orange-500/10 hover:text-orange-200"}`} onClick={onFollow} disabled={followDisabled} data-testid={`button-follow-player-${player.userId}`}>
+          {followLabel}
+        </Button>
       </CardContent>
     </Card>
   );
@@ -966,11 +964,9 @@ function PlayersPanel({ user }: { user: unknown }) {
   const [skill, setSkill] = useState("all");
   const [position, setPosition] = useState("all");
   const [state, setState] = useState("");
-  const [addingId, setAddingId] = useState<string | null>(null);
   const [followingId, setFollowingId] = useState<string | null>(null);
   const recommendedQuery = useQuery<Player[]>({ queryKey: ["/api/users/recommended"], enabled: !!user });
   const friendsQuery = useQuery<any[]>({ queryKey: ["/api/friends"], enabled: !!user });
-  const requestsQuery = useQuery<any[]>({ queryKey: ["/api/friends/requests"], enabled: !!user });
   const hasSearch = search.trim().length >= 2;
   const searchQuery = useQuery<Player[]>({
     queryKey: ["/api/users/search", search.trim(), skill, position, state.trim()],
@@ -984,30 +980,6 @@ function PlayersPanel({ user }: { user: unknown }) {
       return response.json();
     },
     enabled: hasSearch,
-  });
-  const sendRequest = useMutation({
-    mutationFn: (playerId: string) => apiRequest("POST", "/api/friends/request", { addresseeId: playerId }),
-    onMutate: (playerId) => setAddingId(playerId),
-    onSettled: () => setAddingId(null),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/friends"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/friends/requests"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/users/recommended"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/users/search"] });
-      toast({ title: "Friend request sent" });
-    },
-    onError: () => toast({ title: "Could not send friend request", variant: "destructive" }),
-  });
-  const acceptRequest = useMutation({
-    mutationFn: (requestId: string) => apiRequest("PATCH", `/api/friends/requests/${requestId}`, { status: "accepted" }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/friends"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/friends/requests"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/users/recommended"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/users/search"] });
-      toast({ title: "Friend request accepted" });
-    },
-    onError: () => toast({ title: "Could not accept request", variant: "destructive" }),
   });
   const toggleFollow = useMutation({
     mutationFn: ({ userId, following }: { userId: string; following: boolean }) =>
@@ -1024,20 +996,6 @@ function PlayersPanel({ user }: { user: unknown }) {
     },
     onError: () => toast({ title: "Could not update follow", variant: "destructive" }),
   });
-  const removeFriend = useMutation({
-    mutationFn: (friendId: string) => apiRequest("DELETE", `/api/friends/${friendId}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/friends"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/friends/activity"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/follows/activity"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/users/recommended"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/users/search"] });
-      toast({ title: "Friend removed" });
-    },
-    onError: () => toast({ title: "Could not unfriend player", variant: "destructive" }),
-  });
-
-  const incomingByUser = useMemo(() => new Map((requestsQuery.data || []).map((request: any) => [request.requester.id, request])), [requestsQuery.data]);
   const filteredRecommended = useMemo(() => (recommendedQuery.data || []).filter((player) => {
     const skillMatch = skill === "all" || player.skillLevel === skill;
     const positionMatch = position === "all" || player.positions?.includes(position);
@@ -1094,11 +1052,7 @@ function PlayersPanel({ user }: { user: unknown }) {
         <Card className="border-dashed border-zinc-700 bg-transparent"><CardContent className="p-10 text-center"><Search className="mx-auto mb-3 h-6 w-6 text-zinc-500" /><h3 className="font-medium">{hasSearch ? "No players found" : "No player suggestions yet"}</h3><p className="mt-1 text-sm text-muted-foreground">{hasSearch ? "Try another name or remove a filter." : "Complete more of your profile or search for someone by name."}</p></CardContent></Card>
       ) : (
         <div className="grid gap-3 md:grid-cols-2" data-testid="community-player-results">
-          {players.map((player) => {
-            const incoming = incomingByUser.get(player.userId);
-            const normalizedPlayer = incoming ? { ...player, connectionStatus: "incoming_pending" } : player;
-             return <PlayerCard key={player.userId} player={normalizedPlayer} adding={addingId === player.userId || acceptRequest.isPending} following={followingId === player.userId || toggleFollow.isPending} removingFriend={removeFriend.isPending} onAdd={() => sendRequest.mutate(player.userId)} onAccept={() => incoming && acceptRequest.mutate(incoming.friendship.id)} onFollow={() => toggleFollow.mutate({ userId: player.userId, following: !player.isFollowing })} onRemoveFriend={() => removeFriend.mutate(player.userId)} />;
-          })}
+          {players.map((player) => <PlayerCard key={player.userId} player={player} following={followingId === player.userId || toggleFollow.isPending} onFollow={() => toggleFollow.mutate({ userId: player.userId, following: !player.isFollowing })} />)}
         </div>
       )}
     </div>

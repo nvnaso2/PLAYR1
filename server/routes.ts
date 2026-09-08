@@ -12431,6 +12431,7 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
       }
       res.json(await storage.getGroupChallengesForUser(userId));
     } catch (err) {
+      console.error("Failed to get group challenges:", err);
       res.status(500).json({ message: "Failed to get group challenges" });
     }
   });
