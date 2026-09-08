@@ -92,6 +92,17 @@ const tabs: Array<{ id: CommunityTab; label: string; description: string; icon: 
   { id: "players", label: "Players", description: "Find your people", icon: UsersRound },
 ];
 
+const CHALLENGE_EMOJIS = ["🏀", "🔥", "🎯", "⚡", "💪", "🏆", "👟", "🚀", "🧊", "💯", "⛹️", "🥇", "🧠", "🔒", "🌟", "🛡️", "🏁", "🎽"];
+const CHALLENGE_COLORS = ["#f97316", "#ef4444", "#f43f5e", "#ec4899", "#a855f7", "#6366f1", "#3b82f6", "#06b6d4", "#14b8a6", "#22c55e", "#84cc16", "#eab308"];
+
+function challengeColor(challenge: any) {
+  return /^#[0-9a-fA-F]{6}$/.test(challenge?.color || "") ? challenge.color : "#f97316";
+}
+
+function colorWithAlpha(color: string, alpha: string) {
+  return `${color}${alpha}`;
+}
+
 const skillLevels = ["beginner", "developing", "intermediate", "advanced", "elite"];
 const positions = [
   { value: "PG", label: "Point Guard" },
