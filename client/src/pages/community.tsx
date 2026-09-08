@@ -769,7 +769,7 @@ function ChallengesPanel({ user }: { user: unknown }) {
             Public challenges
             <Badge className="ml-0.5 border border-sky-300/40 bg-sky-400/15 px-1.5 text-[10px] text-sky-100 shadow-[0_0_14px_rgba(56,189,248,0.28)] hover:bg-sky-400/15">{discoverableChallenges.length}</Badge>
           </Button>
-          <Button size="sm" className="h-8" onClick={() => setCreateOpen(true)} data-testid="button-create-community-challenge"><Plus className="mr-2 h-4 w-4" /> Create challenge</Button>
+          <Button size="sm" className="h-8 bg-orange-500 text-black shadow-[0_0_16px_rgba(249,115,22,0.28)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-orange-400 hover:shadow-[0_0_24px_rgba(249,115,22,0.5)] active:translate-y-0 active:scale-[0.98]" onClick={() => setCreateOpen(true)} data-testid="button-create-community-challenge"><Plus className="mr-2 h-4 w-4 transition-transform duration-200 group-hover:rotate-90" /> Create challenge</Button>
         </div>
       </div>
 
@@ -976,21 +976,18 @@ function PlayerCard({ player, onFollow, following }: { player: Player; onFollow:
   const status = player.connectionStatus;
   const followDisabled = following || status === "friends" || status === "outgoing_pending";
   const followLabel = status === "friends" ? "Friends" : status === "outgoing_pending" ? "Pending" : player.isFollowing ? "Following" : "Follow";
-  const position = player.positions?.[0];
-  const positionLabel = positions.find((item) => item.value === position)?.label || position;
   return (
     <Card className="h-fit self-start border-zinc-800/80 bg-zinc-950/80 shadow-lg shadow-black/10 transition-colors hover:border-zinc-700">
-      <CardContent className="flex min-w-0 items-center gap-3 px-3.5 py-3 sm:px-4 sm:py-3.5">
-        <Link href={profileHref(player, "/community?tab=players")} aria-label={`View ${name}'s profile`} className="shrink-0"><PlayerAvatar player={player} size="h-10 w-10" /></Link>
-        <div className="min-w-0 flex-1">
-          <Link href={profileHref(player, "/community?tab=players")} className="block text-sm font-semibold leading-5 text-white hover:text-orange-400">{name}</Link>
-          <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            {player.skillLevel && <span className="rounded-full border border-zinc-700 bg-zinc-900 px-2 py-0.5 text-[10px] font-semibold capitalize text-zinc-300">{player.skillLevel}</span>}
-            {position && <span className="rounded-full border border-orange-500/25 bg-orange-500/[0.08] px-2 py-0.5 text-[10px] font-semibold text-orange-200" title={positionLabel}>{position}</span>}
-          </div>
-          {locationLabel(player) && <div className="mt-1.5 flex min-w-0 items-center gap-1 whitespace-nowrap text-[11px] text-zinc-500"><MapPin className="h-3 w-3 shrink-0 text-zinc-600" /><span>{locationLabel(player)}</span></div>}
+      <CardContent className="flex min-w-0 items-center gap-3 px-3 py-2.5 sm:px-3.5">
+        <div className="flex w-[84px] shrink-0 flex-col items-center gap-1.5">
+          <Link href={profileHref(player, "/community?tab=players")} className="max-w-full break-words text-center text-xs font-semibold leading-4 text-white hover:text-orange-400" aria-label={`View ${name}'s profile`}>{name}</Link>
+          <Link href={profileHref(player, "/community?tab=players")} aria-hidden="true" tabIndex={-1}><PlayerAvatar player={player} size="h-9 w-9" /></Link>
         </div>
-        <Button size="sm" variant={player.isFollowing ? "secondary" : "outline"} className={`h-9 shrink-0 min-w-[78px] px-3 ${player.isFollowing ? "border-orange-500/30 bg-orange-500/10 text-orange-200 hover:bg-orange-500/15" : "border-zinc-700 bg-zinc-900 text-zinc-200 hover:border-orange-500/50 hover:bg-orange-500/10 hover:text-orange-200"}`} onClick={onFollow} disabled={followDisabled} data-testid={`button-follow-player-${player.userId}`}>
+        <div className="min-w-0 flex-1 text-center">
+          {player.skillLevel && <p className="text-xs font-medium capitalize text-zinc-300">{player.skillLevel} experience</p>}
+          {locationLabel(player) && <p className="mt-1 flex items-center justify-center gap-1 whitespace-nowrap text-[11px] text-zinc-500"><MapPin className="h-3 w-3 shrink-0 text-zinc-600" /><span>{locationLabel(player)}</span></p>}
+        </div>
+        <Button size="sm" variant={player.isFollowing ? "secondary" : "outline"} className={`h-8 shrink-0 min-w-[64px] px-2 text-xs ${player.isFollowing ? "border-orange-500/30 bg-orange-500/10 text-orange-200 hover:bg-orange-500/15" : "border-zinc-700 bg-zinc-900 text-zinc-200 hover:border-orange-500/50 hover:bg-orange-500/10 hover:text-orange-200"}`} onClick={onFollow} disabled={followDisabled} data-testid={`button-follow-player-${player.userId}`}>
           {followLabel}
         </Button>
       </CardContent>

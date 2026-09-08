@@ -401,6 +401,8 @@ const communityDemoChallenges = [
   { id: "playr1-demo-challenge-sessions", name: "Weekend Work", goalType: "training_sessions" as const, goalAmount: 10, durationDays: 14, startDaysAgo: 2, endDaysFromNow: 12, creatorKey: "maya", audience: "friends" as const, emoji: "🏀", color: "#22c55e" },
   { id: "playr1-demo-challenge-public-shooting", name: "Corner Three Club", goalType: "shots_made" as const, goalAmount: 100, durationDays: 14, startDaysAgo: 1, endDaysFromNow: 13, creatorKey: "jalen", audience: "public" as const, emoji: "🎯", color: "#06b6d4" },
   { id: "playr1-demo-challenge-public-conditioning", name: "Run the Floor", goalType: "workout_minutes" as const, goalAmount: 240, durationDays: 21, startDaysAgo: 5, endDaysFromNow: 16, creatorKey: "noah", audience: "public" as const, emoji: "⚡", color: "#eab308" },
+  { id: "playr1-demo-challenge-public-free-throws", name: "Free Throw Ladder", goalType: "shots_made" as const, goalAmount: 150, durationDays: 18, startDaysAgo: 2, endDaysFromNow: 16, creatorKey: "imani", audience: "public" as const, emoji: "🏹", color: "#a855f7" },
+  { id: "playr1-demo-challenge-public-handles", name: "Handle the Pressure", goalType: "training_sessions" as const, goalAmount: 8, durationDays: 14, startDaysAgo: 4, endDaysFromNow: 10, creatorKey: "zoe", audience: "public" as const, emoji: "💫", color: "#f43f5e" },
 ] as const;
 
 async function seedCommunityDemo() {
@@ -638,6 +640,16 @@ async function seedCommunityDemo() {
       });
     }
   };
+
+  for (const [challengeIndex, challenge] of communityDemoChallenges.slice(3).entries()) {
+    const creator = communityDemoPlayers.find((player) => player.key === challenge.creatorKey);
+    if (creator) {
+      await addMember(challenge.id, creator.id, "accepted", (challengeIndex + 1) * 20);
+    }
+    for (const [playerIndex, player] of challengePlayers.slice(0, 3).entries()) {
+      await addMember(challenge.id, player.id, "accepted", (challengeIndex + playerIndex + 1) * 10);
+    }
+  }
 
   for (const realUser of realUsers) {
     for (const player of challengePlayers) await addFriendship(realUser.id, player.id);
