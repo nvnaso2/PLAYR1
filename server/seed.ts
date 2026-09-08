@@ -387,9 +387,11 @@ const communityDemoPlayers = [
 ] as const;
 
 const communityDemoChallenges = [
-  { id: "playr1-demo-challenge-streak", name: "The Consistency Run", goalType: "streak_days" as const, goalAmount: 14, durationDays: 21, startDaysAgo: 3, endDaysFromNow: 18 },
-  { id: "playr1-demo-challenge-defense", name: "Own Your Role", goalType: "streak_days" as const, goalAmount: 21, durationDays: 30, startDaysAgo: 8, endDaysFromNow: 22 },
-  { id: "playr1-demo-challenge-sessions", name: "Weekend Work", goalType: "training_sessions" as const, goalAmount: 10, durationDays: 14, startDaysAgo: 2, endDaysFromNow: 12 },
+  { id: "playr1-demo-challenge-streak", name: "The Consistency Run", goalType: "streak_days" as const, goalAmount: 14, durationDays: 21, startDaysAgo: 3, endDaysFromNow: 18, creatorKey: "maya", audience: "friends" as const, emoji: "🔥", color: "#f97316" },
+  { id: "playr1-demo-challenge-defense", name: "Own Your Role", goalType: "streak_days" as const, goalAmount: 21, durationDays: 30, startDaysAgo: 8, endDaysFromNow: 22, creatorKey: "maya", audience: "friends" as const, emoji: "🛡️", color: "#6366f1" },
+  { id: "playr1-demo-challenge-sessions", name: "Weekend Work", goalType: "training_sessions" as const, goalAmount: 10, durationDays: 14, startDaysAgo: 2, endDaysFromNow: 12, creatorKey: "maya", audience: "friends" as const, emoji: "🏀", color: "#22c55e" },
+  { id: "playr1-demo-challenge-public-shooting", name: "Corner Three Club", goalType: "shots_made" as const, goalAmount: 100, durationDays: 14, startDaysAgo: 1, endDaysFromNow: 13, creatorKey: "jalen", audience: "public" as const, emoji: "🎯", color: "#06b6d4" },
+  { id: "playr1-demo-challenge-public-conditioning", name: "Run the Floor", goalType: "workout_minutes" as const, goalAmount: 240, durationDays: 21, startDaysAgo: 5, endDaysFromNow: 16, creatorKey: "noah", audience: "public" as const, emoji: "⚡", color: "#eab308" },
 ] as const;
 
 async function seedCommunityDemo() {
@@ -577,15 +579,25 @@ async function seedCommunityDemo() {
     const endsAt = new Date(now.getTime() + challenge.endDaysFromNow * 86400000);
     await db.insert(groupChallenges).values({
       id: challenge.id,
-      creatorId: communityDemoPlayers[0].id,
+      creatorId: communityDemoPlayers.find((player) => player.key === challenge.creatorKey)?.id || communityDemoPlayers[0].id,
       name: challenge.name,
       goalType: challenge.goalType,
       goalAmount: challenge.goalAmount,
       durationDays: challenge.durationDays,
       startsAt,
       endsAt,
+      audience: challenge.audience,
+      emoji: challenge.emoji,
+      color: challenge.color,
     }).onConflictDoNothing();
-    await db.update(groupChallenges).set({ startsAt, endsAt }).where(eq(groupChallenges.id, challenge.id));
+    await db.update(groupChallenges).set({
+      startsAt,
+      endsAt,
+      creatorId: communityDemoPlayers.find((player) => player.key === challenge.creatorKey)?.id || communityDemoPlayers[0].id,
+      audience: challenge.audience,
+      emoji: challenge.emoji,
+      color: challenge.color,
+    }).where(eq(groupChallenges.id, challenge.id));
   }
 
   const addFriendship = async (userId: string, demoId: string) => {

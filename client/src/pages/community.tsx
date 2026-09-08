@@ -9,6 +9,7 @@ import {
   ChevronUp,
   Dumbbell,
   Flame,
+  Globe2,
   Info,
   MapPin,
   Plus,
@@ -37,6 +38,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -569,6 +571,7 @@ function ChallengesPanel({ user }: { user: unknown }) {
   const [color, setColor] = useState("#f97316");
   const [selectedChallengeId, setSelectedChallengeId] = useState<string | null>(null);
   const [detailChallenge, setDetailChallenge] = useState<any | null>(null);
+  const [publicChallengesOpen, setPublicChallengesOpen] = useState(false);
 
   const challengesQuery = useQuery<any[]>({
     queryKey: ["/api/group-challenges"],
@@ -673,17 +676,24 @@ function ChallengesPanel({ user }: { user: unknown }) {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+      <div className="flex flex-col justify-between gap-4 rounded-2xl border border-zinc-800/70 bg-zinc-950/40 p-4 sm:flex-row sm:items-end">
         <div>
-          <h2 className="text-lg font-semibold">Train toward something together</h2>
-          <p className="text-sm text-muted-foreground">Shared goals, visible progress, friendly competition.</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-orange-300">Challenges</p>
+          <h2 className="mt-1 text-lg font-semibold">Train toward something together</h2>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" className="h-9 gap-1.5 text-xs text-muted-foreground hover:text-white" onClick={() => setChallengesOpen((open) => !open)} aria-expanded={challengesOpen}>
-            {challengesOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-            {challengesOpen ? "Hide challenges" : "Show challenges"}
-          </Button>
-          <Button onClick={() => setCreateOpen(true)} data-testid="button-create-community-challenge"><Plus className="mr-2 h-4 w-4" /> Create challenge</Button>
+        <div className="flex flex-col gap-3 sm:items-end">
+          <p className="max-w-xs text-left text-xs leading-5 text-muted-foreground sm:text-right">Shared goals, visible progress, friendly competition.</p>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button variant="outline" size="sm" className="h-9 gap-1.5 border-sky-500/30 text-sky-200 hover:bg-sky-500/10" onClick={() => setPublicChallengesOpen(true)} data-testid="button-open-public-challenges">
+              <Globe2 className="h-3.5 w-3.5" /> Public challenges
+              <Badge variant="secondary" className="ml-0.5 bg-sky-500/15 px-1.5 text-[10px] text-sky-200">{discoverableChallenges.length}</Badge>
+            </Button>
+            <Button variant="ghost" size="sm" className="h-9 gap-1.5 text-xs text-muted-foreground hover:text-white" onClick={() => setChallengesOpen((open) => !open)} aria-expanded={challengesOpen}>
+              {challengesOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+              {challengesOpen ? "Hide challenges" : "Show challenges"}
+            </Button>
+            <Button size="sm" onClick={() => setCreateOpen(true)} data-testid="button-create-community-challenge"><Plus className="mr-2 h-4 w-4" /> Create challenge</Button>
+          </div>
         </div>
       </div>
 
@@ -750,39 +760,6 @@ function ChallengesPanel({ user }: { user: unknown }) {
         </div>
       )}
 
-      {!discoverQuery.isLoading && (
-        <section className="space-y-3" data-testid="community-public-challenges">
-          <div>
-            <div className="flex items-end justify-between gap-3">
-              <div><p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-300">Find your next run</p><h3 className="text-lg font-semibold">Open challenge pool</h3><p className="text-sm text-muted-foreground">Browse public goals and join the one that fits your week.</p></div>
-              <Badge variant="outline" className="hidden border-sky-500/30 text-sky-300 sm:inline-flex">{discoverableChallenges.length} open</Badge>
-            </div>
-          </div>
-          {discoverableChallenges.length > 0 ? (
-            <div className="grid gap-3 md:grid-cols-2">
-              {discoverableChallenges.map((challenge: any) => {
-                const accent = challengeColor(challenge);
-                return (
-                  <button key={challenge.id} type="button" onClick={() => setDetailChallenge(challenge)} className="group rounded-2xl border bg-zinc-900/45 p-4 text-left transition-all hover:-translate-y-0.5" style={{ borderColor: colorWithAlpha(accent, "55"), background: `linear-gradient(135deg, ${colorWithAlpha(accent, "13")}, rgba(24,24,27,0.45))`, boxShadow: `0 0 24px ${colorWithAlpha(accent, "12")}` }}>
-                    <div className="flex items-start gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border text-xl" style={{ backgroundColor: colorWithAlpha(accent, "30"), borderColor: colorWithAlpha(accent, "80"), boxShadow: `0 0 16px ${colorWithAlpha(accent, "44")}` }}>{challenge.emoji || <Swords className="h-5 w-5" style={{ color: accent }} />}</span><span className="min-w-0 flex-1"><span className="block truncate font-semibold">{challenge.name}</span><span className="mt-1 block text-xs text-zinc-400">{GROUP_CHALLENGE_GOAL_LABELS[challenge.goalType as keyof typeof GROUP_CHALLENGE_GOAL_LABELS] || challenge.goalType} · {Number(challenge.goalAmount).toLocaleString()} per player</span></span><ChevronDown className="h-4 w-4 -rotate-90 transition-transform group-hover:translate-x-0.5" style={{ color: accent }} /></div>
-                    <div className="mt-4 flex items-center justify-between text-[11px] text-zinc-500"><span>{challenge.members?.length || 0} players joined</span><span className="font-semibold" style={{ color: accent }}>View & join</span></div>
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <Card className="border-dashed border-sky-500/30 bg-sky-500/[0.04]">
-              <CardContent className="flex flex-col items-center justify-center px-6 py-8 text-center">
-                <div className="mb-3 rounded-full border border-sky-400/30 bg-sky-400/10 p-3 shadow-[0_0_24px_rgba(56,189,248,0.15)]"><Swords className="h-5 w-5 text-sky-300" /></div>
-                <h4 className="font-semibold">No open challenges yet</h4>
-                <p className="mt-1 max-w-md text-sm text-muted-foreground">Public challenges will appear here. Create one and set “Public — anyone can join” to open it to the whole PLAYR1 community.</p>
-                <Button variant="outline" className="mt-4 border-sky-500/30 text-sky-200 hover:bg-sky-500/10" onClick={() => setCreateOpen(true)}><Plus className="mr-2 h-4 w-4" /> Create a public challenge</Button>
-              </CardContent>
-            </Card>
-          )}
-        </section>
-      )}
-
       <Dialog open={!!detailChallenge} onOpenChange={(open) => !open && setDetailChallenge(null)}>
         <DialogContent className="max-h-[90vh] overflow-y-auto border-zinc-800 bg-zinc-950 sm:max-w-2xl">
           {detailChallenge && (
@@ -797,6 +774,39 @@ function ChallengesPanel({ user }: { user: unknown }) {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={publicChallengesOpen} onOpenChange={setPublicChallengesOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto border-zinc-800 bg-zinc-950 sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Globe2 className="h-5 w-5 text-sky-300" /> Public challenges</DialogTitle>
+            <DialogDescription>Browse open goals from the PLAYR1 community and join the one that fits your week.</DialogDescription>
+          </DialogHeader>
+          {discoverQuery.isLoading ? (
+            <div className="space-y-3" aria-label="Loading public challenges" aria-busy="true">{[1, 2].map((item) => <Skeleton key={item} className="h-28 bg-zinc-900" />)}</div>
+          ) : discoverableChallenges.length > 0 ? (
+            <div className="grid gap-3 md:grid-cols-2" data-testid="community-public-challenges">
+              {discoverableChallenges.map((challenge: any) => {
+                const accent = challengeColor(challenge);
+                return (
+                  <button key={challenge.id} type="button" onClick={() => { setPublicChallengesOpen(false); setDetailChallenge(challenge); }} className="group rounded-2xl border bg-zinc-900/45 p-4 text-left transition-all hover:-translate-y-0.5" style={{ borderColor: colorWithAlpha(accent, "55"), background: `linear-gradient(135deg, ${colorWithAlpha(accent, "13")}, rgba(24,24,27,0.45))`, boxShadow: `0 0 24px ${colorWithAlpha(accent, "12")}` }}>
+                    <div className="flex items-start gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border text-xl" style={{ backgroundColor: colorWithAlpha(accent, "30"), borderColor: colorWithAlpha(accent, "80"), boxShadow: `0 0 16px ${colorWithAlpha(accent, "44")}` }}>{challenge.emoji || <Swords className="h-5 w-5" style={{ color: accent }} />}</span><span className="min-w-0 flex-1"><span className="block truncate font-semibold">{challenge.name}</span><span className="mt-1 block text-xs text-zinc-400">{GROUP_CHALLENGE_GOAL_LABELS[challenge.goalType as keyof typeof GROUP_CHALLENGE_GOAL_LABELS] || challenge.goalType} · {Number(challenge.goalAmount).toLocaleString()} per player</span></span><ChevronDown className="h-4 w-4 -rotate-90 transition-transform group-hover:translate-x-0.5" style={{ color: accent }} /></div>
+                    <div className="mt-4 flex items-center justify-between text-[11px] text-zinc-500"><span>{challenge.members?.length || 0} players joined</span><span className="font-semibold" style={{ color: accent }}>View & join</span></div>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <Card className="border-dashed border-sky-500/30 bg-sky-500/[0.04]">
+              <CardContent className="flex flex-col items-center justify-center px-6 py-8 text-center">
+                <div className="mb-3 rounded-full border border-sky-400/30 bg-sky-400/10 p-3 shadow-[0_0_24px_rgba(56,189,248,0.15)]"><Swords className="h-5 w-5 text-sky-300" /></div>
+                <h4 className="font-semibold">No open challenges yet</h4>
+                <p className="mt-1 max-w-md text-sm text-muted-foreground">Public challenges will appear here. Create one and set “Public — anyone can join” to open it to the whole PLAYR1 community.</p>
+                <Button variant="outline" className="mt-4 border-sky-500/30 text-sky-200 hover:bg-sky-500/10" onClick={() => { setPublicChallengesOpen(false); setCreateOpen(true); }}><Plus className="mr-2 h-4 w-4" /> Create a public challenge</Button>
+              </CardContent>
+            </Card>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -807,10 +817,22 @@ function ChallengesPanel({ user }: { user: unknown }) {
             <label className="block space-y-1.5 text-sm"><span className="font-medium">Challenge name</span><Input value={name} onChange={(event) => setName(event.target.value)} placeholder="14-day training streak" data-testid="input-challenge-name" /></label>
             <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
               <div className="space-y-2">
-                <span className="block text-sm font-medium">Challenge identity</span>
-                <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Choose challenge emoji">
-                  {CHALLENGE_EMOJIS.map((option) => <button key={option} type="button" role="radio" aria-checked={emoji === option} onClick={() => setEmoji(option)} className={`flex h-10 w-10 items-center justify-center rounded-lg border text-lg transition-all ${emoji === option ? "border-orange-400 bg-orange-500/15 ring-2 ring-orange-400/30" : "border-zinc-800 bg-zinc-900 hover:border-zinc-600"}`}>{option}</button>)}
-                </div>
+                <span className="block text-sm font-medium">Challenge emoji</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button type="button" variant="outline" className="h-12 w-full justify-start gap-3 border-zinc-700 bg-zinc-900/70 text-left hover:border-orange-400/60 hover:bg-zinc-900">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-orange-400/40 bg-orange-500/10 text-xl shadow-[0_0_14px_rgba(249,115,22,0.2)]">{emoji}</span>
+                      <span className="flex-1 text-sm">Choose an emoji</span>
+                      <ChevronDown className="h-4 w-4 text-zinc-500" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-72 border-zinc-800 bg-zinc-950 p-3">
+                    <p className="mb-2 text-xs font-medium text-zinc-400">Pick a challenge identity</p>
+                    <div className="grid grid-cols-6 gap-2" role="radiogroup" aria-label="Choose challenge emoji">
+                      {CHALLENGE_EMOJIS.map((option) => <button key={option} type="button" role="radio" aria-checked={emoji === option} onClick={() => setEmoji(option)} className={`flex h-10 w-10 items-center justify-center rounded-lg border text-lg transition-all ${emoji === option ? "border-orange-400 bg-orange-500/15 ring-2 ring-orange-400/30" : "border-zinc-800 bg-zinc-900 hover:border-zinc-600 hover:bg-zinc-800"}`}>{option}</button>)}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="space-y-2">
                 <span className="block text-sm font-medium">Glow color</span>
@@ -1105,7 +1127,7 @@ export default function CommunityPage() {
 
   return (
     <main className="mx-auto max-w-4xl px-4 pb-24 pt-5 sm:px-6" data-testid="community-shell">
-      {activeTab === "activity" && <header className="relative mb-5 overflow-hidden rounded-2xl border border-orange-500/15 bg-gradient-to-br from-orange-500/[0.12] via-zinc-950 to-zinc-950 p-4 shadow-xl shadow-orange-950/10 sm:p-5">
+      {activeTab === "players" && <header className="relative mb-5 overflow-hidden rounded-2xl border border-orange-500/15 bg-gradient-to-br from-orange-500/[0.12] via-zinc-950 to-zinc-950 p-4 shadow-xl shadow-orange-950/10 sm:p-5">
         <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full border-[22px] border-orange-400/10" />
         <div className="pointer-events-none absolute -bottom-24 left-1/3 h-40 w-40 rounded-full bg-orange-500/10 blur-3xl" />
         <div className="relative">
