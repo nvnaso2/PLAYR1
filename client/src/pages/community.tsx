@@ -125,16 +125,6 @@ function relativeDate(value: string | Date | null | undefined) {
   return `${Math.round(hours / 24)}d ago`;
 }
 
-function activityDayKey(value: string | Date) {
-  const date = new Date(value);
-  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
-}
-
-function activityDayLabel(value: string | Date) {
-  const date = new Date(value);
-  return date.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
-}
-
 function activityStats(metadata: Record<string, unknown> | null | undefined) {
   if (!metadata) return [];
   const explicitLabel = metadata.statLabel;
@@ -170,11 +160,11 @@ function ActivityFeedCard({ activity }: { activity: any }) {
   return (
     <Card className="group relative overflow-hidden border-zinc-800/70 bg-zinc-900/35 transition-colors hover:border-zinc-700 hover:bg-zinc-900/60">
       <div className={`absolute inset-y-0 left-0 w-1 bg-gradient-to-b ${details.color}`} />
-      <CardContent className="flex min-w-0 items-start gap-2.5 p-2.5 pl-4 sm:gap-3 sm:px-3 sm:py-2.5 sm:pl-4">
+      <CardContent className="grid min-w-0 grid-cols-[auto_auto_minmax(0,1fr)_minmax(76px,auto)] items-center gap-2 p-2 pl-3.5 sm:gap-3 sm:px-3 sm:py-2 sm:pl-4">
         <Link href={profileHref(activityPlayer)} aria-label={`View ${activity.user.displayName}'s profile`} className="shrink-0">
-          <PlayerAvatar player={activityPlayer} size="h-8 w-8" />
+          <PlayerAvatar player={activityPlayer} size="h-7 w-7 sm:h-8 sm:w-8" />
         </Link>
-        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${details.color} p-[1px]`}>
+        <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${details.color} p-[1px] sm:h-8 sm:w-8`}>
           <div className="flex h-full w-full items-center justify-center rounded-[7px] bg-zinc-950">
             <Icon className="h-3.5 w-3.5 text-white" aria-hidden="true" />
           </div>
@@ -188,16 +178,14 @@ function ActivityFeedCard({ activity }: { activity: any }) {
           </div>
           <p className="mt-0.5 break-words text-xs font-medium leading-4 text-zinc-100 sm:text-sm sm:leading-5">{activity.title}</p>
           {activity.description && <p className="break-words text-[11px] leading-4 text-muted-foreground sm:text-xs">{activity.description}</p>}
-          {stats.length > 0 && (
-            <div className="mt-1.5 flex max-w-full flex-wrap gap-1.5" aria-label="Activity stats">
-              {stats.map((stat) => (
-                <div key={`${stat.label}-${stat.value}`} className="flex max-w-full flex-wrap items-baseline gap-x-1 rounded-md border border-zinc-800 bg-zinc-950/70 px-2 py-1">
-                  <span className="break-words text-[9px] uppercase tracking-wide text-zinc-500">{stat.label}</span>
-                  <span className="break-words text-[11px] font-bold text-white sm:text-xs">{stat.value}</span>
-                </div>
-              ))}
+        </div>
+        <div className="flex max-w-[110px] flex-col items-end gap-1 justify-self-end text-right sm:max-w-[190px]" aria-label="Activity stats">
+          {stats.length > 0 ? stats.map((stat) => (
+            <div key={`${stat.label}-${stat.value}`} className="max-w-full rounded-md border border-zinc-800 bg-zinc-950/70 px-2 py-1">
+              <span className="block break-words text-[8px] uppercase leading-3 tracking-wide text-zinc-500 sm:text-[9px]">{stat.label}</span>
+              <span className="block break-words text-[10px] font-bold leading-3.5 text-white sm:text-xs sm:leading-4">{stat.value}</span>
             </div>
-          )}
+          )) : <span className="text-[10px] text-zinc-600">—</span>}
         </div>
       </CardContent>
     </Card>
@@ -232,7 +220,7 @@ function ActivityPanel({ user }: { user: unknown }) {
   const [activityScope, setActivityScope] = useState<"friends" | "following">("friends");
   const [guideOpen, setGuideOpen] = useState(false);
   const [visibilityOpen, setVisibilityOpen] = useState(false);
-  const [openOlderDays, setOpenOlderDays] = useState<Record<string, boolean>>({});
+  const [visibleActivityCount, setVisibleActivityCount] = useState(10);
   const activityFeedUrl = activityScope === "friends" ? "/api/friends/activity" : "/api/follows/activity";
   const { data: feed = [], isLoading: feedLoading, isError: feedError } = useQuery<any[]>({
     queryKey: [activityFeedUrl],
@@ -277,25 +265,8 @@ function ActivityPanel({ user }: { user: unknown }) {
     onError: () => toast({ title: "Could not update request", variant: "destructive" }),
   });
   const scopeLabel = activityScope === "friends" ? "Friends" : "Following";
-  const groupedFeed = useMemo(() => {
-    const cutoff = Date.now() - (72 * 60 * 60 * 1000);
-    const recent: any[] = [];
-    const olderByDay = new Map<string, { key: string; label: string; activities: any[] }>();
-
-    for (const activity of feed) {
-      const createdAt = new Date(activity.createdAt);
-      if (createdAt.getTime() >= cutoff) {
-        recent.push(activity);
-        continue;
-      }
-      const key = activityDayKey(createdAt);
-      const group = olderByDay.get(key) || { key, label: activityDayLabel(createdAt), activities: [] };
-      group.activities.push(activity);
-      olderByDay.set(key, group);
-    }
-
-    return { recent, older: Array.from(olderByDay.values()) };
-  }, [feed]);
+  useEffect(() => setVisibleActivityCount(10), [activityScope]);
+  const visibleFeed = feed.slice(0, visibleActivityCount);
 
   return (
     <div className="space-y-5">
@@ -468,32 +439,19 @@ function ActivityPanel({ user }: { user: unknown }) {
           </Card>
         ) : (
           <div className="space-y-2" data-testid="community-activity-feed">
-            {groupedFeed.recent.map((activity: any) => <ActivityFeedCard key={activity.id} activity={activity} />)}
-            {groupedFeed.older.map((group) => {
-              const isOpen = openOlderDays[group.key] === true;
-              return (
-                <section key={group.key} className="overflow-hidden rounded-xl border border-zinc-800/80 bg-zinc-950/35">
-                  <button
-                    type="button"
-                    className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition-colors hover:bg-zinc-900/60"
-                    onClick={() => setOpenOlderDays((current) => ({ ...current, [group.key]: !current[group.key] }))}
-                    aria-expanded={isOpen}
-                    data-testid={`button-toggle-activity-day-${group.key}`}
-                  >
-                    <span className="min-w-0">
-                      <span className="block text-xs font-semibold text-zinc-200">{group.label}</span>
-                      <span className="block text-[10px] text-zinc-500">{group.activities.length} update{group.activities.length === 1 ? "" : "s"} · older than 72 hours</span>
-                    </span>
-                    {isOpen ? <ChevronUp className="h-4 w-4 shrink-0 text-zinc-500" /> : <ChevronDown className="h-4 w-4 shrink-0 text-zinc-500" />}
-                  </button>
-                  {isOpen && (
-                    <div className="space-y-2 border-t border-zinc-800/80 p-2">
-                      {group.activities.map((activity: any) => <ActivityFeedCard key={activity.id} activity={activity} />)}
-                    </div>
-                  )}
-                </section>
-              );
-            })}
+            {visibleFeed.map((activity: any) => <ActivityFeedCard key={activity.id} activity={activity} />)}
+            {visibleActivityCount < feed.length && (
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-3 w-full border-zinc-800 bg-zinc-950/50 text-xs text-zinc-300 hover:bg-zinc-900 hover:text-white"
+                onClick={() => setVisibleActivityCount((count) => count + 10)}
+                data-testid="button-see-more-activity"
+              >
+                See more
+                <ChevronDown className="ml-1.5 h-3.5 w-3.5" />
+              </Button>
+            )}
           </div>
         )}
       </div>
