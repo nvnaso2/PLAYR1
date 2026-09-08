@@ -756,6 +756,7 @@ export interface IStorage {
   getFriends(userId: string): Promise<Array<{ friendship: Friendship; friend: { id: string; displayName: string; profilePhotoUrl: string | null; skillLevel: string | null } }>>;
   setFriendFavorite(userId: string, friendId: string, favorite: boolean): Promise<boolean>;
   getFollowing(userId: string): Promise<Array<{ userId: string; displayName: string; profilePhotoUrl: string | null }>>;
+  getFollowers(userId: string): Promise<Array<{ userId: string; profileSlug: string | null; displayName: string; profilePhotoUrl: string | null; city: string | null; state: string | null }>>;
   setFollowing(userId: string, followingId: string, following: boolean): Promise<boolean>;
   getPendingFriendRequests(userId: string): Promise<Array<{ friendship: Friendship; requester: { id: string; displayName: string; profilePhotoUrl: string | null } }>>;
   getFriendshipBetween(userId1: string, userId2: string): Promise<Friendship | undefined>;
@@ -7767,16 +7768,39 @@ Object.assign(DatabaseStorage.prototype, {
     return favorite;
   },
 
-  async getFollowing(userId: string): Promise<Array<{ userId: string; displayName: string; profilePhotoUrl: string | null }>> {
+  async getFollowing(userId: string): Promise<Array<{ userId: string; profileSlug: string | null; displayName: string; profilePhotoUrl: string | null; city: string | null; state: string | null }>> {
     const follows = await db.select().from(userFollows).where(eq(userFollows.followerId, userId));
     const result = [];
     for (const follow of follows) {
       const [profile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, follow.followingId));
+      const [publicProfile] = await db.select({ slug: playerProfiles.slug }).from(playerProfiles).where(eq(playerProfiles.userId, follow.followingId));
       const [user] = await db.select().from(users).where(eq(users.id, follow.followingId));
       result.push({
         userId: follow.followingId,
+        profileSlug: publicProfile?.slug || null,
         displayName: profile?.displayName || `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || user?.email || "Player",
         profilePhotoUrl: profile?.profilePhotoUrl || user?.profileImageUrl || null,
+        city: profile?.city || null,
+        state: profile?.state || null,
+      });
+    }
+    return result;
+  },
+
+  async getFollowers(userId: string): Promise<Array<{ userId: string; profileSlug: string | null; displayName: string; profilePhotoUrl: string | null; city: string | null; state: string | null }>> {
+    const follows = await db.select().from(userFollows).where(eq(userFollows.followingId, userId));
+    const result = [];
+    for (const follow of follows) {
+      const [profile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, follow.followerId));
+      const [publicProfile] = await db.select({ slug: playerProfiles.slug }).from(playerProfiles).where(eq(playerProfiles.userId, follow.followerId));
+      const [user] = await db.select().from(users).where(eq(users.id, follow.followerId));
+      result.push({
+        userId: follow.followerId,
+        profileSlug: publicProfile?.slug || null,
+        displayName: profile?.displayName || `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || user?.email || "Player",
+        profilePhotoUrl: profile?.profilePhotoUrl || user?.profileImageUrl || null,
+        city: profile?.city || null,
+        state: profile?.state || null,
       });
     }
     return result;

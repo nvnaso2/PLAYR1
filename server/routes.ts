@@ -4234,10 +4234,11 @@ COACHING RULES:
   });
 
   // Get public player profile by slug (no auth required)
-  app.get("/api/player/:slug", async (req, res) => {
+  app.get("/api/player/:slug", optionalAuth, async (req, res) => {
     try {
-      const profile = await storage.getPlayerProfileBySlug(req.params.slug)
-        || (await db.select().from(playerProfiles).where(eq(playerProfiles.userId, req.params.slug)))[0];
+      const slug = String(req.params.slug);
+      const profile = await storage.getPlayerProfileBySlug(slug)
+        || (await db.select().from(playerProfiles).where(eq(playerProfiles.userId, slug)))[0];
       if (!profile || !profile.isPublic) {
         return res.status(404).json({ message: "Profile not found" });
       }
@@ -4272,6 +4273,26 @@ COACHING RULES:
       );
       const publicArchetype = profile.showArchetype ? (mainArchetype || fallbackArchetype || null) : null;
 
+      const viewerId = (req as any).user?.claims?.sub as string | undefined;
+      const [followingRow, friendship, followerCountRow, followingCountRow] = await Promise.all([
+        viewerId && viewerId !== profile.userId
+          ? db.select({ id: userFollows.id }).from(userFollows).where(and(
+              eq(userFollows.followerId, viewerId),
+              eq(userFollows.followingId, profile.userId),
+            )).limit(1)
+          : Promise.resolve([]),
+        viewerId && viewerId !== profile.userId
+          ? storage.getFriendshipBetween(viewerId, profile.userId)
+          : Promise.resolve(undefined),
+        db.select({ count: sql<number>`count(*)` }).from(userFollows).where(eq(userFollows.followingId, profile.userId)),
+        db.select({ count: sql<number>`count(*)` }).from(userFollows).where(eq(userFollows.followerId, profile.userId)),
+      ]);
+      const relationshipStatus = friendship?.status === "accepted"
+        ? "friends"
+        : friendship?.status === "pending"
+          ? friendship.requesterId === viewerId ? "outgoing_pending" : "incoming_pending"
+          : null;
+
       const publicData: any = {
         profile,
         user: user ? { firstName: user.firstName, lastName: user.lastName, profileImageUrl: user.profileImageUrl } : null,
@@ -4295,6 +4316,15 @@ COACHING RULES:
           skillBasketballIQ: profile.showSkills ? career.skillBasketballIQ : null,
            assessmentArchetype: profile.showArchetype ? (publicArchetype?.name || career.assessmentArchetype) : null,
         } : null,
+        relationship: {
+          isAuthenticated: Boolean(viewerId),
+          isSelf: viewerId === profile.userId,
+          isFollowing: followingRow.length > 0,
+          connectionId: friendship?.id ?? null,
+          connectionStatus: relationshipStatus,
+          followerCount: Number(followerCountRow[0]?.count || 0),
+          followingCount: Number(followingCountRow[0]?.count || 0),
+        },
          archetype: publicArchetype ? {
            name: publicArchetype.name,
            tagline: publicArchetype.tagline,
@@ -12303,6 +12333,14 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
       res.json(following);
     } catch {
       res.status(500).json({ message: "Failed to get following" });
+    }
+  });
+
+  app.get("/api/followers", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      res.json(await storage.getFollowers(req.user!.claims.sub));
+    } catch {
+      res.status(500).json({ message: "Failed to get followers" });
     }
   });
 

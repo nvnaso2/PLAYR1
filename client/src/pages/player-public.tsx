@@ -1,6 +1,6 @@
 import { useLocation, useRoute } from "wouter";
-import { useQuery } from "@tanstack/react-query";
-import { getObjectUrl } from "@/lib/queryClient";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { apiRequest, getObjectUrl, queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,9 +8,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import {
-  GraduationCap, Ruler, Trophy, Medal, Video, ExternalLink,
+  GraduationCap, Ruler, Trophy, Medal, Video, ExternalLink, Clock,
   School, Users, Dumbbell, BarChart3, ArrowLeft, MapPin,
-  Globe, Lock, Zap, Star,
+  Globe, Lock, Zap, Star, UserPlus, UserRoundCheck, UserRoundX,
 } from "lucide-react";
 import { ShareMenu } from "@/components/share-menu";
 import { BaseballCard } from "@/pages/career";
@@ -60,6 +60,15 @@ interface PublicProfileData {
     shotLocation: string | null;
     completedAt: string | Date | null;
   }>;
+  relationship?: {
+    isAuthenticated: boolean;
+    isSelf: boolean;
+    isFollowing: boolean;
+    connectionId: string | null;
+    connectionStatus: "friends" | "outgoing_pending" | "incoming_pending" | null;
+    followerCount: number;
+    followingCount: number;
+  };
 }
 
 const POSITION_LABELS: Record<string, string> = {
@@ -222,12 +231,50 @@ function PublicPlayerCard({ data }: { data: PublicProfileData }) {
 
 export default function PlayerPublicPage() {
   const [, params] = useRoute("/player/:slug");
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
   const slug = params?.slug || "";
+  const requestedReturnTo = new URLSearchParams(location.split("?")[1] || "").get("returnTo");
+  const returnTo = requestedReturnTo?.startsWith("/") ? requestedReturnTo : "/community";
   const { data, isLoading, error } = useQuery<PublicProfileData>({
     queryKey: ["/api/player", slug],
     enabled: !!slug,
   });
+  const targetUserId = data?.profile.userId;
+  const invalidateRelationshipViews = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/player", slug] });
+    queryClient.invalidateQueries({ queryKey: ["/api/friends"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/follows"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/followers"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/users/recommended"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/users/search"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/follows/activity"] });
+  };
+  const followMutation = useMutation({
+    mutationFn: (following: boolean) => {
+      if (!targetUserId) throw new Error("Player not found");
+      return apiRequest("PATCH", `/api/follows/${targetUserId}`, { following });
+    },
+    onSuccess: invalidateRelationshipViews,
+  });
+  const friendMutation = useMutation({
+    mutationFn: () => {
+      if (!targetUserId) throw new Error("Player not found");
+      return apiRequest("POST", "/api/friends/request", { addresseeId: targetUserId });
+    },
+    onSuccess: invalidateRelationshipViews,
+  });
+  const unfriendMutation = useMutation({
+    mutationFn: () => {
+      if (!targetUserId) throw new Error("Player not found");
+      return apiRequest("DELETE", `/api/friends/${targetUserId}`);
+    },
+    onSuccess: invalidateRelationshipViews,
+  });
+  const acceptFriendMutation = useMutation({
+    mutationFn: (connectionId: string) => apiRequest("PATCH", `/api/friends/requests/${connectionId}`, { status: "accepted" }),
+    onSuccess: invalidateRelationshipViews,
+  });
+  const relationshipBusy = followMutation.isPending || friendMutation.isPending || unfriendMutation.isPending || acceptFriendMutation.isPending;
 
   if (isLoading) {
     return (
@@ -255,7 +302,7 @@ export default function PlayerPublicPage() {
           <p className="text-muted-foreground text-sm">
             This player profile doesn't exist or isn't public yet.
           </p>
-          <Button variant="outline" onClick={() => navigate("/community")} data-testid="button-go-back" className="gap-2">
+          <Button variant="outline" onClick={() => navigate(returnTo)} data-testid="button-go-back" className="gap-2">
             <ArrowLeft className="h-4 w-4" />Back to Community
           </Button>
         </div>
@@ -283,7 +330,7 @@ export default function PlayerPublicPage() {
       {/* Top nav */}
       <div className="sticky top-0 z-20 bg-background/80 backdrop-blur-md border-b border-border/30">
         <div className="max-w-2xl mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/community")} className="gap-1.5" data-testid="button-back">
+          <Button variant="ghost" size="sm" onClick={() => navigate(returnTo)} className="gap-1.5" data-testid="button-back">
             <ArrowLeft className="h-4 w-4" />Community
           </Button>
           <ShareMenu
@@ -297,6 +344,46 @@ export default function PlayerPublicPage() {
 
       <div className="px-4 pt-5">
         <PublicPlayerCard data={data} />
+        {data.relationship && !data.relationship.isSelf && (
+          <div className="mt-3 rounded-2xl border border-zinc-800 bg-zinc-950/90 p-3 shadow-lg shadow-black/20" data-testid="player-relationship-actions">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-4 text-xs text-zinc-400">
+                <span><strong className="text-white">{data.relationship.followerCount}</strong> followers</span>
+                <span><strong className="text-white">{data.relationship.followingCount}</strong> following</span>
+              </div>
+              {data.relationship.isAuthenticated && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant={data.relationship.isFollowing ? "secondary" : "default"}
+                    className={data.relationship.isFollowing ? "border-orange-500/30 bg-orange-500/10 text-orange-200 hover:bg-orange-500/20" : ""}
+                    disabled={relationshipBusy || data.relationship.connectionStatus === "friends"}
+                    onClick={() => followMutation.mutate(!data.relationship!.isFollowing)}
+                    data-testid="button-profile-follow"
+                  >
+                    {data.relationship.isFollowing ? "Following" : "Follow"}
+                  </Button>
+                  {data.relationship.connectionStatus === "friends" ? (
+                    <Button size="sm" variant="outline" className="border-red-500/30 text-red-300 hover:bg-red-500/10" disabled={relationshipBusy} onClick={() => unfriendMutation.mutate()} data-testid="button-profile-unfriend">
+                      <UserRoundX className="mr-1.5 h-3.5 w-3.5" /> Unfriend
+                    </Button>
+                  ) : data.relationship.connectionStatus === "incoming_pending" ? (
+                    <Button size="sm" variant="outline" className="border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10" disabled={relationshipBusy || !data.relationship.connectionId} onClick={() => data.relationship?.connectionId && acceptFriendMutation.mutate(data.relationship.connectionId)} data-testid="button-profile-accept-friend">
+                      <UserRoundCheck className="mr-1.5 h-3.5 w-3.5" /> Accept friend
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="outline" className="border-zinc-700 text-zinc-200 hover:border-orange-500/50 hover:text-orange-200" disabled={relationshipBusy || !data.relationship.isFollowing || data.relationship.connectionStatus === "outgoing_pending"} onClick={() => friendMutation.mutate()} data-testid="button-profile-friend">
+                      {data.relationship.connectionStatus === "outgoing_pending" ? <><Clock className="mr-1.5 h-3.5 w-3.5" /> Request sent</> : <><UserPlus className="mr-1.5 h-3.5 w-3.5" /> Friend</>}
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+            {data.relationship.connectionStatus === "friends" && (
+              <p className="mt-2 text-[11px] text-zinc-600">Unfriend first if you want to unfollow this player.</p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ═══════════════════════════════════════════════
