@@ -1,4 +1,4 @@
-import { useRoute } from "wouter";
+import { useLocation, useRoute } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { getObjectUrl } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -222,6 +222,7 @@ function PublicPlayerCard({ data }: { data: PublicProfileData }) {
 
 export default function PlayerPublicPage() {
   const [, params] = useRoute("/player/:slug");
+  const [, navigate] = useLocation();
   const slug = params?.slug || "";
   const { data, isLoading, error } = useQuery<PublicProfileData>({
     queryKey: ["/api/player", slug],
@@ -254,8 +255,8 @@ export default function PlayerPublicPage() {
           <p className="text-muted-foreground text-sm">
             This player profile doesn't exist or isn't public yet.
           </p>
-          <Button variant="outline" onClick={() => window.history.back()} data-testid="button-go-back" className="gap-2">
-            <ArrowLeft className="h-4 w-4" />Go Back
+          <Button variant="outline" onClick={() => navigate("/community")} data-testid="button-go-back" className="gap-2">
+            <ArrowLeft className="h-4 w-4" />Back to Community
           </Button>
         </div>
       </div>
@@ -282,8 +283,8 @@ export default function PlayerPublicPage() {
       {/* Top nav */}
       <div className="sticky top-0 z-20 bg-background/80 backdrop-blur-md border-b border-border/30">
         <div className="max-w-2xl mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
-          <Button variant="ghost" size="sm" onClick={() => window.history.back()} className="gap-1.5" data-testid="button-back">
-            <ArrowLeft className="h-4 w-4" />Back
+          <Button variant="ghost" size="sm" onClick={() => navigate("/community")} className="gap-1.5" data-testid="button-back">
+            <ArrowLeft className="h-4 w-4" />Community
           </Button>
           <ShareMenu
             url={`/player/${slug}`}
