@@ -343,10 +343,9 @@ export default function PlayerPublicPage() {
       </div>
 
       <div className="px-4 pt-5">
-        <PublicPlayerCard data={data} />
         {data.relationship && !data.relationship.isSelf && (
-          <div className="mt-3 rounded-2xl border border-zinc-800 bg-zinc-950/90 p-3 shadow-lg shadow-black/20" data-testid="player-relationship-actions">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="mx-auto mb-3 w-fit max-w-full rounded-2xl border border-zinc-800 bg-zinc-950/90 p-2.5 shadow-lg shadow-black/20" data-testid="player-relationship-actions">
+            <div className="flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-4 text-xs text-zinc-400">
                 <span><strong className="text-white">{data.relationship.followerCount}</strong> followers</span>
                 <span><strong className="text-white">{data.relationship.followingCount}</strong> following</span>
@@ -380,10 +379,11 @@ export default function PlayerPublicPage() {
               )}
             </div>
             {data.relationship.connectionStatus === "friends" && (
-              <p className="mt-2 text-[11px] text-zinc-600">Unfriend first if you want to unfollow this player.</p>
+              <p className="mt-1 px-1 text-[10px] text-zinc-600">Unfriend first if you want to unfollow this player.</p>
             )}
           </div>
         )}
+        <PublicPlayerCard data={data} />
       </div>
 
       {/* ═══════════════════════════════════════════════

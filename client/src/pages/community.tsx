@@ -749,6 +749,21 @@ function ChallengesPanel({ user }: { user: unknown }) {
   }, [challenges, selectedChallengeId]);
   const selectedChallenge = challenges.find((challenge: any) => challenge.id === selectedChallengeId) || challenges[0];
   const joinedChallenges = challenges.filter((challenge: any) => challenge.id !== selectedChallenge?.id);
+  const setPrimaryChallenge = (challengeId: string) => {
+    setSelectedChallengeId(challengeId);
+    if (myId && typeof window !== "undefined") {
+      window.localStorage.setItem(`playr1-primary-challenge-${myId}`, challengeId);
+    }
+    setDetailChallenge(null);
+    toast({ title: "Primary challenge updated" });
+  };
+  useEffect(() => {
+    if (!myId || typeof window === "undefined") return;
+    const savedChallengeId = window.localStorage.getItem(`playr1-primary-challenge-${myId}`);
+    if (savedChallengeId && challenges.some((challenge: any) => challenge.id === savedChallengeId)) {
+      setSelectedChallengeId(savedChallengeId);
+    }
+  }, [myId, challenges]);
 
   return (
     <div className="space-y-5">
@@ -823,7 +838,7 @@ function ChallengesPanel({ user }: { user: unknown }) {
           {joinedChallenges.length > 0 && (
             <div className="grid gap-2 sm:grid-cols-2">
               {joinedChallenges.map((challenge: any) => (
-                <button key={challenge.id} type="button" onClick={() => setDetailChallenge(challenge)} className="group flex items-center gap-3 rounded-xl border border-zinc-800/80 bg-zinc-900/45 p-3 text-left transition-all hover:-translate-y-0.5 hover:border-orange-500/40 hover:bg-zinc-900/80">
+                <button key={challenge.id} type="button" onClick={() => setDetailChallenge(challenge)} className="group flex items-center gap-3 rounded-xl border bg-zinc-900/45 p-3 text-left transition-all hover:-translate-y-0.5 hover:border-[var(--challenge-accent)] hover:bg-zinc-900/80 hover:shadow-[0_0_20px_var(--challenge-accent)]" style={{ borderColor: colorWithAlpha(challengeColor(challenge), "45"), "--challenge-accent": colorWithAlpha(challengeColor(challenge), "88") } as React.CSSProperties}>
                   <ChallengeIcon challenge={challenge} size="compact" />
                    <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-zinc-100">{challenge.name}</span><span className="mt-1 block text-[11px] leading-4 text-zinc-400">{challengeTrackingText(challenge)}</span><span className="mt-0.5 block text-[10px] text-zinc-600">{challenge.members?.length || 0} players · Open details</span></span>
                   <ChevronDown className="h-4 w-4 -rotate-90 text-zinc-600 transition-transform group-hover:translate-x-0.5 group-hover:text-orange-300" />
@@ -842,6 +857,11 @@ function ChallengesPanel({ user }: { user: unknown }) {
                 <DialogTitle className="flex items-center gap-3"><ChallengeIcon challenge={detailChallenge} />{detailChallenge.name}</DialogTitle>
                 <DialogDescription>See the full leaderboard and decide if this is your next shared target.</DialogDescription>
               </DialogHeader>
+              <div className="flex justify-end">
+                <Button type="button" size="sm" variant={selectedChallengeId === detailChallenge.id ? "secondary" : "outline"} className={selectedChallengeId === detailChallenge.id ? "border-orange-500/30 bg-orange-500/10 text-orange-200" : "border-zinc-700 text-zinc-200 hover:border-orange-500/50 hover:text-orange-200"} onClick={() => challenges.some((challenge: any) => challenge.id === detailChallenge.id) && setPrimaryChallenge(detailChallenge.id)} disabled={!challenges.some((challenge: any) => challenge.id === detailChallenge.id) || selectedChallengeId === detailChallenge.id}>
+                  {selectedChallengeId === detailChallenge.id ? "Primary challenge" : challenges.some((challenge: any) => challenge.id === detailChallenge.id) ? "Make primary challenge" : "Join to make primary"}
+                </Button>
+              </div>
               <ChallengeCard challenge={detailChallenge} isOwner={detailChallenge.creatorId === myId} onInvite={() => { setDetailChallenge(null); setInviteChallengeId(detailChallenge.id); }} canJoin={discoverableChallenges.some((item: any) => item.id === detailChallenge.id)} joining={joiningChallengeId === detailChallenge.id} onJoin={() => joinChallenge.mutate(detailChallenge.id)} />
             </>
           )}
@@ -861,7 +881,7 @@ function ChallengesPanel({ user }: { user: unknown }) {
               {discoverableChallenges.map((challenge: any) => {
                 const accent = challengeColor(challenge);
                 return (
-                  <button key={challenge.id} type="button" onClick={() => { setPublicChallengesOpen(false); setDetailChallenge(challenge); }} className="group rounded-2xl border bg-zinc-900/45 p-4 text-left transition-all hover:-translate-y-0.5" style={{ borderColor: colorWithAlpha(accent, "55"), background: `linear-gradient(135deg, ${colorWithAlpha(accent, "13")}, rgba(24,24,27,0.45))`, boxShadow: `0 0 24px ${colorWithAlpha(accent, "12")}` }}>
+                  <button key={challenge.id} type="button" onClick={() => { setPublicChallengesOpen(false); setDetailChallenge(challenge); }} className="group rounded-2xl border bg-zinc-900/45 p-4 text-left transition-all hover:-translate-y-0.5 hover:border-[var(--challenge-accent)] hover:shadow-[0_0_22px_var(--challenge-accent)]" style={{ borderColor: colorWithAlpha(accent, "55"), background: `linear-gradient(135deg, ${colorWithAlpha(accent, "13")}, rgba(24,24,27,0.45))`, boxShadow: `0 0 24px ${colorWithAlpha(accent, "12")}`, "--challenge-accent": colorWithAlpha(accent, "88") } as React.CSSProperties}>
                       <div className="flex items-start gap-3"><ChallengeIcon challenge={challenge} /><span className="min-w-0 flex-1"><span className="block truncate font-semibold">{challenge.name}</span><span className="mt-1 block text-xs leading-4 text-zinc-300">{challengeTrackingText(challenge)}</span><span className="mt-1 block text-[10px] text-zinc-500">{challenge.members?.length || 0} players joined</span></span><ChevronDown className="h-4 w-4 -rotate-90 transition-transform group-hover:translate-x-0.5" style={{ color: accent }} /></div>
                     <div className="mt-4 flex items-center justify-between text-[11px] text-zinc-500"><span>{challenge.members?.length || 0} players joined</span><span className="font-semibold" style={{ color: accent }}>View & join</span></div>
                   </button>
@@ -979,13 +999,11 @@ function PlayerCard({ player, onFollow, following }: { player: Player; onFollow:
   return (
     <Card className="h-fit self-start border-zinc-800/80 bg-zinc-950/80 shadow-lg shadow-black/10 transition-colors hover:border-zinc-700">
       <CardContent className="flex min-w-0 items-center gap-3 px-3 py-2.5 sm:px-3.5">
-        <div className="flex w-[84px] shrink-0 flex-col items-center gap-1.5">
-          <Link href={profileHref(player, "/community?tab=players")} className="max-w-full break-words text-center text-xs font-semibold leading-4 text-white hover:text-orange-400" aria-label={`View ${name}'s profile`}>{name}</Link>
-          <Link href={profileHref(player, "/community?tab=players")} aria-hidden="true" tabIndex={-1}><PlayerAvatar player={player} size="h-9 w-9" /></Link>
-        </div>
-        <div className="min-w-0 flex-1 text-center">
-          {player.skillLevel && <p className="text-xs font-medium capitalize text-zinc-300">{player.skillLevel} experience</p>}
-          {locationLabel(player) && <p className="mt-1 flex items-center justify-center gap-1 whitespace-nowrap text-[11px] text-zinc-500"><MapPin className="h-3 w-3 shrink-0 text-zinc-600" /><span>{locationLabel(player)}</span></p>}
+        <Link href={profileHref(player, "/community?tab=players")} aria-label={`View ${name}'s profile`} className="shrink-0"><PlayerAvatar player={player} size="h-9 w-9" /></Link>
+        <div className="min-w-0 flex-1">
+          <Link href={profileHref(player, "/community?tab=players")} className="block text-sm font-medium leading-5 text-white hover:text-orange-400">{name}</Link>
+          {player.skillLevel && <p className="mt-0.5 text-[11px] capitalize text-zinc-400">{player.skillLevel}</p>}
+          {locationLabel(player) && <p className="mt-0.5 flex min-w-0 items-center gap-1 whitespace-nowrap text-[11px] text-zinc-500"><MapPin className="h-3 w-3 shrink-0 text-zinc-600" /><span>{locationLabel(player)}</span></p>}
         </div>
         <Button size="sm" variant={player.isFollowing ? "secondary" : "outline"} className={`h-8 shrink-0 min-w-[64px] px-2 text-xs ${player.isFollowing ? "border-orange-500/30 bg-orange-500/10 text-orange-200 hover:bg-orange-500/15" : "border-zinc-700 bg-zinc-900 text-zinc-200 hover:border-orange-500/50 hover:bg-orange-500/10 hover:text-orange-200"}`} onClick={onFollow} disabled={followDisabled} data-testid={`button-follow-player-${player.userId}`}>
           {followLabel}
