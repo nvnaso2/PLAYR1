@@ -473,11 +473,16 @@ function ChallengeCard({ challenge, isOwner, onInvite, canJoin, onJoin }: { chal
     <Card className="border-zinc-800/70 bg-zinc-900/30" data-testid={`card-group-challenge-${challenge.id}`}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-3">
-          <div>
-            <CardTitle className="text-base">{challenge.name}</CardTitle>
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl shadow-inner" style={{ backgroundColor: challenge.color || "#f97316" }}>
+              {challenge.emoji || <Swords className="h-5 w-5 text-black/70" />}
+            </div>
+            <div className="min-w-0">
+            <CardTitle className="truncate text-base">{challenge.name}</CardTitle>
             <p className="mt-1 text-xs text-muted-foreground">
               {GROUP_CHALLENGE_GOAL_LABELS[challenge.goalType as keyof typeof GROUP_CHALLENGE_GOAL_LABELS] || challenge.goalType} · {goal.toLocaleString()} per player · {challenge.audience === "public" ? "Anyone can join" : challenge.audience === "followers" ? "Followers can join" : "Friends only"}
             </p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             {canJoin && onJoin && <Button size="sm" className="h-8 bg-orange-500 text-black hover:bg-orange-400" onClick={onJoin}>Join</Button>}
@@ -540,6 +545,10 @@ function ChallengesPanel({ user }: { user: unknown }) {
   const [inviteSearch, setInviteSearch] = useState("");
   const [selectedInviteIds, setSelectedInviteIds] = useState<string[]>([]);
   const [manageInviteSearch, setManageInviteSearch] = useState("");
+  const [emoji, setEmoji] = useState("🏀");
+  const [color, setColor] = useState("#f97316");
+  const [selectedChallengeId, setSelectedChallengeId] = useState<string | null>(null);
+  const [detailChallenge, setDetailChallenge] = useState<any | null>(null);
 
   const challengesQuery = useQuery<any[]>({
     queryKey: ["/api/group-challenges"],
@@ -583,6 +592,8 @@ function ChallengesPanel({ user }: { user: unknown }) {
       durationDays: Number(durationDays),
       audience,
       inviteIds: selectedInviteIds,
+      emoji,
+      color,
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/group-challenges"] });
@@ -592,6 +603,8 @@ function ChallengesPanel({ user }: { user: unknown }) {
       setName("");
       setSelectedInviteIds([]);
       setAudience("friends");
+      setEmoji("🏀");
+      setColor("#f97316");
       toast({ title: "Challenge created" });
     },
     onError: () => toast({ title: "Could not create challenge", variant: "destructive" }),
@@ -630,6 +643,13 @@ function ChallengesPanel({ user }: { user: unknown }) {
     },
     onError: (error: any) => toast({ title: error?.message || "Could not join challenge", variant: "destructive" }),
   });
+  useEffect(() => {
+    if (!selectedChallengeId || !challenges.some((challenge: any) => challenge.id === selectedChallengeId)) {
+      setSelectedChallengeId(challenges[0]?.id ?? null);
+    }
+  }, [challenges, selectedChallengeId]);
+  const selectedChallenge = challenges.find((challenge: any) => challenge.id === selectedChallengeId) || challenges[0];
+  const joinedChallenges = challenges.filter((challenge: any) => challenge.id !== selectedChallenge?.id);
 
   return (
     <div className="space-y-5">
@@ -683,24 +703,65 @@ function ChallengesPanel({ user }: { user: unknown }) {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4" data-testid="community-challenges-list">
-          {challenges.map((challenge: any) => <ChallengeCard key={challenge.id} challenge={challenge} isOwner={challenge.creatorId === myId} onInvite={() => setInviteChallengeId(challenge.id)} />)}
+        <div className="space-y-3" data-testid="community-challenges-list">
+          {selectedChallenge && (
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="mb-2 flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-orange-300">Your focus</p>
+                  <p className="text-xs text-muted-foreground">Keep one goal in view. Switch anytime.</p>
+                </div>
+                <Badge variant="outline" className="border-emerald-500/30 text-emerald-300">Joined</Badge>
+              </div>
+              <ChallengeCard challenge={selectedChallenge} isOwner={selectedChallenge.creatorId === myId} onInvite={() => setInviteChallengeId(selectedChallenge.id)} />
+            </div>
+          )}
+          {joinedChallenges.length > 0 && (
+            <div className="grid gap-2 sm:grid-cols-2">
+              {joinedChallenges.map((challenge: any) => (
+                <button key={challenge.id} type="button" onClick={() => setDetailChallenge(challenge)} className="group flex items-center gap-3 rounded-xl border border-zinc-800/80 bg-zinc-900/45 p-3 text-left transition-all hover:-translate-y-0.5 hover:border-orange-500/40 hover:bg-zinc-900/80">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-lg" style={{ backgroundColor: challenge.color || "#f97316" }}>{challenge.emoji || <Swords className="h-4 w-4 text-black/70" />}</span>
+                  <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-zinc-100">{challenge.name}</span><span className="mt-0.5 block text-[11px] text-zinc-500">Open details · {challenge.members?.length || 0} players</span></span>
+                  <ChevronDown className="h-4 w-4 -rotate-90 text-zinc-600 transition-transform group-hover:translate-x-0.5 group-hover:text-orange-300" />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      {discoverableChallenges.length > 0 && (
+      {!discoverQuery.isLoading && discoverableChallenges.length > 0 && (
         <section className="space-y-3" data-testid="community-public-challenges">
           <div>
-            <h3 className="text-base font-semibold">Open challenges</h3>
-            <p className="text-sm text-muted-foreground">Join public challenges or challenges opened to players who follow the creator.</p>
+            <div className="flex items-end justify-between gap-3">
+              <div><p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-300">Find your next run</p><h3 className="text-lg font-semibold">Open challenge pool</h3><p className="text-sm text-muted-foreground">Browse public goals and join the one that fits your week.</p></div>
+              <Badge variant="outline" className="hidden border-sky-500/30 text-sky-300 sm:inline-flex">{discoverableChallenges.length} open</Badge>
+            </div>
           </div>
-          <div className="space-y-4">
+          <div className="grid gap-3 md:grid-cols-2">
             {discoverableChallenges.map((challenge: any) => (
-              <ChallengeCard key={challenge.id} challenge={challenge} isOwner={false} onInvite={() => undefined} canJoin onJoin={() => joinChallenge.mutate(challenge.id)} />
+              <button key={challenge.id} type="button" onClick={() => setDetailChallenge(challenge)} className="group rounded-2xl border border-sky-500/15 bg-gradient-to-br from-sky-500/[0.08] to-zinc-900/60 p-4 text-left transition-all hover:-translate-y-0.5 hover:border-sky-400/40">
+                <div className="flex items-start gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl" style={{ backgroundColor: challenge.color || "#38bdf8" }}>{challenge.emoji || <Swords className="h-5 w-5 text-black/70" />}</span><span className="min-w-0 flex-1"><span className="block truncate font-semibold">{challenge.name}</span><span className="mt-1 block text-xs text-zinc-400">{GROUP_CHALLENGE_GOAL_LABELS[challenge.goalType as keyof typeof GROUP_CHALLENGE_GOAL_LABELS] || challenge.goalType} · {Number(challenge.goalAmount).toLocaleString()} per player</span></span><ChevronDown className="h-4 w-4 -rotate-90 text-sky-300 transition-transform group-hover:translate-x-0.5" /></div>
+                <div className="mt-4 flex items-center justify-between text-[11px] text-zinc-500"><span>{challenge.members?.length || 0} players joined</span><span className="font-semibold text-sky-300">View & join</span></div>
+              </button>
             ))}
           </div>
         </section>
       )}
+
+      <Dialog open={!!detailChallenge} onOpenChange={(open) => !open && setDetailChallenge(null)}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto border-zinc-800 bg-zinc-950 sm:max-w-2xl">
+          {detailChallenge && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl text-xl" style={{ backgroundColor: detailChallenge.color || "#f97316" }}>{detailChallenge.emoji || <Swords className="h-5 w-5 text-black/70" />}</span>{detailChallenge.name}</DialogTitle>
+                <DialogDescription>See the full leaderboard and decide if this is your next shared target.</DialogDescription>
+              </DialogHeader>
+              <ChallengeCard challenge={detailChallenge} isOwner={detailChallenge.creatorId === myId} onInvite={() => { setDetailChallenge(null); setInviteChallengeId(detailChallenge.id); }} canJoin={discoverableChallenges.some((item: any) => item.id === detailChallenge.id)} onJoin={() => { joinChallenge.mutate(detailChallenge.id); setDetailChallenge(null); }} />
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
@@ -710,6 +771,15 @@ function ChallengesPanel({ user }: { user: unknown }) {
           </DialogHeader>
           <div className="space-y-4">
             <label className="block space-y-1.5 text-sm"><span className="font-medium">Challenge name</span><Input value={name} onChange={(event) => setName(event.target.value)} placeholder="14-day training streak" data-testid="input-challenge-name" /></label>
+            <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
+              <div className="space-y-2">
+                <span className="block text-sm font-medium">Challenge identity</span>
+                <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Choose challenge emoji">
+                  {["🏀", "🔥", "🎯", "⚡", "💪", "🏆"].map((option) => <button key={option} type="button" role="radio" aria-checked={emoji === option} onClick={() => setEmoji(option)} className={`flex h-10 w-10 items-center justify-center rounded-lg border text-lg transition-all ${emoji === option ? "border-orange-400 bg-orange-500/15 ring-2 ring-orange-400/30" : "border-zinc-800 bg-zinc-900 hover:border-zinc-600"}`}>{option}</button>)}
+                </div>
+              </div>
+              <label className="flex items-center gap-2 text-sm sm:flex-col sm:items-start"><span className="font-medium">Color</span><span className="flex items-center gap-2"><input type="color" value={color} onChange={(event) => setColor(event.target.value)} className="h-10 w-10 cursor-pointer rounded-lg border border-zinc-700 bg-transparent p-1" aria-label="Choose challenge color" /><span className="font-mono text-xs text-zinc-500">{color}</span></span></label>
+            </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block space-y-1.5 text-sm"><span className="font-medium">Measure</span>
                 <Select value={goalType} onValueChange={setGoalType}><SelectTrigger data-testid="select-challenge-goal"><SelectValue /></SelectTrigger><SelectContent>{GROUP_CHALLENGE_GOAL_TYPES.map((type) => <SelectItem key={type} value={type}>{GROUP_CHALLENGE_GOAL_LABELS[type]}</SelectItem>)}</SelectContent></Select>

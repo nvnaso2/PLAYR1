@@ -2743,6 +2743,8 @@ export const groupChallenges = pgTable("group_challenges", {
   endsAt: timestamp("ends_at").notNull(),
   shotFilter: varchar("shot_filter"),
   audience: varchar("audience").$type<"friends" | "followers" | "public">().notNull().default("friends"),
+  color: varchar("color").notNull().default("#f97316"),
+  emoji: varchar("emoji").notNull().default("🏀"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

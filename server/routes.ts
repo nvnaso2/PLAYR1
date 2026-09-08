@@ -12456,12 +12456,18 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
   app.post("/api/group-challenges", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user!.claims.sub;
-      const { name, goalType, goalAmount, durationDays, audience = "friends", inviteIds } = req.body;
+      const { name, goalType, goalAmount, durationDays, audience = "friends", inviteIds, color = "#f97316", emoji = "🏀" } = req.body;
       if (!name || !goalType || !goalAmount || !durationDays) {
         return res.status(400).json({ message: "name, goalType, goalAmount, durationDays required" });
       }
       if (!["friends", "followers", "public"].includes(audience)) {
         return res.status(400).json({ message: "Invalid challenge audience" });
+      }
+      if (!/^#[0-9a-fA-F]{6}$/.test(color)) {
+        return res.status(400).json({ message: "Invalid challenge color" });
+      }
+      if (typeof emoji !== "string" || !emoji.trim() || emoji.length > 16) {
+        return res.status(400).json({ message: "Invalid challenge emoji" });
       }
       const startsAt = new Date();
       const endsAt = new Date(startsAt);
@@ -12475,6 +12481,8 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
         startsAt,
         endsAt,
         audience,
+        color,
+        emoji: emoji.trim(),
       });
       if (Array.isArray(inviteIds)) {
         for (const id of inviteIds) {

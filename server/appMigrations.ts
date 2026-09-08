@@ -35,6 +35,8 @@ export async function runApplicationMigrations(): Promise<void> {
       CREATE INDEX IF NOT EXISTS user_follows_following_idx ON user_follows (following_id);
       CREATE UNIQUE INDEX IF NOT EXISTS user_follows_follower_following_uq ON user_follows (follower_id, following_id);
       ALTER TABLE group_challenges ADD COLUMN IF NOT EXISTS audience varchar NOT NULL DEFAULT 'friends';
+      ALTER TABLE group_challenges ADD COLUMN IF NOT EXISTS color varchar NOT NULL DEFAULT '#f97316';
+      ALTER TABLE group_challenges ADD COLUMN IF NOT EXISTS emoji varchar NOT NULL DEFAULT '🏀';
       ALTER TABLE player_goals ADD COLUMN IF NOT EXISTS project_title varchar;
       ALTER TABLE player_goals ADD COLUMN IF NOT EXISTS project_type varchar;
       ALTER TABLE player_goals ADD COLUMN IF NOT EXISTS why_it_matters text;
