@@ -2,10 +2,11 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import playr1Logo from "@assets/Playr1_App_Logo_1774122925857.png";
 import { ChartArea } from "lucide-react";
 import type { ShotLocationDB } from "@shared/schema";
+import { ShootingHeatmap } from "@/components/shooting-heatmap";
 
 type ShotData = {
   location: string;
@@ -438,11 +439,12 @@ export function ShotChartButton({
           </span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
+          <DialogDescription className="sr-only">Shot chart showing shooting efficiency by court zone.</DialogDescription>
         </DialogHeader>
-        <HalfCourtMap shotData={shotData} title="" className="border-0 shadow-none" compact />
+        <ShootingHeatmap shotData={shotData} title="" className="border-0 shadow-none" />
       </DialogContent>
     </Dialog>
   );

@@ -1519,6 +1519,10 @@ export default function TrainingLogPage() {
     return drill?.title || "Unknown Drill";
   };
 
+  const getDrillCategory = (drillId: string) => {
+    return allDrills?.find(d => d.id === drillId)?.category || "training";
+  };
+
   // Group logs by date and then by workout session
   type LogGroup = {
     sessionId: string | null;
@@ -1571,6 +1575,33 @@ export default function TrainingLogPage() {
   const formatCategory = (cat: string) => {
     return cat.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
+
+  const historySummary = useMemo(() => {
+    if (!logs || logs.length === 0) {
+      return { sessions: 0, minutes: 0, makes: 0, attempts: 0 };
+    }
+
+    const sessionIds = new Set<string>();
+    let standaloneSessions = 0;
+    let minutes = 0;
+    let makes = 0;
+    let attempts = 0;
+
+    logs.forEach((log) => {
+      if (log.workoutSessionId) sessionIds.add(log.workoutSessionId);
+      else standaloneSessions += 1;
+      minutes += log.duration || 0;
+      makes += log.shotsMade || 0;
+      attempts += log.shotsAttempted || 0;
+    });
+
+    return {
+      sessions: sessionIds.size + standaloneSessions,
+      minutes,
+      makes,
+      attempts,
+    };
+  }, [logs]);
 
   // Render drill selection list
   return (
@@ -3452,28 +3483,52 @@ export default function TrainingLogPage() {
 
       {/* History View */}
       {activeView === "history" && !workoutInProgress && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold flex items-center gap-2">
-              <Calendar className="w-5 h-5" />
-              Training History
-            </h2>
-            <Button variant="outline" onClick={() => setActiveView("library")} className="gap-2" data-testid="button-back-to-library">
+        <div className="space-y-5 sm:space-y-6" data-testid="training-history">
+          <div className="flex flex-col gap-4 border-b border-zinc-800/80 pb-5 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="font-heading text-[10px] font-bold uppercase tracking-[0.24em] text-orange-400">The work adds up</p>
+              <h2 className="mt-1 flex items-center gap-2 text-2xl font-black uppercase tracking-wide text-white">
+                <Calendar className="h-5 w-5 text-orange-400" />
+                Training History
+              </h2>
+              <p className="mt-1 text-sm text-zinc-500">Review every rep, session, and shot from your training floor.</p>
+            </div>
+            <Button variant="outline" onClick={() => setActiveView("library")} className="h-10 w-full gap-2 border-zinc-700 bg-zinc-950/70 text-white hover:border-orange-500/50 hover:bg-orange-500/10 hover:text-orange-300 sm:w-auto" data-testid="button-back-to-library">
               <Plus className="w-4 h-4" />
               New Workout
             </Button>
           </div>
 
+          {!logsLoading && logs && logs.length > 0 && (
+            <section className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3" aria-label="Training history summary">
+              <div className="rounded-lg border border-zinc-800 bg-zinc-950/80 p-3 sm:p-3.5">
+                <p className="font-heading text-[9px] font-bold uppercase tracking-[0.16em] text-zinc-500">Sessions</p>
+                <p className="mt-1 text-xl font-black tabular-nums text-white">{historySummary.sessions}</p>
+                <p className="mt-0.5 text-[11px] text-zinc-600">{Object.keys(groupedLogs).length} training day{Object.keys(groupedLogs).length === 1 ? "" : "s"}</p>
+              </div>
+              <div className="rounded-lg border border-zinc-800 bg-zinc-950/80 p-3 sm:p-3.5">
+                <p className="font-heading text-[9px] font-bold uppercase tracking-[0.16em] text-zinc-500">Time trained</p>
+                <p className="mt-1 text-xl font-black tabular-nums text-white">{formatDuration(historySummary.minutes)}</p>
+                <p className="mt-0.5 text-[11px] text-zinc-600">{logs.length} drill logs</p>
+              </div>
+              <div className="rounded-lg border border-zinc-800 bg-zinc-950/80 p-3 sm:p-3.5">
+                <p className="font-heading text-[9px] font-bold uppercase tracking-[0.16em] text-zinc-500">Shooting</p>
+                <p className="mt-1 text-xl font-black tabular-nums text-orange-400">{historySummary.attempts ? `${Math.round((historySummary.makes / historySummary.attempts) * 100)}%` : "—"}</p>
+                <p className="mt-0.5 text-[11px] text-zinc-600">{historySummary.attempts ? `${historySummary.makes}/${historySummary.attempts} makes` : "No shot data yet"}</p>
+              </div>
+            </section>
+          )}
+
           {logsLoading ? (
-            <div className="space-y-4">
+            <div className="space-y-5" data-testid="training-history-loading">
               {[...Array(5)].map((_, i) => (
-                <Card key={i}>
+                <Card key={i} className="border-zinc-800 bg-zinc-950/70 shadow-none">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-4">
-                      <Skeleton className="w-12 h-12 rounded-lg" />
+                      <Skeleton className="h-11 w-11 rounded-lg bg-zinc-800" />
                       <div className="flex-1 space-y-2">
-                        <Skeleton className="h-5 w-1/3" />
-                        <Skeleton className="h-4 w-1/2" />
+                        <Skeleton className="h-3 w-1/3 bg-zinc-800" />
+                        <Skeleton className="h-3 w-1/2 bg-zinc-800" />
                       </div>
                     </div>
                   </CardContent>
@@ -3487,17 +3542,19 @@ export default function TrainingLogPage() {
                 .map(([date, logGroups]) => {
                   const totalLogs = logGroups.reduce((sum, g) => sum + g.logs.length, 0);
                   return (
-                    <div key={date}>
-                      <div className="flex items-center gap-2 mb-4">
-                        <Calendar className="w-4 h-4 text-muted-foreground" />
-                        <h3 className="text-sm font-medium text-muted-foreground">
+                    <div key={date} className="relative">
+                      <div className="mb-3 flex items-center gap-3">
+                        <div className="h-px flex-1 bg-zinc-800" />
+                        <Calendar className="h-3.5 w-3.5 text-orange-400" />
+                        <h3 className="font-heading text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-400">
                           {format(new Date(date), 'EEEE, MMMM d, yyyy')}
                         </h3>
-                        <Badge variant="secondary" className="ml-2">
+                        <Badge variant="secondary" className="border border-orange-500/20 bg-orange-500/10 text-[10px] font-bold uppercase tracking-wide text-orange-300">
                           {totalLogs} drill{totalLogs > 1 ? 's' : ''}
                         </Badge>
+                        <div className="h-px flex-1 bg-zinc-800" />
                       </div>
-                      <div className="space-y-4">
+                      <div className="space-y-3">
                         {logGroups.map((group, groupIndex) => (
                           group.sessionId && group.logs.length > 1 ? (() => {
                             // Calculate session totals for shooting stats
@@ -3531,23 +3588,23 @@ export default function TrainingLogPage() {
                             
                             return (
                             <Collapsible key={group.sessionId} defaultOpen={false}>
-                              <Card className="border-primary/20" data-testid={`card-session-${group.sessionId}`}>
+                              <Card className="border-orange-500/25 bg-zinc-950/85 shadow-none" data-testid={`card-session-${group.sessionId}`}>
                                 <CardHeader className="pb-2 p-3 sm:p-4">
                                   <div className="flex items-start gap-2">
                                     <CollapsibleTrigger asChild>
                                       <div className="flex-1 cursor-pointer space-y-1 min-w-0" data-testid={`trigger-session-${group.sessionId}`}>
                                         <div className="flex items-center gap-2 flex-wrap">
-                                          <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 transition-transform [[data-state=open]_&]:rotate-90" />
-                                          <Layers className="w-4 h-4 text-primary shrink-0" />
-                                          <span className="text-sm font-medium">Workout Session</span>
-                                          <Badge variant="secondary" className="text-xs">
+                                          <ChevronRight className="w-4 h-4 shrink-0 text-zinc-500 transition-transform [[data-state=open]_&]:rotate-90" />
+                                          <Layers className="w-4 h-4 shrink-0 text-orange-400" />
+                                          <span className="font-heading text-xs font-bold uppercase tracking-[0.12em] text-white">Workout Session</span>
+                                          <Badge variant="secondary" className="border border-orange-500/20 bg-orange-500/10 text-[10px] text-orange-300">
                                             {uniqueDrillCount} drill{uniqueDrillCount > 1 ? 's' : ''}, {totalRounds} round{totalRounds > 1 ? 's' : ''}
                                           </Badge>
                                         </div>
-                                        <div className="flex items-center gap-1.5 flex-wrap pl-6 text-xs text-muted-foreground">
+                                        <div className="flex flex-wrap items-center gap-1.5 pl-6 text-xs text-zinc-500">
                                           {sessionPercentage !== null && (
                                             <>
-                                              <span className="text-sm font-medium text-foreground">{sessionTotalMade}/{sessionTotalAttempts} shots</span>
+                                              <span className="text-sm font-bold tabular-nums text-white">{sessionTotalMade}/{sessionTotalAttempts} shots</span>
                                               <Badge 
                                                 variant="secondary"
                                                 className={`text-xs ${sessionPercentage >= 70 ? "bg-green-500/20 text-green-400" : 
@@ -3574,7 +3631,7 @@ export default function TrainingLogPage() {
                                       <Button
                                         variant="ghost"
                                         size="icon"
-                                        className="shrink-0 h-8 w-8 text-muted-foreground hover:text-primary"
+                                         className="h-8 w-8 shrink-0 text-zinc-500 hover:bg-orange-500/10 hover:text-orange-300"
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           setShareSessionId(group.sessionId);
@@ -3589,7 +3646,7 @@ export default function TrainingLogPage() {
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      className="shrink-0 h-8 w-8 text-muted-foreground hover:text-destructive"
+                                       className="h-8 w-8 shrink-0 text-zinc-500 hover:bg-red-500/10 hover:text-red-300"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         if (confirm('Delete this entire workout session and all its rounds?')) {
@@ -3623,25 +3680,27 @@ export default function TrainingLogPage() {
                                       
                                       return (
                                         <Collapsible key={drillId} defaultOpen={drillLogs.length === 1}>
-                                          <div className="rounded-md bg-muted/30 overflow-hidden">
+                                          <div className="overflow-hidden rounded-md border border-zinc-800/80 bg-zinc-900/70">
                                             <CollapsibleTrigger asChild>
                                               <div 
-                                                className="p-2.5 sm:p-3 hover-elevate cursor-pointer" 
+                                                  className="cursor-pointer p-2.5 hover:bg-orange-500/5 sm:p-3"
                                                 data-testid={`trigger-drill-${drillId}`}
                                               >
                                                 <div className="flex items-start gap-2">
-                                                  <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 transition-transform [[data-state=open]_&]:rotate-90 mt-0.5" />
-                                                  <Target className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                                                  <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-zinc-500 transition-transform [[data-state=open]_&]:rotate-90" />
+                                                  <Target className="mt-0.5 h-4 w-4 shrink-0 text-orange-400" />
                                                   <div className="min-w-0 flex-1">
-                                                    <span className="font-medium text-sm">{getDrillTitle(drillId)}</span>
-                                                    <div className="flex items-center gap-1.5 flex-wrap text-xs text-muted-foreground mt-0.5">
+                                                    <span className="block truncate text-sm font-semibold text-white">{getDrillTitle(drillId)}</span>
+                                                    <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-zinc-500">
+                                                      <Badge variant="outline" className="border-zinc-700 px-1.5 py-0 text-[9px] uppercase tracking-wide text-zinc-400">{formatCategory(getDrillCategory(drillId))}</Badge>
+                                                      <span>·</span>
                                                       <span>{drillLogs.length} round{drillLogs.length > 1 ? 's' : ''}</span>
                                                       <span>·</span>
                                                       <span>{formatDuration(drillDuration)}</span>
                                                       {drillPercentage !== null && (
                                                         <>
                                                           <span>·</span>
-                                                          <span className="text-foreground font-medium">{drillTotalMade}/{drillTotalAttempts}</span>
+                                                          <span className="font-medium tabular-nums text-white">{drillTotalMade}/{drillTotalAttempts}</span>
                                                           <Badge 
                                                             variant="secondary"
                                                             className={`text-xs ${drillPercentage >= 70 ? "bg-green-500/20 text-green-400" : 
@@ -3663,22 +3722,22 @@ export default function TrainingLogPage() {
                                               </div>
                                             </CollapsibleTrigger>
                                             <CollapsibleContent>
-                                              <div className="px-4 pb-3 border-t border-border/50">
-                                                <div className="text-xs font-medium text-muted-foreground py-2">Rounds</div>
+                                              <div className="border-t border-zinc-800/80 px-3 pb-3 sm:px-4">
+                                                <div className="py-2 font-heading text-[9px] font-bold uppercase tracking-[0.16em] text-zinc-600">Rounds</div>
                                                 <div className="space-y-2">
                                                   {drillLogs.map((log, roundIndex) => {
                                                     const roundStats = getMetricStats(log, log.drillId ?? "");
                                                     return (
                                                       <div 
                                                         key={log.id}
-                                                        className="flex items-center gap-1.5 p-1.5 sm:p-2 rounded bg-background/50 hover-elevate cursor-pointer"
+                                                        className="flex cursor-pointer items-center gap-1.5 rounded bg-black/20 p-1.5 hover:bg-orange-500/5 sm:p-2"
                                                         data-testid={`round-item-${log.id}`}
                                                         onClick={() => openViewLog(log.id)}
                                                       >
-                                                        <Badge variant="outline" className="text-xs px-1.5 shrink-0">
+                                                        <Badge variant="outline" className="shrink-0 border-zinc-700 px-1.5 text-[10px] text-zinc-400">
                                                           R{roundIndex + 1}
                                                         </Badge>
-                                                        <div className="flex items-center gap-1.5 flex-wrap flex-1 min-w-0 text-xs text-muted-foreground">
+                                                        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 text-xs text-zinc-500">
                                                           {roundStats?.location && (
                                                             <span className="truncate max-w-[80px] sm:max-w-[100px]">
                                                               {getLocationLabel(roundStats.location)}
@@ -3686,7 +3745,7 @@ export default function TrainingLogPage() {
                                                           )}
                                                           {roundStats && (
                                                             <>
-                                                              <span className="text-foreground font-medium">{roundStats.made}/{roundStats.attempts}</span>
+                                                              <span className="font-medium tabular-nums text-white">{roundStats.made}/{roundStats.attempts}</span>
                                                               <Badge 
                                                                 variant="secondary"
                                                                 className={`text-xs ${roundStats.percentage >= 70 ? "bg-green-500/20 text-green-400" : 
@@ -3702,7 +3761,7 @@ export default function TrainingLogPage() {
                                                         <Button 
                                                           variant="ghost" 
                                                           size="icon"
-                                                          className="h-6 w-6 shrink-0"
+                                                          className="h-6 w-6 shrink-0 text-zinc-500 hover:bg-orange-500/10 hover:text-orange-300"
                                                           onClick={(e) => { e.stopPropagation(); openEditLog(log); }}
                                                           data-testid={`button-edit-round-${log.id}`}
                                                         >
@@ -3711,11 +3770,11 @@ export default function TrainingLogPage() {
                                                         <Button 
                                                           variant="ghost" 
                                                           size="icon"
-                                                          className="h-6 w-6 shrink-0"
+                                                          className="h-6 w-6 shrink-0 text-zinc-500 hover:bg-red-500/10 hover:text-red-300"
                                                           onClick={(e) => { e.stopPropagation(); if (confirm('Delete this round?')) deleteLogMutation.mutate(log.id); }}
                                                           data-testid={`button-delete-round-${log.id}`}
                                                         >
-                                                          <Trash2 className="w-3 h-3 text-muted-foreground" />
+                                                          <Trash2 className="w-3 h-3 text-zinc-500" />
                                                         </Button>
                                                       </div>
                                                     );
@@ -3738,27 +3797,31 @@ export default function TrainingLogPage() {
                               return (
                               <Card 
                                 key={log.id} 
-                                className="hover-elevate cursor-pointer" 
+                                className="cursor-pointer border-zinc-800 bg-zinc-950/80 shadow-none hover:border-orange-500/35"
                                 data-testid={`card-log-${log.id}`}
                                 onClick={() => openViewLog(log.id)}
                               >
                                 <CardContent className="p-3 sm:p-4">
                                   <div className="flex items-center gap-2 sm:gap-3">
-                                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                                      <Target className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-orange-500/20 bg-orange-500/10 sm:h-10 sm:w-10">
+                                      <Target className="h-4 w-4 text-orange-400 sm:h-5 sm:w-5" />
                                     </div>
                                     <div className="min-w-0 flex-1">
-                                      <h4 className="font-medium text-sm truncate" data-testid={`text-log-drill-${log.id}`}>
+                                      <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                                        <Badge variant="outline" className="border-zinc-700 px-1.5 py-0 text-[9px] uppercase tracking-wide text-zinc-400">{formatCategory(getDrillCategory(log.drillId ?? ""))}</Badge>
+                                        {typeof log.score === "number" && <span className="text-[10px] font-bold uppercase tracking-wide text-orange-300">Score {log.score}/10</span>}
+                                      </div>
+                                      <h4 className="truncate text-sm font-semibold text-white" data-testid={`text-log-drill-${log.id}`}>
                                         {getDrillTitle(log.drillId ?? "")}
                                       </h4>
-                                      <div className="flex items-center gap-1.5 sm:gap-2 text-xs text-muted-foreground flex-wrap">
+                                      <div className="flex flex-wrap items-center gap-1.5 text-xs text-zinc-500 sm:gap-2">
                                         <span className="flex items-center gap-1">
                                           <Clock className="w-3 h-3" />
                                           {formatDuration(log.duration)}
                                         </span>
                                         {stats && (
                                           <>
-                                            <span className="text-foreground font-medium">{stats.made}/{stats.attempts} shots</span>
+                                            <span className="font-medium tabular-nums text-white">{stats.made}/{stats.attempts} shots</span>
                                             <Badge 
                                               variant="secondary"
                                               className={`text-xs ${stats.percentage >= 70 ? "bg-green-500/20 text-green-400" : 
@@ -3779,7 +3842,7 @@ export default function TrainingLogPage() {
                                         onClick={(e) => { e.stopPropagation(); openEditLog(log); }}
                                         data-testid={`button-edit-log-${log.id}`}
                                       >
-                                        <Pencil className="w-4 h-4 text-muted-foreground" />
+                                        <Pencil className="h-4 w-4 text-zinc-500" />
                                       </Button>
                                       <Button 
                                         variant="ghost" 
@@ -3787,12 +3850,12 @@ export default function TrainingLogPage() {
                                         onClick={(e) => { e.stopPropagation(); if (confirm('Delete this training log?')) deleteLogMutation.mutate(log.id); }}
                                         data-testid={`button-delete-log-${log.id}`}
                                       >
-                                        <Trash2 className="w-4 h-4 text-muted-foreground" />
+                                        <Trash2 className="h-4 w-4 text-zinc-500" />
                                       </Button>
                                     </div>
                                   </div>
                                   {log.notes && (
-                                    <p className="mt-3 text-sm text-muted-foreground border-t pt-3 line-clamp-2">
+                                    <p className="mt-3 line-clamp-2 border-t border-zinc-800 pt-3 text-sm text-zinc-500">
                                       {log.notes}
                                     </p>
                                   )}
@@ -3807,11 +3870,13 @@ export default function TrainingLogPage() {
                 })}
             </div>
           ) : (
-            <Card>
-              <CardContent className="p-12 text-center">
-                <ClipboardList className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
-                <h3 className="font-semibold text-lg mb-2">No Training Sessions Yet</h3>
-                <p className="text-muted-foreground mb-4 max-w-md mx-auto">
+            <Card className="border-zinc-800 bg-zinc-950/70 shadow-none">
+              <CardContent className="p-8 text-center sm:p-12">
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-orange-500/20 bg-orange-500/10">
+                  <ClipboardList className="h-7 w-7 text-orange-400" />
+                </div>
+                <h3 className="mb-2 text-lg font-black uppercase tracking-wide text-white">No Training Sessions Yet</h3>
+                <p className="mx-auto mb-4 max-w-md text-sm text-zinc-500">
                   Start a workout to track your practice sessions and progress.
                 </p>
                 <Button onClick={() => setActiveView("library")} className="gap-2" data-testid="button-first-log">

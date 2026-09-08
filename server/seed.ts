@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { drills, benchmarks, evaluationAttributes, shotLocations, shotTypes, userProfiles, metricTemplates, drillMetrics, teamClubs, leagues, archetypes, archetypeRoadmapItems, streakChallenges, type ArchetypeTier, type ArchetypeRoadmapItemType, careerProfiles, playerProfiles, friendships, userFollows, friendActivityFeed, groupChallenges, groupChallengeMembers, userStreaks, trainingLogs } from "@shared/schema";
+import { drills, benchmarks, evaluationAttributes, shotLocations, shotTypes, userProfiles, metricTemplates, drillMetrics, teamClubs, leagues, archetypes, archetypeRoadmapItems, streakChallenges, type ArchetypeTier, type ArchetypeRoadmapItemType, careerProfiles, playerProfiles, friendships, userFollows, friendActivityFeed, groupChallenges, groupChallengeMembers, userStreaks, trainingLogs, type ShotLocation } from "@shared/schema";
 // seedPrograms disabled — generic programs removed per user request
 // import { seedPrograms } from "./seed-programs";
 import { users } from "@shared/models/auth";
@@ -405,6 +405,90 @@ const communityDemoChallenges = [
   { id: "playr1-demo-challenge-public-handles", name: "Handle the Pressure", goalType: "training_sessions" as const, goalAmount: 8, durationDays: 14, startDaysAgo: 4, endDaysFromNow: 10, creatorKey: "zoe", audience: "public" as const, emoji: "💫", color: "#f43f5e" },
 ] as const;
 
+type DevelopmentTrainingFixture = {
+  key: string;
+  daysAgo: number;
+  drillTitle: string;
+  duration: number;
+  score: number;
+  notes: string;
+  sessionKey?: string;
+  shotLocation?: ShotLocation;
+  shotsMade?: number;
+  shotsAttempted?: number;
+};
+
+const developmentTrainingHistory: DevelopmentTrainingFixture[] = [
+  { key: "today-form", daysAgo: 0, drillTitle: "Form Shooting", duration: 16, score: 8, shotLocation: "block-left", shotsMade: 34, shotsAttempted: 50, notes: "Quiet feet and a high, repeatable release." },
+  { key: "today-free-throws", daysAgo: 0, sessionKey: "today-shooting-lab", drillTitle: "Free Throw Routine", duration: 14, score: 8, shotLocation: "free-throw", shotsMade: 16, shotsAttempted: 20, notes: "Stayed with the same breath and routine." },
+  { key: "today-catch-shoot", daysAgo: 0, sessionKey: "today-shooting-lab", drillTitle: "Catch and Shoot", duration: 20, score: 7, shotLocation: "corner-left", shotsMade: 21, shotsAttempted: 35, notes: "Good pace; keep the dip compact under fatigue." },
+  { key: "two-days-defense", daysAgo: 2, drillTitle: "Defensive Stance", duration: 18, score: 7, notes: "Focused on staying square through the second slide." },
+  { key: "five-days-crossover", daysAgo: 5, sessionKey: "five-days-handle-finish", drillTitle: "Basic Crossover", duration: 15, score: 8, notes: "Sharp change of direction from a lower stance." },
+  { key: "five-days-layups", daysAgo: 5, sessionKey: "five-days-handle-finish", drillTitle: "Layup Fundamentals", duration: 20, score: 8, shotLocation: "block-right", shotsMade: 28, shotsAttempted: 36, notes: "Finished through contact on the right side." },
+  { key: "five-days-layups-round-two", daysAgo: 5, sessionKey: "five-days-handle-finish", drillTitle: "Layup Fundamentals", duration: 18, score: 9, shotLocation: "block-left", shotsMade: 25, shotsAttempted: 34, notes: "Second round: better touch with the left hand." },
+  { key: "eight-days-pull-up", daysAgo: 8, drillTitle: "Pull-Up Jumper", duration: 24, score: 7, shotLocation: "mid-range-left", shotsMade: 18, shotsAttempted: 32, notes: "Working on stopping under control before rising." },
+  { key: "eleven-days-passing", daysAgo: 11, sessionKey: "eleven-days-guard-work", drillTitle: "Chest Pass Fundamentals", duration: 17, score: 8, notes: "Snapped the pass and stepped into the target." },
+  { key: "eleven-days-handle", daysAgo: 11, sessionKey: "eleven-days-guard-work", drillTitle: "Between the Legs", duration: 22, score: 7, notes: "Added speed after each clean five-rep sequence." },
+  { key: "fourteen-days-shooting", daysAgo: 14, sessionKey: "fourteen-days-shot-volume", drillTitle: "Shooting Workout - 200 Makes", duration: 42, score: 8, shotLocation: "top-of-key", shotsMade: 68, shotsAttempted: 120, notes: "Volume day. Legs felt good through the final spots." },
+  { key: "fourteen-days-closeouts", daysAgo: 14, sessionKey: "fourteen-days-shot-volume", drillTitle: "Closeout Drill", duration: 16, score: 7, notes: "High hands without giving up the drive." },
+  { key: "seventeen-days-film", daysAgo: 17, drillTitle: "Reading Pick and Roll", duration: 26, score: 8, notes: "Paused on the pocket-pass reads and tagged the low man." },
+  { key: "twenty-one-days-floater", daysAgo: 21, drillTitle: "Floater", duration: 19, score: 6, shotLocation: "block-right", shotsMade: 17, shotsAttempted: 30, notes: "More arc on the runner; keep the eyes up." },
+];
+
+async function seedDevelopmentTrainingHistory(userIds: string[]) {
+  if (process.env.NODE_ENV === "production" || userIds.length === 0) return;
+
+  const seededDrills = await db.select({
+    id: drills.id,
+    title: drills.title,
+  }).from(drills).where(isNull(drills.userId));
+  const drillByTitle = new Map(seededDrills.map((drill) => [drill.title, drill.id]));
+  const baseDate = new Date();
+  baseDate.setHours(12, 0, 0, 0);
+
+  for (const userId of userIds) {
+    const rows = developmentTrainingHistory.flatMap((fixture, fixtureIndex) => {
+      const drillId = drillByTitle.get(fixture.drillTitle);
+      if (!drillId) return [];
+      const completedAt = new Date(baseDate);
+      completedAt.setDate(baseDate.getDate() - fixture.daysAgo);
+      completedAt.setMinutes(fixtureIndex);
+      return [{
+        id: `playr1-dev-training-${userId}-${fixture.key}`,
+        userId,
+        drillId,
+        workoutSessionId: fixture.sessionKey ? `playr1-dev-session-${userId}-${fixture.sessionKey}` : null,
+        duration: fixture.duration,
+        score: fixture.score,
+        notes: fixture.notes,
+        shotLocation: fixture.shotLocation,
+        shotsMade: fixture.shotsMade,
+        shotsAttempted: fixture.shotsAttempted,
+        completedAt,
+      }];
+    });
+
+    if (rows.length === 0) continue;
+    await db.insert(trainingLogs).values(rows).onConflictDoUpdate({
+      target: trainingLogs.id,
+      set: {
+        userId: sql`EXCLUDED.user_id`,
+        drillId: sql`EXCLUDED.drill_id`,
+        workoutSessionId: sql`EXCLUDED.workout_session_id`,
+        duration: sql`EXCLUDED.duration`,
+        score: sql`EXCLUDED.score`,
+        notes: sql`EXCLUDED.notes`,
+        shotLocation: sql`EXCLUDED.shot_location`,
+        shotsMade: sql`EXCLUDED.shots_made`,
+        shotsAttempted: sql`EXCLUDED.shots_attempted`,
+        completedAt: sql`EXCLUDED.completed_at`,
+      },
+    });
+  }
+
+  console.log(`Development training history synced for ${userIds.length} local player account(s)`);
+}
+
 async function seedCommunityDemo() {
   if (process.env.NODE_ENV === "production") return;
 
@@ -412,13 +496,15 @@ async function seedCommunityDemo() {
   const realUsers = await db
     .select({ id: users.id })
     .from(users)
-    .where(notInArray(users.id, demoIds))
+    .where(and(notInArray(users.id, demoIds), eq(users.role, "player")))
     .limit(50);
 
   if (realUsers.length === 0) {
     console.log("Community demo skipped: no signed-in player exists yet");
     return;
   }
+
+  await seedDevelopmentTrainingHistory(realUsers.map((user) => user.id));
 
   await db.insert(users).values(communityDemoPlayers.map((player) => ({
     id: player.id,
@@ -653,11 +739,6 @@ async function seedCommunityDemo() {
 
   for (const realUser of realUsers) {
     for (const player of challengePlayers) await addFriendship(realUser.id, player.id);
-    for (const player of challengePlayers.slice(0, 3)) {
-      await db.insert(userFollows).values({ followerId: player.id, followingId: realUser.id }).onConflictDoNothing({
-        target: [userFollows.followerId, userFollows.followingId],
-      });
-    }
     await addMember(communityDemoChallenges[0].id, realUser.id, "accepted", 0);
     await addMember(communityDemoChallenges[1].id, realUser.id, "accepted", 0);
     await addMember(communityDemoChallenges[2].id, realUser.id, "invited", 0);

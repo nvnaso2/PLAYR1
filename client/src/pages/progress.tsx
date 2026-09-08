@@ -67,17 +67,17 @@ type TrainingStatDef = {
 };
 
 const TRAINING_STAT_DEFS: TrainingStatDef[] = [
-  { key: "totalShotsMade", title: "Total Shots Made", icon: <Target className="w-4 h-4" />, testId: "stats-total-shots", skillType: "shooting" },
-  { key: "threePointersMade", title: "3-Pointers Made", icon: <CircleDot className="w-4 h-4" />, testId: "stats-three-pointers", skillType: "shooting" },
-  { key: "freeThrowsMade", title: "Free Throws Made", icon: <Zap className="w-4 h-4" />, testId: "stats-free-throws", skillType: "shooting" },
-  { key: "fieldGoalsMade", title: "Field Goals Made", icon: <TrendingUp className="w-4 h-4" />, testId: "stats-field-goals", skillType: "shooting" },
-  { key: "formShotsMade", title: "Form Shots Made", icon: <Target className="w-4 h-4" />, testId: "stats-form-shots", skillType: "shooting" },
-  { key: "layupsMade", title: "Layups Made", icon: <Flame className="w-4 h-4" />, testId: "stats-layups", skillType: "finishing" },
-  { key: "timeBallHandling", title: "Ball Handling", icon: <HandMetal className="w-4 h-4" />, testId: "stats-ball-handling", skillType: "ball-handling" },
-  { key: "leftHandBallHandling", title: "Left-Hand Handling", icon: <HandMetal className="w-4 h-4" />, testId: "stats-left-hand", skillType: "ball-handling" },
-  { key: "rightHandBallHandling", title: "Right-Hand Handling", icon: <HandMetal className="w-4 h-4" />, testId: "stats-right-hand", skillType: "ball-handling" },
-  { key: "passesMade", title: "Passes Made", icon: <Crosshair className="w-4 h-4" />, testId: "stats-passes", skillType: "passing" },
-  { key: "fgPct", title: "FG%", icon: <Target className="w-4 h-4" />, format: (v) => `${v}%`, testId: "stats-fg-pct", skillType: "shooting" },
+  { key: "totalShotsMade", title: "Total Shots Made", icon: <Target className="h-7 w-7" />, testId: "stats-total-shots", skillType: "shooting" },
+  { key: "threePointersMade", title: "3-Pointers Made", icon: <CircleDot className="h-7 w-7" />, testId: "stats-three-pointers", skillType: "shooting" },
+  { key: "freeThrowsMade", title: "Free Throws Made", icon: <Zap className="h-7 w-7" />, testId: "stats-free-throws", skillType: "shooting" },
+  { key: "fieldGoalsMade", title: "Field Goals Made", icon: <TrendingUp className="h-7 w-7" />, testId: "stats-field-goals", skillType: "shooting" },
+  { key: "formShotsMade", title: "Form Shots Made", icon: <Target className="h-7 w-7" />, testId: "stats-form-shots", skillType: "shooting" },
+  { key: "layupsMade", title: "Layups Made", icon: <Flame className="h-7 w-7" />, testId: "stats-layups", skillType: "finishing" },
+  { key: "timeBallHandling", title: "Ball Handling", icon: <HandMetal className="h-7 w-7" />, testId: "stats-ball-handling", skillType: "ball-handling" },
+  { key: "leftHandBallHandling", title: "Left-Hand Handling", icon: <HandMetal className="h-7 w-7" />, testId: "stats-left-hand", skillType: "ball-handling" },
+  { key: "rightHandBallHandling", title: "Right-Hand Handling", icon: <HandMetal className="h-7 w-7" />, testId: "stats-right-hand", skillType: "ball-handling" },
+  { key: "passesMade", title: "Passes Made", icon: <Crosshair className="h-7 w-7" />, testId: "stats-passes", skillType: "passing" },
+  { key: "fgPct", title: "FG%", icon: <Target className="h-7 w-7" />, format: (v) => `${v}%`, testId: "stats-fg-pct", skillType: "shooting" },
 ];
 
 type SkillTab = { key: string; label: string };
@@ -362,29 +362,32 @@ export default function ProgressPage() {
       <section className="grid grid-cols-1 gap-3 sm:max-w-[780px] sm:grid-cols-3 sm:gap-4" aria-label="Training summary">
         {overviewLoading ? (
           <>
-            <Skeleton className="h-[72px] rounded-lg" />
-            <Skeleton className="h-[72px] rounded-lg" />
-            <Skeleton className="h-[72px] rounded-lg" />
+            <Skeleton className="h-[68px] rounded-lg sm:h-[72px]" />
+            <Skeleton className="h-[68px] rounded-lg sm:h-[72px]" />
+            <Skeleton className="h-[68px] rounded-lg sm:h-[72px]" />
           </>
         ) : (
           <>
             <StatsCard
               title="Total Drills"
               value={totalSessions}
-              icon={<Target className="w-5 h-5 text-primary" />}
+              icon={<Target className="h-6 w-6 text-primary" />}
               testId="stats-sessions"
+              compact
             />
             <StatsCard
               title="Hours Trained"
               value={`${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`}
-              icon={<Clock className="w-5 h-5 text-primary" />}
+              icon={<Clock className="h-6 w-6 text-primary" />}
               testId="stats-hours"
+              compact
             />
             <StatsCard
               title="Day Streak"
               value={streak}
-              icon={<Zap className="w-5 h-5 text-primary" />}
+              icon={<Zap className="h-6 w-6 text-primary" />}
               testId="stats-streak"
+              compact
             />
           </>
         )}
@@ -476,6 +479,7 @@ export default function ProgressPage() {
                       value={displayVal}
                       icon={card.icon}
                       testId={card.testId}
+                      compact
                     />
                   );
                 })}

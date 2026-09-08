@@ -541,7 +541,7 @@ export function ShootingHeatmap({
     <Card className={`bg-black border-zinc-800 ${className}`} data-testid="shooting-heatmap">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between gap-2 flex-wrap">
-          <CardTitle className="text-lg text-white" data-testid="heatmap-title">{title}</CardTitle>
+          {title && <CardTitle className="text-lg text-white" data-testid="heatmap-title">{title}</CardTitle>}
           <div className="flex items-center gap-2 text-sm" data-testid="heatmap-overall-stats">
             <span className="text-zinc-400">Overall:</span>
             <span className="font-bold text-white">{totals.made}/{totals.attempted}</span>
