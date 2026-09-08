@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { UserPlus, Users, Search, MapPin } from "lucide-react";
+import { playerProfileHref } from "@/lib/profile-links";
 
 function initials(name: string) {
   return name.split(" ").map(p => p[0]).join("").toUpperCase().slice(0, 2) || "?";
@@ -23,14 +24,14 @@ function PlayerCard({ user, onAdd, adding, alreadyFriend }: {
   return (
     <Card className="border-zinc-800/50 bg-zinc-900/30">
       <CardContent className="p-3 flex items-center gap-3">
-        <Link href={`/player/${user.userId}`}>
+        <Link href={playerProfileHref({ userId: user.userId, profileSlug: user.profileSlug })}>
           <Avatar className="w-9 h-9 cursor-pointer shrink-0">
             <AvatarImage src={getObjectUrl(user.profilePhotoUrl) ?? user.profilePhotoUrl ?? undefined} />
             <AvatarFallback className="bg-zinc-800 text-xs">{initials(name)}</AvatarFallback>
           </Avatar>
         </Link>
         <div className="flex-1 min-w-0">
-          <Link href={`/player/${user.userId}`}>
+          <Link href={playerProfileHref({ userId: user.userId, profileSlug: user.profileSlug })}>
             <p className="text-sm font-medium text-white hover:text-orange-400 transition-colors cursor-pointer truncate">{name}</p>
           </Link>
           <div className="flex items-center gap-2 flex-wrap mt-0.5">

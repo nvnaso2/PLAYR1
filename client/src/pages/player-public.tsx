@@ -236,11 +236,7 @@ export default function PlayerPublicPage() {
   const requestedReturnTo = new URLSearchParams(location.split("?")[1] || "").get("returnTo");
   const returnTo = requestedReturnTo?.startsWith("/") ? requestedReturnTo : "/community";
   const goBack = () => {
-    if (typeof window !== "undefined" && window.history.length > 1) {
-      window.history.back();
-    } else {
-      navigate(returnTo);
-    }
+    navigate(returnTo);
   };
   const { data, isLoading, error } = useQuery<PublicProfileData>({
     queryKey: ["/api/player", slug],

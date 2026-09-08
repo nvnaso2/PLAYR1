@@ -47,6 +47,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { GROUP_CHALLENGE_GOAL_LABELS, GROUP_CHALLENGE_GOAL_TYPES } from "@shared/schema";
+import { playerProfileHref } from "@/lib/profile-links";
 
 type CommunityTab = "activity" | "challenges" | "players";
 
@@ -80,8 +81,8 @@ const ACTIVITY_EXPLANATIONS = [
   { type: "game_day", label: "Game day", description: "A player has a game or competition on their calendar today.", icon: Flame, color: "from-red-500 to-orange-300" },
 ] as const;
 
-function profileHref(player: { userId: string; profileSlug?: string | null }, returnTo = "/community") {
-  return `/player/${player.profileSlug || player.userId}?returnTo=${encodeURIComponent(returnTo)}`;
+function profileHref(player: { userId: string; profileSlug?: string | null }, _returnTo?: string) {
+  return playerProfileHref(player);
 }
 
 function activityTypeDetails(type?: string) {

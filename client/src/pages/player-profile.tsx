@@ -97,7 +97,7 @@ type PlayerProfileFormData = z.infer<typeof playerProfileFormSchema>;
 export function PlayerProfileSection() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const [uploading, setUploading] = useState(false);
 
   const { data: profile, isLoading } = useQuery<PlayerProfile | null>({
@@ -374,7 +374,7 @@ export function PlayerProfileSection() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setLocation(`/player/${profile?.slug || ""}`)}
+                onClick={() => setLocation(`/player/${profile?.slug || ""}?returnTo=${encodeURIComponent(location)}`)}
                 data-testid="button-preview-profile"
               >
                 <ExternalLink className="h-4 w-4 mr-1" />
