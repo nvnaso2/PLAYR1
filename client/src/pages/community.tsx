@@ -630,7 +630,6 @@ function ChallengesPanel({ user }: { user: unknown }) {
   const myId = (user as any)?.claims?.sub ?? (user as any)?.id;
   const [createOpen, setCreateOpen] = useState(false);
   const [inviteChallengeId, setInviteChallengeId] = useState<string | null>(null);
-  const [challengesOpen, setChallengesOpen] = useState(true);
   const [name, setName] = useState("");
   const [goalType, setGoalType] = useState<string>("training_sessions");
   const [goalAmount, setGoalAmount] = useState("5");
@@ -753,23 +752,24 @@ function ChallengesPanel({ user }: { user: unknown }) {
 
   return (
     <div className="space-y-5">
-      <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/90 p-4 shadow-lg shadow-black/20 sm:p-5">
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto_minmax(168px,190px)] lg:items-center">
-          <div className="min-w-0">
-            <p className="font-heading text-sm uppercase tracking-[0.22em] text-orange-400">Community</p>
-            <h2 className="mt-1 font-heading text-4xl uppercase leading-none tracking-wide text-white sm:text-5xl">Challenges</h2>
-          </div>
-          <Button variant="ghost" size="sm" className="h-9 justify-self-start gap-1.5 px-0 text-xs text-zinc-400 hover:bg-transparent hover:text-white lg:justify-self-center" onClick={() => setChallengesOpen((open) => !open)} aria-expanded={challengesOpen}>
-            {challengesOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-            {challengesOpen ? "Hide challenges" : "Show challenges"}
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h2 className="text-lg font-semibold">Challenges</h2>
+          <p className="text-sm text-muted-foreground">Build momentum together with goals you can see, share, and finish.</p>
+        </div>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1.5 text-xs text-sky-200 hover:bg-sky-500/10 hover:text-sky-100"
+            onClick={() => setPublicChallengesOpen(true)}
+            data-testid="button-open-public-challenges"
+          >
+            <Globe2 className="h-3.5 w-3.5" />
+            Public challenges
+            <Badge className="ml-0.5 border border-sky-300/40 bg-sky-400/15 px-1.5 text-[10px] text-sky-100 shadow-[0_0_14px_rgba(56,189,248,0.28)] hover:bg-sky-400/15">{discoverableChallenges.length}</Badge>
           </Button>
-          <div className="flex flex-col gap-2">
-            <Button variant="outline" size="sm" className="h-9 w-full justify-between gap-1.5 border-sky-500/30 bg-zinc-950/50 text-sky-200 hover:bg-sky-500/10" onClick={() => setPublicChallengesOpen(true)} data-testid="button-open-public-challenges">
-              <span className="flex items-center gap-1.5"><Globe2 className="h-3.5 w-3.5" /> Public challenges</span>
-              <Badge variant="secondary" className="ml-0.5 bg-sky-500/15 px-1.5 text-[10px] text-sky-200">{discoverableChallenges.length}</Badge>
-            </Button>
-            <Button size="sm" className="h-9 w-full" onClick={() => setCreateOpen(true)} data-testid="button-create-community-challenge"><Plus className="mr-2 h-4 w-4" /> Create challenge</Button>
-          </div>
+          <Button size="sm" className="h-8" onClick={() => setCreateOpen(true)} data-testid="button-create-community-challenge"><Plus className="mr-2 h-4 w-4" /> Create challenge</Button>
         </div>
       </div>
 
@@ -793,9 +793,7 @@ function ChallengesPanel({ user }: { user: unknown }) {
         </Card>
       )}
 
-      {!challengesOpen ? (
-        <div className="rounded-xl border border-dashed border-zinc-800 px-4 py-3 text-xs text-muted-foreground">Active challenges are hidden for now. Show them whenever you want to check progress.</div>
-      ) : challengesQuery.isError || invitesQuery.isError ? (
+      {challengesQuery.isError || invitesQuery.isError ? (
         <PanelError message="Challenges could not be loaded. Try refreshing the page." />
       ) : challengesQuery.isLoading ? (
         <div className="space-y-3" aria-label="Loading challenges" aria-busy="true">{[1, 2].map((item) => <Skeleton key={item} className="h-56 w-full bg-zinc-900" />)}</div>
@@ -981,18 +979,18 @@ function PlayerCard({ player, onFollow, following }: { player: Player; onFollow:
   const position = player.positions?.[0];
   const positionLabel = positions.find((item) => item.value === position)?.label || position;
   return (
-    <Card className="border-zinc-800/80 bg-zinc-950/80 shadow-lg shadow-black/10 transition-colors hover:border-zinc-700">
-      <CardContent className="flex min-w-0 items-center gap-3 p-3.5 sm:p-4">
-        <Link href={profileHref(player, "/community?tab=players")} aria-label={`View ${name}'s profile`} className="shrink-0"><PlayerAvatar player={player} size="h-11 w-11" /></Link>
+    <Card className="h-fit self-start border-zinc-800/80 bg-zinc-950/80 shadow-lg shadow-black/10 transition-colors hover:border-zinc-700">
+      <CardContent className="flex min-w-0 items-center gap-3 px-3.5 py-3 sm:px-4 sm:py-3.5">
+        <Link href={profileHref(player, "/community?tab=players")} aria-label={`View ${name}'s profile`} className="shrink-0"><PlayerAvatar player={player} size="h-10 w-10" /></Link>
         <div className="min-w-0 flex-1">
-          <Link href={profileHref(player, "/community?tab=players")} className="block truncate text-sm font-semibold text-white hover:text-orange-400">{name}</Link>
-          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+          <Link href={profileHref(player, "/community?tab=players")} className="block text-sm font-semibold leading-5 text-white hover:text-orange-400">{name}</Link>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
             {player.skillLevel && <span className="rounded-full border border-zinc-700 bg-zinc-900 px-2 py-0.5 text-[10px] font-semibold capitalize text-zinc-300">{player.skillLevel}</span>}
             {position && <span className="rounded-full border border-orange-500/25 bg-orange-500/[0.08] px-2 py-0.5 text-[10px] font-semibold text-orange-200" title={positionLabel}>{position}</span>}
           </div>
-          {locationLabel(player) && <div className="mt-2 flex min-w-0 items-center gap-1 text-[11px] text-zinc-500"><MapPin className="h-3 w-3 shrink-0 text-zinc-600" /><span className="truncate">{locationLabel(player)}</span></div>}
+          {locationLabel(player) && <div className="mt-1.5 flex min-w-0 items-center gap-1 whitespace-nowrap text-[11px] text-zinc-500"><MapPin className="h-3 w-3 shrink-0 text-zinc-600" /><span>{locationLabel(player)}</span></div>}
         </div>
-        <Button size="sm" variant={player.isFollowing ? "secondary" : "outline"} className={`h-9 shrink-0 min-w-[82px] px-3 ${player.isFollowing ? "border-orange-500/30 bg-orange-500/10 text-orange-200 hover:bg-orange-500/15" : "border-zinc-700 bg-zinc-900 text-zinc-200 hover:border-orange-500/50 hover:bg-orange-500/10 hover:text-orange-200"}`} onClick={onFollow} disabled={followDisabled} data-testid={`button-follow-player-${player.userId}`}>
+        <Button size="sm" variant={player.isFollowing ? "secondary" : "outline"} className={`h-9 shrink-0 min-w-[78px] px-3 ${player.isFollowing ? "border-orange-500/30 bg-orange-500/10 text-orange-200 hover:bg-orange-500/15" : "border-zinc-700 bg-zinc-900 text-zinc-200 hover:border-orange-500/50 hover:bg-orange-500/10 hover:text-orange-200"}`} onClick={onFollow} disabled={followDisabled} data-testid={`button-follow-player-${player.userId}`}>
           {followLabel}
         </Button>
       </CardContent>
