@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Activity,
@@ -1169,8 +1169,10 @@ function PlayersPanel({ user }: { user: unknown }) {
 
 export default function CommunityPage() {
   const [location, navigate] = useLocation();
+  const search = useSearch();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<CommunityTab>(getTabFromLocation(location));
+  const routeLocation = `${location}${search}`;
+  const [activeTab, setActiveTab] = useState<CommunityTab>(getTabFromLocation(routeLocation));
   const { data: requests = [] } = useQuery<any[]>({ queryKey: ["/api/friends/requests"], enabled: !!user });
   const { data: challengeInvites = [] } = useQuery<any[]>({ queryKey: ["/api/group-challenges/invites"], enabled: !!user });
   const { data: friends = [] } = useQuery<any[]>({ queryKey: ["/api/friends"], enabled: !!user });
@@ -1178,8 +1180,8 @@ export default function CommunityPage() {
   const { data: activityPreview = [], isLoading: activityPreviewLoading } = useQuery<any[]>({ queryKey: ["/api/friends/activity"], enabled: !!user });
 
   useEffect(() => {
-    setActiveTab(getTabFromLocation(location));
-  }, [location]);
+    setActiveTab(getTabFromLocation(routeLocation));
+  }, [routeLocation]);
 
   useEffect(() => {
     const handleTabEvent = (event: Event) => selectTab((event as CustomEvent<CommunityTab>).detail);

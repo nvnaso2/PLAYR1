@@ -1,4 +1,4 @@
-import { useLocation, useRoute } from "wouter";
+import { useLocation, useRoute, useSearch } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, getObjectUrl, queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -232,8 +232,9 @@ function PublicPlayerCard({ data }: { data: PublicProfileData }) {
 export default function PlayerPublicPage() {
   const [, params] = useRoute("/player/:slug");
   const [location, navigate] = useLocation();
+  const search = useSearch();
   const slug = params?.slug || "";
-  const requestedReturnTo = new URLSearchParams(location.split("?")[1] || "").get("returnTo");
+  const requestedReturnTo = new URLSearchParams(search).get("returnTo");
   const returnTo = requestedReturnTo?.startsWith("/") ? requestedReturnTo : "/community";
   const goBack = () => {
     navigate(returnTo);

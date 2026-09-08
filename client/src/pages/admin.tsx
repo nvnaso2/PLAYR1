@@ -59,7 +59,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText, Play, ChevronDown, GraduationCap, MapPin, ListFilter, X, BarChart2, TrendingUp, TrendingDown, Activity, UserCheck, Wrench, Flame, Lightbulb, Zap, Globe, AlertTriangle, Trophy, Target, GitBranch, Clock, ArrowDown, Flag, ToggleLeft, ToggleRight, UserPlus, Copy, RotateCcw, ExternalLink, MessageCircle, type LucideIcon } from "lucide-react";
+import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText, Play, ChevronDown, GraduationCap, MapPin, ListFilter, X, BarChart2, TrendingUp, TrendingDown, Activity, UserCheck, Wrench, Flame, Lightbulb, Zap, Globe, AlertTriangle, Trophy, Target, GitBranch, Clock, ArrowDown, Flag, ToggleLeft, ToggleRight, UserPlus, Copy, RotateCcw, ExternalLink, MessageCircle, Dumbbell, type LucideIcon } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
 import type { Drill, DrillCategory, DifficultyLevel, DrillMetric, VideoLibrary, PdfLibrary, MetricTemplate, Workout, WorkoutDrill, TrainingLocation, ShotLocationDB, ShotTypeDB } from "@shared/schema";
@@ -2429,7 +2429,10 @@ export default function AdminPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [drillSourceFilter, setDrillSourceFilter] = useState<"playr1" | "community" | "all">("playr1");
-  const [activeTab, setActiveTab] = useState("videos");
+  const [activeTab, setActiveTab] = useState("training");
+  const [trainingTab, setTrainingTab] = useState<"drills" | "workouts" | "programs" | "archetypes">("drills");
+  const [configurationTab, setConfigurationTab] = useState<"metrics" | "picklists">("metrics");
+  const [analyticsTab, setAnalyticsTab] = useState<"analytics" | "challenge">("analytics");
   const [repairingVideos, setRepairingVideos] = useState(false);
   const [repairResults, setRepairResults] = useState<{ fixed: number; skipped: number } | null>(null);
   
@@ -2913,68 +2916,53 @@ export default function AdminPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 lg:grid-cols-12 gap-1 h-auto p-1">
-          <TabsTrigger value="videos" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-videos">
-            <Film className="w-4 h-4 shrink-0" />
-            <span>Videos</span>
+        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-xl border border-zinc-800/80 bg-zinc-950/80 p-1">
+          <TabsTrigger value="training" className="gap-2 px-3 py-2 text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-black sm:text-sm" data-testid="tab-training">
+            <Dumbbell className="h-4 w-4 shrink-0" />
+            <span>Training Content</span>
           </TabsTrigger>
-          <TabsTrigger value="metrics" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-metrics">
-            <Ruler className="w-4 h-4 shrink-0" />
-            <span>Metrics</span>
+          <TabsTrigger value="configuration" className="gap-2 px-3 py-2 text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-black sm:text-sm" data-testid="tab-configuration">
+            <Settings2 className="h-4 w-4 shrink-0" />
+            <span>Metrics & Picklists</span>
           </TabsTrigger>
-          <TabsTrigger value="pdfs" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-pdfs">
-            <FileText className="w-4 h-4 shrink-0" />
-            <span>PDFs</span>
-          </TabsTrigger>
-          <TabsTrigger value="drills" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-drills">
-            <Video className="w-4 h-4 shrink-0" />
-            <span>Drills</span>
-          </TabsTrigger>
-          <TabsTrigger value="workouts" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-workouts">
-            <Play className="w-4 h-4 shrink-0" />
-            <span>Workouts</span>
-          </TabsTrigger>
-          <TabsTrigger value="locations" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-locations">
-            <MapPin className="w-4 h-4 shrink-0" />
-            <span>Locations</span>
-          </TabsTrigger>
-          <TabsTrigger value="tutorials" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-tutorials">
-            <GraduationCap className="w-4 h-4 shrink-0" />
-            <span>Tutorials</span>
-          </TabsTrigger>
-          <TabsTrigger value="users" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-users">
-            <Users className="w-4 h-4 shrink-0" />
+          <TabsTrigger value="users" className="gap-2 px-3 py-2 text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-black sm:text-sm" data-testid="tab-users">
+            <Users className="h-4 w-4 shrink-0" />
             <span>Users</span>
           </TabsTrigger>
-          <TabsTrigger value="picklists" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-picklists">
-            <ListFilter className="w-4 h-4 shrink-0" />
-            <span>Picklists</span>
-          </TabsTrigger>
-          <TabsTrigger value="programs" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-programs">
-            <Calendar className="w-4 h-4 shrink-0" />
-            <span>Programs</span>
-          </TabsTrigger>
-          <TabsTrigger value="archetypes" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-archetypes">
-            <Fingerprint className="w-4 h-4 shrink-0" />
-            <span>Archetypes</span>
-          </TabsTrigger>
-          <TabsTrigger value="events" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-events">
-            <CalendarRange className="w-4 h-4 shrink-0" />
-            <span>Events</span>
-          </TabsTrigger>
-          <TabsTrigger value="analytics" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-analytics">
-            <BarChart2 className="w-4 h-4 shrink-0" />
-            <span>Analytics</span>
-          </TabsTrigger>
-          <TabsTrigger value="flags" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-flags">
-            <Flag className="w-4 h-4 shrink-0" />
-            <span>Flags</span>
-          </TabsTrigger>
-          <TabsTrigger value="challenge-videos" className="gap-1 py-2.5 px-2 text-xs sm:text-sm flex items-center justify-center" data-testid="tab-challenge-videos">
-            <Flame className="w-4 h-4 shrink-0" />
-            <span>Challenge</span>
+          <TabsTrigger value="analytics-challenges" className="gap-2 px-3 py-2 text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-black sm:text-sm" data-testid="tab-analytics-challenges">
+            <BarChart2 className="h-4 w-4 shrink-0" />
+            <span>Analytics & Challenges</span>
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="training" className="mt-0">
+          <Tabs defaultValue="drills" value={trainingTab} onValueChange={(value) => setTrainingTab(value as typeof trainingTab)}>
+            <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-xl border border-zinc-800/60 bg-zinc-900/60 p-1">
+              <TabsTrigger value="drills" className="gap-1.5 text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-black"><Video className="h-3.5 w-3.5" />Drills</TabsTrigger>
+              <TabsTrigger value="workouts" className="gap-1.5 text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-black"><Play className="h-3.5 w-3.5" />Workouts</TabsTrigger>
+              <TabsTrigger value="programs" className="gap-1.5 text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-black"><Calendar className="h-3.5 w-3.5" />Programs</TabsTrigger>
+              <TabsTrigger value="archetypes" className="gap-1.5 text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-black"><Fingerprint className="h-3.5 w-3.5" />Archetypes</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </TabsContent>
+
+        <TabsContent value="configuration" className="mt-0">
+          <Tabs defaultValue="metrics" value={configurationTab} onValueChange={(value) => setConfigurationTab(value as typeof configurationTab)}>
+            <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-xl border border-zinc-800/60 bg-zinc-900/60 p-1">
+              <TabsTrigger value="metrics" className="gap-1.5 text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-black"><Ruler className="h-3.5 w-3.5" />Metrics</TabsTrigger>
+              <TabsTrigger value="picklists" className="gap-1.5 text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-black"><ListFilter className="h-3.5 w-3.5" />Picklists</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </TabsContent>
+
+        <TabsContent value="analytics-challenges" className="mt-0">
+          <Tabs defaultValue="analytics" value={analyticsTab} onValueChange={(value) => setAnalyticsTab(value as typeof analyticsTab)}>
+            <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-xl border border-zinc-800/60 bg-zinc-900/60 p-1">
+              <TabsTrigger value="analytics" className="gap-1.5 text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-black"><BarChart2 className="h-3.5 w-3.5" />Analytics</TabsTrigger>
+              <TabsTrigger value="challenge" className="gap-1.5 text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-black"><Flame className="h-3.5 w-3.5" />Challenge</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </TabsContent>
 
         {/* Video Library Tab */}
         <TabsContent value="videos" className="space-y-6">
@@ -3154,7 +3142,8 @@ export default function AdminPage() {
         </TabsContent>
 
         {/* Metric Templates Tab */}
-        <TabsContent value="metrics" className="space-y-6">
+        {activeTab === "configuration" && configurationTab === "metrics" && (
+        <div className="space-y-6">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div>
               <h2 className="text-xl font-semibold">Metric Templates</h2>
@@ -3295,7 +3284,8 @@ export default function AdminPage() {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
+        </div>
+        )}
 
         {/* PDF Library Tab */}
         <TabsContent value="pdfs" className="space-y-6">
@@ -3438,7 +3428,8 @@ export default function AdminPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="drills" className="space-y-6">
+        {activeTab === "training" && trainingTab === "drills" && (
+        <div className="space-y-6">
           <div className="flex items-center justify-end">
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
               <DialogTrigger asChild>
@@ -3631,10 +3622,12 @@ export default function AdminPage() {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
+        </div>
+        )}
 
         {/* Workouts Tab */}
-        <TabsContent value="workouts" className="space-y-6">
+        {activeTab === "training" && trainingTab === "workouts" && (
+        <div className="space-y-6">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div>
               <h2 className="text-xl font-semibold">PLAYR1 Workouts</h2>
@@ -3857,7 +3850,8 @@ export default function AdminPage() {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
+        </div>
+        )}
 
         <TabsContent value="locations" className="space-y-6">
           <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -4127,7 +4121,8 @@ export default function AdminPage() {
         </TabsContent>
 
         {/* Picklists Tab */}
-        <TabsContent value="picklists" className="space-y-8">
+        {activeTab === "configuration" && configurationTab === "picklists" && (
+        <div className="space-y-8">
           {/* Shot Locations */}
           <div>
             <div className="flex items-center justify-between gap-4 flex-wrap mb-4">
@@ -4306,15 +4301,20 @@ export default function AdminPage() {
               </Card>
             )}
           </div>
-        </TabsContent>
+        </div>
+        )}
         {/* Analytics Tab */}
-        <TabsContent value="programs" className="space-y-6">
+        {activeTab === "training" && trainingTab === "programs" && (
+        <div className="space-y-6">
           <ProgramListSection mode="admin" />
-        </TabsContent>
+        </div>
+        )}
 
-        <TabsContent value="archetypes" className="space-y-6">
+        {activeTab === "training" && trainingTab === "archetypes" && (
+        <div className="space-y-6">
           <AdminArchetypesSection />
-        </TabsContent>
+        </div>
+        )}
 
         <TabsContent value="events" className="space-y-10">
           <AdminEventsSection />
@@ -4323,17 +4323,21 @@ export default function AdminPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="analytics" className="space-y-6">
+        {activeTab === "analytics-challenges" && analyticsTab === "analytics" && (
+        <div className="space-y-6">
           <AdminAnalyticsTab />
-        </TabsContent>
+        </div>
+        )}
 
         <TabsContent value="flags" className="space-y-6">
           <FeatureFlagsTab />
         </TabsContent>
 
-        <TabsContent value="challenge-videos" className="space-y-6">
+        {activeTab === "analytics-challenges" && analyticsTab === "challenge" && (
+        <div className="space-y-6">
           <ChallengeVideosTab />
-        </TabsContent>
+        </div>
+        )}
 
       </Tabs>
 

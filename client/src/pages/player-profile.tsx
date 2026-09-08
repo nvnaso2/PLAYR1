@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ShareMenu } from "@/components/share-menu";
@@ -98,6 +98,7 @@ export function PlayerProfileSection() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [location, setLocation] = useLocation();
+  const search = useSearch();
   const [uploading, setUploading] = useState(false);
 
   const { data: profile, isLoading } = useQuery<PlayerProfile | null>({
@@ -374,7 +375,7 @@ export function PlayerProfileSection() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setLocation(`/player/${profile?.slug || ""}?returnTo=${encodeURIComponent(location)}`)}
+                onClick={() => setLocation(`/player/${profile?.slug || ""}?returnTo=${encodeURIComponent(`${location}${search}`)}`)}
                 data-testid="button-preview-profile"
               >
                 <ExternalLink className="h-4 w-4 mr-1" />
