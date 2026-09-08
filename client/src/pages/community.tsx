@@ -1018,7 +1018,7 @@ function PlayersPanel({ user }: { user: unknown }) {
   const [search, setSearch] = useState("");
   const [skill, setSkill] = useState("all");
   const [position, setPosition] = useState("all");
-  const [state, setState] = useState("");
+  const [locationFilter, setLocationFilter] = useState("");
   const [followingId, setFollowingId] = useState<string | null>(null);
   const [networkView, setNetworkView] = useState<"followers" | "following" | null>(null);
   const recommendedQuery = useQuery<Player[]>({ queryKey: ["/api/users/recommended"], enabled: !!user });
@@ -1027,12 +1027,12 @@ function PlayersPanel({ user }: { user: unknown }) {
   const followingQuery = useQuery<Player[]>({ queryKey: ["/api/follows"], enabled: !!user });
   const hasSearch = search.trim().length >= 2;
   const searchQuery = useQuery<Player[]>({
-    queryKey: ["/api/users/search", search.trim(), skill, position, state.trim()],
+    queryKey: ["/api/users/search", search.trim(), skill, position, locationFilter.trim()],
     queryFn: async () => {
       const params = new URLSearchParams({ q: search.trim() });
       if (skill !== "all") params.set("skillLevel", skill);
       if (position !== "all") params.set("position", position);
-      if (state.trim()) params.set("state", state.trim());
+      if (locationFilter.trim()) params.set("location", locationFilter.trim());
       const response = await fetch(buildUrl(`/api/users/search?${params.toString()}`), { credentials: "include", headers: getAuthHeaders() });
       if (!response.ok) throw new Error("Could not search players");
       return response.json();
@@ -1057,9 +1057,12 @@ function PlayersPanel({ user }: { user: unknown }) {
   const filteredRecommended = useMemo(() => (recommendedQuery.data || []).filter((player) => {
     const skillMatch = skill === "all" || player.skillLevel === skill;
     const positionMatch = position === "all" || player.positions?.includes(position);
-    const stateMatch = !state.trim() || player.state?.toLowerCase().includes(state.trim().toLowerCase());
-    return skillMatch && positionMatch && stateMatch && !player.isFollowing;
-  }), [recommendedQuery.data, position, skill, state]);
+    const locationQuery = locationFilter.trim().toLowerCase();
+    const locationMatch = !locationQuery
+      || player.state?.toLowerCase().includes(locationQuery)
+      || player.city?.toLowerCase().includes(locationQuery);
+    return skillMatch && positionMatch && locationMatch && !player.isFollowing;
+  }), [recommendedQuery.data, locationFilter, position, skill]);
   const players = hasSearch ? (searchQuery.data || []) : filteredRecommended;
 
   return (
@@ -1107,7 +1110,7 @@ function PlayersPanel({ user }: { user: unknown }) {
           <div className="grid gap-2 sm:grid-cols-3">
             <Select value={skill} onValueChange={setSkill}><SelectTrigger aria-label="Filter by skill level"><SelectValue placeholder="Skill level" /></SelectTrigger><SelectContent><SelectItem value="all">All skill levels</SelectItem>{skillLevels.map((level) => <SelectItem key={level} value={level} className="capitalize">{level}</SelectItem>)}</SelectContent></Select>
             <Select value={position} onValueChange={setPosition}><SelectTrigger aria-label="Filter by position"><SelectValue placeholder="Position" /></SelectTrigger><SelectContent><SelectItem value="all">All positions</SelectItem>{positions.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent></Select>
-            <Input value={state} onChange={(event) => setState(event.target.value)} placeholder="State (optional)" aria-label="Filter by state" />
+            <Input value={locationFilter} onChange={(event) => setLocationFilter(event.target.value)} placeholder="State or city (optional)" aria-label="Filter by state or city" />
           </div>
         </CardContent>
       </Card>

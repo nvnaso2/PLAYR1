@@ -8385,6 +8385,7 @@ COACHING RULES:
       const skillLevel = (req.query.skillLevel as string || "").trim();
       const position = (req.query.position as string || "").trim();
       const state = (req.query.state as string || "").trim();
+      const location = (req.query.location as string || "").trim();
       if (q.length < 2) {
         return res.json([]);
       }
@@ -8399,7 +8400,8 @@ COACHING RULES:
         ),
       ];
       if (skillLevel) searchConditions.push(eq(userProfiles.skillLevel, skillLevel as "beginner" | "intermediate" | "advanced" | "elite"));
-      if (state) searchConditions.push(ilike(userProfiles.state, state));
+      const locationPattern = location || state;
+      if (locationPattern) searchConditions.push(or(ilike(userProfiles.state, locationPattern), ilike(userProfiles.city, locationPattern)));
       if (position) searchConditions.push(sql`${position} = ANY(${careerProfiles.positions})`);
       const results = await db
         .select({

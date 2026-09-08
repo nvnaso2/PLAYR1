@@ -235,6 +235,13 @@ export default function PlayerPublicPage() {
   const slug = params?.slug || "";
   const requestedReturnTo = new URLSearchParams(location.split("?")[1] || "").get("returnTo");
   const returnTo = requestedReturnTo?.startsWith("/") ? requestedReturnTo : "/community";
+  const goBack = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      window.history.back();
+    } else {
+      navigate(returnTo);
+    }
+  };
   const { data, isLoading, error } = useQuery<PublicProfileData>({
     queryKey: ["/api/player", slug],
     enabled: !!slug,
@@ -302,7 +309,7 @@ export default function PlayerPublicPage() {
           <p className="text-muted-foreground text-sm">
             This player profile doesn't exist or isn't public yet.
           </p>
-          <Button variant="outline" onClick={() => navigate(returnTo)} data-testid="button-go-back" className="gap-2">
+          <Button variant="outline" onClick={goBack} data-testid="button-go-back" className="gap-2">
             <ArrowLeft className="h-4 w-4" />Back to Community
           </Button>
         </div>
@@ -330,7 +337,7 @@ export default function PlayerPublicPage() {
       {/* Top nav */}
       <div className="sticky top-0 z-20 bg-background/80 backdrop-blur-md border-b border-border/30">
         <div className="max-w-2xl mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate(returnTo)} className="gap-1.5" data-testid="button-back">
+          <Button variant="ghost" size="sm" onClick={goBack} className="gap-1.5" data-testid="button-back">
             <ArrowLeft className="h-4 w-4" />Community
           </Button>
           <ShareMenu
