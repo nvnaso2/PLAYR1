@@ -47,10 +47,14 @@ import {
   Pencil,
   FileVideo,
   X,
-  ExternalLink
+  ExternalLink,
+  Loader2,
+  Check,
+  AlertCircle,
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Drill, UserVideo } from "@shared/schema";
+import { useUpload } from "@/hooks/use-upload";
 
 // Detect if a URL is served through our object storage proxy
 function isInternalVideoUrl(url?: string | null): boolean {
@@ -80,10 +84,19 @@ function toEmbedUrl(url: string): string | null {
 }
 
 // Generate a thumbnail JPEG blob from a video File using canvas
-async function generateVideoThumbnail(file: File): Promise<Blob | null> {
+async function generateVideoThumbnail(file: File, signal?: AbortSignal): Promise<Blob | null> {
   return new Promise((resolve) => {
     const video = document.createElement("video");
     const objectUrl = URL.createObjectURL(file);
+    let settled = false;
+    const finish = (blob: Blob | null) => {
+      if (settled) return;
+      settled = true;
+      URL.revokeObjectURL(objectUrl);
+      video.removeAttribute("src");
+      video.load();
+      resolve(blob);
+    };
     video.src = objectUrl;
     video.muted = true;
     video.playsInline = true;
@@ -98,23 +111,21 @@ async function generateVideoThumbnail(file: File): Promise<Blob | null> {
         canvas.height = Math.round(video.videoHeight * scale);
         canvas.getContext("2d")!.drawImage(video, 0, 0, canvas.width, canvas.height);
         canvas.toBlob((blob) => {
-          URL.revokeObjectURL(objectUrl);
-          resolve(blob);
+          finish(blob);
         }, "image/jpeg", 0.82);
       } catch {
-        URL.revokeObjectURL(objectUrl);
-        resolve(null);
+        finish(null);
       }
     };
 
+    const cancel = () => finish(null);
+    signal?.addEventListener("abort", cancel, { once: true });
     video.addEventListener("loadedmetadata", () => {
+      if (signal?.aborted) return;
       video.currentTime = video.duration > 1 ? 1 : 0;
     });
     video.addEventListener("seeked", capture);
-    video.addEventListener("error", () => {
-      URL.revokeObjectURL(objectUrl);
-      resolve(null);
-    });
+    video.addEventListener("error", () => finish(null));
   });
 }
 
@@ -134,107 +145,84 @@ export default function VideosPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadedVideoUrl, setUploadedVideoUrl] = useState<string | null>(null);
   const [uploadedThumbnailUrl, setUploadedThumbnailUrl] = useState<string | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [thumbnailError, setThumbnailError] = useState<string | null>(null);
   const [playingVideo, setPlayingVideo] = useState<UserVideo | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadSessionRef = useRef(0);
+  const thumbnailAbortRef = useRef<AbortController | null>(null);
 
-  // Upload a blob to the photo endpoint and return objectPath
-  const uploadThumbnailBlob = async (blob: Blob): Promise<string | null> => {
-    try {
-      const thumbFile = new File([blob], "thumbnail.jpg", { type: "image/jpeg" });
-      const resp = await nativeFetch("/api/user/uploads/photo-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: thumbFile.name, size: thumbFile.size, contentType: "image/jpeg" }),
+  const {
+    uploadFile: transferVideo,
+    cancelUpload,
+    isUploading,
+    progress: uploadProgress,
+    status: uploadStatus,
+  } = useUpload({
+    requestUrl: "/api/user/uploads/request-url",
+    finalizeVideo: false,
+    onSuccess: (response) => {
+      setUploadedVideoUrl(response.objectPath);
+      setUploadError(null);
+      toast({
+        title: "Video transfer complete",
+        description: "You can save it now. Compatibility processing will continue after saving.",
       });
-      if (!resp.ok) return null;
-      const { uploadURL, objectPath } = await resp.json();
-      const putResp = await fetch(uploadURL, {
-        method: "PUT",
-        body: thumbFile,
-        headers: { "Content-Type": "image/jpeg" },
+    },
+    onError: (error) => {
+      setUploadError(error.message);
+      toast({
+        title: "Upload failed",
+        description: `${error.message} You can retry without choosing the file again.`,
+        variant: "destructive",
       });
-      return putResp.ok ? objectPath : null;
-    } catch {
-      return null;
-    }
+    },
+  });
+
+  const uploadThumbnailBlob = async (blob: Blob, signal: AbortSignal): Promise<string> => {
+    const thumbFile = new File([blob], "thumbnail.jpg", { type: "image/jpeg" });
+    const resp = await nativeFetch("/api/user/uploads/photo-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal,
+      body: JSON.stringify({ name: thumbFile.name, size: thumbFile.size, contentType: "image/jpeg" }),
+    });
+    if (!resp.ok) throw new Error("Could not prepare the thumbnail");
+    const { uploadURL, objectPath } = await resp.json();
+    const putResp = await fetch(uploadURL, {
+      method: "PUT",
+      body: thumbFile,
+      headers: { "Content-Type": "image/jpeg" },
+      signal,
+    });
+    if (!putResp.ok) throw new Error("Could not upload the thumbnail");
+    return objectPath;
   };
 
-  // Upload file using user-accessible endpoint, generate thumbnail in parallel
-  const uploadFile = async (file: File) => {
-    setIsUploading(true);
-    setUploadProgress(10);
+  const beginUpload = (file: File) => {
+    const sessionId = ++uploadSessionRef.current;
+    thumbnailAbortRef.current?.abort();
+    const thumbnailController = new AbortController();
+    thumbnailAbortRef.current = thumbnailController;
+    setUploadedVideoUrl(null);
+    setUploadedThumbnailUrl(null);
+    setUploadError(null);
+    setThumbnailError(null);
 
-    try {
-      // Generate thumbnail from local file (runs before network upload starts)
-      const thumbnailPromise = generateVideoThumbnail(file);
-
-      // Step 1: Request presigned URL
-      const response = await nativeFetch("/api/user/uploads/request-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: file.name,
-          size: file.size,
-          contentType: file.type || "video/mp4",
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Failed to get upload URL");
-      }
-
-      const { uploadURL, objectPath } = await response.json();
-      setUploadProgress(30);
-
-      // Step 2: Upload video file
-      const uploadResponse = await fetch(uploadURL, {
-        method: "PUT",
-        body: file,
-        headers: { "Content-Type": file.type || "video/mp4" },
-      });
-
-      if (!uploadResponse.ok) {
-        throw new Error("Failed to upload file to storage");
-      }
-
-      setUploadProgress(80);
-
-      // Step 3: Run ffmpeg to ensure browser-compatible MP4 (moov atom at front, AAC audio)
-      // This is non-fatal — if it fails the raw upload may still play for small files.
-      try {
-        await nativeFetch("/api/uploads/finalize-video", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ objectPath }),
-        });
-      } catch (finalizeErr) {
-        console.warn("Video finalize step failed (non-fatal):", finalizeErr);
-      }
-
-      setUploadedVideoUrl(objectPath);
-
-      // Step 4: Upload thumbnail (if generation succeeded)
+    // Thumbnail generation is local and runs alongside the real byte transfer.
+    const thumbnailPromise = generateVideoThumbnail(file, thumbnailController.signal);
+    void transferVideo(file).then(async (response) => {
+      if (!response || uploadSessionRef.current !== sessionId) return;
       const thumbnailBlob = await thumbnailPromise;
-      if (thumbnailBlob) {
-        const thumbPath = await uploadThumbnailBlob(thumbnailBlob);
-        if (thumbPath) setUploadedThumbnailUrl(thumbPath);
+      if (!thumbnailBlob || uploadSessionRef.current !== sessionId) return;
+      try {
+        const thumbnailPath = await uploadThumbnailBlob(thumbnailBlob, thumbnailController.signal);
+        if (uploadSessionRef.current === sessionId) setUploadedThumbnailUrl(thumbnailPath);
+      } catch (error) {
+        if (thumbnailController.signal.aborted || uploadSessionRef.current !== sessionId) return;
+        setThumbnailError(error instanceof Error ? error.message : "Thumbnail upload failed");
       }
-
-      setUploadProgress(100);
-      toast({
-        title: "Video Uploaded",
-        description: "Your video has been uploaded successfully.",
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Upload failed";
-      toast({ title: "Upload Failed", description: message, variant: "destructive" });
-      setSelectedFile(null);
-    } finally {
-      setIsUploading(false);
-    }
+    });
   };
 
   const { data: videos, isLoading } = useQuery<UserVideo[]>({
@@ -290,14 +278,19 @@ export default function VideosPage() {
       form.setValue("title", fileName);
     }
 
-    // Upload the file
-    await uploadFile(file);
+    beginUpload(file);
   };
 
   const clearSelectedFile = () => {
+    ++uploadSessionRef.current;
+    cancelUpload();
+    thumbnailAbortRef.current?.abort();
+    thumbnailAbortRef.current = null;
     setSelectedFile(null);
     setUploadedVideoUrl(null);
     setUploadedThumbnailUrl(null);
+    setUploadError(null);
+    setThumbnailError(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -313,7 +306,26 @@ export default function VideosPage() {
       };
       return await apiRequest("POST", "/api/videos", payload);
     },
-    onSuccess: () => {
+    onSuccess: (response) => {
+      const transferredPath = uploadedVideoUrl;
+      void response.json().then((savedVideo: UserVideo) => {
+        if (!transferredPath || !isInternalVideoUrl(transferredPath) || !savedVideo?.id) return;
+        void nativeFetch(`/api/videos/${savedVideo.id}/process`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        }).then((processResponse) => {
+          if (!processResponse.ok) throw new Error("Compatibility processing could not be started");
+          toast({
+            title: "Compatibility processing started",
+            description: "Your original upload is ready to play while this finishes in the background.",
+          });
+        }).catch(() => {
+          toast({
+            title: "Video saved",
+            description: "Compatibility processing could not start. The original upload is still available.",
+          });
+        });
+      });
       queryClient.invalidateQueries({ queryKey: ['/api/videos'] });
       toast({
         title: "Video Added",
@@ -401,6 +413,7 @@ export default function VideosPage() {
   };
 
   const onSubmit = (data: VideoFormData) => {
+    if (createVideoMutation.isPending || isUploading) return;
     if (!uploadedVideoUrl && !data.videoUrl) {
       toast({
         title: "No Video",
@@ -418,42 +431,52 @@ export default function VideosPage() {
     return drill?.title;
   };
 
+  const closeUploadDialog = () => {
+    setIsDialogOpen(false);
+    form.reset();
+    clearSelectedFile();
+  };
+
   return (
-    <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <div className="min-h-full bg-[#090909] p-4 text-zinc-100 sm:p-6">
+      <div className="mx-auto max-w-6xl space-y-7">
+      <div className="flex flex-col items-start justify-between gap-5 border-b border-zinc-800 pb-6 sm:flex-row sm:items-end">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold" data-testid="text-page-title">My Filmroom</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">
-            Upload and manage your training videos
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-orange-400">Player library</p>
+          <h1 className="font-heading text-3xl uppercase tracking-wide text-white sm:text-4xl" data-testid="text-page-title">My Filmroom</h1>
+          <p className="mt-1 text-sm text-zinc-400">
+            Review the work. Keep the reps honest.
           </p>
         </div>
 
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => open ? setIsDialogOpen(true) : closeUploadDialog()}>
           <DialogTrigger asChild>
-            <Button className="gap-2" data-testid="button-upload-video">
-              <Upload className="w-4 h-4" />
+            <Button className="min-h-11 w-full gap-2 bg-orange-500 px-5 font-heading text-base uppercase tracking-wide text-black hover:bg-orange-400 sm:w-auto" data-testid="button-upload-video">
+              <Upload className="h-4 w-4" />
               Upload Video
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col">
-            <DialogHeader>
-              <DialogTitle>Upload Training Video</DialogTitle>
-              <DialogDescription>
-                Add a video URL to track your progress
+          <DialogContent className="max-h-[92vh] max-w-lg border-zinc-800 bg-zinc-950 text-zinc-100 sm:max-h-[85vh]">
+            <DialogHeader className="pr-8">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-400">Add to filmroom</p>
+              <DialogTitle className="font-heading text-2xl uppercase tracking-wide text-white">Upload Training Video</DialogTitle>
+              <DialogDescription className="text-zinc-400">
+                Transfer a file or paste a public video link.
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 overflow-y-auto flex-1 pr-2">
+              <form onSubmit={form.handleSubmit(onSubmit)} className="max-h-[calc(92vh-130px)] space-y-4 overflow-y-auto pr-1 sm:max-h-[calc(85vh-130px)]">
                 <FormField
                   control={form.control}
                   name="title"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Title</FormLabel>
+                      <FormLabel className="text-xs font-semibold uppercase tracking-wider text-zinc-300">Title</FormLabel>
                       <FormControl>
                         <Input 
-                          placeholder="e.g., Crossover Practice - Week 3"
+                          placeholder="e.g., Crossover Practice — Week 3"
                           {...field}
+                          className="border-zinc-700 bg-zinc-900 text-white placeholder:text-zinc-600 focus-visible:ring-orange-400"
                           data-testid="input-video-title"
                         />
                       </FormControl>
@@ -464,12 +487,15 @@ export default function VideosPage() {
 
                 {/* File Upload Section */}
                 <FormItem>
-                  <FormLabel>Upload Video</FormLabel>
+                  <FormLabel className="text-xs font-semibold uppercase tracking-wider text-zinc-300">Upload Video</FormLabel>
                   <div className="space-y-3">
                     {!selectedFile ? (
                       <div 
-                        className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center cursor-pointer hover-elevate"
+                        className="cursor-pointer rounded-lg border border-dashed border-zinc-700 bg-zinc-900/60 p-7 text-center transition hover:border-orange-400/70 hover:bg-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
                         onClick={() => fileInputRef.current?.click()}
+                        onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") fileInputRef.current?.click(); }}
+                        role="button"
+                        tabIndex={0}
                       >
                         <input
                           ref={fileInputRef}
@@ -479,57 +505,74 @@ export default function VideosPage() {
                           className="hidden"
                           data-testid="input-video-file"
                         />
-                        <FileVideo className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
-                        <p className="text-sm text-muted-foreground">
-                          Click to upload a video file
+                        <FileVideo className="mx-auto mb-2 h-9 w-9 text-orange-400" />
+                        <p className="text-sm text-zinc-200">
+                          Choose a video file
                         </p>
-                        <p className="text-xs text-muted-foreground/60 mt-1">
+                        <p className="mt-1 text-xs text-zinc-500">
                           MP4, WebM, QuickTime, AVI (max 4GB)
                         </p>
                       </div>
                     ) : (
-                      <div className="border rounded-lg p-3 bg-muted/30">
+                      <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-3">
                         <div className="flex items-center gap-3">
-                          <FileVideo className="w-8 h-8 text-primary flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{selectedFile.name}</p>
-                            <p className="text-xs text-muted-foreground">
+                          <FileVideo className="h-8 w-8 shrink-0 text-orange-400" />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium text-zinc-100">{selectedFile.name}</p>
+                            <p className="text-xs text-zinc-500">
                               {(selectedFile.size / (1024 * 1024)).toFixed(1)} MB
                             </p>
                           </div>
-                          {isUploading ? (
-                            <div className="w-20">
-                              <Progress value={uploadProgress} className="h-2" />
-                            </div>
-                          ) : uploadedVideoUrl ? (
-                            <Badge variant="outline" className="text-green-600 border-green-600">
-                              Uploaded
-                            </Badge>
-                          ) : null}
                           <Button
                             type="button"
                             variant="ghost"
                             size="icon"
                             onClick={clearSelectedFile}
-                            disabled={isUploading}
+                            className="h-10 w-10 shrink-0 text-zinc-400 hover:bg-zinc-800 hover:text-white"
+                            aria-label="Remove selected video"
+                            title="Remove selected video"
+                            data-testid="button-remove-selected-video"
                           >
                             <X className="w-4 h-4" />
                           </Button>
                         </div>
+                        <div className="mt-3 space-y-2">
+                          {isUploading && (
+                            <>
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="flex items-center gap-1.5 text-orange-300"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading</span>
+                                <span className="font-mono text-zinc-400">{uploadProgress}%</span>
+                              </div>
+                              <Progress value={uploadProgress} className="h-1.5 bg-zinc-800 [&>div]:bg-orange-500" />
+                            </>
+                          )}
+                          {!isUploading && uploadStatus === "error" && (
+                            <div className="flex items-center justify-between gap-3 text-xs text-red-300">
+                              <span className="flex min-w-0 items-center gap-1.5"><AlertCircle className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{uploadError || "Upload failed"}</span></span>
+                              <Button type="button" variant="outline" size="sm" className="h-8 shrink-0 border-zinc-600 text-zinc-200 hover:bg-zinc-800" onClick={() => beginUpload(selectedFile)}>Retry</Button>
+                            </div>
+                          )}
+                          {!isUploading && uploadedVideoUrl && uploadStatus === "success" && (
+                            <p className="flex items-center gap-1.5 text-xs text-emerald-300"><Check className="h-3.5 w-3.5" /> Video ready to save</p>
+                          )}
+                          {thumbnailError && uploadedVideoUrl && (
+                            <p className="text-xs text-amber-300">Video is ready, but its thumbnail could not be generated.</p>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
-                  <FormDescription>
+                  <FormDescription className="text-zinc-500">
                     Upload from your device, or paste a URL below
                   </FormDescription>
                 </FormItem>
 
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t" />
+                    <span className="w-full border-t border-zinc-800" />
                   </div>
                   <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-muted-foreground">Or</span>
+                    <span className="bg-zinc-950 px-2 text-zinc-600">Or use a link</span>
                   </div>
                 </div>
 
@@ -538,16 +581,17 @@ export default function VideosPage() {
                   name="videoUrl"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Video URL</FormLabel>
+                      <FormLabel className="text-xs font-semibold uppercase tracking-wider text-zinc-300">Video URL</FormLabel>
                       <FormControl>
                         <Input 
                           placeholder="https://youtube.com/... or https://vimeo.com/..."
                           {...field}
                           disabled={!!uploadedVideoUrl}
+                          className="border-zinc-700 bg-zinc-900 text-white placeholder:text-zinc-600 focus-visible:ring-orange-400"
                           data-testid="input-video-url"
                         />
                       </FormControl>
-                      <FormDescription>
+                      <FormDescription className="text-zinc-500">
                         Paste a link from YouTube, Vimeo, etc.
                       </FormDescription>
                       <FormMessage />
@@ -560,17 +604,17 @@ export default function VideosPage() {
                   name="drillId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Related Drill (Optional)</FormLabel>
+                      <FormLabel className="text-xs font-semibold uppercase tracking-wider text-zinc-300">Related Drill (Optional)</FormLabel>
                       <Select 
                         onValueChange={field.onChange} 
                         value={field.value}
                       >
                         <FormControl>
-                          <SelectTrigger data-testid="select-drill">
+                          <SelectTrigger className="border-zinc-700 bg-zinc-900 text-white focus:ring-orange-400" data-testid="select-drill">
                             <SelectValue placeholder="Select a drill" />
                           </SelectTrigger>
                         </FormControl>
-                        <SelectContent>
+                        <SelectContent className="border-zinc-700 bg-zinc-900 text-white">
                           <SelectItem value="__none__">None</SelectItem>
                           {drills?.map(drill => (
                             <SelectItem key={drill.id} value={drill.id}>
@@ -589,11 +633,11 @@ export default function VideosPage() {
                   name="description"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Description (Optional)</FormLabel>
+                      <FormLabel className="text-xs font-semibold uppercase tracking-wider text-zinc-300">Description (Optional)</FormLabel>
                       <FormControl>
                         <Textarea 
                           placeholder="Notes about this session..."
-                          className="resize-none"
+                          className="resize-none border-zinc-700 bg-zinc-900 text-white placeholder:text-zinc-600 focus-visible:ring-orange-400"
                           {...field}
                           data-testid="input-video-description"
                         />
@@ -607,10 +651,10 @@ export default function VideosPage() {
                   control={form.control}
                   name="isPublic"
                   render={({ field }) => (
-                    <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                    <FormItem className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
                       <div className="space-y-0.5">
-                        <FormLabel className="text-base">Make Public</FormLabel>
-                        <FormDescription>
+                        <FormLabel className="text-sm font-semibold uppercase tracking-wide text-zinc-200">Make Public</FormLabel>
+                        <FormDescription className="text-zinc-500">
                           Allow other users to view this video
                         </FormDescription>
                       </div>
@@ -625,25 +669,23 @@ export default function VideosPage() {
                   )}
                 />
 
-                <div className="flex justify-end gap-3 pt-4 border-t sticky bottom-0 bg-background">
+                <div className="sticky bottom-0 flex flex-col-reverse gap-2 border-t border-zinc-800 bg-zinc-950 pt-4 sm:flex-row sm:justify-end">
                   <Button 
                     type="button" 
-                    variant="outline" 
-                    onClick={() => {
-                      setIsDialogOpen(false);
-                      clearSelectedFile();
-                      form.reset();
-                    }}
+                    variant="outline"
+                    className="min-h-11 border-zinc-700 text-zinc-200 hover:bg-zinc-800"
+                    onClick={closeUploadDialog}
                     data-testid="button-cancel"
                   >
                     Cancel
                   </Button>
                   <Button 
                     type="submit" 
+                    className="min-h-11 bg-orange-500 font-heading text-base uppercase tracking-wide text-black hover:bg-orange-400"
                     disabled={createVideoMutation.isPending || isUploading}
                     data-testid="button-submit-video"
                   >
-                    {isUploading ? "Uploading..." : createVideoMutation.isPending ? "Saving..." : "Add Video"}
+                    {isUploading ? `Uploading ${uploadProgress}%` : createVideoMutation.isPending ? "Saving..." : "Save Video"}
                   </Button>
                 </div>
               </form>
@@ -653,31 +695,31 @@ export default function VideosPage() {
       </div>
 
       {isLoading ? (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[...Array(6)].map((_, i) => (
-            <Card key={i}>
-              <Skeleton className="aspect-video" />
-              <CardContent className="p-4 space-y-2">
-                <Skeleton className="h-5 w-3/4" />
-                <Skeleton className="h-4 w-1/2" />
+            <Card key={i} className="overflow-hidden border-zinc-800 bg-zinc-900">
+              <Skeleton className="aspect-video bg-zinc-800" />
+              <CardContent className="space-y-2 p-4">
+                <Skeleton className="h-5 w-3/4 bg-zinc-800" />
+                <Skeleton className="h-4 w-1/2 bg-zinc-800" />
               </CardContent>
             </Card>
           ))}
         </div>
       ) : videos && videos.length > 0 ? (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {videos.map((video) => (
             <Card 
               key={video.id} 
-              className="group overflow-hidden hover-elevate"
+              className="group overflow-hidden border-zinc-800 bg-zinc-900 transition hover:border-zinc-600"
               data-testid={`card-video-${video.id}`}
             >
-              <div className="relative aspect-video bg-muted">
+              <div className="relative aspect-video bg-zinc-950">
                 {video.thumbnailUrl ? (
                   <img 
                     src={getObjectUrl(video.thumbnailUrl) ?? video.thumbnailUrl}
                     alt={video.title}
-                    className="w-full h-full object-cover"
+                    className="h-full w-full object-cover"
                   />
                 ) : isInternalVideoUrl(video.videoUrl) ? (
                   // Render first frame of object-storage video as visual thumbnail
@@ -686,26 +728,29 @@ export default function VideosPage() {
                     preload="metadata"
                     muted
                     playsInline
-                    className="w-full h-full object-cover pointer-events-none"
+                    className="pointer-events-none h-full w-full object-cover"
                     onLoadedMetadata={(e) => { (e.currentTarget as HTMLVideoElement).currentTime = 0.5; }}
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-muted">
-                    <Video className="w-12 h-12 text-muted-foreground/40" />
+                  <div className="flex h-full w-full items-center justify-center bg-zinc-950">
+                    <Video className="h-12 w-12 text-zinc-700" />
                   </div>
                 )}
                 {/* Play overlay */}
                 <div
-                  className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex items-center justify-center cursor-pointer"
+                  className="absolute inset-0 flex cursor-pointer items-center justify-center bg-black/0 transition-colors group-hover:bg-black/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                  role="button"
+                  tabIndex={0}
                   onClick={() => setPlayingVideo(video)}
+                  onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setPlayingVideo(video); }}
                   data-testid={`button-play-${video.id}`}
                 >
-                  <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
-                    <Play className="w-6 h-6 text-primary-foreground fill-current ml-1" />
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-orange-500 opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+                    <Play className="ml-1 h-6 w-6 fill-current text-black" />
                   </div>
                 </div>
                 <div className="absolute top-2 right-2">
-                  <Badge variant={video.isPublic ? "default" : "secondary"} className="text-xs">
+                  <Badge variant="outline" className="border-zinc-600 bg-black/60 text-xs text-zinc-200">
                     {video.isPublic ? (
                       <><Globe className="w-3 h-3 mr-1" /> Public</>
                     ) : (
@@ -717,17 +762,17 @@ export default function VideosPage() {
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-medium truncate" data-testid={`text-video-title-${video.id}`}>
+                    <h3 className="truncate font-heading text-lg uppercase tracking-wide text-white" data-testid={`text-video-title-${video.id}`}>
                       {video.title}
                     </h3>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs uppercase tracking-wider text-zinc-500">
                       {video.createdAt 
                         ? format(new Date(video.createdAt), 'MMM d, yyyy')
                         : 'Unknown date'
                       }
                     </p>
                     {video.drillId && (
-                      <Badge variant="outline" className="mt-2 text-xs">
+                      <Badge variant="outline" className="mt-2 border-orange-500/40 text-xs text-orange-300">
                         {getDrillTitle(video.drillId)}
                       </Badge>
                     )}
@@ -737,7 +782,7 @@ export default function VideosPage() {
                       variant="ghost"
                       size="icon"
                       onClick={() => toggleVisibility(video)}
-                      className={video.isPublic ? "text-primary" : "text-muted-foreground"}
+                      className={video.isPublic ? "text-orange-400 hover:bg-zinc-800" : "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200"}
                       title={video.isPublic ? "Make Private" : "Make Public"}
                       data-testid={`button-toggle-visibility-${video.id}`}
                     >
@@ -747,7 +792,7 @@ export default function VideosPage() {
                       variant="ghost"
                       size="icon"
                       onClick={() => openEdit(video)}
-                      className="text-muted-foreground hover:text-foreground"
+                      className="text-zinc-500 hover:bg-zinc-800 hover:text-white"
                       data-testid={`button-edit-${video.id}`}
                     >
                       <Pencil className="w-4 h-4" />
@@ -756,7 +801,7 @@ export default function VideosPage() {
                       variant="ghost"
                       size="icon"
                       onClick={() => deleteVideoMutation.mutate(video.id)}
-                      className="text-muted-foreground hover:text-destructive"
+                      className="text-zinc-500 hover:bg-red-950/40 hover:text-red-300"
                       data-testid={`button-delete-${video.id}`}
                     >
                       <Trash2 className="w-4 h-4" />
@@ -764,7 +809,7 @@ export default function VideosPage() {
                   </div>
                 </div>
                 {video.description && (
-                  <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
+                  <p className="mt-2 line-clamp-2 text-sm text-zinc-400">
                     {video.description}
                   </p>
                 )}
@@ -773,15 +818,15 @@ export default function VideosPage() {
           ))}
         </div>
       ) : (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <Video className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
-            <h3 className="font-semibold text-lg mb-2">No Videos Yet</h3>
-            <p className="text-muted-foreground mb-4 max-w-md mx-auto">
+        <Card className="border-zinc-800 bg-zinc-900">
+          <CardContent className="p-8 text-center sm:p-12">
+            <Video className="mx-auto mb-4 h-16 w-16 text-zinc-700" />
+            <h3 className="mb-2 font-heading text-2xl uppercase tracking-wide text-white">No Videos Yet</h3>
+            <p className="mx-auto mb-4 max-w-md text-zinc-400">
               Upload your training videos to track your progress and review your form.
             </p>
-            <Button onClick={() => setIsDialogOpen(true)} className="gap-2" data-testid="button-first-upload">
-              <Upload className="w-4 h-4" />
+            <Button onClick={() => setIsDialogOpen(true)} className="min-h-11 gap-2 bg-orange-500 font-heading text-base uppercase tracking-wide text-black hover:bg-orange-400" data-testid="button-first-upload">
+              <Upload className="h-4 w-4" />
               Upload Your First Video
             </Button>
           </CardContent>
@@ -789,38 +834,39 @@ export default function VideosPage() {
       )}
 
       <Dialog open={!!editingVideo} onOpenChange={(open) => { if (!open) setEditingVideo(null); }}>
-        <DialogContent data-testid="dialog-edit-video">
-          <DialogHeader>
-            <DialogTitle>Edit Video</DialogTitle>
-            <DialogDescription>Update your video details and visibility.</DialogDescription>
+        <DialogContent className="max-h-[92vh] overflow-y-auto border-zinc-800 bg-zinc-950 text-zinc-100" data-testid="dialog-edit-video">
+          <DialogHeader className="pr-8">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-400">Filmroom details</p>
+            <DialogTitle className="font-heading text-2xl uppercase tracking-wide text-white">Edit Video</DialogTitle>
+            <DialogDescription className="text-zinc-400">Update your video details and visibility.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium">Title</label>
+              <label className="text-xs font-semibold uppercase tracking-wider text-zinc-300">Title</label>
               <Input
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
-                className="mt-1"
+                className="mt-1 border-zinc-700 bg-zinc-900 text-white focus-visible:ring-orange-400"
                 data-testid="input-edit-title"
               />
             </div>
             <div>
-              <label className="text-sm font-medium">Description</label>
+              <label className="text-xs font-semibold uppercase tracking-wider text-zinc-300">Description</label>
               <Textarea
                 value={editDescription}
                 onChange={(e) => setEditDescription(e.target.value)}
-                className="mt-1"
+                className="mt-1 border-zinc-700 bg-zinc-900 text-white focus-visible:ring-orange-400"
                 rows={3}
                 data-testid="input-edit-description"
               />
             </div>
             <div>
-              <label className="text-sm font-medium">Linked Drill</label>
+              <label className="text-xs font-semibold uppercase tracking-wider text-zinc-300">Linked Drill</label>
               <Select value={editDrillId} onValueChange={setEditDrillId}>
-                <SelectTrigger className="mt-1" data-testid="select-edit-drill">
+                <SelectTrigger className="mt-1 border-zinc-700 bg-zinc-900 text-white focus:ring-orange-400" data-testid="select-edit-drill">
                   <SelectValue placeholder="No drill linked" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="border-zinc-700 bg-zinc-900 text-white">
                   <SelectItem value="__none__">No drill linked</SelectItem>
                   {drills?.map((drill) => (
                     <SelectItem key={drill.id} value={drill.id}>{drill.title}</SelectItem>
@@ -828,10 +874,10 @@ export default function VideosPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-center justify-between rounded-lg border p-4">
+            <div className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
               <div className="space-y-0.5">
-                <label className="text-sm font-medium">Public on Profile</label>
-                <p className="text-xs text-muted-foreground">Show this video on your public player profile</p>
+                <label className="text-sm font-semibold uppercase tracking-wide text-zinc-200">Public on Profile</label>
+                <p className="text-xs text-zinc-500">Show this video on your public player profile</p>
               </div>
               <Switch
                 checked={editIsPublic}
@@ -839,11 +885,11 @@ export default function VideosPage() {
                 data-testid="switch-edit-public"
               />
             </div>
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setEditingVideo(null)} data-testid="button-cancel-edit">
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button variant="outline" className="min-h-11 border-zinc-700 text-zinc-200 hover:bg-zinc-800" onClick={() => setEditingVideo(null)} data-testid="button-cancel-edit">
                 Cancel
               </Button>
-              <Button onClick={saveEdit} disabled={!editTitle.trim() || updateVideoMutation.isPending} data-testid="button-save-edit">
+              <Button className="min-h-11 bg-orange-500 font-heading text-base uppercase tracking-wide text-black hover:bg-orange-400" onClick={saveEdit} disabled={!editTitle.trim() || updateVideoMutation.isPending} data-testid="button-save-edit">
                 {updateVideoMutation.isPending ? "Saving..." : "Save Changes"}
               </Button>
             </div>
@@ -853,9 +899,10 @@ export default function VideosPage() {
 
       {/* Video Player Dialog */}
       <Dialog open={!!playingVideo} onOpenChange={(open) => { if (!open) setPlayingVideo(null); }}>
-        <DialogContent className="max-w-3xl p-0 overflow-hidden" data-testid="dialog-video-player">
-          <DialogHeader className="px-4 pt-4 pb-2">
-            <DialogTitle className="truncate pr-8">{playingVideo?.title}</DialogTitle>
+        <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto border-zinc-800 bg-zinc-950 p-0 text-zinc-100" data-testid="dialog-video-player">
+          <DialogHeader className="border-b border-zinc-800 px-4 pb-3 pt-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-400">Playback</p>
+            <DialogTitle className="truncate pr-8 font-heading text-2xl uppercase tracking-wide text-white">{playingVideo?.title}</DialogTitle>
           </DialogHeader>
           {playingVideo && (() => {
             const url = playingVideo.videoUrl;
@@ -911,10 +958,11 @@ export default function VideosPage() {
             );
           })()}
           {playingVideo?.description && (
-            <p className="px-4 pb-4 text-sm text-muted-foreground">{playingVideo.description}</p>
+            <p className="px-4 pb-4 text-sm text-zinc-400">{playingVideo.description}</p>
           )}
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }

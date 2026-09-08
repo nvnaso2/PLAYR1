@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import type { UppyFile } from "@uppy/core";
 import { nativeFetch } from "@/lib/queryClient";
 
@@ -17,55 +17,51 @@ interface UploadResponse {
 interface UseUploadOptions {
   onSuccess?: (response: UploadResponse) => void;
   onError?: (error: Error) => void;
+  onProcessingError?: (error: Error) => void;
+  requestUrl?: string;
+  /**
+   * Generic video uploaders keep the historical compatibility pass by default.
+   * Filmroom disables it so the video record can be saved before expensive work.
+   */
+  finalizeVideo?: boolean;
 }
 
+export type UploadStatus =
+  | "idle"
+  | "requesting"
+  | "uploading"
+  | "processing"
+  | "success"
+  | "error"
+  | "cancelled";
+
 /**
- * React hook for handling file uploads with presigned URLs.
+ * Handles presigned uploads with real byte progress.
  *
- * This hook implements the two-step presigned URL upload flow:
- * 1. Request a presigned URL from your backend (sends JSON metadata, NOT the file)
- * 2. Upload the file directly to the presigned URL
- *
- * @example
- * ```tsx
- * function FileUploader() {
- *   const { uploadFile, isUploading, error } = useUpload({
- *     onSuccess: (response) => {
- *       console.log("Uploaded to:", response.objectPath);
- *     },
- *   });
- *
- *   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
- *     const file = e.target.files?.[0];
- *     if (file) {
- *       await uploadFile(file);
- *     }
- *   };
- *
- *   return (
- *     <div>
- *       <input type="file" onChange={handleFileChange} disabled={isUploading} />
- *       {isUploading && <p>Uploading...</p>}
- *       {error && <p>Error: {error.message}</p>}
- *     </div>
- *   );
- * }
- * ```
+ * Video compatibility processing is intentionally a separate lifecycle state:
+ * transfer success is not held hostage by a server-side download/transcode/
+ * re-upload pass.
  */
 export function useUpload(options: UseUploadOptions = {}) {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [progress, setProgress] = useState(0);
+  const [status, setStatus] = useState<UploadStatus>("idle");
+  const [processingError, setProcessingError] = useState<Error | null>(null);
+  const runIdRef = useRef(0);
+  const requestControllerRef = useRef<AbortController | null>(null);
+  const finalizeControllerRef = useRef<AbortController | null>(null);
+  const xhrRef = useRef<XMLHttpRequest | null>(null);
 
-  /**
-   * Request a presigned URL from the backend.
-   * IMPORTANT: Send JSON metadata, NOT the file itself.
-   */
+  const isAbortError = (value: unknown) =>
+    value instanceof DOMException && value.name === "AbortError";
+
   const requestUploadUrl = useCallback(
-    async (file: File): Promise<UploadResponse> => {
-      const response = await nativeFetch("/api/uploads/request-url", {
+    async (file: File, signal?: AbortSignal): Promise<UploadResponse> => {
+      const response = await nativeFetch(options.requestUrl ?? "/api/uploads/request-url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal,
         body: JSON.stringify({
           name: file.name || "upload",
           size: file.size,
@@ -80,118 +76,152 @@ export function useUpload(options: UseUploadOptions = {}) {
 
       return response.json();
     },
-    []
+    [options.requestUrl],
   );
 
-  /**
-   * Upload a file directly to the presigned URL using XHR for real progress reporting.
-   */
   const uploadToPresignedUrl = useCallback(
-    (file: File, uploadURL: string): Promise<void> => {
-      return new Promise((resolve, reject) => {
+    (file: File, uploadURL: string, runId: number): Promise<void> =>
+      new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
+        xhrRef.current = xhr;
         xhr.open("PUT", uploadURL, true);
         xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
 
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable) {
-            // Map upload progress from 30% → 95%
-            const pct = Math.round(30 + (e.loaded / e.total) * 65);
-            setProgress(pct);
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable && runIdRef.current === runId) {
+            // URL negotiation is 0–10%; this is the real byte transfer.
+            setProgress(Math.round(10 + (event.loaded / event.total) * 85));
           }
         };
 
         xhr.onload = () => {
+          if (runIdRef.current !== runId) return;
+          xhrRef.current = null;
           if (xhr.status >= 200 && xhr.status < 300) {
             resolve();
           } else {
             reject(new Error(`Upload failed: ${xhr.status} ${xhr.statusText}`));
           }
         };
-
-        xhr.onerror = () => reject(new Error("Network error during upload"));
-        xhr.ontimeout = () => reject(new Error("Upload timed out"));
-
+        xhr.onerror = () => {
+          if (runIdRef.current === runId) reject(new Error("Network error during upload"));
+        };
+        xhr.ontimeout = () => {
+          if (runIdRef.current === runId) reject(new Error("Upload timed out"));
+        };
+        xhr.onabort = () => {
+          reject(new DOMException("Upload cancelled", "AbortError"));
+        };
         xhr.send(file);
-      });
-    },
-    []
+      }),
+    [],
   );
 
-  /**
-   * Upload a file using the presigned URL flow.
-   *
-   * @param file - The file to upload
-   * @returns The upload response containing the object path
-   */
   const uploadFile = useCallback(
     async (file: File): Promise<UploadResponse | null> => {
+      // A new selection always supersedes the previous one.
+      xhrRef.current?.abort();
+      requestControllerRef.current?.abort();
+      finalizeControllerRef.current?.abort();
+      const runId = ++runIdRef.current;
+      const requestController = new AbortController();
+      requestControllerRef.current = requestController;
+
       setIsUploading(true);
       setError(null);
+      setProcessingError(null);
+      setStatus("requesting");
       setProgress(0);
 
       try {
-        // Step 1: Request presigned URL (send metadata as JSON)
         setProgress(10);
-        const uploadResponse = await requestUploadUrl(file);
+        const uploadResponse = await requestUploadUrl(file, requestController.signal);
+        if (runIdRef.current !== runId) return null;
 
-        // Step 2: Upload file directly to presigned URL
-        setProgress(30);
-        await uploadToPresignedUrl(file, uploadResponse.uploadURL);
-
-        // Step 3: For videos, run server-side ffmpeg faststart fix
-        // This moves the moov atom to the front so all browsers can play immediately.
-        if (file.type.startsWith("video/") || file.name.toLowerCase().match(/\.(mov|mp4|m4v|avi|webm)$/)) {
-          setProgress(97);
-          try {
-            await nativeFetch("/api/uploads/finalize-video", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ objectPath: uploadResponse.objectPath }),
-            });
-          } catch (finalizeErr) {
-            // Non-fatal — video may still play, just log it
-            console.warn("Video finalize step failed:", finalizeErr);
-          }
-        }
+        setStatus("uploading");
+        await uploadToPresignedUrl(file, uploadResponse.uploadURL, runId);
+        if (runIdRef.current !== runId) return null;
 
         setProgress(100);
+        const isVideo = file.type.startsWith("video/") ||
+          !!file.name.toLowerCase().match(/\.(mov|mp4|m4v|avi|webm)$/);
+        const shouldFinalize = options.finalizeVideo !== false && isVideo;
+        setStatus(shouldFinalize ? "processing" : "success");
+        // Transfer is complete. Do not make the caller wait for ffmpeg.
+        setIsUploading(false);
         options.onSuccess?.(uploadResponse);
+
+        if (shouldFinalize && runIdRef.current === runId) {
+          const finalizeController = new AbortController();
+          finalizeControllerRef.current = finalizeController;
+          void nativeFetch("/api/uploads/finalize-video", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ objectPath: uploadResponse.objectPath }),
+            signal: finalizeController.signal,
+          }).then((response) => {
+            if (!response.ok) throw new Error("Video compatibility processing failed");
+            if (runIdRef.current === runId) setStatus("success");
+          }).catch((processingFailure) => {
+            if (runIdRef.current !== runId || isAbortError(processingFailure)) return;
+            const normalized = processingFailure instanceof Error
+              ? processingFailure
+              : new Error("Video compatibility processing failed");
+            setProcessingError(normalized);
+            // The transferred original remains a valid fallback.
+            setStatus("success");
+            options.onProcessingError?.(normalized);
+          });
+        }
+
         return uploadResponse;
-      } catch (err) {
-        const error = err instanceof Error ? err : new Error("Upload failed");
-        setError(error);
-        options.onError?.(error);
+      } catch (uploadFailure) {
+        if (runIdRef.current !== runId || isAbortError(uploadFailure)) {
+          if (runIdRef.current === runId) {
+            setIsUploading(false);
+            setStatus("cancelled");
+          }
+          return null;
+        }
+        const normalized = uploadFailure instanceof Error ? uploadFailure : new Error("Upload failed");
+        setError(normalized);
+        setStatus("error");
+        setIsUploading(false);
+        options.onError?.(normalized);
         return null;
       } finally {
-        setIsUploading(false);
+        if (runIdRef.current === runId) {
+          requestControllerRef.current = null;
+          xhrRef.current = null;
+        }
       }
     },
-    [requestUploadUrl, uploadToPresignedUrl, options]
+    [requestUploadUrl, uploadToPresignedUrl, options],
   );
 
-  /**
-   * Get upload parameters for Uppy's AWS S3 plugin.
-   *
-   * IMPORTANT: This function receives the UppyFile object from Uppy.
-   * Use file.name, file.size, file.type to request per-file presigned URLs.
-   *
-   * Use this with the ObjectUploader component:
-   * ```tsx
-   * <ObjectUploader onGetUploadParameters={getUploadParameters}>
-   *   Upload
-   * </ObjectUploader>
-   * ```
-   */
+  const cancelUpload = useCallback(() => {
+    ++runIdRef.current;
+    requestControllerRef.current?.abort();
+    xhrRef.current?.abort();
+    finalizeControllerRef.current?.abort();
+    requestControllerRef.current = null;
+    xhrRef.current = null;
+    finalizeControllerRef.current = null;
+    setIsUploading(false);
+    setError(null);
+    setProcessingError(null);
+    setProgress(0);
+    setStatus("cancelled");
+  }, []);
+
   const getUploadParameters = useCallback(
     async (
-      file: UppyFile<Record<string, unknown>, Record<string, unknown>>
+      file: UppyFile<Record<string, unknown>, Record<string, unknown>>,
     ): Promise<{
       method: "PUT";
       url: string;
       headers?: Record<string, string>;
     }> => {
-      // Use the actual file properties to request a per-file presigned URL
       const response = await nativeFetch("/api/uploads/request-url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -202,10 +232,7 @@ export function useUpload(options: UseUploadOptions = {}) {
         }),
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to get upload URL");
-      }
-
+      if (!response.ok) throw new Error("Failed to get upload URL");
       const data = await response.json();
       return {
         method: "PUT",
@@ -213,15 +240,17 @@ export function useUpload(options: UseUploadOptions = {}) {
         headers: { "Content-Type": file.type || "application/octet-stream" },
       };
     },
-    []
+    [],
   );
 
   return {
     uploadFile,
+    cancelUpload,
     getUploadParameters,
     isUploading,
     error,
     progress,
+    status,
+    processingError,
   };
 }
-

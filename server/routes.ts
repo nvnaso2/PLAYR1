@@ -4,7 +4,7 @@ import { spawn } from "child_process";
 import path from "path";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated, optionalAuth, getAppBaseUrl, type AuthenticatedRequest } from "./auth";
-import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
+import { registerObjectStorageRoutes, processVideoObject } from "./replit_integrations/object_storage";
 import { users } from "@shared/models/auth";
 import { db, pool } from "./db";
 import { eq, and, or, isNull, ilike, sql, inArray, gte, desc } from "drizzle-orm";
@@ -3131,6 +3131,32 @@ COACHING RULES:
       }
       console.error("Error creating video:", error);
       res.status(500).json({ message: "Failed to create video" });
+    }
+  });
+
+  // Start compatibility processing only after the video record exists, so the
+  // object path can be checked against the authenticated player's own record.
+  // The expensive download/transcode/re-upload work runs outside this request.
+  app.post("/api/videos/:id/process", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const video = (await storage.getUserVideos(userId)).find((candidate) => candidate.id === req.params.id);
+      if (!video) return res.status(404).json({ message: "Video not found" });
+      if (!video.videoUrl.startsWith("/objects/")) {
+        return res.status(400).json({ message: "External videos do not need compatibility processing" });
+      }
+
+      void processVideoObject(video.videoUrl).catch((error) => {
+        console.error(`[video-process] Failed for ${video.id}:`, error);
+      });
+      res.status(202).json({
+        videoId: video.id,
+        state: "processing",
+        fallback: "original-upload",
+      });
+    } catch (error) {
+      console.error("Error starting video processing:", error);
+      res.status(500).json({ message: "Failed to start video processing" });
     }
   });
 

@@ -38,10 +38,10 @@ const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string }>
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
-  "bug": "bg-red-500/10 text-red-400 border-red-500/20",
-  "feature-request": "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
-  "suggestion": "bg-blue-500/10 text-blue-400 border-blue-500/20",
-  "general": "bg-gray-500/10 text-gray-400 border-gray-500/20",
+  "bug": "bg-red-950/40 text-red-300 border-red-500/30",
+  "feature-request": "bg-orange-950/40 text-orange-300 border-orange-500/30",
+  "suggestion": "bg-zinc-800 text-zinc-300 border-zinc-600",
+  "general": "bg-zinc-900 text-zinc-400 border-zinc-700",
 };
 
 const STATUS_CONFIG: Record<string, {
@@ -49,41 +49,47 @@ const STATUS_CONFIG: Record<string, {
   icon: React.ComponentType<{ className?: string }>;
   badgeClass: string;
   btnClass: string;
+  ringClass: string;
   desc: string;
 }> = {
   "open": {
     label: "Open",
     icon: Circle,
-    badgeClass: "bg-muted text-muted-foreground border-border",
-    btnClass: "border-border text-muted-foreground hover:bg-muted",
+    badgeClass: "bg-zinc-100 text-zinc-950 border-white",
+    btnClass: "border-white bg-white/15 text-white shadow-[0_0_12px_rgba(255,255,255,0.32)] hover:bg-white/20",
+    ringClass: "ring-sky-200/80",
     desc: "Submitted and awaiting review",
   },
   "in-review": {
     label: "In Review",
     icon: Clock,
-    badgeClass: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30",
-    btnClass: "border-yellow-500/50 bg-yellow-500/10 text-yellow-400",
+    badgeClass: "bg-yellow-950/40 text-yellow-300 border-yellow-500/40",
+    btnClass: "border-yellow-500/60 bg-yellow-500/10 text-yellow-300 hover:bg-yellow-500/20",
+    ringClass: "ring-yellow-400/80",
     desc: "We're actively looking into this",
   },
   "planned": {
     label: "Planned",
     icon: BookOpen,
-    badgeClass: "bg-blue-500/15 text-blue-400 border-blue-500/30",
-    btnClass: "border-blue-500/50 bg-blue-500/10 text-blue-400",
+    badgeClass: "bg-blue-950/40 text-blue-300 border-blue-500/40",
+    btnClass: "border-blue-500/60 bg-blue-500/10 text-blue-300 hover:bg-blue-500/20",
+    ringClass: "ring-blue-400/80",
     desc: "This is on our roadmap — it's coming!",
   },
   "done": {
     label: "Done ✓",
     icon: CheckCircle2,
-    badgeClass: "bg-green-500/15 text-green-400 border-green-500/30",
-    btnClass: "border-green-500/50 bg-green-500/10 text-green-400",
+    badgeClass: "bg-emerald-950/40 text-emerald-300 border-emerald-500/40",
+    btnClass: "border-emerald-500/60 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20",
+    ringClass: "ring-emerald-400/80",
     desc: "Shipped! This is now live in the app",
   },
   "closed": {
     label: "Closed",
     icon: XCircle,
-    badgeClass: "bg-red-500/10 text-red-500 border-red-500/20",
-    btnClass: "border-red-500/40 bg-red-500/10 text-red-500",
+    badgeClass: "bg-rose-950/40 text-rose-300 border-rose-500/40",
+    btnClass: "border-rose-500/60 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20",
+    ringClass: "ring-rose-400/80",
     desc: "Won't be implemented at this time",
   },
 };
@@ -94,11 +100,10 @@ function StatusBadge({ status }: { status: string }) {
   const Icon = cfg.icon;
   return (
     <div className="flex items-center gap-2">
-      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${cfg.badgeClass}`}>
+      <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${cfg.badgeClass}`}>
         <Icon className="w-3 h-3" />
         {cfg.label}
       </span>
-      <span className="text-[11px] text-muted-foreground">{cfg.desc}</span>
     </div>
   );
 }
@@ -106,8 +111,8 @@ function StatusBadge({ status }: { status: string }) {
 // ─── Admin Status Picker ──────────────────────────────────────────────────────
 function AdminStatusPicker({ postId, current, onUpdate }: { postId: string; current: string; onUpdate: (val: string) => void }) {
   return (
-    <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t">
-      <span className="text-xs text-muted-foreground self-center mr-1">Set status:</span>
+    <div className="-ml-1 mt-2 flex min-w-0 items-center gap-1 overflow-visible border-t border-zinc-800 pt-2">
+      <span className="mr-0.5 shrink-0 self-center text-[9px] font-semibold uppercase tracking-wider text-zinc-500">Set status:</span>
       {FEEDBACK_STATUSES.map(s => {
         const cfg = STATUS_CONFIG[s];
         const Icon = cfg.icon;
@@ -116,7 +121,7 @@ function AdminStatusPicker({ postId, current, onUpdate }: { postId: string; curr
           <button
             key={s}
             onClick={() => onUpdate(s)}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${isActive ? cfg.btnClass + " ring-1 ring-offset-1 ring-current" : "border-border text-muted-foreground hover:bg-muted"}`}
+             className={`flex min-h-6 shrink-0 items-center gap-0.5 rounded-full border px-1 py-0.5 text-[9px] font-medium leading-none transition-all ${isActive ? `${cfg.btnClass} ring-1 ${cfg.ringClass}` : "border-zinc-700 bg-zinc-900 text-zinc-600 hover:border-zinc-500 hover:text-zinc-300"}`}
             data-testid={`button-status-${s}-${postId}`}
           >
             <Icon className="w-3 h-3" />
@@ -165,43 +170,43 @@ function CommentThread({ postId }: { postId: string }) {
   });
 
   return (
-    <div className="mt-3 space-y-3 border-t pt-3">
+    <div className="mt-4 space-y-3 border-t border-zinc-800 pt-4">
       {isLoading ? (
         <div className="space-y-2">
-          {[1, 2].map(i => <Skeleton key={i} className="h-10 w-full rounded" />)}
+          {[1, 2].map(i => <Skeleton key={i} className="h-10 w-full rounded bg-zinc-800" />)}
         </div>
       ) : comments.length > 0 ? (
         <div className="space-y-2">
           {comments.map(c => (
             <div key={c.id} className="flex gap-2 group" data-testid={`comment-${c.id}`}>
-              <Avatar className="w-7 h-7 shrink-0 mt-0.5">
-                <AvatarFallback className="text-xs bg-primary/10 text-primary">
+              <Avatar className="mt-0.5 h-8 w-8 shrink-0">
+                <AvatarFallback className="bg-orange-500/10 text-xs text-orange-300">
                   {(c.authorName || "U").charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline gap-2">
-                  <span className="text-xs font-semibold">{c.authorName}</span>
-                  <span className="text-[10px] text-muted-foreground">
+                  <span className="text-xs font-semibold text-zinc-200">{c.authorName}</span>
+                  <span className="text-[10px] text-zinc-600">
                     {new Date(c.createdAt!).toLocaleDateString()}
                   </span>
                   {(isAdmin || c.userId === user?.id) && (
                     <button
                       onClick={() => deleteMutation.mutate(c.id)}
-                      className="ml-auto opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all text-xs"
+                      className="ml-auto h-8 w-8 rounded-md text-zinc-500 opacity-0 transition-all hover:bg-zinc-800 hover:text-red-300 group-hover:opacity-100 focus-visible:opacity-100"
                       data-testid={`button-delete-comment-${c.id}`}
                     >
                       <Trash2 className="w-3 h-3" />
                     </button>
                   )}
                 </div>
-                <p className="text-sm text-muted-foreground mt-0.5">{c.content}</p>
+                <p className="mt-0.5 text-sm text-zinc-400">{c.content}</p>
               </div>
             </div>
           ))}
         </div>
       ) : (
-        <p className="text-xs text-muted-foreground text-center py-2">No comments yet. Be first to chime in!</p>
+        <p className="py-2 text-center text-xs text-zinc-500">No comments yet. Be first to chime in!</p>
       )}
 
       {/* Add comment */}
@@ -211,7 +216,7 @@ function CommentThread({ postId }: { postId: string }) {
           onChange={e => setNewComment(e.target.value)}
           placeholder="Add a comment..."
           rows={2}
-          className="text-sm resize-none"
+          className="min-h-11 resize-none border-zinc-700 bg-zinc-900 text-sm text-zinc-100 placeholder:text-zinc-600 focus-visible:ring-orange-400"
           onKeyDown={e => {
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && newComment.trim()) {
               addMutation.mutate(newComment);
@@ -223,7 +228,7 @@ function CommentThread({ postId }: { postId: string }) {
           size="sm"
           onClick={() => newComment.trim() && addMutation.mutate(newComment)}
           disabled={addMutation.isPending || !newComment.trim()}
-          className="shrink-0 h-9"
+          className="h-11 w-11 shrink-0 bg-orange-500 text-black hover:bg-orange-400"
           data-testid={`button-submit-comment-${postId}`}
         >
           <Send className="w-3.5 h-3.5" />
@@ -310,34 +315,37 @@ export default function FeedbackPage() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+    <div className="min-h-full bg-[#090909] px-4 py-6 text-zinc-100 sm:px-6">
+      <div className="mx-auto max-w-4xl space-y-7">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
+      <div className="flex flex-col items-start justify-between gap-5 border-b border-zinc-800 pb-6 sm:flex-row sm:items-end">
         <div>
-          <h1 className="text-2xl font-bold" data-testid="text-feedback-title">Feedback &amp; Ideas</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-orange-400">Player voice</p>
+          <h1 className="font-heading text-3xl uppercase tracking-wide text-white sm:text-4xl" data-testid="text-feedback-title">Feedback &amp; Ideas</h1>
+          <p className="mt-1 max-w-2xl text-sm text-zinc-400">
             Share bugs, suggest features, or vote on what matters to you. We track every submission and keep you updated.
           </p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button data-testid="button-new-feedback">
-              <Plus className="w-4 h-4 mr-2" />
+            <Button className="min-h-11 w-full gap-2 rounded-full bg-orange-500 px-5 font-heading text-base uppercase tracking-wide text-black hover:bg-orange-400 sm:w-auto" data-testid="button-new-feedback">
+              <Plus className="h-4 w-4" />
               Submit Feedback
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Submit Feedback</DialogTitle>
+          <DialogContent className="max-h-[92vh] overflow-y-auto border-zinc-800 bg-zinc-950 text-zinc-100 sm:max-w-lg">
+            <DialogHeader className="pr-8">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-400">Make your voice heard</p>
+              <DialogTitle className="font-heading text-2xl uppercase tracking-wide text-white">Submit Feedback</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 pt-2">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Category</label>
+                <label className="text-xs font-semibold uppercase tracking-wider text-zinc-300">Category</label>
                 <Select value={newCategory} onValueChange={(v) => setNewCategory(v as FeedbackCategory)}>
-                  <SelectTrigger data-testid="select-feedback-category">
+                  <SelectTrigger className="rounded-full border-zinc-700 bg-zinc-900 text-white focus:ring-orange-400" data-testid="select-feedback-category">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="border-zinc-700 bg-zinc-900 text-white">
                     {FEEDBACK_CATEGORIES.map(c => (
                       <SelectItem key={c} value={c}>{CATEGORY_LABELS[c]}</SelectItem>
                     ))}
@@ -345,33 +353,35 @@ export default function FeedbackPage() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Title</label>
+                <label className="text-xs font-semibold uppercase tracking-wider text-zinc-300">Title</label>
                 <Input
                   value={newTitle}
                   onChange={e => setNewTitle(e.target.value)}
                   placeholder="Short, descriptive title"
                   maxLength={200}
-                  data-testid="input-feedback-title"
+                   className="border-zinc-700 bg-zinc-900 text-white placeholder:text-zinc-600 focus-visible:ring-orange-400"
+                   data-testid="input-feedback-title"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Description</label>
+                <label className="text-xs font-semibold uppercase tracking-wider text-zinc-300">Description</label>
                 <Textarea
                   value={newContent}
                   onChange={e => setNewContent(e.target.value)}
                   placeholder="Describe the issue or idea in detail..."
                   rows={4}
-                  data-testid="input-feedback-content"
+                   className="resize-none border-zinc-700 bg-zinc-900 text-white placeholder:text-zinc-600 focus-visible:ring-orange-400"
+                   data-testid="input-feedback-content"
                 />
               </div>
-              <Button className="w-full" onClick={() => {
+              <Button className="min-h-11 w-full rounded-full bg-orange-500 font-heading text-base uppercase tracking-wide text-black hover:bg-orange-400" onClick={() => {
                 if (!newTitle.trim() || !newContent.trim()) {
                   toast({ title: "Please fill in title and description", variant: "destructive" });
                   return;
                 }
                 createMutation.mutate({ title: newTitle, content: newContent, category: newCategory });
               }} disabled={createMutation.isPending} data-testid="button-submit-feedback">
-                {createMutation.isPending ? "Submitting..." : "Submit"}
+                 {createMutation.isPending ? "Submitting..." : "Submit Feedback"}
               </Button>
             </div>
           </DialogContent>
@@ -380,19 +390,19 @@ export default function FeedbackPage() {
 
       {/* Status legend for non-admins */}
       {!isAdmin && (
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="p-3">
-            <p className="text-xs font-semibold text-primary mb-2">HOW WE TRACK YOUR FEEDBACK</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+      <Card className="border-orange-500/20 bg-orange-500/5">
+          <CardContent className="p-4">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-orange-300">How we track your feedback</p>
+            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
               {FEEDBACK_STATUSES.map(s => {
                 const cfg = STATUS_CONFIG[s];
                 const Icon = cfg.icon;
                 return (
                   <div key={s} className="flex items-center gap-2">
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border shrink-0 ${cfg.badgeClass}`}>
+                    <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${cfg.badgeClass}`}>
                       <Icon className="w-2.5 h-2.5" />{cfg.label}
                     </span>
-                    <span className="text-[11px] text-muted-foreground">{cfg.desc}</span>
+                    <span className="text-[11px] text-zinc-500">{cfg.desc}</span>
                   </div>
                 );
               })}
@@ -402,12 +412,12 @@ export default function FeedbackPage() {
       )}
 
       {/* Filters */}
-      <div className="flex gap-2 flex-wrap items-center">
+      <div className="flex flex-wrap items-center gap-2">
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-44" data-testid="select-filter-category">
+          <SelectTrigger className="min-h-11 w-full rounded-full border-zinc-700 bg-zinc-900 text-zinc-200 focus:ring-orange-400 sm:w-48" data-testid="select-filter-category">
             <SelectValue placeholder="All Categories" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="border-zinc-700 bg-zinc-900 text-white">
             <SelectItem value="all">All Categories</SelectItem>
             {FEEDBACK_CATEGORIES.map(c => (
               <SelectItem key={c} value={c}>{CATEGORY_LABELS[c]}</SelectItem>
@@ -415,12 +425,12 @@ export default function FeedbackPage() {
           </SelectContent>
         </Select>
 
-        <div className="flex rounded-md border divide-x overflow-hidden text-sm">
+        <div className="flex min-h-11 overflow-hidden rounded-full border border-zinc-700 bg-zinc-900 p-0.5 text-sm">
           {(["top", "new"] as const).map(s => (
             <button
               key={s}
               onClick={() => setSortBy(s)}
-              className={`px-3 py-1.5 capitalize transition-colors ${sortBy === s ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+               className={`min-w-24 rounded-full px-3 py-1.5 font-heading uppercase tracking-wide transition-colors ${sortBy === s ? "bg-orange-500 text-black" : "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200"}`}
               data-testid={`button-sort-${s}`}
             >
               {s === "top" ? "Top Voted" : "Newest"}
@@ -431,50 +441,49 @@ export default function FeedbackPage() {
 
       {/* List */}
       {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map(i => <Skeleton key={i} className="h-28 w-full rounded-lg" />)}
+        <div className="space-y-1.5">
+          {[1, 2, 3].map(i => <Skeleton key={i} className="h-32 w-full rounded-lg bg-zinc-900" />)}
         </div>
       ) : posts.length === 0 ? (
-        <Card>
+        <Card className="border-zinc-800 bg-zinc-900">
           <CardContent className="py-16 text-center">
-            <Megaphone className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-40" />
-            <p className="text-muted-foreground">No feedback yet. Be the first to submit!</p>
+            <Megaphone className="mx-auto mb-3 h-10 w-10 text-zinc-700" />
+            <p className="font-heading text-xl uppercase tracking-wide text-white">No feedback yet</p>
+            <p className="mt-1 text-sm text-zinc-500">Be the first to submit an idea and help shape the next rep.</p>
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-1.5">
           {posts.map(post => {
             const CatIcon = CATEGORY_ICONS[post.category] || Megaphone;
             const isExpanded = expandedComments.has(post.id);
-            const cfg = STATUS_CONFIG[post.status] ?? STATUS_CONFIG["open"];
-            const StatusIcon = cfg.icon;
             return (
-              <Card key={post.id} className="group" data-testid={`card-feedback-${post.id}`}>
-                <CardContent className="p-4">
-                  <div className="flex gap-3">
+              <Card key={post.id} className="group border-zinc-800 bg-zinc-900 transition hover:border-zinc-600" data-testid={`card-feedback-${post.id}`}>
+                <CardContent className="p-3 sm:p-4">
+                  <div className="flex gap-2">
                     {/* Vote column */}
-                    <div className="flex flex-col items-center gap-1 min-w-[48px]">
+                    <div className="flex min-w-9 flex-col items-center gap-1">
                       <button
                         onClick={() => voteMutation.mutate(post.id)}
                         disabled={voteMutation.isPending}
-                        className={`flex flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 border transition-all ${post.hasVoted ? "bg-primary/10 border-primary text-primary" : "border-border hover:border-primary/50 hover:bg-primary/5 text-muted-foreground"}`}
+                        className={`flex min-h-11 min-w-10 flex-col items-center justify-center gap-0.5 rounded-full border px-1.5 py-0.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 ${post.hasVoted ? "border-orange-500 bg-orange-500/10 text-orange-300" : "border-zinc-700 text-zinc-500 hover:border-orange-500/50 hover:bg-orange-500/5 hover:text-orange-300"}`}
                         data-testid={`button-vote-${post.id}`}
                       >
-                        <ChevronUp className="w-4 h-4" />
-                        <span className="text-xs font-semibold">{post.voteCount}</span>
+                         <ChevronUp className="h-4 w-4" />
+                         <span className="text-xs font-semibold">{post.voteCount}</span>
                       </button>
                     </div>
 
                     {/* Content */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2 mb-1.5">
-                        <h3 className="font-semibold leading-snug" data-testid={`text-post-title-${post.id}`}>
+                      <div className="mb-1.5 flex items-start justify-between gap-2">
+                        <h3 className="font-heading text-lg uppercase leading-snug tracking-wide text-white" data-testid={`text-post-title-${post.id}`}>
                           {post.title}
                         </h3>
                         {isAdmin && (
                           <button
                             onClick={() => deleteMutation.mutate(post.id)}
-                            className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all shrink-0"
+                            className="h-9 w-9 shrink-0 rounded-full text-zinc-500 opacity-0 transition-all hover:bg-zinc-800 hover:text-red-300 focus-visible:opacity-100 group-hover:opacity-100"
                             data-testid={`button-delete-${post.id}`}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -482,13 +491,13 @@ export default function FeedbackPage() {
                         )}
                       </div>
 
-                      <p className="text-sm text-muted-foreground mb-2.5">
+                       <p className="mb-2 line-clamp-2 text-sm leading-relaxed text-zinc-300">
                         {post.content}
                       </p>
 
                       {/* Meta row */}
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge variant="outline" className={`text-[11px] px-2 py-0.5 ${CATEGORY_COLORS[post.category]}`}>
+                       <div className="flex flex-wrap items-center gap-2">
+                         <Badge variant="outline" className={`px-2 py-0.5 text-xs uppercase tracking-wide ${CATEGORY_COLORS[post.category]}`}>
                           <CatIcon className="w-3 h-3 mr-1" />
                           {CATEGORY_LABELS[post.category]}
                         </Badge>
@@ -496,7 +505,7 @@ export default function FeedbackPage() {
                         {/* Status — prominent for all */}
                         {!isAdmin && <StatusBadge status={post.status} />}
 
-                        <span className="text-[11px] text-muted-foreground ml-auto shrink-0">
+                           <span className="ml-auto shrink-0 text-xs text-zinc-500">
                           {post.authorName} · {new Date(post.createdAt!).toLocaleDateString()}
                         </span>
                       </div>
@@ -513,7 +522,7 @@ export default function FeedbackPage() {
                       {/* Comment toggle */}
                       <button
                         onClick={() => toggleComments(post.id)}
-                        className="mt-2.5 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                         className="mt-2 flex min-h-8 items-center gap-1 rounded-full px-2 text-xs font-semibold uppercase tracking-wider text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
                         data-testid={`button-toggle-comments-${post.id}`}
                       >
                         <MessageSquare className="w-3.5 h-3.5" />
@@ -530,6 +539,7 @@ export default function FeedbackPage() {
           })}
         </div>
       )}
+      </div>
     </div>
   );
 }

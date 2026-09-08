@@ -113,6 +113,36 @@ async function videoNeedsFix(_filePath: string): Promise<boolean> {
   return true;
 }
 
+/**
+ * Process an already-uploaded video without tying the request lifetime to ffmpeg.
+ * The caller is responsible for verifying ownership before starting this job.
+ */
+export async function processVideoObject(objectPath: string): Promise<void> {
+  const objectStorageService = new ObjectStorageService();
+  let tempInput: string | null = null;
+  let tempOutput: string | null = null;
+
+  try {
+    console.log(`[finalize-video] Downloading ${objectPath}...`);
+    const { tempPath } = await objectStorageService.downloadToTempFile(objectPath);
+    tempInput = tempPath;
+
+    if (!await videoNeedsFix(tempInput)) {
+      console.log(`[finalize-video] ${objectPath} already has moov at start — skipping`);
+      return;
+    }
+
+    console.log(`[finalize-video] Running ffmpeg faststart on ${objectPath}...`);
+    tempOutput = await fixVideoFastStart(tempInput);
+    console.log(`[finalize-video] Re-uploading fixed video to ${objectPath}...`);
+    await objectStorageService.replaceObjectFromFile(objectPath, tempOutput, "video/mp4");
+    console.log(`[finalize-video] Done: ${objectPath}`);
+  } finally {
+    if (tempInput) try { fs.unlinkSync(tempInput); } catch {}
+    if (tempOutput) try { fs.unlinkSync(tempOutput); } catch {}
+  }
+}
+
 // Allowed content types for uploads
 const ALLOWED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime", "video/x-msvideo"];
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/heic", "image/heif"];
@@ -310,34 +340,12 @@ export function registerObjectStorageRoutes(app: Express): void {
       return res.status(400).json({ error: "Invalid objectPath" });
     }
 
-    let tempInput: string | null = null;
-    let tempOutput: string | null = null;
-
     try {
-      console.log(`[finalize-video] Downloading ${objectPath}...`);
-      const { tempPath } = await objectStorageService.downloadToTempFile(objectPath);
-      tempInput = tempPath;
-
-      const needsFix = await videoNeedsFix(tempInput);
-      if (!needsFix) {
-        console.log(`[finalize-video] ${objectPath} already has moov at start — skipping`);
-        return res.json({ objectPath, fixed: false });
-      }
-
-      console.log(`[finalize-video] Running ffmpeg faststart on ${objectPath}...`);
-      tempOutput = await fixVideoFastStart(tempInput);
-
-      console.log(`[finalize-video] Re-uploading fixed video to ${objectPath}...`);
-      await objectStorageService.replaceObjectFromFile(objectPath, tempOutput, "video/mp4");
-
-      console.log(`[finalize-video] Done: ${objectPath}`);
+      await processVideoObject(objectPath);
       res.json({ objectPath, fixed: true });
     } catch (error) {
       console.error("[finalize-video] Error:", error);
       res.status(500).json({ error: "Failed to process video" });
-    } finally {
-      if (tempInput) try { fs.unlinkSync(tempInput); } catch {}
-      if (tempOutput) try { fs.unlinkSync(tempOutput); } catch {}
     }
   });
 
