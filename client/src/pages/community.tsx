@@ -471,6 +471,7 @@ function ActivityPanel({ user }: { user: unknown }) {
 }
 
 function ChallengeCard({ challenge, isOwner, onInvite, canJoin, onJoin }: { challenge: any; isOwner: boolean; onInvite: () => void; canJoin?: boolean; onJoin?: () => void }) {
+  const accent = challengeColor(challenge);
   const goal = Math.max(1, Number(challenge.goalAmount));
   const endsAt = new Date(challenge.endsAt);
   const daysLeft = Math.max(0, Math.ceil((endsAt.getTime() - Date.now()) / 86400000));
@@ -481,12 +482,20 @@ function ChallengeCard({ challenge, isOwner, onInvite, canJoin, onJoin }: { chal
   const completion = Math.min(100, Math.round((totalProgress / totalGoal) * 100));
 
   return (
-    <Card className="border-zinc-800/70 bg-zinc-900/30" data-testid={`card-group-challenge-${challenge.id}`}>
+    <Card
+      className="relative overflow-hidden border bg-zinc-900/35 transition-all duration-300"
+      style={{
+        borderColor: colorWithAlpha(accent, "66"),
+        background: `linear-gradient(135deg, ${colorWithAlpha(accent, "16")}, rgba(24,24,27,0.35) 52%, rgba(9,9,11,0.4))`,
+        boxShadow: `0 0 34px ${colorWithAlpha(accent, "16")}`,
+      }}
+      data-testid={`card-group-challenge-${challenge.id}`}
+    >
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl shadow-inner" style={{ backgroundColor: challenge.color || "#f97316" }}>
-              {challenge.emoji || <Swords className="h-5 w-5 text-black/70" />}
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border text-xl shadow-inner" style={{ backgroundColor: colorWithAlpha(accent, "30"), borderColor: colorWithAlpha(accent, "80"), boxShadow: `0 0 18px ${colorWithAlpha(accent, "44")}` }}>
+              {challenge.emoji || <Swords className="h-5 w-5" style={{ color: accent }} />}
             </div>
             <div className="min-w-0">
             <CardTitle className="truncate text-base">{challenge.name}</CardTitle>
@@ -508,10 +517,10 @@ function ChallengeCard({ challenge, isOwner, onInvite, canJoin, onJoin }: { chal
         <div>
           <div className="mb-1.5 flex justify-between text-xs">
             <span className="text-muted-foreground">Group completion</span>
-            <span className="font-medium text-orange-300">{completion}%</span>
+            <span className="font-medium" style={{ color: accent }}>{completion}%</span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-zinc-800" role="progressbar" aria-valuenow={completion} aria-valuemin={0} aria-valuemax={100} aria-label={`${challenge.name} group completion`}>
-            <div className="h-full rounded-full bg-orange-500 transition-all" style={{ width: `${completion}%` }} />
+            <div className="h-full rounded-full transition-all" style={{ width: `${completion}%`, backgroundColor: accent, boxShadow: `0 0 12px ${colorWithAlpha(accent, "aa")}` }} />
           </div>
         </div>
         <div className="space-y-3">
@@ -530,7 +539,7 @@ function ChallengeCard({ challenge, isOwner, onInvite, canJoin, onJoin }: { chal
                     <span className="shrink-0 text-muted-foreground">{progress.toLocaleString()} / {goal.toLocaleString()} ({percent}%)</span>
                   </div>
                   <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-800">
-                    <div className="h-full rounded-full bg-emerald-500" style={{ width: `${percent}%` }} />
+                    <div className="h-full rounded-full transition-all" style={{ width: `${percent}%`, backgroundColor: accent, boxShadow: `0 0 9px ${colorWithAlpha(accent, "88")}` }} />
                   </div>
                 </div>
               </div>
@@ -741,7 +750,7 @@ function ChallengesPanel({ user }: { user: unknown }) {
         </div>
       )}
 
-      {!discoverQuery.isLoading && discoverableChallenges.length > 0 && (
+      {!discoverQuery.isLoading && (
         <section className="space-y-3" data-testid="community-public-challenges">
           <div>
             <div className="flex items-end justify-between gap-3">
@@ -749,14 +758,28 @@ function ChallengesPanel({ user }: { user: unknown }) {
               <Badge variant="outline" className="hidden border-sky-500/30 text-sky-300 sm:inline-flex">{discoverableChallenges.length} open</Badge>
             </div>
           </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            {discoverableChallenges.map((challenge: any) => (
-              <button key={challenge.id} type="button" onClick={() => setDetailChallenge(challenge)} className="group rounded-2xl border border-sky-500/15 bg-gradient-to-br from-sky-500/[0.08] to-zinc-900/60 p-4 text-left transition-all hover:-translate-y-0.5 hover:border-sky-400/40">
-                <div className="flex items-start gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl" style={{ backgroundColor: challenge.color || "#38bdf8" }}>{challenge.emoji || <Swords className="h-5 w-5 text-black/70" />}</span><span className="min-w-0 flex-1"><span className="block truncate font-semibold">{challenge.name}</span><span className="mt-1 block text-xs text-zinc-400">{GROUP_CHALLENGE_GOAL_LABELS[challenge.goalType as keyof typeof GROUP_CHALLENGE_GOAL_LABELS] || challenge.goalType} · {Number(challenge.goalAmount).toLocaleString()} per player</span></span><ChevronDown className="h-4 w-4 -rotate-90 text-sky-300 transition-transform group-hover:translate-x-0.5" /></div>
-                <div className="mt-4 flex items-center justify-between text-[11px] text-zinc-500"><span>{challenge.members?.length || 0} players joined</span><span className="font-semibold text-sky-300">View & join</span></div>
-              </button>
-            ))}
-          </div>
+          {discoverableChallenges.length > 0 ? (
+            <div className="grid gap-3 md:grid-cols-2">
+              {discoverableChallenges.map((challenge: any) => {
+                const accent = challengeColor(challenge);
+                return (
+                  <button key={challenge.id} type="button" onClick={() => setDetailChallenge(challenge)} className="group rounded-2xl border bg-zinc-900/45 p-4 text-left transition-all hover:-translate-y-0.5" style={{ borderColor: colorWithAlpha(accent, "55"), background: `linear-gradient(135deg, ${colorWithAlpha(accent, "13")}, rgba(24,24,27,0.45))`, boxShadow: `0 0 24px ${colorWithAlpha(accent, "12")}` }}>
+                    <div className="flex items-start gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border text-xl" style={{ backgroundColor: colorWithAlpha(accent, "30"), borderColor: colorWithAlpha(accent, "80"), boxShadow: `0 0 16px ${colorWithAlpha(accent, "44")}` }}>{challenge.emoji || <Swords className="h-5 w-5" style={{ color: accent }} />}</span><span className="min-w-0 flex-1"><span className="block truncate font-semibold">{challenge.name}</span><span className="mt-1 block text-xs text-zinc-400">{GROUP_CHALLENGE_GOAL_LABELS[challenge.goalType as keyof typeof GROUP_CHALLENGE_GOAL_LABELS] || challenge.goalType} · {Number(challenge.goalAmount).toLocaleString()} per player</span></span><ChevronDown className="h-4 w-4 -rotate-90 transition-transform group-hover:translate-x-0.5" style={{ color: accent }} /></div>
+                    <div className="mt-4 flex items-center justify-between text-[11px] text-zinc-500"><span>{challenge.members?.length || 0} players joined</span><span className="font-semibold" style={{ color: accent }}>View & join</span></div>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <Card className="border-dashed border-sky-500/30 bg-sky-500/[0.04]">
+              <CardContent className="flex flex-col items-center justify-center px-6 py-8 text-center">
+                <div className="mb-3 rounded-full border border-sky-400/30 bg-sky-400/10 p-3 shadow-[0_0_24px_rgba(56,189,248,0.15)]"><Swords className="h-5 w-5 text-sky-300" /></div>
+                <h4 className="font-semibold">No open challenges yet</h4>
+                <p className="mt-1 max-w-md text-sm text-muted-foreground">Public challenges will appear here. Create one and set “Public — anyone can join” to open it to the whole PLAYR1 community.</p>
+                <Button variant="outline" className="mt-4 border-sky-500/30 text-sky-200 hover:bg-sky-500/10" onClick={() => setCreateOpen(true)}><Plus className="mr-2 h-4 w-4" /> Create a public challenge</Button>
+              </CardContent>
+            </Card>
+          )}
         </section>
       )}
 
@@ -786,10 +809,16 @@ function ChallengesPanel({ user }: { user: unknown }) {
               <div className="space-y-2">
                 <span className="block text-sm font-medium">Challenge identity</span>
                 <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Choose challenge emoji">
-                  {["🏀", "🔥", "🎯", "⚡", "💪", "🏆"].map((option) => <button key={option} type="button" role="radio" aria-checked={emoji === option} onClick={() => setEmoji(option)} className={`flex h-10 w-10 items-center justify-center rounded-lg border text-lg transition-all ${emoji === option ? "border-orange-400 bg-orange-500/15 ring-2 ring-orange-400/30" : "border-zinc-800 bg-zinc-900 hover:border-zinc-600"}`}>{option}</button>)}
+                  {CHALLENGE_EMOJIS.map((option) => <button key={option} type="button" role="radio" aria-checked={emoji === option} onClick={() => setEmoji(option)} className={`flex h-10 w-10 items-center justify-center rounded-lg border text-lg transition-all ${emoji === option ? "border-orange-400 bg-orange-500/15 ring-2 ring-orange-400/30" : "border-zinc-800 bg-zinc-900 hover:border-zinc-600"}`}>{option}</button>)}
                 </div>
               </div>
-              <label className="flex items-center gap-2 text-sm sm:flex-col sm:items-start"><span className="font-medium">Color</span><span className="flex items-center gap-2"><input type="color" value={color} onChange={(event) => setColor(event.target.value)} className="h-10 w-10 cursor-pointer rounded-lg border border-zinc-700 bg-transparent p-1" aria-label="Choose challenge color" /><span className="font-mono text-xs text-zinc-500">{color}</span></span></label>
+              <div className="space-y-2">
+                <span className="block text-sm font-medium">Glow color</span>
+                <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Choose challenge color">
+                  {CHALLENGE_COLORS.map((option) => <button key={option} type="button" role="radio" aria-checked={color === option} onClick={() => setColor(option)} className={`h-8 w-8 rounded-full border-2 transition-all ${color === option ? "scale-110 border-white ring-2 ring-orange-400/40" : "border-white/10 hover:scale-105"}`} style={{ backgroundColor: option, boxShadow: color === option ? `0 0 14px ${option}aa` : `0 0 8px ${option}44` }} aria-label={`Choose ${option} challenge color`} />)}
+                </div>
+                <p className="text-[11px] text-zinc-500">This color becomes the challenge glow, border, and progress bar.</p>
+              </div>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block space-y-1.5 text-sm"><span className="font-medium">Measure</span>
@@ -1076,7 +1105,7 @@ export default function CommunityPage() {
 
   return (
     <main className="mx-auto max-w-4xl px-4 pb-24 pt-5 sm:px-6" data-testid="community-shell">
-      <header className="relative mb-5 overflow-hidden rounded-2xl border border-orange-500/15 bg-gradient-to-br from-orange-500/[0.12] via-zinc-950 to-zinc-950 p-4 shadow-xl shadow-orange-950/10 sm:p-5">
+      {activeTab === "activity" && <header className="relative mb-5 overflow-hidden rounded-2xl border border-orange-500/15 bg-gradient-to-br from-orange-500/[0.12] via-zinc-950 to-zinc-950 p-4 shadow-xl shadow-orange-950/10 sm:p-5">
         <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full border-[22px] border-orange-400/10" />
         <div className="pointer-events-none absolute -bottom-24 left-1/3 h-40 w-40 rounded-full bg-orange-500/10 blur-3xl" />
         <div className="relative">
@@ -1108,7 +1137,7 @@ export default function CommunityPage() {
             </div>
           </div>
         </div>
-      </header>
+      </header>}
 
       <nav className="mb-7 grid grid-cols-3 gap-1 rounded-2xl border border-zinc-800/80 bg-zinc-950/80 p-1.5 shadow-lg shadow-black/20" aria-label="Community sections" role="tablist">
         {tabs.map((tab) => {
