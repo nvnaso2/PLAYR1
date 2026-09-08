@@ -227,6 +227,35 @@ function PanelError({ message }: { message: string }) {
   );
 }
 
+function CommunityBanner({ friendsCount, challengeCount, reviewCount }: { friendsCount: number; challengeCount: number; reviewCount: number }) {
+  return (
+    <section className="rounded-xl border border-zinc-700 bg-zinc-900 p-4 text-zinc-100 sm:p-5" data-testid="community-banner">
+      <div className="flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-orange-500/40 bg-zinc-950 text-orange-400">
+          <UsersRound className="h-5 w-5" aria-hidden="true" />
+        </span>
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-400">PLAYR1 Community</p>
+          <h1 className="mt-1 text-xl font-black tracking-tight text-white sm:text-2xl">Your game is better together.</h1>
+          <p className="mt-1 max-w-2xl text-sm leading-5 text-zinc-400">Find players, share progress, and keep building your game together.</p>
+        </div>
+      </div>
+      <div className="mt-4 grid grid-cols-3 gap-2 sm:max-w-xl sm:gap-3">
+        {[
+          ["Friends", friendsCount],
+          ["Challenges", challengeCount],
+          ["To review", reviewCount],
+        ].map(([label, value]) => (
+          <div key={label} className="rounded-lg border border-zinc-700 bg-zinc-950 p-2.5">
+            <p className="text-lg font-bold text-white">{value}</p>
+            <p className="mt-0.5 text-[10px] uppercase tracking-wide text-zinc-500">{label}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function ActivityPanel({ user }: { user: unknown }) {
   const { toast } = useToast();
   const [feedOpen, setFeedOpen] = useState(true);
@@ -472,7 +501,7 @@ function ActivityPanel({ user }: { user: unknown }) {
   );
 }
 
-function ChallengeCard({ challenge, isOwner, onInvite, canJoin, onJoin }: { challenge: any; isOwner: boolean; onInvite: () => void; canJoin?: boolean; onJoin?: () => void }) {
+function ChallengeCard({ challenge, isOwner, onInvite, canJoin, onJoin, joining }: { challenge: any; isOwner: boolean; onInvite: () => void; canJoin?: boolean; onJoin?: () => void; joining?: boolean }) {
   const accent = challengeColor(challenge);
   const goal = Math.max(1, Number(challenge.goalAmount));
   const endsAt = new Date(challenge.endsAt);
@@ -507,7 +536,7 @@ function ChallengeCard({ challenge, isOwner, onInvite, canJoin, onJoin }: { chal
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {canJoin && onJoin && <Button size="sm" className="h-8 bg-orange-500 text-black hover:bg-orange-400" onClick={onJoin}>Join</Button>}
+            {canJoin && onJoin && <Button type="button" size="sm" className="h-8 bg-orange-500 text-black hover:bg-orange-400" onClick={(event) => { event.stopPropagation(); onJoin(); }} disabled={joining}>{joining ? "Joining…" : "Join"}</Button>}
             {isOwner && <Button variant="outline" size="sm" className="h-8 border-orange-500/30 text-orange-300" onClick={onInvite}><UserPlus className="mr-1.5 h-3.5 w-3.5" /> Invite</Button>}
             <Badge variant="outline" className={ended ? "border-zinc-700 text-zinc-500" : "border-orange-500/30 text-orange-300"}>
               <Clock3 className="mr-1 h-3 w-3" /> {ended ? "Complete" : `${daysLeft}d left`}
@@ -572,6 +601,7 @@ function ChallengesPanel({ user }: { user: unknown }) {
   const [selectedChallengeId, setSelectedChallengeId] = useState<string | null>(null);
   const [detailChallenge, setDetailChallenge] = useState<any | null>(null);
   const [publicChallengesOpen, setPublicChallengesOpen] = useState(false);
+  const [joiningChallengeId, setJoiningChallengeId] = useState<string | null>(null);
 
   const challengesQuery = useQuery<any[]>({
     queryKey: ["/api/group-challenges"],
@@ -659,12 +689,16 @@ function ChallengesPanel({ user }: { user: unknown }) {
   const discoverableChallenges = (discoverQuery.data || []).filter((challenge: any) => !challenges.some((current: any) => current.id === challenge.id));
   const joinChallenge = useMutation({
     mutationFn: (challengeId: string) => apiRequest("POST", `/api/group-challenges/${challengeId}/join`),
+    onMutate: (challengeId) => setJoiningChallengeId(challengeId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/group-challenges"] });
       queryClient.invalidateQueries({ queryKey: ["/api/group-challenges/discover"] });
+      setDetailChallenge(null);
+      setPublicChallengesOpen(false);
       toast({ title: "Joined challenge" });
     },
     onError: (error: any) => toast({ title: error?.message || "Could not join challenge", variant: "destructive" }),
+    onSettled: () => setJoiningChallengeId(null),
   });
   useEffect(() => {
     if (!selectedChallengeId || !challenges.some((challenge: any) => challenge.id === selectedChallengeId)) {
@@ -768,7 +802,7 @@ function ChallengesPanel({ user }: { user: unknown }) {
                 <DialogTitle className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl text-xl" style={{ backgroundColor: detailChallenge.color || "#f97316" }}>{detailChallenge.emoji || <Swords className="h-5 w-5 text-black/70" />}</span>{detailChallenge.name}</DialogTitle>
                 <DialogDescription>See the full leaderboard and decide if this is your next shared target.</DialogDescription>
               </DialogHeader>
-              <ChallengeCard challenge={detailChallenge} isOwner={detailChallenge.creatorId === myId} onInvite={() => { setDetailChallenge(null); setInviteChallengeId(detailChallenge.id); }} canJoin={discoverableChallenges.some((item: any) => item.id === detailChallenge.id)} onJoin={() => { joinChallenge.mutate(detailChallenge.id); setDetailChallenge(null); }} />
+              <ChallengeCard challenge={detailChallenge} isOwner={detailChallenge.creatorId === myId} onInvite={() => { setDetailChallenge(null); setInviteChallengeId(detailChallenge.id); }} canJoin={discoverableChallenges.some((item: any) => item.id === detailChallenge.id)} joining={joiningChallengeId === detailChallenge.id} onJoin={() => joinChallenge.mutate(detailChallenge.id)} />
             </>
           )}
         </DialogContent>
@@ -901,8 +935,8 @@ function PlayerCard({ player, onAdd, onAccept, onFollow, onRemoveFriend, adding,
   const name = playerName(player);
   const status = player.connectionStatus;
   return (
-    <Card className="border-zinc-800/70 bg-zinc-900/30">
-      <CardContent className="flex items-center gap-3 p-3">
+    <Card className="border-zinc-700 bg-zinc-900">
+      <CardContent className="flex items-center gap-3 p-3.5">
         <Link href={profileHref(player)} aria-label={`View ${name}'s profile`}><PlayerAvatar player={player} /></Link>
         <div className="min-w-0 flex-1">
           <Link href={profileHref(player)} className="block truncate text-sm font-medium hover:text-orange-400">{name}</Link>
@@ -1015,57 +1049,30 @@ function PlayersPanel({ user }: { user: unknown }) {
   return (
     <div className="space-y-5">
       {friendsQuery.data && friendsQuery.data.length > 0 && (
-        <Card className="border-orange-500/15 bg-orange-500/[0.035]">
+        <Card className="border-zinc-700 bg-zinc-900" data-testid="community-friends">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
             <div>
               <CardTitle className="text-base">Your friends</CardTitle>
-              <p className="mt-1 text-xs text-muted-foreground">Players you have a two-way connection with.</p>
             </div>
-            <Badge variant="outline" className="border-orange-500/25 text-orange-300">{friendsQuery.data.length}</Badge>
+            <Badge variant="outline" className="border-zinc-700 text-zinc-300">{friendsQuery.data.length}</Badge>
           </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <CardContent className="grid gap-2 sm:grid-cols-2">
             {friendsQuery.data.map((item: any) => (
-              <div key={item.friendship.id} className="flex min-w-0 items-center gap-2 rounded-xl border border-zinc-800/80 bg-zinc-950/35 p-2.5 transition-colors hover:border-orange-500/40">
-                <Link
-                  href={profileHref({ userId: item.friend.id, profileSlug: item.friend.profileSlug })}
-                  className="flex min-w-0 flex-1 items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
-                >
-                  <PlayerAvatar player={item.friend} size="h-8 w-8" />
-                  <div className="min-w-0">
-                    <span className="block truncate text-xs font-medium">{item.friend.displayName}</span>
-                    {item.friend.skillLevel && <span className="block truncate text-[10px] capitalize text-muted-foreground">{item.friend.skillLevel}</span>}
-                  </div>
-                </Link>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="shrink-0 text-xs text-orange-200"
-                  disabled
-                  title="Unfriend this player before unfollowing"
-                  data-testid={`button-follow-friend-${item.friend.id}`}
-                >
-                  Following
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="shrink-0 text-xs text-muted-foreground hover:text-red-300"
-                  onClick={() => removeFriend.mutate(item.friend.id)}
-                  disabled={removeFriend.isPending}
-                  data-testid={`button-unfriend-${item.friend.id}`}
-                >
-                  Unfriend
-                </Button>
-              </div>
+              <Link key={item.friendship.id} href={profileHref({ userId: item.friend.id, profileSlug: item.friend.profileSlug })} className="flex min-w-0 items-center gap-3 rounded-lg border border-zinc-700 bg-zinc-950 p-2.5 transition-colors hover:border-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400">
+                <PlayerAvatar player={item.friend} size="h-9 w-9" />
+                <div className="min-w-0">
+                  <span className="block truncate text-sm font-medium">{item.friend.displayName}</span>
+                  {item.friend.skillLevel && <span className="block truncate text-[11px] capitalize text-zinc-500">{item.friend.skillLevel}</span>}
+                </div>
+              </Link>
             ))}
           </CardContent>
         </Card>
       )}
       <div>
-        <h2 className="text-lg font-semibold">Find players</h2>
-        <p className="text-sm text-muted-foreground">Keep your circle close, then find more players who fit your game.</p>
+        <h2 className="text-lg font-semibold">Find friends</h2>
       </div>
-      <Card className="border-orange-500/20 bg-orange-500/[0.04]">
+      <Card className="border-zinc-700 bg-zinc-900">
         <CardContent className="space-y-3 p-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -1080,7 +1087,7 @@ function PlayersPanel({ user }: { user: unknown }) {
       </Card>
 
       {hasSearch && <p className="text-sm text-muted-foreground">{searchQuery.isLoading ? "Searching…" : `${players.length} player${players.length === 1 ? "" : "s"} found`}</p>}
-      {!hasSearch && <div><h3 className="font-medium">Similar profiles</h3><p className="mt-1 text-xs text-muted-foreground">Based on your skill level, position, and location.</p></div>}
+      {!hasSearch && <h3 className="font-medium">Similar profiles</h3>}
       {recommendedQuery.isError || searchQuery.isError ? <PanelError message="Players could not be loaded. Try again in a moment." /> : recommendedQuery.isLoading || (hasSearch && searchQuery.isLoading) ? (
         <div className="grid gap-3 md:grid-cols-2" aria-label="Loading players" aria-busy="true">{[1, 2, 3, 4].map((item) => <Skeleton key={item} className="h-20 bg-zinc-900" />)}</div>
       ) : players.length === 0 ? (
@@ -1106,6 +1113,7 @@ export default function CommunityPage() {
   const { data: challengeInvites = [] } = useQuery<any[]>({ queryKey: ["/api/group-challenges/invites"], enabled: !!user });
   const { data: friends = [] } = useQuery<any[]>({ queryKey: ["/api/friends"], enabled: !!user });
   const { data: activeChallenges = [] } = useQuery<any[]>({ queryKey: ["/api/group-challenges"], enabled: !!user });
+  const { data: activityPreview = [], isLoading: activityPreviewLoading } = useQuery<any[]>({ queryKey: ["/api/friends/activity"], enabled: !!user });
 
   useEffect(() => {
     setActiveTab(getTabFromLocation(location));
@@ -1123,44 +1131,10 @@ export default function CommunityPage() {
   }
 
   const active = tabs.find((tab) => tab.id === activeTab) || tabs[0];
-  const ActiveIcon = active.icon;
+  const showCommunityBanner = activeTab === "players" || (activeTab === "activity" && !activityPreviewLoading && activityPreview.length === 0);
 
   return (
     <main className="mx-auto max-w-4xl px-4 pb-24 pt-5 sm:px-6" data-testid="community-shell">
-      {activeTab === "players" && <header className="relative mb-5 overflow-hidden rounded-2xl border border-orange-500/15 bg-gradient-to-br from-orange-500/[0.12] via-zinc-950 to-zinc-950 p-4 shadow-xl shadow-orange-950/10 sm:p-5">
-        <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full border-[22px] border-orange-400/10" />
-        <div className="pointer-events-none absolute -bottom-24 left-1/3 h-40 w-40 rounded-full bg-orange-500/10 blur-3xl" />
-        <div className="relative">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-orange-300/20 bg-black/20 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-orange-300">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]" />
-                PLAYR1 Community
-              </div>
-              <h1 className="max-w-xl text-2xl font-bold tracking-tight text-white sm:text-3xl" data-testid="text-community-title">Your game is better together.</h1>
-              <p className="mt-2 max-w-xl text-sm leading-5 text-zinc-300">See the work happening around you, challenge your circle, and find players who are building toward the same next step.</p>
-            </div>
-            <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-black/20 sm:flex">
-              <ActiveIcon className="h-6 w-6 text-orange-300" aria-hidden="true" />
-            </div>
-          </div>
-          <div className="mt-5 grid grid-cols-3 gap-2 sm:max-w-xl sm:gap-3">
-            <div className="rounded-xl border border-white/10 bg-black/20 p-2.5">
-              <p className="text-lg font-bold text-white">{friends.length}</p>
-              <p className="mt-0.5 text-[11px] text-zinc-400">in your circle</p>
-            </div>
-            <div className="rounded-xl border border-white/10 bg-black/20 p-2.5">
-              <p className="text-lg font-bold text-white">{activeChallenges.length}</p>
-              <p className="mt-0.5 text-[11px] text-zinc-400">active challenges</p>
-            </div>
-            <div className="rounded-xl border border-white/10 bg-black/20 p-2.5">
-              <p className="text-lg font-bold text-white">{requests.length + challengeInvites.length}</p>
-              <p className="mt-0.5 text-[11px] text-zinc-400">things to review</p>
-            </div>
-          </div>
-        </div>
-      </header>}
-
       <nav className="mb-7 grid grid-cols-3 gap-1 rounded-2xl border border-zinc-800/80 bg-zinc-950/80 p-1.5 shadow-lg shadow-black/20" aria-label="Community sections" role="tablist">
         {tabs.map((tab) => {
           const Icon = tab.icon;
@@ -1184,10 +1158,7 @@ export default function CommunityPage() {
         })}
       </nav>
 
-      <div className="mb-5 flex items-center gap-2 text-sm text-muted-foreground">
-        <ActiveIcon className="h-4 w-4 text-orange-400" aria-hidden="true" />
-        <span>{active.description}</span>
-      </div>
+      {showCommunityBanner && <div className="mb-5"><CommunityBanner friendsCount={friends.length} challengeCount={activeChallenges.length} reviewCount={requests.length + challengeInvites.length} /></div>}
 
       <section id={`community-panel-${activeTab}`} role="tabpanel" aria-label={active.label}>
         {activeTab === "activity" && <ActivityPanel user={user} />}
