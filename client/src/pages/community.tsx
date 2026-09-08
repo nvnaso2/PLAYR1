@@ -769,7 +769,7 @@ function ChallengesPanel({ user }: { user: unknown }) {
             Public challenges
             <Badge className="ml-0.5 border border-sky-300/40 bg-sky-400/15 px-1.5 text-[10px] text-sky-100 shadow-[0_0_14px_rgba(56,189,248,0.28)] hover:bg-sky-400/15">{discoverableChallenges.length}</Badge>
           </Button>
-          <Button size="sm" className="h-8 bg-orange-500 text-black shadow-[0_0_16px_rgba(249,115,22,0.28)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-orange-400 hover:shadow-[0_0_24px_rgba(249,115,22,0.5)] active:translate-y-0 active:scale-[0.98]" onClick={() => setCreateOpen(true)} data-testid="button-create-community-challenge"><Plus className="mr-2 h-4 w-4 transition-transform duration-200 group-hover:rotate-90" /> Create challenge</Button>
+          <Button size="sm" className="group h-8 bg-orange-500 text-black shadow-[0_0_16px_rgba(249,115,22,0.28)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-orange-400 hover:shadow-[0_0_24px_rgba(249,115,22,0.5)] active:translate-y-0 active:scale-[0.98]" onClick={() => setCreateOpen(true)} data-testid="button-create-community-challenge"><Plus className="mr-2 h-4 w-4 transition-transform duration-200 group-hover:rotate-90" /> Create challenge</Button>
         </div>
       </div>
 
