@@ -4432,6 +4432,62 @@ export class DatabaseStorage {
       GROUP BY month
       ORDER BY month ASC
     `));
+    const signupsByMonth = r(await db.execute(sql`
+      SELECT
+        DATE_TRUNC('month', created_at)::date AS month,
+        COUNT(*)::int AS signups
+      FROM users
+      WHERE created_at >= NOW() - INTERVAL '12 months'
+      GROUP BY month
+      ORDER BY month ASC
+    `));
+    const activeSubscriptionsByMonth = r(await db.execute(sql`
+      WITH months AS (
+        SELECT DATE_TRUNC('month', NOW()) - (n * INTERVAL '1 month') AS month
+        FROM generate_series(0, 11) AS n
+      )
+      SELECT
+        m.month::date AS month,
+        COUNT(s.id)::int AS active_subscriptions
+      FROM months m
+      LEFT JOIN stripe.subscriptions s
+        ON s.created IS NOT NULL
+        AND TO_TIMESTAMP(s.created) < m.month + INTERVAL '1 month'
+        AND (
+          s.ended_at IS NULL
+          OR TO_TIMESTAMP(s.ended_at) >= m.month + INTERVAL '1 month'
+        )
+      GROUP BY m.month
+      ORDER BY m.month ASC
+    `));
+    const paidSummary = r1(await db.execute(sql`
+      SELECT
+        COUNT(*) FILTER (
+          WHERE paid = true
+            AND amount_paid > 0
+            AND subscription IS NOT NULL
+            AND TO_TIMESTAMP(created) >= DATE_TRUNC('month', NOW())
+        )::int AS invoices_this_month,
+        COUNT(DISTINCT customer) FILTER (
+          WHERE paid = true
+            AND amount_paid > 0
+            AND subscription IS NOT NULL
+            AND TO_TIMESTAMP(created) >= DATE_TRUNC('month', NOW())
+        )::int AS users_paid_this_month,
+        COUNT(*) FILTER (
+          WHERE paid = true
+            AND amount_paid > 0
+            AND subscription IS NOT NULL
+            AND TO_TIMESTAMP(created) >= DATE_TRUNC('year', NOW())
+        )::int AS invoices_this_year,
+        COUNT(DISTINCT customer) FILTER (
+          WHERE paid = true
+            AND amount_paid > 0
+            AND subscription IS NOT NULL
+            AND TO_TIMESTAMP(created) >= DATE_TRUNC('year', NOW())
+        )::int AS users_paid_this_year
+      FROM stripe.invoices
+    `));
     const churnByMonth = r(await db.execute(sql`
       SELECT
         DATE_TRUNC('month', TO_TIMESTAMP(ended_at))::date AS month,
@@ -4483,27 +4539,46 @@ export class DatabaseStorage {
       FROM stripe.subscriptions
     `));
 
-    const revenue = revenueByMonth.map((row: any) => ({
-      month: monthKey(row.month),
-      revenue: Number(row.revenue || 0) / 100,
-      invoices: Number(row.invoices || 0),
-      paidUsers: Number(row.paid_users || 0),
-    }));
     const aiCostsByMonth = new Map(monthlyCosts.map((row: any) => [
       monthKey(row.month),
       { amount: Number(row.ai_cost || 0), requests: Number(row.ai_requests || 0) },
     ]));
-    const expensesByMonth = revenue.map((row) => {
-      const ai = aiCostsByMonth.get(row.month);
+    const revenueByMonthMap = new Map(revenueByMonth.map((row: any) => [
+      monthKey(row.month),
+      {
+        revenue: Number(row.revenue || 0) / 100,
+        invoices: Number(row.invoices || 0),
+        paidUsers: Number(row.paid_users || 0),
+      },
+    ]));
+    const signupByMonthMap = new Map(signupsByMonth.map((row: any) => [monthKey(row.month), Number(row.signups || 0)]));
+    const activeSubscriptionsByMonthMap = new Map(activeSubscriptionsByMonth.map((row: any) => [monthKey(row.month), Number(row.active_subscriptions || 0)]));
+    const churnByMonthMap = new Map(churnByMonth.map((row: any) => [monthKey(row.month), Number(row.churned_users || 0)]));
+    const monthKeys = Array.from(new Set([
+      ...revenueByMonthMap.keys(),
+      ...aiCostsByMonth.keys(),
+      ...signupByMonthMap.keys(),
+      ...activeSubscriptionsByMonthMap.keys(),
+      ...churnByMonthMap.keys(),
+    ])).sort();
+    const monthlyData = monthKeys.map((month) => {
+      const billing = revenueByMonthMap.get(month);
+      const ai = aiCostsByMonth.get(month);
       return {
-        month: row.month,
+        month,
+        revenue: billing?.revenue ?? 0,
+        invoices: billing?.invoices ?? 0,
+        paidUsers: billing?.paidUsers ?? 0,
+        signups: signupByMonthMap.get(month) ?? 0,
+        activeSubscriptions: activeSubscriptionsByMonthMap.get(month) ?? 0,
+        churnedSubscriptions: churnByMonthMap.get(month) ?? 0,
         aiCalls: ai?.amount ?? 0,
         aiRequests: ai?.requests ?? 0,
-        stripeFees: Number((row.revenue * 0.029 + row.invoices * 0.3).toFixed(2)),
+        stripeFees: Number(((billing?.revenue ?? 0) * 0.029 + (billing?.invoices ?? 0) * 0.3).toFixed(2)),
       };
     });
-    const trailingRevenue = revenue.reduce((sum, row) => sum + row.revenue, 0);
-    const trailingPaidUserMonths = revenue.reduce((sum, row) => sum + row.paidUsers, 0);
+    const trailingRevenue = monthlyData.reduce((sum, row) => sum + row.revenue, 0);
+    const trailingPaidUserMonths = monthlyData.reduce((sum, row) => sum + row.paidUsers, 0);
     const averageRevenuePerPaidUser = trailingPaidUserMonths ? trailingRevenue / trailingPaidUserMonths : 0;
     const averagePaidMonths = Number(paidTenure.average_paid_months || 0);
 
@@ -4526,7 +4601,11 @@ export class DatabaseStorage {
         currentMrr: Number(currentMrr.amount || 0) / 100,
         trailing12Months: trailingRevenue,
         averageRevenuePerPaidUser,
-        monthly: revenue,
+        monthly: monthlyData,
+        paidThisMonth: Number(paidSummary.users_paid_this_month || 0),
+        paidThisYear: Number(paidSummary.users_paid_this_year || 0),
+        subscriptionsThisMonth: Number(paidSummary.invoices_this_month || 0),
+        subscriptionsThisYear: Number(paidSummary.invoices_this_year || 0),
       },
       ltv: {
         averagePaidMonths,
@@ -4545,7 +4624,7 @@ export class DatabaseStorage {
         })),
       },
       expenses: {
-        tracked12Months: Number(aiExpense.amount || 0) + expensesByMonth.reduce((sum, row) => sum + row.stripeFees, 0),
+        tracked12Months: Number(aiExpense.amount || 0) + monthlyData.reduce((sum, row) => sum + row.stripeFees, 0),
         categories: [
           {
             key: "ai",
@@ -4557,7 +4636,7 @@ export class DatabaseStorage {
           {
             key: "stripe",
             label: "Stripe processing",
-            amount: Number(expensesByMonth.reduce((sum, row) => sum + row.stripeFees, 0).toFixed(2)),
+            amount: Number(monthlyData.reduce((sum, row) => sum + row.stripeFees, 0).toFixed(2)),
             status: "estimated",
             note: "Estimated at 2.9% + $0.30 per paid invoice",
           },
@@ -4576,7 +4655,7 @@ export class DatabaseStorage {
             note: "Usage billing data is not available in the app",
           },
         ],
-        monthly: expensesByMonth,
+        monthly: monthlyData,
       },
     };
   }
