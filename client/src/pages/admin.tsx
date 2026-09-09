@@ -2432,7 +2432,6 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState("training");
   const [trainingTab, setTrainingTab] = useState<"drills" | "workouts" | "programs" | "archetypes">("drills");
   const [configurationTab, setConfigurationTab] = useState<"metrics" | "picklists">("metrics");
-  const [analyticsTab, setAnalyticsTab] = useState<"analytics" | "challenge">("analytics");
   const [repairingVideos, setRepairingVideos] = useState(false);
   const [repairResults, setRepairResults] = useState<{ fixed: number; skipped: number } | null>(null);
   
@@ -2929,9 +2928,13 @@ export default function AdminPage() {
             <Users className="h-4 w-4 shrink-0" />
             <span>Users</span>
           </TabsTrigger>
-          <TabsTrigger value="analytics-challenges" className="gap-2 px-3 py-2 text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-black sm:text-sm" data-testid="tab-analytics-challenges">
+          <TabsTrigger value="analytics" className="gap-2 px-3 py-2 text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-black sm:text-sm" data-testid="tab-analytics">
             <BarChart2 className="h-4 w-4 shrink-0" />
-            <span>Analytics & Challenges</span>
+            <span>Analytics</span>
+          </TabsTrigger>
+          <TabsTrigger value="community-3-pointers" className="gap-2 px-3 py-2 text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-black sm:text-sm" data-testid="tab-community-3-pointers">
+            <Flame className="h-4 w-4 shrink-0" />
+            <span>Community 3 Pointers</span>
           </TabsTrigger>
         </TabsList>
 
@@ -2951,15 +2954,6 @@ export default function AdminPage() {
             <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-xl border border-zinc-800/60 bg-zinc-900/60 p-1">
               <TabsTrigger value="metrics" className="gap-1.5 text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-black"><Ruler className="h-3.5 w-3.5" />Metrics</TabsTrigger>
               <TabsTrigger value="picklists" className="gap-1.5 text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-black"><ListFilter className="h-3.5 w-3.5" />Picklists</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </TabsContent>
-
-        <TabsContent value="analytics-challenges" className="mt-0">
-          <Tabs defaultValue="analytics" value={analyticsTab} onValueChange={(value) => setAnalyticsTab(value as typeof analyticsTab)}>
-            <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-xl border border-zinc-800/60 bg-zinc-900/60 p-1">
-              <TabsTrigger value="analytics" className="gap-1.5 text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-black"><BarChart2 className="h-3.5 w-3.5" />Analytics</TabsTrigger>
-              <TabsTrigger value="challenge" className="gap-1.5 text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-black"><Flame className="h-3.5 w-3.5" />Challenge</TabsTrigger>
             </TabsList>
           </Tabs>
         </TabsContent>
@@ -4323,7 +4317,7 @@ export default function AdminPage() {
           </div>
         </TabsContent>
 
-        {activeTab === "analytics-challenges" && analyticsTab === "analytics" && (
+        {activeTab === "analytics" && (
         <div className="space-y-6">
           <AdminAnalyticsTab />
         </div>
@@ -4333,8 +4327,12 @@ export default function AdminPage() {
           <FeatureFlagsTab />
         </TabsContent>
 
-        {activeTab === "analytics-challenges" && analyticsTab === "challenge" && (
+        {activeTab === "community-3-pointers" && (
         <div className="space-y-6">
+          <div>
+            <h2 className="text-xl font-semibold">Community 3 Pointers</h2>
+            <p className="text-sm text-muted-foreground">Review player submissions and community challenge activity.</p>
+          </div>
           <ChallengeVideosTab />
         </div>
         )}
@@ -4833,49 +4831,224 @@ function StatCard({ label, value, sub, icon: Icon }: { label: string; value: str
 }
 
 function AdminAnalyticsTab() {
+  const analyticsTabs = [
+    { value: "overview", label: "Overview", icon: BarChart2 },
+    { value: "business", label: "Business", icon: TrendingUp },
+    { value: "activity", label: "Activity", icon: Activity },
+    { value: "users", label: "Users", icon: Users },
+    { value: "areas", label: "Areas of the app", icon: Globe },
+    { value: "training", label: "Training", icon: Dumbbell },
+    { value: "community", label: "Community", icon: Users },
+    { value: "coach-p", label: "Coach P", icon: Calculator },
+    { value: "live", label: "Live", icon: Zap },
+  ] as const;
+
   return (
-    <div className="space-y-4" data-testid="section-analytics">
+    <div className="space-y-6" data-testid="section-analytics">
+      <div className="relative overflow-hidden rounded-2xl border border-orange-500/20 bg-gradient-to-br from-orange-500/15 via-zinc-950 to-zinc-950 p-6 shadow-2xl shadow-orange-950/20">
+        <div className="absolute -right-12 -top-16 h-48 w-48 rounded-full bg-orange-500/10 blur-3xl" />
+        <div className="relative">
+          <p className="mb-2 text-xs font-bold uppercase tracking-[0.22em] text-orange-400">PLAYR1 Intelligence</p>
+          <h2 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Know what is moving the game forward.</h2>
+          <p className="mt-2 max-w-2xl text-sm text-zinc-400">
+            One command center for growth, player behavior, training outcomes, community health, and Coach P performance.
+          </p>
+        </div>
+      </div>
+
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="flex flex-wrap h-auto gap-1 p-1 bg-muted/50">
-          <TabsTrigger value="overview" data-testid="tab-analytics-overview" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <BarChart2 className="w-4 h-4 mr-1.5" /> Overview
-          </TabsTrigger>
-          <TabsTrigger value="retention" data-testid="tab-analytics-retention" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <Flame className="w-4 h-4 mr-1.5" /> Retention
-          </TabsTrigger>
-          <TabsTrigger value="funnels" data-testid="tab-analytics-funnels" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <GitBranch className="w-4 h-4 mr-1.5" /> Funnels
-          </TabsTrigger>
-          <TabsTrigger value="users" data-testid="tab-analytics-users" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <Users className="w-4 h-4 mr-1.5" /> Users
-          </TabsTrigger>
-          <TabsTrigger value="content" data-testid="tab-analytics-content" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <Trophy className="w-4 h-4 mr-1.5" /> Content
-          </TabsTrigger>
-          <TabsTrigger value="coach-p" data-testid="tab-analytics-coach-p" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <Calculator className="w-4 h-4 mr-1.5" /> Coach P
-          </TabsTrigger>
-          <TabsTrigger value="journal" data-testid="tab-analytics-journal" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <MessageCircle className="w-4 h-4 mr-1.5" /> Journal
-          </TabsTrigger>
-          <TabsTrigger value="ai" data-testid="tab-analytics-ai" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <Lightbulb className="w-4 h-4 mr-1.5" /> AI Insights
-          </TabsTrigger>
-          <TabsTrigger value="live" data-testid="tab-analytics-live" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <Zap className="w-4 h-4 mr-1.5" /> Live
-          </TabsTrigger>
+        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-xl border border-zinc-800/80 bg-zinc-950/80 p-1.5">
+          {analyticsTabs.map(({ value, label, icon: Icon }) => (
+            <TabsTrigger
+              key={value}
+              value={value}
+              data-testid={`tab-analytics-${value}`}
+              className="gap-1.5 px-3 py-2 text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-black sm:text-sm"
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {label}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
         <TabsContent value="overview" className="mt-6"><OverviewSubTab /></TabsContent>
-        <TabsContent value="retention" className="mt-6"><RetentionSubTab /></TabsContent>
-        <TabsContent value="funnels" className="mt-6"><FunnelsSubTab /></TabsContent>
+        <TabsContent value="business" className="mt-6"><BusinessAnalyticsSubTab /></TabsContent>
+        <TabsContent value="activity" className="mt-6"><ActivityAnalyticsSubTab /></TabsContent>
         <TabsContent value="users" className="mt-6"><UsersSubTab /></TabsContent>
-        <TabsContent value="content" className="mt-6"><ContentSubTab /></TabsContent>
-        <TabsContent value="coach-p" className="mt-6"><CoachPAnalyticsSubTab /></TabsContent>
-        <TabsContent value="journal" className="mt-6"><JournalPromptAnalyticsSubTab /></TabsContent>
-        <TabsContent value="ai" className="mt-6"><AiInsightsSubTab /></TabsContent>
+        <TabsContent value="areas" className="mt-6"><AreasAnalyticsSubTab /></TabsContent>
+        <TabsContent value="training" className="mt-6"><ContentSubTab /></TabsContent>
+        <TabsContent value="community" className="mt-6"><CommunityAnalyticsSubTab /></TabsContent>
+        <TabsContent value="coach-p" className="mt-6"><CoachPAndJournalAnalyticsSubTab /></TabsContent>
         <TabsContent value="live" className="mt-6"><LiveActivitySubTab /></TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+function AnalyticsSectionIntro({ eyebrow, title, description }: { eyebrow: string; title: string; description: string }) {
+  return (
+    <div className="mb-5">
+      <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-400">{eyebrow}</p>
+      <h2 className="mt-1 text-xl font-semibold tracking-tight">{title}</h2>
+      <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{description}</p>
+    </div>
+  );
+}
+
+function BusinessAnalyticsSubTab() {
+  return (
+    <div className="space-y-6">
+      <AnalyticsSectionIntro
+        eyebrow="Business"
+        title="Revenue, costs, and sustainable growth"
+        description="This page is reserved for financial truth: revenue, conversion, CAC, LTV, payback period, refunds, and operating costs."
+      />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          ["Revenue", "Stripe billing data"],
+          ["Customer acquisition cost", "Campaign attribution"],
+          ["Lifetime value", "Cohort revenue"],
+          ["Operating costs", "AI and infrastructure"],
+        ].map(([label, source]) => (
+          <Card key={label} className="border-zinc-800/80 bg-zinc-950/50">
+            <CardContent className="p-5">
+              <p className="text-sm font-medium">{label}</p>
+              <p className="mt-2 text-xs text-muted-foreground">Source: {source}</p>
+              <Badge variant="outline" className="mt-4 border-orange-500/30 text-orange-400">Needs instrumentation</Badge>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      <Card className="border-orange-500/20 bg-orange-500/5">
+        <CardContent className="p-5">
+          <p className="text-sm font-medium">Recommended first pass</p>
+          <p className="mt-1 text-sm text-muted-foreground">Start with net revenue and active paid users from Stripe, then add acquisition source tracking before calculating CAC or LTV.</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function ActivityAnalyticsSubTab() {
+  const { data, isLoading } = useQuery<any>({ queryKey: ["/api/admin/analytics"] });
+  const totals = data?.totals;
+  return (
+    <div className="space-y-6">
+      <AnalyticsSectionIntro
+        eyebrow="Activity"
+        title="How often players come back and train"
+        description="Activity should combine app recency, frequency, breadth, and training signals rather than treating a single page view as a healthy player."
+      />
+      {isLoading ? <Skeleton className="h-32 w-full rounded-xl" /> : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard label="Active in 7 days" value={totals?.activeUsers7d ?? "—"} sub="unique users with app activity" icon={Activity} />
+          <StatCard label="Active in 30 days" value={totals?.activeUsers30d ?? "—"} sub="unique users with app activity" icon={TrendingUp} />
+          <StatCard label="Training logs" value={totals?.trainingLogs ?? "—"} sub="completed training entries" icon={Dumbbell} />
+          <StatCard label="Connections" value={totals?.connections ?? "—"} sub="friends and follows" icon={Users} />
+        </div>
+      )}
+      <div className="grid gap-4 md:grid-cols-3">
+        {[
+          ["High activity", "Active 7+ days in 28 days, or 4+ completed training logs.", "text-emerald-400"],
+          ["Medium activity", "Active 2–6 days in 28 days, or 1–3 completed training logs.", "text-amber-400"],
+          ["Low activity", "Active 0–1 days in 28 days with no recent training log.", "text-zinc-400"],
+        ].map(([label, rule, color]) => (
+          <Card key={label} className="border-zinc-800/80 bg-zinc-950/50">
+            <CardContent className="p-5">
+              <p className={`text-sm font-semibold ${color}`}>{label}</p>
+              <p className="mt-2 text-sm text-muted-foreground">{rule}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      <RetentionSubTab />
+    </div>
+  );
+}
+
+function AreasAnalyticsSubTab() {
+  const { data, isLoading } = useQuery<any>({ queryKey: ["/api/admin/analytics"] });
+  const topPages = data?.topPages ?? [];
+  const viewedDrills = data?.viewedDrills ?? [];
+  const viewedPrograms = data?.viewedPrograms ?? [];
+  return (
+    <div className="space-y-6">
+      <AnalyticsSectionIntro
+        eyebrow="Areas of the app"
+        title="Which screens and actions earn attention"
+        description="Use page views, unique users, and meaningful actions to understand what players actually use—not just what they open."
+      />
+      {isLoading ? <Skeleton className="h-80 w-full rounded-xl" /> : (
+        <div className="grid gap-5 lg:grid-cols-3">
+          {[
+            { title: "Most visited screens", rows: topPages, name: (row: any) => row.page, value: (row: any) => `${row.count.toLocaleString()} views` },
+            { title: "Most viewed drills", rows: viewedDrills, name: (row: any) => row.title, value: (row: any) => `${row.views.toLocaleString()} views` },
+            { title: "Most viewed programs", rows: viewedPrograms, name: (row: any) => row.name, value: (row: any) => `${row.views.toLocaleString()} views` },
+          ].map((section) => (
+            <Card key={section.title} className="border-zinc-800/80 bg-zinc-950/50">
+              <CardHeader className="pb-3"><CardTitle className="text-base">{section.title}</CardTitle></CardHeader>
+              <CardContent className="p-0">
+                {section.rows.length === 0 ? <p className="px-5 pb-5 text-sm text-muted-foreground">No usage data yet.</p> : (
+                  <div className="divide-y divide-zinc-800/70">
+                    {section.rows.slice(0, 8).map((row: any, index: number) => (
+                      <div key={row.id ?? row.page ?? index} className="flex items-center gap-3 px-5 py-3">
+                        <span className="w-5 text-xs text-muted-foreground">{index + 1}</span>
+                        <span className="min-w-0 flex-1 truncate text-sm">{section.name(row)}</span>
+                        <span className="shrink-0 text-xs font-medium text-orange-400">{section.value(row)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+      <Card className="border-orange-500/20 bg-orange-500/5">
+        <CardContent className="p-5">
+          <p className="text-sm font-medium">Next measurement layer</p>
+          <p className="mt-1 text-sm text-muted-foreground">Pair views with actions—starting a workout, saving a drill, joining a program, and completing a session—so popular does not get confused with useful.</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function CommunityAnalyticsSubTab() {
+  const { data, isLoading } = useQuery<any>({ queryKey: ["/api/admin/analytics"] });
+  const totals = data?.totals;
+  return (
+    <div className="space-y-6">
+      <AnalyticsSectionIntro
+        eyebrow="Community"
+        title="Connection, accountability, and discovery"
+        description="Track whether players are building a useful network: follows, friendships, feedback, challenges, and shared activity."
+      />
+      {isLoading ? <Skeleton className="h-32 w-full rounded-xl" /> : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard label="Connections" value={totals?.connections ?? "—"} sub="friend and follow relationships" icon={Users} />
+          <StatCard label="Feedback posts" value={totals?.feedbackPosts ?? "—"} sub="community accountability signals" icon={MessageCircle} />
+          <StatCard label="Challenge scores" value="—" sub="next community metric" icon={Trophy} />
+          <StatCard label="Friend activity" value="—" sub="next community metric" icon={Activity} />
+        </div>
+      )}
+      <Card className="border-orange-500/20 bg-orange-500/5">
+        <CardContent className="p-5">
+          <p className="text-sm font-medium">Community health definition</p>
+          <p className="mt-1 text-sm text-muted-foreground">A healthy community has repeat two-way relationships, useful shared activity, and challenge participation—not just a high follower count.</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function CoachPAndJournalAnalyticsSubTab() {
+  return (
+    <div className="space-y-8">
+      <CoachPAnalyticsSubTab />
+      <div className="border-t border-zinc-800/80 pt-8">
+        <JournalPromptAnalyticsSubTab />
+      </div>
     </div>
   );
 }

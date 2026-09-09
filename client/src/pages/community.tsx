@@ -1171,7 +1171,7 @@ export default function CommunityPage() {
   const [location, navigate] = useLocation();
   const search = useSearch();
   const { user } = useAuth();
-  const routeLocation = `${location}${search}`;
+  const routeLocation = search ? `${location}?${search}` : location;
   const [activeTab, setActiveTab] = useState<CommunityTab>(getTabFromLocation(routeLocation));
   const { data: requests = [] } = useQuery<any[]>({ queryKey: ["/api/friends/requests"], enabled: !!user });
   const { data: challengeInvites = [] } = useQuery<any[]>({ queryKey: ["/api/group-challenges/invites"], enabled: !!user });

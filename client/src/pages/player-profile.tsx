@@ -375,7 +375,7 @@ export function PlayerProfileSection() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setLocation(`/player/${profile?.slug || ""}?returnTo=${encodeURIComponent(`${location}${search}`)}`)}
+                onClick={() => setLocation(`/player/${profile?.slug || ""}?returnTo=${encodeURIComponent(search ? `${location}?${search}` : location)}`)}
                 data-testid="button-preview-profile"
               >
                 <ExternalLink className="h-4 w-4 mr-1" />
