@@ -4845,17 +4845,6 @@ function AdminAnalyticsTab() {
 
   return (
     <div className="space-y-6" data-testid="section-analytics">
-      <div className="relative overflow-hidden rounded-2xl border border-orange-500/20 bg-gradient-to-br from-orange-500/15 via-zinc-950 to-zinc-950 p-6 shadow-2xl shadow-orange-950/20">
-        <div className="absolute -right-12 -top-16 h-48 w-48 rounded-full bg-orange-500/10 blur-3xl" />
-        <div className="relative">
-          <p className="mb-2 text-xs font-bold uppercase tracking-[0.22em] text-orange-400">PLAYR1 Intelligence</p>
-          <h2 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Know what is moving the game forward.</h2>
-          <p className="mt-2 max-w-2xl text-sm text-zinc-400">
-            One command center for growth, player behavior, training outcomes, community health, and Coach P performance.
-          </p>
-        </div>
-      </div>
-
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-xl border border-zinc-800/80 bg-zinc-950/80 p-1.5">
           {analyticsTabs.map(({ value, label, icon: Icon }) => (
@@ -4896,37 +4885,268 @@ function AnalyticsSectionIntro({ eyebrow, title, description }: { eyebrow: strin
 }
 
 function BusinessAnalyticsSubTab() {
+  const { data, isLoading, isError, refetch } = useQuery<any>({
+    queryKey: ["/api/admin/analytics/business"],
+  });
+
+  const money = (value: number | null | undefined) =>
+    value == null ? "—" : `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const percent = (value: number | null | undefined) =>
+    value == null ? "—" : `${value.toFixed(1)}%`;
+
+  if (isLoading) {
+    return (
+      <div className="space-y-5">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{[1, 2, 3, 4].map((item) => <Skeleton key={item} className="h-32 rounded-2xl" />)}</div>
+        <div className="grid gap-5 lg:grid-cols-2">{[1, 2].map((item) => <Skeleton key={item} className="h-80 rounded-2xl" />)}</div>
+      </div>
+    );
+  }
+
+  if (isError || !data) {
+    return (
+      <Card className="border-red-500/30 bg-red-500/5">
+        <CardContent className="flex flex-col items-center gap-3 p-10 text-center">
+          <AlertTriangle className="h-8 w-8 text-red-400" />
+          <p className="font-semibold">Business analytics could not load</p>
+          <Button size="sm" variant="outline" onClick={() => refetch()}>Retry</Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const revenue = data.revenue || {};
+  const users = data.users || {};
+  const ltv = data.ltv || {};
+  const churn = data.churn || {};
+  const expenses = data.expenses || {};
+  const monthly = revenue.monthly || [];
+  const expenseCategories = (expenses.categories || []).filter((item: any) => item.amount != null);
+  const revenueMix = [
+    { name: "Paid users", value: Number(users.paid || 0), color: "#f97316" },
+    { name: "Free users", value: Number(users.free || 0), color: "#38bdf8" },
+    ...(Number(users.infinity || 0) > 0 ? [{ name: "Infinity access", value: Number(users.infinity), color: "#a855f7" }] : []),
+  ].filter((item) => item.value > 0);
+  const expenseMix = expenseCategories.map((item: any, index: number) => ({
+    name: item.label,
+    value: Number(item.amount || 0),
+    color: ["#f97316", "#ef4444", "#a855f7", "#38bdf8"][index % 4],
+  }));
+  const priceCards = (data.prices || []).map((price: any) => ({
+    ...price,
+    label: price.interval === "year" ? "Annual Pro" : "Monthly Pro",
+  }));
+  const activePrice = priceCards.find((price: any) => price.interval === "month") || priceCards[0];
+  const chartData = monthly.map((row: any) => ({
+    ...row,
+    label: row.month.slice(5),
+  }));
+  const hasRevenue = chartData.length > 0;
+  const hasExpenses = expenseMix.length > 0;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="section-business-analytics">
       <AnalyticsSectionIntro
         eyebrow="Business"
-        title="Revenue, costs, and sustainable growth"
-        description="This page is reserved for financial truth: revenue, conversion, CAC, LTV, payback period, refunds, and operating costs."
+        title="Revenue, retention, and the cost of growth"
+        description="Subscription economics in one place. Every metric is sourced from synced Stripe records, application usage, or clearly labeled estimates."
       />
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          ["Revenue", "Stripe billing data"],
-          ["Customer acquisition cost", "Campaign attribution"],
-          ["Lifetime value", "Cohort revenue"],
-          ["Operating costs", "AI and infrastructure"],
-        ].map(([label, source]) => (
-          <Card key={label} className="border-zinc-800/80 bg-zinc-950/50">
-            <CardContent className="p-5">
-              <p className="text-sm font-medium">{label}</p>
-              <p className="mt-2 text-xs text-muted-foreground">Source: {source}</p>
-              <Badge variant="outline" className="mt-4 border-orange-500/30 text-orange-400">Needs instrumentation</Badge>
-            </CardContent>
-          </Card>
-        ))}
+        <BusinessKpi label="Current MRR" value={money(revenue.currentMrr)} sub="active monthly subscriptions" icon={TrendingUp} accent="orange" />
+        <BusinessKpi label="Paid users" value={users.paid ?? "—"} sub={`${users.total ?? 0} total accounts`} icon={Star} accent="purple" />
+        <BusinessKpi label="LTV" value={ltv.dataAvailable ? money(ltv.estimatedLtv) : "—"} sub={ltv.dataAvailable ? `${Number(ltv.averagePaidMonths).toFixed(1)} avg paid months` : "Needs paid history"} icon={Trophy} accent="blue" />
+        <BusinessKpi label="30-day churn" value={percent(churn.churnRate30d)} sub={`${churn.churned30d ?? 0} churned subscriptions`} icon={TrendingDown} accent="red" />
       </div>
+
+      <div className="grid gap-5 lg:grid-cols-[1.35fr_0.65fr]">
+        <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50">
+          <CardHeader className="border-b border-zinc-800/70 pb-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <CardTitle className="text-base">Subscription revenue</CardTitle>
+                <p className="mt-1 text-xs text-muted-foreground">Paid invoices and active monthly recurring revenue</p>
+              </div>
+              <Badge className="border-emerald-400/20 bg-emerald-400/10 text-emerald-300">Stripe synced</Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4">
+            {!hasRevenue ? <BusinessEmptyState label="No paid subscription invoices yet" /> : (
+              <ResponsiveContainer width="100%" height={280}>
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                  <YAxis yAxisId="revenue" tickFormatter={(value) => `$${value}`} tick={{ fontSize: 11 }} />
+                  <YAxis yAxisId="users" orientation="right" allowDecimals={false} tick={{ fontSize: 11 }} />
+                  <Tooltip formatter={(value: any, name: string) => name === "Revenue" ? money(Number(value)) : `${value} users`} />
+                  <Line yAxisId="revenue" type="monotone" dataKey="revenue" name="Revenue" stroke="#f97316" strokeWidth={3} dot={{ r: 3, fill: "#f97316" }} />
+                  <Line yAxisId="users" type="monotone" dataKey="paidUsers" name="Paid users" stroke="#38bdf8" strokeWidth={2} dot={{ r: 3, fill: "#38bdf8" }} />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50">
+          <CardHeader className="border-b border-zinc-800/70 pb-4">
+            <CardTitle className="text-base">Free vs paid</CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">Account mix from application subscription state</p>
+          </CardHeader>
+          <CardContent className="p-4">
+            {revenueMix.length === 0 ? <BusinessEmptyState label="No account mix yet" /> : (
+              <>
+                <ResponsiveContainer width="100%" height={190}>
+                  <PieChart>
+                    <Pie data={revenueMix} dataKey="value" nameKey="name" innerRadius={52} outerRadius={78} paddingAngle={4} stroke="none">
+                      {revenueMix.map((item) => <Cell key={item.name} fill={item.color} />)}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="space-y-2">
+                  {revenueMix.map((item) => (
+                    <div key={item.name} className="flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />{item.name}</span>
+                      <span className="font-semibold">{item.value.toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50">
+          <CardHeader className="border-b border-zinc-800/70 pb-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <CardTitle className="text-base">PLAYR1 Pro pricing</CardTitle>
+                <p className="mt-1 text-xs text-muted-foreground">Active prices currently synced from Stripe</p>
+              </div>
+              {activePrice && <Badge variant="outline" className="border-orange-500/30 text-orange-300">{money(activePrice.amount)} / {activePrice.interval}</Badge>}
+            </div>
+          </CardHeader>
+          <CardContent className="grid gap-3 p-4 sm:grid-cols-2">
+            {priceCards.length === 0 ? <div className="sm:col-span-2"><BusinessEmptyState label="No active Stripe prices configured" /></div> : priceCards.map((price: any) => (
+              <div key={price.id} className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-orange-400">{price.label}</p>
+                <p className="mt-2 text-2xl font-bold">{money(price.amount)}<span className="text-sm font-normal text-muted-foreground"> / {price.interval}</span></p>
+                <p className="mt-2 truncate text-[11px] text-muted-foreground">{price.lookupKey || price.id}</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50">
+          <CardHeader className="border-b border-zinc-800/70 pb-4">
+            <CardTitle className="text-base">LTV & paid tenure</CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">Estimated from paid invoices and synced subscription history</p>
+          </CardHeader>
+          <CardContent className="space-y-4 p-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-xl bg-blue-500/10 p-4"><p className="text-xs text-blue-300">Average paid months</p><p className="mt-1 text-2xl font-bold">{ltv.dataAvailable ? Number(ltv.averagePaidMonths).toFixed(1) : "—"}</p></div>
+              <div className="rounded-xl bg-purple-500/10 p-4"><p className="text-xs text-purple-300">Revenue / paid user</p><p className="mt-1 text-2xl font-bold">{ltv.dataAvailable ? money(revenue.averageRevenuePerPaidUser) : "—"}</p></div>
+            </div>
+            <div className="rounded-xl border border-zinc-800/70 p-4">
+              <div className="flex items-center justify-between gap-3"><span className="text-sm font-medium">Estimated LTV</span><span className="text-xl font-bold text-orange-300">{ltv.dataAvailable ? money(ltv.estimatedLtv) : "—"}</span></div>
+              <p className="mt-2 text-xs text-muted-foreground">{ltv.dataAvailable ? "Average revenue per paid user multiplied by average paid tenure." : "LTV appears after Stripe subscription history and paid invoice data are available."}</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50">
+          <CardHeader className="border-b border-zinc-800/70 pb-4">
+            <CardTitle className="text-base">Expense mix</CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">Tracked and estimated operating costs over the last 12 months</p>
+          </CardHeader>
+          <CardContent className="p-4">
+            {!hasExpenses ? <BusinessEmptyState label="No tracked expense data yet" /> : (
+              <div className="grid gap-4 sm:grid-cols-[180px_1fr] sm:items-center">
+                <ResponsiveContainer width="100%" height={180}>
+                  <PieChart>
+                    <Pie data={expenseMix} dataKey="value" nameKey="name" innerRadius={48} outerRadius={72} paddingAngle={4} stroke="none">
+                      {expenseMix.map((item: { name: string; value: number; color: string }) => <Cell key={item.name} fill={item.color} />)}
+                    </Pie>
+                    <Tooltip formatter={(value: any) => money(Number(value))} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="space-y-3">
+                  {expenseCategories.map((item: any, index: number) => (
+                    <div key={item.key}>
+                      <div className="flex items-center justify-between gap-3 text-sm"><span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: expenseMix[index].color }} />{item.label}</span><span className="font-semibold">{money(item.amount)}</span></div>
+                      <p className="mt-1 text-[11px] text-muted-foreground">{item.note}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="mt-4 border-t border-zinc-800/70 pt-3 text-xs text-muted-foreground">Tracked / estimated total: <span className="font-semibold text-foreground">{money(expenses.tracked12Months)}</span></div>
+          </CardContent>
+        </Card>
+
+        <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50">
+          <CardHeader className="border-b border-zinc-800/70 pb-4">
+            <CardTitle className="text-base">Churn trend</CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">Canceled subscriptions by month</p>
+          </CardHeader>
+          <CardContent className="p-4">
+            {(churn.monthly || []).length === 0 ? <BusinessEmptyState label="No canceled subscription history yet" /> : (
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={(churn.monthly || []).map((row: any) => ({ ...row, label: row.month.slice(5) }))}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                  <Tooltip />
+                  <Bar dataKey="churnedUsers" name="Churned users" fill="#ef4444" radius={[5, 5, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
       <Card className="border-orange-500/20 bg-orange-500/5">
         <CardContent className="p-5">
-          <p className="text-sm font-medium">Recommended first pass</p>
-          <p className="mt-1 text-sm text-muted-foreground">Start with net revenue and active paid users from Stripe, then add acquisition source tracking before calculating CAC or LTV.</p>
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-orange-400" />
+            <div>
+              <p className="text-sm font-semibold">Expense coverage</p>
+              <p className="mt-1 text-sm text-muted-foreground">Coach P costs are tracked from token usage. Stripe fees are estimated. Replit hosting, object storage, and database usage require a billing/usage source that is not available through the app database yet.</p>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>
   );
+}
+
+function BusinessKpi({ label, value, sub, icon: Icon, accent }: { label: string; value: string | number; sub: string; icon: LucideIcon; accent: "orange" | "purple" | "blue" | "red" }) {
+  const styles = {
+    orange: "bg-orange-500/10 text-orange-300",
+    purple: "bg-purple-500/10 text-purple-300",
+    blue: "bg-sky-500/10 text-sky-300",
+    red: "bg-red-500/10 text-red-300",
+  };
+  return (
+    <Card className="border-zinc-800/80 bg-zinc-950/50">
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between gap-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
+          <div className={`rounded-lg p-2 ${styles[accent]}`}><Icon className="h-4 w-4" /></div>
+        </div>
+        <p className="mt-4 text-3xl font-bold tracking-tight">{value}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{sub}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function BusinessEmptyState({ label }: { label: string }) {
+  return <div className="flex min-h-40 items-center justify-center rounded-xl border border-dashed border-zinc-800 p-6 text-center text-sm text-muted-foreground">{label}</div>;
 }
 
 function ActivityAnalyticsSubTab() {

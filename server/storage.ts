@@ -129,6 +129,7 @@ export interface IStorage {
   // Admin
   isUserAdmin(userId: string): Promise<boolean>;
   setUserAdmin(userId: string, isAdmin: boolean): Promise<boolean>;
+  getAdminBusinessAnalytics(): Promise<any>;
 
   // Brand Principles
   getBrandPrinciples(): Promise<BrandPrinciples | null>;
@@ -4360,6 +4361,223 @@ export class DatabaseStorage {
         totalTokens: Number(row.total_tokens || 0),
         estimatedCostUsd: Number(row.estimated_cost_usd || 0),
       })),
+    };
+  }
+
+  async getAdminBusinessAnalytics(): Promise<any> {
+    const r = <T = any>(res: any): T[] => (res.rows ?? res) as T[];
+    const r1 = (res: any): any => r(res)[0] ?? {};
+    const monthKey = (value: unknown) => {
+      const date = value instanceof Date ? value : new Date(String(value));
+      return Number.isNaN(date.getTime()) ? String(value ?? "") : date.toISOString().slice(0, 7);
+    };
+
+    const planPrices = r(await db.execute(sql`
+      SELECT
+        pr.id,
+        pr.unit_amount,
+        pr.currency,
+        pr.recurring->>'interval' AS interval,
+        pr.lookup_key,
+        p.name AS product_name
+      FROM stripe.prices pr
+      LEFT JOIN stripe.products p ON p.id = pr.product
+      WHERE pr.active = true
+        AND (pr.metadata->>'playr1_plan' = 'pro' OR pr.lookup_key LIKE 'playr1_pro_%')
+      ORDER BY pr.unit_amount ASC
+    `));
+    const userMix = r1(await db.execute(sql`
+      SELECT
+        COUNT(*)::int AS total_users,
+        COUNT(*) FILTER (
+          WHERE subscription_plan = 'pro'
+            AND subscription_status IN ('active', 'trialing')
+        )::int AS paid_users,
+        COUNT(*) FILTER (WHERE subscription_plan = 'pro-infinity')::int AS infinity_users,
+        COUNT(*) FILTER (
+          WHERE subscription_plan IS NULL
+             OR subscription_plan = 'free'
+             OR (
+               subscription_plan = 'pro'
+               AND subscription_status NOT IN ('active', 'trialing')
+             )
+        )::int AS free_users
+      FROM users
+    `));
+    const currentMrr = r1(await db.execute(sql`
+      SELECT COALESCE(SUM(
+        CASE
+          WHEN pr.recurring->>'interval' = 'year'
+            THEN (pr.unit_amount * COALESCE(si.quantity, 1)) / 12.0
+          ELSE pr.unit_amount * COALESCE(si.quantity, 1)
+        END
+      ), 0)::double precision AS amount
+      FROM stripe.subscription_items si
+      JOIN stripe.subscriptions s ON s.id = si.subscription
+      JOIN stripe.prices pr ON pr.id = si.price
+      WHERE s.status IN ('active', 'trialing')
+        AND pr.recurring->>'interval' = 'month'
+    `));
+    const revenueByMonth = r(await db.execute(sql`
+      SELECT
+        DATE_TRUNC('month', TO_TIMESTAMP(created))::date AS month,
+        COALESCE(SUM(amount_paid), 0)::bigint AS revenue,
+        COUNT(*)::int AS invoices,
+        COUNT(DISTINCT customer)::int AS paid_users
+      FROM stripe.invoices
+      WHERE paid = true
+        AND amount_paid > 0
+        AND subscription IS NOT NULL
+        AND TO_TIMESTAMP(created) >= NOW() - INTERVAL '12 months'
+      GROUP BY month
+      ORDER BY month ASC
+    `));
+    const churnByMonth = r(await db.execute(sql`
+      SELECT
+        DATE_TRUNC('month', TO_TIMESTAMP(ended_at))::date AS month,
+        COUNT(*)::int AS churned_users
+      FROM stripe.subscriptions
+      WHERE ended_at IS NOT NULL
+        AND TO_TIMESTAMP(ended_at) >= NOW() - INTERVAL '12 months'
+      GROUP BY month
+      ORDER BY month ASC
+    `));
+    const paidTenure = r1(await db.execute(sql`
+      SELECT
+        COALESCE(AVG(
+          GREATEST(
+            1,
+            (COALESCE(ended_at, EXTRACT(EPOCH FROM NOW())::int) - created) / 2592000.0
+          )
+        ), 0)::double precision AS average_paid_months,
+        COUNT(*)::int AS subscription_count
+      FROM stripe.subscriptions
+      WHERE created IS NOT NULL
+        AND (metadata->>'playr1_plan' = 'pro' OR metadata->>'plan' = 'pro')
+    `));
+    const aiExpense = r1(await db.execute(sql`
+      SELECT COALESCE(SUM(estimated_cost_usd), 0)::double precision AS amount
+      FROM coach_p_requests
+      WHERE created_at >= NOW() - INTERVAL '12 months'
+    `));
+    const monthlyCosts = r(await db.execute(sql`
+      SELECT
+        DATE_TRUNC('month', created_at)::date AS month,
+        COALESCE(SUM(estimated_cost_usd), 0)::double precision AS ai_cost,
+        COUNT(*)::int AS ai_requests
+      FROM coach_p_requests
+      WHERE created_at >= NOW() - INTERVAL '12 months'
+      GROUP BY month
+      ORDER BY month ASC
+    `));
+    const churnSummary = r1(await db.execute(sql`
+      SELECT
+        COUNT(*) FILTER (
+          WHERE ended_at IS NOT NULL
+            AND TO_TIMESTAMP(ended_at) >= NOW() - INTERVAL '30 days'
+        )::int AS churned_30d,
+        COUNT(*) FILTER (
+          WHERE status IN ('active', 'trialing')
+             OR (ended_at IS NOT NULL AND TO_TIMESTAMP(ended_at) >= NOW() - INTERVAL '30 days')
+        )::int AS churn_base_30d
+      FROM stripe.subscriptions
+    `));
+
+    const revenue = revenueByMonth.map((row: any) => ({
+      month: monthKey(row.month),
+      revenue: Number(row.revenue || 0) / 100,
+      invoices: Number(row.invoices || 0),
+      paidUsers: Number(row.paid_users || 0),
+    }));
+    const aiCostsByMonth = new Map(monthlyCosts.map((row: any) => [
+      monthKey(row.month),
+      { amount: Number(row.ai_cost || 0), requests: Number(row.ai_requests || 0) },
+    ]));
+    const expensesByMonth = revenue.map((row) => {
+      const ai = aiCostsByMonth.get(row.month);
+      return {
+        month: row.month,
+        aiCalls: ai?.amount ?? 0,
+        aiRequests: ai?.requests ?? 0,
+        stripeFees: Number((row.revenue * 0.029 + row.invoices * 0.3).toFixed(2)),
+      };
+    });
+    const trailingRevenue = revenue.reduce((sum, row) => sum + row.revenue, 0);
+    const trailingPaidUserMonths = revenue.reduce((sum, row) => sum + row.paidUsers, 0);
+    const averageRevenuePerPaidUser = trailingPaidUserMonths ? trailingRevenue / trailingPaidUserMonths : 0;
+    const averagePaidMonths = Number(paidTenure.average_paid_months || 0);
+
+    return {
+      prices: planPrices.map((row: any) => ({
+        id: row.id,
+        productName: row.product_name || "PLAYR1 Pro",
+        amount: Number(row.unit_amount || 0) / 100,
+        currency: row.currency || "usd",
+        interval: row.interval || "unknown",
+        lookupKey: row.lookup_key,
+      })),
+      users: {
+        total: Number(userMix.total_users || 0),
+        paid: Number(userMix.paid_users || 0),
+        free: Number(userMix.free_users || 0),
+        infinity: Number(userMix.infinity_users || 0),
+      },
+      revenue: {
+        currentMrr: Number(currentMrr.amount || 0) / 100,
+        trailing12Months: trailingRevenue,
+        averageRevenuePerPaidUser,
+        monthly: revenue,
+      },
+      ltv: {
+        averagePaidMonths,
+        estimatedLtv: averageRevenuePerPaidUser * averagePaidMonths,
+        subscriptionCount: Number(paidTenure.subscription_count || 0),
+        dataAvailable: Number(paidTenure.subscription_count || 0) > 0 && trailingPaidUserMonths > 0,
+      },
+      churn: {
+        churned30d: Number(churnSummary.churned_30d || 0),
+        churnRate30d: Number(churnSummary.churn_base_30d || 0)
+          ? Number(((Number(churnSummary.churned_30d || 0) / Number(churnSummary.churn_base_30d || 0)) * 100).toFixed(1))
+          : null,
+        monthly: churnByMonth.map((row: any) => ({
+          month: monthKey(row.month),
+          churnedUsers: Number(row.churned_users || 0),
+        })),
+      },
+      expenses: {
+        tracked12Months: Number(aiExpense.amount || 0) + expensesByMonth.reduce((sum, row) => sum + row.stripeFees, 0),
+        categories: [
+          {
+            key: "ai",
+            label: "AI / Coach P calls",
+            amount: Number(aiExpense.amount || 0),
+            status: "tracked",
+            note: "Recorded token-cost estimates",
+          },
+          {
+            key: "stripe",
+            label: "Stripe processing",
+            amount: Number(expensesByMonth.reduce((sum, row) => sum + row.stripeFees, 0).toFixed(2)),
+            status: "estimated",
+            note: "Estimated at 2.9% + $0.30 per paid invoice",
+          },
+          {
+            key: "replit",
+            label: "Replit hosting",
+            amount: null,
+            status: "not_connected",
+            note: "Workspace billing data is not available in the app",
+          },
+          {
+            key: "storage",
+            label: "Object storage / database",
+            amount: null,
+            status: "not_connected",
+            note: "Usage billing data is not available in the app",
+          },
+        ],
+        monthly: expensesByMonth,
+      },
     };
   }
 

@@ -9222,6 +9222,18 @@ COACHING RULES:
     }
   });
 
+  app.get("/api/admin/analytics/business", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const adminCheck = await storage.isUserAdmin(userId);
+      if (!adminCheck) return res.status(403).json({ message: "Admins only" });
+      res.json(await storage.getAdminBusinessAnalytics());
+    } catch (err) {
+      console.error("Error getting business analytics:", err);
+      res.status(500).json({ message: "Failed to get business analytics" });
+    }
+  });
+
   app.get("/api/admin/analytics/coach-p", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user!.claims.sub;
