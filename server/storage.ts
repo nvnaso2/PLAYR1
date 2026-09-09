@@ -4456,6 +4456,16 @@ export class DatabaseStorage {
       GROUP BY month
       ORDER BY month ASC
     `));
+    const activeUsersByMonth = r(await db.execute(sql`
+      SELECT
+        DATE_TRUNC('month', created_at)::date AS month,
+        COUNT(DISTINCT user_id)::int AS active_users
+      FROM analytics_events
+      WHERE user_id IS NOT NULL
+        AND created_at >= NOW() - INTERVAL '12 months'
+      GROUP BY month
+      ORDER BY month ASC
+    `));
     const activeSubscriptionsByMonth = r(await db.execute(sql`
       WITH months AS (
         SELECT DATE_TRUNC('month', NOW()) - (n * INTERVAL '1 month') AS month
@@ -4567,12 +4577,14 @@ export class DatabaseStorage {
       },
     ]));
     const signupByMonthMap = new Map(signupsByMonth.map((row: any) => [monthKey(row.month), Number(row.signups || 0)]));
+    const activeUsersByMonthMap = new Map(activeUsersByMonth.map((row: any) => [monthKey(row.month), Number(row.active_users || 0)]));
     const activeSubscriptionsByMonthMap = new Map(activeSubscriptionsByMonth.map((row: any) => [monthKey(row.month), Number(row.active_subscriptions || 0)]));
     const churnByMonthMap = new Map(churnByMonth.map((row: any) => [monthKey(row.month), Number(row.churned_users || 0)]));
     const monthKeys = Array.from(new Set([
       ...revenueByMonthMap.keys(),
       ...aiCostsByMonth.keys(),
       ...signupByMonthMap.keys(),
+      ...activeUsersByMonthMap.keys(),
       ...activeSubscriptionsByMonthMap.keys(),
       ...churnByMonthMap.keys(),
     ])).sort();
@@ -4585,11 +4597,15 @@ export class DatabaseStorage {
         invoices: billing?.invoices ?? 0,
         paidUsers: billing?.paidUsers ?? 0,
         signups: signupByMonthMap.get(month) ?? 0,
+        activeUsers: activeUsersByMonthMap.get(month) ?? 0,
         activeSubscriptions: activeSubscriptionsByMonthMap.get(month) ?? 0,
         churnedSubscriptions: churnByMonthMap.get(month) ?? 0,
         aiCalls: ai?.amount ?? 0,
+        aiCost: ai?.amount ?? 0,
         aiRequests: ai?.requests ?? 0,
         stripeFees: Number(((billing?.revenue ?? 0) * 0.029 + (billing?.invoices ?? 0) * 0.3).toFixed(2)),
+        replitCost: null,
+        storageCost: null,
         totalExpenses: Number(((ai?.amount ?? 0) + (billing?.revenue ?? 0) * 0.029 + (billing?.invoices ?? 0) * 0.3).toFixed(2)),
       };
     });

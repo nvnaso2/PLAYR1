@@ -4900,19 +4900,19 @@ const SIMULATED_BUSINESS_ANALYTICS = {
     paidThisYear: 365,
     subscriptionsThisMonth: 321,
     subscriptionsThisYear: 2584,
-    monthly: [
-      { month: "2025-10", revenue: 1200, invoices: 128, paidUsers: 108, signups: 72, activeSubscriptions: 108, churnedSubscriptions: 8 },
-      { month: "2025-11", revenue: 1460, invoices: 139, paidUsers: 126, signups: 84, activeSubscriptions: 126, churnedSubscriptions: 7 },
-      { month: "2025-12", revenue: 1680, invoices: 153, paidUsers: 144, signups: 96, activeSubscriptions: 144, churnedSubscriptions: 10 },
-      { month: "2026-01", revenue: 1880, invoices: 169, paidUsers: 161, signups: 108, activeSubscriptions: 161, churnedSubscriptions: 9 },
-      { month: "2026-02", revenue: 2140, invoices: 187, paidUsers: 179, signups: 116, activeSubscriptions: 179, churnedSubscriptions: 14 },
-      { month: "2026-03", revenue: 2320, invoices: 201, paidUsers: 194, signups: 123, activeSubscriptions: 194, churnedSubscriptions: 11 },
-      { month: "2026-04", revenue: 2525, invoices: 218, paidUsers: 211, signups: 131, activeSubscriptions: 211, churnedSubscriptions: 15 },
-      { month: "2026-05", revenue: 2740, invoices: 237, paidUsers: 230, signups: 138, activeSubscriptions: 230, churnedSubscriptions: 13 },
-      { month: "2026-06", revenue: 2965, invoices: 255, paidUsers: 248, signups: 146, activeSubscriptions: 248, churnedSubscriptions: 16 },
-      { month: "2026-07", revenue: 3180, invoices: 276, paidUsers: 267, signups: 151, activeSubscriptions: 267, churnedSubscriptions: 14 },
-      { month: "2026-08", revenue: 3450, invoices: 298, paidUsers: 289, signups: 158, activeSubscriptions: 289, churnedSubscriptions: 13 },
-      { month: "2026-09", revenue: 3720.42, invoices: 321, paidUsers: 312, signups: 164, activeSubscriptions: 312, churnedSubscriptions: 12 },
+     monthly: [
+       { month: "2025-10", revenue: 1200, invoices: 128, paidUsers: 108, signups: 72, activeUsers: 520, activeSubscriptions: 108, churnedSubscriptions: 8 },
+       { month: "2025-11", revenue: 1460, invoices: 139, paidUsers: 126, signups: 84, activeUsers: 560, activeSubscriptions: 126, churnedSubscriptions: 7 },
+       { month: "2025-12", revenue: 1680, invoices: 153, paidUsers: 144, signups: 96, activeUsers: 600, activeSubscriptions: 144, churnedSubscriptions: 10 },
+       { month: "2026-01", revenue: 1880, invoices: 169, paidUsers: 161, signups: 108, activeUsers: 650, activeSubscriptions: 161, churnedSubscriptions: 9 },
+       { month: "2026-02", revenue: 2140, invoices: 187, paidUsers: 179, signups: 116, activeUsers: 700, activeSubscriptions: 179, churnedSubscriptions: 14 },
+       { month: "2026-03", revenue: 2320, invoices: 201, paidUsers: 194, signups: 123, activeUsers: 760, activeSubscriptions: 194, churnedSubscriptions: 11 },
+       { month: "2026-04", revenue: 2525, invoices: 218, paidUsers: 211, signups: 131, activeUsers: 820, activeSubscriptions: 211, churnedSubscriptions: 15 },
+       { month: "2026-05", revenue: 2740, invoices: 237, paidUsers: 230, signups: 138, activeUsers: 880, activeSubscriptions: 230, churnedSubscriptions: 13 },
+       { month: "2026-06", revenue: 2965, invoices: 255, paidUsers: 248, signups: 146, activeUsers: 940, activeSubscriptions: 248, churnedSubscriptions: 16 },
+       { month: "2026-07", revenue: 3180, invoices: 276, paidUsers: 267, signups: 151, activeUsers: 1000, activeSubscriptions: 267, churnedSubscriptions: 14 },
+       { month: "2026-08", revenue: 3450, invoices: 298, paidUsers: 289, signups: 158, activeUsers: 1080, activeSubscriptions: 289, churnedSubscriptions: 13 },
+       { month: "2026-09", revenue: 3720.42, invoices: 321, paidUsers: 312, signups: 164, activeUsers: 1160, activeSubscriptions: 312, churnedSubscriptions: 12 },
     ],
   },
   ltv: { averagePaidMonths: 9.1, estimatedLtv: 89.73, subscriptionCount: 388, dataAvailable: true },
@@ -4935,26 +4935,26 @@ const SIMULATED_BUSINESS_ANALYTICS = {
     ],
   },
   expenses: {
-    tracked12Months: 7994.38,
+     tracked12Months: 5894,
     categories: [
-      { key: "ai", label: "AI / Coach P calls", amount: 2874.38, status: "simulated", note: "Simulated token-cost estimates" },
-      { key: "stripe", label: "Stripe processing", amount: 3500, status: "simulated", note: "Simulated 2.9% + $0.30 per paid invoice" },
+       { key: "ai", label: "AI / Coach P calls", amount: 2674, status: "simulated", note: "Simulated token-cost estimates" },
+       { key: "stripe", label: "Stripe processing", amount: 1600, status: "simulated", note: "Simulated 2.9% + $0.30 per paid invoice" },
       { key: "replit", label: "Replit hosting", amount: 1280, status: "simulated", note: "Illustrative workspace hosting estimate" },
       { key: "storage", label: "Object storage / database", amount: 340, status: "simulated", note: "Illustrative storage and database estimate" },
     ],
     monthly: [
-      { month: "2025-10", aiCalls: 154, stripeFees: 73, totalExpenses: 227 },
-      { month: "2025-11", aiCalls: 168, stripeFees: 84, totalExpenses: 252 },
-      { month: "2025-12", aiCalls: 181, stripeFees: 95, totalExpenses: 276 },
-      { month: "2026-01", aiCalls: 196, stripeFees: 106, totalExpenses: 302 },
-      { month: "2026-02", aiCalls: 207, stripeFees: 116, totalExpenses: 323 },
-      { month: "2026-03", aiCalls: 220, stripeFees: 124, totalExpenses: 344 },
-      { month: "2026-04", aiCalls: 232, stripeFees: 136, totalExpenses: 368 },
-      { month: "2026-05", aiCalls: 245, stripeFees: 148, totalExpenses: 393 },
-      { month: "2026-06", aiCalls: 258, stripeFees: 160, totalExpenses: 418 },
-      { month: "2026-07", aiCalls: 268, stripeFees: 172, totalExpenses: 440 },
-      { month: "2026-08", aiCalls: 257, stripeFees: 188, totalExpenses: 445 },
-      { month: "2026-09", aiCalls: 288, stripeFees: 198, totalExpenses: 486 },
+       { month: "2025-10", aiCalls: 154, stripeFees: 73, replitCost: 80, storageCost: 18, totalExpenses: 325 },
+       { month: "2025-11", aiCalls: 168, stripeFees: 84, replitCost: 85, storageCost: 20, totalExpenses: 357 },
+       { month: "2025-12", aiCalls: 181, stripeFees: 95, replitCost: 90, storageCost: 22, totalExpenses: 388 },
+       { month: "2026-01", aiCalls: 196, stripeFees: 106, replitCost: 95, storageCost: 24, totalExpenses: 421 },
+       { month: "2026-02", aiCalls: 207, stripeFees: 116, replitCost: 100, storageCost: 26, totalExpenses: 449 },
+       { month: "2026-03", aiCalls: 220, stripeFees: 124, replitCost: 105, storageCost: 28, totalExpenses: 477 },
+       { month: "2026-04", aiCalls: 232, stripeFees: 136, replitCost: 110, storageCost: 30, totalExpenses: 508 },
+       { month: "2026-05", aiCalls: 245, stripeFees: 148, replitCost: 115, storageCost: 32, totalExpenses: 540 },
+       { month: "2026-06", aiCalls: 258, stripeFees: 160, replitCost: 120, storageCost: 34, totalExpenses: 572 },
+       { month: "2026-07", aiCalls: 268, stripeFees: 172, replitCost: 125, storageCost: 36, totalExpenses: 601 },
+       { month: "2026-08", aiCalls: 257, stripeFees: 188, replitCost: 130, storageCost: 36, totalExpenses: 611 },
+       { month: "2026-09", aiCalls: 288, stripeFees: 198, replitCost: 125, storageCost: 34, totalExpenses: 645 },
     ],
   },
 };
@@ -4967,7 +4967,6 @@ function BusinessAnalyticsSubTab() {
   const [kpiIndexes, setKpiIndexes] = useState({ revenue: 0, users: 0, ltv: 0, churn: 0 });
   const [performanceView, setPerformanceView] = useState<"money" | "subscriptions" | "churn">("money");
   const [expenseView, setExpenseView] = useState<"monthly" | "yearly">("yearly");
-  const [churnView, setChurnView] = useState<"signups" | "churn" | "active">("active");
 
   const money = (value: number | null | undefined) =>
     value == null ? "—" : `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -5020,17 +5019,29 @@ function BusinessAnalyticsSubTab() {
     ...price,
     label: price.interval === "year" ? "Annual Pro" : "Monthly Pro",
   }));
-  const activePrice = priceCards.find((price: any) => price.interval === "month") || priceCards[0];
-  const monthlyEquivalentPrice = activePrice ? (activePrice.interval === "year" ? Number(activePrice.amount) / 12 : Number(activePrice.amount)) : 0;
+  const monthlyPrice = priceCards.find((price: any) => price.interval === "month");
+  const annualPrice = priceCards.find((price: any) => price.interval === "year");
+  const activePrice = monthlyPrice || annualPrice || priceCards[0];
+  const monthlyEquivalentPrice = monthlyPrice ? Number(monthlyPrice.amount) : annualPrice ? Number(annualPrice.amount) / 12 : 0;
+  const annualMonthlyEquivalent = annualPrice ? Number(annualPrice.amount) / 12 : monthlyEquivalentPrice;
+  const annualSavingsPercent = monthlyPrice && annualPrice
+    ? Math.max(0, (1 - Number(annualPrice.amount) / (Number(monthlyPrice.amount) * 12)) * 100)
+    : 0;
   const estimatedStripeFeePerUser = monthlyEquivalentPrice * 0.029 + 0.3;
+  const estimatedAnnualStripeFeePerUser = annualPrice ? (Number(annualPrice.amount) * 0.029 + 0.3) / 12 : estimatedStripeFeePerUser;
   const estimatedAiCostPerUser = Number(expenseCategories.find((item: any) => item.key === "ai")?.amount || 0) / Math.max(Number(users.paid || 0), 1) / 12;
   const estimatedContribution = monthlyEquivalentPrice - estimatedStripeFeePerUser - estimatedAiCostPerUser;
+  const estimatedAnnualContribution = annualMonthlyEquivalent - estimatedAnnualStripeFeePerUser - estimatedAiCostPerUser;
   const chartData = monthly.map((row: any) => ({
     ...row,
     label: row.month.slice(5),
   }));
   const expenseData = (expenses.monthly || []).map((row: any) => ({
     ...row,
+    aiCost: Number(row.aiCost ?? row.aiCalls ?? 0),
+    stripeFees: Number(row.stripeFees || 0),
+    replitCost: row.replitCost == null ? null : Number(row.replitCost),
+    storageCost: row.storageCost == null ? null : Number(row.storageCost),
     totalExpenses: Number(row.totalExpenses ?? ((row.aiCalls || 0) + (row.stripeFees || 0))),
   }));
   const expenseByMonth = new Map<string, any>(expenseData.map((row: any) => [row.month, row] as [string, any]));
@@ -5092,6 +5103,15 @@ function BusinessAnalyticsSubTab() {
     return { ...row, totalExpenses, profit: Number(row.revenue || 0) - totalExpenses };
   });
   const monthlyExpenseChartData = expenseData.map((row: any) => ({ ...row, label: row.month.slice(5) }));
+  const hasMonthlyPlatformEstimates = expenseData.some((row: any) => row.replitCost != null || row.storageCost != null);
+  const monthlyExpenseSeries = [
+    { key: "aiCost", label: "AI / Coach P", color: "#a855f7" },
+    { key: "stripeFees", label: "Stripe", color: "#ef4444" },
+    ...(hasMonthlyPlatformEstimates ? [
+      { key: "replitCost", label: "Replit hosting", color: "#38bdf8" },
+      { key: "storageCost", label: "Storage / database", color: "#f97316" },
+    ] : []),
+  ];
   const hasPerformanceData = performanceData.length > 0;
   const hasRevenue = chartData.length > 0;
   const hasExpenses = expenseMix.length > 0;
@@ -5260,22 +5280,40 @@ function BusinessAnalyticsSubTab() {
               <>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {priceCards.map((price: any) => (
-                    <div key={price.id} className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-4">
-                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-orange-400">{price.label}</p>
+                     <div key={price.id} className={`rounded-xl border p-4 ${price.interval === "year" ? "border-emerald-400/30 bg-emerald-500/10" : "border-orange-500/20 bg-orange-500/5"}`}>
+                       <div className="flex items-center justify-between gap-2">
+                         <p className={`text-xs font-bold uppercase tracking-[0.16em] ${price.interval === "year" ? "text-emerald-300" : "text-orange-400"}`}>{price.label}</p>
+                         {price.interval === "year" && annualSavingsPercent > 0 && <Badge className="border-emerald-300/30 bg-emerald-400/15 text-[10px] text-emerald-200">Save {annualSavingsPercent.toFixed(0)}%</Badge>}
+                       </div>
                       <p className="mt-2 text-2xl font-bold">{money(price.amount)}<span className="text-sm font-normal text-muted-foreground"> / {price.interval}</span></p>
+                       {price.interval === "year" && <p className="mt-1 text-xs text-emerald-200/80">{money(annualMonthlyEquivalent)} per month equivalent</p>}
                       <p className="mt-2 truncate text-[11px] text-muted-foreground">{price.lookupKey || price.id}</p>
                     </div>
                   ))}
                 </div>
                 <div className="border-t border-zinc-800/70 pt-4">
-                  <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">Unit economics · monthly equivalent</p>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    <div className="rounded-lg bg-emerald-500/10 p-3"><p className="text-[11px] text-emerald-300">Gross price</p><p className="mt-1 font-semibold">{money(monthlyEquivalentPrice)}</p></div>
-                    <div className="rounded-lg bg-red-500/10 p-3"><p className="text-[11px] text-red-300">Stripe fee</p><p className="mt-1 font-semibold">{money(estimatedStripeFeePerUser)}</p></div>
-                    <div className="rounded-lg bg-purple-500/10 p-3"><p className="text-[11px] text-purple-300">AI cost / user</p><p className="mt-1 font-semibold">{money(estimatedAiCostPerUser)}</p></div>
-                    <div className="rounded-lg bg-orange-500/10 p-3"><p className="text-[11px] text-orange-300">Contribution</p><p className="mt-1 font-semibold">{money(estimatedContribution)}</p></div>
+                   <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">Unit economics · monthly equivalent</p>
+                   <div className="grid gap-3 sm:grid-cols-2">
+                     <div className="rounded-xl border border-orange-400/20 bg-orange-500/5 p-3">
+                       <p className="text-xs font-semibold text-orange-300">Monthly Pro</p>
+                       <div className="mt-3 grid grid-cols-2 gap-2">
+                         <div><p className="text-[11px] text-muted-foreground">Gross price</p><p className="mt-1 font-semibold">{money(monthlyEquivalentPrice)}</p></div>
+                         <div><p className="text-[11px] text-muted-foreground">Stripe fee</p><p className="mt-1 font-semibold">{money(estimatedStripeFeePerUser)}</p></div>
+                         <div><p className="text-[11px] text-muted-foreground">AI cost / user</p><p className="mt-1 font-semibold">{money(estimatedAiCostPerUser)}</p></div>
+                         <div><p className="text-[11px] text-muted-foreground">Contribution</p><p className="mt-1 font-semibold text-orange-200">{money(estimatedContribution)}</p></div>
+                       </div>
+                     </div>
+                     <div className="rounded-xl border border-emerald-400/20 bg-emerald-500/5 p-3">
+                       <p className="text-xs font-semibold text-emerald-300">Annual Pro · monthly equivalent</p>
+                       <div className="mt-3 grid grid-cols-2 gap-2">
+                         <div><p className="text-[11px] text-muted-foreground">Gross price</p><p className="mt-1 font-semibold">{money(annualMonthlyEquivalent)}</p></div>
+                         <div><p className="text-[11px] text-muted-foreground">Stripe fee</p><p className="mt-1 font-semibold">{money(estimatedAnnualStripeFeePerUser)}</p></div>
+                         <div><p className="text-[11px] text-muted-foreground">AI cost / user</p><p className="mt-1 font-semibold">{money(estimatedAiCostPerUser)}</p></div>
+                         <div><p className="text-[11px] text-muted-foreground">Contribution</p><p className="mt-1 font-semibold text-emerald-200">{money(estimatedAnnualContribution)}</p></div>
+                       </div>
+                     </div>
                   </div>
-                  <p className="mt-2 text-[11px] text-muted-foreground">Contribution is before Replit infrastructure costs and uses the current tracked/estimated AI cost run rate.</p>
+                   <p className="mt-2 text-[11px] text-muted-foreground">Annual economics spread the one-time yearly Stripe charge across 12 months. Contribution is before Replit infrastructure costs and uses the current tracked/estimated AI cost run rate.</p>
                 </div>
               </>
             )}
@@ -5317,15 +5355,34 @@ function BusinessAnalyticsSubTab() {
           <CardContent className="p-4">
             {!hasExpenses ? <BusinessEmptyState label="No tracked expense data yet" /> : expenseView === "monthly" ? (
               monthlyExpenseChartData.length === 0 ? <BusinessEmptyState label="No monthly expense data yet" /> : (
-                <ResponsiveContainer width="100%" height={245}>
-                  <BarChart data={monthlyExpenseChartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                    <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-                    <YAxis tickFormatter={(value) => `$${value}`} tick={{ fontSize: 11 }} />
-                    <Tooltip formatter={(value: any) => money(Number(value))} />
-                    <Bar dataKey="totalExpenses" name="Expenses" fill="#ef4444" radius={[5, 5, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                 <>
+                   <ResponsiveContainer width="100%" height={245}>
+                     <BarChart data={monthlyExpenseChartData}>
+                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                       <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                       <YAxis tickFormatter={(value) => `$${value}`} tick={{ fontSize: 11 }} />
+                       <Tooltip formatter={(value: any) => money(Number(value))} />
+                       {monthlyExpenseSeries.map((series, index) => (
+                         <Bar
+                           key={series.key}
+                           dataKey={series.key}
+                           name={series.label}
+                           stackId="expenses"
+                           fill={series.color}
+                           radius={index === monthlyExpenseSeries.length - 1 ? [5, 5, 0, 0] : [0, 0, 0, 0]}
+                         />
+                       ))}
+                     </BarChart>
+                   </ResponsiveContainer>
+                   <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
+                     {monthlyExpenseSeries.map((series) => (
+                       <span key={series.key} className="flex items-center gap-1.5">
+                         <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: series.color }} />
+                         {series.label}
+                       </span>
+                     ))}
+                   </div>
+                 </>
               )
             ) : (
               <div className="grid gap-4 sm:grid-cols-[180px_1fr] sm:items-center">
@@ -5355,39 +5412,37 @@ function BusinessAnalyticsSubTab() {
           <CardHeader className="border-b border-zinc-800/70 pb-4">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <CardTitle className="text-base">
-                  {churnView === "signups" ? "User signups" : churnView === "churn" ? "Churn trend" : "Active subscriptions vs churn"}
-                </CardTitle>
-                <p className="mt-1 text-xs text-muted-foreground">Compare acquisition, cancellations, and active subscription volume</p>
-              </div>
-              <div className="flex rounded-lg border border-zinc-800/80 p-0.5">
-                <Button size="sm" variant={churnView === "signups" ? "secondary" : "ghost"} className="h-7 px-2 text-[11px]" onClick={() => setChurnView("signups")}>Signups</Button>
-                <Button size="sm" variant={churnView === "churn" ? "secondary" : "ghost"} className="h-7 px-2 text-[11px]" onClick={() => setChurnView("churn")}>Churn</Button>
-                <Button size="sm" variant={churnView === "active" ? "secondary" : "ghost"} className="h-7 px-2 text-[11px]" onClick={() => setChurnView("active")}>Active vs churn</Button>
+                <CardTitle className="text-base">Active users, signups, and churn</CardTitle>
+                <p className="mt-1 text-xs text-muted-foreground">Total active app users with monthly additions and cancellations</p>
               </div>
             </div>
           </CardHeader>
           <CardContent className="p-4">
             {chartData.length === 0 ? <BusinessEmptyState label="No signup or subscription history yet" /> : (
               <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={chartData}>
+                <LineChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                   <XAxis dataKey="label" tick={{ fontSize: 11 }} />
                   <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
                   <Tooltip />
-                  {churnView === "signups" ? (
-                    <Bar dataKey="signups" name="New signups" fill="#a855f7" radius={[5, 5, 0, 0]} />
-                  ) : churnView === "churn" ? (
-                    <Bar dataKey="churnedSubscriptions" name="Churned subscriptions" fill="#ef4444" radius={[5, 5, 0, 0]} />
-                  ) : (
-                    <>
-                      <Bar dataKey="activeSubscriptions" name="Active subscriptions" fill="#38bdf8" radius={[5, 5, 0, 0]} />
-                      <Bar dataKey="churnedSubscriptions" name="Churned subscriptions" fill="#ef4444" radius={[5, 5, 0, 0]} />
-                    </>
-                  )}
-                </BarChart>
+                  <Line type="monotone" dataKey="activeUsers" name="Total active users" stroke="#38bdf8" strokeWidth={3} dot={{ r: 3, fill: "#38bdf8" }} />
+                  <Line type="monotone" dataKey="signups" name="New signups" stroke="#a855f7" strokeWidth={2.5} dot={{ r: 3, fill: "#a855f7" }} />
+                  <Line type="monotone" dataKey="churnedSubscriptions" name="Churned subscriptions" stroke="#ef4444" strokeWidth={2.5} dot={{ r: 3, fill: "#ef4444" }} />
+                </LineChart>
               </ResponsiveContainer>
             )}
+            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
+              {[
+                ["#38bdf8", "Total active users"],
+                ["#a855f7", "New signups"],
+                ["#ef4444", "Churned subscriptions"],
+              ].map(([color, label]) => (
+                <span key={label} className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
+                  {label}
+                </span>
+              ))}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -5431,17 +5486,29 @@ function BusinessKpi({
   onClick?: () => void;
 }) {
   const styles = {
-    orange: "bg-orange-500/10 text-orange-300",
-    purple: "bg-purple-500/10 text-purple-300",
-    blue: "bg-sky-500/10 text-sky-300",
-    red: "bg-red-500/10 text-red-300",
+    orange: {
+      card: "border-orange-400/45 bg-orange-500/10 shadow-[0_0_34px_-12px_rgba(249,115,22,0.95)] hover:border-orange-300/70 hover:bg-orange-500/15 hover:shadow-[0_0_42px_-10px_rgba(249,115,22,1)]",
+      icon: "bg-orange-500/20 text-orange-200",
+    },
+    purple: {
+      card: "border-purple-400/45 bg-purple-500/10 shadow-[0_0_34px_-12px_rgba(168,85,247,0.95)] hover:border-purple-300/70 hover:bg-purple-500/15 hover:shadow-[0_0_42px_-10px_rgba(168,85,247,1)]",
+      icon: "bg-purple-500/20 text-purple-200",
+    },
+    blue: {
+      card: "border-sky-400/45 bg-sky-500/10 shadow-[0_0_34px_-12px_rgba(56,189,248,0.95)] hover:border-sky-300/70 hover:bg-sky-500/15 hover:shadow-[0_0_42px_-10px_rgba(56,189,248,1)]",
+      icon: "bg-sky-500/20 text-sky-200",
+    },
+    red: {
+      card: "border-red-400/45 bg-red-500/10 shadow-[0_0_34px_-12px_rgba(239,68,68,0.95)] hover:border-red-300/70 hover:bg-red-500/15 hover:shadow-[0_0_42px_-10px_rgba(239,68,68,1)]",
+      icon: "bg-red-500/20 text-red-200",
+    },
   };
   const card = (
-    <Card className={`border-zinc-800/80 bg-zinc-950/50 ${onClick ? "transition hover:-translate-y-0.5 hover:border-orange-400/40 hover:bg-zinc-900/70" : ""}`}>
+    <Card className={`transition ${styles[accent].card} ${onClick ? "hover:-translate-y-0.5" : ""}`}>
       <CardContent className="p-5">
         <div className="flex items-start justify-between gap-3">
           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
-          <div className={`rounded-lg p-2 ${styles[accent]}`}><Icon className="h-4 w-4" /></div>
+          <div className={`rounded-lg p-2 ${styles[accent].icon}`}><Icon className="h-4 w-4" /></div>
         </div>
         <p className="mt-4 text-3xl font-bold tracking-tight">{value}</p>
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
