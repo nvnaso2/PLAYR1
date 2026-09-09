@@ -4416,7 +4416,6 @@ export class DatabaseStorage {
       JOIN stripe.subscriptions s ON s.id = si.subscription
       JOIN stripe.prices pr ON pr.id = si.price
       WHERE s.status IN ('active', 'trialing')
-        AND pr.recurring->>'interval' = 'month'
     `));
     const revenueByMonth = r(await db.execute(sql`
       SELECT
@@ -4431,6 +4430,22 @@ export class DatabaseStorage {
         AND TO_TIMESTAMP(created) >= NOW() - INTERVAL '12 months'
       GROUP BY month
       ORDER BY month ASC
+    `));
+    const revenueSummary = r1(await db.execute(sql`
+      SELECT
+        COALESCE(SUM(amount_paid) FILTER (
+          WHERE paid = true
+            AND amount_paid > 0
+            AND subscription IS NOT NULL
+            AND TO_TIMESTAMP(created) >= DATE_TRUNC('month', NOW())
+        ), 0)::bigint AS revenue_this_month,
+        COALESCE(SUM(amount_paid) FILTER (
+          WHERE paid = true
+            AND amount_paid > 0
+            AND subscription IS NOT NULL
+            AND TO_TIMESTAMP(created) >= DATE_TRUNC('year', NOW())
+        ), 0)::bigint AS revenue_this_year
+      FROM stripe.invoices
     `));
     const signupsByMonth = r(await db.execute(sql`
       SELECT
@@ -4575,6 +4590,7 @@ export class DatabaseStorage {
         aiCalls: ai?.amount ?? 0,
         aiRequests: ai?.requests ?? 0,
         stripeFees: Number(((billing?.revenue ?? 0) * 0.029 + (billing?.invoices ?? 0) * 0.3).toFixed(2)),
+        totalExpenses: Number(((ai?.amount ?? 0) + (billing?.revenue ?? 0) * 0.029 + (billing?.invoices ?? 0) * 0.3).toFixed(2)),
       };
     });
     const trailingRevenue = monthlyData.reduce((sum, row) => sum + row.revenue, 0);
@@ -4601,6 +4617,8 @@ export class DatabaseStorage {
         currentMrr: Number(currentMrr.amount || 0) / 100,
         trailing12Months: trailingRevenue,
         averageRevenuePerPaidUser,
+        thisMonth: Number(revenueSummary.revenue_this_month || 0) / 100,
+        thisYear: Number(revenueSummary.revenue_this_year || 0) / 100,
         monthly: monthlyData,
         paidThisMonth: Number(paidSummary.users_paid_this_month || 0),
         paidThisYear: Number(paidSummary.users_paid_this_year || 0),

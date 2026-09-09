@@ -61,7 +61,7 @@ import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText, Play, ChevronDown, GraduationCap, MapPin, ListFilter, X, BarChart2, TrendingUp, TrendingDown, Activity, UserCheck, Wrench, Flame, Lightbulb, Zap, Globe, AlertTriangle, Trophy, Target, GitBranch, Clock, ArrowDown, Flag, ToggleLeft, ToggleRight, UserPlus, Copy, RotateCcw, ExternalLink, MessageCircle, Dumbbell, type LucideIcon } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, AreaChart, Area, PieChart, Pie, Cell } from "recharts";
 import type { Drill, DrillCategory, DifficultyLevel, DrillMetric, VideoLibrary, PdfLibrary, MetricTemplate, Workout, WorkoutDrill, TrainingLocation, ShotLocationDB, ShotTypeDB } from "@shared/schema";
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, METRIC_TYPES, US_STATES } from "@shared/schema";
 import { Layers, GripVertical, Calendar, CalendarRange, Fingerprint } from "lucide-react";
@@ -4893,20 +4893,26 @@ const SIMULATED_BUSINESS_ANALYTICS = {
   revenue: {
     currentMrr: 2914.68,
     trailing12Months: 30780.42,
+    thisMonth: 3720.42,
+    thisYear: 24920.42,
     averageRevenuePerPaidUser: 9.86,
+    paidThisMonth: 312,
+    paidThisYear: 365,
+    subscriptionsThisMonth: 321,
+    subscriptionsThisYear: 2584,
     monthly: [
-      { month: "2025-10", revenue: 1200, invoices: 128, paidUsers: 108 },
-      { month: "2025-11", revenue: 1460, invoices: 139, paidUsers: 126 },
-      { month: "2025-12", revenue: 1680, invoices: 153, paidUsers: 144 },
-      { month: "2026-01", revenue: 1880, invoices: 169, paidUsers: 161 },
-      { month: "2026-02", revenue: 2140, invoices: 187, paidUsers: 179 },
-      { month: "2026-03", revenue: 2320, invoices: 201, paidUsers: 194 },
-      { month: "2026-04", revenue: 2525, invoices: 218, paidUsers: 211 },
-      { month: "2026-05", revenue: 2740, invoices: 237, paidUsers: 230 },
-      { month: "2026-06", revenue: 2965, invoices: 255, paidUsers: 248 },
-      { month: "2026-07", revenue: 3180, invoices: 276, paidUsers: 267 },
-      { month: "2026-08", revenue: 3450, invoices: 298, paidUsers: 289 },
-      { month: "2026-09", revenue: 3720.42, invoices: 321, paidUsers: 312 },
+      { month: "2025-10", revenue: 1200, invoices: 128, paidUsers: 108, signups: 72, activeSubscriptions: 108, churnedSubscriptions: 8 },
+      { month: "2025-11", revenue: 1460, invoices: 139, paidUsers: 126, signups: 84, activeSubscriptions: 126, churnedSubscriptions: 7 },
+      { month: "2025-12", revenue: 1680, invoices: 153, paidUsers: 144, signups: 96, activeSubscriptions: 144, churnedSubscriptions: 10 },
+      { month: "2026-01", revenue: 1880, invoices: 169, paidUsers: 161, signups: 108, activeSubscriptions: 161, churnedSubscriptions: 9 },
+      { month: "2026-02", revenue: 2140, invoices: 187, paidUsers: 179, signups: 116, activeSubscriptions: 179, churnedSubscriptions: 14 },
+      { month: "2026-03", revenue: 2320, invoices: 201, paidUsers: 194, signups: 123, activeSubscriptions: 194, churnedSubscriptions: 11 },
+      { month: "2026-04", revenue: 2525, invoices: 218, paidUsers: 211, signups: 131, activeSubscriptions: 211, churnedSubscriptions: 15 },
+      { month: "2026-05", revenue: 2740, invoices: 237, paidUsers: 230, signups: 138, activeSubscriptions: 230, churnedSubscriptions: 13 },
+      { month: "2026-06", revenue: 2965, invoices: 255, paidUsers: 248, signups: 146, activeSubscriptions: 248, churnedSubscriptions: 16 },
+      { month: "2026-07", revenue: 3180, invoices: 276, paidUsers: 267, signups: 151, activeSubscriptions: 267, churnedSubscriptions: 14 },
+      { month: "2026-08", revenue: 3450, invoices: 298, paidUsers: 289, signups: 158, activeSubscriptions: 289, churnedSubscriptions: 13 },
+      { month: "2026-09", revenue: 3720.42, invoices: 321, paidUsers: 312, signups: 164, activeSubscriptions: 312, churnedSubscriptions: 12 },
     ],
   },
   ltv: { averagePaidMonths: 9.1, estimatedLtv: 89.73, subscriptionCount: 388, dataAvailable: true },
@@ -4936,7 +4942,20 @@ const SIMULATED_BUSINESS_ANALYTICS = {
       { key: "replit", label: "Replit hosting", amount: 1280, status: "simulated", note: "Illustrative workspace hosting estimate" },
       { key: "storage", label: "Object storage / database", amount: 340, status: "simulated", note: "Illustrative storage and database estimate" },
     ],
-    monthly: [],
+    monthly: [
+      { month: "2025-10", aiCalls: 154, stripeFees: 73, totalExpenses: 227 },
+      { month: "2025-11", aiCalls: 168, stripeFees: 84, totalExpenses: 252 },
+      { month: "2025-12", aiCalls: 181, stripeFees: 95, totalExpenses: 276 },
+      { month: "2026-01", aiCalls: 196, stripeFees: 106, totalExpenses: 302 },
+      { month: "2026-02", aiCalls: 207, stripeFees: 116, totalExpenses: 323 },
+      { month: "2026-03", aiCalls: 220, stripeFees: 124, totalExpenses: 344 },
+      { month: "2026-04", aiCalls: 232, stripeFees: 136, totalExpenses: 368 },
+      { month: "2026-05", aiCalls: 245, stripeFees: 148, totalExpenses: 393 },
+      { month: "2026-06", aiCalls: 258, stripeFees: 160, totalExpenses: 418 },
+      { month: "2026-07", aiCalls: 268, stripeFees: 172, totalExpenses: 440 },
+      { month: "2026-08", aiCalls: 257, stripeFees: 188, totalExpenses: 445 },
+      { month: "2026-09", aiCalls: 288, stripeFees: 198, totalExpenses: 486 },
+    ],
   },
 };
 
@@ -4945,6 +4964,10 @@ function BusinessAnalyticsSubTab() {
     queryKey: ["/api/admin/analytics/business"],
   });
   const [showSimulated, setShowSimulated] = useState(false);
+  const [kpiIndexes, setKpiIndexes] = useState({ revenue: 0, users: 0, ltv: 0, churn: 0 });
+  const [performanceView, setPerformanceView] = useState<"money" | "subscriptions" | "churn">("money");
+  const [expenseView, setExpenseView] = useState<"monthly" | "yearly">("yearly");
+  const [churnView, setChurnView] = useState<"signups" | "churn" | "active">("active");
 
   const money = (value: number | null | undefined) =>
     value == null ? "—" : `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -4993,17 +5016,89 @@ function BusinessAnalyticsSubTab() {
     value: Number(item.amount || 0),
     color: ["#f97316", "#ef4444", "#a855f7", "#38bdf8"][index % 4],
   }));
-  const priceCards = (data.prices || []).map((price: any) => ({
+  const priceCards = (viewData.prices || []).map((price: any) => ({
     ...price,
     label: price.interval === "year" ? "Annual Pro" : "Monthly Pro",
   }));
   const activePrice = priceCards.find((price: any) => price.interval === "month") || priceCards[0];
+  const monthlyEquivalentPrice = activePrice ? (activePrice.interval === "year" ? Number(activePrice.amount) / 12 : Number(activePrice.amount)) : 0;
+  const estimatedStripeFeePerUser = monthlyEquivalentPrice * 0.029 + 0.3;
+  const estimatedAiCostPerUser = Number(expenseCategories.find((item: any) => item.key === "ai")?.amount || 0) / Math.max(Number(users.paid || 0), 1) / 12;
+  const estimatedContribution = monthlyEquivalentPrice - estimatedStripeFeePerUser - estimatedAiCostPerUser;
   const chartData = monthly.map((row: any) => ({
     ...row,
     label: row.month.slice(5),
   }));
+  const expenseData = (expenses.monthly || []).map((row: any) => ({
+    ...row,
+    totalExpenses: Number(row.totalExpenses ?? ((row.aiCalls || 0) + (row.stripeFees || 0))),
+  }));
+  const expenseByMonth = new Map<string, any>(expenseData.map((row: any) => [row.month, row] as [string, any]));
+  const currentMonth = chartData[chartData.length - 1];
+  const previousMonth = chartData[chartData.length - 2];
+  const currentYear = new Date().getFullYear().toString();
+  const yearRows = chartData.filter((row: any) => row.month.startsWith(currentYear));
+  const fallbackYearRows = yearRows.length > 0 ? yearRows : chartData;
+  const currentExpense = expenseByMonth.get(currentMonth?.month) as any;
+  const previousExpense = expenseByMonth.get(previousMonth?.month) as any;
+  const expensesThisMonth = currentExpense?.totalExpenses ?? 0;
+  const expensesThisYear = fallbackYearRows.reduce((sum: number, row: any) => sum + (expenseByMonth.get(row.month)?.totalExpenses ?? 0), 0);
+  const revenueThisMonth = Number(revenue.thisMonth ?? currentMonth?.revenue ?? 0);
+  const revenueThisYear = Number(revenue.thisYear ?? fallbackYearRows.reduce((sum: number, row: any) => sum + Number(row.revenue || 0), 0));
+  const profitThisMonth = revenueThisMonth - expensesThisMonth;
+  const profitThisYear = revenueThisYear - expensesThisYear;
+  const paidUsersThisMonth = Number(revenue.paidThisMonth ?? currentMonth?.paidUsers ?? users.paid ?? 0);
+  const paidUsersThisYear = Number(revenue.paidThisYear ?? fallbackYearRows.reduce((sum: number, row: any) => sum + Number(row.paidUsers || 0), 0));
+  const subscriptionsThisYear = Number(revenue.subscriptionsThisYear ?? fallbackYearRows.reduce((sum: number, row: any) => sum + Number(row.invoices || 0), 0));
+  const paidPercent = Number(users.total || 0) > 0 ? (Number(users.paid || 0) / Number(users.total)) * 100 : 0;
+  const previousTotalAccounts = Math.max(0, Number(users.total || 0) - Number(currentMonth?.signups || 0));
+  const previousPaidPercent = previousTotalAccounts > 0 ? (Number(previousMonth?.paidUsers || 0) / previousTotalAccounts) * 100 : 0;
+  const churnThisMonth = Number(currentMonth?.churnedSubscriptions ?? churn.churned30d ?? 0);
+  const churnThisYear = fallbackYearRows.reduce((sum: number, row: any) => sum + Number(row.churnedSubscriptions || 0), 0);
+  const churnRate = Number(churn.churnRate30d ?? (currentMonth?.activeSubscriptions ? (churnThisMonth / currentMonth.activeSubscriptions) * 100 : 0));
+  const previousChurnRate = previousMonth?.activeSubscriptions ? (Number(previousMonth.churnedSubscriptions || 0) / Number(previousMonth.activeSubscriptions)) * 100 : null;
+  const trendFor = (current: number | null | undefined, previous: number | null | undefined, inverse = false) => {
+    if (current == null || previous == null || previous === 0 || !Number.isFinite(current) || !Number.isFinite(previous)) return null;
+    const raw = ((current - previous) / Math.abs(previous)) * 100;
+    return { value: Math.abs(raw), positive: inverse ? raw <= 0 : raw >= 0 };
+  };
+  const revenueMetrics = [
+    { label: "Current MRR", value: money(revenue.currentMrr), sub: "active monthly recurring revenue", trend: trendFor(Number(revenue.currentMrr || 0), Number(previousMonth?.revenue || 0)), icon: TrendingUp },
+    { label: "Revenue this month", value: money(revenueThisMonth), sub: "paid invoices this month", trend: trendFor(revenueThisMonth, Number(previousMonth?.revenue || 0)), icon: TrendingUp },
+    { label: "Revenue this year", value: money(revenueThisYear), sub: "year-to-date paid revenue", trend: trendFor(revenueThisYear, Number(previousMonth?.revenue || 0)), icon: TrendingUp },
+    { label: "Profit this month", value: money(profitThisMonth), sub: "revenue less tracked expenses", trend: trendFor(profitThisMonth, Number(previousMonth?.revenue || 0) - Number(previousExpense?.totalExpenses || 0)), icon: TrendingUp },
+    { label: "Profit this year", value: money(profitThisYear), sub: "year-to-date revenue less expenses", trend: trendFor(profitThisYear, Number(previousMonth?.revenue || 0) - Number(previousExpense?.totalExpenses || 0)), icon: TrendingUp },
+  ];
+  const userMetrics = [
+    { label: "Paid users", value: Number(users.paid || 0).toLocaleString(), sub: "active paid accounts", trend: trendFor(Number(users.paid || 0), Number(previousMonth?.paidUsers || 0)), icon: Star },
+    { label: "Total accounts", value: Number(users.total || 0).toLocaleString(), sub: "all player accounts", trend: trendFor(Number(users.total || 0), previousTotalAccounts), icon: Users },
+    { label: "Paid user share", value: percent(paidPercent), sub: "paid users as % of accounts", trend: trendFor(paidPercent, previousPaidPercent), icon: Star },
+  ];
+  const ltvMetrics = [
+    { label: "LTV", value: ltv.dataAvailable ? money(ltv.estimatedLtv) : "—", sub: "estimated lifetime value", trend: trendFor(Number(ltv.estimatedLtv || 0), previousMonth?.paidUsers ? (Number(previousMonth.revenue || 0) / Number(previousMonth.paidUsers)) * Number(ltv.averagePaidMonths || 0) : null), icon: Trophy },
+    { label: "Avg paid months", value: ltv.dataAvailable ? Number(ltv.averagePaidMonths).toFixed(1) : "—", sub: "average paid lifetime", trend: null, icon: Clock },
+    { label: "Paid this month", value: paidUsersThisMonth.toLocaleString(), sub: "individual users with a payment", trend: trendFor(paidUsersThisMonth, Number(previousMonth?.paidUsers || 0)), icon: UserCheck },
+    { label: "Paid this year", value: paidUsersThisYear.toLocaleString(), sub: "individual users with a payment YTD", trend: trendFor(paidUsersThisYear, Number(previousMonth?.paidUsers || 0)), icon: UserCheck },
+    { label: "Subscriptions this year", value: subscriptionsThisYear.toLocaleString(), sub: "paid subscription invoices YTD", trend: trendFor(subscriptionsThisYear, Number(previousMonth?.invoices || 0)), icon: Calendar },
+  ];
+  const churnMetrics = [
+    { label: "Churn rate", value: percent(churnRate), sub: "subscriptions churned recently", trend: trendFor(churnRate, previousChurnRate, true), icon: TrendingDown },
+    { label: "Churned this month", value: churnThisMonth.toLocaleString(), sub: "canceled subscriptions", trend: trendFor(churnThisMonth, Number(previousMonth?.churnedSubscriptions || 0), true), icon: TrendingDown },
+    { label: "Churned this year", value: churnThisYear.toLocaleString(), sub: "canceled subscriptions YTD", trend: trendFor(churnThisYear, Number(previousMonth?.churnedSubscriptions || 0), true), icon: TrendingDown },
+  ];
+  const performanceData = chartData.map((row: any) => {
+    const expense = expenseByMonth.get(row.month);
+    const totalExpenses = Number(expense?.totalExpenses ?? row.totalExpenses ?? 0);
+    return { ...row, totalExpenses, profit: Number(row.revenue || 0) - totalExpenses };
+  });
+  const monthlyExpenseChartData = expenseData.map((row: any) => ({ ...row, label: row.month.slice(5) }));
+  const hasPerformanceData = performanceData.length > 0;
   const hasRevenue = chartData.length > 0;
   const hasExpenses = expenseMix.length > 0;
+  const selectedRevenueMetric = revenueMetrics[kpiIndexes.revenue];
+  const selectedUserMetric = userMetrics[kpiIndexes.users];
+  const selectedLtvMetric = ltvMetrics[kpiIndexes.ltv];
+  const selectedChurnMetric = churnMetrics[kpiIndexes.churn];
 
   return (
     <div className="space-y-6" data-testid="section-business-analytics">
@@ -5034,10 +5129,30 @@ function BusinessAnalyticsSubTab() {
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <BusinessKpi label="Current MRR" value={money(revenue.currentMrr)} sub="active monthly subscriptions" icon={TrendingUp} accent="orange" />
-        <BusinessKpi label="Paid users" value={users.paid ?? "—"} sub={`${users.total ?? 0} total accounts`} icon={Star} accent="purple" />
-        <BusinessKpi label="LTV" value={ltv.dataAvailable ? money(ltv.estimatedLtv) : "—"} sub={ltv.dataAvailable ? `${Number(ltv.averagePaidMonths).toFixed(1)} avg paid months` : "Needs paid history"} icon={Trophy} accent="blue" />
-        <BusinessKpi label="30-day churn" value={percent(churn.churnRate30d)} sub={`${churn.churned30d ?? 0} churned subscriptions`} icon={TrendingDown} accent="red" />
+        <BusinessKpi
+          {...selectedRevenueMetric}
+          accent="orange"
+          cycleHint={`${kpiIndexes.revenue + 1}/${revenueMetrics.length} · click to cycle`}
+          onClick={() => setKpiIndexes((current) => ({ ...current, revenue: (current.revenue + 1) % revenueMetrics.length }))}
+        />
+        <BusinessKpi
+          {...selectedUserMetric}
+          accent="purple"
+          cycleHint={`${kpiIndexes.users + 1}/${userMetrics.length} · click to cycle`}
+          onClick={() => setKpiIndexes((current) => ({ ...current, users: (current.users + 1) % userMetrics.length }))}
+        />
+        <BusinessKpi
+          {...selectedLtvMetric}
+          accent="blue"
+          cycleHint={`${kpiIndexes.ltv + 1}/${ltvMetrics.length} · click to cycle`}
+          onClick={() => setKpiIndexes((current) => ({ ...current, ltv: (current.ltv + 1) % ltvMetrics.length }))}
+        />
+        <BusinessKpi
+          {...selectedChurnMetric}
+          accent="red"
+          cycleHint={`${kpiIndexes.churn + 1}/${churnMetrics.length} · click to cycle`}
+          onClick={() => setKpiIndexes((current) => ({ ...current, churn: (current.churn + 1) % churnMetrics.length }))}
+        />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[1.35fr_0.65fr]">
@@ -5045,26 +5160,55 @@ function BusinessAnalyticsSubTab() {
           <CardHeader className="border-b border-zinc-800/70 pb-4">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <CardTitle className="text-base">Subscription revenue</CardTitle>
-                <p className="mt-1 text-xs text-muted-foreground">Paid invoices and active monthly recurring revenue</p>
+                <CardTitle className="text-base">Revenue, expense, and profit</CardTitle>
+                <p className="mt-1 text-xs text-muted-foreground">Switch between money, subscription volume, and churn signals</p>
               </div>
-              <Badge className={showSimulated ? "border-purple-300/30 bg-purple-400/20 text-purple-100" : "border-emerald-400/20 bg-emerald-400/10 text-emerald-300"}>
-                {showSimulated ? "Simulated preview" : "Stripe synced"}
-              </Badge>
+              <div className="flex rounded-lg border border-zinc-800/80 p-0.5">
+                {[
+                  ["money", "Money"],
+                  ["subscriptions", "Subscriptions"],
+                  ["churn", "Churn"],
+                ].map(([value, label]) => (
+                  <Button
+                    key={value}
+                    size="sm"
+                    variant={performanceView === value ? "secondary" : "ghost"}
+                    className="h-7 px-2 text-[11px]"
+                    onClick={() => setPerformanceView(value as "money" | "subscriptions" | "churn")}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
             </div>
           </CardHeader>
           <CardContent className="p-4">
-            {!hasRevenue ? <BusinessEmptyState label="No paid subscription invoices yet" /> : (
+            {!hasPerformanceData ? <BusinessEmptyState label="No business trend data yet" /> : (
               <ResponsiveContainer width="100%" height={280}>
-                <LineChart data={chartData}>
+                <AreaChart data={performanceData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                   <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-                  <YAxis yAxisId="revenue" tickFormatter={(value) => `$${value}`} tick={{ fontSize: 11 }} />
-                  <YAxis yAxisId="users" orientation="right" allowDecimals={false} tick={{ fontSize: 11 }} />
-                  <Tooltip formatter={(value: any, name: string) => name === "Revenue" ? money(Number(value)) : `${value} users`} />
-                  <Line yAxisId="revenue" type="monotone" dataKey="revenue" name="Revenue" stroke="#f97316" strokeWidth={3} dot={{ r: 3, fill: "#f97316" }} />
-                  <Line yAxisId="users" type="monotone" dataKey="paidUsers" name="Paid users" stroke="#38bdf8" strokeWidth={2} dot={{ r: 3, fill: "#38bdf8" }} />
-                </LineChart>
+                  <YAxis tickFormatter={(value) => performanceView === "money" ? `$${value}` : value.toLocaleString()} tick={{ fontSize: 11 }} />
+                  <Tooltip formatter={(value: any, name: string) => performanceView === "money" ? money(Number(value)) : `${Number(value).toLocaleString()} users`} />
+                  {performanceView === "money" ? (
+                    <>
+                      <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#22c55e" fill="#22c55e" fillOpacity={0.14} strokeWidth={2.5} />
+                      <Area type="monotone" dataKey="totalExpenses" name="Expenses" stroke="#ef4444" fill="#ef4444" fillOpacity={0.12} strokeWidth={2.5} />
+                      <Area type="monotone" dataKey="profit" name="Profit" stroke="#facc15" fill="#facc15" fillOpacity={0.18} strokeWidth={2.5} />
+                    </>
+                  ) : performanceView === "subscriptions" ? (
+                    <>
+                      <Area type="monotone" dataKey="activeSubscriptions" name="Active subscriptions" stroke="#22c55e" fill="#22c55e" fillOpacity={0.14} strokeWidth={2.5} />
+                      <Area type="monotone" dataKey="paidUsers" name="Paid users" stroke="#38bdf8" fill="#38bdf8" fillOpacity={0.12} strokeWidth={2.5} />
+                      <Area type="monotone" dataKey="signups" name="New signups" stroke="#a855f7" fill="#a855f7" fillOpacity={0.10} strokeWidth={2.5} />
+                    </>
+                  ) : (
+                    <>
+                      <Area type="monotone" dataKey="activeSubscriptions" name="Active subscriptions" stroke="#38bdf8" fill="#38bdf8" fillOpacity={0.12} strokeWidth={2.5} />
+                      <Area type="monotone" dataKey="churnedSubscriptions" name="Churned subscriptions" stroke="#ef4444" fill="#ef4444" fillOpacity={0.18} strokeWidth={2.5} />
+                    </>
+                  )}
+                </AreaChart>
               </ResponsiveContainer>
             )}
           </CardContent>
@@ -5111,14 +5255,30 @@ function BusinessAnalyticsSubTab() {
               {activePrice && <Badge variant="outline" className="border-orange-500/30 text-orange-300">{money(activePrice.amount)} / {activePrice.interval}</Badge>}
             </div>
           </CardHeader>
-          <CardContent className="grid gap-3 p-4 sm:grid-cols-2">
-            {priceCards.length === 0 ? <div className="sm:col-span-2"><BusinessEmptyState label="No active Stripe prices configured" /></div> : priceCards.map((price: any) => (
-              <div key={price.id} className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-orange-400">{price.label}</p>
-                <p className="mt-2 text-2xl font-bold">{money(price.amount)}<span className="text-sm font-normal text-muted-foreground"> / {price.interval}</span></p>
-                <p className="mt-2 truncate text-[11px] text-muted-foreground">{price.lookupKey || price.id}</p>
-              </div>
-            ))}
+          <CardContent className="space-y-4 p-4">
+            {priceCards.length === 0 ? <BusinessEmptyState label="No active Stripe prices configured" /> : (
+              <>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {priceCards.map((price: any) => (
+                    <div key={price.id} className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-4">
+                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-orange-400">{price.label}</p>
+                      <p className="mt-2 text-2xl font-bold">{money(price.amount)}<span className="text-sm font-normal text-muted-foreground"> / {price.interval}</span></p>
+                      <p className="mt-2 truncate text-[11px] text-muted-foreground">{price.lookupKey || price.id}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="border-t border-zinc-800/70 pt-4">
+                  <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">Unit economics · monthly equivalent</p>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <div className="rounded-lg bg-emerald-500/10 p-3"><p className="text-[11px] text-emerald-300">Gross price</p><p className="mt-1 font-semibold">{money(monthlyEquivalentPrice)}</p></div>
+                    <div className="rounded-lg bg-red-500/10 p-3"><p className="text-[11px] text-red-300">Stripe fee</p><p className="mt-1 font-semibold">{money(estimatedStripeFeePerUser)}</p></div>
+                    <div className="rounded-lg bg-purple-500/10 p-3"><p className="text-[11px] text-purple-300">AI cost / user</p><p className="mt-1 font-semibold">{money(estimatedAiCostPerUser)}</p></div>
+                    <div className="rounded-lg bg-orange-500/10 p-3"><p className="text-[11px] text-orange-300">Contribution</p><p className="mt-1 font-semibold">{money(estimatedContribution)}</p></div>
+                  </div>
+                  <p className="mt-2 text-[11px] text-muted-foreground">Contribution is before Replit infrastructure costs and uses the current tracked/estimated AI cost run rate.</p>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -5143,11 +5303,31 @@ function BusinessAnalyticsSubTab() {
       <div className="grid gap-5 lg:grid-cols-2">
         <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50">
           <CardHeader className="border-b border-zinc-800/70 pb-4">
-            <CardTitle className="text-base">Expense mix</CardTitle>
-            <p className="mt-1 text-xs text-muted-foreground">Tracked and estimated operating costs over the last 12 months</p>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <CardTitle className="text-base">{expenseView === "monthly" ? "Monthly expenses" : "Yearly expense mix"}</CardTitle>
+                <p className="mt-1 text-xs text-muted-foreground">{expenseView === "monthly" ? "Tracked expenses by month" : "Tracked and estimated operating costs over the last 12 months"}</p>
+              </div>
+              <div className="flex rounded-lg border border-zinc-800/80 p-0.5">
+                <Button size="sm" variant={expenseView === "monthly" ? "secondary" : "ghost"} className="h-7 px-2 text-[11px]" onClick={() => setExpenseView("monthly")}>Monthly</Button>
+                <Button size="sm" variant={expenseView === "yearly" ? "secondary" : "ghost"} className="h-7 px-2 text-[11px]" onClick={() => setExpenseView("yearly")}>Yearly</Button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="p-4">
-            {!hasExpenses ? <BusinessEmptyState label="No tracked expense data yet" /> : (
+            {!hasExpenses ? <BusinessEmptyState label="No tracked expense data yet" /> : expenseView === "monthly" ? (
+              monthlyExpenseChartData.length === 0 ? <BusinessEmptyState label="No monthly expense data yet" /> : (
+                <ResponsiveContainer width="100%" height={245}>
+                  <BarChart data={monthlyExpenseChartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                    <YAxis tickFormatter={(value) => `$${value}`} tick={{ fontSize: 11 }} />
+                    <Tooltip formatter={(value: any) => money(Number(value))} />
+                    <Bar dataKey="totalExpenses" name="Expenses" fill="#ef4444" radius={[5, 5, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )
+            ) : (
               <div className="grid gap-4 sm:grid-cols-[180px_1fr] sm:items-center">
                 <ResponsiveContainer width="100%" height={180}>
                   <PieChart>
@@ -5173,18 +5353,38 @@ function BusinessAnalyticsSubTab() {
 
         <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50">
           <CardHeader className="border-b border-zinc-800/70 pb-4">
-            <CardTitle className="text-base">Churn trend</CardTitle>
-            <p className="mt-1 text-xs text-muted-foreground">Canceled subscriptions by month</p>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <CardTitle className="text-base">
+                  {churnView === "signups" ? "User signups" : churnView === "churn" ? "Churn trend" : "Active subscriptions vs churn"}
+                </CardTitle>
+                <p className="mt-1 text-xs text-muted-foreground">Compare acquisition, cancellations, and active subscription volume</p>
+              </div>
+              <div className="flex rounded-lg border border-zinc-800/80 p-0.5">
+                <Button size="sm" variant={churnView === "signups" ? "secondary" : "ghost"} className="h-7 px-2 text-[11px]" onClick={() => setChurnView("signups")}>Signups</Button>
+                <Button size="sm" variant={churnView === "churn" ? "secondary" : "ghost"} className="h-7 px-2 text-[11px]" onClick={() => setChurnView("churn")}>Churn</Button>
+                <Button size="sm" variant={churnView === "active" ? "secondary" : "ghost"} className="h-7 px-2 text-[11px]" onClick={() => setChurnView("active")}>Active vs churn</Button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="p-4">
-            {(churn.monthly || []).length === 0 ? <BusinessEmptyState label="No canceled subscription history yet" /> : (
+            {chartData.length === 0 ? <BusinessEmptyState label="No signup or subscription history yet" /> : (
               <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={(churn.monthly || []).map((row: any) => ({ ...row, label: row.month.slice(5) }))}>
+                <BarChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                   <XAxis dataKey="label" tick={{ fontSize: 11 }} />
                   <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
                   <Tooltip />
-                  <Bar dataKey="churnedUsers" name="Churned users" fill="#ef4444" radius={[5, 5, 0, 0]} />
+                  {churnView === "signups" ? (
+                    <Bar dataKey="signups" name="New signups" fill="#a855f7" radius={[5, 5, 0, 0]} />
+                  ) : churnView === "churn" ? (
+                    <Bar dataKey="churnedSubscriptions" name="Churned subscriptions" fill="#ef4444" radius={[5, 5, 0, 0]} />
+                  ) : (
+                    <>
+                      <Bar dataKey="activeSubscriptions" name="Active subscriptions" fill="#38bdf8" radius={[5, 5, 0, 0]} />
+                      <Bar dataKey="churnedSubscriptions" name="Churned subscriptions" fill="#ef4444" radius={[5, 5, 0, 0]} />
+                    </>
+                  )}
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -5211,25 +5411,53 @@ function BusinessAnalyticsSubTab() {
   );
 }
 
-function BusinessKpi({ label, value, sub, icon: Icon, accent }: { label: string; value: string | number; sub: string; icon: LucideIcon; accent: "orange" | "purple" | "blue" | "red" }) {
+function BusinessKpi({
+  label,
+  value,
+  sub,
+  icon: Icon,
+  accent,
+  trend,
+  cycleHint,
+  onClick,
+}: {
+  label: string;
+  value: string | number;
+  sub: string;
+  icon: LucideIcon;
+  accent: "orange" | "purple" | "blue" | "red";
+  trend?: { value: number; positive: boolean } | null;
+  cycleHint?: string;
+  onClick?: () => void;
+}) {
   const styles = {
     orange: "bg-orange-500/10 text-orange-300",
     purple: "bg-purple-500/10 text-purple-300",
     blue: "bg-sky-500/10 text-sky-300",
     red: "bg-red-500/10 text-red-300",
   };
-  return (
-    <Card className="border-zinc-800/80 bg-zinc-950/50">
+  const card = (
+    <Card className={`border-zinc-800/80 bg-zinc-950/50 ${onClick ? "transition hover:-translate-y-0.5 hover:border-orange-400/40 hover:bg-zinc-900/70" : ""}`}>
       <CardContent className="p-5">
         <div className="flex items-start justify-between gap-3">
           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
           <div className={`rounded-lg p-2 ${styles[accent]}`}><Icon className="h-4 w-4" /></div>
         </div>
         <p className="mt-4 text-3xl font-bold tracking-tight">{value}</p>
-        <p className="mt-1 text-xs text-muted-foreground">{sub}</p>
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+          {trend ? (
+            <span className={trend.positive ? "flex items-center gap-1 font-semibold text-emerald-400" : "flex items-center gap-1 font-semibold text-red-400"}>
+              {trend.positive ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
+              {trend.value.toFixed(1)}% MoM
+            </span>
+          ) : <span className="text-muted-foreground">No prior trend</span>}
+          <span className="text-muted-foreground">{sub}</span>
+        </div>
+        {cycleHint && <p className="mt-3 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground/70">{cycleHint}</p>}
       </CardContent>
     </Card>
   );
+  return onClick ? <button type="button" className="block w-full text-left" onClick={onClick}>{card}</button> : card;
 }
 
 function BusinessEmptyState({ label }: { label: string }) {
