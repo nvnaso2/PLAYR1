@@ -4884,10 +4884,67 @@ function AnalyticsSectionIntro({ eyebrow, title, description }: { eyebrow: strin
   );
 }
 
+const SIMULATED_BUSINESS_ANALYTICS = {
+  prices: [
+    { id: "sim-pro-monthly", productName: "PLAYR1 Pro", amount: 9.99, currency: "usd", interval: "month", lookupKey: "simulated_playr1_pro_monthly" },
+    { id: "sim-pro-annual", productName: "PLAYR1 Pro", amount: 99.99, currency: "usd", interval: "year", lookupKey: "simulated_playr1_pro_annual" },
+  ],
+  users: { total: 1480, paid: 312, free: 1124, infinity: 44 },
+  revenue: {
+    currentMrr: 2914.68,
+    trailing12Months: 30780.42,
+    averageRevenuePerPaidUser: 9.86,
+    monthly: [
+      { month: "2025-10", revenue: 1200, invoices: 128, paidUsers: 108 },
+      { month: "2025-11", revenue: 1460, invoices: 139, paidUsers: 126 },
+      { month: "2025-12", revenue: 1680, invoices: 153, paidUsers: 144 },
+      { month: "2026-01", revenue: 1880, invoices: 169, paidUsers: 161 },
+      { month: "2026-02", revenue: 2140, invoices: 187, paidUsers: 179 },
+      { month: "2026-03", revenue: 2320, invoices: 201, paidUsers: 194 },
+      { month: "2026-04", revenue: 2525, invoices: 218, paidUsers: 211 },
+      { month: "2026-05", revenue: 2740, invoices: 237, paidUsers: 230 },
+      { month: "2026-06", revenue: 2965, invoices: 255, paidUsers: 248 },
+      { month: "2026-07", revenue: 3180, invoices: 276, paidUsers: 267 },
+      { month: "2026-08", revenue: 3450, invoices: 298, paidUsers: 289 },
+      { month: "2026-09", revenue: 3720.42, invoices: 321, paidUsers: 312 },
+    ],
+  },
+  ltv: { averagePaidMonths: 9.1, estimatedLtv: 89.73, subscriptionCount: 388, dataAvailable: true },
+  churn: {
+    churned30d: 12,
+    churnRate30d: 3.8,
+    monthly: [
+      { month: "2025-10", churnedUsers: 8 },
+      { month: "2025-11", churnedUsers: 7 },
+      { month: "2025-12", churnedUsers: 10 },
+      { month: "2026-01", churnedUsers: 9 },
+      { month: "2026-02", churnedUsers: 14 },
+      { month: "2026-03", churnedUsers: 11 },
+      { month: "2026-04", churnedUsers: 15 },
+      { month: "2026-05", churnedUsers: 13 },
+      { month: "2026-06", churnedUsers: 16 },
+      { month: "2026-07", churnedUsers: 14 },
+      { month: "2026-08", churnedUsers: 13 },
+      { month: "2026-09", churnedUsers: 12 },
+    ],
+  },
+  expenses: {
+    tracked12Months: 7994.38,
+    categories: [
+      { key: "ai", label: "AI / Coach P calls", amount: 2874.38, status: "simulated", note: "Simulated token-cost estimates" },
+      { key: "stripe", label: "Stripe processing", amount: 3500, status: "simulated", note: "Simulated 2.9% + $0.30 per paid invoice" },
+      { key: "replit", label: "Replit hosting", amount: 1280, status: "simulated", note: "Illustrative workspace hosting estimate" },
+      { key: "storage", label: "Object storage / database", amount: 340, status: "simulated", note: "Illustrative storage and database estimate" },
+    ],
+    monthly: [],
+  },
+};
+
 function BusinessAnalyticsSubTab() {
   const { data, isLoading, isError, refetch } = useQuery<any>({
     queryKey: ["/api/admin/analytics/business"],
   });
+  const [showSimulated, setShowSimulated] = useState(false);
 
   const money = (value: number | null | undefined) =>
     value == null ? "—" : `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -4903,23 +4960,27 @@ function BusinessAnalyticsSubTab() {
     );
   }
 
-  if (isError || !data) {
+  if ((isError || !data) && !showSimulated) {
     return (
       <Card className="border-red-500/30 bg-red-500/5">
         <CardContent className="flex flex-col items-center gap-3 p-10 text-center">
           <AlertTriangle className="h-8 w-8 text-red-400" />
           <p className="font-semibold">Business analytics could not load</p>
-          <Button size="sm" variant="outline" onClick={() => refetch()}>Retry</Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => refetch()}>Retry</Button>
+            <Button size="sm" onClick={() => setShowSimulated(true)}>Preview simulated data</Button>
+          </div>
         </CardContent>
       </Card>
     );
   }
 
-  const revenue = data.revenue || {};
-  const users = data.users || {};
-  const ltv = data.ltv || {};
-  const churn = data.churn || {};
-  const expenses = data.expenses || {};
+  const viewData = showSimulated ? SIMULATED_BUSINESS_ANALYTICS : data;
+  const revenue = viewData.revenue || {};
+  const users = viewData.users || {};
+  const ltv = viewData.ltv || {};
+  const churn = viewData.churn || {};
+  const expenses = viewData.expenses || {};
   const monthly = revenue.monthly || [];
   const expenseCategories = (expenses.categories || []).filter((item: any) => item.amount != null);
   const revenueMix = [
@@ -4946,11 +5007,31 @@ function BusinessAnalyticsSubTab() {
 
   return (
     <div className="space-y-6" data-testid="section-business-analytics">
-      <AnalyticsSectionIntro
-        eyebrow="Business"
-        title="Revenue, retention, and the cost of growth"
-        description="Subscription economics in one place. Every metric is sourced from synced Stripe records, application usage, or clearly labeled estimates."
-      />
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+        <AnalyticsSectionIntro
+          eyebrow="Business"
+          title="Revenue, retention, and the cost of growth"
+          description="Subscription economics in one place. Every metric is sourced from synced Stripe records, application usage, or clearly labeled estimates."
+        />
+        <Button
+          size="sm"
+          variant={showSimulated ? "default" : "outline"}
+          className={showSimulated ? "shrink-0 bg-orange-500 text-white hover:bg-orange-400" : "shrink-0"}
+          onClick={() => setShowSimulated((current) => !current)}
+        >
+          {showSimulated ? "Use live data" : "Preview simulated data"}
+        </Button>
+      </div>
+
+      {showSimulated && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-purple-400/30 bg-purple-500/10 px-4 py-3 text-sm">
+          <div>
+            <span className="font-semibold text-purple-200">Simulated preview active.</span>{" "}
+            <span className="text-purple-200/70">These values live only in this browser view and do not change Stripe or your database.</span>
+          </div>
+          <Badge className="shrink-0 border-purple-300/30 bg-purple-400/20 text-purple-100">DEMO DATA</Badge>
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <BusinessKpi label="Current MRR" value={money(revenue.currentMrr)} sub="active monthly subscriptions" icon={TrendingUp} accent="orange" />
@@ -4967,7 +5048,9 @@ function BusinessAnalyticsSubTab() {
                 <CardTitle className="text-base">Subscription revenue</CardTitle>
                 <p className="mt-1 text-xs text-muted-foreground">Paid invoices and active monthly recurring revenue</p>
               </div>
-              <Badge className="border-emerald-400/20 bg-emerald-400/10 text-emerald-300">Stripe synced</Badge>
+              <Badge className={showSimulated ? "border-purple-300/30 bg-purple-400/20 text-purple-100" : "border-emerald-400/20 bg-emerald-400/10 text-emerald-300"}>
+                {showSimulated ? "Simulated preview" : "Stripe synced"}
+              </Badge>
             </div>
           </CardHeader>
           <CardContent className="p-4">
@@ -5115,7 +5198,11 @@ function BusinessAnalyticsSubTab() {
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-orange-400" />
             <div>
               <p className="text-sm font-semibold">Expense coverage</p>
-              <p className="mt-1 text-sm text-muted-foreground">Coach P costs are tracked from token usage. Stripe fees are estimated. Replit hosting, object storage, and database usage require a billing/usage source that is not available through the app database yet.</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {showSimulated
+                  ? "All values in this preview are illustrative, including infrastructure costs. They are not written to the database."
+                  : "Coach P costs are tracked from token usage. Stripe fees are estimated. Replit hosting, object storage, and database usage require a billing/usage source that is not available through the app database yet."}
+              </p>
             </div>
           </div>
         </CardContent>
