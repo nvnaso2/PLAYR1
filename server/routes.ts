@@ -9293,6 +9293,20 @@ COACHING RULES:
     }
   });
 
+  app.get("/api/admin/analytics/users/:id/activity", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const adminCheck = await storage.isUserAdmin(userId);
+      if (!adminCheck) return res.status(403).json({ message: "Admins only" });
+      const profile = await storage.getAdminUserActivityProfile(req.params.id);
+      if (!profile) return res.status(404).json({ message: "User not found" });
+      res.json(profile);
+    } catch (err) {
+      console.error("Error getting user activity profile:", err);
+      res.status(500).json({ message: "Failed to get user activity profile" });
+    }
+  });
+
   // Funnel analysis (preset funnels: activation, booking, engagement)
   app.get("/api/admin/analytics/funnels", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {

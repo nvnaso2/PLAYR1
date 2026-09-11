@@ -5258,6 +5258,7 @@ export class DatabaseStorage {
    */
   async getEngagementScores(): Promise<{
     distribution: Array<{ bucket: string; count: number }>;
+    users: Array<{ userId: string; name: string; email: string; role: string; score: number; logs28d: number; currentStreak: number; daysSinceLast: number | null; appDays28d: number; appEvents28d: number; createdAt: string | null; signedUpDaysAgo: number | null }>;
     topUsers: Array<{ userId: string; name: string; email: string; role: string; score: number; logs28d: number; currentStreak: number; daysSinceLast: number | null }>;
     atRisk: Array<{ userId: string; name: string; email: string; role: string; score: number; logs28d: number; currentStreak: number; daysSinceLast: number | null }>;
     avgScore: number;
@@ -5295,6 +5296,7 @@ export class DatabaseStorage {
       metrics AS (
         SELECT
           u.id AS user_id,
+           u.created_at,
           u.first_name, u.last_name, u.email, u.role,
           a.last_seen_at,
           COALESCE(t.logs_28d, 0)::int AS logs_28d,
@@ -5311,6 +5313,7 @@ export class DatabaseStorage {
       )
       SELECT
         user_id,
+         created_at,
         TRIM(BOTH ' ' FROM COALESCE(first_name, '') || ' ' || COALESCE(last_name, '')) AS name,
         email,
         role,
@@ -5360,6 +5363,8 @@ export class DatabaseStorage {
 
       return {
         userId: String(row.user_id),
+         createdAt: row.created_at ? new Date(row.created_at).toISOString() : null,
+         signedUpDaysAgo: row.created_at ? Math.max(0, Math.floor((Date.now() - new Date(row.created_at).getTime()) / 86400000)) : null,
         name:   String(row.name || "—"),
         email:  String(row.email || ""),
         role:   String(row.role || "player"),
@@ -5385,6 +5390,7 @@ export class DatabaseStorage {
     }
 
     const topUsers = [...scored].sort((a, b) => b.score - a.score).slice(0, 20);
+    const users = [...scored].sort((a, b) => b.score - a.score || (a.daysSinceLast ?? 9999) - (b.daysSinceLast ?? 9999));
 
     // At-risk: used the app in the last 60 days but has not returned in 14+
     // days, with a low-to-mid engagement score.
@@ -5395,10 +5401,187 @@ export class DatabaseStorage {
 
     return {
       distribution: buckets.map(b => ({ bucket: b.name, count: b.count })),
+      users,
       topUsers,
       atRisk,
       avgScore: activeCount > 0 ? Math.round((totalScore / activeCount) * 10) / 10 : 0,
       activeUserCount: activeCount,
+    };
+  }
+
+  async getAdminUserActivityProfile(userId: string): Promise<any | null> {
+    const r = <T = any>(res: any): T[] => (res.rows ?? res) as T[];
+    const userRows = r(await db.execute(sql`
+      SELECT id, email, first_name, last_name, role, created_at
+      FROM users
+      WHERE id = ${userId}
+      LIMIT 1
+    `));
+    const user = userRows[0];
+    if (!user) return null;
+
+    const summaryRows = r(await db.execute(sql`
+      WITH ordered AS (
+        SELECT
+          created_at,
+          event,
+          page,
+          LAG(created_at) OVER (ORDER BY created_at ASC, id ASC) AS previous_at
+        FROM analytics_events
+        WHERE user_id = ${userId}
+      ),
+      marked AS (
+        SELECT *,
+          CASE WHEN previous_at IS NULL OR created_at - previous_at > INTERVAL '30 minutes' THEN 1 ELSE 0 END AS new_session
+        FROM ordered
+      ),
+      numbered AS (
+        SELECT *,
+          SUM(new_session) OVER (ORDER BY created_at ASC) AS session_no
+        FROM marked
+      ),
+      sessions AS (
+        SELECT
+          COUNT(*)::int AS sessions,
+          COALESCE(SUM(LEAST(EXTRACT(EPOCH FROM (MAX(created_at) - MIN(created_at))), 1800)), 0)::double precision AS estimated_seconds
+        FROM numbered
+        GROUP BY session_no
+      )
+      SELECT
+        COUNT(*)::int AS total_events,
+        COUNT(*) FILTER (WHERE event = 'page_view')::int AS page_views,
+        COUNT(*) FILTER (WHERE event NOT IN ('page_view', 'app_open', 'app_heartbeat'))::int AS actions,
+        COUNT(*) FILTER (WHERE event = 'app_open')::int AS app_opens,
+        COUNT(DISTINCT page)::int AS unique_pages,
+        COUNT(DISTINCT event)::int AS unique_event_types,
+        MIN(created_at) AS first_active_at,
+        MAX(created_at) AS last_active_at,
+        COALESCE((SELECT SUM(sessions) FROM sessions), 0)::int AS sessions,
+        COALESCE((SELECT SUM(estimated_seconds) FROM sessions), 0)::double precision AS estimated_seconds
+      FROM marked
+    `));
+    const summary = summaryRows[0] ?? {};
+
+    const recentRows = r(await db.execute(sql`
+      SELECT
+        COUNT(*)::int AS events,
+        COUNT(*) FILTER (WHERE event = 'page_view')::int AS page_views,
+        COUNT(*) FILTER (WHERE event NOT IN ('page_view', 'app_open', 'app_heartbeat'))::int AS actions,
+        COUNT(*) FILTER (WHERE event = 'app_open')::int AS opens,
+        COUNT(DISTINCT DATE(created_at))::int AS active_days,
+        COUNT(DISTINCT page)::int AS unique_pages
+      FROM analytics_events
+      WHERE user_id = ${userId}
+        AND created_at >= NOW() - INTERVAL '28 days'
+    `));
+    const recent = recentRows[0] ?? {};
+
+    const daily = r(await db.execute(sql`
+      SELECT
+        TO_CHAR(DATE(created_at), 'YYYY-MM-DD') AS day,
+        COUNT(*)::int AS events,
+        COUNT(*) FILTER (WHERE event NOT IN ('page_view', 'app_open', 'app_heartbeat'))::int AS actions,
+        COUNT(DISTINCT event)::int AS event_types
+      FROM analytics_events
+      WHERE user_id = ${userId}
+        AND created_at >= NOW() - INTERVAL '30 days'
+      GROUP BY DATE(created_at)
+      ORDER BY DATE(created_at) ASC
+    `));
+
+    const areas = r(await db.execute(sql`
+      SELECT
+        CASE
+          WHEN page ILIKE '/hub%' OR page ILIKE '/dashboard%' THEN 'Hub'
+          WHEN page ILIKE '/drill%' OR page ILIKE '/training%' OR page ILIKE '/workout%' OR page ILIKE '/program%' THEN 'Train'
+          WHEN page ILIKE '/coach-p%' OR page ILIKE '/journal%' THEN 'Learn & Coach'
+          WHEN page ILIKE '/community%' THEN 'Community'
+          WHEN page ILIKE '/my-trainer%' OR page ILIKE '/t/%' THEN 'Trainer'
+          WHEN page ILIKE '/event%' OR page ILIKE '/game-day%' OR page ILIKE '/compete%' THEN 'Compete'
+          WHEN page ILIKE '/career%' OR page ILIKE '/profile%' THEN 'Career'
+          WHEN page ILIKE '/project%' THEN 'Project'
+          ELSE 'Other'
+        END AS area,
+        COUNT(*)::int AS events,
+        COUNT(*) FILTER (WHERE event = 'page_view')::int AS page_views,
+        COUNT(*) FILTER (WHERE event NOT IN ('page_view', 'app_open', 'app_heartbeat'))::int AS actions
+      FROM analytics_events
+      WHERE user_id = ${userId}
+        AND created_at >= NOW() - INTERVAL '28 days'
+      GROUP BY 1
+      ORDER BY events DESC
+    `));
+
+    const topEvents = r(await db.execute(sql`
+      SELECT event, COUNT(*)::int AS count
+      FROM analytics_events
+      WHERE user_id = ${userId}
+        AND created_at >= NOW() - INTERVAL '28 days'
+      GROUP BY event
+      ORDER BY count DESC
+      LIMIT 8
+    `));
+    const topPages = r(await db.execute(sql`
+      SELECT COALESCE(page, 'Unknown') AS page, COUNT(*)::int AS views
+      FROM analytics_events
+      WHERE user_id = ${userId}
+        AND event = 'page_view'
+        AND created_at >= NOW() - INTERVAL '28 days'
+      GROUP BY page
+      ORDER BY views DESC
+      LIMIT 8
+    `));
+    const trainingRows = r(await db.execute(sql`
+      SELECT
+        COUNT(*) FILTER (WHERE completed_at >= NOW() - INTERVAL '28 days')::int AS logs_28d,
+        COUNT(*)::int AS logs_all_time,
+        COUNT(DISTINCT drill_id) FILTER (WHERE completed_at >= NOW() - INTERVAL '28 days')::int AS drills_28d
+      FROM training_logs
+      WHERE user_id = ${userId}
+    `));
+    const training = trainingRows[0] ?? {};
+
+    const engagement = await this.getEngagementScores();
+    const score = engagement.users.find((entry) => entry.userId === userId);
+    const daysSinceLast = score?.daysSinceLast ?? null;
+    const activityGrade = (score?.score ?? 0) >= 80 ? "A" : (score?.score ?? 0) >= 65 ? "B" : (score?.score ?? 0) >= 50 ? "C" : (score?.score ?? 0) >= 35 ? "D" : "F";
+
+    return {
+      user: {
+        id: String(user.id),
+        name: `${user.first_name || ""} ${user.last_name || ""}`.trim() || String(user.email || "Player"),
+        email: String(user.email || ""),
+        role: String(user.role || "player"),
+        createdAt: user.created_at ? new Date(user.created_at).toISOString() : null,
+      },
+      score: score?.score ?? 0,
+      grade: activityGrade,
+      daysSinceLast,
+      summary: {
+        totalEvents: Number(summary.total_events || 0),
+        pageViews: Number(summary.page_views || 0),
+        actions: Number(summary.actions || 0),
+        appOpens: Number(summary.app_opens || 0),
+        sessions: Number(summary.sessions || 0),
+        estimatedMinutes: Math.round(Number(summary.estimated_seconds || 0) / 60),
+        uniquePages: Number(summary.unique_pages || 0),
+        uniqueEventTypes: Number(summary.unique_event_types || 0),
+        firstActiveAt: summary.first_active_at,
+        lastActiveAt: summary.last_active_at,
+      },
+      recent: {
+        events: Number(recent.events || 0),
+        pageViews: Number(recent.page_views || 0),
+        actions: Number(recent.actions || 0),
+        opens: Number(recent.opens || 0),
+        activeDays: Number(recent.active_days || 0),
+        uniquePages: Number(recent.unique_pages || 0),
+      },
+      daily: daily.map((row: any) => ({ day: String(row.day), events: Number(row.events || 0), actions: Number(row.actions || 0), eventTypes: Number(row.event_types || 0) })),
+      areas: areas.map((row: any) => ({ area: String(row.area), events: Number(row.events || 0), pageViews: Number(row.page_views || 0), actions: Number(row.actions || 0) })),
+      topEvents: topEvents.map((row: any) => ({ event: String(row.event), count: Number(row.count || 0) })),
+      topPages: topPages.map((row: any) => ({ page: String(row.page), views: Number(row.views || 0) })),
+      training: { logs28d: Number(training.logs_28d || 0), logsAllTime: Number(training.logs_all_time || 0), drills28d: Number(training.drills_28d || 0) },
     };
   }
 

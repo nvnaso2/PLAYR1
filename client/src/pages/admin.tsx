@@ -59,7 +59,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText, Play, ChevronDown, GraduationCap, MapPin, ListFilter, X, BarChart2, TrendingUp, TrendingDown, Activity, UserCheck, Wrench, Flame, Lightbulb, Zap, Globe, AlertTriangle, Trophy, Target, GitBranch, Clock, LogIn, ArrowDown, Flag, ToggleLeft, ToggleRight, UserPlus, Copy, RotateCcw, ExternalLink, MessageCircle, Dumbbell, type LucideIcon } from "lucide-react";
+import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText, Play, ChevronDown, ChevronLeft, GraduationCap, MapPin, ListFilter, Search, X, BarChart2, TrendingUp, TrendingDown, Activity, UserCheck, Wrench, Flame, Lightbulb, Zap, Globe, AlertTriangle, Trophy, Target, GitBranch, Clock, LogIn, ArrowDown, Flag, ToggleLeft, ToggleRight, UserPlus, Copy, RotateCcw, ExternalLink, MessageCircle, Dumbbell, type LucideIcon } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, AreaChart, Area, PieChart, Pie, Cell } from "recharts";
 import type { Drill, DrillCategory, DifficultyLevel, DrillMetric, VideoLibrary, PdfLibrary, MetricTemplate, Workout, WorkoutDrill, TrainingLocation, ShotLocationDB, ShotTypeDB } from "@shared/schema";
@@ -6967,21 +6967,10 @@ type SegmentUser = {
 };
 
 function UsersSubTab() {
-  const [selected, setSelected] = useState<string | null>(null);
-
-  const { data, isLoading, isError, error, refetch } = useQuery<{
-    segments: Segment[];
-    totalUsers: number;
-    segmentDetails: Record<string, SegmentUser[]>;
-  }>({
-    queryKey: ["/api/admin/analytics/segments"],
-    queryFn: async () => {
-      const res = await apiRequest("GET", "/api/admin/analytics/segments");
-      return res.json();
-    },
-  });
-
-  const { data: engagement } = useQuery<any>({
+  const [view, setView] = useState<"all" | "engaged" | "risk" | "recent">("all");
+  const [search, setSearch] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const { data: engagement, isLoading, isError, error, refetch } = useQuery<any>({
     queryKey: ["/api/admin/analytics/engagement"],
     queryFn: async () => {
       const res = await apiRequest("GET", "/api/admin/analytics/engagement");
@@ -6992,126 +6981,193 @@ function UsersSubTab() {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {[1,2,3,4,5,6].map(i => <Skeleton key={i} className="h-24 rounded-xl" />)}
-        </div>
-        <Skeleton className="h-96 rounded-xl" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-28 rounded-2xl" />)}</div>
+        <Skeleton className="h-[520px] rounded-2xl" />
       </div>
     );
   }
 
-  if (isError || !data) {
+  if (isError || !engagement) {
     return (
-      <Card data-testid="segments-error-state">
+      <Card data-testid="users-error-state">
         <CardContent className="p-8 text-center space-y-3">
           <AlertTriangle className="w-8 h-8 text-orange-500 mx-auto" />
-          <p className="font-medium">Couldn't load segment data</p>
+          <p className="font-medium">Couldn't load user analytics</p>
           <p className="text-sm text-muted-foreground">{(error as Error)?.message || "Unknown error"}</p>
-          <Button size="sm" variant="outline" onClick={() => refetch()} data-testid="btn-retry-segments">Retry</Button>
+          <Button size="sm" variant="outline" onClick={() => refetch()} data-testid="btn-retry-users">Retry</Button>
         </CardContent>
       </Card>
     );
   }
 
-  const activeSegment = selected ? data.segments.find(s => s.key === selected) ?? null : null;
-  const activeUsers = selected ? data.segmentDetails[selected] ?? [] : [];
+  if (selectedUserId) {
+    return <UserActivityProfile userId={selectedUserId} onBack={() => setSelectedUserId(null)} />;
+  }
+
+  const users = engagement.users ?? [];
+  const atRiskIds = new Set((engagement.atRisk ?? []).map((user: any) => user.userId));
+  const recentSignups = [...users].filter((user: any) => user.signedUpDaysAgo != null && user.signedUpDaysAgo <= 30).sort((a: any, b: any) => (a.signedUpDaysAgo ?? 999) - (b.signedUpDaysAgo ?? 999));
+  const mostEngaged = [...users].sort((a: any, b: any) => b.score - a.score);
+  const viewUsers = view === "engaged"
+    ? mostEngaged
+    : view === "risk"
+      ? users.filter((user: any) => atRiskIds.has(user.userId))
+      : view === "recent"
+        ? recentSignups
+        : users;
+  const filteredUsers = viewUsers.filter((user: any) => {
+    const query = search.trim().toLowerCase();
+    return !query || `${user.name} ${user.email}`.toLowerCase().includes(query);
+  });
+  const scoreColor = (score: number) => score >= 70 ? "text-emerald-400" : score >= 40 ? "text-amber-300" : "text-red-400";
+  const gradeFor = (score: number) => score >= 80 ? "A" : score >= 65 ? "B" : score >= 50 ? "C" : score >= 35 ? "D" : "F";
+  const viewLabels = {
+    all: { label: "Every player", description: "Ranked by current engagement score" },
+    engaged: { label: "Most engaged", description: "Players creating the strongest activity loops" },
+    risk: { label: "At risk", description: "Previously active players who have started slipping" },
+    recent: { label: "Recently signed up", description: "Players who joined in the last 30 days" },
+  };
 
   return (
     <div className="space-y-6">
-      <div className="flex items-baseline justify-between">
-        <div>
-          <h2 className="text-lg font-semibold">User Segmentation</h2>
-          <p className="text-sm text-muted-foreground">
-            Every user is auto-grouped into one behavioral segment based on signup recency and 28-day app activity. Workout logs are shown separately. Click a segment to see who's in it.
-          </p>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          {data.totalUsers.toLocaleString()} total users
-        </p>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <BusinessKpi label="Total players" value={users.length.toLocaleString()} sub="every account in the system" icon={Users} accent="blue" />
+        <BusinessKpi label="Active players" value={Number(engagement.activeUserCount || 0).toLocaleString()} sub="activity in the last 28 days" icon={Activity} accent="orange" />
+        <BusinessKpi label="Avg engagement" value={`${Number(engagement.avgScore || 0).toFixed(1)}`} sub="score across active players" icon={TrendingUp} accent="purple" />
+        <BusinessKpi label="Recent signups" value={recentSignups.length.toLocaleString()} sub="joined in the last 30 days" icon={UserPlus} accent="red" />
       </div>
 
-      {/* Segment cards grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {data.segments.map(seg => (
-          <button
-            key={seg.key}
-            type="button"
-            onClick={() => setSelected(seg.key === selected ? null : seg.key)}
-            className={`text-left rounded-xl border p-4 transition-all hover-elevate active-elevate-2 ${
-              selected === seg.key ? "border-primary ring-2 ring-primary/30" : "border-border"
-            }`}
-            data-testid={`segment-card-${seg.key}`}
-          >
-            <div className="flex items-baseline justify-between mb-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="inline-block w-3 h-3 rounded-full shrink-0" style={{ background: seg.color }} />
-                <span className="font-semibold text-sm truncate">{seg.label}</span>
+      <div className="grid gap-5 lg:grid-cols-[1fr_310px]">
+        <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50">
+          <CardHeader className="border-b border-zinc-800/70 pb-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <CardTitle className="text-base">{viewLabels[view].label}</CardTitle>
+                <p className="mt-1 text-xs text-muted-foreground">{viewLabels[view].description} · click a player for their activity profile</p>
               </div>
-              <span className="text-xs text-muted-foreground shrink-0 ml-2">{seg.pct}%</span>
+              <div className="relative w-full lg:w-64">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search players..." className="h-9 w-full rounded-lg border border-zinc-800 bg-zinc-900/70 pl-9 pr-3 text-sm outline-none ring-orange-400/40 placeholder:text-muted-foreground focus:ring-2" />
+              </div>
             </div>
-            <p className="text-2xl font-bold mb-1">{seg.count.toLocaleString()}</p>
-            <p className="text-[11px] text-muted-foreground line-clamp-2">{seg.description}</p>
-          </button>
-        ))}
-      </div>
-
-      {/* Selected segment user list */}
-      {activeSegment && (
-        <Card data-testid={`segment-detail-${activeSegment.key}`}>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {(["all", "engaged", "risk", "recent"] as const).map((key) => (
+                <Button key={key} type="button" size="sm" variant={view === key ? "default" : "outline"} className={view === key ? "bg-orange-500 text-white hover:bg-orange-400" : ""} onClick={() => setView(key)}>
+                  {key === "all" ? "All players" : key === "engaged" ? "Most engaged" : key === "risk" ? "At risk" : "Recent signups"}
+                  <span className="ml-1.5 opacity-70">{key === "all" ? users.length : key === "engaged" ? mostEngaged.slice(0, 20).length : key === "risk" ? engagement.atRisk.length : recentSignups.length}</span>
+                </Button>
+              ))}
+            </div>
+          </CardHeader>
           <CardContent className="p-0">
-            <div className="p-4 border-b flex items-baseline justify-between">
-              <div className="min-w-0">
-                <h3 className="text-base font-semibold flex items-center gap-2">
-                  <span className="inline-block w-3 h-3 rounded-full" style={{ background: activeSegment.color }} />
-                  {activeSegment.label}
-                </h3>
-                <p className="text-xs text-muted-foreground">{activeSegment.description}</p>
-              </div>
-              <p className="text-xs text-muted-foreground shrink-0 ml-4">
-                Showing {Math.min(activeUsers.length, 50)} of {activeSegment.count.toLocaleString()}
-              </p>
+            <div className="max-h-[650px] overflow-y-auto">
+              {filteredUsers.length === 0 ? (
+                <div className="p-12 text-center text-sm text-muted-foreground">No players match this view.</div>
+              ) : filteredUsers.map((user: any, index: number) => (
+                <button key={user.userId} type="button" onClick={() => setSelectedUserId(user.userId)} className="flex w-full items-center gap-3 border-b border-zinc-800/70 px-4 py-3 text-left transition hover:bg-zinc-900/70" data-testid={`user-analytics-row-${user.userId}`}>
+                  <span className="w-7 text-center text-xs font-semibold text-muted-foreground">{index + 1}</span>
+                  <Avatar className="h-9 w-9 border border-zinc-700">
+                    <AvatarFallback className="bg-orange-500/15 text-xs text-orange-200">{(user.name || user.email || "?").slice(0, 2).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">{user.name || user.email}</p>
+                    <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+                  </div>
+                  <div className="hidden text-right sm:block">
+                    <p className="text-xs font-semibold">{user.appDays28d ?? 0} active days</p>
+                    <p className="text-[11px] text-muted-foreground">{user.daysSinceLast == null ? "Never active" : user.daysSinceLast < 1 ? "Active today" : `${Math.round(user.daysSinceLast)}d since active`}</p>
+                  </div>
+                  <div className="w-14 text-center">
+                    <p className={`text-xl font-black ${scoreColor(Number(user.score || 0))}`}>{Number(user.score || 0).toFixed(0)}</p>
+                    <p className="text-[10px] font-bold uppercase text-muted-foreground">Grade {gradeFor(Number(user.score || 0))}</p>
+                  </div>
+                  <ChevronDown className="h-4 w-4 -rotate-90 text-muted-foreground" />
+                </button>
+              ))}
             </div>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="pl-4">User</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead className="text-right">Joined</TableHead>
-                  <TableHead className="text-right">28d App Days</TableHead>
-                  <TableHead className="text-right">28d Logs</TableHead>
-                  <TableHead className="text-right">Last Active</TableHead>
-                  <TableHead className="text-right pr-4">Streak</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {activeUsers.length === 0 && (
-                  <TableRow><TableCell colSpan={7} className="text-center py-6 text-muted-foreground text-sm">No users in this segment.</TableCell></TableRow>
-                )}
-                {activeUsers.map(u => (
-                  <TableRow key={u.userId} data-testid={`segment-user-${u.userId}`}>
-                    <TableCell className="pl-4">
-                      <div className="font-medium text-sm">{u.name || u.email}</div>
-                      <div className="text-xs text-muted-foreground">{u.email}</div>
-                    </TableCell>
-                    <TableCell><Badge variant="outline" className="text-xs capitalize">{u.role}</Badge></TableCell>
-                    <TableCell className="text-right text-xs text-muted-foreground">{u.signedUpDaysAgo}d ago</TableCell>
-                    <TableCell className="text-right font-semibold">{u.appDays28d ?? 0}</TableCell>
-                    <TableCell className="text-right">{u.logs28d}</TableCell>
-                    <TableCell className="text-right text-xs text-muted-foreground">
-                      {u.lastActiveDaysAgo == null ? "Never" : `${u.lastActiveDaysAgo}d ago`}
-                    </TableCell>
-                    <TableCell className="text-right pr-4 text-xs">
-                      {u.currentStreak > 0 ? <span className="font-semibold text-orange-500">{u.currentStreak}d</span> : <span className="text-muted-foreground">—</span>}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
           </CardContent>
         </Card>
-      )}
 
-      {engagement && <EngagementAnalyticsSection engagement={engagement} />}
+        <Card className="border-orange-500/20 bg-gradient-to-b from-orange-500/10 via-zinc-950/70 to-purple-500/10">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base"><UserPlus className="h-4 w-4 text-orange-300" />Recent signups</CardTitle>
+            <p className="text-xs text-muted-foreground">Players who joined in the last 30 days.</p>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {recentSignups.slice(0, 8).map((user: any) => (
+              <button key={user.userId} type="button" onClick={() => setSelectedUserId(user.userId)} className="flex w-full items-center gap-3 rounded-xl border border-zinc-800/70 bg-zinc-950/40 p-2.5 text-left transition hover:border-orange-400/40 hover:bg-orange-500/5">
+                <Avatar className="h-8 w-8"><AvatarFallback className="bg-sky-500/15 text-[10px] text-sky-200">{(user.name || user.email || "?").slice(0, 2).toUpperCase()}</AvatarFallback></Avatar>
+                <div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold">{user.name || user.email}</p><p className="text-[11px] text-muted-foreground">{user.signedUpDaysAgo === 0 ? "Today" : `${user.signedUpDaysAgo}d ago`}</p></div>
+                <span className={`text-sm font-bold ${scoreColor(Number(user.score || 0))}`}>{Number(user.score || 0).toFixed(0)}</span>
+              </button>
+            ))}
+            {recentSignups.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">No recent signups.</p>}
+            <Button type="button" variant="ghost" className="mt-2 w-full text-xs text-orange-300 hover:text-orange-200" onClick={() => setView("recent")}>View all recent signups</Button>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function UserActivityProfile({ userId, onBack }: { userId: string; onBack: () => void }) {
+  const { data, isLoading, isError } = useQuery<any>({
+    queryKey: ["/api/admin/analytics/users", userId, "activity"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/admin/analytics/users/${userId}/activity`);
+      return res.json();
+    },
+  });
+
+  if (isLoading) return <div className="space-y-4"><Skeleton className="h-12 w-32 rounded-xl" /><Skeleton className="h-48 rounded-2xl" /><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-28 rounded-2xl" />)}</div><Skeleton className="h-80 rounded-2xl" /></div>;
+  if (isError || !data) return <Card><CardContent className="p-10 text-center"><p className="font-semibold">Couldn’t load this activity profile.</p><Button className="mt-4" variant="outline" onClick={onBack}>Back to users</Button></CardContent></Card>;
+
+  const scoreColor = data.score >= 70 ? "text-emerald-400" : data.score >= 40 ? "text-amber-300" : "text-red-400";
+  const gradeColor = data.grade === "A" ? "bg-emerald-400 text-emerald-950" : data.grade === "B" ? "bg-sky-400 text-sky-950" : data.grade === "C" ? "bg-amber-300 text-amber-950" : "bg-red-400 text-red-950";
+  const fmtDate = (value: string | null) => value ? new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "—";
+  const initials = (data.user.name || data.user.email || "?").slice(0, 2).toUpperCase();
+
+  return (
+    <div className="space-y-6">
+      <Button type="button" variant="ghost" className="-ml-3 text-muted-foreground hover:text-foreground" onClick={onBack}><ChevronLeft className="mr-1 h-4 w-4" />Back to all players</Button>
+      <Card className="overflow-hidden border-orange-500/25 bg-gradient-to-br from-orange-500/12 via-zinc-950/80 to-purple-500/10">
+        <CardContent className="relative p-6">
+          <div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-orange-500/10 blur-3xl" />
+          <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center">
+            <Avatar className="h-20 w-20 border-2 border-orange-400/40"><AvatarFallback className="bg-orange-500/20 text-xl text-orange-100">{initials}</AvatarFallback></Avatar>
+            <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h2 className="text-2xl font-bold">{data.user.name}</h2><Badge variant="outline" className="capitalize">{data.user.role}</Badge></div><p className="mt-1 text-sm text-muted-foreground">{data.user.email}</p><p className="mt-2 text-xs text-muted-foreground">Joined {fmtDate(data.user.createdAt)} · Last active {data.daysSinceLast == null ? "never" : data.daysSinceLast < 1 ? "today" : `${Math.round(data.daysSinceLast)} days ago`}</p></div>
+            <div className="flex items-center gap-4"><div className={`flex h-20 w-20 flex-col items-center justify-center rounded-full border-8 border-white/10 bg-zinc-950/40 ${scoreColor}`}><span className="text-2xl font-black">{Number(data.score).toFixed(0)}</span><span className="text-[9px] uppercase tracking-widest text-muted-foreground">score</span></div><span className={`rounded-lg px-3 py-1 text-lg font-black ${gradeColor}`}>{data.grade}</span></div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <BusinessKpi label="Total events" value={data.summary.totalEvents.toLocaleString()} sub={`${data.recent.events.toLocaleString()} in the last 28d`} icon={Activity} accent="orange" />
+        <BusinessKpi label="Meaningful actions" value={data.summary.actions.toLocaleString()} sub={`${data.recent.actions.toLocaleString()} in the last 28d`} icon={Zap} accent="purple" />
+        <BusinessKpi label="Estimated usage" value={`${data.summary.estimatedMinutes.toLocaleString()} min`} sub={`${data.summary.sessions.toLocaleString()} sessions`} icon={Clock} accent="blue" />
+        <BusinessKpi label="Active days" value={data.recent.activeDays.toLocaleString()} sub="of the last 28 days" icon={Calendar} accent="red" />
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-[1.3fr_0.7fr]">
+        <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50">
+          <CardHeader className="border-b border-zinc-800/70 pb-3"><CardTitle className="text-base">Activity over the last 30 days</CardTitle><p className="mt-1 text-xs text-muted-foreground">Daily events and meaningful actions reveal consistency, not just one busy session.</p></CardHeader>
+          <CardContent className="p-4"><ResponsiveContainer width="100%" height={280}><AreaChart data={data.daily}><CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} /><XAxis dataKey="day" tick={{ fontSize: 10 }} tickFormatter={(value) => value.slice(5)} /><YAxis allowDecimals={false} tick={{ fontSize: 10 }} /><Tooltip /><Area type="monotone" dataKey="events" stroke="#f97316" fill="#f97316" fillOpacity={0.18} strokeWidth={2} /><Area type="monotone" dataKey="actions" stroke="#a855f7" fill="#a855f7" fillOpacity={0.12} strokeWidth={2} /></AreaChart></ResponsiveContainer></CardContent>
+        </Card>
+        <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50">
+          <CardHeader className="border-b border-zinc-800/70 pb-3"><CardTitle className="text-base">Usage mix</CardTitle><p className="mt-1 text-xs text-muted-foreground">How this player spends their activity.</p></CardHeader>
+          <CardContent className="space-y-4 p-4">
+            {[["Page views", data.summary.pageViews, "#38bdf8"], ["Actions", data.summary.actions, "#a855f7"], ["App opens", data.summary.appOpens, "#f97316"]].map(([label, value, color]) => <div key={String(label)}><div className="mb-1 flex justify-between text-xs"><span>{label}</span><span className="font-semibold">{Number(value).toLocaleString()}</span></div><div className="h-2 overflow-hidden rounded-full bg-zinc-800"><div className="h-full rounded-full" style={{ width: `${Math.min(100, (Number(value) / Math.max(data.summary.totalEvents, 1)) * 100)}%`, background: color as string }} /></div></div>)}
+            <div className="grid grid-cols-2 gap-3 border-t border-zinc-800/70 pt-4 text-center"><div><p className="text-xl font-bold">{data.summary.uniquePages}</p><p className="text-[11px] text-muted-foreground">unique screens</p></div><div><p className="text-xl font-bold">{data.summary.uniqueEventTypes}</p><p className="text-[11px] text-muted-foreground">event types</p></div></div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50"><CardHeader className="border-b border-zinc-800/70 pb-3"><CardTitle className="text-base">Areas of the app</CardTitle><p className="mt-1 text-xs text-muted-foreground">The product areas this player is actually exploring.</p></CardHeader><CardContent className="p-4"><ResponsiveContainer width="100%" height={270}><BarChart data={data.areas.slice(0, 8)} layout="vertical" margin={{ left: 20, right: 20 }}><CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} /><XAxis type="number" allowDecimals={false} tick={{ fontSize: 10 }} /><YAxis type="category" dataKey="area" width={100} tick={{ fontSize: 10 }} /><Tooltip /><Bar dataKey="events" fill="#f97316" radius={[0, 6, 6, 0]} /></BarChart></ResponsiveContainer></CardContent></Card>
+        <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50"><CardHeader className="border-b border-zinc-800/70 pb-3"><CardTitle className="text-base">What they do most</CardTitle><p className="mt-1 text-xs text-muted-foreground">Top events and screens in the last 28 days.</p></CardHeader><CardContent className="grid gap-5 p-4 sm:grid-cols-2"><div><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Events</p><div className="space-y-2">{data.topEvents.map((item: any, index: number) => <div key={item.event} className="flex items-center gap-2 text-xs"><span className="w-4 text-muted-foreground">{index + 1}</span><span className="min-w-0 flex-1 truncate font-mono">{item.event}</span><span className="font-semibold text-orange-300">{item.count}</span></div>)}</div></div><div><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Screens</p><div className="space-y-2">{data.topPages.map((item: any, index: number) => <div key={item.page} className="flex items-center gap-2 text-xs"><span className="w-4 text-muted-foreground">{index + 1}</span><span className="min-w-0 flex-1 truncate">{item.page}</span><span className="font-semibold text-sky-300">{item.views}</span></div>)}</div></div></CardContent></Card>
+      </div>
+
+      <Card className="border-orange-500/20 bg-orange-500/5"><CardContent className="flex flex-wrap items-center justify-between gap-4 p-5"><div><p className="font-semibold">Training contribution</p><p className="mt-1 text-xs text-muted-foreground">Workout behavior is a secondary signal in the engagement score.</p></div><div className="flex gap-6 text-right"><div><p className="text-xl font-bold">{data.training.logs28d}</p><p className="text-[11px] text-muted-foreground">logs in 28d</p></div><div><p className="text-xl font-bold">{data.training.drills28d}</p><p className="text-[11px] text-muted-foreground">drills in 28d</p></div><div><p className="text-xl font-bold">{data.training.logsAllTime}</p><p className="text-[11px] text-muted-foreground">all-time logs</p></div></div></CardContent></Card>
     </div>
   );
 }
