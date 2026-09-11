@@ -25,6 +25,25 @@ export function track(event: string, metadata?: Record<string, any>): void {
  */
 export function usePageViewTracking(): void {
   const [location] = useLocation();
+
+  useEffect(() => {
+    let sessionId = "";
+    try {
+      sessionId = sessionStorage.getItem("playr1-analytics-session") ?? "";
+      if (!sessionId) {
+        sessionId = crypto.randomUUID();
+        sessionStorage.setItem("playr1-analytics-session", sessionId);
+      }
+    } catch {
+      sessionId = "browser-session";
+    }
+
+    const metadata = { sessionId };
+    track("app_open", metadata);
+    const heartbeat = window.setInterval(() => track("app_heartbeat", metadata), 60_000);
+    return () => window.clearInterval(heartbeat);
+  }, []);
+
   useEffect(() => {
     track("page_view", { path: location });
   }, [location]);

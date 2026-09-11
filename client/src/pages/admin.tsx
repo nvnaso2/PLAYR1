@@ -59,7 +59,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText, Play, ChevronDown, GraduationCap, MapPin, ListFilter, X, BarChart2, TrendingUp, TrendingDown, Activity, UserCheck, Wrench, Flame, Lightbulb, Zap, Globe, AlertTriangle, Trophy, Target, GitBranch, Clock, ArrowDown, Flag, ToggleLeft, ToggleRight, UserPlus, Copy, RotateCcw, ExternalLink, MessageCircle, Dumbbell, type LucideIcon } from "lucide-react";
+import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText, Play, ChevronDown, GraduationCap, MapPin, ListFilter, X, BarChart2, TrendingUp, TrendingDown, Activity, UserCheck, Wrench, Flame, Lightbulb, Zap, Globe, AlertTriangle, Trophy, Target, GitBranch, Clock, LogIn, ArrowDown, Flag, ToggleLeft, ToggleRight, UserPlus, Copy, RotateCcw, ExternalLink, MessageCircle, Dumbbell, type LucideIcon } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, AreaChart, Area, PieChart, Pie, Cell } from "recharts";
 import type { Drill, DrillCategory, DifficultyLevel, DrillMetric, VideoLibrary, PdfLibrary, MetricTemplate, Workout, WorkoutDrill, TrainingLocation, ShotLocationDB, ShotTypeDB } from "@shared/schema";
@@ -5491,37 +5491,242 @@ function BusinessEmptyState({ label }: { label: string }) {
 }
 
 function ActivityAnalyticsSubTab() {
-  const { data, isLoading } = useQuery<any>({ queryKey: ["/api/admin/analytics"] });
-  const totals = data?.totals;
+  const [selectedPeriod, setSelectedPeriod] = useState("30d");
+  const { data, isLoading, isError, refetch } = useQuery<any>({
+    queryKey: ["/api/admin/analytics/activity", selectedPeriod],
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/api/admin/analytics/activity?period=${encodeURIComponent(selectedPeriod)}`);
+      return response.json();
+    },
+  });
+  const periods = data?.periods ?? [];
+  const selected = periods.find((period: any) => period.key === selectedPeriod) ?? periods[2];
+  const number = (value: number | null | undefined) => Number(value || 0).toLocaleString();
+  const minutes = (value: number | null | undefined) => `${Number(value || 0).toLocaleString()} min`;
+  const tierStyles: Record<string, { label: string; text: string; bar: string }> = {
+    low: { label: "Low", text: "text-zinc-300", bar: "bg-zinc-500" },
+    medium: { label: "Medium", text: "text-amber-300", bar: "bg-amber-400" },
+    high: { label: "High", text: "text-emerald-300", bar: "bg-emerald-400" },
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-5">
+        <Skeleton className="h-20 w-full rounded-2xl" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{[1, 2, 3, 4, 5, 6].map((item) => <Skeleton key={item} className="h-28 rounded-2xl" />)}</div>
+        <Skeleton className="h-96 w-full rounded-2xl" />
+      </div>
+    );
+  }
+
+  if (isError || !selected) {
+    return (
+      <Card className="border-red-500/30 bg-red-500/5">
+        <CardContent className="flex flex-col items-center gap-3 p-10 text-center">
+          <AlertTriangle className="h-8 w-8 text-red-400" />
+          <p className="font-semibold">Activity analytics could not load</p>
+          <Button size="sm" variant="outline" onClick={() => refetch()}>Retry</Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const cohortRows = ["low", "medium", "high"].map((key) => ({
+    key,
+    ...tierStyles[key],
+    ...(selected.cohorts?.[key] ?? {}),
+  }));
+
   return (
     <div className="space-y-6">
       <AnalyticsSectionIntro
         eyebrow="Activity"
-        title="How often players come back and train"
-        description="Activity should combine app recency, frequency, breadth, and training signals rather than treating a single page view as a healthy player."
+        title="How the entire app is being used"
+        description="Measure returning users, openings, app actions, and estimated time in the product. Choose a time window to see the activity mix and the areas players use most."
       />
-      {isLoading ? <Skeleton className="h-32 w-full rounded-xl" /> : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard label="Active in 7 days" value={totals?.activeUsers7d ?? "—"} sub="unique users with app activity" icon={Activity} />
-          <StatCard label="Active in 30 days" value={totals?.activeUsers30d ?? "—"} sub="unique users with app activity" icon={TrendingUp} />
-          <StatCard label="Training logs" value={totals?.trainingLogs ?? "—"} sub="completed training entries" icon={Dumbbell} />
-          <StatCard label="Connections" value={totals?.connections ?? "—"} sub="friends and follows" icon={Users} />
-        </div>
-      )}
-      <div className="grid gap-4 md:grid-cols-3">
-        {[
-          ["High activity", "Active 7+ days in 28 days, or 4+ completed training logs.", "text-emerald-400"],
-          ["Medium activity", "Active 2–6 days in 28 days, or 1–3 completed training logs.", "text-amber-400"],
-          ["Low activity", "Active 0–1 days in 28 days with no recent training log.", "text-zinc-400"],
-        ].map(([label, rule, color]) => (
-          <Card key={label} className="border-zinc-800/80 bg-zinc-950/50">
-            <CardContent className="p-5">
-              <p className={`text-sm font-semibold ${color}`}>{label}</p>
-              <p className="mt-2 text-sm text-muted-foreground">{rule}</p>
-            </CardContent>
-          </Card>
+
+      <div className="flex flex-wrap gap-2 rounded-xl border border-zinc-800/80 bg-zinc-950/60 p-2">
+        {periods.map((period: any) => (
+          <Button
+            key={period.key}
+            size="sm"
+            variant={selectedPeriod === period.key ? "secondary" : "ghost"}
+            className="h-8 px-3 text-xs"
+            onClick={() => setSelectedPeriod(period.key)}
+          >
+            {period.label}
+          </Button>
         ))}
       </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <StatCard label="Active users" value={number(selected.activeUsers)} sub={`unique users · ${selected.label.toLowerCase()}`} icon={Users} />
+        <StatCard label="Total app events" value={number(selected.totalEvents)} sub="every tracked event across the app" icon={Activity} />
+        <StatCard label="Actions" value={number(selected.totalActions)} sub="events beyond page views" icon={Zap} />
+        <StatCard label="App opens / sessions" value={number(selected.totalOpens)} sub="30-minute inactivity session model" icon={LogIn} />
+        <StatCard label="Estimated usage" value={minutes(selected.estimatedMinutes)} sub="time represented by event spans" icon={Clock} />
+        <StatCard label="Average session" value={`${Number(selected.averageSessionMinutes || 0).toFixed(1)} min`} sub={`average engagement score ${Number(selected.averageScore || 0).toFixed(1)}/100`} icon={TrendingUp} />
+      </div>
+
+      <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50">
+        <CardHeader className="border-b border-zinc-800/70 pb-4">
+          <CardTitle className="text-base">{selected.label} activity mix</CardTitle>
+          <p className="mt-1 text-xs text-muted-foreground">Every active user is scored using app opens, estimated minutes, and actions in this period.</p>
+        </CardHeader>
+        <CardContent className="overflow-x-auto p-0">
+          <table className="w-full min-w-[760px] text-sm">
+            <thead className="bg-zinc-900/60 text-xs text-muted-foreground">
+              <tr>
+                <th className="px-5 py-3 text-left font-medium">Activity level</th>
+                <th className="px-3 py-3 text-right font-medium">Users</th>
+                <th className="px-3 py-3 text-right font-medium">% users</th>
+                <th className="px-3 py-3 text-right font-medium">App events</th>
+                <th className="px-3 py-3 text-right font-medium">Actions</th>
+                <th className="px-3 py-3 text-right font-medium">Opens</th>
+                <th className="px-3 py-3 text-right font-medium">Minutes</th>
+                <th className="px-5 py-3 text-right font-medium">Avg session</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-800/70">
+              {cohortRows.map((cohort) => (
+                <tr key={cohort.key}>
+                  <td className={`px-5 py-4 font-semibold ${cohort.text}`}>
+                    <div className="flex items-center gap-2">
+                      <span className={`h-2.5 w-2.5 rounded-full ${cohort.bar}`} />
+                      {cohort.label}
+                    </div>
+                  </td>
+                  <td className="px-3 py-4 text-right font-semibold">{number(cohort.users)}</td>
+                  <td className="px-3 py-4 text-right text-muted-foreground">{Number(cohort.userShare || 0).toFixed(1)}%</td>
+                  <td className="px-3 py-4 text-right">{number(cohort.events)} <span className="text-xs text-muted-foreground">({Number(cohort.eventShare || 0).toFixed(1)}%)</span></td>
+                  <td className="px-3 py-4 text-right">{number(cohort.actions)}</td>
+                  <td className="px-3 py-4 text-right">{number(cohort.opens)}</td>
+                  <td className="px-3 py-4 text-right">{number(cohort.estimatedMinutes)}</td>
+                  <td className="px-5 py-4 text-right">{Number(cohort.averageSessionMinutes || 0).toFixed(1)} min</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-5 lg:grid-cols-[1.25fr_0.75fr]">
+        <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50">
+          <CardHeader className="border-b border-zinc-800/70 pb-4">
+            <CardTitle className="text-base">App areas used most</CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">Views, actions, unique users, event types, and screens by product area.</p>
+          </CardHeader>
+          <CardContent className="p-4">
+            {(data.areas ?? []).length === 0 ? <BusinessEmptyState label="No area usage data in this period" /> : (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={(data.areas ?? []).slice(0, 10)} layout="vertical" margin={{ left: 20, right: 18 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
+                  <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
+                  <YAxis type="category" dataKey="area" width={125} tick={{ fontSize: 11 }} />
+                  <Tooltip formatter={(value: any) => number(Number(value))} />
+                  <Bar dataKey="events" name="Events" fill="#f97316" radius={[0, 5, 5, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="border-orange-500/20 bg-orange-500/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">How activity level is calculated</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm">
+            <p className="text-muted-foreground">The score combines three signals for the selected period:</p>
+            <div className="space-y-3">
+              <div><p className="font-medium text-foreground">40% · App opens</p><p className="text-xs text-muted-foreground">Sessions separated by at least 30 minutes of inactivity. Target: {selected.thresholds.sessions} opens.</p></div>
+              <div><p className="font-medium text-foreground">30% · Usage time</p><p className="text-xs text-muted-foreground">Estimated event-span minutes. Target: {selected.thresholds.minutes} minutes.</p></div>
+              <div><p className="font-medium text-foreground">30% · Actions</p><p className="text-xs text-muted-foreground">Tracked events other than page views. Target: {selected.thresholds.actions} actions.</p></div>
+            </div>
+            <div className="border-t border-orange-400/20 pt-3 text-xs text-muted-foreground">
+              <span className="font-semibold text-zinc-200">Low:</span> 0–34 · <span className="font-semibold text-amber-200">Medium:</span> 35–69 · <span className="font-semibold text-emerald-200">High:</span> 70–100
+            </div>
+            <p className="text-[11px] text-muted-foreground">{data.durationMethod}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50">
+        <CardHeader className="border-b border-zinc-800/70 pb-4">
+          <CardTitle className="text-base">Detailed area breakdown</CardTitle>
+          <p className="mt-1 text-xs text-muted-foreground">All classified product areas in the selected period.</p>
+        </CardHeader>
+        <CardContent className="overflow-x-auto p-0">
+          <table className="w-full min-w-[850px] text-sm">
+            <thead className="bg-zinc-900/60 text-xs text-muted-foreground">
+              <tr>
+                <th className="px-5 py-3 text-left font-medium">Area</th>
+                <th className="px-3 py-3 text-right font-medium">Events</th>
+                <th className="px-3 py-3 text-right font-medium">Share</th>
+                <th className="px-3 py-3 text-right font-medium">Unique users</th>
+                <th className="px-3 py-3 text-right font-medium">Page views</th>
+                <th className="px-3 py-3 text-right font-medium">Actions</th>
+                <th className="px-3 py-3 text-right font-medium">Event types</th>
+                <th className="px-5 py-3 text-right font-medium">Screens</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-800/70">
+              {(data.areas ?? []).map((area: any) => (
+                <tr key={area.area}>
+                  <td className="px-5 py-3 font-medium">{area.area}</td>
+                  <td className="px-3 py-3 text-right">{number(area.events)}</td>
+                  <td className="px-3 py-3 text-right text-orange-300">{Number(area.eventShare || 0).toFixed(1)}%</td>
+                  <td className="px-3 py-3 text-right">{number(area.uniqueUsers)}</td>
+                  <td className="px-3 py-3 text-right">{number(area.pageViews)}</td>
+                  <td className="px-3 py-3 text-right">{number(area.actions)}</td>
+                  <td className="px-3 py-3 text-right">{number(area.eventTypes)}</td>
+                  <td className="px-5 py-3 text-right">{number(area.pages)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50">
+          <CardHeader className="border-b border-zinc-800/70 pb-4">
+            <CardTitle className="text-base">Most-used actions and events</CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">Every tracked event, including page views and meaningful actions.</p>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="divide-y divide-zinc-800/70">
+              {(data.topEvents ?? []).slice(0, 15).map((event: any, index: number) => (
+                <div key={event.event} className="flex items-center gap-3 px-5 py-3">
+                  <span className="w-5 text-xs text-muted-foreground">{index + 1}</span>
+                  <span className="min-w-0 flex-1 truncate font-mono text-xs">{event.event}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">{number(event.uniqueUsers)} users</span>
+                  <span className="shrink-0 text-sm font-semibold text-orange-300">{number(event.events)}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50">
+          <CardHeader className="border-b border-zinc-800/70 pb-4">
+            <CardTitle className="text-base">Most-used screens</CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">Page views and unique users for each tracked route.</p>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="divide-y divide-zinc-800/70">
+              {(data.topPages ?? []).slice(0, 15).map((page: any, index: number) => (
+                <div key={page.page} className="flex items-center gap-3 px-5 py-3">
+                  <span className="w-5 text-xs text-muted-foreground">{index + 1}</span>
+                  <span className="min-w-0 flex-1 truncate font-mono text-xs">{page.page}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">{number(page.uniqueUsers)} users</span>
+                  <span className="shrink-0 text-sm font-semibold text-sky-300">{number(page.views)}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       <RetentionSubTab />
     </div>
   );

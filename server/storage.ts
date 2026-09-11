@@ -130,6 +130,7 @@ export interface IStorage {
   isUserAdmin(userId: string): Promise<boolean>;
   setUserAdmin(userId: string, isAdmin: boolean): Promise<boolean>;
   getAdminBusinessAnalytics(): Promise<any>;
+  getAdminActivityAnalytics(period?: string): Promise<any>;
 
   // Brand Principles
   getBrandPrinciples(): Promise<BrandPrinciples | null>;
@@ -4691,6 +4692,267 @@ export class DatabaseStorage {
         ],
         monthly: monthlyData,
       },
+    };
+  }
+
+  async getAdminActivityAnalytics(periodKey = "30d"): Promise<any> {
+    const r = <T = any>(res: any): T[] => (res.rows ?? res) as T[];
+    const periods = [
+      { key: "1d", label: "Past 1 day", days: 1, sessionTarget: 1, minuteTarget: 10, actionTarget: 5 },
+      { key: "7d", label: "Past 7 days", days: 7, sessionTarget: 3, minuteTarget: 45, actionTarget: 20 },
+      { key: "30d", label: "Past 30 days", days: 30, sessionTarget: 8, minuteTarget: 180, actionTarget: 80 },
+      { key: "90d", label: "Past 90 days", days: 90, sessionTarget: 18, minuteTarget: 450, actionTarget: 220 },
+      { key: "1y", label: "Past year", days: 365, sessionTarget: 40, minuteTarget: 1200, actionTarget: 600 },
+      { key: "lifetime", label: "Lifetime", days: null, sessionTarget: 50, minuteTarget: 1500, actionTarget: 800 },
+    ] as const;
+    const selected = periods.find((period) => period.key === periodKey) ?? periods[2];
+    const windowCondition = (days: number | null) =>
+      days == null
+        ? sql`TRUE`
+        : sql`created_at >= NOW() - (${days}::int * INTERVAL '1 day')`;
+
+    const getPeriodMetrics = async (period: typeof periods[number]) => {
+      const rows = r(await db.execute(sql`
+        WITH filtered_events AS (
+          SELECT
+            id,
+            user_id,
+            event,
+            page,
+            created_at,
+            LAG(created_at) OVER (
+              PARTITION BY user_id
+              ORDER BY created_at ASC, id ASC
+            ) AS previous_at
+          FROM analytics_events
+          WHERE ${windowCondition(period.days)}
+        ),
+        marked_events AS (
+          SELECT
+            *,
+            CASE
+              WHEN previous_at IS NULL OR created_at - previous_at > INTERVAL '30 minutes'
+              THEN 1 ELSE 0
+            END AS is_new_session
+          FROM filtered_events
+        ),
+        numbered_events AS (
+          SELECT
+            *,
+            SUM(is_new_session) OVER (
+              PARTITION BY user_id
+              ORDER BY created_at ASC, id ASC
+              ROWS UNBOUNDED PRECEDING
+            ) AS session_no
+          FROM marked_events
+        ),
+        sessions AS (
+          SELECT
+            user_id,
+            session_no,
+            MIN(created_at) AS session_started_at,
+            MAX(created_at) AS session_ended_at
+          FROM numbered_events
+          GROUP BY user_id, session_no
+        ),
+        event_rollup AS (
+          SELECT
+            user_id,
+            COUNT(*)::int AS total_events,
+            COUNT(*) FILTER (WHERE event = 'page_view')::int AS page_views,
+            COUNT(*) FILTER (WHERE event NOT IN ('page_view', 'app_open', 'app_heartbeat'))::int AS actions,
+            COUNT(*) FILTER (WHERE event = 'app_open')::int AS app_opens,
+            COUNT(DISTINCT page)::int AS unique_pages,
+            COUNT(DISTINCT event)::int AS unique_event_types
+          FROM filtered_events
+          GROUP BY user_id
+        ),
+        session_rollup AS (
+          SELECT
+            user_id,
+            COUNT(*)::int AS sessions,
+            COALESCE(SUM(LEAST(EXTRACT(EPOCH FROM (session_ended_at - session_started_at)), 1800)), 0)::double precision AS estimated_seconds
+          FROM sessions
+          GROUP BY user_id
+        )
+        SELECT
+          e.user_id,
+          e.total_events,
+          e.page_views,
+          e.actions,
+          e.app_opens,
+          e.unique_pages,
+          e.unique_event_types,
+          s.sessions,
+          s.estimated_seconds
+        FROM event_rollup e
+        JOIN session_rollup s ON s.user_id = e.user_id
+      `));
+
+      const cohorts = {
+        low: { users: 0, events: 0, actions: 0, pageViews: 0, opens: 0, sessions: 0, estimatedMinutes: 0 },
+        medium: { users: 0, events: 0, actions: 0, pageViews: 0, opens: 0, sessions: 0, estimatedMinutes: 0 },
+        high: { users: 0, events: 0, actions: 0, pageViews: 0, opens: 0, sessions: 0, estimatedMinutes: 0 },
+      };
+      let totalScore = 0;
+
+      for (const row of rows) {
+        const sessions = Number(row.sessions || 0);
+        const estimatedMinutes = Number(row.estimated_seconds || 0) / 60;
+        const actions = Number(row.actions || 0);
+        const opens = Number(row.app_opens || 0) || sessions;
+        const score = (
+          Math.min(opens / period.sessionTarget, 1) * 40 +
+          Math.min(estimatedMinutes / period.minuteTarget, 1) * 30 +
+          Math.min(actions / period.actionTarget, 1) * 30
+        );
+        const tier = score >= 70 ? "high" : score >= 35 ? "medium" : "low";
+        const cohort = cohorts[tier as keyof typeof cohorts];
+        cohort.users += 1;
+        cohort.events += Number(row.total_events || 0);
+        cohort.actions += actions;
+        cohort.pageViews += Number(row.page_views || 0);
+        cohort.opens += opens;
+        cohort.sessions += sessions;
+        cohort.estimatedMinutes += estimatedMinutes;
+        totalScore += score;
+      }
+
+      const activeUsers = rows.length;
+      const totalEvents = rows.reduce((sum: number, row: any) => sum + Number(row.total_events || 0), 0);
+      const totalActions = rows.reduce((sum: number, row: any) => sum + Number(row.actions || 0), 0);
+      const totalPageViews = rows.reduce((sum: number, row: any) => sum + Number(row.page_views || 0), 0);
+      const totalSessions = rows.reduce((sum: number, row: any) => sum + Number(row.sessions || 0), 0);
+      const totalOpens = rows.reduce((sum: number, row: any) => sum + (Number(row.app_opens || 0) || Number(row.sessions || 0)), 0);
+      const estimatedMinutes = rows.reduce((sum: number, row: any) => sum + Number(row.estimated_seconds || 0) / 60, 0);
+
+      return {
+        key: period.key,
+        label: period.label,
+        activeUsers,
+        totalEvents,
+        totalActions,
+        totalPageViews,
+        totalOpens,
+        totalSessions,
+        estimatedMinutes: Math.round(estimatedMinutes),
+        averageSessionMinutes: totalSessions > 0 ? Math.round((estimatedMinutes / totalSessions) * 10) / 10 : 0,
+        averageScore: activeUsers > 0 ? Math.round((totalScore / activeUsers) * 10) / 10 : 0,
+        thresholds: {
+          sessions: period.sessionTarget,
+          minutes: period.minuteTarget,
+          actions: period.actionTarget,
+        },
+        cohorts: Object.fromEntries(
+          Object.entries(cohorts).map(([key, cohort]) => [
+            key,
+            {
+              ...cohort,
+              estimatedMinutes: Math.round(cohort.estimatedMinutes),
+              averageSessionMinutes: cohort.sessions > 0 ? Math.round((cohort.estimatedMinutes / cohort.sessions) * 10) / 10 : 0,
+              userShare: activeUsers > 0 ? Math.round((cohort.users / activeUsers) * 1000) / 10 : 0,
+              eventShare: totalEvents > 0 ? Math.round((cohort.events / totalEvents) * 1000) / 10 : 0,
+            },
+          ])
+        ),
+      };
+    };
+
+    const periodMetrics = [];
+    for (const period of periods) {
+      periodMetrics.push(await getPeriodMetrics(period));
+    }
+
+    const areaRows = r(await db.execute(sql`
+      WITH classified_events AS (
+        SELECT
+          user_id,
+          event,
+          page,
+          CASE
+            WHEN page ILIKE '/admin%' THEN 'Admin'
+            WHEN page ILIKE '/hub%' OR page = '/' OR page ILIKE '/dashboard%' THEN 'Hub & Dashboard'
+            WHEN page ILIKE '/community%' OR page ILIKE '/feedback%' THEN 'Community'
+            WHEN page ILIKE '/coach-p%' OR page ILIKE '/journal%' THEN 'Coach P & Journal'
+            WHEN page ILIKE '/drill%' OR page ILIKE '/training%' OR page ILIKE '/development%' OR page ILIKE '/video%' OR page ILIKE '/program%' OR page ILIKE '/workout%' THEN 'Train'
+            WHEN page ILIKE '/compete%' OR page ILIKE '/game-day%' OR page ILIKE '/event%' OR page ILIKE '/schedule%' THEN 'Compete'
+            WHEN page ILIKE '/profile%' OR page ILIKE '/career%' OR page ILIKE '/journey%' OR page ILIKE '/goal%' OR page ILIKE '/archetype%' THEN 'Profile & Career'
+            WHEN page ILIKE '/my-trainer%' OR page ILIKE '/find-trainer%' OR page ILIKE '/trainer%' OR page ILIKE '/t/%' THEN 'Trainer'
+            WHEN page ILIKE '/auth%' OR page ILIKE '/welcome%' OR page ILIKE '/onboarding%' OR page ILIKE '/micro-quiz%' THEN 'Onboarding & Auth'
+            WHEN event ILIKE 'drill%' OR event ILIKE 'workout%' OR event ILIKE 'training%' THEN 'Train'
+            WHEN event ILIKE 'program%' THEN 'Train'
+            WHEN event ILIKE 'event%' OR event ILIKE 'booking%' THEN 'Compete'
+            WHEN event ILIKE 'community%' OR event ILIKE 'friend%' OR event ILIKE 'follow%' THEN 'Community'
+            WHEN event ILIKE 'coach%' OR event ILIKE 'journal%' THEN 'Coach P & Journal'
+            ELSE 'Other'
+          END AS area
+        FROM analytics_events
+        WHERE ${windowCondition(selected.days)}
+      )
+      SELECT
+        area,
+        COUNT(*)::int AS events,
+        COUNT(DISTINCT user_id)::int AS unique_users,
+        COUNT(*) FILTER (WHERE event = 'page_view')::int AS page_views,
+        COUNT(*) FILTER (WHERE event <> 'page_view')::int AS actions,
+        COUNT(DISTINCT event)::int AS event_types,
+        COUNT(DISTINCT page)::int AS pages
+      FROM classified_events
+      GROUP BY area
+      ORDER BY events DESC, area ASC
+    `));
+    const eventRows = r(await db.execute(sql`
+      SELECT
+        event,
+        COUNT(*)::int AS events,
+        COUNT(DISTINCT user_id)::int AS unique_users
+      FROM analytics_events
+      WHERE ${windowCondition(selected.days)}
+      GROUP BY event
+      ORDER BY events DESC, event ASC
+      LIMIT 50
+    `));
+    const pageRows = r(await db.execute(sql`
+      SELECT
+        COALESCE(NULLIF(page, ''), '(event-only)') AS page,
+        COUNT(*)::int AS views,
+        COUNT(DISTINCT user_id)::int AS unique_users
+      FROM analytics_events
+      WHERE ${windowCondition(selected.days)}
+        AND page IS NOT NULL
+      GROUP BY page
+      ORDER BY views DESC, page ASC
+      LIMIT 50
+    `));
+
+    const selectedMetrics = periodMetrics.find((period) => period.key === selected.key) ?? periodMetrics[0];
+    const totalEvents = Number(selectedMetrics?.totalEvents || 0);
+
+    return {
+      selectedPeriod: selected.key,
+      periods: periodMetrics,
+      areas: areaRows.map((row: any) => ({
+        area: String(row.area),
+        events: Number(row.events || 0),
+        uniqueUsers: Number(row.unique_users || 0),
+        pageViews: Number(row.page_views || 0),
+        actions: Number(row.actions || 0),
+        eventTypes: Number(row.event_types || 0),
+        pages: Number(row.pages || 0),
+        eventShare: totalEvents > 0 ? Math.round((Number(row.events || 0) / totalEvents) * 1000) / 10 : 0,
+      })),
+      topEvents: eventRows.map((row: any) => ({
+        event: String(row.event),
+        events: Number(row.events || 0),
+        uniqueUsers: Number(row.unique_users || 0),
+        eventShare: totalEvents > 0 ? Math.round((Number(row.events || 0) / totalEvents) * 1000) / 10 : 0,
+      })),
+      topPages: pageRows.map((row: any) => ({
+        page: String(row.page),
+        views: Number(row.views || 0),
+        uniqueUsers: Number(row.unique_users || 0),
+      })),
+      durationMethod: "Estimated from authenticated event spans with a 30-minute inactivity cutoff. Explicit heartbeats improve this measurement over time.",
     };
   }
 

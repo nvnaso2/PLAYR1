@@ -16,3 +16,4 @@
 - [Community feed baseline](community-feed-baseline.md) — uniform, multi-item activity feed is the approved rollback baseline before single-activity browsing
 - [Wouter search routing](wouter-search-routing.md) — pathname and query are separate, and useSearch omits the leading question mark
 - [Business analytics sources](business-analytics-sources.md) — separate Stripe revenue, app subscription state, tracked AI costs, and unavailable platform billing
+- [Activity duration estimates](activity-analytics-duration.md) — report usage time as an event-span estimate; heartbeats improve future precision without rewriting history
