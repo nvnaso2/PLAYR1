@@ -64,7 +64,7 @@ import {
   BotMessageSquare,
 } from "lucide-react";
 import { Playr1Logo } from "@/components/playr1-logo";
-import { getObjectUrl } from "@/lib/queryClient";
+import { getObjectUrl, nativeFetch } from "@/lib/queryClient";
 
 const playerNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: BarChart3 },
@@ -155,6 +155,20 @@ export function AppSidebar() {
   });
   const hasLinkedChildren = (parentChildren?.length || 0) > 0;
   const isParentOnly = hasLinkedChildren && (!careerData || !careerData.onboardingCompleted);
+  const { data: playerHelpUnread } = useQuery<{ available: boolean; unreadCount: number }>({
+    queryKey: ["/api/admin/support-messages/unread", user?.id],
+    queryFn: async () => {
+      const response = await nativeFetch("/api/admin/support-messages/unread", { cache: "no-store" });
+      if (!response.ok) throw new Error("Failed to load player help notifications");
+      return response.json();
+    },
+    enabled: !!user && isAdmin,
+    staleTime: 0,
+    refetchInterval: 3000,
+    refetchIntervalInBackground: true,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+  });
 
   const isActiveLink = (url: string) => {
     if (url === "/dashboard" && location === "/") return true;
@@ -280,6 +294,26 @@ export function AppSidebar() {
                           <Link href="/admin" onClick={closeSidebar}>
                             <Settings className="w-4 h-4" />
                             <span>Admin Dashboard</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={location === "/admin/support-messages" || location.startsWith("/admin/support-messages/")}
+                          data-testid="link-nav-admin-support-messages"
+                          onMouseEnter={() => preloadRoute("/admin/support-messages")}
+                          onTouchStart={() => preloadRoute("/admin/support-messages")}
+                          onFocus={() => preloadRoute("/admin/support-messages")}
+                        >
+                          <Link href="/admin/support-messages" onClick={closeSidebar}>
+                            <MessageCircle className="w-4 h-4" />
+                            <span className="flex-1">Player Help</span>
+                            {(playerHelpUnread?.unreadCount || 0) > 0 && (
+                              <Badge variant="destructive" className="no-default-hover-elevate ml-auto text-[10px]" data-testid="badge-sidebar-player-help-unread">
+                                {playerHelpUnread?.unreadCount}
+                              </Badge>
+                            )}
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>

@@ -54,6 +54,8 @@ export const pageLoaders = {
   welcome: () => import("@/pages/welcome"),
   streakChallenge: () => import("@/pages/streak-challenge"),
   settings: () => import("@/pages/settings"),
+  supportMessages: () => import("@/pages/support-messages"),
+  adminSupportMessages: () => import("@/pages/support-messages"),
 } as const;
 
 // Map URL path → loader key. Used by the sidebar to preload on hover/touch.
@@ -65,6 +67,8 @@ const routeToLoader: Record<string, keyof typeof pageLoaders> = {
   "/videos": "videos",
   "/profile": "profile",
   "/settings": "settings",
+  "/contact": "supportMessages",
+  "/admin/support-messages": "adminSupportMessages",
   "/career": "career",
   "/development": "development",
   "/admin": "admin",

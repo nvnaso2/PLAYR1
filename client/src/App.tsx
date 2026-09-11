@@ -89,6 +89,8 @@ const StreaksPage = lazy(() => import("@/pages/streaks"));
 const StatChallengePage = lazy(() => import("@/pages/stat-challenge"));
 const StreakChallengePage = lazy(pageLoaders.streakChallenge);
 const SettingsPage = lazy(pageLoaders.settings);
+const SupportMessages = lazy(pageLoaders.supportMessages);
+const AdminSupportMessages = lazy(() => pageLoaders.adminSupportMessages().then((module) => ({ default: module.AdminSupportMessagesPage })));
 
 function PageLoader() {
   return (
@@ -333,6 +335,7 @@ function Router() {
                 <Route path="/settings">{() => <Suspense fallback={<LoadingScreen />}><SettingsPage /></Suspense>}</Route>
                 <Route path="/admin/onboarding-preview">{() => <AdminRoute><OnboardingPreview /></AdminRoute>}</Route>
                 <Route path="/admin/brand-principles">{() => <AdminRoute><AdminBrandPrinciples /></AdminRoute>}</Route>
+                <Route path="/admin/support-messages">{() => <AdminRoute><AdminSupportMessages /></AdminRoute>}</Route>
                 <Route path="/admin">{() => <AdminRoute />}</Route>
                 <Route path="/coach" component={CoachRedirect} />
                 <Route path="/trainer">{() => <TrainerGuard><TrainerDashboard /></TrainerGuard>}</Route>
@@ -366,6 +369,7 @@ function Router() {
                 <Route path="/my-archetype"><Redirect to="/archetypes?tab=identity" /></Route>
                 <Route path="/my-goal" component={MyGoal} />
                 <Route path="/feedback" component={FeedbackPage} />
+                <Route path="/contact" component={SupportMessages} />
                 <Route path="/my-trainer" component={MyTrainer} />
                 <Route path="/parent" component={ParentDashboard} />
                 <Route path="/find-trainer">{() => <Redirect to="/my-trainer" />}</Route>

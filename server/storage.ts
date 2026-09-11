@@ -348,9 +348,20 @@ export interface IStorage {
   // Messages
   getConversations(userId: string): Promise<Array<{ partnerId: string; partnerName: string; partnerImage?: string; lastMessage: string; lastMessageAt: Date; unreadCount: number; teamId?: string; teamName?: string }>>;
   getMessages(userId: string, partnerId: string): Promise<Message[]>;
-  sendMessage(message: InsertMessage): Promise<Message>;
+  sendMessage(message: InsertMessage & { isRead?: boolean }): Promise<Message>;
   markMessagesRead(userId: string, senderId: string): Promise<void>;
   getUnreadCount(userId: string): Promise<number>;
+  getSupportMessages(playerId: string, adminId: string): Promise<Message[]>;
+  getSupportInbox(adminId: string): Promise<Array<{
+    playerId: string;
+    playerName: string;
+    playerImage?: string;
+    lastMessage: string;
+    lastMessageAt: Date;
+    unreadCount: number;
+  }>>;
+  getSupportUnreadCount(playerId: string, adminId: string): Promise<number>;
+  getSupportAdminUnreadCount(adminId: string): Promise<number>;
 
   // Chat Threads
   getChatThreads(userId: string, mode: string): Promise<Array<ChatThread & { memberCount: number; lastMessage?: string; lastMessageAt?: Date }>>;
@@ -3073,7 +3084,7 @@ export class DatabaseStorage {
       .orderBy(messages.createdAt);
   }
 
-  async sendMessage(message: InsertMessage): Promise<Message> {
+  async sendMessage(message: InsertMessage & { isRead?: boolean }): Promise<Message> {
     const [created] = await db.insert(messages).values(message).returning();
     return created;
   }
@@ -3088,6 +3099,92 @@ export class DatabaseStorage {
     const result = await db.select({ count: sql<number>`count(*)` })
       .from(messages)
       .where(and(eq(messages.receiverId, userId), eq(messages.isRead, false)));
+    return Number(result[0]?.count || 0);
+  }
+
+  async getSupportMessages(playerId: string, adminId: string): Promise<Message[]> {
+    return await db.select().from(messages)
+      .where(or(
+        and(eq(messages.senderId, playerId), eq(messages.receiverId, adminId)),
+        and(eq(messages.senderId, adminId), eq(messages.receiverId, playerId)),
+      ))
+      .orderBy(asc(messages.createdAt));
+  }
+
+  async getSupportInbox(adminId: string): Promise<Array<{
+    playerId: string;
+    playerName: string;
+    playerImage?: string;
+    lastMessage: string;
+    lastMessageAt: Date;
+    unreadCount: number;
+  }>> {
+    const rows = await db.execute(sql`
+      WITH support_messages AS (
+        SELECT
+          CASE WHEN sender_id = ${adminId} THEN receiver_id ELSE sender_id END AS player_id,
+          content,
+          created_at,
+          receiver_id,
+          is_read
+        FROM messages
+        WHERE (sender_id = ${adminId} OR receiver_id = ${adminId})
+      ),
+      latest_per_player AS (
+        SELECT DISTINCT ON (player_id)
+          player_id,
+          content AS last_message,
+          created_at AS last_message_at
+        FROM support_messages
+        ORDER BY player_id, created_at DESC
+      ),
+      unread_counts AS (
+        SELECT player_id, COUNT(*) AS unread_count
+        FROM support_messages
+        WHERE receiver_id = ${adminId} AND is_read = false
+        GROUP BY player_id
+      )
+      SELECT
+        l.player_id,
+        COALESCE(NULLIF(TRIM(CONCAT(u.first_name, ' ', u.last_name)), ''), u.email, 'Unknown') AS player_name,
+        u.profile_image_url AS player_image,
+        l.last_message,
+        l.last_message_at,
+        COALESCE(uc.unread_count, 0)::int AS unread_count
+      FROM latest_per_player l
+      LEFT JOIN users u ON u.id = l.player_id
+      LEFT JOIN unread_counts uc ON uc.player_id = l.player_id
+      ORDER BY l.last_message_at DESC
+    `);
+
+    return (rows.rows as any[]).map((row: any) => ({
+      playerId: row.player_id,
+      playerName: row.player_name || "Unknown",
+      playerImage: row.player_image || undefined,
+      lastMessage: row.last_message,
+      lastMessageAt: new Date(row.last_message_at),
+      unreadCount: Number(row.unread_count) || 0,
+    }));
+  }
+
+  async getSupportUnreadCount(playerId: string, adminId: string): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)` })
+      .from(messages)
+      .where(and(
+        eq(messages.senderId, adminId),
+        eq(messages.receiverId, playerId),
+        eq(messages.isRead, false),
+      ));
+    return Number(result[0]?.count || 0);
+  }
+
+  async getSupportAdminUnreadCount(adminId: string): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)` })
+      .from(messages)
+      .where(and(
+        eq(messages.receiverId, adminId),
+        eq(messages.isRead, false),
+      ));
     return Number(result[0]?.count || 0);
   }
 

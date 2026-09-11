@@ -7,7 +7,7 @@ import { setupAuth, registerAuthRoutes, isAuthenticated, optionalAuth, getAppBas
 import { registerObjectStorageRoutes, processVideoObject } from "./replit_integrations/object_storage";
 import { users } from "@shared/models/auth";
 import { db, pool } from "./db";
-import { eq, and, or, isNull, ilike, sql, inArray, gte, desc } from "drizzle-orm";
+import { eq, and, or, isNull, ilike, sql, inArray, gte, desc, asc } from "drizzle-orm";
 import { z } from "zod";
 import { zipToCoords, cityStateToCoords, haversineDistance } from "./geo";
 import {
@@ -88,6 +88,61 @@ async function getDisplayNameForUser(userId: string): Promise<string> {
   const [user] = await db.select({ firstName: users.firstName, lastName: users.lastName }).from(users).where(eq(users.id, userId));
   if (user?.firstName) return `${user.firstName}${user.lastName ? " " + user.lastName : ""}`;
   return "Player";
+}
+
+type SupportRecipient = {
+  id: string;
+  displayName: string;
+  image?: string;
+};
+
+/**
+ * Resolve the one account that owns the player support inbox.
+ *
+ * The browser never chooses this ID. An explicit server configuration wins,
+ * followed by the existing bootstrap admin list, then the first database admin.
+ */
+async function resolveSupportAdmin(): Promise<SupportRecipient | null> {
+  const configuredId = process.env.PLAYR1_SUPPORT_ADMIN_USER_ID?.trim();
+  const bootstrapIds = (process.env.ADMIN_USER_IDS || "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean);
+  const candidateIds = configuredId ? [configuredId] : bootstrapIds;
+
+  let candidate: { id: string; firstName: string | null; lastName: string | null; profileImageUrl: string | null } | undefined;
+  if (candidateIds.length > 0) {
+    const [configured] = await db.select({
+      id: users.id,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      profileImageUrl: users.profileImageUrl,
+    }).from(users).where(inArray(users.id, candidateIds)).limit(1);
+    if (configured && await storage.isUserAdmin(configured.id)) candidate = configured;
+    if (configuredId && !candidate) return null;
+  }
+
+  if (!candidate) {
+    const [databaseAdmin] = await db.select({
+      id: users.id,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      profileImageUrl: users.profileImageUrl,
+    })
+      .from(users)
+      .innerJoin(userProfiles, eq(userProfiles.userId, users.id))
+      .where(eq(userProfiles.isAdmin, true))
+      .orderBy(asc(users.createdAt))
+      .limit(1);
+    candidate = databaseAdmin;
+  }
+
+  if (!candidate) return null;
+  return {
+    id: candidate.id,
+    displayName: [candidate.firstName, candidate.lastName].filter(Boolean).join(" ").trim() || "PLAYR1 Support",
+    image: candidate.profileImageUrl || undefined,
+  };
 }
 
 async function getSessionEmailData(session: any) {
@@ -5938,6 +5993,176 @@ COACHING RULES:
     } catch (error) {
       console.error("Error fetching player contacts:", error);
       res.status(500).json({ message: "Failed to fetch player contacts" });
+    }
+  });
+
+  // ===== PLAYER SUPPORT MESSAGES =====
+  // These routes intentionally do not accept a recipient ID from the client.
+  app.get("/api/support/recipient", isAuthenticated, async (_req: AuthenticatedRequest, res) => {
+    try {
+      const recipient = await resolveSupportAdmin();
+      res.json(recipient
+        ? { available: true, recipient: { displayName: recipient.displayName, image: recipient.image } }
+        : { available: false, recipient: null });
+    } catch (error) {
+      console.error("Error resolving support recipient:", error);
+      res.status(500).json({ message: "Failed to resolve support recipient" });
+    }
+  });
+
+  app.get("/api/support/unread", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const recipient = await resolveSupportAdmin();
+      if (!recipient) return res.json({ available: false, unreadCount: 0 });
+      const unreadCount = await storage.getSupportUnreadCount(req.user.claims.sub, recipient.id);
+      res.json({ available: true, unreadCount });
+    } catch (error) {
+      console.error("Error loading support unread count:", error);
+      res.status(500).json({ message: "Failed to load support unread count" });
+    }
+  });
+
+  app.get("/api/support/messages", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const recipient = await resolveSupportAdmin();
+      if (!recipient) return res.json({ available: false, recipient: null, messages: [] });
+      const playerId = req.user.claims.sub;
+      const supportMessages = await storage.getSupportMessages(playerId, recipient.id);
+      // A local admin account can also exercise the player view while testing.
+      // Do not clear a self-directed message immediately, or the admin's
+      // unread badge can never surface for that test flow.
+      if (playerId !== recipient.id) {
+        await storage.markMessagesRead(playerId, recipient.id);
+      }
+      res.json({
+        available: true,
+        recipient: { displayName: recipient.displayName, image: recipient.image },
+        messages: supportMessages,
+      });
+    } catch (error) {
+      console.error("Error loading support messages:", error);
+      res.status(500).json({ message: "Failed to load support messages" });
+    }
+  });
+
+  app.post("/api/support/messages", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const parsed = z.object({
+        content: z.string().trim().min(1, "Message cannot be empty").max(4000, "Message is too long"),
+      }).safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid message" });
+
+      const recipient = await resolveSupportAdmin();
+      if (!recipient) return res.status(503).json({ message: "PLAYR1 support is temporarily unavailable" });
+
+      const playerId = req.user.claims.sub;
+      const message = await storage.sendMessage({
+        senderId: playerId,
+        receiverId: recipient.id,
+        content: parsed.data.content,
+        teamId: null,
+        isRead: false,
+      });
+      const senderName = await getDisplayNameForUser(playerId);
+      sendPushNotification(recipient.id, {
+        title: "New PLAYR1 Support Message",
+        body: `${senderName}: ${parsed.data.content.substring(0, 100)}`,
+        url: "/admin/support-messages",
+      }).catch(() => {});
+      res.status(201).json(message);
+    } catch (error) {
+      console.error("Error sending support message:", error);
+      res.status(500).json({ message: "Failed to send support message" });
+    }
+  });
+
+  app.get("/api/admin/support-messages", isAuthenticated, isAdmin, async (_req: AuthenticatedRequest, res) => {
+    try {
+      const recipient = await resolveSupportAdmin();
+      if (!recipient) return res.json({ available: false, recipient: null, conversations: [] });
+      const conversations = await storage.getSupportInbox(recipient.id);
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+      res.json({
+        available: true,
+        recipient: { displayName: recipient.displayName, image: recipient.image },
+        conversations,
+      });
+    } catch (error) {
+      console.error("Error loading support inbox:", error);
+      res.status(500).json({ message: "Failed to load support inbox" });
+    }
+  });
+
+  app.get("/api/admin/support-messages/unread", isAuthenticated, isAdmin, async (_req: AuthenticatedRequest, res) => {
+    try {
+      const recipient = await resolveSupportAdmin();
+      if (!recipient) return res.json({ available: false, unreadCount: 0 });
+      const unreadCount = await storage.getSupportAdminUnreadCount(recipient.id);
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+      res.json({ available: true, unreadCount });
+    } catch (error) {
+      console.error("Error loading player help unread count:", error);
+      res.status(500).json({ message: "Failed to load player help unread count" });
+    }
+  });
+
+  app.get("/api/admin/support-messages/:playerId", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const recipient = await resolveSupportAdmin();
+      if (!recipient) return res.status(503).json({ message: "PLAYR1 support is temporarily unavailable" });
+      const conversations = await storage.getSupportInbox(recipient.id);
+      const conversation = conversations.find((item) => item.playerId === req.params.playerId);
+      if (!conversation) return res.status(404).json({ message: "Support conversation not found" });
+      const supportMessages = await storage.getSupportMessages(conversation.playerId, recipient.id);
+      await storage.markMessagesRead(recipient.id, conversation.playerId);
+      res.json({
+        available: true,
+        recipient: { displayName: recipient.displayName, image: recipient.image },
+        player: {
+          id: conversation.playerId,
+          displayName: conversation.playerName,
+          image: conversation.playerImage,
+        },
+        messages: supportMessages,
+      });
+    } catch (error) {
+      console.error("Error loading support conversation:", error);
+      res.status(500).json({ message: "Failed to load support conversation" });
+    }
+  });
+
+  app.post("/api/admin/support-messages/:playerId", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const parsed = z.object({
+        content: z.string().trim().min(1, "Message cannot be empty").max(4000, "Message is too long"),
+      }).safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid message" });
+
+      const recipient = await resolveSupportAdmin();
+      if (!recipient) return res.status(503).json({ message: "PLAYR1 support is temporarily unavailable" });
+      const conversations = await storage.getSupportInbox(recipient.id);
+      if (!conversations.some((item) => item.playerId === req.params.playerId)) {
+        return res.status(404).json({ message: "Support conversation not found" });
+      }
+
+      // Replies always use the designated support identity so every admin
+      // sees and continues the same player conversation.
+      const message = await storage.sendMessage({
+        senderId: recipient.id,
+        receiverId: req.params.playerId,
+        content: parsed.data.content,
+        teamId: null,
+        isRead: false,
+      });
+      sendPushNotification(req.params.playerId, {
+        title: "New PLAYR1 Support Reply",
+        body: `${recipient.displayName}: ${parsed.data.content.substring(0, 100)}`,
+        url: "/contact",
+      }).catch(() => {});
+      res.status(201).json(message);
+    } catch (error) {
+      console.error("Error sending support reply:", error);
+      res.status(500).json({ message: "Failed to send support reply" });
     }
   });
 

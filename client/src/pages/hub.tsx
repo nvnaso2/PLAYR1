@@ -186,7 +186,20 @@ export default function HubPage() {
     queryKey: ["/api/onboarding/fix-drills"],
     enabled: !!user,
   });
-
+  const { data: supportUnread } = useQuery<{ available: boolean; unreadCount: number }>({
+    queryKey: ["/api/support/unread", user?.id],
+    queryFn: async () => {
+      const response = await nativeFetch("/api/support/unread", { cache: "no-store" });
+      if (!response.ok) throw new Error("Failed to load message notifications");
+      return response.json();
+    },
+    enabled: !!user,
+    staleTime: 0,
+    refetchInterval: 3000,
+    refetchIntervalInBackground: true,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+  });
   const profileIncomplete = !profile?.lastName || !careerData?.positions?.length || !careerData?.aspiration;
   const fullOnboardingComplete = Boolean(careerData?.onboardingCompleted || fixData?.fullProfileCompleted);
   const showProfileSetup = profileIncomplete || !fullOnboardingComplete;
@@ -765,7 +778,7 @@ export default function HubPage() {
           <section className="space-y-3" data-testid="section-everyday-connections">
             <div>
               <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500 font-bold">STAY CONNECTED</p>
-              <h2 className="text-lg font-black text-white mt-1">Keep playing with your community.</h2>
+              <h2 className="text-lg font-black text-white mt-1">Your people, your support.</h2>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <button
@@ -802,6 +815,27 @@ export default function HubPage() {
                 </span>
                 <ChevronRight className="h-4 w-4 shrink-0 text-orange-400/70 transition group-hover:translate-x-1" />
               </button>
+
+              <button
+                type="button"
+                onClick={() => navigate("/contact")}
+                className="group relative flex min-h-[88px] items-center gap-3 rounded-xl border border-orange-500/30 bg-gradient-to-r from-orange-500/15 via-orange-500/8 to-transparent p-4 text-left text-zinc-100 transition hover:border-orange-500/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.99]"
+                data-testid="button-hub-contact-playr1"
+              >
+                <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-orange-500/30 bg-orange-500/15 text-orange-400">
+                  <MessageCircle className="h-4 w-4" />
+                  {(supportUnread?.unreadCount || 0) > 0 && <span className="absolute -right-1.5 -top-1.5 h-3 w-3 rounded-full border-2 border-zinc-950 bg-red-500" aria-label="New message" />}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-2">
+                    <span className="block font-heading text-sm uppercase tracking-wide leading-tight">Talk Through Your Game</span>
+                    {(supportUnread?.unreadCount || 0) > 0 && <Badge variant="destructive" className="h-5 min-w-5 rounded-full px-1.5 text-[10px]" aria-label={`${supportUnread?.unreadCount} new messages`}>{supportUnread?.unreadCount}</Badge>}
+                  </span>
+                  <span className="mt-1 block text-[11px] text-zinc-400">Personal basketball help, directly with Nick, the founder of The PLAYR1 Project</span>
+                </span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-orange-400/70 transition group-hover:translate-x-1" />
+              </button>
+
             </div>
           </section>
         )}

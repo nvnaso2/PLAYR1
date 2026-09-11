@@ -4,10 +4,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getObjectUrl } from "@/lib/queryClient";
+import { getObjectUrl, nativeFetch } from "@/lib/queryClient";
 import {
   BarChart3, BotMessageSquare, Zap, BookOpen,
-  ChevronRight, UserCircle, Settings, Crown,
+  ChevronRight, UserCircle, Settings, Crown, MessageCircle,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -66,6 +66,15 @@ const sections = [
     path: "/settings",
     testId: "card-profile-settings",
   },
+  {
+    title: "Talk Through Your Game",
+    description: "Personal basketball help, directly with Nick, the founder of The PLAYR1 Project",
+    icon: MessageCircle,
+    color: "text-orange-400",
+    bg: "bg-orange-500/10",
+    path: "/contact",
+    testId: "card-profile-contact",
+  },
 ];
 
 export default function ProfileHubPage() {
@@ -81,6 +90,21 @@ export default function ProfileHubPage() {
   const { data: archetype } = useQuery<any>({
     queryKey: ["/api/archetypes/user"],
     enabled: !!user,
+  });
+
+  const { data: supportUnread } = useQuery<{ available: boolean; unreadCount: number }>({
+    queryKey: ["/api/support/unread", user?.id],
+    queryFn: async () => {
+      const response = await nativeFetch("/api/support/unread", { cache: "no-store" });
+      if (!response.ok) throw new Error("Failed to load message notifications");
+      return response.json();
+    },
+    enabled: !!user,
+    staleTime: 0,
+    refetchInterval: 3000,
+    refetchIntervalInBackground: true,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 
   const displayName =
@@ -139,19 +163,25 @@ export default function ProfileHubPage() {
         <div className="space-y-3">
           {sections.map((section) => {
             const Icon = section.icon;
+            const isContactSection = section.path === "/contact";
+            const unreadCount = isContactSection ? supportUnread?.unreadCount || 0 : 0;
             return (
               <Card
                 key={section.path}
-                className="cursor-pointer hover-elevate border-zinc-800/60 bg-zinc-900/40"
+                className={`cursor-pointer hover-elevate border-zinc-800/60 bg-zinc-900/40 ${unreadCount > 0 ? "border-red-500/40 bg-red-500/[0.06]" : ""}`}
                 onClick={() => navigate(section.path)}
                 data-testid={section.testId}
               >
                 <CardContent className="p-5 flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-xl ${section.bg} flex items-center justify-center shrink-0`}>
+                  <div className={`relative w-12 h-12 rounded-xl ${section.bg} flex items-center justify-center shrink-0`}>
                     <Icon className={`w-6 h-6 ${section.color}`} />
+                    {unreadCount > 0 && <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-zinc-950 bg-red-500" aria-label="New message" />}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-base">{section.title}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-base">{section.title}</h3>
+                      {unreadCount > 0 && <Badge variant="destructive" className="h-5 min-w-5 rounded-full px-1.5 text-[10px]" aria-label={`${unreadCount} new messages`}>{unreadCount}</Badge>}
+                    </div>
                     <p className="text-sm text-muted-foreground mt-0.5">{section.description}</p>
                   </div>
                   <ChevronRight className="w-4 h-4 text-zinc-600 shrink-0" />

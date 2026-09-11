@@ -1,4 +1,7 @@
+import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { useAuth } from "@/hooks/use-auth";
+import { nativeFetch } from "@/lib/queryClient";
 import { Dumbbell, Trophy, Home, Users, UserCircle, CalendarDays, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRole } from "@/hooks/use-role";
@@ -83,7 +86,22 @@ const trainerTabs = [
 
 export function BottomTabBar() {
   const [location, navigate] = useLocation();
+  const { user } = useAuth();
   const { activeView } = useRole();
+  const { data: supportUnread } = useQuery<{ available: boolean; unreadCount: number }>({
+    queryKey: ["/api/support/unread", user?.id],
+    queryFn: async () => {
+      const response = await nativeFetch("/api/support/unread", { cache: "no-store" });
+      if (!response.ok) throw new Error("Failed to load message notifications");
+      return response.json();
+    },
+    enabled: !!user,
+    staleTime: 0,
+    refetchInterval: 3000,
+    refetchIntervalInBackground: true,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+  });
 
   // Keep trainer navigation code available without exposing trainer mode in
   // the current player-facing app.
@@ -157,6 +175,15 @@ export function BottomTabBar() {
                   active ? "text-orange-400" : "text-zinc-500"
                 )}
               />
+              {tab.id === "profile" && (supportUnread?.unreadCount || 0) > 0 && (
+                <span
+                  className="absolute -right-3 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full border-2 border-zinc-950 bg-red-500 px-1 text-[9px] font-bold leading-none text-white"
+                  aria-label={`${supportUnread?.unreadCount} new messages`}
+                  data-testid="badge-bottom-profile-unread"
+                >
+                  {(supportUnread?.unreadCount || 0) > 99 ? "99+" : supportUnread?.unreadCount}
+                </span>
+              )}
               {active && (
                 <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-orange-400" />
               )}
