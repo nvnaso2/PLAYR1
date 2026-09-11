@@ -7037,6 +7037,40 @@ function UsersSubTab() {
         <BusinessKpi label="Recent signups" value={recentSignups.length.toLocaleString()} sub="joined in the last 30 days" icon={UserPlus} accent="red" />
       </div>
 
+      <Card className="overflow-hidden border-purple-500/20 bg-gradient-to-br from-purple-500/10 via-zinc-950/70 to-sky-500/10">
+        <CardHeader className="border-b border-zinc-800/70 pb-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle className="text-base">How engagement rating works</CardTitle>
+              <p className="mt-1 text-xs text-muted-foreground">Every player receives a 0–100 score from their activity in the last 28 days.</p>
+            </div>
+            <Badge className="w-fit border-purple-300/20 bg-purple-400/15 text-purple-200">Behavioral score</Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="grid gap-4 p-4 md:grid-cols-3">
+          {[
+            { label: "Recency & consistency", weight: "70%", detail: "35% recency + 35% active days. Returning often matters most.", color: "bg-orange-400", text: "text-orange-300" },
+            { label: "Breadth of use", weight: "15%", detail: "Distinct screens and event types show whether a player explores the product.", color: "bg-sky-400", text: "text-sky-300" },
+            { label: "Training contribution", weight: "15%", detail: "Workout logs, drill categories, and current streak add depth without dominating.", color: "bg-purple-400", text: "text-purple-300" },
+          ].map((item) => (
+            <div key={item.label} className="rounded-xl border border-zinc-800/70 bg-zinc-950/35 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold">{item.label}</p>
+                <span className={`text-xl font-black ${item.text}`}>{item.weight}</span>
+              </div>
+              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-zinc-800"><div className={`h-full rounded-full ${item.color}`} style={{ width: item.weight }} /></div>
+              <p className="mt-3 text-xs leading-5 text-muted-foreground">{item.detail}</p>
+            </div>
+          ))}
+          <div className="md:col-span-3 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-zinc-800/70 pt-3 text-xs text-muted-foreground">
+            <span><strong className="text-emerald-300">A</strong> 80–100 · strongest activity loop</span>
+            <span><strong className="text-sky-300">B</strong> 65–79 · healthy activity</span>
+            <span><strong className="text-amber-300">C</strong> 50–64 · building momentum</span>
+            <span><strong className="text-orange-300">D/F</strong> below 50 · needs attention</span>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-5 lg:grid-cols-[1fr_310px]">
         <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50">
           <CardHeader className="border-b border-zinc-800/70 pb-4">
