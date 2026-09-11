@@ -4706,12 +4706,17 @@ export class DatabaseStorage {
       { key: "lifetime", label: "Lifetime", days: null, sessionTarget: 50, minuteTarget: 1500, actionTarget: 800 },
     ] as const;
     const selected = periods.find((period) => period.key === periodKey) ?? periods[2];
-    const windowCondition = (days: number | null) =>
+    const windowCondition = (days: number | null, offsetDays = 0) =>
       days == null
         ? sql`TRUE`
-        : sql`created_at >= NOW() - (${days}::int * INTERVAL '1 day')`;
+        : offsetDays === 0
+          ? sql`created_at >= NOW() - (${days}::int * INTERVAL '1 day')`
+          : sql`
+            created_at >= NOW() - ((${days} + ${offsetDays})::int * INTERVAL '1 day')
+            AND created_at < NOW() - (${offsetDays}::int * INTERVAL '1 day')
+          `;
 
-    const getPeriodMetrics = async (period: typeof periods[number]) => {
+    const getPeriodMetrics = async (period: typeof periods[number], offsetDays = 0) => {
       const rows = r(await db.execute(sql`
         WITH filtered_events AS (
           SELECT
@@ -4725,7 +4730,7 @@ export class DatabaseStorage {
               ORDER BY created_at ASC, id ASC
             ) AS previous_at
           FROM analytics_events
-          WHERE ${windowCondition(period.days)}
+          WHERE ${windowCondition(period.days, offsetDays)}
         ),
         marked_events AS (
           SELECT
@@ -4826,6 +4831,10 @@ export class DatabaseStorage {
       const totalOpens = rows.reduce((sum: number, row: any) => sum + (Number(row.app_opens || 0) || Number(row.sessions || 0)), 0);
       const estimatedMinutes = rows.reduce((sum: number, row: any) => sum + Number(row.estimated_seconds || 0) / 60, 0);
 
+      const activityScore = activeUsers > 0 ? Math.round((totalScore / activeUsers) * 10) / 10 : 0;
+      const grade = activityScore >= 80 ? "A" : activityScore >= 65 ? "B" : activityScore >= 50 ? "C" : activityScore >= 35 ? "D" : "F";
+      const health = activityScore >= 70 ? "Healthy" : activityScore >= 50 ? "Building momentum" : "Needs attention";
+
       return {
         key: period.key,
         label: period.label,
@@ -4837,7 +4846,9 @@ export class DatabaseStorage {
         totalSessions,
         estimatedMinutes: Math.round(estimatedMinutes),
         averageSessionMinutes: totalSessions > 0 ? Math.round((estimatedMinutes / totalSessions) * 10) / 10 : 0,
-        averageScore: activeUsers > 0 ? Math.round((totalScore / activeUsers) * 10) / 10 : 0,
+        averageScore: activityScore,
+        grade,
+        health,
         thresholds: {
           sessions: period.sessionTarget,
           minutes: period.minuteTarget,
@@ -4858,9 +4869,25 @@ export class DatabaseStorage {
       };
     };
 
-    const periodMetrics = [];
+    const periodMetrics: any[] = [];
     for (const period of periods) {
       periodMetrics.push(await getPeriodMetrics(period));
+    }
+    for (const period of periods) {
+      if (period.days == null) continue;
+      const current = periodMetrics.find((metric) => metric.key === period.key);
+      const previous = await getPeriodMetrics(period, period.days);
+      if (!current) continue;
+      current.previousWindow = {
+        averageScore: previous.averageScore,
+        grade: previous.grade,
+        activeUsers: previous.activeUsers,
+        totalActions: previous.totalActions,
+        estimatedMinutes: previous.estimatedMinutes,
+        scoreDelta: Math.round((current.averageScore - previous.averageScore) * 10) / 10,
+        activeUsersDelta: current.activeUsers - previous.activeUsers,
+        actionsDelta: current.totalActions - previous.totalActions,
+      };
     }
 
     const areaRows = r(await db.execute(sql`

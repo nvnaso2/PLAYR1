@@ -4877,17 +4877,7 @@ function AdminAnalyticsTab() {
 }
 
 function AnalyticsSectionIntro({ eyebrow, title, description }: { eyebrow: string; title: string; description: string }) {
-  return (
-    <div className="relative mb-5 overflow-hidden rounded-2xl border border-orange-500/20 bg-gradient-to-br from-orange-500/10 via-zinc-950/80 to-purple-500/10 p-5 shadow-[0_12px_40px_rgba(249,115,22,0.06)]">
-      <div className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full bg-orange-500/15 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-20 left-1/3 h-36 w-36 rounded-full bg-purple-500/10 blur-3xl" />
-      <div className="relative">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-300">{eyebrow}</p>
-        <h2 className="mt-1 text-xl font-semibold tracking-tight">{title}</h2>
-        <p className="mt-1 max-w-3xl text-sm leading-6 text-zinc-300/80">{description}</p>
-      </div>
-    </div>
-  );
+  return null;
 }
 
 const SIMULATED_BUSINESS_ANALYTICS = {
@@ -5128,7 +5118,7 @@ function BusinessAnalyticsSubTab() {
 
   return (
     <div className="space-y-6" data-testid="section-business-analytics">
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+      <div className="flex justify-end">
         <AnalyticsSectionIntro
           eyebrow="Business"
           title="Revenue, retention, and the cost of growth"
@@ -5438,6 +5428,7 @@ function BusinessKpi({
   icon: Icon,
   accent,
   trend,
+  trendLabel = "MoM",
   cycleHint,
   onClick,
 }: {
@@ -5447,6 +5438,7 @@ function BusinessKpi({
   icon: LucideIcon;
   accent: "orange" | "purple" | "blue" | "red";
   trend?: { value: number; positive: boolean } | null;
+  trendLabel?: string;
   cycleHint?: string;
   onClick?: () => void;
 }) {
@@ -5480,7 +5472,7 @@ function BusinessKpi({
           {trend ? (
             <span className={trend.positive ? "flex items-center gap-1 font-semibold text-emerald-400" : "flex items-center gap-1 font-semibold text-red-400"}>
               {trend.positive ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
-              {trend.value.toFixed(1)}% MoM
+              {trend.value.toFixed(1)}% {trendLabel}
             </span>
           ) : <span className="text-muted-foreground">No prior trend</span>}
           <span className="text-muted-foreground">{sub}</span>
@@ -5542,124 +5534,150 @@ function ActivityAnalyticsSubTab() {
     ...tierStyles[key],
     ...(selected.cohorts?.[key] ?? {}),
   }));
+  const previous = selected.previousWindow;
+  const topArea = data?.areas?.[0];
+  const highShare = Number(selected.cohorts?.high?.userShare || 0);
+  const mediumShare = Number(selected.cohorts?.medium?.userShare || 0);
+  const perUser = (value: number) => selected.activeUsers > 0 ? value / selected.activeUsers : 0;
+  const scoreTrend = previous && previous.averageScore > 0
+    ? { value: Math.abs(previous.scoreDelta / previous.averageScore) * 100, positive: previous.scoreDelta >= 0 }
+    : null;
+  const scoreChart = periods.map((period: any) => ({
+    label: period.key === "lifetime" ? "All time" : period.label.replace("Past ", ""),
+    score: Number(period.averageScore || 0),
+    activeUsers: Number(period.activeUsers || 0),
+  }));
+  const mixChart = [{
+    name: "Users",
+    low: Number(selected.cohorts?.low?.users || 0),
+    medium: Number(selected.cohorts?.medium?.users || 0),
+    high: Number(selected.cohorts?.high?.users || 0),
+  }];
+  const gradeStyles: Record<string, { card: string; text: string; badge: string; glow: string }> = {
+    A: { card: "border-emerald-400/50 bg-emerald-500/12", text: "text-emerald-300", badge: "bg-emerald-400 text-emerald-950", glow: "shadow-[0_0_50px_-18px_rgba(52,211,153,1)]" },
+    B: { card: "border-sky-400/50 bg-sky-500/12", text: "text-sky-300", badge: "bg-sky-400 text-sky-950", glow: "shadow-[0_0_50px_-18px_rgba(56,189,248,1)]" },
+    C: { card: "border-amber-400/50 bg-amber-500/12", text: "text-amber-300", badge: "bg-amber-300 text-amber-950", glow: "shadow-[0_0_50px_-18px_rgba(251,191,36,1)]" },
+    D: { card: "border-orange-400/50 bg-orange-500/12", text: "text-orange-300", badge: "bg-orange-400 text-orange-950", glow: "shadow-[0_0_50px_-18px_rgba(249,115,22,1)]" },
+    F: { card: "border-red-400/50 bg-red-500/12", text: "text-red-300", badge: "bg-red-400 text-red-950", glow: "shadow-[0_0_50px_-18px_rgba(239,68,68,1)]" },
+  };
+  const selectedGrade = gradeStyles[selected.grade] ?? gradeStyles.C;
+  const story = selected.health === "Healthy"
+    ? `This is a healthy ${selected.label.toLowerCase()}: ${number(selected.activeUsers)} players created ${number(selected.totalActions)} meaningful actions across ${number(selected.totalOpens)} opens.`
+    : selected.health === "Building momentum"
+      ? `Momentum is building over ${selected.label.toLowerCase()}. Players are returning, but the product has room to turn more light usage into deeper sessions.`
+      : `${selected.label} needs attention. Activity is concentrated in lighter users, so the next opportunity is bringing players back and helping them reach a meaningful action.`;
 
   return (
     <div className="space-y-6">
-      <AnalyticsSectionIntro
-        eyebrow="Activity"
-        title="How the entire app is being used"
-        description="Measure returning users, openings, app actions, and estimated time in the product. Choose a time window to see the activity mix and the areas players use most."
-      />
-
-      <div className="flex flex-wrap gap-2 rounded-xl border border-zinc-800/80 bg-zinc-950/60 p-2">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {periods.map((period: any) => (
-          <Button
+          <button
             key={period.key}
-            size="sm"
-            variant={selectedPeriod === period.key ? "secondary" : "ghost"}
-            className="h-8 px-3 text-xs"
+            type="button"
             onClick={() => setSelectedPeriod(period.key)}
+            className={`rounded-2xl border p-4 text-left transition-all hover:-translate-y-0.5 ${gradeStyles[period.grade]?.card ?? gradeStyles.C.card} ${gradeStyles[period.grade]?.glow ?? ""} ${selectedPeriod === period.key ? "ring-2 ring-white/70 ring-offset-2 ring-offset-background" : "opacity-75 hover:opacity-100"}`}
           >
-            {period.label}
-          </Button>
+            <div className="flex items-start justify-between gap-2">
+              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-300">{period.label.replace("Past ", "")}</span>
+              <span className={`rounded-md px-2 py-0.5 text-xs font-black ${gradeStyles[period.grade]?.badge ?? gradeStyles.C.badge}`}>{period.grade ?? "—"}</span>
+            </div>
+            <p className={`mt-4 text-3xl font-black ${gradeStyles[period.grade]?.text ?? gradeStyles.C.text}`}>{Number(period.averageScore || 0).toFixed(0)}</p>
+            <p className="mt-1 text-xs text-zinc-300/70">{Number(period.activeUsers || 0).toLocaleString()} active players</p>
+          </button>
         ))}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <StatCard label="Active users" value={number(selected.activeUsers)} sub={`unique users · ${selected.label.toLowerCase()}`} icon={Users} />
-        <StatCard label="Total app events" value={number(selected.totalEvents)} sub="every tracked event across the app" icon={Activity} />
-        <StatCard label="Actions" value={number(selected.totalActions)} sub="events beyond page views" icon={Zap} />
-        <StatCard label="App opens / sessions" value={number(selected.totalOpens)} sub="30-minute inactivity session model" icon={LogIn} />
-        <StatCard label="Estimated usage" value={minutes(selected.estimatedMinutes)} sub="time represented by event spans" icon={Clock} />
-        <StatCard label="Average session" value={`${Number(selected.averageSessionMinutes || 0).toFixed(1)} min`} sub={`average engagement score ${Number(selected.averageScore || 0).toFixed(1)}/100`} icon={TrendingUp} />
-      </div>
-
-      <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50">
-        <CardHeader className="border-b border-zinc-800/70 pb-4">
-          <CardTitle className="text-base">{selected.label} activity mix</CardTitle>
-          <p className="mt-1 text-xs text-muted-foreground">Every active user is scored using app opens, estimated minutes, and actions in this period.</p>
-        </CardHeader>
-        <CardContent className="overflow-x-auto p-0">
-          <table className="w-full min-w-[760px] text-sm">
-            <thead className="bg-zinc-900/60 text-xs text-muted-foreground">
-              <tr>
-                <th className="px-5 py-3 text-left font-medium">Activity level</th>
-                <th className="px-3 py-3 text-right font-medium">Users</th>
-                <th className="px-3 py-3 text-right font-medium">% users</th>
-                <th className="px-3 py-3 text-right font-medium">App events</th>
-                <th className="px-3 py-3 text-right font-medium">Actions</th>
-                <th className="px-3 py-3 text-right font-medium">Opens</th>
-                <th className="px-3 py-3 text-right font-medium">Minutes</th>
-                <th className="px-5 py-3 text-right font-medium">Avg session</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-800/70">
-              {cohortRows.map((cohort) => (
-                <tr key={cohort.key}>
-                  <td className={`px-5 py-4 font-semibold ${cohort.text}`}>
-                    <div className="flex items-center gap-2">
-                      <span className={`h-2.5 w-2.5 rounded-full ${cohort.bar}`} />
-                      {cohort.label}
-                    </div>
-                  </td>
-                  <td className="px-3 py-4 text-right font-semibold">{number(cohort.users)}</td>
-                  <td className="px-3 py-4 text-right text-muted-foreground">{Number(cohort.userShare || 0).toFixed(1)}%</td>
-                  <td className="px-3 py-4 text-right">{number(cohort.events)} <span className="text-xs text-muted-foreground">({Number(cohort.eventShare || 0).toFixed(1)}%)</span></td>
-                  <td className="px-3 py-4 text-right">{number(cohort.actions)}</td>
-                  <td className="px-3 py-4 text-right">{number(cohort.opens)}</td>
-                  <td className="px-3 py-4 text-right">{number(cohort.estimatedMinutes)}</td>
-                  <td className="px-5 py-4 text-right">{Number(cohort.averageSessionMinutes || 0).toFixed(1)} min</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <Card className={`overflow-hidden border ${selectedGrade.card} ${selectedGrade.glow}`}>
+        <CardContent className="relative p-6">
+          <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
+          <div className="relative grid gap-6 lg:grid-cols-[1fr_auto] lg:items-center">
+            <div>
+              <div className="flex flex-wrap items-center gap-3">
+                <span className={`rounded-lg px-3 py-1 text-xs font-black uppercase tracking-[0.16em] ${selectedGrade.badge}`}>Activity health</span>
+                <span className="text-sm text-zinc-300">{selected.label}</span>
+              </div>
+              <div className="mt-4 flex items-end gap-4">
+                <span className={`text-7xl font-black leading-none ${selectedGrade.text}`}>{selected.grade}</span>
+                <div className="pb-1">
+                  <p className="text-2xl font-bold">{selected.health}</p>
+                  <p className="text-sm text-zinc-300/80">{story}</p>
+                </div>
+              </div>
+              {previous && (
+                <div className="mt-5 flex flex-wrap items-center gap-2 text-xs">
+                  <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-semibold ${previous.scoreDelta >= 0 ? "bg-emerald-400/15 text-emerald-200" : "bg-red-400/15 text-red-200"}`}>
+                    {previous.scoreDelta >= 0 ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
+                    {Math.abs(previous.scoreDelta).toFixed(1)} pts vs previous window
+                  </span>
+                  <span className="text-zinc-300/70">{number(previous.activeUsers)} active players in the prior matching window</span>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-5">
+              <div className={`flex h-32 w-32 flex-col items-center justify-center rounded-full border-8 border-white/15 bg-zinc-950/35 ${selectedGrade.text}`}>
+                <span className="text-4xl font-black">{Number(selected.averageScore || 0).toFixed(0)}</span>
+                <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-300">out of 100</span>
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
-      <div className="grid gap-5 lg:grid-cols-[1.25fr_0.75fr]">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <BusinessKpi label="Active players" value={number(selected.activeUsers)} sub={`${number(perUser(selected.totalOpens))} opens per player`} icon={Users} accent="orange" trend={previous ? { value: Math.abs(previous.activeUsersDelta / Math.max(previous.activeUsers, 1)) * 100, positive: previous.activeUsersDelta >= 0 } : null} trendLabel="vs prior" />
+        <BusinessKpi label="Meaningful actions" value={number(selected.totalActions)} sub={`${perUser(selected.totalActions).toFixed(1)} actions per player`} icon={Zap} accent="purple" trend={previous ? { value: Math.abs(previous.actionsDelta / Math.max(previous.totalActions - previous.actionsDelta, 1)) * 100, positive: previous.actionsDelta >= 0 } : null} trendLabel="vs prior" />
+        <BusinessKpi label="Estimated usage" value={minutes(selected.estimatedMinutes)} sub={`${perUser(selected.estimatedMinutes).toFixed(1)} minutes per player`} icon={Clock} accent="blue" trend={previous ? { value: Math.abs((selected.estimatedMinutes - previous.estimatedMinutes) / Math.max(previous.estimatedMinutes, 1)) * 100, positive: selected.estimatedMinutes >= previous.estimatedMinutes } : null} trendLabel="vs prior" />
+        <BusinessKpi label="Deep-use players" value={`${highShare.toFixed(1)}%`} sub={`${mediumShare.toFixed(1)}% are building momentum`} icon={Trophy} accent="red" trend={scoreTrend} trendLabel="score vs prior" />
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
         <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50">
-          <CardHeader className="border-b border-zinc-800/70 pb-4">
-            <CardTitle className="text-base">App areas used most</CardTitle>
-            <p className="mt-1 text-xs text-muted-foreground">Views, actions, unique users, event types, and screens by product area.</p>
+          <CardHeader className="border-b border-zinc-800/70 pb-3">
+            <CardTitle className="text-base">Is activity improving?</CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">Average activity health across each time window.</p>
           </CardHeader>
           <CardContent className="p-4">
-            {(data.areas ?? []).length === 0 ? <BusinessEmptyState label="No area usage data in this period" /> : (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={(data.areas ?? []).slice(0, 10)} layout="vertical" margin={{ left: 20, right: 18 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
-                  <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
-                  <YAxis type="category" dataKey="area" width={125} tick={{ fontSize: 11 }} />
-                  <Tooltip formatter={(value: any) => number(Number(value))} />
-                  <Bar dataKey="events" name="Events" fill="#f97316" radius={[0, 5, 5, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
+            <ResponsiveContainer width="100%" height={270}>
+              <BarChart data={scoreChart} margin={{ top: 10, right: 12, left: -12, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 10 }} />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} />
+                <Tooltip formatter={(value: any, name: string) => [name === "score" ? `${Number(value).toFixed(0)} / 100` : number(Number(value)), name === "score" ? "Health score" : "Active players"]} />
+                <Bar dataKey="score" name="Health score" radius={[7, 7, 0, 0]}>
+                  {scoreChart.map((period: any) => <Cell key={period.label} fill={gradeStyles[periods.find((item: any) => item.label.replace("Past ", "") === period.label)?.grade]?.text === "text-emerald-300" ? "#34d399" : "#f97316"} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        <Card className="border-orange-500/20 bg-orange-500/5">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">How activity level is calculated</CardTitle>
+        <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50">
+          <CardHeader className="border-b border-zinc-800/70 pb-3">
+            <CardTitle className="text-base">Who is carrying the activity?</CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">The mix behind the {selected.grade} grade.</p>
           </CardHeader>
-          <CardContent className="space-y-4 text-sm">
-            <p className="text-muted-foreground">The score combines three signals for the selected period:</p>
-            <div className="space-y-3">
-              <div><p className="font-medium text-foreground">40% · App opens</p><p className="text-xs text-muted-foreground">Sessions separated by at least 30 minutes of inactivity. Target: {selected.thresholds.sessions} opens.</p></div>
-              <div><p className="font-medium text-foreground">30% · Usage time</p><p className="text-xs text-muted-foreground">Estimated event-span minutes. Target: {selected.thresholds.minutes} minutes.</p></div>
-              <div><p className="font-medium text-foreground">30% · Actions</p><p className="text-xs text-muted-foreground">Tracked events other than page views. Target: {selected.thresholds.actions} actions.</p></div>
+          <CardContent className="p-4">
+            <ResponsiveContainer width="100%" height={150}>
+              <BarChart data={mixChart} layout="vertical" stackOffset="expand" margin={{ left: 0, right: 8 }}>
+                <XAxis type="number" hide />
+                <YAxis type="category" dataKey="name" hide />
+                <Tooltip formatter={(value: any) => number(Number(value))} />
+                <Bar dataKey="low" stackId="mix" fill="#71717a" name="Low" />
+                <Bar dataKey="medium" stackId="mix" fill="#fbbf24" name="Medium" />
+                <Bar dataKey="high" stackId="mix" fill="#34d399" name="High" radius={[0, 8, 8, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+            <div className="mt-2 grid grid-cols-3 gap-2 text-center text-xs">
+              {cohortRows.map((cohort) => <div key={cohort.key}><span className={`mx-auto mb-1 block h-2 w-2 rounded-full ${cohort.bar}`} /><p className="font-semibold">{number(cohort.users)}</p><p className="text-muted-foreground">{cohort.label}</p></div>)}
             </div>
-            <div className="border-t border-orange-400/20 pt-3 text-xs text-muted-foreground">
-              <span className="font-semibold text-zinc-200">Low:</span> 0–34 · <span className="font-semibold text-amber-200">Medium:</span> 35–69 · <span className="font-semibold text-emerald-200">High:</span> 70–100
-            </div>
-            <p className="text-[11px] text-muted-foreground">{data.durationMethod}</p>
           </CardContent>
         </Card>
       </div>
 
       <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50">
         <CardHeader className="border-b border-zinc-800/70 pb-4">
-          <CardTitle className="text-base">Detailed area breakdown</CardTitle>
-          <p className="mt-1 text-xs text-muted-foreground">All classified product areas in the selected period.</p>
+          <CardTitle className="text-base">What is driving the score?</CardTitle>
+          <p className="mt-1 text-xs text-muted-foreground">{topArea ? `${topArea.area} is the busiest area with ${number(topArea.events)} events and ${number(topArea.uniqueUsers)} unique players.` : "Area data will appear as players use the product."}</p>
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
           <table className="w-full min-w-[850px] text-sm">
@@ -5732,6 +5750,16 @@ function ActivityAnalyticsSubTab() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="border-orange-500/20 bg-orange-500/5">
+        <CardContent className="flex flex-col gap-3 p-5 text-sm sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-semibold">How the grade is calculated</p>
+            <p className="mt-1 text-xs text-muted-foreground">40% opens · 30% estimated usage minutes · 30% meaningful actions. {data.durationMethod}</p>
+          </div>
+          <div className="shrink-0 text-xs text-muted-foreground"><span className="font-semibold text-zinc-200">A:</span> 80+ · <span className="font-semibold text-sky-200">B:</span> 65+ · <span className="font-semibold text-amber-200">C:</span> 50+</div>
+        </CardContent>
+      </Card>
 
     </div>
   );
