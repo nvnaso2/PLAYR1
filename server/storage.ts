@@ -4712,7 +4712,7 @@ export class DatabaseStorage {
         : offsetDays === 0
           ? sql`created_at >= NOW() - (${days}::int * INTERVAL '1 day')`
           : sql`
-            created_at >= NOW() - ((${days} + ${offsetDays})::int * INTERVAL '1 day')
+            created_at >= NOW() - (${days + offsetDays}::int * INTERVAL '1 day')
             AND created_at < NOW() - (${offsetDays}::int * INTERVAL '1 day')
           `;
 
