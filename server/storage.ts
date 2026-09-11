@@ -5440,12 +5440,19 @@ export class DatabaseStorage {
           SUM(new_session) OVER (ORDER BY created_at ASC) AS session_no
         FROM marked
       ),
+      session_bounds AS (
+        SELECT
+          session_no,
+          MIN(created_at) AS session_started_at,
+          MAX(created_at) AS session_ended_at
+        FROM numbered
+        GROUP BY session_no
+      ),
       sessions AS (
         SELECT
           COUNT(*)::int AS sessions,
-          COALESCE(SUM(LEAST(EXTRACT(EPOCH FROM (MAX(created_at) - MIN(created_at))), 1800)), 0)::double precision AS estimated_seconds
-        FROM numbered
-        GROUP BY session_no
+          COALESCE(SUM(LEAST(EXTRACT(EPOCH FROM (session_ended_at - session_started_at)), 1800)), 0)::double precision AS estimated_seconds
+        FROM session_bounds
       )
       SELECT
         COUNT(*)::int AS total_events,
