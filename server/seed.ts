@@ -1,9 +1,9 @@
 import { db } from "./db";
-import { drills, benchmarks, evaluationAttributes, shotLocations, shotTypes, userProfiles, metricTemplates, drillMetrics, teamClubs, leagues, archetypes, archetypeRoadmapItems, streakChallenges, type ArchetypeTier, type ArchetypeRoadmapItemType, careerProfiles, playerProfiles, friendships, userFollows, friendActivityFeed, groupChallenges, groupChallengeMembers, userStreaks, trainingLogs, type ShotLocation } from "@shared/schema";
+import { drills, benchmarks, evaluationAttributes, shotLocations, shotTypes, userProfiles, metricTemplates, drillMetrics, teamClubs, leagues, archetypes, archetypeRoadmapItems, streakChallenges, type ArchetypeTier, type ArchetypeRoadmapItemType, careerProfiles, playerProfiles, friendships, userFollows, friendActivityFeed, groupChallenges, groupChallengeMembers, userStreaks, trainingLogs, analyticsEvents, type ShotLocation } from "@shared/schema";
 // seedPrograms disabled — generic programs removed per user request
 // import { seedPrograms } from "./seed-programs";
 import { users } from "@shared/models/auth";
-import { eq, sql, notInArray, isNull, and, or, like } from "drizzle-orm";
+import { eq, sql, notInArray, inArray, isNull, and, or, like } from "drizzle-orm";
 import { readFileSync } from "fs";
 import { join } from "path";
 
@@ -762,6 +762,136 @@ async function seedCommunityDemo() {
   console.log(`Community demo seeded for ${realUsers.length} local player account(s)`);
 }
 
+async function seedAnalyticsDemo() {
+  if (process.env.NODE_ENV === "production") return;
+
+  const demoIds = communityDemoPlayers.map((player) => player.id);
+  const available = await db.select({ id: users.id }).from(users).where(inArray(users.id, demoIds));
+  if (available.length === 0) {
+    console.log("Analytics demo skipped: community demo players are not available yet");
+    return;
+  }
+
+  const availableIds = new Set(available.map((user) => user.id));
+  const now = new Date();
+  const dayMs = 24 * 60 * 60 * 1000;
+  const pages = [
+    "/hub", "/drills", "/training-log", "/programs", "/coach-p",
+    "/community", "/profile", "/career", "/game-day", "/my-trainer",
+  ];
+  const actionEvents = [
+    "drill_viewed", "drill_log_completed", "daily_challenge_started",
+    "program_view", "program_item_complete", "coach_p_question",
+    "journal_entry_saved", "community_feed_view", "friend_request_sent",
+    "event_view", "project_view", "project_milestone_completed",
+  ];
+
+  const rows: Array<{
+    id: string;
+    userId: string;
+    event: string;
+    page: string;
+    metadata: Record<string, any>;
+    createdAt: Date;
+  }> = [];
+
+  const addEvent = (
+    player: typeof communityDemoPlayers[number],
+    event: string,
+    page: string,
+    date: Date,
+    sequence: number,
+    sessionId: string,
+    metadata: Record<string, any> = {},
+  ) => {
+    rows.push({
+      id: `playr1-demo-analytics-${player.key}-${date.getTime()}-${sequence}-${event}`,
+      userId: player.id,
+      event,
+      page,
+      metadata: { demo: true, sessionId, ...metadata },
+      createdAt: date,
+    });
+  };
+
+  for (const [index, player] of communityDemoPlayers.entries()) {
+    if (!availableIds.has(player.id)) continue;
+
+    // Spread demo signups across the last ten weeks so cohort and Day-N
+    // retention have multiple eligible cohorts instead of one dense row.
+    const cohortAgeDays = 7 + (index % 10) * 7;
+    const signupAt = new Date(now.getTime() - cohortAgeDays * dayMs);
+    await db.update(users).set({ createdAt: signupAt, updatedAt: now }).where(eq(users.id, player.id));
+
+    addEvent(player, "signup", "/welcome", signupAt, 0, `signup-${player.key}`);
+    addEvent(player, "onboarding_completed", "/career", new Date(signupAt.getTime() + 8 * 60 * 1000), 1, `onboarding-${player.key}`);
+
+    // Different cadence profiles create visibly different low, medium, high,
+    // and at-risk groups in the admin dashboard.
+    const profile = index % 6;
+    const isAtRisk = profile === 3;
+    const isHigh = profile === 0 || profile === 5;
+    const cadence = isHigh ? 1 : profile === 1 ? 2 : profile === 2 ? 4 : profile === 4 ? 7 : 1;
+
+    for (let daysAgo = 0; daysAgo <= 89; daysAgo++) {
+      const activeForProfile = isAtRisk
+        ? daysAgo >= 18 && daysAgo <= 35
+        : daysAgo % cadence === 0;
+      if (!activeForProfile) continue;
+
+      const sessionCount = isHigh || profile === 1 ? 2 : 1;
+      for (let sessionIndex = 0; sessionIndex < sessionCount; sessionIndex++) {
+        const sessionDate = new Date(now.getTime() - daysAgo * dayMs);
+        sessionDate.setHours(8 + ((index + sessionIndex * 5) % 10), 10 + (index % 35), 0, 0);
+        sessionDate.setTime(sessionDate.getTime() + sessionIndex * 90 * 60 * 1000);
+        const sessionId = `${player.key}-${daysAgo}-${sessionIndex}`;
+        const page = pages[(index + daysAgo + sessionIndex) % pages.length];
+        let sequence = 0;
+
+        addEvent(player, "app_open", page, sessionDate, sequence++, sessionId);
+        addEvent(player, "page_view", page, new Date(sessionDate.getTime() + 1_000), sequence++, sessionId, { path: page });
+        addEvent(player, "app_heartbeat", page, new Date(sessionDate.getTime() + 5 * 60 * 1000), sequence++, sessionId);
+
+        const eventCount = isHigh ? 7 : profile === 1 ? 5 : profile === 4 ? 2 : 3;
+        for (let eventIndex = 0; eventIndex < eventCount; eventIndex++) {
+          const event = actionEvents[(index + daysAgo + eventIndex) % actionEvents.length];
+          const eventPage = pages[(index + eventIndex) % pages.length];
+          addEvent(
+            player,
+            event,
+            eventPage,
+            new Date(sessionDate.getTime() + (eventIndex + 1) * 75 * 1000),
+            sequence++,
+            sessionId,
+            { demoActionIndex: eventIndex },
+          );
+        }
+        addEvent(player, "app_heartbeat", page, new Date(sessionDate.getTime() + 10 * 60 * 1000), sequence++, sessionId);
+      }
+    }
+
+    // Give the preset funnels clean, sequential paths for a portion of players.
+    const funnelDate = new Date(now.getTime() - Math.max(2, index % 18) * dayMs);
+    const funnelSession = `funnel-${player.key}`;
+    addEvent(player, "drill_viewed", "/drills", new Date(funnelDate.getTime() + 1_000), 0, funnelSession);
+    addEvent(player, "drill_log_completed", "/training-log", new Date(funnelDate.getTime() + 2 * 60 * 1000), 1, funnelSession);
+    addEvent(player, "daily_challenge_started", "/hub", new Date(funnelDate.getTime() + 4 * 60 * 1000), 2, funnelSession);
+    if (index % 3 === 0) {
+      addEvent(player, "page_view", "/my-trainer", new Date(funnelDate.getTime() + 6 * 60 * 1000), 3, funnelSession);
+      addEvent(player, "page_view", `/t/demo-trainer-${index % 4}`, new Date(funnelDate.getTime() + 8 * 60 * 1000), 4, funnelSession);
+      addEvent(player, "booking_completed", "/my-trainer", new Date(funnelDate.getTime() + 10 * 60 * 1000), 5, funnelSession);
+    }
+  }
+
+  if (rows.length > 0) {
+    // Keep each insert below the hosted Postgres driver's bind-parameter limit.
+    for (let offset = 0; offset < rows.length; offset += 400) {
+      await db.insert(analyticsEvents).values(rows.slice(offset, offset + 400)).onConflictDoNothing();
+    }
+  }
+  console.log(`Analytics demo synced (${rows.length.toLocaleString()} events across ${available.length} demo players)`);
+}
+
 export async function seedDatabase() {
   console.log("Seeding database...");
   
@@ -1143,6 +1273,7 @@ export async function seedDatabase() {
     }
 
     await seedCommunityDemo();
+    await seedAnalyticsDemo();
     console.log("Database seeding complete!");
 
     const adminEmail = process.env.ADMIN_EMAIL;

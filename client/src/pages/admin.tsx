@@ -4836,6 +4836,7 @@ function AdminAnalyticsTab() {
     { value: "business", label: "Business", icon: TrendingUp },
     { value: "activity", label: "Activity", icon: Activity },
     { value: "users", label: "Users", icon: Users },
+    { value: "funnels", label: "Funnels", icon: GitBranch },
     { value: "areas", label: "Areas of the app", icon: Globe },
     { value: "training", label: "Training", icon: Dumbbell },
     { value: "community", label: "Community", icon: Users },
@@ -4846,13 +4847,13 @@ function AdminAnalyticsTab() {
   return (
     <div className="space-y-6" data-testid="section-analytics">
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-xl border border-zinc-800/80 bg-zinc-950/80 p-1.5">
+        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-2xl border border-orange-500/15 bg-gradient-to-r from-zinc-950 via-zinc-900 to-orange-950/30 p-2 shadow-[0_12px_40px_rgba(249,115,22,0.08)]">
           {analyticsTabs.map(({ value, label, icon: Icon }) => (
             <TabsTrigger
               key={value}
               value={value}
               data-testid={`tab-analytics-${value}`}
-              className="gap-1.5 px-3 py-2 text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-black sm:text-sm"
+              className="gap-1.5 rounded-xl px-3 py-2 text-xs transition-all data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-amber-300 data-[state=active]:text-black data-[state=active]:shadow-lg data-[state=active]:shadow-orange-500/20 sm:text-sm"
             >
               <Icon className="h-3.5 w-3.5" />
               {label}
@@ -4864,6 +4865,7 @@ function AdminAnalyticsTab() {
         <TabsContent value="business" className="mt-6"><BusinessAnalyticsSubTab /></TabsContent>
         <TabsContent value="activity" className="mt-6"><ActivityAnalyticsSubTab /></TabsContent>
         <TabsContent value="users" className="mt-6"><UsersSubTab /></TabsContent>
+        <TabsContent value="funnels" className="mt-6"><FunnelsSubTab /></TabsContent>
         <TabsContent value="areas" className="mt-6"><AreasAnalyticsSubTab /></TabsContent>
         <TabsContent value="training" className="mt-6"><ContentSubTab /></TabsContent>
         <TabsContent value="community" className="mt-6"><CommunityAnalyticsSubTab /></TabsContent>
@@ -4876,10 +4878,14 @@ function AdminAnalyticsTab() {
 
 function AnalyticsSectionIntro({ eyebrow, title, description }: { eyebrow: string; title: string; description: string }) {
   return (
-    <div className="mb-5">
-      <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-400">{eyebrow}</p>
-      <h2 className="mt-1 text-xl font-semibold tracking-tight">{title}</h2>
-      <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{description}</p>
+    <div className="relative mb-5 overflow-hidden rounded-2xl border border-orange-500/20 bg-gradient-to-br from-orange-500/10 via-zinc-950/80 to-purple-500/10 p-5 shadow-[0_12px_40px_rgba(249,115,22,0.06)]">
+      <div className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full bg-orange-500/15 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-20 left-1/3 h-36 w-36 rounded-full bg-purple-500/10 blur-3xl" />
+      <div className="relative">
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-300">{eyebrow}</p>
+        <h2 className="mt-1 text-xl font-semibold tracking-tight">{title}</h2>
+        <p className="mt-1 max-w-3xl text-sm leading-6 text-zinc-300/80">{description}</p>
+      </div>
     </div>
   );
 }
@@ -5727,7 +5733,6 @@ function ActivityAnalyticsSubTab() {
         </Card>
       </div>
 
-      <RetentionSubTab />
     </div>
   );
 }
@@ -6424,14 +6429,6 @@ function RetentionSubTab() {
     },
   });
 
-  const { data: engagement } = useQuery<any>({
-    queryKey: ["/api/admin/analytics/engagement"],
-    queryFn: async () => {
-      const res = await apiRequest("GET", "/api/admin/analytics/engagement");
-      return res.json();
-    },
-  });
-
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -6497,58 +6494,62 @@ function RetentionSubTab() {
         </div>
       </div>
 
-      {/* Engagement Score Distribution */}
-      {engagement && (
-        <>
-          <div>
-            <div className="flex items-baseline justify-between mb-3">
-              <h2 className="text-lg font-semibold">Engagement Score Distribution</h2>
-              <p className="text-xs text-muted-foreground">
-                Avg score: <span className="font-semibold text-foreground">{engagement.avgScore}</span> across {engagement.activeUserCount} active users
-              </p>
-            </div>
-            <Card>
-              <CardContent className="p-4">
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={engagement.distribution}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="bucket" tick={{ fontSize: 11 }} />
-                    <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-                    <Tooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8 }} />
-                    <Bar dataKey="count" name="Users" radius={[4,4,0,0]}>
-                      {engagement.distribution.map((_: any, i: number) => (
-                        <Cell key={i} fill={["#ef4444", "#f97316", "#eab308", "#22c55e", "#3b82f6"][i] || "#666"} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-                <p className="text-xs text-muted-foreground mt-2">
-                Score (0–100) = app recency × 35 + app frequency × 35 + app breadth × 15 + training signal × 15
-                </p>
-              </CardContent>
-            </Card>
-          </div>
+    </div>
+  );
+}
 
-          {/* Two columns: Top engaged + At-risk */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <EngagementUserList
-              title="Most Engaged Users"
-              icon={Trophy}
-              accent="text-green-500"
-              users={engagement.topUsers}
-              emptyMessage="No engagement data yet"
-            />
-            <EngagementUserList
-              title="At-Risk Users"
-              icon={AlertTriangle}
-              accent="text-orange-500"
-              users={engagement.atRisk}
-              emptyMessage="No at-risk users — everyone's engaged!"
-              subtitle="Recently active but slipping (score 15–40). Re-engagement candidates."
-            />
-          </div>
-        </>
-      )}
+function EngagementAnalyticsSection({ engagement }: { engagement: any }) {
+  return (
+    <div className="space-y-5 border-t border-zinc-800/70 pt-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-300">Engagement intelligence</p>
+          <h2 className="mt-1 text-lg font-semibold">Most engaged and at-risk players</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Use these lists to celebrate momentum and prioritize re-engagement.</p>
+        </div>
+        <Badge className="border-emerald-400/20 bg-emerald-500/10 text-emerald-200">
+          Avg score {engagement.avgScore} · {engagement.activeUserCount.toLocaleString()} active
+        </Badge>
+      </div>
+
+      <Card className="border-emerald-500/15 bg-gradient-to-br from-emerald-500/10 via-zinc-950/70 to-blue-500/10">
+        <CardContent className="p-4">
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={engagement.distribution}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis dataKey="bucket" tick={{ fontSize: 11 }} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+              <Tooltip contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+              <Bar dataKey="count" name="Users" radius={[6, 6, 0, 0]}>
+                {engagement.distribution.map((_: any, i: number) => (
+                  <Cell key={i} fill={["#ef4444", "#f97316", "#eab308", "#22c55e", "#3b82f6"][i] || "#666"} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Score (0–100) combines recency, activity frequency, app breadth, and training signals.
+          </p>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <EngagementUserList
+          title="Most Engaged Users"
+          icon={Trophy}
+          accent="text-emerald-400"
+          users={engagement.topUsers}
+          emptyMessage="No engagement data yet"
+        />
+        <EngagementUserList
+          title="At-Risk Users"
+          icon={AlertTriangle}
+          accent="text-orange-400"
+          users={engagement.atRisk}
+          emptyMessage="No at-risk users — everyone's engaged!"
+          subtitle="Recently active but slipping (score 15–40). Re-engagement candidates."
+        />
+      </div>
     </div>
   );
 }
@@ -6747,14 +6748,24 @@ function FunnelsSubTab() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold mb-1">Conversion Funnels</h2>
-        <p className="text-sm text-muted-foreground">
-          See how users move through the most important sequences in your product. Each step requires the previous step to have happened first for the same user.
-        </p>
-      </div>
+      <AnalyticsSectionIntro
+        eyebrow="Funnels & retention"
+        title="Understand what keeps players moving"
+        description="Retention shows whether players return. Funnels show where they progress, pause, or drop off across the product journey."
+      />
 
-      <div className="flex flex-wrap items-center gap-3">
+      <RetentionSubTab />
+
+      <div className="border-t border-zinc-800/70 pt-6">
+        <div className="mb-4">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-purple-300">Conversion paths</p>
+          <h2 className="mt-1 text-lg font-semibold">Conversion Funnels</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Each step requires the previous step to have happened first for the same user.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground uppercase tracking-wide">Funnel</span>
           <Select value={funnel} onValueChange={setFunnel}>
@@ -6781,15 +6792,15 @@ function FunnelsSubTab() {
             </SelectContent>
           </Select>
         </div>
-      </div>
+        </div>
 
-      {isLoading && (
+        {isLoading && (
         <div className="space-y-3">
           {[1,2,3,4].map(i => <Skeleton key={i} className="h-20 rounded-xl" />)}
         </div>
-      )}
+        )}
 
-      {isError && (
+        {isError && (
         <Card data-testid="funnels-error-state">
           <CardContent className="p-8 text-center space-y-3">
             <AlertTriangle className="w-8 h-8 text-orange-500 mx-auto" />
@@ -6798,11 +6809,12 @@ function FunnelsSubTab() {
             <Button size="sm" variant="outline" onClick={() => refetch()} data-testid="btn-retry-funnel">Retry</Button>
           </CardContent>
         </Card>
-      )}
+        )}
 
-      {!isLoading && !isError && data && (
-        <FunnelView data={data} />
-      )}
+        {!isLoading && !isError && data && (
+          <FunnelView data={data} />
+        )}
+      </div>
     </div>
   );
 }
@@ -6941,6 +6953,14 @@ function UsersSubTab() {
     },
   });
 
+  const { data: engagement } = useQuery<any>({
+    queryKey: ["/api/admin/analytics/engagement"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/admin/analytics/engagement");
+      return res.json();
+    },
+  });
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -7062,6 +7082,8 @@ function UsersSubTab() {
           </CardContent>
         </Card>
       )}
+
+      {engagement && <EngagementAnalyticsSection engagement={engagement} />}
     </div>
   );
 }
