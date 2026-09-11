@@ -34,6 +34,7 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
+  DialogDescription,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
@@ -7144,6 +7145,10 @@ function UsersSubTab() {
          <DialogContent className="max-h-[92vh] max-w-6xl overflow-y-auto border-zinc-800 bg-zinc-950 p-0">
            {selectedUserId && (
              <div className="p-5 sm:p-7">
+               <DialogHeader className="sr-only">
+                 <DialogTitle>Player activity profile</DialogTitle>
+                 <DialogDescription>Detailed engagement, usage, training, and activity history for the selected player.</DialogDescription>
+               </DialogHeader>
                <UserActivityProfile userId={selectedUserId} onBack={() => setSelectedUserId(null)} />
              </div>
            )}
