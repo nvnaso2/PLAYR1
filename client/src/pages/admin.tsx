@@ -4965,7 +4965,7 @@ function BusinessAnalyticsSubTab() {
   });
   const [showSimulated, setShowSimulated] = useState(false);
   const [kpiIndexes, setKpiIndexes] = useState({ revenue: 0, users: 0, ltv: 0, churn: 0 });
-  const [performanceView, setPerformanceView] = useState<"money" | "subscriptions" | "churn">("money");
+  const [performanceView, setPerformanceView] = useState<"money" | "users">("money");
   const [expenseView, setExpenseView] = useState<"monthly" | "yearly">("yearly");
 
   const money = (value: number | null | undefined) =>
@@ -5181,20 +5181,19 @@ function BusinessAnalyticsSubTab() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <CardTitle className="text-base">Revenue, expense, and profit</CardTitle>
-                <p className="mt-1 text-xs text-muted-foreground">Switch between money, subscription volume, and churn signals</p>
+                <p className="mt-1 text-xs text-muted-foreground">Switch between financial performance and user growth signals</p>
               </div>
               <div className="flex rounded-lg border border-zinc-800/80 p-0.5">
                 {[
                   ["money", "Money"],
-                  ["subscriptions", "Subscriptions"],
-                  ["churn", "Churn"],
+                  ["users", "Users"],
                 ].map(([value, label]) => (
                   <Button
                     key={value}
                     size="sm"
                     variant={performanceView === value ? "secondary" : "ghost"}
                     className="h-7 px-2 text-[11px]"
-                    onClick={() => setPerformanceView(value as "money" | "subscriptions" | "churn")}
+                    onClick={() => setPerformanceView(value as "money" | "users")}
                   >
                     {label}
                   </Button>
@@ -5205,30 +5204,27 @@ function BusinessAnalyticsSubTab() {
           <CardContent className="p-4">
             {!hasPerformanceData ? <BusinessEmptyState label="No business trend data yet" /> : (
               <ResponsiveContainer width="100%" height={280}>
-                <AreaChart data={performanceData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-                  <YAxis tickFormatter={(value) => performanceView === "money" ? `$${value}` : value.toLocaleString()} tick={{ fontSize: 11 }} />
-                  <Tooltip formatter={(value: any, name: string) => performanceView === "money" ? money(Number(value)) : `${Number(value).toLocaleString()} users`} />
-                  {performanceView === "money" ? (
-                    <>
-                      <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#22c55e" fill="#22c55e" fillOpacity={0.14} strokeWidth={2.5} />
-                      <Area type="monotone" dataKey="totalExpenses" name="Expenses" stroke="#ef4444" fill="#ef4444" fillOpacity={0.12} strokeWidth={2.5} />
-                      <Area type="monotone" dataKey="profit" name="Profit" stroke="#facc15" fill="#facc15" fillOpacity={0.18} strokeWidth={2.5} />
-                    </>
-                  ) : performanceView === "subscriptions" ? (
-                    <>
-                      <Area type="monotone" dataKey="activeSubscriptions" name="Active subscriptions" stroke="#22c55e" fill="#22c55e" fillOpacity={0.14} strokeWidth={2.5} />
-                      <Area type="monotone" dataKey="paidUsers" name="Paid users" stroke="#38bdf8" fill="#38bdf8" fillOpacity={0.12} strokeWidth={2.5} />
-                      <Area type="monotone" dataKey="signups" name="New signups" stroke="#a855f7" fill="#a855f7" fillOpacity={0.10} strokeWidth={2.5} />
-                    </>
-                  ) : (
-                    <>
-                      <Area type="monotone" dataKey="activeSubscriptions" name="Active subscriptions" stroke="#38bdf8" fill="#38bdf8" fillOpacity={0.12} strokeWidth={2.5} />
-                      <Area type="monotone" dataKey="churnedSubscriptions" name="Churned subscriptions" stroke="#ef4444" fill="#ef4444" fillOpacity={0.18} strokeWidth={2.5} />
-                    </>
-                  )}
-                </AreaChart>
+                {performanceView === "money" ? (
+                  <AreaChart data={performanceData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                    <YAxis tickFormatter={(value) => `$${value}`} tick={{ fontSize: 11 }} />
+                    <Tooltip formatter={(value: any) => money(Number(value))} />
+                    <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#22c55e" fill="#22c55e" fillOpacity={0.14} strokeWidth={2.5} />
+                    <Area type="monotone" dataKey="totalExpenses" name="Expenses" stroke="#ef4444" fill="#ef4444" fillOpacity={0.12} strokeWidth={2.5} />
+                    <Area type="monotone" dataKey="profit" name="Profit" stroke="#facc15" fill="#facc15" fillOpacity={0.18} strokeWidth={2.5} />
+                  </AreaChart>
+                ) : (
+                  <LineChart data={performanceData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                    <YAxis tickFormatter={(value) => value.toLocaleString()} tick={{ fontSize: 11 }} />
+                    <Tooltip formatter={(value: any) => `${Number(value).toLocaleString()} users`} />
+                    <Line type="monotone" dataKey="activeUsers" name="Total active users" stroke="#38bdf8" strokeWidth={3} dot={{ r: 3, fill: "#38bdf8" }} />
+                    <Line type="monotone" dataKey="signups" name="New signups" stroke="#a855f7" strokeWidth={2.5} dot={{ r: 3, fill: "#a855f7" }} />
+                    <Line type="monotone" dataKey="churnedSubscriptions" name="Churned subscriptions" stroke="#ef4444" strokeWidth={2.5} dot={{ r: 3, fill: "#ef4444" }} />
+                  </LineChart>
+                )}
               </ResponsiveContainer>
             )}
           </CardContent>
@@ -5264,7 +5260,7 @@ function BusinessAnalyticsSubTab() {
         </Card>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid gap-5 lg:grid-cols-1">
         <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50">
           <CardHeader className="border-b border-zinc-800/70 pb-4">
             <div className="flex items-start justify-between gap-3">
@@ -5408,43 +5404,6 @@ function BusinessAnalyticsSubTab() {
           </CardContent>
         </Card>
 
-        <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50">
-          <CardHeader className="border-b border-zinc-800/70 pb-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <CardTitle className="text-base">Active users, signups, and churn</CardTitle>
-                <p className="mt-1 text-xs text-muted-foreground">Total active app users with monthly additions and cancellations</p>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="p-4">
-            {chartData.length === 0 ? <BusinessEmptyState label="No signup or subscription history yet" /> : (
-              <ResponsiveContainer width="100%" height={240}>
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="activeUsers" name="Total active users" stroke="#38bdf8" strokeWidth={3} dot={{ r: 3, fill: "#38bdf8" }} />
-                  <Line type="monotone" dataKey="signups" name="New signups" stroke="#a855f7" strokeWidth={2.5} dot={{ r: 3, fill: "#a855f7" }} />
-                  <Line type="monotone" dataKey="churnedSubscriptions" name="Churned subscriptions" stroke="#ef4444" strokeWidth={2.5} dot={{ r: 3, fill: "#ef4444" }} />
-                </LineChart>
-              </ResponsiveContainer>
-            )}
-            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
-              {[
-                ["#38bdf8", "Total active users"],
-                ["#a855f7", "New signups"],
-                ["#ef4444", "Churned subscriptions"],
-              ].map(([color, label]) => (
-                <span key={label} className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
-                  {label}
-                </span>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       <Card className="border-orange-500/20 bg-orange-500/5">
