@@ -7319,28 +7319,51 @@ function TrainingAnalyticsSubTab() {
     : 0;
 
   return (
-    <div className="space-y-6" data-testid="section-training-analytics">
-      <AnalyticsSectionIntro
-        eyebrow="Training"
-        title="What players practice, finish, and measure"
-        description={`A complete view of drills, workouts, and programs. Popularity uses the last ${data.windowDays || 28} days; totals are all time.`}
-      />
+    <div className="space-y-7" data-testid="section-training-analytics">
+      <section className="relative overflow-hidden rounded-[28px] border border-orange-400/25 bg-[radial-gradient(circle_at_88%_0%,rgba(249,115,22,0.22),transparent_35%),linear-gradient(135deg,rgba(24,24,27,0.98),rgba(9,9,11,0.98))] px-6 py-7 shadow-[0_18px_60px_-30px_rgba(249,115,22,0.6)] sm:px-8">
+        <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-orange-500/10 blur-3xl" />
+        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-2xl">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-2 rounded-full border border-orange-300/30 bg-orange-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-orange-200">
+                <span className="h-1.5 w-1.5 rounded-full bg-orange-300 shadow-[0_0_12px_rgba(253,186,116,0.9)]" />
+                Training intelligence
+              </span>
+              <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">Live product signal</span>
+            </div>
+            <h2 className="mt-4 text-3xl font-black tracking-[-0.04em] text-white sm:text-4xl">The work behind the player.</h2>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-zinc-400">
+              See what players open, finish, repeat, and measure across the training library. The pulse below uses the last {data.windowDays || 28} days; headline totals are all time.
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap gap-2 text-[11px] font-semibold text-zinc-300">
+            <span className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2">DRILLS <strong className="ml-1 text-white">{number(totals.drills)}</strong></span>
+            <span className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2">WORKOUTS <strong className="ml-1 text-white">{number(totals.workouts)}</strong></span>
+            <span className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2">PROGRAMS <strong className="ml-1 text-white">{number(totals.programs)}</strong></span>
+          </div>
+        </div>
+      </section>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <AccentStatCard label="Drill library" value={number(totals.drills)} sub={`${number(totals.drillCompletions)} finished all time`} icon={Target} accent="orange" testId="stat-training-drills" />
-        <AccentStatCard label="Workout library" value={number(totals.workouts)} sub={`${number(sessions.sessionsAllTime)} sessions finished`} icon={Dumbbell} accent="blue" testId="stat-training-workouts" />
-        <AccentStatCard label="Programs" value={number(totals.programs)} sub={`${number(totals.completedPrograms)} completed`} icon={GraduationCap} accent="purple" testId="stat-training-programs" />
-        <AccentStatCard label="Training minutes" value={number(totals.totalMinutes)} sub="logged all time" icon={Clock} accent="green" testId="stat-training-minutes" />
-        <AccentStatCard label="Active enrollments" value={number(totals.activeEnrollments)} sub={`${percent(programs.completionRate)} program completion rate`} icon={Activity} accent="orange" testId="stat-training-enrollments" />
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <TrainingMetricCard label="Drill library" value={number(totals.drills)} sub={`${number(totals.drillCompletions)} finished all time`} icon={Target} accent="orange" testId="stat-training-drills" />
+        <TrainingMetricCard label="Workout library" value={number(totals.workouts)} sub={`${number(sessions.sessionsAllTime)} sessions finished`} icon={Dumbbell} accent="blue" testId="stat-training-workouts" />
+        <TrainingMetricCard label="Programs" value={number(totals.programs)} sub={`${number(totals.completedPrograms)} completed`} icon={GraduationCap} accent="purple" testId="stat-training-programs" />
+        <TrainingMetricCard label="Training minutes" value={number(totals.totalMinutes)} sub="logged all time" icon={Clock} accent="green" testId="stat-training-minutes" />
+        <TrainingMetricCard label="Active enrollments" value={number(totals.activeEnrollments)} sub={`${percent(programs.completionRate)} program completion rate`} icon={Activity} accent="orange" testId="stat-training-enrollments" />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[1.25fr_0.75fr]">
-        <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50">
-          <CardHeader className="border-b border-zinc-800/70 pb-3">
-            <CardTitle className="text-base">Training funnel · last {data.windowDays || 28} days</CardTitle>
-            <p className="mt-1 text-xs text-muted-foreground">See where interest becomes a finished drill or training session.</p>
+        <Card className="overflow-hidden border-white/10 bg-zinc-950/70 shadow-[0_18px_50px_-35px_rgba(249,115,22,0.7)]">
+          <CardHeader className="border-b border-white/[0.07] bg-white/[0.02] pb-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <CardTitle className="text-base tracking-tight">Training funnel</CardTitle>
+                <p className="mt-1 text-xs text-zinc-500">Last {data.windowDays || 28} days · interest becoming work.</p>
+              </div>
+              <span className="rounded-lg bg-orange-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-orange-200">Pulse</span>
+            </div>
           </CardHeader>
-          <CardContent className="space-y-4 p-5">
+          <CardContent className="space-y-5 p-5">
             {[
               { label: "Drill views", value: funnel.drillViews28d, color: "bg-sky-400", detail: `${number(funnel.drillViewers28d)} unique players` },
               { label: "Drill completions", value: funnel.drillCompletions28d, color: "bg-orange-400", detail: `${percent(completionRate)} view-to-completion` },
@@ -7354,8 +7377,8 @@ function TrainingAnalyticsSubTab() {
                     <span className="font-medium">{item.label}</span>
                     <span className="font-bold">{number(item.value)}</span>
                   </div>
-                  <div className="mt-2 h-2 rounded-full bg-zinc-800">
-                    <div className={`h-2 rounded-full ${item.color}`} style={{ width: `${Math.max(2, (Number(item.value || 0) / max) * 100)}%` }} />
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/[0.07]">
+                    <div className={`h-2 rounded-full ${item.color} shadow-[0_0_14px_currentColor]`} style={{ width: `${Math.max(2, (Number(item.value || 0) / max) * 100)}%` }} />
                   </div>
                   <p className="mt-1 text-[11px] text-muted-foreground">{item.detail}</p>
                 </div>
@@ -7364,19 +7387,19 @@ function TrainingAnalyticsSubTab() {
           </CardContent>
         </Card>
 
-        <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50">
-          <CardHeader className="border-b border-zinc-800/70 pb-3">
-            <CardTitle className="text-base">How sessions are logged</CardTitle>
-            <p className="mt-1 text-xs text-muted-foreground">Tracked sessions include recorded metrics; quick complete sessions only check drills off.</p>
+        <Card className="overflow-hidden border-white/10 bg-zinc-950/70">
+          <CardHeader className="border-b border-white/[0.07] bg-white/[0.02] pb-4">
+            <CardTitle className="text-base tracking-tight">How sessions are logged</CardTitle>
+            <p className="mt-1 text-xs text-zinc-500">Tracked sessions capture metrics; quick complete sessions keep the habit moving.</p>
           </CardHeader>
           <CardContent className="space-y-4 p-5">
             <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-xl border border-sky-400/20 bg-sky-400/10 p-4">
+              <div className="rounded-2xl border border-sky-300/20 bg-gradient-to-br from-sky-400/15 to-sky-400/[0.03] p-4">
                 <p className="text-xs text-sky-200">Tracked sessions</p>
                 <p className="mt-2 text-3xl font-bold">{number(sessions.tracked28d)}</p>
                 <p className="mt-1 text-[11px] text-muted-foreground">last {data.windowDays || 28} days</p>
               </div>
-              <div className="rounded-xl border border-orange-400/20 bg-orange-400/10 p-4">
+              <div className="rounded-2xl border border-orange-300/20 bg-gradient-to-br from-orange-400/15 to-orange-400/[0.03] p-4">
                 <p className="text-xs text-orange-200">Quick complete</p>
                 <p className="mt-2 text-3xl font-bold">{number(sessions.quickComplete28d)}</p>
                 <p className="mt-1 text-[11px] text-muted-foreground">last {data.windowDays || 28} days</p>
@@ -7498,6 +7521,59 @@ function TrainingAnalyticsSubTab() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function TrainingMetricCard({
+  label,
+  value,
+  sub,
+  icon: Icon,
+  accent,
+  testId,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  icon: LucideIcon;
+  accent: "orange" | "blue" | "purple" | "green";
+  testId?: string;
+}) {
+  const styles = {
+    orange: {
+      card: "border-orange-300/25 from-orange-400/15 to-orange-400/[0.02] hover:border-orange-200/50",
+      icon: "bg-orange-400/15 text-orange-200",
+      value: "text-orange-100",
+    },
+    blue: {
+      card: "border-sky-300/25 from-sky-400/15 to-sky-400/[0.02] hover:border-sky-200/50",
+      icon: "bg-sky-400/15 text-sky-200",
+      value: "text-sky-100",
+    },
+    purple: {
+      card: "border-violet-300/25 from-violet-400/15 to-violet-400/[0.02] hover:border-violet-200/50",
+      icon: "bg-violet-400/15 text-violet-200",
+      value: "text-violet-100",
+    },
+    green: {
+      card: "border-emerald-300/25 from-emerald-400/15 to-emerald-400/[0.02] hover:border-emerald-200/50",
+      icon: "bg-emerald-400/15 text-emerald-200",
+      value: "text-emerald-100",
+    },
+  };
+
+  return (
+    <Card data-testid={testId} className={`group overflow-hidden bg-gradient-to-br transition-all duration-200 hover:-translate-y-0.5 ${styles[accent].card}`}>
+      <CardContent className="relative p-4">
+        <div className="pointer-events-none absolute -right-7 -top-8 h-20 w-20 rounded-full bg-white/[0.04] blur-2xl transition-transform duration-300 group-hover:scale-150" />
+        <div className="relative flex items-start justify-between gap-3">
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-400">{label}</p>
+          <span className={`rounded-xl p-2 ${styles[accent].icon}`}><Icon className="h-4 w-4" /></span>
+        </div>
+        <p className={`relative mt-5 text-3xl font-black tracking-[-0.04em] ${styles[accent].value}`}>{value}</p>
+        <p className="relative mt-1 text-[11px] leading-4 text-zinc-500">{sub}</p>
+      </CardContent>
+    </Card>
   );
 }
 
