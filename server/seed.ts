@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { drills, benchmarks, evaluationAttributes, shotLocations, shotTypes, userProfiles, metricTemplates, drillMetrics, teamClubs, leagues, archetypes, archetypeRoadmapItems, streakChallenges, type ArchetypeTier, type ArchetypeRoadmapItemType, careerProfiles, playerProfiles, friendships, userFollows, friendActivityFeed, groupChallenges, groupChallengeMembers, userStreaks, trainingLogs, analyticsEvents, type ShotLocation } from "@shared/schema";
+import { drills, benchmarks, evaluationAttributes, shotLocations, shotTypes, userProfiles, metricTemplates, drillMetrics, teamClubs, leagues, archetypes, archetypeRoadmapItems, streakChallenges, type ArchetypeTier, type ArchetypeRoadmapItemType, careerProfiles, playerProfiles, friendships, userFollows, friendActivityFeed, groupChallenges, groupChallengeMembers, userStreaks, trainingLogs, trainingLogMetrics, analyticsEvents, workouts, workoutDrills, programs, programItems, programEnrollments, programItemCompletions, type ShotLocation } from "@shared/schema";
 // seedPrograms disabled — generic programs removed per user request
 // import { seedPrograms } from "./seed-programs";
 import { users } from "@shared/models/auth";
@@ -916,6 +916,316 @@ async function seedAnalyticsDemo() {
   console.log(`Analytics demo synced (${rows.length.toLocaleString()} events across ${available.length} demo players)`);
 }
 
+async function seedTrainingAnalyticsDemo() {
+  if (process.env.NODE_ENV === "production") return;
+
+  const demoIds = communityDemoPlayers.map((player) => player.id);
+  const available = await db.select({ id: users.id }).from(users).where(inArray(users.id, demoIds));
+  if (available.length === 0) {
+    console.log("Training analytics demo skipped: community demo players are not available yet");
+    return;
+  }
+
+  const prefix = "playr1-demo-training-analytics-";
+  const availableIds = available.map((user) => user.id);
+  const now = new Date();
+  const dayMs = 24 * 60 * 60 * 1000;
+
+  // Rebuild only this fixture's rows so every restart reflects the same
+  // current-looking training history instead of accumulating stale records.
+  await db.delete(programItemCompletions).where(like(programItemCompletions.id, `${prefix}%`));
+  await db.delete(programEnrollments).where(like(programEnrollments.id, `${prefix}%`));
+  await db.delete(programItems).where(like(programItems.id, `${prefix}%`));
+  await db.delete(programs).where(like(programs.id, `${prefix}%`));
+  await db.delete(workoutDrills).where(like(workoutDrills.id, `${prefix}%`));
+  await db.delete(workouts).where(like(workouts.id, `${prefix}%`));
+  await db.delete(trainingLogMetrics).where(like(trainingLogMetrics.id, `${prefix}%`));
+  await db.delete(trainingLogs).where(like(trainingLogs.id, `${prefix}%`));
+  await db.delete(analyticsEvents).where(like(analyticsEvents.id, `${prefix}%`));
+
+  const seededDrills = await db.select({
+    id: drills.id,
+    title: drills.title,
+    category: drills.category,
+  }).from(drills).where(isNull(drills.userId));
+  if (seededDrills.length < 8) {
+    console.log("Training analytics demo skipped: not enough system drills are available yet");
+    return;
+  }
+
+  const metricRows = await db.select({
+    id: metricTemplates.id,
+    name: metricTemplates.name,
+  }).from(metricTemplates);
+  const metricByName = new Map(metricRows.map((metric) => [metric.name, metric.id]));
+  const drillById = new Map(seededDrills.map((drill) => [drill.id, drill]));
+  const drillIds = seededDrills.slice(0, 20).map((drill) => drill.id);
+  const shootingMetricId = metricByName.get("shots-made");
+  const attemptsMetricId = metricByName.get("shot-attempts");
+  const dribblesMetricId = metricByName.get("dribbles");
+
+  const workoutDefinitions = [
+    { key: "handle-lab", name: "Handle Lab: Change of Pace", category: "ball-handling", description: "A focused handle session built around control, pace changes, and creating space.", drillOffset: 0, duration: 28 },
+    { key: "scoring-lab", name: "Three-Level Scoring Lab", category: "shooting", description: "Form shots, pull-ups, and finishing reps that build a dependable scoring package.", drillOffset: 4, duration: 36 },
+    { key: "defensive-engine", name: "Defensive Engine", category: "defense", description: "Footwork, closeouts, and reaction work for players who want to win more possessions.", drillOffset: 8, duration: 30 },
+    { key: "guard-reads", name: "Guard Reads & Decisions", category: "passing", description: "A decision-making workout for handling pressure and making the next play early.", drillOffset: 12, duration: 32 },
+    { key: "finishing-contact", name: "Finish Through Contact", category: "finishing", description: "Finishing angles, touch, and balance around the rim.", drillOffset: 2, duration: 26 },
+    { key: "game-day-prep", name: "Game-Day Prep", category: "workouts", description: "A compact full-court tune-up for game speed, touch, and confidence.", drillOffset: 6, duration: 24 },
+  ];
+
+  const workoutRows = workoutDefinitions.map((workout) => ({
+    id: `${prefix}workout-${workout.key}`,
+    name: workout.name,
+    description: workout.description,
+    userId: null,
+    category: workout.category as any,
+    estimatedDuration: workout.duration,
+    isFavorite: false,
+  }));
+  await db.insert(workouts).values(workoutRows as any);
+
+  const workoutDrillRows = workoutDefinitions.flatMap((workout) =>
+    Array.from({ length: 4 }, (_, index) => {
+      const drillId = drillIds[(workout.drillOffset + index) % drillIds.length];
+      return {
+        id: `${prefix}workout-drill-${workout.key}-${index}`,
+        workoutId: `${prefix}workout-${workout.key}`,
+        drillId,
+        sortOrder: index,
+        defaultDuration: Math.max(5, Math.round(workout.duration / 4)),
+        defaultSets: 3,
+        defaultReps: 10 + index * 5,
+      };
+    }),
+  );
+  await db.insert(workoutDrills).values(workoutDrillRows as any);
+
+  const programDefinitions = [
+    { key: "guard-foundation", title: "Guard Foundation", tagline: "Build the habits that make the game slow down.", description: "A four-week progression for ball-handlers who want better control, reads, and finishing decisions.", lengthDays: 28, difficulty: "beginner", tags: ["ball-handling", "passing"], minutes: 30, accent: "#f97316" },
+    { key: "scoring-confidence", title: "Scoring Confidence", tagline: "More quality reps. More answers under pressure.", description: "A three-week scoring block that connects footwork, shooting rhythm, and finishing through contact.", lengthDays: 21, difficulty: "intermediate", tags: ["shooting", "finishing"], minutes: 35, accent: "#fb7185" },
+    { key: "two-way-impact", title: "Two-Way Impact", tagline: "Make winning plays on both ends.", description: "A structured defensive and finishing plan for players ready to expand their role.", lengthDays: 28, difficulty: "intermediate", tags: ["defense", "finishing"], minutes: 32, accent: "#22c55e" },
+    { key: "game-ready-sharpness", title: "Game-Ready Sharpness", tagline: "Keep your edge when the schedule gets busy.", description: "A compact high-intensity plan that keeps skills, conditioning, and decision-making connected.", lengthDays: 14, difficulty: "advanced", tags: ["workouts", "shooting"], minutes: 28, accent: "#38bdf8" },
+  ];
+
+  const programRows = programDefinitions.map((program) => ({
+    id: `${prefix}program-${program.key}`,
+    slug: `${prefix}${program.key}`,
+    title: program.title,
+    tagline: program.tagline,
+    description: program.description,
+    isPro: false,
+    accentColor: program.accent,
+    authorType: "system" as const,
+    lengthDays: program.lengthDays,
+    cadence: "userPaced" as const,
+    difficulty: program.difficulty as any,
+    categoryTags: program.tags,
+    estimatedMinutesPerDay: program.minutes,
+    visibility: "public" as const,
+    isPublished: true,
+    isFeatured: program.key === "scoring-confidence",
+    enrollmentCount: 0,
+  }));
+  await db.insert(programs).values(programRows as any);
+
+  const programItemRows = programDefinitions.flatMap((program, programIndex) =>
+    Array.from({ length: 10 }, (_, index) => {
+      const workout = workoutDefinitions[(programIndex + index) % workoutDefinitions.length];
+      const workoutId = `${prefix}workout-${workout.key}`;
+      const itemId = `${prefix}item-${program.key}-${index + 1}`;
+      return {
+        id: itemId,
+        programId: `${prefix}program-${program.key}`,
+        dayNumber: index * 2 + 1,
+        orderInDay: 0,
+        itemType: "workout" as const,
+        title: workout.name,
+        notes: index % 3 === 0 ? "Stay honest with the pace, then write one note about the hardest rep." : "Complete the reps with control before adding speed.",
+        workoutSpec: workoutDrillRows
+          .filter((row) => row.workoutId === workoutId)
+          .map((row) => ({ drillId: row.drillId, sets: 3, reps: row.defaultReps })),
+        estimatedMinutes: workout.duration,
+      };
+    }),
+  );
+  await db.insert(programItems).values(programItemRows as any);
+
+  const logRows: any[] = [];
+  const metricValueRows: any[] = [];
+  const sessionRows: Array<{ id: string; userId: string; day: number; workoutId: string | null; mode: "track" | "complete"; drillCount: number; duration: number }> = [];
+  let logIndex = 0;
+
+  for (const [userIndex, userId] of availableIds.entries()) {
+    for (let day = 0; day < 28; day++) {
+      if ((day + userIndex) % (userIndex % 4 === 0 ? 1 : userIndex % 3 === 0 ? 4 : 2) !== 0) continue;
+      const sessionCount = (userIndex + day) % 5 === 0 ? 2 : 1;
+
+      for (let sessionIndex = 0; sessionIndex < sessionCount; sessionIndex++) {
+        const sessionId = `${prefix}session-${userIndex}-${day}-${sessionIndex}`;
+        const workoutId = (userIndex + day + sessionIndex) % 3 === 0
+          ? `${prefix}workout-${workoutDefinitions[(userIndex + day) % workoutDefinitions.length].key}`
+          : null;
+        const drillCount = workoutId ? 4 : 2 + ((userIndex + day) % 2);
+        const sessionMode = (userIndex + day + sessionIndex) % 4 === 0 ? "track" : "complete";
+        const sessionDuration = 24 + drillCount * 6 + ((userIndex + sessionIndex) % 3) * 4;
+        sessionRows.push({ id: sessionId, userId, day, workoutId, mode: sessionMode, drillCount, duration: sessionDuration });
+
+        for (let drillIndex = 0; drillIndex < drillCount; drillIndex++) {
+          const drillId = drillIds[(userIndex * 3 + day + drillIndex) % drillIds.length];
+          const completedAt = new Date(now.getTime() - day * dayMs - (userIndex * 7 + drillIndex) * 60 * 1000);
+          const logId = `${prefix}log-${logIndex++}`;
+          const drill = drillById.get(drillId);
+          const isShooting = drill?.category === "shooting" || drill?.category === "finishing" || drill?.category === "workouts";
+          const shotsAttempted = isShooting ? 30 + ((userIndex + day + drillIndex) % 5) * 10 : null;
+          const shotsMade = shotsAttempted ? Math.round(shotsAttempted * (0.48 + ((userIndex + drillIndex) % 4) * 0.06)) : null;
+          logRows.push({
+            id: logId,
+            userId,
+            drillId,
+            workoutSessionId: sessionId,
+            duration: Math.max(8, Math.round(sessionDuration / drillCount)),
+            reps: 10 + ((day + drillIndex) % 5) * 5,
+            sets: 3,
+            score: 6 + ((userIndex + day + drillIndex) % 5),
+            notes: sessionMode === "track" ? "Tracked reps and finished with one adjustment for the next session." : "Quick completion logged after focused game-speed reps.",
+            shotsAttempted,
+            shotsMade,
+            completedAt,
+          });
+
+          if (isShooting && shootingMetricId && attemptsMetricId) {
+            metricValueRows.push(
+              { id: `${prefix}metric-made-${logIndex}`, trainingLogId: logId, metricId: shootingMetricId, value: String(shotsMade ?? 0), createdAt: completedAt },
+              { id: `${prefix}metric-attempts-${logIndex}`, trainingLogId: logId, metricId: attemptsMetricId, value: String(shotsAttempted ?? 0), createdAt: completedAt },
+            );
+          } else if (dribblesMetricId && drill?.category === "ball-handling") {
+            metricValueRows.push({ id: `${prefix}metric-dribbles-${logIndex}`, trainingLogId: logId, metricId: dribblesMetricId, value: String(80 + ((day + userIndex) % 6) * 10), createdAt: completedAt });
+          }
+        }
+      }
+    }
+  }
+
+  await db.insert(trainingLogs).values(logRows);
+  if (metricValueRows.length > 0) await db.insert(trainingLogMetrics).values(metricValueRows as any);
+
+  const enrollmentRows: any[] = [];
+  const completionRows: any[] = [];
+  for (const [userIndex, userId] of availableIds.entries()) {
+    for (let programIndex = 0; programIndex < programDefinitions.length; programIndex++) {
+      if ((userIndex + programIndex) % 4 === 3) continue;
+      const program = programDefinitions[programIndex];
+      const status = (userIndex + programIndex) % 5 === 0 ? "completed" : (userIndex + programIndex) % 3 === 0 ? "abandoned" : "active";
+      const enrollmentId = `${prefix}enrollment-${userIndex}-${program.key}`;
+      const startedAt = new Date(now.getTime() - (6 + ((userIndex * 3 + programIndex * 4) % 22)) * dayMs);
+      const completedCount = status === "completed" ? 10 : status === "abandoned" ? 4 + (userIndex % 3) : 2 + ((userIndex + programIndex) % 6);
+      enrollmentRows.push({
+        id: enrollmentId,
+        userId,
+        programId: `${prefix}program-${program.key}`,
+        startedAt,
+        currentDay: Math.min(program.lengthDays, completedCount * 2),
+        completedAt: status === "completed" ? new Date(startedAt.getTime() + 10 * dayMs) : null,
+        status,
+      });
+      for (let itemIndex = 0; itemIndex < completedCount; itemIndex++) {
+        completionRows.push({
+          id: `${prefix}completion-${userIndex}-${program.key}-${itemIndex}`,
+          enrollmentId,
+          programItemId: `${prefix}item-${program.key}-${itemIndex + 1}`,
+          completedAt: new Date(startedAt.getTime() + (itemIndex + 1) * dayMs),
+          score: String(6 + ((userIndex + itemIndex) % 4)),
+          notes: itemIndex % 3 === 0 ? "Strong control under fatigue." : null,
+        });
+      }
+    }
+  }
+  await db.insert(programEnrollments).values(enrollmentRows as any);
+  if (completionRows.length > 0) await db.insert(programItemCompletions).values(completionRows as any);
+
+  const eventRows: any[] = [];
+  let eventIndex = 0;
+  const addEvent = (userId: string, event: string, page: string, createdAt: Date, metadata: Record<string, any> = {}) => {
+    eventRows.push({
+      id: `${prefix}event-${eventIndex++}`,
+      userId,
+      event,
+      page,
+      metadata: { demo: true, ...metadata },
+      createdAt,
+    });
+  };
+
+  for (const [userIndex, userId] of availableIds.entries()) {
+    for (let day = 0; day < 28; day++) {
+      if ((day + userIndex) % (userIndex % 3 === 0 ? 1 : 2) !== 0) continue;
+      const eventDate = new Date(now.getTime() - day * dayMs - userIndex * 12 * 60 * 1000);
+      const viewedDrill = drillIds[(userIndex + day) % drillIds.length];
+      addEvent(userId, "drill_viewed", "/drills", eventDate, { drillId: viewedDrill });
+      addEvent(userId, "drill_viewed", "/drills", new Date(eventDate.getTime() + 2 * 60 * 1000), { drillId: drillIds[(userIndex + day + 1) % drillIds.length] });
+      addEvent(userId, "drill_viewed", "/drills", new Date(eventDate.getTime() + 3 * 60 * 1000), { drillId: drillIds[(userIndex + day + 2) % drillIds.length] });
+      addEvent(userId, "drill_viewed", "/drills", new Date(eventDate.getTime() + 4 * 60 * 1000), { drillId: drillIds[(userIndex + day + 3) % drillIds.length] });
+      addEvent(userId, "drill_viewed", "/drills", new Date(eventDate.getTime() + 5 * 60 * 1000), { drillId: drillIds[(userIndex + day + 4) % drillIds.length] });
+      if (day % 3 === 0) addEvent(userId, "program_view", "/programs", new Date(eventDate.getTime() + 4 * 60 * 1000), { programId: `${prefix}program-${programDefinitions[(userIndex + day) % programDefinitions.length].key}` });
+      if (day % 5 === 0) addEvent(userId, "workout_viewed", "/training-log", new Date(eventDate.getTime() + 5 * 60 * 1000), { workoutId: `${prefix}workout-${workoutDefinitions[(userIndex + day) % workoutDefinitions.length].key}` });
+      if (day % 7 === 0) {
+        addEvent(userId, "workout_started", "/training-log", new Date(eventDate.getTime() + 6 * 60 * 1000), {
+          workoutId: `${prefix}workout-${workoutDefinitions[(userIndex + day + 2) % workoutDefinitions.length].key}`,
+          drillCount: 4,
+          abandoned: true,
+        });
+      }
+    }
+  }
+
+  for (const session of sessionRows) {
+    const sessionDate = new Date(now.getTime() - session.day * dayMs - (session.userId.length % 17) * 60 * 1000);
+    addEvent(session.userId, "training_session_completed", "/training-log", sessionDate, {
+      sessionId: session.id,
+      mode: session.mode,
+      drillCount: session.drillCount,
+      duration: session.duration,
+      workoutId: session.workoutId,
+    });
+    if (session.workoutId) {
+      addEvent(session.userId, "workout_started", "/training-log", new Date(sessionDate.getTime() - 8 * 60 * 1000), {
+        workoutId: session.workoutId,
+        drillCount: session.drillCount,
+      });
+    }
+  }
+
+  for (const enrollment of enrollmentRows) {
+    addEvent(enrollment.userId, "program_enrollment_created", "/programs", enrollment.startedAt, { programId: enrollment.programId });
+  }
+  for (const completion of completionRows) {
+    const enrollment = enrollmentRows.find((row) => row.id === completion.enrollmentId);
+    addEvent(enrollment.userId, "program_item_complete", "/program-today", completion.completedAt, { programId: enrollment.programId, programItemId: completion.programItemId });
+  }
+
+  for (let offset = 0; offset < eventRows.length; offset += 400) {
+    await db.insert(analyticsEvents).values(eventRows.slice(offset, offset + 400) as any);
+  }
+
+  await db.execute(sql`
+    UPDATE workouts
+    SET updated_at = NOW()
+    WHERE id LIKE ${`${prefix}%`}
+  `);
+  await db.execute(sql`
+    UPDATE programs
+    SET enrollment_count = (
+      SELECT COUNT(*)::int
+      FROM program_enrollments
+      WHERE program_enrollments.program_id = programs.id
+    ),
+    updated_at = NOW()
+    WHERE id LIKE ${`${prefix}%`}
+  `);
+
+  console.log(`Training analytics demo synced (${logRows.length.toLocaleString()} logs, ${eventRows.length.toLocaleString()} events, ${programDefinitions.length} programs)`);
+}
+
 export async function seedDatabase() {
   console.log("Seeding database...");
   
@@ -1298,6 +1608,7 @@ export async function seedDatabase() {
 
     await seedCommunityDemo();
     await seedAnalyticsDemo();
+    await seedTrainingAnalyticsDemo();
     console.log("Database seeding complete!");
 
     const adminEmail = process.env.ADMIN_EMAIL;

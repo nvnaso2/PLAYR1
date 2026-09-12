@@ -6461,7 +6461,7 @@ export class DatabaseStorage {
         w.id,
         w.name,
         w.category,
-        COUNT(wd.id)::int AS drill_count,
+        COUNT(DISTINCT wd.id)::int AS drill_count,
         COUNT(DISTINCT ae.id) FILTER (
           WHERE ae.event = 'workout_started'
             AND ae.created_at >= NOW() - INTERVAL '28 days'
