@@ -6450,6 +6450,8 @@ function TopMoversWidget({ movers }: { movers: any[] }) {
 // ─── Retention Sub-Tab ─────────────────────────────────────────────────────
 
 function RetentionSubTab() {
+  const [retentionMetric, setRetentionMetric] = useState<"rate" | "users">("rate");
+  const [powerMetric, setPowerMetric] = useState<"timeShare" | "actionShare" | "raw">("timeShare");
   const { data, isLoading, isError, error, refetch } = useQuery<any>({
     queryKey: ["/api/admin/analytics/retention"],
     queryFn: async () => {
@@ -6485,26 +6487,38 @@ function RetentionSubTab() {
   const { cohort, curves, power } = data;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* D1/D7/D30 Retention */}
       <div>
-        <h2 className="text-lg font-semibold mb-3">Day-N Retention</h2>
-        <p className="text-sm text-muted-foreground mb-3">% of new signups who returned to the app within N days of joining.</p>
-        <div className="grid grid-cols-3 gap-4">
-          <RetentionCard label="Day 1" pct={curves.d1} sample={curves.eligibleD1} icon={Zap} accent="orange" />
-          <RetentionCard label="Day 7" pct={curves.d7} sample={curves.eligibleD7} icon={Flame} accent="blue" />
-          <RetentionCard label="Day 30" pct={curves.d30} sample={curves.eligibleD30} icon={Target} accent="purple" />
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-sky-300">Retention pulse</p>
+            <h2 className="mt-1 text-lg font-semibold">Day-N Retention</h2>
+            <p className="mt-1 text-sm text-muted-foreground">% of eligible signups who returned within N days. Click a card to switch between rate and users.</p>
+          </div>
+          <Badge variant="outline" className="border-sky-400/25 text-sky-200">{retentionMetric === "rate" ? "Showing percentage" : "Showing users"}</Badge>
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          <RetentionCard label="Day 1" pct={curves.d1} retained={curves.retainedD1} sample={curves.eligibleD1} icon={Zap} accent="orange" metric={retentionMetric} onToggle={() => setRetentionMetric((current) => current === "rate" ? "users" : "rate")} />
+          <RetentionCard label="Day 7" pct={curves.d7} retained={curves.retainedD7} sample={curves.eligibleD7} icon={Flame} accent="blue" metric={retentionMetric} onToggle={() => setRetentionMetric((current) => current === "rate" ? "users" : "rate")} />
+          <RetentionCard label="Day 30" pct={curves.d30} retained={curves.retainedD30} sample={curves.eligibleD30} icon={Target} accent="purple" metric={retentionMetric} onToggle={() => setRetentionMetric((current) => current === "rate" ? "users" : "rate")} />
         </div>
       </div>
 
       {/* Cohort Heatmap */}
       <div>
-        <div className="flex items-baseline justify-between mb-3">
-          <h2 className="text-lg font-semibold">Cohort Retention Heatmap</h2>
-          <p className="text-xs text-muted-foreground">% of each weekly signup cohort still active in subsequent weeks</p>
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-300">Weekly cohorts</p>
+            <h2 className="mt-1 text-lg font-semibold">Cohort activity over time</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Each row is a signup week. Each cell shows how many of that cohort were active in the weeks that followed.</p>
+          </div>
+          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+            <span>Low</span><span className="h-2.5 w-7 rounded-full bg-red-500/70" /><span className="h-2.5 w-7 rounded-full bg-yellow-400/80" /><span className="h-2.5 w-7 rounded-full bg-emerald-400/80" /><span>High</span>
+          </div>
         </div>
-        <Card>
-          <CardContent className="p-4 overflow-x-auto">
+        <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50">
+          <CardContent className="overflow-x-auto p-4">
             <CohortHeatmap cohorts={cohort.cohorts} maxOffset={cohort.maxOffset} />
           </CardContent>
         </Card>
@@ -6512,17 +6526,32 @@ function RetentionSubTab() {
 
       {/* Power-User Concentration */}
       <div>
-        <h2 className="text-lg font-semibold mb-3">Power-User Concentration</h2>
-        <p className="text-sm text-muted-foreground mb-3">
-          What share of all training activity comes from your top users? A healthy product has activity distributed across many users.
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <ConcentrationCard label="Top 1%" stat={power.top1} totalUsers={power.totalUsers} totalLogs={power.totalLogs} />
-          <ConcentrationCard label="Top 10%" stat={power.top10} totalUsers={power.totalUsers} totalLogs={power.totalLogs} />
-          <ConcentrationCard label="Top 25%" stat={power.top25} totalUsers={power.totalUsers} totalLogs={power.totalLogs} />
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-purple-300">Usage concentration</p>
+            <h2 className="mt-1 text-lg font-semibold">Power-user concentration</h2>
+            <p className="mt-1 text-sm text-muted-foreground">How much of total app time and meaningful activity comes from the most active players.</p>
+          </div>
+          <div className="flex rounded-lg border border-zinc-800 bg-zinc-950/70 p-1">
+            {[
+              ["timeShare", "% of time"],
+              ["actionShare", "% of actions"],
+              ["raw", "Raw totals"],
+            ].map(([value, label]) => (
+              <Button key={value} type="button" size="sm" variant="ghost" onClick={() => setPowerMetric(value as typeof powerMetric)} className={`h-8 px-3 text-xs ${powerMetric === value ? "bg-purple-500/20 text-purple-200 hover:bg-purple-500/25" : "text-muted-foreground"}`}>
+                {label}
+              </Button>
+            ))}
+          </div>
         </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <ConcentrationCard label="Top 1%" stat={power.top1} totalUsers={power.totalUsers} metric={powerMetric} accent="rose" />
+          <ConcentrationCard label="Top 10%" stat={power.top10} totalUsers={power.totalUsers} metric={powerMetric} accent="amber" />
+          <ConcentrationCard label="Top 25%" stat={power.top25} totalUsers={power.totalUsers} metric={powerMetric} accent="sky" />
+          <ConcentrationCard label="Top 50%" stat={power.top50} totalUsers={power.totalUsers} metric={powerMetric} accent="emerald" />
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">Ranked by estimated time in app. Time uses authenticated event spans with a 30-minute inactivity cutoff.</p>
       </div>
-
     </div>
   );
 }
@@ -6585,46 +6614,70 @@ function EngagementAnalyticsSection({ engagement }: { engagement: any }) {
 
 // ─── Retention helper components ───────────────────────────────────────────
 
-function RetentionCard({ label, pct, sample, icon: Icon, accent }: {
-  label: string; pct: number; sample: number; icon: LucideIcon;
+function RetentionCard({ label, pct, retained, sample, icon: Icon, accent, metric, onToggle }: {
+  label: string; pct: number; retained?: number; sample?: number; icon: LucideIcon;
   accent: "orange" | "blue" | "purple";
+  metric: "rate" | "users";
+  onToggle: () => void;
 }) {
+  const retainedUsers = Number(retained || 0);
+  const eligibleUsers = Number(sample || 0);
+  const rate = Number(pct || 0);
   const colorMap = {
     orange: "text-orange-500 bg-orange-500/10",
     blue:   "text-blue-500 bg-blue-500/10",
     purple: "text-purple-500 bg-purple-500/10",
   };
   return (
-    <Card data-testid={`retention-card-${label.toLowerCase().replace(/\s+/g, "-")}`}>
-      <CardContent className="p-5">
+    <button type="button" onClick={onToggle} className="text-left" data-testid={`retention-card-${label.toLowerCase().replace(/\s+/g, "-")}`}>
+      <Card className="h-full border-zinc-800/80 bg-zinc-950/50 transition hover:-translate-y-0.5 hover:border-sky-400/40">
+        <CardContent className="p-5">
         <div className="flex items-start justify-between mb-3">
           <p className="text-sm font-medium text-muted-foreground">{label}</p>
           <div className={`p-2 rounded-lg ${colorMap[accent]}`}>
             <Icon className="w-4 h-4" />
           </div>
         </div>
-        <p className="text-3xl font-bold">{pct}%</p>
-        <p className="text-xs text-muted-foreground mt-1">{sample.toLocaleString()} eligible signups</p>
-      </CardContent>
-    </Card>
+        <p className="text-3xl font-black">{metric === "rate" ? `${rate}%` : retainedUsers.toLocaleString()}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{metric === "rate" ? `${retainedUsers.toLocaleString()} of ${eligibleUsers.toLocaleString()} eligible users` : `${rate}% of ${eligibleUsers.toLocaleString()} eligible users`}</p>
+        <p className="mt-3 text-[11px] font-medium text-sky-300/80">Click to show {metric === "rate" ? "users" : "percentage"}</p>
+        </CardContent>
+      </Card>
+    </button>
   );
 }
 
-function ConcentrationCard({ label, stat, totalUsers, totalLogs }: {
+function ConcentrationCard({ label, stat, totalUsers, metric, accent }: {
   label: string;
-  stat: { userCount: number; logShare: number };
-  totalUsers: number;
-  totalLogs: number;
+  stat?: { userCount?: number; timeShare?: number; actionShare?: number; timeMinutes?: number; actions?: number };
+  totalUsers?: number;
+  metric: "timeShare" | "actionShare" | "raw";
+  accent: "rose" | "amber" | "sky" | "emerald";
 }) {
+  const safeStat = stat ?? {};
+  const userCount = Number(safeStat.userCount || 0);
+  const totalUserCount = Number(totalUsers || 0);
+  const timeShare = Number(safeStat.timeShare || 0);
+  const actionShare = Number(safeStat.actionShare || 0);
+  const timeMinutes = Number(safeStat.timeMinutes || 0);
+  const actions = Number(safeStat.actions || 0);
+  const accentStyles = {
+    rose: "from-rose-500/20 via-zinc-950/60 to-rose-950/10 text-rose-200",
+    amber: "from-amber-400/20 via-zinc-950/60 to-amber-950/10 text-amber-200",
+    sky: "from-sky-400/20 via-zinc-950/60 to-sky-950/10 text-sky-200",
+    emerald: "from-emerald-400/20 via-zinc-950/60 to-emerald-950/10 text-emerald-200",
+  };
+  const value = metric === "timeShare" ? `${timeShare}%` : metric === "actionShare" ? `${actionShare}%` : `${timeMinutes.toLocaleString()}m`;
+  const detail = metric === "timeShare" ? `${timeMinutes.toLocaleString()} minutes` : metric === "actionShare" ? `${actions.toLocaleString()} actions` : `${actions.toLocaleString()} actions`;
   return (
-    <Card data-testid={`concentration-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`}>
+    <Card className={`overflow-hidden border-zinc-800/80 bg-gradient-to-br ${accentStyles[accent]}`} data-testid={`concentration-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`}>
       <CardContent className="p-5">
-        <div className="flex items-baseline justify-between mb-2">
-          <p className="text-sm font-medium text-muted-foreground">{label} of users</p>
-          <p className="text-xs text-muted-foreground">{stat.userCount.toLocaleString()} of {totalUsers.toLocaleString()}</p>
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <p className="text-sm font-semibold">{label} of users</p>
+          <Badge variant="outline" className="border-white/15 bg-black/10 text-[10px]">{userCount.toLocaleString()} / {totalUserCount.toLocaleString()}</Badge>
         </div>
-        <p className="text-3xl font-bold">{stat.logShare}%</p>
-        <p className="text-xs text-muted-foreground mt-1">of all {totalLogs.toLocaleString()} training logs</p>
+        <p className="text-3xl font-black">{value}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
       </CardContent>
     </Card>
   );
@@ -6639,12 +6692,12 @@ function CohortHeatmap({ cohorts, maxOffset }: {
   }
 
   const cellColor = (pct: number) => {
-    if (pct === 0) return "bg-muted/30 text-muted-foreground";
-    if (pct < 10)  return "bg-orange-500/10 text-foreground";
-    if (pct < 25)  return "bg-orange-500/25 text-foreground";
-    if (pct < 50)  return "bg-orange-500/45 text-foreground";
-    if (pct < 75)  return "bg-orange-500/65 text-white";
-    return "bg-orange-500/85 text-white";
+    if (pct === 0) return "bg-zinc-900/60 text-muted-foreground";
+    if (pct < 10)  return "bg-red-500/75 text-white";
+    if (pct < 25)  return "bg-red-400/55 text-white";
+    if (pct < 50)  return "bg-yellow-400/70 text-zinc-950";
+    if (pct < 75)  return "bg-lime-400/75 text-zinc-950";
+    return "bg-emerald-400/85 text-emerald-950";
   };
 
   const fmtCohort = (iso: string) => {
@@ -6660,27 +6713,28 @@ function CohortHeatmap({ cohorts, maxOffset }: {
       <table className="w-full text-xs">
         <thead>
           <tr className="text-muted-foreground">
-            <th className="text-left pb-2 pr-4 font-medium">Cohort</th>
-            <th className="text-right pb-2 pr-4 font-medium">Size</th>
+            <th className="pb-3 pr-4 text-left font-medium">Signup cohort</th>
+            <th className="pb-3 pr-4 text-right font-medium">Users</th>
             {Array.from({ length: maxOffset + 1 }, (_, i) => (
-              <th key={i} className="text-center pb-2 px-1 font-medium">W{i}</th>
+              <th key={i} className="px-1 pb-3 text-center font-medium">Week {i}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           {orderedCohorts.map(c => (
             <tr key={c.cohortWeek} data-testid={`cohort-row-${c.cohortWeek}`}>
-              <td className="py-1 pr-4 font-medium">Week of {fmtCohort(c.cohortWeek)}</td>
-              <td className="py-1 pr-4 text-right text-muted-foreground">{c.cohortSize}</td>
+              <td className="border-t border-zinc-800/60 py-2 pr-4 font-medium">Week of {fmtCohort(c.cohortWeek)}</td>
+              <td className="border-t border-zinc-800/60 py-2 pr-4 text-right text-muted-foreground">{c.cohortSize}</td>
               {Array.from({ length: maxOffset + 1 }, (_, i) => {
                 const cell = c.retention.find(r => r.weekOffset === i);
                 if (!cell) {
-                  return <td key={i} className="py-1 px-0.5"><div className="h-9 rounded bg-transparent" /></td>;
+                  return <td key={i} className="border-t border-zinc-800/60 px-0.5 py-2"><div className="h-10 rounded-lg bg-transparent" /></td>;
                 }
                 return (
-                  <td key={i} className="py-1 px-0.5">
-                    <div className={`h-9 rounded flex flex-col items-center justify-center ${cellColor(cell.pct)}`} title={`${cell.activeUsers} of ${c.cohortSize} active`}>
+                  <td key={i} className="border-t border-zinc-800/60 px-0.5 py-2">
+                    <div className={`h-10 rounded-lg flex flex-col items-center justify-center shadow-sm ${cellColor(cell.pct)}`} title={`${cell.activeUsers} of ${c.cohortSize} active`}>
                       <span className="text-[11px] font-semibold">{cell.pct}%</span>
+                      <span className="text-[9px] opacity-80">{cell.activeUsers} active</span>
                     </div>
                   </td>
                 );
@@ -6751,93 +6805,72 @@ function EngagementUserList({ title, icon: Icon, accent, users, emptyMessage, su
 
 // ─── Funnels sub-tab ───────────────────────────────────────────────────────
 
-const FUNNEL_PRESETS = [
-  { value: "activation", label: "Activation" },
-  { value: "booking",    label: "Booking" },
-  { value: "engagement", label: "Engagement Loop" },
-];
-
 const WINDOW_OPTIONS = [
   { value: "7",  label: "Last 7 days" },
   { value: "30", label: "Last 30 days" },
   { value: "90", label: "Last 90 days" },
+  { value: "365", label: "Last year" },
+  { value: "lifetime", label: "Lifetime" },
 ];
 
 function FunnelsSubTab() {
-  const [funnel, setFunnel] = useState<string>("activation");
   const [days, setDays] = useState<string>("30");
 
   const { data, isLoading, isError, error, refetch } = useQuery<any>({
-    queryKey: ["/api/admin/analytics/funnels", funnel, days],
+    queryKey: ["/api/admin/analytics/funnels", "activation", days],
     queryFn: async () => {
-      const res = await apiRequest("GET", `/api/admin/analytics/funnels?funnel=${encodeURIComponent(funnel)}&days=${encodeURIComponent(days)}`);
+      const res = await apiRequest("GET", `/api/admin/analytics/funnels?funnel=activation&days=${encodeURIComponent(days)}`);
       return res.json();
     },
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="section-activation-funnel">
       <AnalyticsSectionIntro
-        eyebrow="Funnels & retention"
-        title="Understand what keeps players moving"
-        description="Retention shows whether players return. Funnels show where they progress, pause, or drop off across the product journey."
+        eyebrow="Activation"
+        title="Turn first opens into first actions"
+        description="See how many players first open PLAYR1, complete the onboarding quiz, and take a meaningful action during that first session."
       />
 
       <RetentionSubTab />
 
       <div className="border-t border-zinc-800/70 pt-6">
-        <div className="mb-4">
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-purple-300">Conversion paths</p>
-          <h2 className="mt-1 text-lg font-semibold">Conversion Funnels</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Each step requires the previous step to have happened first for the same user.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground uppercase tracking-wide">Funnel</span>
-          <Select value={funnel} onValueChange={setFunnel}>
-            <SelectTrigger className="w-[200px]" data-testid="select-funnel">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {FUNNEL_PRESETS.map(o => (
-                <SelectItem key={o.value} value={o.value} data-testid={`funnel-option-${o.value}`}>{o.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground uppercase tracking-wide">Window</span>
-          <Select value={days} onValueChange={setDays}>
-            <SelectTrigger className="w-[160px]" data-testid="select-funnel-window">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {WINDOW_OPTIONS.map(o => (
-                <SelectItem key={o.value} value={o.value} data-testid={`window-option-${o.value}`}>{o.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-purple-300">Activation path</p>
+            <h2 className="mt-1 text-lg font-semibold">First-session conversion</h2>
+            <p className="mt-1 text-sm text-muted-foreground">The first step uses the first authenticated app open as the download proxy for this browser-based app.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Window</span>
+            <Select value={days} onValueChange={setDays}>
+              <SelectTrigger className="w-[160px] border-zinc-800 bg-zinc-950/60" data-testid="select-funnel-window">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {WINDOW_OPTIONS.map(o => (
+                  <SelectItem key={o.value} value={o.value} data-testid={`window-option-${o.value}`}>{o.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {isLoading && (
-        <div className="space-y-3">
-          {[1,2,3,4].map(i => <Skeleton key={i} className="h-20 rounded-xl" />)}
-        </div>
+          <div className="space-y-3">
+            {[1, 2, 3].map(i => <Skeleton key={i} className="h-24 rounded-2xl" />)}
+          </div>
         )}
 
         {isError && (
-        <Card data-testid="funnels-error-state">
-          <CardContent className="p-8 text-center space-y-3">
-            <AlertTriangle className="w-8 h-8 text-orange-500 mx-auto" />
-            <p className="font-medium">Couldn't load funnel data</p>
-            <p className="text-sm text-muted-foreground">{(error as Error)?.message || "Unknown error"}</p>
-            <Button size="sm" variant="outline" onClick={() => refetch()} data-testid="btn-retry-funnel">Retry</Button>
-          </CardContent>
-        </Card>
+          <Card data-testid="funnels-error-state">
+            <CardContent className="p-8 text-center space-y-3">
+              <AlertTriangle className="w-8 h-8 text-orange-500 mx-auto" />
+              <p className="font-medium">Couldn't load activation data</p>
+              <p className="text-sm text-muted-foreground">{(error as Error)?.message || "Unknown error"}</p>
+              <Button size="sm" variant="outline" onClick={() => refetch()} data-testid="btn-retry-funnel">Retry</Button>
+            </CardContent>
+          </Card>
         )}
 
         {!isLoading && !isError && data && (
@@ -6852,20 +6885,21 @@ function FunnelView({ data }: { data: {
   funnel: string;
   label: string;
   description: string;
-  windowDays: number;
+  windowDays: number | null;
   totalCandidates: number;
   steps: Array<{ key: string; label: string; users: number; pctFromStart: number; pctFromPrev: number; dropOff: number; medianTimeToNextSec: number | null }>;
 } }) {
   const startUsers = data.steps[0]?.users ?? 0;
+  const windowLabel = data.windowDays == null ? "Lifetime" : `Last ${data.windowDays} days`;
 
   if (startUsers === 0) {
     return (
-      <Card>
-        <CardContent className="p-12 text-center space-y-2">
-          <GitBranch className="w-8 h-8 text-muted-foreground mx-auto" />
+      <Card className="border-zinc-800/80 bg-zinc-950/50">
+        <CardContent className="space-y-2 p-12 text-center">
+          <GitBranch className="mx-auto h-8 w-8 text-purple-300" />
           <p className="font-medium">No funnel data yet</p>
           <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            No users have entered the "{data.steps[0]?.label}" step in the last {data.windowDays} days. Funnels populate as users start triggering events — try a longer window or pick a different funnel.
+            No users have entered the "{data.steps[0]?.label}" step in the {windowLabel.toLowerCase()}. Activation data will appear as players open the app and begin onboarding.
           </p>
         </CardContent>
       </Card>
@@ -6873,20 +6907,25 @@ function FunnelView({ data }: { data: {
   }
 
   return (
-    <Card>
-      <CardContent className="p-5 space-y-2">
-        <div className="flex items-baseline justify-between mb-3">
+    <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50">
+      <CardContent className="space-y-2 p-5">
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
           <div>
             <h3 className="text-base font-semibold">{data.label}</h3>
             <p className="text-xs text-muted-foreground">{data.description}</p>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Last {data.windowDays} days · {data.totalCandidates.toLocaleString()} entered
-          </p>
+          <Badge variant="outline" className="border-purple-400/25 bg-purple-500/10 text-purple-200">
+            {windowLabel} · {data.totalCandidates.toLocaleString()} first opens
+          </Badge>
         </div>
 
         <div className="space-y-1">
           {data.steps.map((step, i) => {
+            const colors = [
+              { fill: "bg-sky-400/75", icon: "bg-sky-400/15 text-sky-200" },
+              { fill: "bg-purple-400/75", icon: "bg-purple-400/15 text-purple-200" },
+              { fill: "bg-emerald-400/75", icon: "bg-emerald-400/15 text-emerald-200" },
+            ][i] ?? { fill: "bg-zinc-400/75", icon: "bg-zinc-400/15 text-zinc-200" };
             const widthPct = data.steps[0].users > 0
               ? Math.max(2, (step.users / data.steps[0].users) * 100)
               : 2;
@@ -6894,7 +6933,7 @@ function FunnelView({ data }: { data: {
               <div key={step.key} data-testid={`funnel-step-${step.key}`}>
                 {i > 0 && (
                   <div className="flex items-center gap-2 my-2 ml-2 text-xs text-muted-foreground">
-                    <ArrowDown className="w-3 h-3" />
+                    <ArrowDown className="h-3 w-3 text-purple-300" />
                     <span>
                       {step.dropOff.toLocaleString()} dropped off
                       {step.medianTimeToNextSec != null && (
@@ -6907,15 +6946,15 @@ function FunnelView({ data }: { data: {
                     </span>
                   </div>
                 )}
-                <div className="rounded-lg border bg-card overflow-hidden">
+                <div className="overflow-hidden rounded-xl border border-zinc-800/80 bg-zinc-900/40">
                   <div
-                    className="bg-primary/15 transition-all"
+                    className={`${colors.fill} transition-all`}
                     style={{ width: `${widthPct}%` }}
                   >
                     <div className="flex items-center justify-between gap-3 px-4 py-3 min-w-fit">
                       <div className="min-w-0">
                         <div className="text-sm font-semibold truncate">
-                          <span className="text-muted-foreground mr-2">{i + 1}.</span>
+                          <span className={`mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] ${colors.icon}`}>{i + 1}</span>
                           {step.label}
                         </div>
                         <div className="text-xs text-muted-foreground">
@@ -6929,7 +6968,7 @@ function FunnelView({ data }: { data: {
                         </div>
                       </div>
                       <div className="text-right shrink-0">
-                        <div className="text-2xl font-bold">{step.pctFromStart}%</div>
+                        <div className="text-2xl font-black">{step.pctFromStart}%</div>
                         <div className="text-[10px] text-muted-foreground uppercase tracking-wide">of start</div>
                       </div>
                     </div>
@@ -6941,9 +6980,9 @@ function FunnelView({ data }: { data: {
         </div>
 
         {/* Overall summary */}
-        <div className="mt-4 pt-4 border-t flex items-center justify-between text-sm">
+        <div className="mt-5 flex items-center justify-between border-t border-zinc-800/70 pt-4 text-sm">
           <span className="text-muted-foreground">End-to-end conversion</span>
-          <span className="font-semibold text-lg">
+          <span className="text-lg font-black text-emerald-300">
             {data.steps[data.steps.length - 1]?.pctFromStart ?? 0}%
           </span>
         </div>

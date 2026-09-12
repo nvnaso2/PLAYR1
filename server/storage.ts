@@ -5251,7 +5251,17 @@ export class DatabaseStorage {
    * D1 / D7 / D30 retention overall — % of eligible signups who had >=1
    * authenticated app activity event within N days of signup.
    */
-  async getRetentionCurves(): Promise<{ d1: number; d7: number; d30: number; eligibleD1: number; eligibleD7: number; eligibleD30: number; }> {
+  async getRetentionCurves(): Promise<{
+    d1: number;
+    d7: number;
+    d30: number;
+    eligibleD1: number;
+    eligibleD7: number;
+    eligibleD30: number;
+    retainedD1: number;
+    retainedD7: number;
+    retainedD30: number;
+  }> {
     const r = <T = any>(res: any): T[] => (res.rows ?? res) as T[];
     const r1 = (res: any): any => r(res)[0] ?? {};
 
@@ -5277,6 +5287,9 @@ export class DatabaseStorage {
       eligibleD1: Number(row.elig_d1 || 0),
       eligibleD7: Number(row.elig_d7 || 0),
       eligibleD30: Number(row.elig_d30 || 0),
+      retainedD1: Number(row.ret_d1 || 0),
+      retainedD7: Number(row.ret_d7 || 0),
+      retainedD30: Number(row.ret_d30 || 0),
       d1:  pct(Number(row.ret_d1  || 0), Number(row.elig_d1  || 0)),
       d7:  pct(Number(row.ret_d7  || 0), Number(row.elig_d7  || 0)),
       d30: pct(Number(row.ret_d30 || 0), Number(row.elig_d30 || 0)),
@@ -5284,65 +5297,136 @@ export class DatabaseStorage {
   }
 
   /**
-   * What % of all training logs come from the top 1%, 10%, 25% of users.
-   * Pareto reality check.
+   * Shows how the most active users contribute to app time and meaningful
+   * actions. Users are ranked by estimated time in app, with actions as the
+   * deterministic tie-breaker.
    */
   async getPowerUserConcentration(): Promise<{
-    totalUsers: number; totalLogs: number;
-    top1: { userCount: number; logShare: number };
-    top10: { userCount: number; logShare: number };
-    top25: { userCount: number; logShare: number };
+    totalUsers: number;
+    totalMinutes: number;
+    totalActions: number;
+    top1: { userCount: number; timeShare: number; actionShare: number; timeMinutes: number; actions: number };
+    top10: { userCount: number; timeShare: number; actionShare: number; timeMinutes: number; actions: number };
+    top25: { userCount: number; timeShare: number; actionShare: number; timeMinutes: number; actions: number };
+    top50: { userCount: number; timeShare: number; actionShare: number; timeMinutes: number; actions: number };
   }> {
     const r = <T = any>(res: any): T[] => (res.rows ?? res) as T[];
     const r1 = (res: any): any => r(res)[0] ?? {};
 
-    // Use deterministic rank cutoffs (GREATEST(1, CEIL(N * pct))) so the
-    // top-1% bucket always includes ≥1 user when the cohort is non-empty,
-    // instead of rounding down to zero on small populations.
     const row = r1(await db.execute(sql`
-      WITH user_logs AS (
-        SELECT user_id, COUNT(*)::int AS log_count
-        FROM training_logs
+      WITH ordered AS (
+        SELECT
+          id,
+          user_id,
+          event,
+          created_at,
+          LAG(created_at) OVER (
+            PARTITION BY user_id
+            ORDER BY created_at ASC, id ASC
+          ) AS previous_at
+        FROM analytics_events
+        WHERE user_id IS NOT NULL
+      ),
+      marked AS (
+        SELECT *,
+          CASE
+            WHEN previous_at IS NULL OR created_at - previous_at > INTERVAL '30 minutes'
+            THEN 1 ELSE 0
+          END AS new_session
+        FROM ordered
+      ),
+      numbered AS (
+        SELECT *,
+          SUM(new_session) OVER (
+            PARTITION BY user_id
+            ORDER BY created_at ASC, id ASC
+            ROWS UNBOUNDED PRECEDING
+          ) AS session_no
+        FROM marked
+      ),
+      session_bounds AS (
+        SELECT
+          user_id,
+          session_no,
+          MIN(created_at) AS session_started_at,
+          MAX(created_at) AS session_ended_at
+        FROM numbered
+        GROUP BY user_id, session_no
+      ),
+      user_activity AS (
+        SELECT
+          user_id,
+          COALESCE((
+            SELECT SUM(LEAST(EXTRACT(EPOCH FROM (sb.session_ended_at - sb.session_started_at)), 1800))
+            FROM session_bounds sb
+            WHERE sb.user_id = n.user_id
+          ), 0)::double precision AS estimated_seconds,
+          COUNT(*) FILTER (
+            WHERE event NOT IN ('page_view', 'app_open', 'app_heartbeat')
+          )::int AS actions
+        FROM numbered n
         GROUP BY user_id
-        HAVING COUNT(*) > 0
+      ),
+      ranked AS (
+        SELECT
+          *,
+          ROW_NUMBER() OVER (ORDER BY estimated_seconds DESC, actions DESC, user_id ASC) AS rn
+        FROM user_activity
       ),
       stats AS (
         SELECT
           COUNT(*)::int AS total_users,
-          COALESCE(SUM(log_count), 0)::int AS total_logs,
+          COALESCE(SUM(estimated_seconds), 0)::double precision AS total_seconds,
+          COALESCE(SUM(actions), 0)::int AS total_actions,
           GREATEST(1, CEIL(COUNT(*) * 0.01))::int AS top1_cut,
           GREATEST(1, CEIL(COUNT(*) * 0.10))::int AS top10_cut,
-          GREATEST(1, CEIL(COUNT(*) * 0.25))::int AS top25_cut
-        FROM user_logs
-      ),
-      ranked AS (
-        SELECT
-          ul.log_count,
-          ROW_NUMBER() OVER (ORDER BY ul.log_count DESC) AS rn
-        FROM user_logs ul
+          GREATEST(1, CEIL(COUNT(*) * 0.25))::int AS top25_cut,
+          GREATEST(1, CEIL(COUNT(*) * 0.50))::int AS top50_cut
+        FROM user_activity
       )
       SELECT
         s.total_users,
-        s.total_logs,
+        s.total_seconds,
+        s.total_actions,
         (SELECT COUNT(*) FROM ranked WHERE rn <= s.top1_cut)::int  AS top1_count,
         (SELECT COUNT(*) FROM ranked WHERE rn <= s.top10_cut)::int AS top10_count,
         (SELECT COUNT(*) FROM ranked WHERE rn <= s.top25_cut)::int AS top25_count,
-        (SELECT COALESCE(SUM(log_count), 0) FROM ranked WHERE rn <= s.top1_cut)::int  AS top1_logs,
-        (SELECT COALESCE(SUM(log_count), 0) FROM ranked WHERE rn <= s.top10_cut)::int AS top10_logs,
-        (SELECT COALESCE(SUM(log_count), 0) FROM ranked WHERE rn <= s.top25_cut)::int AS top25_logs
+        (SELECT COUNT(*) FROM ranked WHERE rn <= s.top50_cut)::int AS top50_count,
+        (SELECT COALESCE(SUM(estimated_seconds), 0) FROM ranked WHERE rn <= s.top1_cut)::double precision AS top1_seconds,
+        (SELECT COALESCE(SUM(estimated_seconds), 0) FROM ranked WHERE rn <= s.top10_cut)::double precision AS top10_seconds,
+        (SELECT COALESCE(SUM(estimated_seconds), 0) FROM ranked WHERE rn <= s.top25_cut)::double precision AS top25_seconds,
+        (SELECT COALESCE(SUM(estimated_seconds), 0) FROM ranked WHERE rn <= s.top50_cut)::double precision AS top50_seconds,
+        (SELECT COALESCE(SUM(actions), 0) FROM ranked WHERE rn <= s.top1_cut)::int AS top1_actions,
+        (SELECT COALESCE(SUM(actions), 0) FROM ranked WHERE rn <= s.top10_cut)::int AS top10_actions,
+        (SELECT COALESCE(SUM(actions), 0) FROM ranked WHERE rn <= s.top25_cut)::int AS top25_actions,
+        (SELECT COALESCE(SUM(actions), 0) FROM ranked WHERE rn <= s.top50_cut)::int AS top50_actions
       FROM stats s
     `));
 
     const pct = (n: number, d: number) => d > 0 ? Math.round((n / d) * 1000) / 10 : 0;
     const totalUsers = Number(row.total_users || 0);
-    const totalLogs  = Number(row.total_logs  || 0);
+    const totalMinutes = Math.round(Number(row.total_seconds || 0) / 60);
+    const totalActions = Number(row.total_actions || 0);
+    const buildStat = (key: "1" | "10" | "25" | "50") => {
+      const seconds = Number(row[`top${key}_seconds`] || 0);
+      const actions = Number(row[`top${key}_actions`] || 0);
+      return {
+        userCount: Number(row[`top${key}_count`] || 0),
+        timeShare: pct(seconds, Number(row.total_seconds || 0)),
+        actionShare: pct(actions, totalActions),
+        timeMinutes: Math.round(seconds / 60),
+        actions,
+      };
+    };
 
     return {
       totalUsers,
-      totalLogs,
-      top1:  { userCount: Number(row.top1_count  || 0), logShare: pct(Number(row.top1_logs  || 0), totalLogs) },
-      top10: { userCount: Number(row.top10_count || 0), logShare: pct(Number(row.top10_logs || 0), totalLogs) },
-      top25: { userCount: Number(row.top25_count || 0), logShare: pct(Number(row.top25_logs || 0), totalLogs) },
+      totalMinutes,
+      totalActions,
+      top1: buildStat("1"),
+      top10: buildStat("10"),
+      top25: buildStat("25"),
+      top50: buildStat("50"),
     };
   }
 
@@ -5695,11 +5779,11 @@ export class DatabaseStorage {
    * The next step must occur *after* the previous step's timestamp for
    * the same user. Median time-to-next is reported per step transition.
    */
-  async getFunnelAnalysis(funnelKey: string, days: number): Promise<{
+  async getFunnelAnalysis(funnelKey: string, days: number | null): Promise<{
     funnel: string;
     label: string;
     description: string;
-    windowDays: number;
+    windowDays: number | null;
     steps: Array<{
       key: string;
       label: string;
@@ -5750,9 +5834,92 @@ export class DatabaseStorage {
 
     const def = FUNNELS[funnelKey];
     if (!def) throw new Error(`Unknown funnel: ${funnelKey}`);
-    const windowDays = Math.max(1, Math.min(365, Math.floor(days || 30)));
+    const windowDays = days == null ? null : Math.max(1, Math.min(365, Math.floor(days || 30)));
 
     const r = <T = any>(res: any): T[] => (res.rows ?? res) as T[];
+
+    if (funnelKey === "activation") {
+      // There is no app-store install callback in the web app. The first
+      // authenticated app_open is the closest reliable download/first-open
+      // signal. The remaining steps are constrained to that first 30-minute
+      // session so activation does not count later, unrelated activity.
+      const windowCondition = windowDays == null
+        ? sql`TRUE`
+        : sql`first_open_at >= NOW() - (${windowDays}::int * INTERVAL '1 day')`;
+      const activationRows = r(await db.execute(sql`
+        WITH first_opens AS (
+          SELECT user_id, MIN(created_at) AS first_open_at
+          FROM analytics_events
+          WHERE user_id IS NOT NULL AND event = 'app_open'
+          GROUP BY user_id
+        ),
+        downloads AS (
+          SELECT user_id, first_open_at
+          FROM first_opens
+          WHERE ${windowCondition}
+        ),
+        first_sessions AS (
+          SELECT d.user_id, d.first_open_at, ae.event, ae.created_at
+          FROM downloads d
+          JOIN analytics_events ae
+            ON ae.user_id = d.user_id
+           AND ae.created_at >= d.first_open_at
+           AND ae.created_at <= d.first_open_at + INTERVAL '30 minutes'
+        ),
+        onboarding AS (
+          SELECT
+            user_id,
+            MIN(created_at) FILTER (WHERE event = 'onboarding_completed') AS onboarding_at
+          FROM first_sessions
+          GROUP BY user_id
+        )
+        SELECT
+          COUNT(*)::int AS downloads,
+          COUNT(*) FILTER (WHERE onboarding_at IS NOT NULL)::int AS onboarding,
+          COUNT(*) FILTER (
+            WHERE onboarding_at IS NOT NULL
+              AND EXISTS (
+                SELECT 1
+                FROM first_sessions fs
+                WHERE fs.user_id = onboarding.user_id
+                  AND fs.created_at > onboarding.onboarding_at
+                  AND fs.event NOT IN ('page_view', 'app_open', 'app_heartbeat', 'onboarding_completed')
+              )
+          )::int AS first_session_action
+        FROM onboarding
+      `));
+      const row = activationRows[0] ?? {};
+
+      const users = [
+        Number(row.downloads || 0),
+        Number(row.onboarding || 0),
+        Number(row.first_session_action || 0),
+      ];
+      const startCount = users[0];
+      const steps = [
+        { key: "download", label: "Downloaded / first opened app", users: users[0] },
+        { key: "onboarding", label: "Completed onboarding quiz", users: users[1] },
+        { key: "first_session_action", label: "Completed an action in first session", users: users[2] },
+      ].map((step, i, all) => {
+        const previous = i === 0 ? step.users : all[i - 1].users;
+        return {
+          ...step,
+          pctFromStart: startCount > 0 ? Math.round((step.users / startCount) * 1000) / 10 : 0,
+          pctFromPrev: previous > 0 ? Math.round((step.users / previous) * 1000) / 10 : 0,
+          dropOff: i === 0 ? 0 : previous - step.users,
+          medianTimeToNextSec: null,
+        };
+      });
+
+      return {
+        funnel: funnelKey,
+        label: "Activation",
+        description: "First open → onboarding quiz → meaningful action in the first session",
+        windowDays,
+        steps,
+        totalCandidates: startCount,
+      };
+    }
 
     // Pull only events relevant to any step in this funnel
     const eventNames = Array.from(new Set(def.steps.flatMap(s => s.events)));
