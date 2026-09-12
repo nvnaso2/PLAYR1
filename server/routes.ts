@@ -9758,6 +9758,15 @@ ${JSON.stringify(catalogForPrompt)}
     }
   });
 
+  app.get("/api/admin/analytics/journal", isAuthenticated, isAdmin, async (_req: AuthenticatedRequest, res) => {
+    try {
+      res.json(await storage.getAdminJournalAnalytics());
+    } catch (err) {
+      console.error("Error getting Journal analytics:", err);
+      res.status(500).json({ message: "Failed to get Journal analytics" });
+    }
+  });
+
   // Retention & cohort analysis
   app.get("/api/admin/analytics/retention", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {

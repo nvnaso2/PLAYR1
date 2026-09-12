@@ -132,6 +132,7 @@ export interface IStorage {
   getAdminBusinessAnalytics(): Promise<any>;
   getAdminActivityAnalytics(period?: string): Promise<any>;
   getAdminCommunityAnalytics(): Promise<any>;
+  getAdminJournalAnalytics(): Promise<any>;
 
   // Brand Principles
   getBrandPrinciples(): Promise<BrandPrinciples | null>;
@@ -4413,6 +4414,62 @@ export class DatabaseStorage {
       ORDER BY estimated_cost_usd DESC
       LIMIT 20
     `));
+    const periods = r(await db.execute(sql`
+      WITH period_def(key, label, days) AS (
+        VALUES
+          ('1d', 'Past 1 day', 1),
+          ('7d', 'Past 7 days', 7),
+          ('30d', 'Past 30 days', 30),
+          ('90d', 'Past 90 days', 90),
+          ('year', 'Past year', 365),
+          ('lifetime', 'Lifetime', NULL)
+      )
+      SELECT
+        p.key,
+        p.label,
+        COUNT(r.id)::int AS requests,
+        COALESCE(SUM(r.estimated_cost_usd), 0)::double precision AS estimated_cost_usd,
+        COALESCE(AVG(r.total_ms) FILTER (WHERE r.status = 'completed'), 0)::double precision AS avg_total_ms
+      FROM period_def p
+      LEFT JOIN coach_p_requests r ON p.days IS NULL OR r.created_at >= NOW() - (p.days || ' days')::interval
+      GROUP BY p.key, p.label, p.days
+      ORDER BY p.days NULLS LAST
+    `));
+    const adoption = r1(await db.execute(sql`
+      WITH paid_users AS (
+        SELECT id FROM users WHERE subscription_plan IN ('pro', 'pro-infinity')
+      ),
+      free_users AS (
+        SELECT id FROM users WHERE COALESCE(subscription_plan, 'free') NOT IN ('pro', 'pro-infinity')
+      ),
+      request_users AS (
+        SELECT DISTINCT user_id FROM coach_p_requests
+      ),
+      paid_request_users AS (
+        SELECT DISTINCT r.user_id
+        FROM coach_p_requests r
+        INNER JOIN paid_users p ON p.id = r.user_id
+      ),
+      free_limit_users AS (
+        SELECT DISTINCT u.user_id
+        FROM coach_p_usage u
+        INNER JOIN free_users f ON f.id = u.user_id
+        WHERE u.month_key = TO_CHAR(NOW(), 'YYYY-MM') AND u.question_count >= 3
+      ),
+      paid_chat_messages AS (
+        SELECT COUNT(*)::int AS count
+        FROM coach_p_requests r
+        INNER JOIN paid_users p ON p.id = r.user_id
+        WHERE r.operation = 'chat'
+      )
+      SELECT
+        (SELECT COUNT(*) FROM request_users)::int AS users_used,
+        (SELECT COUNT(*) FROM paid_users)::int AS paid_users,
+        (SELECT COUNT(*) FROM paid_request_users)::int AS paid_users_used,
+        (SELECT count FROM paid_chat_messages)::int AS paid_messages,
+        (SELECT COUNT(*) FROM free_users)::int AS free_users,
+        (SELECT COUNT(*) FROM free_limit_users)::int AS free_users_at_limit
+    `));
 
     return {
       windowDays: safeDays,
@@ -4463,6 +4520,117 @@ export class DatabaseStorage {
         requests: Number(row.requests || 0),
         totalTokens: Number(row.total_tokens || 0),
         estimatedCostUsd: Number(row.estimated_cost_usd || 0),
+      })),
+      periods: periods.map((row: any) => ({
+        key: row.key,
+        label: row.label,
+        requests: Number(row.requests || 0),
+        estimatedCostUsd: Number(row.estimated_cost_usd || 0),
+        avgTotalMs: Number(row.avg_total_ms || 0),
+      })),
+      adoption: {
+        usersUsed: Number(adoption.users_used || 0),
+        paidUsers: Number(adoption.paid_users || 0),
+        paidUsersUsed: Number(adoption.paid_users_used || 0),
+        paidMessages: Number(adoption.paid_messages || 0),
+        freeUsers: Number(adoption.free_users || 0),
+        freeUsersAtLimit: Number(adoption.free_users_at_limit || 0),
+      },
+    };
+  }
+
+  async getAdminJournalAnalytics(): Promise<any> {
+    const r = <T = any>(res: any): T[] => (res.rows ?? res) as T[];
+    const r1 = (res: any): any => r(res)[0] ?? {};
+    const summary = r1(await db.execute(sql`
+      SELECT
+        COUNT(*)::int AS total_entries,
+        COUNT(DISTINCT journal_entries.user_id)::int AS users_with_entries,
+        COALESCE(COUNT(*)::double precision / NULLIF(COUNT(DISTINCT journal_entries.user_id), 0), 0)::double precision AS avg_entries_per_user,
+        COUNT(*) FILTER (
+          WHERE ai_coach_feedback IS NOT NULL
+             OR ai_follow_up_question IS NOT NULL
+             OR ai_follow_up_answer IS NOT NULL
+        )::int AS ai_assisted_entries
+      FROM journal_entries
+      LEFT JOIN (
+        SELECT user_id, COUNT(*)::int AS entries
+        FROM journal_entries
+        GROUP BY user_id
+      ) entry_counts ON entry_counts.user_id = journal_entries.user_id
+    `));
+    const topUsers = r(await db.execute(sql`
+      SELECT
+        j.user_id,
+        COALESCE(NULLIF(TRIM(CONCAT(u.first_name, ' ', u.last_name)), ''), u.email, j.user_id) AS name,
+        u.email,
+        COUNT(*)::int AS entries
+      FROM journal_entries j
+      LEFT JOIN users u ON u.id = j.user_id
+      GROUP BY j.user_id, u.first_name, u.last_name, u.email
+      ORDER BY entries DESC, name ASC
+      LIMIT 12
+    `));
+    const promptUsage = r(await db.execute(sql`
+      SELECT
+        response->>'promptId' AS prompt_id,
+        response->>'question' AS question,
+        COUNT(*)::int AS uses,
+        COUNT(DISTINCT j.user_id)::int AS players
+      FROM journal_entries j
+      CROSS JOIN LATERAL jsonb_array_elements(COALESCE(j.responses, '[]'::jsonb)) response
+      WHERE response->>'promptId' IS NOT NULL
+      GROUP BY response->>'promptId', response->>'question'
+      ORDER BY uses DESC, prompt_id ASC
+      LIMIT 4
+    `));
+    const keywords = r(await db.execute(sql`
+      WITH words AS (
+        SELECT
+          j.user_id,
+          LOWER(word) AS word
+        FROM journal_entries j
+        CROSS JOIN LATERAL regexp_split_to_table(
+          LOWER(REGEXP_REPLACE(
+            COALESCE(j.ai_coach_feedback, '') || ' ' || COALESCE(j.ai_follow_up_question, ''),
+            '[^a-zA-Z0-9]+', ' ', 'g'
+          )),
+          '[[:space:]]+'
+        ) AS word
+        WHERE j.ai_coach_feedback IS NOT NULL OR j.ai_follow_up_question IS NOT NULL
+      )
+      SELECT word, COUNT(*)::int AS mentions, COUNT(DISTINCT user_id)::int AS players
+      FROM words
+      WHERE LENGTH(word) >= 4
+        AND word NOT IN ('your', 'that', 'with', 'this', 'from', 'have', 'will', 'into', 'keep', 'more', 'next', 'when', 'what', 'then', 'than', 'they', 'them', 'about', 'workout', 'practice', 'player', 'would', 'action', 'time', 'make', 'smallest', 'visible', 'same', 'one', 'use', 'used', 'session', 'next', 'carry', 'specific', 'focused', 'focus')
+      GROUP BY word
+      ORDER BY mentions DESC, word ASC
+      LIMIT 18
+    `));
+
+    return {
+      summary: {
+        totalEntries: Number(summary.total_entries || 0),
+        usersWithEntries: Number(summary.users_with_entries || 0),
+        avgEntriesPerUser: Number(summary.avg_entries_per_user || 0),
+        aiAssistedEntries: Number(summary.ai_assisted_entries || 0),
+      },
+      topUsers: topUsers.map((row: any) => ({
+        userId: row.user_id,
+        name: row.name,
+        email: row.email,
+        entries: Number(row.entries || 0),
+      })),
+      promptUsage: promptUsage.map((row: any) => ({
+        promptId: row.prompt_id,
+        question: row.question,
+        uses: Number(row.uses || 0),
+        players: Number(row.players || 0),
+      })),
+      keywords: keywords.map((row: any) => ({
+        word: row.word,
+        mentions: Number(row.mentions || 0),
+        players: Number(row.players || 0),
       })),
     };
   }

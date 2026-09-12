@@ -1,11 +1,12 @@
 import { db } from "./db";
-import { drills, benchmarks, evaluationAttributes, shotLocations, shotTypes, userProfiles, metricTemplates, drillMetrics, teamClubs, leagues, archetypes, archetypeRoadmapItems, streakChallenges, type ArchetypeTier, type ArchetypeRoadmapItemType, careerProfiles, playerProfiles, friendships, userFollows, friendActivityFeed, groupChallenges, groupChallengeMembers, userStreaks, trainingLogs, trainingLogMetrics, analyticsEvents, workouts, workoutDrills, programs, programItems, programEnrollments, programItemCompletions, feedbackPosts, type ShotLocation } from "@shared/schema";
+import { drills, benchmarks, evaluationAttributes, shotLocations, shotTypes, userProfiles, metricTemplates, drillMetrics, teamClubs, leagues, archetypes, archetypeRoadmapItems, streakChallenges, type ArchetypeTier, type ArchetypeRoadmapItemType, careerProfiles, playerProfiles, friendships, userFollows, friendActivityFeed, groupChallenges, groupChallengeMembers, userStreaks, trainingLogs, trainingLogMetrics, analyticsEvents, workouts, workoutDrills, programs, programItems, programEnrollments, programItemCompletions, feedbackPosts, coachPRequests, coachPUsage, journalEntries, type ShotLocation } from "@shared/schema";
 // seedPrograms disabled — generic programs removed per user request
 // import { seedPrograms } from "./seed-programs";
 import { users } from "@shared/models/auth";
 import { eq, sql, notInArray, inArray, isNull, and, or, like } from "drizzle-orm";
 import { readFileSync } from "fs";
 import { join } from "path";
+import { JOURNAL_PROMPTS } from "@shared/journalPrompts";
 
 const sampleDrills = [
   // Ball Handling
@@ -930,6 +931,109 @@ async function seedCommunityFeedbackDemo() {
   console.log(`Community feedback demo synced (${rows.length} posts across ${statuses.length} statuses)`);
 }
 
+async function seedCoachPAndJournalAnalyticsDemo() {
+  if (process.env.NODE_ENV === "production") return;
+
+  const demoIds = communityDemoPlayers.map((player) => player.id);
+  const available = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(inArray(users.id, demoIds));
+  if (available.length < 8) {
+    console.log("Coach P and Journal analytics demo skipped: community demo players are not available yet");
+    return;
+  }
+
+  const playerIds = available.map((user) => user.id);
+  const prefix = "playr1-demo-coach-p-request-";
+  await db.delete(coachPRequests).where(like(coachPRequests.id, `${prefix}%`));
+  await db.delete(journalEntries).where(like(journalEntries.id, "playr1-demo-journal-entry-%"));
+  await db.delete(coachPUsage).where(inArray(coachPUsage.userId, playerIds));
+
+  const paidIds = new Set(playerIds.slice(0, 6));
+  await db.update(users).set({ subscriptionPlan: "free", subscriptionStatus: "free" }).where(inArray(users.id, playerIds));
+  await db.update(users).set({ subscriptionPlan: "pro", subscriptionStatus: "active" }).where(inArray(users.id, Array.from(paidIds)));
+
+  const now = new Date();
+  const dayMs = 24 * 60 * 60 * 1000;
+  const coachTopics = [
+    "How can I stay balanced when I attack left?",
+    "What should I focus on during my next shooting session?",
+    "How do I recover after a bad game?",
+    "Can you help me build a defensive footwork routine?",
+    "How can I make better reads out of the pick and roll?",
+    "What is one adjustment for finishing through contact?",
+  ];
+  const requestRows: Array<typeof coachPRequests.$inferInsert> = [];
+  for (let index = 0; index < 240; index++) {
+    const userIndex = index % playerIds.length;
+    const ageDays = (index * 7) % 430;
+    requestRows.push({
+      id: `${prefix}${index}`,
+      userId: playerIds[userIndex],
+      operation: index % 13 === 0 ? "summary" : "chat",
+      status: index % 47 === 0 ? "error" : "completed",
+      model: index % 3 === 0 ? "gpt-5-mini" : "gpt-4o-mini",
+      contextMode: ["core", "training", "game", "journal"][index % 4],
+      promptTokens: 420 + (index % 8) * 75,
+      cachedPromptTokens: index % 3 === 0 ? 120 : 0,
+      completionTokens: 180 + (index % 6) * 40,
+      totalTokens: 600 + (index % 8) * 75 + (index % 6) * 40,
+      estimatedCostUsd: Number((0.002 + (index % 7) * 0.0008).toFixed(6)),
+      inputCostUsd: Number((0.001 + (index % 4) * 0.0003).toFixed(6)),
+      outputCostUsd: Number((0.001 + (index % 5) * 0.0004).toFixed(6)),
+      modelMs: 650 + (index % 9) * 115,
+      totalMs: 1050 + (index % 11) * 150,
+      errorMessage: index % 47 === 0 ? "Development fixture timeout" : null,
+      createdAt: new Date(now.getTime() - ageDays * dayMs),
+    });
+  }
+  await db.insert(coachPRequests).values(requestRows);
+
+  const monthKey = now.toISOString().slice(0, 7);
+  await db.insert(coachPUsage).values(playerIds.map((userId, index) => ({
+    userId,
+    monthKey,
+    questionCount: index < 6 ? 8 + index : index < 10 ? 3 : 1 + (index % 2),
+  })));
+
+  const journalPromptIds = ["pw1", "pw2", "pg1", "op1"];
+  const journalThemes = [
+    "I stayed patient on the left side and made the extra pass instead of forcing a drive.",
+    "My footwork felt more controlled today, especially when I slowed down before the change of direction.",
+    "The biggest gap was finishing through contact. I lost balance when the defender met me early.",
+    "I want to bring the same communication and defensive energy into the next game.",
+    "My confidence improved when I focused on one read at a time instead of trying to solve the whole possession.",
+  ];
+  const aiMessages = [
+    "You are building useful patience. Keep the same balance cue and pair it with one left-hand finishing series next session.",
+    "The adjustment is clear: slow down before the change of direction, then accelerate only after your hips are loaded.",
+    "Treat contact as information rather than a surprise. Practice two controlled finishes where you absorb the bump and keep your eyes on the rim.",
+    "Your communication is a repeatable strength. Set a goal to call the coverage early on three defensive possessions next game.",
+    "Confidence is showing up when your attention stays on the next read. Use that same narrow focus during shooting and closeout work.",
+  ];
+  const journalRows: Array<typeof journalEntries.$inferInsert> = [];
+  for (let index = 0; index < 180; index++) {
+    const prompt = JOURNAL_PROMPTS.find((item) => item.id === journalPromptIds[index % journalPromptIds.length])!;
+    const assisted = index % 3 !== 0;
+    const theme = journalThemes[index % journalThemes.length];
+    journalRows.push({
+      id: `playr1-demo-journal-entry-${index}`,
+      userId: playerIds[index % playerIds.length],
+      type: index % 3 === 0 ? "open" : index % 2 === 0 ? "post-workout" : "post-game",
+      mood: 2 + (index % 4),
+      responses: [{ promptId: prompt.id, question: prompt.question, answer: theme }],
+      thoughts: `${theme} I will carry one specific cue into the next session.`,
+      aiCoachFeedback: assisted ? aiMessages[index % aiMessages.length] : null,
+      aiFollowUpQuestion: assisted ? "What is the smallest action that would make this adjustment visible next time?" : null,
+      aiFollowUpAnswer: assisted ? "I will name the cue before the drill starts and track whether I used it." : null,
+      createdAt: new Date(now.getTime() - ((index * 5) % 420) * dayMs),
+    });
+  }
+  await db.insert(journalEntries).values(journalRows);
+  console.log(`Coach P and Journal analytics demo synced (${requestRows.length} requests, ${journalRows.length} journal entries)`);
+}
+
 async function seedAnalyticsDemo() {
   if (process.env.NODE_ENV === "production") return;
 
@@ -1777,6 +1881,7 @@ export async function seedDatabase() {
     await seedCommunityDemo();
     await seedCommunityAnalyticsDemo();
     await seedCommunityFeedbackDemo();
+    await seedCoachPAndJournalAnalyticsDemo();
     await seedAnalyticsDemo();
     await seedTrainingAnalyticsDemo();
     console.log("Database seeding complete!");
