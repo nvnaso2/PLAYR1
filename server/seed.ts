@@ -900,26 +900,26 @@ async function seedCommunityFeedbackDemo() {
   await db.delete(feedbackPosts).where(like(feedbackPosts.id, `${prefix}%`));
 
   const statuses = ["open", "in-review", "planned", "done", "closed"] as const;
-  const titles = [
-    "Add more left-hand finishing drills",
-    "Make challenge invites easier to find",
-    "Show weekly progress on the Hub",
-    "Improve video loading on mobile",
-    "Add a way to compare shooting sessions",
-    "Let players reorder their training plan",
-    "Create more defensive footwork content",
-    "Save filters in the drill library",
-    "Add reminders for active challenges",
-    "Make the community feed easier to scan",
+  const feedbackFixtures = [
+    { title: "Add more left-hand finishing drills", content: "The finishing library has great right-hand work, but I would love a short progression for left-hand layups, inside-hand finishes, and reverse finishes. It would help newer players build confidence without guessing what to do next.", category: "feature-request" },
+    { title: "Make challenge invites easier to find", content: "I accepted a challenge invite from a friend but had to look through two screens to find it. Could invited challenges appear near the top of Community with a clear Join button and the start date?", category: "suggestion" },
+    { title: "Show weekly progress on the Hub", content: "The Hub tells me what to do today, but I cannot quickly see how many sessions I completed this week. A small weekly progress ring would make it easier to stay accountable.", category: "feature-request" },
+    { title: "Video pauses when switching drills on mobile", content: "On an iPhone, moving from one drill video to the next sometimes leaves the previous audio playing for a second. The page eventually catches up, but the transition feels confusing.", category: "bug" },
+    { title: "Compare shooting sessions over time", content: "I want to compare my last five shooting sessions by makes, attempts, and percentage. Seeing the trend would make the logged numbers much more useful than looking at one session at a time.", category: "feature-request" },
+    { title: "Let players reorder a training plan", content: "Some days I have access to a hoop and other days I only have space for ball handling. Reordering the plan would let me keep the same goal while adapting the session to what is available.", category: "suggestion" },
+    { title: "Create more defensive footwork content", content: "Please add more closeout, drop-step, and slide-to-sprint drills. Defensive work is one of the easiest things to skip when the library is mostly organized around scoring.", category: "feature-request" },
+    { title: "Save filters in the drill library", content: "I keep filtering for beginner shooting drills and then lose the filter every time I open a drill. Saving the last selected category and level would make repeat sessions faster.", category: "general" },
+    { title: "Add reminders for active challenges", content: "A reminder one or two days before an active challenge ends would help me finish the ones I already joined. It would be especially useful for challenges with a streak goal.", category: "suggestion" },
+    { title: "Make the community feed easier to scan", content: "The feed is useful, but completed workouts, new friendships, and challenge progress look very similar. Small activity labels or filters would make it easier to find the updates I care about.", category: "general" },
   ];
   const now = new Date();
   const dayMs = 24 * 60 * 60 * 1000;
   const rows: Array<typeof feedbackPosts.$inferInsert> = Array.from({ length: 30 }, (_, index) => ({
     id: `${prefix}${index}`,
     userId: playerIds[index % playerIds.length],
-    title: `${titles[index % titles.length]} ${index >= titles.length ? `(${index + 1})` : ""}`.trim(),
-    content: "Development-only feedback fixture for the Community analytics dashboard.",
-    category: index % 4 === 0 ? "bug" : index % 3 === 0 ? "feature-request" : index % 2 === 0 ? "suggestion" : "general",
+    title: `${feedbackFixtures[index % feedbackFixtures.length].title}${index >= feedbackFixtures.length ? ` (${index + 1})` : ""}`,
+    content: feedbackFixtures[index % feedbackFixtures.length].content,
+    category: feedbackFixtures[index % feedbackFixtures.length].category,
     status: statuses[index % statuses.length],
     voteCount: (index * 3) % 11,
     createdAt: new Date(now.getTime() - ((index * 9) % 120) * dayMs),
