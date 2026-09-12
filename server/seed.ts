@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { drills, benchmarks, evaluationAttributes, shotLocations, shotTypes, userProfiles, metricTemplates, drillMetrics, teamClubs, leagues, archetypes, archetypeRoadmapItems, streakChallenges, type ArchetypeTier, type ArchetypeRoadmapItemType, careerProfiles, playerProfiles, friendships, userFollows, friendActivityFeed, groupChallenges, groupChallengeMembers, userStreaks, trainingLogs, trainingLogMetrics, analyticsEvents, workouts, workoutDrills, programs, programItems, programEnrollments, programItemCompletions, type ShotLocation } from "@shared/schema";
+import { drills, benchmarks, evaluationAttributes, shotLocations, shotTypes, userProfiles, metricTemplates, drillMetrics, teamClubs, leagues, archetypes, archetypeRoadmapItems, streakChallenges, type ArchetypeTier, type ArchetypeRoadmapItemType, careerProfiles, playerProfiles, friendships, userFollows, friendActivityFeed, groupChallenges, groupChallengeMembers, userStreaks, trainingLogs, trainingLogMetrics, analyticsEvents, workouts, workoutDrills, programs, programItems, programEnrollments, programItemCompletions, feedbackPosts, type ShotLocation } from "@shared/schema";
 // seedPrograms disabled — generic programs removed per user request
 // import { seedPrograms } from "./seed-programs";
 import { users } from "@shared/models/auth";
@@ -881,6 +881,55 @@ async function seedCommunityAnalyticsDemo() {
   console.log(`Community analytics demo synced (${relationshipRows.length} follows, ${friendshipRows.length} friendships, ${challengeRows.length} challenges)`);
 }
 
+async function seedCommunityFeedbackDemo() {
+  if (process.env.NODE_ENV === "production") return;
+
+  const demoIds = communityDemoPlayers.map((player) => player.id);
+  const available = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(or(inArray(users.id, demoIds), eq(users.role, "player")))
+    .limit(24);
+  const playerIds = Array.from(new Set(available.map((user) => user.id)));
+  if (playerIds.length === 0) {
+    console.log("Community feedback demo skipped: no player accounts are available yet");
+    return;
+  }
+
+  const prefix = "playr1-demo-community-feedback-";
+  await db.delete(feedbackPosts).where(like(feedbackPosts.id, `${prefix}%`));
+
+  const statuses = ["open", "in-review", "planned", "done", "closed"] as const;
+  const titles = [
+    "Add more left-hand finishing drills",
+    "Make challenge invites easier to find",
+    "Show weekly progress on the Hub",
+    "Improve video loading on mobile",
+    "Add a way to compare shooting sessions",
+    "Let players reorder their training plan",
+    "Create more defensive footwork content",
+    "Save filters in the drill library",
+    "Add reminders for active challenges",
+    "Make the community feed easier to scan",
+  ];
+  const now = new Date();
+  const dayMs = 24 * 60 * 60 * 1000;
+  const rows: Array<typeof feedbackPosts.$inferInsert> = Array.from({ length: 30 }, (_, index) => ({
+    id: `${prefix}${index}`,
+    userId: playerIds[index % playerIds.length],
+    title: `${titles[index % titles.length]} ${index >= titles.length ? `(${index + 1})` : ""}`.trim(),
+    content: "Development-only feedback fixture for the Community analytics dashboard.",
+    category: index % 4 === 0 ? "bug" : index % 3 === 0 ? "feature-request" : index % 2 === 0 ? "suggestion" : "general",
+    status: statuses[index % statuses.length],
+    voteCount: (index * 3) % 11,
+    createdAt: new Date(now.getTime() - ((index * 9) % 120) * dayMs),
+    updatedAt: new Date(now.getTime() - ((index * 6) % 60) * dayMs),
+  }));
+
+  await db.insert(feedbackPosts).values(rows);
+  console.log(`Community feedback demo synced (${rows.length} posts across ${statuses.length} statuses)`);
+}
+
 async function seedAnalyticsDemo() {
   if (process.env.NODE_ENV === "production") return;
 
@@ -1727,6 +1776,7 @@ export async function seedDatabase() {
 
     await seedCommunityDemo();
     await seedCommunityAnalyticsDemo();
+    await seedCommunityFeedbackDemo();
     await seedAnalyticsDemo();
     await seedTrainingAnalyticsDemo();
     console.log("Database seeding complete!");

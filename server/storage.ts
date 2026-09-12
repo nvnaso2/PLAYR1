@@ -6655,6 +6655,18 @@ export class DatabaseStorage {
       FROM user_counts
     `));
 
+    const feedbackStatusRows = rows(await db.execute(sql`
+      SELECT status, COUNT(*)::int AS count
+      FROM feedback_posts
+      GROUP BY status
+      ORDER BY status
+    `));
+    const feedbackByStatus = ["open", "in-review", "planned", "done", "closed"].map((status) => ({
+      status,
+      label: status === "in-review" ? "In review" : status[0].toUpperCase() + status.slice(1),
+      count: Number(feedbackStatusRows.find((row: any) => row.status === status)?.count || 0),
+    }));
+
     const challengeRows = rows(await db.execute(sql`
       WITH challenge_members AS (
         SELECT
@@ -6729,6 +6741,10 @@ export class DatabaseStorage {
         maxFriends: Number(relationshipAverages.max_friends || 0),
         maxFollows: Number(relationshipAverages.max_follows || 0),
         maxFollowers: Number(relationshipAverages.max_followers || 0),
+      },
+      feedback: {
+        total: feedbackByStatus.reduce((sum, row) => sum + row.count, 0),
+        byStatus: feedbackByStatus,
       },
       challenges: {
         all: Number(totals.total_challenges || 0),
