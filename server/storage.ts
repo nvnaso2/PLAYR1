@@ -249,7 +249,7 @@ export interface IStorage {
   getUserWorkouts(userId: string): Promise<Workout[]>; // User's own workouts
   getWorkoutById(id: string): Promise<Workout | undefined>;
   getWorkoutWithDrills(id: string): Promise<{ workout: Workout; drills: Array<WorkoutDrill & { drill: Drill }> } | undefined>;
-  createWorkout(workout: InsertWorkout, drillIds: string[]): Promise<Workout>;
+  createWorkout(workout: InsertWorkout, drillIds: string[] | WorkoutDrillInput[]): Promise<Workout>;
   updateWorkout(id: string, workout: Partial<InsertWorkout>, drillIds?: string[]): Promise<Workout | undefined>;
   toggleWorkoutFavorite(id: string): Promise<Workout | undefined>;
   deleteWorkout(id: string): Promise<boolean>;
@@ -1972,14 +1972,18 @@ export class DatabaseStorage {
     };
   }
 
-  async createWorkout(workout: InsertWorkout, drillIds: string[]): Promise<Workout> {
+  async createWorkout(workout: InsertWorkout, drillIds: string[] | WorkoutDrillInput[]): Promise<Workout> {
     const [newWorkout] = await db.insert(workouts).values(workout as any).returning();
     
     if (drillIds.length > 0) {
-      const drillValues = drillIds.map((drillId, index) => ({
+      const drillValues = drillIds.map((entry, index) => ({
         workoutId: newWorkout.id,
-        drillId,
-        sortOrder: index
+        drillId: typeof entry === "string" ? entry : entry.drillId,
+        sortOrder: typeof entry === "string" ? index : entry.sortOrder ?? index,
+        defaultDuration: typeof entry === "string" ? null : entry.defaultDuration ?? null,
+        defaultSets: typeof entry === "string" ? null : entry.defaultSets ?? null,
+        defaultReps: typeof entry === "string" ? null : entry.defaultReps ?? null,
+        coachingNotes: typeof entry === "string" ? null : entry.coachingNotes ?? null,
       }));
       await db.insert(workoutDrills).values(drillValues);
     }
@@ -9669,3 +9673,12 @@ Object.assign(DatabaseStorage.prototype, {
 // Several newer storage API groups are attached below with Object.assign.
 // Expose their complete contract at the shared storage boundary.
 export const storage: DatabaseStorage & IStorage = new DatabaseStorage() as DatabaseStorage & IStorage;
+
+export type WorkoutDrillInput = {
+  drillId: string;
+  sortOrder?: number;
+  defaultDuration?: number | null;
+  defaultSets?: number | null;
+  defaultReps?: number | null;
+  coachingNotes?: string | null;
+};

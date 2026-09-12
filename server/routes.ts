@@ -27,6 +27,15 @@ import { getMicroQuiz } from "@shared/micro-quizzes";
 import { getUncachableStripeClient } from "./stripeClient";
 import { WebhookHandlers } from "./webhookHandlers";
 import { JOURNAL_PROMPTS } from "@shared/journalPrompts";
+import {
+  COACH_P_WORKOUT_INTAKE,
+  formatCoachPWorkoutIntake,
+  normalizeCoachPWorkoutAnswers,
+  normalizeCoachPWorkoutResponse,
+  type CoachPWorkoutAnswers,
+  type CoachPWorkoutPreview,
+} from "./coach-p-workouts";
+import type { WorkoutDrillInput } from "./storage";
 
 const COACH_P_ARCHETYPE_GUIDANCE: Record<string, string> = {
   "Sharpshooter": "Your shot isn't just a skill, it's a weapon defenses have to respect every second you're on the floor. My job is making sure you can get that shot off in more ways than standing still waiting for a pass.",
@@ -51,6 +60,19 @@ function classifyCoachPQuestion(question: string): CoachPContextMode {
   if (/\b(archetype|profile|assessment|bottleneck|stage|strength|weakness|identity|career|position)\b/.test(text)) return "profile";
   if (/\b(progress|improv|develop|recent|last session|history|habit|streak)\b/.test(text)) return "training";
   return "general";
+}
+
+function isCoachPWorkoutBuilderRequest(question: string): boolean {
+  const hasWorkoutSubject = /\b(workout|session|routine|practice|training plan)\b/i.test(question);
+  const hasBuildIntent = /\b(build|create|design|make|put together|custom|personalized|give me|plan me|write me|help me)\b/i.test(question);
+  return hasWorkoutSubject && hasBuildIntent;
+}
+
+function formatCoachPWorkoutConversation(workout: CoachPWorkoutPreview): string {
+  const drillLines = workout.drills.map((drill, index) =>
+    `${index + 1}. ${drill.title} — ${drill.durationMinutes} min${drill.sets ? `, ${drill.sets} sets` : ""}${drill.reps ? `, ${drill.reps} reps` : ""}${drill.coachingNotes ? ` — ${drill.coachingNotes}` : ""}`
+  ).join("\n");
+  return `# ${workout.name}\n\nPurpose: ${workout.purpose}\n\nWhy these drills: ${workout.selectionRationale}\n\n${drillLines}\n\nSuccess measure: ${workout.successMeasure}`;
 }
 
 async function getEmailForUser(userId: string): Promise<string | null> {
@@ -1034,12 +1056,31 @@ Start now with a warm one-line greeting that briefly references something specif
         journalEntryId: z.string().optional(),
         projectBuilder: z.boolean().optional(),
         projectBuilderAction: z.enum(["start", "answer"]).optional(),
+        workoutBuilder: z.boolean().optional(),
+        workoutAnswers: z.object({
+          durationMinutes: z.coerce.number().int(),
+          setting: z.string(),
+          primaryFocus: z.string(),
+          secondaryFocuses: z.array(z.string()),
+        }).optional(),
       }).safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: "Send a valid Coach P message." });
+      let workoutAnswers: CoachPWorkoutAnswers | null = null;
+      if (parsed.data.workoutAnswers) {
+        try {
+          workoutAnswers = normalizeCoachPWorkoutAnswers(parsed.data.workoutAnswers);
+        } catch (error) {
+          return res.status(400).json({
+            message: error instanceof Error ? error.message : "Choose valid workout preferences.",
+          });
+        }
+      }
       projectBuilderRequest = parsed.data.projectBuilder === true;
       const journalMessages = parsed.data.messages || (parsed.data.message ? [{ role: "user" as const, content: parsed.data.message }] : []);
       const lastUserMessage = [...journalMessages].reverse().find((message) => message.role === "user");
       if (!lastUserMessage) return res.status(400).json({ message: "Coach P needs a player question." });
+      const workoutBuilderRequest = parsed.data.projectBuilder !== true
+        && (parsed.data.workoutBuilder === true || isCoachPWorkoutBuilderRequest(lastUserMessage.content));
 
       // Project discovery is a free Coach P entry path. It uses the same
       // clarification and plan records as /my-goal, but keeps every turn in
@@ -1301,8 +1342,56 @@ Start now with a warm one-line greeting that briefly references something specif
       res.flushHeaders?.();
       sendSse("status", { stage: "Reading your question..." });
 
-      const contextMode = classifyCoachPQuestion(lastUserMessage.content);
+      const contextMode = workoutBuilderRequest ? "workout" : classifyCoachPQuestion(lastUserMessage.content);
       requestContextMode = contextMode;
+      if (workoutBuilderRequest && !workoutAnswers && conversation) {
+        const intakeMessage = COACH_P_WORKOUT_INTAKE.intro;
+        const storedIntakeMessage = formatCoachPWorkoutIntake();
+        await storage.createCoachPMessage({
+          conversationId: conversation.id,
+          role: "user",
+          content: lastUserMessage.content,
+          model: null,
+          contextMode: "workout",
+          promptTokens: null,
+          completionTokens: null,
+          totalTokens: null,
+          latencyMs: null,
+        });
+        await storage.createCoachPMessage({
+          conversationId: conversation.id,
+          role: "assistant",
+          content: storedIntakeMessage,
+          model: "workout-intake",
+          contextMode: "workout",
+          promptTokens: null,
+          completionTokens: null,
+          totalTokens: null,
+          latencyMs: Date.now() - requestStartedAt,
+        });
+        await storage.updateCoachPConversation(conversation.id, userId, {
+          messageCount: previousMessages.length + 2,
+        });
+        await storage.recordCoachPRequest({
+          userId,
+          conversationId: conversation.id,
+          operation: "workout_builder",
+          status: "completed",
+          model: "workout-intake",
+          contextMode: "workout",
+          totalMs: Date.now() - requestStartedAt,
+        }).catch((analyticsError) => console.error("Coach P workout intake analytics failed:", analyticsError));
+        sendSse("status", { stage: "Setting up your workout..." });
+        sendSse("delta", { text: intakeMessage });
+        sendSse("done", {
+          message: intakeMessage,
+          coachP: coachPAccess,
+          conversationId: conversation.id,
+          workoutIntake: COACH_P_WORKOUT_INTAKE,
+        });
+        res.end();
+        return;
+      }
       sendSse("status", { stage: "Checking your player profile..." });
       const isJournalCoach = !!journalEntry;
       const needsTraining = ["training", "workout", "game", "goal"].includes(contextMode) || isJournalCoach;
@@ -1553,6 +1642,163 @@ COACHING RULES:
       sendSse("status", { stage: "Building your coaching plan..." });
       let tokenUsage: { prompt_tokens?: number; prompt_tokens_details?: { cached_tokens?: number }; completion_tokens?: number; total_tokens?: number } | null = null;
       let finishReason: string | null = null;
+      if (workoutBuilderRequest) {
+        const catalogForPrompt = availableDrills.map((drill: any) => ({
+          id: drill.id,
+          title: drill.title,
+          category: drill.category,
+          difficulty: drill.difficulty,
+          durationMinutes: drill.duration ? Math.max(1, Math.round(drill.duration / 60)) : null,
+        }));
+        const workoutInstructions = `
+You are producing a server-validated Coach P workout response.
+Return JSON only with this shape:
+{
+  "response": "brief coaching explanation",
+  "followUpQuestion": null,
+  "workout": {
+    "name": "short workout name",
+    "purpose": "what this workout is designed to improve",
+    "selectionRationale": "why these specific drills were chosen for the player's focus and what they will help improve",
+    "estimatedDuration": 45,
+    "successMeasure": "specific way the player will know it worked",
+    "drills": [
+      {
+        "drillId": "exact catalog id",
+        "durationMinutes": 10,
+        "sets": 3,
+        "reps": 10,
+        "coachingNotes": "why this drill was selected and what it will help the player improve"
+      }
+    ]
+  }
+}
+Build exactly one focused workout session, never a multi-day plan or weekly program. If one important constraint is missing (especially the skill, game situation, or weakness the player wants to work on, available time, equipment/access, or desired intensity), return "workout": null and ask exactly one focused followUpQuestion. When asking about focus, ask what the player specifically wants to work on in this workout. Do not ask multiple questions. Once the constraint is clear, return the complete workout. The response must explain how the workout connects to the player's stated focus, selectionRationale must explain why the drills were chosen as a group, and every drill's coachingNotes must explain why that drill was chosen and what it will help the player improve. Never invent a drill ID: use only the catalog below. Use 1 to 8 catalog drills in the requested order. Use either sets or reps when the drill calls for it, and always include durationMinutes.
+The player has already answered the required workout intake:
+${JSON.stringify(workoutAnswers)}
+Use those answers exactly: honor the duration, tailor the plan to solo/partner/group setting, make the primary focus the central objective, and use both secondary focuses as supporting objectives. Do not ask another follow-up question.
+AVAILABLE CATALOG DRILLS:
+${JSON.stringify(catalogForPrompt)}
+`;
+        const createWorkoutCompletion = async (retry = false) => openai.chat.completions.create({
+          model,
+          messages: [
+            { role: "system", content: `${systemPrompt}\n\n${workoutInstructions}${retry ? "\nYour previous output could not be validated. Return a complete, strictly valid JSON object with only catalog drill IDs." : ""}` },
+            ...rollingContext.map(message => typeof message === "string"
+              ? { role: "system" as const, content: message }
+              : { role: message.role, content: message.content }),
+          ],
+          max_completion_tokens: maxCompletionTokens,
+          reasoning_effort: "low",
+          response_format: { type: "json_object" },
+        });
+        requestModel = model;
+        let completion = await createWorkoutCompletion();
+        tokenUsage = completion.usage
+          ? {
+              prompt_tokens: completion.usage.prompt_tokens,
+              prompt_tokens_details: completion.usage.prompt_tokens_details
+                ? { cached_tokens: completion.usage.prompt_tokens_details.cached_tokens }
+                : undefined,
+              completion_tokens: completion.usage.completion_tokens,
+              total_tokens: completion.usage.total_tokens,
+            }
+          : null;
+        let rawOutput = completion.choices[0]?.message?.content ?? "";
+        let structuredWorkout;
+        try {
+          structuredWorkout = normalizeCoachPWorkoutResponse(rawOutput, availableDrills.map((drill: any) => ({
+            id: drill.id,
+            title: drill.title,
+          })));
+        } catch (firstError) {
+          console.warn("[Coach P workout] Retrying invalid structured output", {
+            userId,
+            error: firstError instanceof Error ? firstError.message : "invalid output",
+          });
+          completion = await createWorkoutCompletion(true);
+          tokenUsage = completion.usage
+            ? {
+                prompt_tokens: completion.usage.prompt_tokens,
+                prompt_tokens_details: completion.usage.prompt_tokens_details
+                  ? { cached_tokens: completion.usage.prompt_tokens_details.cached_tokens }
+                  : undefined,
+                completion_tokens: completion.usage.completion_tokens,
+                total_tokens: completion.usage.total_tokens,
+              }
+            : tokenUsage;
+          rawOutput = completion.choices[0]?.message?.content ?? "";
+          structuredWorkout = normalizeCoachPWorkoutResponse(rawOutput, availableDrills.map((drill: any) => ({
+            id: drill.id,
+            title: drill.title,
+          })));
+        }
+        const message = [
+          structuredWorkout.response,
+          structuredWorkout.followUpQuestion,
+        ].filter(Boolean).join("\n\n");
+        const storedMessage = structuredWorkout.workout
+          ? `${structuredWorkout.response}\n\n${formatCoachPWorkoutConversation(structuredWorkout.workout)}`
+          : message;
+        timings.model = Date.now() - modelStartedAt;
+        timings.total = Date.now() - requestStartedAt;
+        const costs = getCoachPCost(model, tokenUsage);
+        if (conversation) {
+          await storage.createCoachPMessage({
+            conversationId: conversation.id,
+            role: "user",
+            content: lastUserMessage.content,
+            model: null,
+            contextMode,
+            promptTokens: null,
+            completionTokens: null,
+            totalTokens: null,
+            latencyMs: null,
+          });
+          await storage.createCoachPMessage({
+            conversationId: conversation.id,
+            role: "assistant",
+            content: storedMessage,
+            model,
+            contextMode,
+            promptTokens: tokenUsage?.prompt_tokens ?? null,
+            completionTokens: tokenUsage?.completion_tokens ?? null,
+            totalTokens: tokenUsage?.total_tokens ?? null,
+            latencyMs: timings.model,
+          });
+          await storage.updateCoachPConversation(conversation.id, userId, {
+            messageCount: previousMessages.length + 2,
+          });
+        }
+        await storage.recordCoachPRequest({
+          userId,
+          conversationId: conversation?.id ?? null,
+          operation: "workout_builder",
+          status: "completed",
+          model,
+          contextMode,
+          promptTokens: tokenUsage?.prompt_tokens ?? null,
+          completionTokens: tokenUsage?.completion_tokens ?? null,
+          totalTokens: tokenUsage?.total_tokens ?? null,
+          ...costs,
+          contextMs: timings.context,
+          promptMs: timings.prompt,
+          modelMs: timings.model,
+          totalMs: timings.total,
+        }).catch((analyticsError) => console.error("Coach P workout analytics failed:", analyticsError));
+        sendSse("delta", { text: message });
+        sendSse("done", {
+          message,
+          coachP: coachPAccess,
+          conversationId: conversation?.id ?? null,
+          workoutPreview: structuredWorkout.workout,
+          workoutIntake: null,
+          timing: { model, mode: contextMode, totalMs: timings.total, tokenUsage },
+        });
+        res.end();
+        if (conversation) void refreshCoachPSummary(userId, conversation.id);
+        return;
+      }
       const completion = await openai.chat.completions.create({
         model,
         messages: [
@@ -2384,6 +2630,11 @@ COACHING RULES:
       if (!result) {
         return res.status(404).json({ message: "Workout not found" });
       }
+      const userId = req.user!.claims.sub;
+      const isAdminUser = await storage.isUserAdmin(userId);
+      if (result.workout.userId && result.workout.userId !== userId && !isAdminUser) {
+        return res.status(403).json({ message: "Not authorized to view this workout" });
+      }
       res.json(result);
     } catch (error) {
       console.error("Error fetching workout:", error);
@@ -2397,21 +2648,42 @@ COACHING RULES:
       const userId = req.user.claims.sub;
       const createWorkoutSchema = z.object({
         name: z.string().min(1),
-        drillIds: z.array(z.string()).min(1),
+        drillIds: z.array(z.string()).min(1).optional(),
+        drillEntries: z.array(z.object({
+          drillId: z.string().min(1),
+          defaultDuration: z.number().int().min(1).max(240).nullable().optional(),
+          defaultSets: z.number().int().min(1).max(20).nullable().optional(),
+          defaultReps: z.number().int().min(1).max(500).nullable().optional(),
+          coachingNotes: z.string().max(500).nullable().optional(),
+        })).min(1).optional(),
         description: z.string().optional(),
         category: z.string().optional(),
         estimatedDuration: z.number().optional(),
         isFavorite: z.boolean().optional(),
+      }).refine((data) => Boolean(data.drillIds?.length || data.drillEntries?.length), {
+        message: "Workout must include at least one available drill.",
+        path: ["drillIds"],
       });
       const parsed = createWorkoutSchema.safeParse(req.body);
       if (!parsed.success) {
         return res.status(400).json({ message: "Invalid workout data", errors: parsed.error.flatten() });
       }
-      const { name, description, category, estimatedDuration, drillIds, isFavorite } = parsed.data;
+      const { name, description, category, estimatedDuration, isFavorite } = parsed.data;
+      const availableDrills = await storage.getDrillsForUser(userId);
+      const availableDrillIds = new Set(availableDrills.map((drill) => drill.id));
+      const drillEntries: WorkoutDrillInput[] = parsed.data.drillEntries
+        ? parsed.data.drillEntries.map((entry, index) => ({
+            ...entry,
+            sortOrder: index,
+          }))
+        : (parsed.data.drillIds ?? []).map((drillId, index) => ({ drillId, sortOrder: index }));
+      if (drillEntries.some((entry) => !availableDrillIds.has(entry.drillId))) {
+        return res.status(400).json({ message: "Workout includes a drill that is not available to this player." });
+      }
       
       const workout = await storage.createWorkout(
         { name, description, category, estimatedDuration, userId, isFavorite: isFavorite || false } as any,
-        drillIds
+        drillEntries
       );
       res.status(201).json(workout);
     } catch (error) {

@@ -8,7 +8,7 @@
     "build": "tsx script/build.ts",
     "start": "NODE_ENV=production node dist/index.cjs",
     "check": "NODE_OPTIONS=--max-old-space-size=4096 tsc --pretty false",
-    "test": "node --import tsx --test test/analytics.test.ts",
+    "test": "node --import tsx --test test/*.test.ts",
     "db:push": "drizzle-kit push"
   },
   "dependencies": {

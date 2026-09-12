@@ -97,6 +97,9 @@ type WorkoutDrillEntry = {
   drillId: string;
   drill: Drill;
   duration: number;
+  plannedSets?: number | null;
+  plannedReps?: number | null;
+  coachingNotes?: string | null;
   notes: string;
   metrics: Record<string, number>;
   drillMetrics: DrillMetricWithTemplate[];
@@ -1054,6 +1057,9 @@ export default function TrainingLogPage() {
           drillId: wd.drillId,
           drill: wd.drill,
           duration: wd.defaultDuration || Math.round((wd.drill.duration || 300) / 60),
+          plannedSets: wd.defaultSets,
+          plannedReps: wd.defaultReps,
+          coachingNotes: wd.coachingNotes,
           notes: "",
           metrics: metricValues,
           drillMetrics,
@@ -1073,6 +1079,17 @@ export default function TrainingLogPage() {
       toast({ title: "Failed to load workout", variant: "destructive" });
     }
   };
+
+  // Coach P and saved workout cards launch through the same saved-template path.
+  const [lastTemplateStartKey, setLastTemplateStartKey] = useState<string | null>(null);
+  useEffect(() => {
+    const workoutId = new URLSearchParams(searchParams).get("workoutId");
+    if (!workoutId || workoutId === lastTemplateStartKey) return;
+    setLastTemplateStartKey(workoutId);
+    void startWorkoutFromTemplate(workoutId).then(() => {
+      try { window.history.replaceState({}, "", "/log"); } catch {}
+    });
+  }, [searchParams, lastTemplateStartKey]);
 
   // Auto-start a workout when navigated with ?startDrills=id1,id2,...
   // (used by Programs "Start workout" deep-link). Idempotent per query value
@@ -3135,7 +3152,7 @@ export default function TrainingLogPage() {
                   // Only meaningful if this drill was added > 60 s after the first drill
                   const showTimestamps = workoutStartTime && drillStartedMs && earliestStamp != null
                     && (drillStartedMs - earliestStamp) > 60000;
-                  const estMinutes = group.drill.duration ? Math.round(group.drill.duration / 60) : null;
+                  const estMinutes = firstEntry.duration || (group.drill.duration ? Math.round(group.drill.duration / 60) : null);
                   
                   return (
                     <Card key={drillId} className="border-muted" data-testid={`drill-table-${drillId}`}>
@@ -3146,8 +3163,13 @@ export default function TrainingLogPage() {
                             <div className="flex items-center gap-3 flex-wrap mt-0.5">
                               <CardDescription className="text-xs">
                                 {formatCategory(group.drill.category)} · {group.entries.length} round{group.entries.length > 1 ? 's' : ''}
-                                {estMinutes ? ` · ~${estMinutes}m est.` : ''}
+                                 {estMinutes ? ` · ~${estMinutes}m est.` : ''}
+                                 {firstEntry.plannedSets ? ` · ${firstEntry.plannedSets} sets` : ''}
+                                 {firstEntry.plannedReps ? ` · ${firstEntry.plannedReps} reps` : ''}
                               </CardDescription>
+                              {firstEntry.coachingNotes && (
+                                <p className="mt-1 text-xs text-orange-300/80">Why this drill helps: {firstEntry.coachingNotes}</p>
+                              )}
                               {/* "Started at / Ended at" timestamps — only for mid-workout adds */}
                               {showTimestamps && (
                                 <span className="flex items-center gap-1 text-xs text-muted-foreground">

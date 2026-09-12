@@ -552,6 +552,7 @@ export const workoutDrills = pgTable("workout_drills", {
   defaultDuration: integer("default_duration"), // suggested duration in minutes
   defaultSets: integer("default_sets"),
   defaultReps: integer("default_reps"),
+  coachingNotes: text("coaching_notes"),
   createdAt: timestamp("created_at").defaultNow()
 });
 

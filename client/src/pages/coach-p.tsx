@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowUp, Dumbbell, Flag, Gamepad2, GraduationCap, Loader2, Menu, MessageSquarePlus, Pencil, Pin, PinOff, Target, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowUp, Check, ChevronLeft, ChevronRight, Dumbbell, Flag, Gamepad2, GraduationCap, Loader2, Menu, MessageSquarePlus, Pencil, Pin, PinOff, Target, Trash2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,12 +54,58 @@ type ProjectBuilderPrompt = {
   options: Array<{ label: string; value: string }>;
 };
 
+type CoachPWorkoutDrillPreview = {
+  drillId: string;
+  title: string;
+  durationMinutes: number;
+  sets: number | null;
+  reps: number | null;
+  coachingNotes: string;
+};
+
+type CoachPWorkoutPreview = {
+  name: string;
+  purpose: string;
+  selectionRationale: string;
+  successMeasure: string;
+  estimatedDuration: number;
+  drills: CoachPWorkoutDrillPreview[];
+};
+
+type CoachPWorkoutIntakeOption = {
+  label: string;
+  value: string;
+};
+
+type CoachPWorkoutIntakeQuestion = {
+  id: "durationMinutes" | "setting" | "primaryFocus" | "secondaryFocuses";
+  question: string;
+  selection: "single" | "multiple";
+  options: CoachPWorkoutIntakeOption[];
+  minSelections?: number;
+  maxSelections?: number;
+};
+
+type CoachPWorkoutIntake = {
+  intro: string;
+  questions: CoachPWorkoutIntakeQuestion[];
+};
+
+type CoachPWorkoutAnswers = {
+  durationMinutes: number;
+  setting: "solo" | "partner" | "group";
+  primaryFocus: string;
+  secondaryFocuses: string[];
+};
+
 type CoachPStreamResult = {
   message: string;
   coachP: CoachPUsage;
   conversationId: string;
   projectReady?: boolean;
   projectPrompt?: ProjectBuilderPrompt | null;
+  workoutPreview?: CoachPWorkoutPreview | null;
+  workoutIntake?: CoachPWorkoutIntake | null;
 };
 
 type SavedConversation = {
@@ -80,8 +126,9 @@ const STARTER_PROMPTS = [
   },
   {
     label: "Build my next workout",
-    prompt: "Build me a realistic 3-day basketball workout plan for this week based on my archetype, bottleneck, current goal, recent training, available drills, and active programs. Make each session specific with time, sets, reps, and what success looks like.",
+    prompt: "Build my next workout",
     icon: Dumbbell,
+    workoutBuilder: true,
   },
   {
     label: "Prepare me for game day",
@@ -95,6 +142,301 @@ const STARTER_PROMPTS = [
     projectBuilder: true,
   },
 ];
+
+function WorkoutPreviewCard({
+  preview,
+  answers,
+  savedWorkoutId,
+  isSaving,
+  onSave,
+  onStart,
+  onAdjustAnswers,
+}: {
+  preview: CoachPWorkoutPreview;
+  answers: CoachPWorkoutAnswers | null;
+  savedWorkoutId: string | null;
+  isSaving: boolean;
+  onSave: () => void;
+  onStart: () => void;
+  onAdjustAnswers: () => void;
+}) {
+  const [showFullRationale, setShowFullRationale] = useState(false);
+  const settingLabel = answers?.setting === "partner"
+    ? "Partner"
+    : answers?.setting === "group"
+      ? "Small group"
+      : "Solo";
+
+  return (
+    <div className="ml-12 w-[calc(100%-3rem)] max-w-[540px] overflow-hidden rounded-[20px] border border-orange-400/25 bg-gradient-to-b from-orange-500/[0.10] via-zinc-950 to-zinc-950 shadow-[0_14px_36px_rgba(249,115,22,0.10)]" data-testid="card-coach-p-workout-preview">
+      <div className="border-b border-white/[0.07] px-4 pb-4 pt-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <CoachPIcon />
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-300">Coach P session</p>
+              <h2 className="mt-0.5 text-lg font-semibold tracking-tight text-white">{preview.name}</h2>
+            </div>
+          </div>
+          <span className="shrink-0 rounded-full border border-orange-300/25 bg-orange-400/10 px-2 py-0.5 text-[11px] font-semibold text-orange-100">
+            {preview.estimatedDuration} min
+          </span>
+        </div>
+        <p className="mt-2 line-clamp-2 max-w-[54ch] text-xs leading-5 text-zinc-300">{preview.purpose}</p>
+        <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] font-medium text-zinc-400">
+          <span>{preview.drills.length} drills</span>
+          <span className="text-zinc-700">/</span>
+          <span>{preview.estimatedDuration} min</span>
+          <span className="text-zinc-700">/</span>
+          <span>{settingLabel}</span>
+        </div>
+      </div>
+      <div className="px-4 py-4">
+        <div className="rounded-xl border border-orange-300/15 bg-orange-300/[0.05] px-3 py-2.5">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange-200">Why this session</p>
+            {preview.selectionRationale.trim() && (
+              <button
+                type="button"
+                onClick={() => setShowFullRationale((current) => !current)}
+                className="shrink-0 text-[11px] font-medium text-orange-300 transition-colors hover:text-orange-100"
+                aria-expanded={showFullRationale}
+                data-testid="button-coach-p-rationale-toggle"
+              >
+                {showFullRationale ? "Read less" : "Read more"}
+              </button>
+            )}
+          </div>
+          <p className={`mt-1 text-xs leading-5 text-orange-50/90 ${showFullRationale ? "" : "line-clamp-2"}`}>{preview.selectionRationale}</p>
+        </div>
+        <div className="mt-4">
+          <div className="mb-1.5 flex items-center justify-between">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">Session plan</p>
+          </div>
+          <div className="space-y-1.5">
+            {preview.drills.map((drill, index) => (
+              <div key={`${drill.drillId}-${index}`} className="rounded-xl border border-white/[0.07] bg-black/25 px-3 py-2">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-orange-400/25 bg-orange-400/10 text-[10px] font-bold text-orange-200">
+                    {index + 1}
+                  </span>
+                  <p className="min-w-0 flex-1 truncate text-xs font-semibold text-zinc-100">{drill.title}</p>
+                  <span className="shrink-0 text-[11px] font-medium text-orange-200">{drill.durationMinutes} min</span>
+                </div>
+                <div className="ml-9 mt-1 flex items-center gap-2 text-[11px] text-zinc-500">
+                  {(drill.sets || drill.reps) && (
+                    <span>{drill.sets ? `${drill.sets} sets` : ""}{drill.sets && drill.reps ? " · " : ""}{drill.reps ? `${drill.reps} reps` : ""}</span>
+                  )}
+                  {drill.coachingNotes && (
+                    <details className="group">
+                      <summary className="cursor-pointer list-none text-orange-300/80 transition-colors group-open:text-orange-200 hover:text-orange-200">
+                        <span className="group-open:hidden">Coach P cue</span>
+                        <span className="hidden group-open:inline">Hide cue</span>
+                      </summary>
+                      <p className="mt-1 max-w-[48ch] text-[11px] leading-4 text-zinc-400">{drill.coachingNotes}</p>
+                    </details>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="mt-4 border-l-2 border-emerald-400/60 pl-3">
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-300">Today’s win</p>
+          <p className="mt-0.5 line-clamp-2 text-xs leading-4 text-zinc-300">{preview.successMeasure}</p>
+        </div>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={onAdjustAnswers}
+            className="text-xs font-medium text-zinc-500 transition-colors hover:text-zinc-200"
+            data-testid="button-coach-p-adjust-workout"
+          >
+            Adjust answers
+          </button>
+          {savedWorkoutId ? (
+            <Button size="sm" onClick={onStart} className="h-8 bg-orange-500 px-3 text-xs font-semibold text-black shadow-[0_8px_20px_rgba(249,115,22,0.2)] hover:bg-orange-400" data-testid="button-coach-p-start-workout">
+              Start workout <ChevronRight className="ml-1.5 h-4 w-4" />
+            </Button>
+          ) : (
+            <Button size="sm" onClick={onSave} disabled={isSaving} className="h-8 bg-orange-500 px-3 text-xs font-semibold text-black shadow-[0_8px_20px_rgba(249,115,22,0.2)] hover:bg-orange-400" data-testid="button-coach-p-save-workout">
+              {isSaving ? "Saving workout..." : "Save workout"} <ChevronRight className="ml-1.5 h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WorkoutIntakeCard({
+  intake,
+  initialAnswers,
+  isSubmitting,
+  onSubmit,
+}: {
+  intake: CoachPWorkoutIntake;
+  initialAnswers?: CoachPWorkoutAnswers | null;
+  isSubmitting: boolean;
+  onSubmit: (answers: CoachPWorkoutAnswers) => void;
+}) {
+  const [activeStep, setActiveStep] = useState(0);
+  const [answers, setAnswers] = useState<Partial<CoachPWorkoutAnswers>>(initialAnswers ?? {});
+  const question = intake.questions[activeStep];
+  if (!question) return null;
+  const selected = question.id === "durationMinutes"
+    ? (answers.durationMinutes == null ? [] : [String(answers.durationMinutes)])
+    : question.id === "setting"
+      ? (answers.setting ? [answers.setting] : [])
+      : question.id === "primaryFocus"
+        ? (answers.primaryFocus ? [answers.primaryFocus] : [])
+        : answers.secondaryFocuses ?? [];
+  const canContinue = question.selection === "multiple"
+    ? selected.length === (question.minSelections ?? 2)
+    : selected.length === 1;
+  const isLastStep = activeStep === intake.questions.length - 1;
+  const progress = ((activeStep + 1) / intake.questions.length) * 100;
+  const optionLabel = (questionId: CoachPWorkoutIntakeQuestion["id"], value: string) =>
+    intake.questions.find((item) => item.id === questionId)?.options.find((option) => option.value === value)?.label ?? value;
+  const choose = (value: string) => {
+    if (question.id === "durationMinutes") {
+      setAnswers((current) => ({ ...current, durationMinutes: Number(value) }));
+    } else if (question.id === "setting") {
+      setAnswers((current) => ({ ...current, setting: value as CoachPWorkoutAnswers["setting"] }));
+    } else if (question.id === "primaryFocus") {
+      setAnswers((current) => ({
+        ...current,
+        primaryFocus: value,
+        secondaryFocuses: (current.secondaryFocuses ?? []).filter((focus) => focus !== value),
+      }));
+    } else {
+      setAnswers((current) => {
+        const currentValues = current.secondaryFocuses ?? [];
+        if (currentValues.includes(value)) return { ...current, secondaryFocuses: currentValues.filter((focus) => focus !== value) };
+        if (currentValues.length >= (question.maxSelections ?? 2)) return current;
+        return { ...current, secondaryFocuses: [...currentValues, value] };
+      });
+    }
+  };
+  const goBack = () => setActiveStep((current) => Math.max(0, current - 1));
+  const goNext = () => {
+    if (!canContinue || isSubmitting) return;
+    if (!isLastStep) {
+      setActiveStep((current) => Math.min(intake.questions.length - 1, current + 1));
+      return;
+    }
+    if (
+      answers.durationMinutes == null
+      || !answers.setting
+      || !answers.primaryFocus
+      || !answers.secondaryFocuses
+      || answers.secondaryFocuses.length !== 2
+    ) return;
+    onSubmit({
+      durationMinutes: answers.durationMinutes,
+      setting: answers.setting,
+      primaryFocus: answers.primaryFocus,
+      secondaryFocuses: answers.secondaryFocuses,
+    });
+  };
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "ArrowLeft" && activeStep > 0) {
+      event.preventDefault();
+      goBack();
+    } else if (event.key === "ArrowRight" && canContinue && !isLastStep) {
+      event.preventDefault();
+      goNext();
+    }
+  };
+
+  return (
+    <div className="ml-12 w-[calc(100%-3rem)] max-w-[540px] overflow-hidden rounded-[20px] border border-orange-400/25 bg-gradient-to-b from-orange-500/[0.10] via-zinc-950 to-zinc-950 shadow-[0_14px_36px_rgba(249,115,22,0.10)] focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/60" aria-label="Workout preferences" data-testid="card-coach-p-workout-intake" onKeyDown={handleKeyDown} tabIndex={0}>
+      <div className="border-b border-white/[0.07] px-4 pb-3.5 pt-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <CoachPIcon />
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-300">Build my workout</p>
+              <p className="mt-0.5 text-xs text-zinc-400">Set the session. Coach P handles the rest.</p>
+            </div>
+          </div>
+          <span className="shrink-0 text-xs font-semibold tabular-nums text-zinc-500">{String(activeStep + 1).padStart(2, "0")} / {String(intake.questions.length).padStart(2, "0")}</span>
+        </div>
+        <div className="mt-3 h-1 overflow-hidden rounded-full bg-zinc-800" role="progressbar" aria-valuemin={1} aria-valuemax={intake.questions.length} aria-valuenow={activeStep + 1}>
+          <div className="h-full rounded-full bg-gradient-to-r from-orange-500 to-amber-300 transition-[width] duration-300" style={{ width: `${progress}%` }} />
+        </div>
+      </div>
+      <div className="px-4 pb-4 pt-4">
+        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">Step {activeStep + 1}</p>
+        <h2 className="mt-1 max-w-[28ch] text-xl font-semibold leading-tight tracking-tight text-white">{question.question}</h2>
+        <p className="mt-1 text-xs text-zinc-500">
+          {question.selection === "multiple" ? `Choose ${question.minSelections ?? 2}` : "Choose one"}
+        </p>
+        <div className={`mt-4 ${question.id === "primaryFocus" || question.id === "secondaryFocuses" ? "grid gap-2 sm:grid-cols-2" : "space-y-2"}`}>
+          {question.options
+            .filter((option) => question.id !== "secondaryFocuses" || option.value !== answers.primaryFocus)
+            .map((option) => {
+              const isSelected = selected.includes(option.value);
+              const isAtLimit = question.selection === "multiple"
+                && selected.length >= (question.maxSelections ?? 2)
+                && !isSelected;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={isSelected}
+                  onClick={() => choose(option.value)}
+                  disabled={isAtLimit || isSubmitting}
+                  className={`group flex min-h-[44px] w-full items-center gap-2.5 rounded-xl border px-3 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80 disabled:cursor-not-allowed disabled:opacity-40 ${
+                    isSelected
+                      ? "border-orange-300/80 bg-orange-400/15 text-orange-50 shadow-[0_0_22px_rgba(249,115,22,0.10)]"
+                      : "border-white/[0.09] bg-black/20 text-zinc-300 hover:border-orange-400/50 hover:bg-orange-500/[0.08]"
+                  }`}
+                  data-testid={`button-workout-intake-${question.id}-${option.value}`}
+                >
+                  <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-xs transition-colors ${
+                    isSelected ? "border-orange-300 bg-orange-400 text-zinc-950" : "border-zinc-700 text-transparent group-hover:border-orange-400/60"
+                  }`}>
+                    <Check className="h-3 w-3" strokeWidth={3} />
+                  </span>
+                  <span className="flex-1 text-xs font-medium">{option.label}</span>
+                </button>
+              );
+            })}
+        </div>
+        {isLastStep && canContinue && (
+          <div className="mt-3 rounded-xl border border-white/[0.07] bg-black/20 px-3 py-2">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">Your session</p>
+            <p className="mt-1 text-xs leading-4 text-zinc-300">
+              {answers.durationMinutes} min <span className="text-zinc-700">·</span> {answers.setting ? optionLabel("setting", answers.setting) : ""} <span className="text-zinc-700">·</span> {answers.primaryFocus ? optionLabel("primaryFocus", answers.primaryFocus) : ""}
+            </p>
+          </div>
+        )}
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={goBack}
+            disabled={activeStep === 0 || isSubmitting}
+            className="inline-flex items-center gap-1 rounded-lg px-1 py-1.5 text-xs font-medium text-zinc-500 transition-colors hover:text-zinc-200 disabled:cursor-not-allowed disabled:opacity-30"
+            data-testid="button-coach-p-intake-back"
+          >
+            <ChevronLeft className="h-4 w-4" /> Back
+          </button>
+          <Button
+            type="button"
+            size="sm"
+            disabled={!canContinue || isSubmitting}
+            onClick={goNext}
+            className="h-8 bg-orange-500 px-3 text-xs font-semibold text-black shadow-[0_8px_20px_rgba(249,115,22,0.18)] hover:bg-orange-400 disabled:bg-orange-500/40"
+            data-testid="button-coach-p-submit-preferences"
+          >
+            {isSubmitting ? "Building workout..." : isLastStep ? "Build workout" : "Continue"} <ChevronRight className="ml-1 h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function CoachPIcon({ size = "sm" }: { size?: "sm" | "lg" }) {
   const isLarge = size === "lg";
@@ -283,6 +625,11 @@ export default function CoachPPage() {
   const [projectBuilderMode, setProjectBuilderMode] = useState(false);
   const [projectReady, setProjectReady] = useState(false);
   const [projectPrompt, setProjectPrompt] = useState<ProjectBuilderPrompt | null>(null);
+  const [workoutBuilderMode, setWorkoutBuilderMode] = useState(false);
+  const [workoutIntake, setWorkoutIntake] = useState<CoachPWorkoutIntake | null>(null);
+  const [workoutAnswers, setWorkoutAnswers] = useState<CoachPWorkoutAnswers | null>(null);
+  const [workoutPreview, setWorkoutPreview] = useState<CoachPWorkoutPreview | null>(null);
+  const [savedWorkoutId, setSavedWorkoutId] = useState<string | null>(null);
   const projectResumeAttemptedRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const pendingAssistantTextRef = useRef("");
@@ -359,6 +706,8 @@ export default function CoachPPage() {
       conversationId: string | null;
       projectBuilder?: boolean;
       projectBuilderAction?: "start" | "answer";
+      workoutBuilder?: boolean;
+      workoutAnswers?: CoachPWorkoutAnswers;
     }): Promise<CoachPStreamResult> => {
       const response = await apiRequest("POST", "/api/coach-p/chat", request);
       const reader = response.body?.getReader();
@@ -394,6 +743,8 @@ export default function CoachPPage() {
           conversationId?: string;
           projectReady?: boolean;
           projectPrompt?: ProjectBuilderPrompt | null;
+          workoutPreview?: CoachPWorkoutPreview | null;
+          workoutIntake?: CoachPWorkoutIntake | null;
         };
         if (event === "status" && payload.stage) {
           setThinkingStage(payload.stage);
@@ -406,6 +757,8 @@ export default function CoachPPage() {
             conversationId: payload.conversationId,
             projectReady: payload.projectReady,
             projectPrompt: payload.projectPrompt,
+            workoutPreview: payload.workoutPreview,
+            workoutIntake: payload.workoutIntake,
           };
           setThinkingStage(null);
         } else if (event === "error") {
@@ -436,6 +789,22 @@ export default function CoachPPage() {
       } else if (data.projectPrompt) {
         setProjectPrompt(data.projectPrompt);
       }
+      if (data.workoutIntake) {
+        setWorkoutIntake(data.workoutIntake);
+        setWorkoutAnswers(null);
+        setWorkoutPreview(null);
+        setSavedWorkoutId(null);
+      } else if (data.workoutPreview) {
+        setWorkoutPreview(data.workoutPreview);
+        setSavedWorkoutId(null);
+      } else {
+        setWorkoutIntake(null);
+        setWorkoutAnswers(null);
+        setWorkoutPreview(null);
+        setSavedWorkoutId(null);
+      }
+      if (data.workoutIntake) setWorkoutBuilderMode(true);
+      else if (data.workoutPreview) setWorkoutBuilderMode(false);
       setErrorMessage(null);
       setThinkingStage(null);
       queryClient.invalidateQueries({ queryKey: ["/api/coach-p/conversations"] });
@@ -453,6 +822,30 @@ export default function CoachPPage() {
         setErrorMessage("Coach P couldn’t answer that right now. Try sending it again.");
       }
     },
+  });
+
+  const saveWorkoutMutation = useMutation({
+    mutationFn: async (preview: CoachPWorkoutPreview) => {
+      const response = await apiRequest("POST", "/api/workouts", {
+        name: preview.name,
+        description: `${preview.purpose}\n\nWhy these drills: ${preview.selectionRationale}\n\nSuccess measure: ${preview.successMeasure}`,
+        estimatedDuration: preview.estimatedDuration,
+        drillEntries: preview.drills.map((drill, index) => ({
+          drillId: drill.drillId,
+          defaultDuration: drill.durationMinutes,
+          defaultSets: drill.sets,
+          defaultReps: drill.reps,
+          coachingNotes: drill.coachingNotes || null,
+          sortOrder: index,
+        })),
+      });
+      return await response.json() as { id: string };
+    },
+    onSuccess: (workout) => {
+      setSavedWorkoutId(workout.id);
+      queryClient.invalidateQueries({ queryKey: ["/api/workouts/personal"] });
+    },
+    onError: () => setErrorMessage("That workout could not be saved. Try again."),
   });
 
   useEffect(() => {
@@ -477,14 +870,23 @@ export default function CoachPPage() {
 
   const sendMessage = (
     value: string,
-    options?: { projectBuilder?: boolean; projectBuilderAction?: "start" | "answer" },
+    options?: {
+      projectBuilder?: boolean;
+      projectBuilderAction?: "start" | "answer";
+      workoutBuilder?: boolean;
+      workoutAnswers?: CoachPWorkoutAnswers;
+      displayContent?: string;
+    },
   ) => {
     const content = value.trim();
+    const displayContent = options?.displayContent?.trim() || content;
     const isProjectBuilder = options?.projectBuilder ?? projectBuilderMode;
+    const isWorkoutBuilder = options?.workoutBuilder ?? (workoutBuilderMode || Boolean(workoutPreview));
     if (!content || chatMutation.isPending || (!isProjectBuilder && !canSend)) return;
-    const nextHistory = [...messages, { role: "user" as const, content }];
+    const nextHistory = [...messages, { role: "user" as const, content: displayContent }];
     setMessages(nextHistory);
     if (isProjectBuilder) setProjectBuilderMode(true);
+    if (isWorkoutBuilder) setWorkoutBuilderMode(true);
     setDraft("");
     setErrorMessage(null);
     setLimitReached(false);
@@ -498,8 +900,26 @@ export default function CoachPPage() {
       conversationId,
       projectBuilder: isProjectBuilder,
       projectBuilderAction: options?.projectBuilderAction ?? (isProjectBuilder ? "answer" : undefined),
+      workoutBuilder: isWorkoutBuilder,
+      workoutAnswers: options?.workoutAnswers,
     });
     requestAnimationFrame(() => scrollToBottom("smooth"));
+  };
+
+  const submitWorkoutIntake = (answers: CoachPWorkoutAnswers) => {
+    if (!workoutIntake) return;
+    setWorkoutAnswers(answers);
+    const optionLabel = (questionId: CoachPWorkoutIntakeQuestion["id"], value: string) =>
+      workoutIntake.questions.find((question) => question.id === questionId)?.options.find((option) => option.value === value)?.label ?? value;
+    const secondaryLabels = answers.secondaryFocuses.map((focus) => optionLabel("secondaryFocuses", focus)).join(", ");
+    const preferenceSummary = [
+      "Workout preferences:",
+      `- Duration: ${optionLabel("durationMinutes", String(answers.durationMinutes))}`,
+      `- Setting: ${optionLabel("setting", answers.setting)}`,
+      `- Primary focus: ${optionLabel("primaryFocus", answers.primaryFocus)}`,
+      `- Secondary focuses: ${secondaryLabels}`,
+    ].join("\n");
+    sendMessage(preferenceSummary, { workoutBuilder: true, workoutAnswers: answers, displayContent: "Build my workout" });
   };
 
   const startNewConversation = () => {
@@ -514,6 +934,11 @@ export default function CoachPPage() {
     setProjectBuilderMode(false);
     setProjectReady(false);
     setProjectPrompt(null);
+    setWorkoutBuilderMode(false);
+    setWorkoutIntake(null);
+    setWorkoutAnswers(null);
+    setWorkoutPreview(null);
+    setSavedWorkoutId(null);
     setHistoryOpen(false);
   };
 
@@ -528,6 +953,11 @@ export default function CoachPPage() {
       const isProjectConversation = data.conversation.title === "Build my PLAYR1 Project";
       const savedProjectReady = isProjectConversation && data.messages.some((message) => message.content.includes("Your PLAYR1 Project is ready"));
       setProjectBuilderMode(isProjectConversation && !savedProjectReady);
+      setWorkoutBuilderMode(false);
+      setWorkoutIntake(null);
+      setWorkoutAnswers(null);
+      setWorkoutPreview(null);
+      setSavedWorkoutId(null);
       setProjectReady(savedProjectReady);
       setProjectPrompt(null);
       if (isProjectConversation && !savedProjectReady) {
@@ -833,14 +1263,14 @@ export default function CoachPPage() {
         )}
       </header>
 
-      <main className="mx-auto flex min-h-0 flex-1 w-full max-w-3xl flex-col px-4 sm:px-6">
+      <main className="mx-auto flex min-h-0 min-w-0 flex-1 w-full max-w-3xl flex-col px-4 sm:px-6">
         <section
           ref={scrollRef}
           className={`min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-smooth ${
             messages.length === 0 ? "pt-10 sm:pt-14" : "pt-7"
-          } pb-6 [scrollbar-color:rgb(63_63_70)_transparent]`}
+          } overflow-x-hidden pb-6 [scrollbar-color:rgb(63_63_70)_transparent]`}
         >
-          <div className="w-full">
+          <div className="min-w-0 w-full">
             {messages.length === 0 ? (
               <div className="w-full max-w-2xl mx-auto">
                 <div className="flex items-center justify-center gap-2 mb-8">
@@ -848,7 +1278,7 @@ export default function CoachPPage() {
                   <h1 className="text-2xl font-semibold tracking-tight">What are you working on?</h1>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {STARTER_PROMPTS.map(({ label, prompt, icon: Icon, projectBuilder }, index) => (
+                   {STARTER_PROMPTS.map(({ label, prompt, icon: Icon, projectBuilder, workoutBuilder }, index) => (
                     <button
                       key={label}
                       onClick={() => {
@@ -856,11 +1286,14 @@ export default function CoachPPage() {
                           setProjectBuilderMode(true);
                           setProjectReady(false);
                           sendMessage(prompt, { projectBuilder: true, projectBuilderAction: "start" });
+                        } else if (workoutBuilder) {
+                          setWorkoutBuilderMode(true);
+                          sendMessage(prompt, { workoutBuilder: true });
                         } else {
                           sendMessage(prompt);
                         }
                       }}
-                      disabled={chatMutation.isPending || (!projectBuilder && !canSend)}
+                      disabled={chatMutation.isPending || (!projectBuilder && !workoutBuilder && !canSend)}
                       className={`min-h-[58px] rounded-xl border bg-zinc-950 px-4 py-3 flex items-center gap-3 text-left transition-colors hover:bg-zinc-900 disabled:opacity-50 ${
                         projectBuilder || index === 3 ? "border-orange-500/35 hover:border-orange-500/60" : "border-zinc-800 hover:border-zinc-700"
                       }`}
@@ -878,8 +1311,33 @@ export default function CoachPPage() {
                 {messages.map((message, index) => (
                   <MessageBubble key={`${message.role}-${index}`} message={message} />
                 ))}
+                {workoutIntake && !workoutPreview && !chatMutation.isPending && (
+                  <WorkoutIntakeCard
+                    intake={workoutIntake}
+                    initialAnswers={workoutAnswers}
+                    isSubmitting={chatMutation.isPending}
+                    onSubmit={submitWorkoutIntake}
+                  />
+                )}
+                {workoutPreview && !chatMutation.isPending && (
+                  <WorkoutPreviewCard
+                    preview={workoutPreview}
+                    answers={workoutAnswers}
+                    savedWorkoutId={savedWorkoutId}
+                    isSaving={saveWorkoutMutation.isPending}
+                    onSave={() => saveWorkoutMutation.mutate(workoutPreview)}
+                    onAdjustAnswers={() => {
+                      setWorkoutPreview(null);
+                      setSavedWorkoutId(null);
+                      setWorkoutBuilderMode(true);
+                    }}
+                    onStart={() => {
+                      if (savedWorkoutId) navigate(`/log?workoutId=${encodeURIComponent(savedWorkoutId)}`);
+                    }}
+                  />
+                )}
                 {projectBuilderMode && projectPrompt && projectPrompt.options.length > 0 && !chatMutation.isPending && (
-                  <div className="ml-12 max-w-[94%] space-y-2" aria-label="Project Builder answer choices">
+                  <div className="ml-12 w-[calc(100%-3rem)] max-w-[94%] space-y-2" aria-label="Project Builder answer choices">
                     <p className="text-xs font-medium uppercase tracking-[0.14em] text-zinc-500">Choose one, or type your own answer</p>
                     <div className="grid gap-2 sm:grid-cols-2">
                       {projectPrompt.options.map((option) => (
