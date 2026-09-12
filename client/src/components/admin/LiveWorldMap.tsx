@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ComposableMap, Geographies, Geography, Marker } from "react-simple-maps";
+import { ComposableMap, Geographies, Geography, Graticule, Marker } from "react-simple-maps";
 
 const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
@@ -31,44 +31,102 @@ export function LiveWorldMap({ locations }: Props) {
     () => new Set(locations.map((l) => l.country).filter(Boolean)).size,
     [locations],
   );
+  const totalEvents = useMemo(
+    () => locations.reduce((sum, l) => sum + l.eventCount, 0),
+    [locations],
+  );
+  const topMarket = useMemo(
+    () => [...locations].sort((a, b) => b.userCount - a.userCount)[0],
+    [locations],
+  );
+  const topLocationKeys = useMemo(
+    () => new Set([...locations].sort((a, b) => b.userCount - a.userCount).slice(0, 2).map((location) => `${location.lat}-${location.lng}`)),
+    [locations],
+  );
+
+  const intensityLabel = hovered
+    ? hovered.userCount / maxUsers >= 0.75
+      ? "High activity"
+      : hovered.userCount / maxUsers >= 0.4
+        ? "Medium activity"
+        : "Low activity"
+    : "";
 
   return (
-    <div className="rounded-md border bg-card overflow-hidden" data-testid="live-world-map">
-      <div className="flex items-center justify-between px-4 py-3 border-b">
-        <div>
-          <h4 className="text-sm font-semibold">Active users worldwide (60 min)</h4>
-          <p className="text-xs text-muted-foreground">
-            {totalUsers} {totalUsers === 1 ? "user" : "users"} across {totalCountries}{" "}
-            {totalCountries === 1 ? "country" : "countries"}
-          </p>
+    <div
+      className="overflow-hidden rounded-2xl border border-slate-700/80 bg-[#111a20] shadow-[0_20px_60px_rgba(2,8,12,0.28)]"
+      data-testid="live-world-map"
+    >
+      <style>{`
+        @keyframes playr1-map-marker-in {
+          0% { opacity: 0; transform: scale(.35); }
+          70% { opacity: 1; transform: scale(1.08); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+        @keyframes playr1-map-pulse {
+          0%, 100% { opacity: .15; transform: scale(.75); }
+          50% { opacity: .48; transform: scale(1.65); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .playr1-map-marker, .playr1-map-pulse { animation: none !important; }
+        }
+      `}</style>
+      <div className="border-b border-slate-700/70 bg-[#172228] px-4 py-4 sm:px-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-orange-300/80">Live network</p>
+            <h4 className="mt-1 text-xl font-bold tracking-tight text-white">Global activity</h4>
+            <p className="mt-1 text-xs text-slate-400">Active users and event signals from the last 60 minutes.</p>
+          </div>
+          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-orange-300/20 bg-orange-400/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-orange-200">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-300 opacity-60" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-orange-300" />
+            </span>
+            Live
+          </div>
         </div>
-        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-          <span>Less</span>
-          <div className="h-2 w-2 rounded-full bg-orange-500/40" />
-          <div className="h-2.5 w-2.5 rounded-full bg-orange-500/60" />
-          <div className="h-3 w-3 rounded-full bg-orange-500/80" />
-          <div className="h-3.5 w-3.5 rounded-full bg-orange-500" />
-          <span>More</span>
+        <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+          {[
+            { label: "Active users", value: totalUsers, accent: "text-orange-200" },
+            { label: "Events", value: totalEvents, accent: "text-sky-200" },
+            { label: "Countries online", value: totalCountries, accent: "text-emerald-200" },
+            { label: "Top market", value: topMarket?.city || topMarket?.country || "—", accent: "text-violet-200" },
+          ].map((metric) => (
+            <div key={metric.label} className="min-w-[128px] flex-1 rounded-xl border border-slate-700/70 bg-slate-950/30 px-3 py-2.5">
+              <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-500">{metric.label}</p>
+              <p className={`mt-1 truncate text-lg font-black tracking-tight ${metric.accent}`}>{metric.value}</p>
+            </div>
+          ))}
         </div>
       </div>
-      <div className="relative bg-muted/20" style={{ aspectRatio: "2 / 1" }}>
+      <div
+        className="relative bg-[#101b21]"
+        style={{
+          aspectRatio: "2 / 1",
+          backgroundImage: "linear-gradient(rgba(125,154,163,.045) 1px, transparent 1px), linear-gradient(90deg, rgba(125,154,163,.045) 1px, transparent 1px), radial-gradient(circle at 50% 35%, rgba(242,107,56,.08), transparent 48%)",
+          backgroundSize: "42px 42px, 42px 42px, auto",
+        }}
+      >
         <ComposableMap
           projection="geoEqualEarth"
           projectionConfig={{ scale: 155 }}
           style={{ width: "100%", height: "100%" }}
         >
+          <Graticule stroke="#78909c" strokeOpacity={0.12} strokeWidth={0.35} />
           <Geographies geography={GEO_URL}>
             {({ geographies }) =>
               geographies.map((geo) => (
                 <Geography
                   key={geo.rsmKey}
                   geography={geo}
-                  fill="hsl(var(--muted))"
-                  stroke="hsl(var(--border))"
-                  strokeWidth={0.4}
+                  fill="#253238"
+                  stroke="#52636a"
+                  strokeOpacity={0.6}
+                  strokeWidth={0.35}
                   style={{
                     default: { outline: "none" },
-                    hover: { outline: "none", fill: "hsl(var(--muted-foreground) / 0.2)" },
+                    hover: { outline: "none", fill: "#304148" },
                     pressed: { outline: "none" },
                   }}
                 />
@@ -87,18 +145,31 @@ export function LiveWorldMap({ locations }: Props) {
                 data-testid={`live-map-dot-${i}`}
                 style={{ default: { cursor: "pointer" }, hover: { cursor: "pointer" }, pressed: {} }}
               >
+                {topLocationKeys.has(`${loc.lat}-${loc.lng}`) && (
+                  <circle
+                    className="playr1-map-pulse"
+                    r={radius + 8}
+                    fill="none"
+                    stroke="#f6b36b"
+                    strokeWidth={1}
+                    style={{ animation: `playr1-map-pulse 2.8s ease-in-out ${i * 120}ms infinite` }}
+                    pointerEvents="none"
+                  />
+                )}
                 <circle
                   r={radius + 4}
-                  fill="hsl(24 95% 53%)"
-                  fillOpacity={0.15}
+                  fill="#f26b38"
+                  fillOpacity={0.12}
                   pointerEvents="none"
                 />
                 <circle
+                  className="playr1-map-marker"
                   r={radius}
-                  fill="hsl(24 95% 53%)"
-                  fillOpacity={0.4 + intensity * 0.6}
-                  stroke="white"
-                  strokeWidth={0.6}
+                  fill="#f26b38"
+                  fillOpacity={0.52 + intensity * 0.48}
+                  stroke="#ffe0bd"
+                  strokeWidth={0.7}
+                  style={{ transformOrigin: "center", animation: `playr1-map-marker-in 500ms ease-out ${Math.min(i * 55, 700)}ms both` }}
                 >
                   <title>
                     {[loc.city, loc.country].filter(Boolean).join(", ") || "Unknown location"}
@@ -113,28 +184,40 @@ export function LiveWorldMap({ locations }: Props) {
         </ComposableMap>
         {locations.length === 0 && (
           <div
-            className="absolute inset-0 flex items-center justify-center pointer-events-none"
+            className="pointer-events-none absolute inset-0 flex items-center justify-center"
             data-testid="live-world-map-empty"
           >
-            <p className="text-xs text-muted-foreground bg-background/80 backdrop-blur px-3 py-1.5 rounded">
-              No located activity in the last 60 minutes yet
-            </p>
+            <div className="rounded-2xl border border-orange-300/20 bg-[#172228]/90 px-5 py-4 text-center shadow-xl backdrop-blur">
+              <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-full border border-orange-300/30 text-orange-200">⌁</div>
+              <p className="mt-2 text-sm font-semibold text-white">No located activity</p>
+              <p className="mt-1 text-xs text-slate-400">The network is quiet in this window.</p>
+            </div>
           </div>
         )}
+        <div className="absolute bottom-3 left-3 rounded-xl border border-slate-600/60 bg-[#172228]/85 px-3 py-2 text-[9px] uppercase tracking-[0.14em] text-slate-400 backdrop-blur">
+          <p className="mb-1 font-bold text-slate-300">Activity</p>
+          <div className="flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-orange-300/50" />
+            <span className="h-2 w-2 rounded-full bg-orange-300/75" />
+            <span className="h-2.5 w-2.5 rounded-full bg-orange-300" />
+            <span>Less</span><span className="text-slate-600">/</span><span>More</span>
+          </div>
+        </div>
         {hovered && (
           <div
-            className="absolute top-2 left-2 bg-background/95 backdrop-blur border rounded-md px-3 py-2 shadow-lg pointer-events-none text-xs space-y-0.5 max-w-xs"
+            className="pointer-events-none absolute bottom-3 right-3 min-w-[190px] max-w-[calc(100%-1.5rem)] rounded-xl border border-orange-300/25 bg-[#172228]/95 px-3.5 py-3 text-xs shadow-2xl backdrop-blur"
             data-testid="live-map-hover-label"
+            aria-live="polite"
           >
-            <p className="font-semibold text-sm">
+            <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-orange-300">Location readout</p>
+            <p className="mt-1 text-sm font-bold text-white">
               {[hovered.city, hovered.country].filter(Boolean).join(", ") || "Unknown location"}
             </p>
-            <p className="text-muted-foreground">
-              <span className="text-orange-500 font-medium">{hovered.userCount}</span>{" "}
-              {hovered.userCount === 1 ? "active user" : "active users"} ·{" "}
-              <span className="font-medium">{hovered.eventCount}</span>{" "}
-              {hovered.eventCount === 1 ? "event" : "events"}
-            </p>
+            <div className="mt-2 grid grid-cols-2 gap-3 border-t border-slate-700/70 pt-2">
+              <div><p className="text-[9px] uppercase tracking-wider text-slate-500">Active users</p><p className="mt-0.5 font-bold text-orange-200">{hovered.userCount}</p></div>
+              <div><p className="text-[9px] uppercase tracking-wider text-slate-500">Events</p><p className="mt-0.5 font-bold text-sky-200">{hovered.eventCount}</p></div>
+            </div>
+            <p className="mt-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">{intensityLabel}</p>
           </div>
         )}
       </div>
