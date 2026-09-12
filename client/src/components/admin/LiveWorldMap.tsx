@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ComposableMap, Geographies, Geography, Graticule, Marker } from "react-simple-maps";
+import { ComposableMap, Geographies, Geography, Marker } from "react-simple-maps";
 
 const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
@@ -113,7 +113,6 @@ export function LiveWorldMap({ locations }: Props) {
           projectionConfig={{ scale: 155 }}
           style={{ width: "100%", height: "100%" }}
         >
-          <Graticule stroke="#78909c" strokeOpacity={0.12} strokeWidth={0.35} />
           <Geographies geography={GEO_URL}>
             {({ geographies }) =>
               geographies.map((geo) => (
