@@ -786,6 +786,15 @@ async function seedAnalyticsDemo() {
     "event_view", "project_view", "project_milestone_completed",
   ];
 
+  // Rebuild only development fixture rows so repeated workflow starts do not
+  // accumulate stale timestamps or stale activation paths.
+  await db.delete(analyticsEvents).where(
+    and(
+      inArray(analyticsEvents.userId, Array.from(availableIds)),
+      like(analyticsEvents.id, "playr1-demo-analytics-%"),
+    ),
+  );
+
   const rows: Array<{
     id: string;
     userId: string;
@@ -824,7 +833,21 @@ async function seedAnalyticsDemo() {
     await db.update(users).set({ createdAt: signupAt, updatedAt: now }).where(eq(users.id, player.id));
 
     addEvent(player, "signup", "/welcome", signupAt, 0, `signup-${player.key}`);
-    addEvent(player, "onboarding_completed", "/career", new Date(signupAt.getTime() + 8 * 60 * 1000), 1, `onboarding-${player.key}`);
+
+    // Give the activation funnel a realistic first session: most players
+    // complete onboarding, and a smaller majority take a meaningful action.
+    const completedOnboarding = index % 5 !== 4;
+    const completedFirstAction = completedOnboarding && index % 3 !== 2;
+    const activationSession = `activation-${player.key}`;
+    addEvent(player, "app_open", "/welcome", new Date(signupAt.getTime() + 1 * 60 * 1000), 1, activationSession);
+    addEvent(player, "page_view", "/welcome", new Date(signupAt.getTime() + 2 * 60 * 1000), 2, activationSession, { path: "/welcome" });
+    if (completedOnboarding) {
+      addEvent(player, "onboarding_completed", "/career", new Date(signupAt.getTime() + 8 * 60 * 1000), 3, activationSession);
+    }
+    if (completedFirstAction) {
+      addEvent(player, "drill_viewed", "/drills", new Date(signupAt.getTime() + 14 * 60 * 1000), 4, activationSession);
+      addEvent(player, "drill_log_completed", "/training-log", new Date(signupAt.getTime() + 22 * 60 * 1000), 5, activationSession);
+    }
 
     // Different cadence profiles create visibly different low, medium, high,
     // and at-risk groups in the admin dashboard.
@@ -844,6 +867,7 @@ async function seedAnalyticsDemo() {
         const sessionDate = new Date(now.getTime() - daysAgo * dayMs);
         sessionDate.setHours(8 + ((index + sessionIndex * 5) % 10), 10 + (index % 35), 0, 0);
         sessionDate.setTime(sessionDate.getTime() + sessionIndex * 90 * 60 * 1000);
+        if (sessionDate < signupAt) continue;
         const sessionId = `${player.key}-${daysAgo}-${sessionIndex}`;
         const page = pages[(index + daysAgo + sessionIndex) % pages.length];
         let sequence = 0;

@@ -6485,6 +6485,7 @@ function RetentionSubTab() {
   }
 
   const { cohort, curves, power } = data;
+  const totalUsers = Number(curves.totalUsers || curves.eligibleD30 || 0);
 
   return (
     <div className="space-y-6">
@@ -6494,14 +6495,14 @@ function RetentionSubTab() {
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-sky-300">Retention pulse</p>
             <h2 className="mt-1 text-lg font-semibold">Day-N Retention</h2>
-            <p className="mt-1 text-sm text-muted-foreground">% of eligible signups who returned within N days. Click a card to switch between rate and users.</p>
+            <p className="mt-1 text-sm text-muted-foreground">% of all registered users who returned within N days of their own signup. Click a card to switch between rate and users.</p>
           </div>
           <Badge variant="outline" className="border-sky-400/25 text-sky-200">{retentionMetric === "rate" ? "Showing percentage" : "Showing users"}</Badge>
         </div>
         <div className="grid gap-4 md:grid-cols-3">
-          <RetentionCard label="Day 1" pct={curves.d1} retained={curves.retainedD1} sample={curves.eligibleD1} icon={Zap} accent="orange" metric={retentionMetric} onToggle={() => setRetentionMetric((current) => current === "rate" ? "users" : "rate")} />
-          <RetentionCard label="Day 7" pct={curves.d7} retained={curves.retainedD7} sample={curves.eligibleD7} icon={Flame} accent="blue" metric={retentionMetric} onToggle={() => setRetentionMetric((current) => current === "rate" ? "users" : "rate")} />
-          <RetentionCard label="Day 30" pct={curves.d30} retained={curves.retainedD30} sample={curves.eligibleD30} icon={Target} accent="purple" metric={retentionMetric} onToggle={() => setRetentionMetric((current) => current === "rate" ? "users" : "rate")} />
+          <RetentionCard label="Day 1" pct={curves.d1} retained={curves.retainedD1} matured={curves.eligibleD1} totalUsers={totalUsers} icon={Zap} accent="orange" metric={retentionMetric} onToggle={() => setRetentionMetric((current) => current === "rate" ? "users" : "rate")} />
+          <RetentionCard label="Day 7" pct={curves.d7} retained={curves.retainedD7} matured={curves.eligibleD7} totalUsers={totalUsers} icon={Flame} accent="blue" metric={retentionMetric} onToggle={() => setRetentionMetric((current) => current === "rate" ? "users" : "rate")} />
+          <RetentionCard label="Day 30" pct={curves.d30} retained={curves.retainedD30} matured={curves.eligibleD30} totalUsers={totalUsers} icon={Target} accent="purple" metric={retentionMetric} onToggle={() => setRetentionMetric((current) => current === "rate" ? "users" : "rate")} />
         </div>
       </div>
 
@@ -6549,6 +6550,8 @@ function RetentionSubTab() {
           <ConcentrationCard label="Top 10%" stat={power.top10} totalUsers={power.totalUsers} metric={powerMetric} accent="amber" />
           <ConcentrationCard label="Top 25%" stat={power.top25} totalUsers={power.totalUsers} metric={powerMetric} accent="sky" />
           <ConcentrationCard label="Top 50%" stat={power.top50} totalUsers={power.totalUsers} metric={powerMetric} accent="emerald" />
+          <ConcentrationCard label="Bottom 25%" stat={power.bottom25} totalUsers={power.totalUsers} metric={powerMetric} accent="slate" />
+          <ConcentrationCard label="Bottom 50%" stat={power.bottom50} totalUsers={power.totalUsers} metric={powerMetric} accent="indigo" />
         </div>
         <p className="mt-2 text-xs text-muted-foreground">Ranked by estimated time in app. Time uses authenticated event spans with a 30-minute inactivity cutoff.</p>
       </div>
@@ -6614,14 +6617,15 @@ function EngagementAnalyticsSection({ engagement }: { engagement: any }) {
 
 // ─── Retention helper components ───────────────────────────────────────────
 
-function RetentionCard({ label, pct, retained, sample, icon: Icon, accent, metric, onToggle }: {
-  label: string; pct: number; retained?: number; sample?: number; icon: LucideIcon;
+function RetentionCard({ label, pct, retained, matured, totalUsers, icon: Icon, accent, metric, onToggle }: {
+  label: string; pct: number; retained?: number; matured?: number; totalUsers?: number; icon: LucideIcon;
   accent: "orange" | "blue" | "purple";
   metric: "rate" | "users";
   onToggle: () => void;
 }) {
   const retainedUsers = Number(retained || 0);
-  const eligibleUsers = Number(sample || 0);
+  const maturedUsers = Number(matured || 0);
+  const allUsers = Number(totalUsers || 0);
   const rate = Number(pct || 0);
   const colorMap = {
     orange: "text-orange-500 bg-orange-500/10",
@@ -6639,7 +6643,8 @@ function RetentionCard({ label, pct, retained, sample, icon: Icon, accent, metri
           </div>
         </div>
         <p className="text-3xl font-black">{metric === "rate" ? `${rate}%` : retainedUsers.toLocaleString()}</p>
-        <p className="mt-1 text-xs text-muted-foreground">{metric === "rate" ? `${retainedUsers.toLocaleString()} of ${eligibleUsers.toLocaleString()} eligible users` : `${rate}% of ${eligibleUsers.toLocaleString()} eligible users`}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{metric === "rate" ? `${retainedUsers.toLocaleString()} of ${allUsers.toLocaleString()} total users` : `${rate}% of ${allUsers.toLocaleString()} total users`}</p>
+        <p className="mt-1 text-[11px] text-muted-foreground/75">{maturedUsers.toLocaleString()} users have reached {label}</p>
         <p className="mt-3 text-[11px] font-medium text-sky-300/80">Click to show {metric === "rate" ? "users" : "percentage"}</p>
         </CardContent>
       </Card>
@@ -6652,7 +6657,7 @@ function ConcentrationCard({ label, stat, totalUsers, metric, accent }: {
   stat?: { userCount?: number; timeShare?: number; actionShare?: number; timeMinutes?: number; actions?: number };
   totalUsers?: number;
   metric: "timeShare" | "actionShare" | "raw";
-  accent: "rose" | "amber" | "sky" | "emerald";
+  accent: "rose" | "amber" | "sky" | "emerald" | "slate" | "indigo";
 }) {
   const safeStat = stat ?? {};
   const userCount = Number(safeStat.userCount || 0);
@@ -6666,6 +6671,8 @@ function ConcentrationCard({ label, stat, totalUsers, metric, accent }: {
     amber: "from-amber-400/20 via-zinc-950/60 to-amber-950/10 text-amber-200",
     sky: "from-sky-400/20 via-zinc-950/60 to-sky-950/10 text-sky-200",
     emerald: "from-emerald-400/20 via-zinc-950/60 to-emerald-950/10 text-emerald-200",
+    slate: "from-slate-400/20 via-zinc-950/60 to-slate-950/10 text-slate-200",
+    indigo: "from-indigo-400/20 via-zinc-950/60 to-indigo-950/10 text-indigo-200",
   };
   const value = metric === "timeShare" ? `${timeShare}%` : metric === "actionShare" ? `${actionShare}%` : `${timeMinutes.toLocaleString()}m`;
   const detail = metric === "timeShare" ? `${timeMinutes.toLocaleString()} minutes` : metric === "actionShare" ? `${actions.toLocaleString()} actions` : `${actions.toLocaleString()} actions`;
@@ -6707,42 +6714,53 @@ function CohortHeatmap({ cohorts, maxOffset }: {
 
   // Sort cohorts newest first for readability
   const orderedCohorts = [...cohorts].sort((a, b) => b.cohortWeek.localeCompare(a.cohortWeek));
+  const [showAll, setShowAll] = useState(false);
+  const visibleCohorts = showAll ? orderedCohorts : orderedCohorts.slice(0, 5);
 
   return (
-    <div className="min-w-[700px]">
-      <table className="w-full text-xs">
-        <thead>
-          <tr className="text-muted-foreground">
-            <th className="pb-3 pr-4 text-left font-medium">Signup cohort</th>
-            <th className="pb-3 pr-4 text-right font-medium">Users</th>
-            {Array.from({ length: maxOffset + 1 }, (_, i) => (
-              <th key={i} className="px-1 pb-3 text-center font-medium">Week {i}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {orderedCohorts.map(c => (
-            <tr key={c.cohortWeek} data-testid={`cohort-row-${c.cohortWeek}`}>
-              <td className="border-t border-zinc-800/60 py-2 pr-4 font-medium">Week of {fmtCohort(c.cohortWeek)}</td>
-              <td className="border-t border-zinc-800/60 py-2 pr-4 text-right text-muted-foreground">{c.cohortSize}</td>
-              {Array.from({ length: maxOffset + 1 }, (_, i) => {
-                const cell = c.retention.find(r => r.weekOffset === i);
-                if (!cell) {
-                  return <td key={i} className="border-t border-zinc-800/60 px-0.5 py-2"><div className="h-10 rounded-lg bg-transparent" /></td>;
-                }
-                return (
-                  <td key={i} className="border-t border-zinc-800/60 px-0.5 py-2">
-                    <div className={`h-10 rounded-lg flex flex-col items-center justify-center shadow-sm ${cellColor(cell.pct)}`} title={`${cell.activeUsers} of ${c.cohortSize} active`}>
-                      <span className="text-[11px] font-semibold">{cell.pct}%</span>
-                      <span className="text-[9px] opacity-80">{cell.activeUsers} active</span>
-                    </div>
-                  </td>
-                );
-              })}
+    <div>
+      <div className="min-w-[700px]">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="text-muted-foreground">
+              <th className="pb-3 pr-4 text-left font-medium">Signup cohort</th>
+              <th className="pb-3 pr-4 text-right font-medium">Users</th>
+              {Array.from({ length: maxOffset + 1 }, (_, i) => (
+                <th key={i} className="px-1 pb-3 text-center font-medium">Week {i}</th>
+              ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {visibleCohorts.map(c => (
+              <tr key={c.cohortWeek} data-testid={`cohort-row-${c.cohortWeek}`}>
+                <td className="border-t border-zinc-800/60 py-2 pr-4 font-medium">Week of {fmtCohort(c.cohortWeek)}</td>
+                <td className="border-t border-zinc-800/60 py-2 pr-4 text-right text-muted-foreground">{c.cohortSize}</td>
+                {Array.from({ length: maxOffset + 1 }, (_, i) => {
+                  const cell = c.retention.find(r => r.weekOffset === i);
+                  if (!cell) {
+                    return <td key={i} className="border-t border-zinc-800/60 px-0.5 py-2"><div className="h-10 rounded-lg bg-transparent" /></td>;
+                  }
+                  return (
+                    <td key={i} className="border-t border-zinc-800/60 px-0.5 py-2">
+                      <div className={`h-10 rounded-lg flex flex-col items-center justify-center shadow-sm ${cellColor(cell.pct)}`} title={`${cell.activeUsers} of ${c.cohortSize} active`}>
+                        <span className="text-[11px] font-semibold">{cell.pct}%</span>
+                        <span className="text-[9px] opacity-80">{cell.activeUsers} active</span>
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {orderedCohorts.length > 5 && (
+        <div className="mt-4 flex justify-center">
+          <Button type="button" variant="outline" size="sm" onClick={() => setShowAll((current) => !current)} data-testid="toggle-cohort-history">
+            {showAll ? "Show past 5 weeks" : `View all ${orderedCohorts.length} weeks`}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

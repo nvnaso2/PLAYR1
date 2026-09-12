@@ -5255,6 +5255,7 @@ export class DatabaseStorage {
     d1: number;
     d7: number;
     d30: number;
+    totalUsers: number;
     eligibleD1: number;
     eligibleD7: number;
     eligibleD30: number;
@@ -5266,33 +5267,65 @@ export class DatabaseStorage {
     const r1 = (res: any): any => r(res)[0] ?? {};
 
     const row = r1(await db.execute(sql`
-      WITH first_activity AS (
-        SELECT u.id, u.created_at, MIN(ae.created_at) AS first_activity_at
+      WITH ordered_opens AS (
+        SELECT
+          u.id,
+          u.created_at,
+          ae.created_at AS opened_at,
+          ROW_NUMBER() OVER (
+            PARTITION BY u.id
+            ORDER BY ae.created_at ASC, ae.id ASC
+          ) AS open_number
         FROM users u
-        LEFT JOIN analytics_events ae ON ae.user_id = u.id
+        JOIN analytics_events ae
+          ON ae.user_id = u.id
+         AND ae.event = 'app_open'
+      ),
+      user_returns AS (
+        SELECT
+          u.id,
+          u.created_at,
+          MIN(o.opened_at) FILTER (WHERE o.open_number >= 2) AS first_return_at
+        FROM users u
+        LEFT JOIN ordered_opens o ON o.id = u.id
         GROUP BY u.id, u.created_at
       )
       SELECT
+        COUNT(*)::int AS total_users,
         COUNT(*) FILTER (WHERE created_at <= NOW() - INTERVAL '1 day')::int AS elig_d1,
         COUNT(*) FILTER (WHERE created_at <= NOW() - INTERVAL '7 days')::int AS elig_d7,
         COUNT(*) FILTER (WHERE created_at <= NOW() - INTERVAL '30 days')::int AS elig_d30,
-         COUNT(*) FILTER (WHERE created_at <= NOW() - INTERVAL '1 day' AND first_activity_at IS NOT NULL AND first_activity_at <= created_at + INTERVAL '1 day')::int AS ret_d1,
-         COUNT(*) FILTER (WHERE created_at <= NOW() - INTERVAL '7 days' AND first_activity_at IS NOT NULL AND first_activity_at <= created_at + INTERVAL '7 days')::int AS ret_d7,
-         COUNT(*) FILTER (WHERE created_at <= NOW() - INTERVAL '30 days' AND first_activity_at IS NOT NULL AND first_activity_at <= created_at + INTERVAL '30 days')::int AS ret_d30
-       FROM first_activity
+         COUNT(*) FILTER (
+           WHERE created_at <= NOW() - INTERVAL '1 day'
+             AND first_return_at IS NOT NULL
+             AND first_return_at <= created_at + INTERVAL '1 day'
+         )::int AS ret_d1,
+         COUNT(*) FILTER (
+           WHERE created_at <= NOW() - INTERVAL '7 days'
+             AND first_return_at IS NOT NULL
+             AND first_return_at <= created_at + INTERVAL '7 days'
+         )::int AS ret_d7,
+         COUNT(*) FILTER (
+           WHERE created_at <= NOW() - INTERVAL '30 days'
+             AND first_return_at IS NOT NULL
+             AND first_return_at <= created_at + INTERVAL '30 days'
+         )::int AS ret_d30
+        FROM user_returns
     `));
 
     const pct = (n: number, d: number) => d > 0 ? Math.round((n / d) * 1000) / 10 : 0;
+    const totalUsers = Number(row.total_users || 0);
     return {
+      totalUsers,
       eligibleD1: Number(row.elig_d1 || 0),
       eligibleD7: Number(row.elig_d7 || 0),
       eligibleD30: Number(row.elig_d30 || 0),
       retainedD1: Number(row.ret_d1 || 0),
       retainedD7: Number(row.ret_d7 || 0),
       retainedD30: Number(row.ret_d30 || 0),
-      d1:  pct(Number(row.ret_d1  || 0), Number(row.elig_d1  || 0)),
-      d7:  pct(Number(row.ret_d7  || 0), Number(row.elig_d7  || 0)),
-      d30: pct(Number(row.ret_d30 || 0), Number(row.elig_d30 || 0)),
+      d1:  pct(Number(row.ret_d1  || 0), totalUsers),
+      d7:  pct(Number(row.ret_d7  || 0), totalUsers),
+      d30: pct(Number(row.ret_d30 || 0), totalUsers),
     };
   }
 
@@ -5309,6 +5342,8 @@ export class DatabaseStorage {
     top10: { userCount: number; timeShare: number; actionShare: number; timeMinutes: number; actions: number };
     top25: { userCount: number; timeShare: number; actionShare: number; timeMinutes: number; actions: number };
     top50: { userCount: number; timeShare: number; actionShare: number; timeMinutes: number; actions: number };
+     bottom25: { userCount: number; timeShare: number; actionShare: number; timeMinutes: number; actions: number };
+     bottom50: { userCount: number; timeShare: number; actionShare: number; timeMinutes: number; actions: number };
   }> {
     const r = <T = any>(res: any): T[] => (res.rows ?? res) as T[];
     const r1 = (res: any): any => r(res)[0] ?? {};
@@ -5392,14 +5427,20 @@ export class DatabaseStorage {
         (SELECT COUNT(*) FROM ranked WHERE rn <= s.top10_cut)::int AS top10_count,
         (SELECT COUNT(*) FROM ranked WHERE rn <= s.top25_cut)::int AS top25_count,
         (SELECT COUNT(*) FROM ranked WHERE rn <= s.top50_cut)::int AS top50_count,
+         (SELECT COUNT(*) FROM ranked WHERE rn > s.total_users - s.top25_cut)::int AS bottom25_count,
+         (SELECT COUNT(*) FROM ranked WHERE rn > s.total_users - s.top50_cut)::int AS bottom50_count,
         (SELECT COALESCE(SUM(estimated_seconds), 0) FROM ranked WHERE rn <= s.top1_cut)::double precision AS top1_seconds,
         (SELECT COALESCE(SUM(estimated_seconds), 0) FROM ranked WHERE rn <= s.top10_cut)::double precision AS top10_seconds,
         (SELECT COALESCE(SUM(estimated_seconds), 0) FROM ranked WHERE rn <= s.top25_cut)::double precision AS top25_seconds,
         (SELECT COALESCE(SUM(estimated_seconds), 0) FROM ranked WHERE rn <= s.top50_cut)::double precision AS top50_seconds,
+         (SELECT COALESCE(SUM(estimated_seconds), 0) FROM ranked WHERE rn > s.total_users - s.top25_cut)::double precision AS bottom25_seconds,
+         (SELECT COALESCE(SUM(estimated_seconds), 0) FROM ranked WHERE rn > s.total_users - s.top50_cut)::double precision AS bottom50_seconds,
         (SELECT COALESCE(SUM(actions), 0) FROM ranked WHERE rn <= s.top1_cut)::int AS top1_actions,
         (SELECT COALESCE(SUM(actions), 0) FROM ranked WHERE rn <= s.top10_cut)::int AS top10_actions,
         (SELECT COALESCE(SUM(actions), 0) FROM ranked WHERE rn <= s.top25_cut)::int AS top25_actions,
-        (SELECT COALESCE(SUM(actions), 0) FROM ranked WHERE rn <= s.top50_cut)::int AS top50_actions
+         (SELECT COALESCE(SUM(actions), 0) FROM ranked WHERE rn <= s.top50_cut)::int AS top50_actions,
+         (SELECT COALESCE(SUM(actions), 0) FROM ranked WHERE rn > s.total_users - s.top25_cut)::int AS bottom25_actions,
+         (SELECT COALESCE(SUM(actions), 0) FROM ranked WHERE rn > s.total_users - s.top50_cut)::int AS bottom50_actions
       FROM stats s
     `));
 
@@ -5407,11 +5448,11 @@ export class DatabaseStorage {
     const totalUsers = Number(row.total_users || 0);
     const totalMinutes = Math.round(Number(row.total_seconds || 0) / 60);
     const totalActions = Number(row.total_actions || 0);
-    const buildStat = (key: "1" | "10" | "25" | "50") => {
-      const seconds = Number(row[`top${key}_seconds`] || 0);
-      const actions = Number(row[`top${key}_actions`] || 0);
+    const buildStat = (side: "top" | "bottom", key: "1" | "10" | "25" | "50") => {
+      const seconds = Number(row[`${side}${key}_seconds`] || 0);
+      const actions = Number(row[`${side}${key}_actions`] || 0);
       return {
-        userCount: Number(row[`top${key}_count`] || 0),
+        userCount: Number(row[`${side}${key}_count`] || 0),
         timeShare: pct(seconds, Number(row.total_seconds || 0)),
         actionShare: pct(actions, totalActions),
         timeMinutes: Math.round(seconds / 60),
@@ -5423,10 +5464,12 @@ export class DatabaseStorage {
       totalUsers,
       totalMinutes,
       totalActions,
-      top1: buildStat("1"),
-      top10: buildStat("10"),
-      top25: buildStat("25"),
-      top50: buildStat("50"),
+       top1: buildStat("top", "1"),
+       top10: buildStat("top", "10"),
+       top25: buildStat("top", "25"),
+       top50: buildStat("top", "50"),
+       bottom25: buildStat("bottom", "25"),
+       bottom50: buildStat("bottom", "50"),
     };
   }
 
