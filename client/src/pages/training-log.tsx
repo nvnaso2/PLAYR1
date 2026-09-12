@@ -142,6 +142,7 @@ export default function TrainingLogPage() {
   const [workoutInProgress, setWorkoutInProgress] = useState(false);
   const [workoutEntries, setWorkoutEntries] = useState<WorkoutDrillEntry[]>([]);
   const [workoutMode, setWorkoutMode] = useState<WorkoutMode>("track");
+  const [activeWorkoutTemplateId, setActiveWorkoutTemplateId] = useState<string | null>(null);
   const [quickCompletedDrillIds, setQuickCompletedDrillIds] = useState<Set<string>>(new Set());
   const [isCreateDrillOpen, setIsCreateDrillOpen] = useState(() => {
     return new URLSearchParams(searchParams).get('create') === '1';
@@ -941,6 +942,7 @@ export default function TrainingLogPage() {
     );
 
     const entries = entriesArrays.flat();
+    setActiveWorkoutTemplateId(null);
     setWorkoutMode(mode);
     setQuickCompletedDrillIds(new Set());
     setWorkoutEntries(entries);
@@ -1017,6 +1019,7 @@ export default function TrainingLogPage() {
     }
 
     const entries = await buildDrillEntries(drillId, drill);
+    setActiveWorkoutTemplateId(null);
     setWorkoutMode("track");
     setQuickCompletedDrillIds(new Set());
     setWorkoutEntries(entries);
@@ -1035,6 +1038,7 @@ export default function TrainingLogPage() {
       const data: WorkoutWithDrills = await response.json();
 
       const drillIds = data.drills.map(wd => wd.drillId);
+      track("workout_started", { workoutId, drillCount: drillIds.length });
       const metricsPromises = drillIds.map(id => fetchDrillMetrics(id));
       const metricsResults = await Promise.all(metricsPromises);
 
@@ -1057,6 +1061,7 @@ export default function TrainingLogPage() {
       });
 
       setWorkoutMode("track");
+      setActiveWorkoutTemplateId(workoutId);
       setQuickCompletedDrillIds(new Set());
       setWorkoutEntries(entries);
       setWorkoutInProgress(true);
@@ -1427,6 +1432,15 @@ export default function TrainingLogPage() {
       if (bulkRes?.ok && firstLogId) {
         setPostJournalPrompt({ type: "post-workout", trainingLogId: firstLogId });
       }
+      if (bulkRes?.ok) {
+        track("training_session_completed", {
+          mode: workoutMode,
+          drillCount,
+          durationMinutes: totalSessionMinutes,
+          workoutId: activeWorkoutTemplateId || undefined,
+          programItem: Boolean(programCompletion),
+        });
+      }
 
       // Auto-complete the originating program item if this workout was launched
       // from a program/today deep link. Only fire when the bulk save itself
@@ -1509,6 +1523,7 @@ export default function TrainingLogPage() {
     setManualDurationMinutes("");
     setQuickCompletedDrillIds(new Set());
     setWorkoutMode("track");
+        setActiveWorkoutTemplateId(null);
     setPendingProgramCompletion(null);
     setActiveView("library");
   };

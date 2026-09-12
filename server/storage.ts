@@ -6226,22 +6226,39 @@ export class DatabaseStorage {
    * Content (drill) performance metrics — top/bottom drills, category
    * breakdown, and Daily Challenge engagement summary.
    */
-  async getContentPerformance(): Promise<{
-    topDrills: Array<{ id: string; title: string; category: string; difficulty: string; logs28d: number; uniqueUsers28d: number; logsAllTime: number }>;
-    underperformers: Array<{ id: string; title: string; category: string; difficulty: string; logs28d: number; ageDays: number }>;
-    categoryStats: Array<{ category: string; drillCount: number; logs28d: number; avgLogsPerDrill: number; uniqueUsers28d: number }>;
-    dailyChallenge: {
-      completionsLast7d: number;
-      completionsLast28d: number;
-      avgPerDay7d: number;
-      activeStreakUsers: number;
-      avgCurrentStreak: number;
-      longestCurrentStreak: number;
-      uniqueUsers28d: number;
-    };
-  }> {
+  async getContentPerformance(): Promise<any> {
     const r = <T = any>(res: any): T[] => (res.rows ?? res) as T[];
     const r1 = (res: any): any => r(res)[0] ?? {};
+
+    const totalsRow = r1(await db.execute(sql`
+      SELECT
+        (SELECT COUNT(*) FROM drills)::int AS drill_library,
+        (SELECT COUNT(*) FROM workouts)::int AS workout_library,
+        (SELECT COUNT(*) FROM programs WHERE COALESCE(is_published, true) = true)::int AS program_library,
+        (SELECT COUNT(*) FROM training_logs)::int AS drill_completions,
+        (SELECT COUNT(*) FROM training_logs WHERE completed_at >= NOW() - INTERVAL '28 days')::int AS drill_completions_28d,
+        (SELECT COUNT(DISTINCT user_id) FROM training_logs)::int AS drill_completers,
+        (SELECT COALESCE(SUM(duration), 0) FROM training_logs)::int AS total_minutes,
+        (SELECT COUNT(*) FROM program_item_completions)::int AS program_item_completions,
+        (SELECT COUNT(*) FROM program_enrollments)::int AS enrollments,
+        (SELECT COUNT(*) FROM program_enrollments WHERE status = 'completed')::int AS completed_programs,
+        (SELECT COUNT(*) FROM program_enrollments WHERE status = 'active')::int AS active_enrollments
+    `));
+
+    const funnelRow = r1(await db.execute(sql`
+      SELECT
+        COUNT(*) FILTER (WHERE event = 'drill_viewed')::int AS drill_views,
+        COUNT(DISTINCT user_id) FILTER (WHERE event = 'drill_viewed')::int AS drill_viewers,
+        COUNT(*) FILTER (WHERE event = 'drill_log_completed')::int AS drill_completions,
+        COUNT(*) FILTER (WHERE event = 'training_session_completed')::int AS telemetry_sessions,
+        COUNT(*) FILTER (WHERE event = 'training_session_completed' AND metadata->>'mode' = 'track')::int AS tracked_sessions,
+        COUNT(*) FILTER (WHERE event = 'training_session_completed' AND metadata->>'mode' = 'complete')::int AS quick_complete_sessions,
+        COUNT(*) FILTER (WHERE event IN ('drill_library_workout_started', 'workout_started'))::int AS workout_starts,
+        COUNT(*) FILTER (WHERE event IN ('program_view', 'program_today_view'))::int AS program_views,
+        COUNT(*) FILTER (WHERE event = 'program_enrollment_created')::int AS enrollment_events
+      FROM analytics_events
+      WHERE created_at >= NOW() - INTERVAL '28 days'
+    `));
 
     // Top 20 most-logged drills in 28d
     const topRows = r(await db.execute(sql`
@@ -6258,6 +6275,19 @@ export class DatabaseStorage {
       GROUP BY d.id, d.title, d.category, d.difficulty
       ORDER BY logs_28d DESC, logs_all_time DESC
       LIMIT 20
+    `));
+
+    const drillFunnelRows = r(await db.execute(sql`
+      SELECT
+        d.id,
+        COUNT(ae.id)::int AS views_28d,
+        COUNT(DISTINCT ae.user_id)::int AS viewers_28d
+      FROM drills d
+      LEFT JOIN analytics_events ae
+        ON ae.metadata->>'drillId' = d.id
+       AND ae.event = 'drill_viewed'
+       AND ae.created_at >= NOW() - INTERVAL '28 days'
+      GROUP BY d.id
     `));
 
     // Underperformers: drills older than 14 days with 0 logs in 28 days, oldest first
@@ -6294,6 +6324,77 @@ export class DatabaseStorage {
       ORDER BY logs_28d DESC
     `));
 
+    const sessionRow = r1(await db.execute(sql`
+      WITH session_logs AS (
+        SELECT
+          COALESCE(workout_session_id, id) AS session_id,
+          COUNT(*)::int AS drill_count,
+          MAX(completed_at) AS completed_at,
+          BOOL_OR(EXISTS (
+            SELECT 1 FROM training_log_metrics tlm
+            WHERE tlm.training_log_id = training_logs.id
+          )) AS has_metrics,
+          COALESCE(SUM(duration), 0)::int AS duration
+        FROM training_logs
+        GROUP BY COALESCE(workout_session_id, id)
+      )
+      SELECT
+        COUNT(*) FILTER (WHERE completed_at >= NOW() - INTERVAL '28 days')::int AS sessions_28d,
+        COUNT(*)::int AS sessions_all_time,
+        COUNT(*) FILTER (WHERE completed_at >= NOW() - INTERVAL '28 days' AND has_metrics)::int AS tracked_28d,
+        COUNT(*) FILTER (WHERE completed_at >= NOW() - INTERVAL '28 days' AND NOT has_metrics)::int AS quick_28d,
+        COALESCE(SUM(duration) FILTER (WHERE completed_at >= NOW() - INTERVAL '28 days'), 0)::int AS minutes_28d,
+        COALESCE(AVG(drill_count) FILTER (WHERE completed_at >= NOW() - INTERVAL '28 days'), 0)::float AS avg_drills_28d,
+        COALESCE(AVG(duration) FILTER (WHERE completed_at >= NOW() - INTERVAL '28 days'), 0)::float AS avg_minutes_28d
+      FROM session_logs
+    `));
+
+    const topPrograms = r(await db.execute(sql`
+      SELECT
+        p.id,
+        p.title,
+        p.difficulty,
+        p.length_days,
+        COUNT(DISTINCT ae.id) FILTER (
+          WHERE ae.event IN ('program_view', 'program_today_view')
+            AND ae.created_at >= NOW() - INTERVAL '28 days'
+        )::int AS views_28d,
+        COUNT(DISTINCT pe.id)::int AS enrollments,
+        COUNT(DISTINCT pe.id) FILTER (WHERE pe.started_at >= NOW() - INTERVAL '28 days')::int AS enrollments_28d,
+        COUNT(DISTINCT pe.id) FILTER (WHERE pe.status = 'completed')::int AS completions,
+        COUNT(DISTINCT pic.id)::int AS item_completions
+      FROM programs p
+      LEFT JOIN analytics_events ae ON ae.metadata->>'programId' = p.id
+      LEFT JOIN program_enrollments pe ON pe.program_id = p.id
+      LEFT JOIN program_item_completions pic ON pic.enrollment_id = pe.id
+      GROUP BY p.id, p.title, p.difficulty, p.length_days
+      ORDER BY enrollments_28d DESC, views_28d DESC, completions DESC
+      LIMIT 20
+    `));
+
+    const programSummary = r1(await db.execute(sql`
+      SELECT
+        COUNT(*)::int AS enrollments,
+        COUNT(*) FILTER (WHERE status = 'active')::int AS active,
+        COUNT(*) FILTER (WHERE status = 'completed')::int AS completed,
+        COUNT(*) FILTER (WHERE status = 'abandoned')::int AS abandoned
+      FROM program_enrollments
+    `));
+
+    const metricRows = r(await db.execute(sql`
+      SELECT
+        COALESCE(mt.label, mt.name, 'Unlabeled metric') AS metric,
+        COUNT(tlm.id)::int AS entries,
+        COUNT(DISTINCT tl.user_id)::int AS users,
+        ROUND(AVG(tlm.value), 1)::float AS average
+      FROM training_log_metrics tlm
+      JOIN training_logs tl ON tl.id = tlm.training_log_id
+      LEFT JOIN metric_templates mt ON mt.id = tlm.metric_id
+      GROUP BY COALESCE(mt.label, mt.name, 'Unlabeled metric')
+      ORDER BY entries DESC
+      LIMIT 12
+    `));
+
     // Daily Challenge stats
     const dcRow = r1(await db.execute(sql`
       SELECT
@@ -6305,15 +6406,23 @@ export class DatabaseStorage {
         COALESCE((SELECT MAX(current_streak)::int FROM user_streaks), 0) AS longest_current_streak
     `));
 
-    const topDrills = topRows.map((row: any) => ({
+    const drillFunnelById = new Map(drillFunnelRows.map((row: any) => [String(row.id), row]));
+    const topDrills = topRows.map((row: any) => {
+      const funnel = drillFunnelById.get(String(row.id)) as any;
+      const views28d = Number(funnel?.views_28d || 0);
+      return {
       id: String(row.id),
       title: String(row.title),
       category: String(row.category ?? "—"),
       difficulty: String(row.difficulty ?? "—"),
+      views28d,
+      uniqueViewers28d: Number(funnel?.viewers_28d || 0),
       logs28d: Number(row.logs_28d),
       uniqueUsers28d: Number(row.users_28d),
       logsAllTime: Number(row.logs_all_time),
-    }));
+      completionRate28d: views28d > 0 ? Math.round((Number(row.logs_28d || 0) / views28d) * 1000) / 10 : 0,
+      };
+    });
 
     const underperformers = underRows.map((row: any) => ({
       id: String(row.id),
@@ -6347,7 +6456,109 @@ export class DatabaseStorage {
       uniqueUsers28d: Number(dcRow.unique_users_28d || 0),
     };
 
-    return { topDrills, underperformers, categoryStats, dailyChallenge };
+    const workoutLibrary = r(await db.execute(sql`
+      SELECT
+        w.id,
+        w.name,
+        w.category,
+        COUNT(wd.id)::int AS drill_count,
+        COUNT(DISTINCT ae.id) FILTER (
+          WHERE ae.event = 'workout_started'
+            AND ae.created_at >= NOW() - INTERVAL '28 days'
+        )::int AS starts_28d,
+        COUNT(DISTINCT ae.id) FILTER (
+          WHERE ae.event = 'training_session_completed'
+            AND ae.metadata->>'workoutId' = w.id
+            AND ae.created_at >= NOW() - INTERVAL '28 days'
+        )::int AS completions_28d
+      FROM workouts w
+      LEFT JOIN workout_drills wd ON wd.workout_id = w.id
+      LEFT JOIN analytics_events ae ON ae.metadata->>'workoutId' = w.id
+      GROUP BY w.id, w.name, w.category
+      ORDER BY starts_28d DESC, completions_28d DESC, drill_count DESC, w.name ASC
+      LIMIT 20
+    `)).map((row: any) => ({
+      id: String(row.id),
+      name: String(row.name),
+      category: String(row.category || "—"),
+      drillCount: Number(row.drill_count || 0),
+      views28d: 0,
+      starts28d: Number(row.starts_28d || 0),
+      completions28d: Number(row.completions_28d || 0),
+      completionRate28d: Number(row.starts_28d || 0) > 0
+        ? Math.round((Number(row.completions_28d || 0) / Number(row.starts_28d)) * 1000) / 10
+        : 0,
+    }));
+
+    return {
+      windowDays: 28,
+      totals: {
+        drills: Number(totalsRow.drill_library || 0),
+        workouts: Number(totalsRow.workout_library || 0),
+        programs: Number(totalsRow.program_library || 0),
+        drillCompletions: Number(totalsRow.drill_completions || 0),
+        drillCompleters: Number(totalsRow.drill_completers || 0),
+        workoutSessions: Number(sessionRow.sessions_all_time || 0),
+        programItemCompletions: Number(totalsRow.program_item_completions || 0),
+        completedPrograms: Number(totalsRow.completed_programs || 0),
+        activeEnrollments: Number(totalsRow.active_enrollments || 0),
+        totalMinutes: Number(totalsRow.total_minutes || 0),
+      },
+      funnel: {
+        drillViews28d: Number(funnelRow.drill_views || 0),
+        drillViewers28d: Number(funnelRow.drill_viewers || 0),
+        drillCompletions28d: Number(totalsRow.drill_completions_28d || 0),
+        workoutStarts28d: Number(funnelRow.workout_starts || 0),
+        programViews28d: Number(funnelRow.program_views || 0),
+        enrollmentEvents28d: Number(funnelRow.enrollment_events || 0),
+      },
+      sessionSummary: {
+        sessions28d: Number(sessionRow.sessions_28d || 0),
+        sessionsAllTime: Number(sessionRow.sessions_all_time || 0),
+        tracked28d: Number(sessionRow.tracked_28d || 0),
+        quickComplete28d: Number(sessionRow.quick_28d || 0),
+        telemetrySessions28d: Number(funnelRow.telemetry_sessions || 0),
+        telemetryTracked28d: Number(funnelRow.tracked_sessions || 0),
+        telemetryQuickComplete28d: Number(funnelRow.quick_complete_sessions || 0),
+        minutes28d: Number(sessionRow.minutes_28d || 0),
+        avgDrills28d: Math.round(Number(sessionRow.avg_drills_28d || 0) * 10) / 10,
+        avgMinutes28d: Math.round(Number(sessionRow.avg_minutes_28d || 0) * 10) / 10,
+      },
+      programSummary: {
+        enrollments: Number(programSummary.enrollments || 0),
+        active: Number(programSummary.active || 0),
+        completed: Number(programSummary.completed || 0),
+        abandoned: Number(programSummary.abandoned || 0),
+        completionRate: Number(programSummary.enrollments || 0) > 0
+          ? Math.round((Number(programSummary.completed || 0) / Number(programSummary.enrollments)) * 1000) / 10
+          : 0,
+      },
+      topPrograms: topPrograms.map((row: any) => ({
+        id: String(row.id),
+        title: String(row.title),
+        difficulty: String(row.difficulty || "—"),
+        lengthDays: Number(row.length_days || 0),
+        views28d: Number(row.views_28d || 0),
+        enrollments: Number(row.enrollments || 0),
+        enrollments28d: Number(row.enrollments_28d || 0),
+        completions: Number(row.completions || 0),
+        itemCompletions: Number(row.item_completions || 0),
+        viewToEnrollmentRate: Number(row.views_28d || 0) > 0
+          ? Math.round((Number(row.enrollments_28d || 0) / Number(row.views_28d)) * 1000) / 10
+          : 0,
+      })),
+      metrics: metricRows.map((row: any) => ({
+        metric: String(row.metric),
+        entries: Number(row.entries || 0),
+        users: Number(row.users || 0),
+        average: Number(row.average || 0),
+      })),
+      workoutLibrary,
+      topDrills,
+      underperformers,
+      categoryStats,
+      dailyChallenge,
+    };
   }
 
   /**

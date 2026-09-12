@@ -4838,7 +4838,6 @@ function AdminAnalyticsTab() {
     { value: "activity", label: "Activity", icon: Activity },
     { value: "users", label: "Users", icon: Users },
     { value: "funnels", label: "Funnels", icon: GitBranch },
-    { value: "areas", label: "Areas of the app", icon: Globe },
     { value: "training", label: "Training", icon: Dumbbell },
     { value: "community", label: "Community", icon: Users },
     { value: "coach-p", label: "Coach P", icon: Calculator },
@@ -4867,8 +4866,7 @@ function AdminAnalyticsTab() {
         <TabsContent value="activity" className="mt-6"><ActivityAnalyticsSubTab /></TabsContent>
         <TabsContent value="users" className="mt-6"><UsersSubTab /></TabsContent>
         <TabsContent value="funnels" className="mt-6"><FunnelsSubTab /></TabsContent>
-        <TabsContent value="areas" className="mt-6"><AreasAnalyticsSubTab /></TabsContent>
-        <TabsContent value="training" className="mt-6"><ContentSubTab /></TabsContent>
+        <TabsContent value="training" className="mt-6"><TrainingAnalyticsSubTab /></TabsContent>
         <TabsContent value="community" className="mt-6"><CommunityAnalyticsSubTab /></TabsContent>
         <TabsContent value="coach-p" className="mt-6"><CoachPAndJournalAnalyticsSubTab /></TabsContent>
         <TabsContent value="live" className="mt-6"><LiveActivitySubTab /></TabsContent>
@@ -7277,7 +7275,233 @@ function UserActivityProfile({ userId, onBack }: { userId: string; onBack: () =>
   );
 }
 
-// ─── Content Performance sub-tab ───────────────────────────────────────────
+// ─── Training analytics sub-tab ────────────────────────────────────────────
+
+function TrainingAnalyticsSubTab() {
+  const { data, isLoading, isError, refetch } = useQuery<any>({
+    queryKey: ["/api/admin/analytics/content"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/admin/analytics/content");
+      return res.json();
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-5">
+        <Skeleton className="h-20 w-full rounded-2xl" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">{[1, 2, 3, 4, 5].map((item) => <Skeleton key={item} className="h-28 rounded-2xl" />)}</div>
+        <Skeleton className="h-96 w-full rounded-2xl" />
+      </div>
+    );
+  }
+
+  if (isError || !data) {
+    return (
+      <Card className="border-red-500/30 bg-red-500/5">
+        <CardContent className="flex flex-col items-center gap-3 p-10 text-center">
+          <AlertTriangle className="h-8 w-8 text-red-400" />
+          <p className="font-semibold">Training analytics could not load</p>
+          <Button size="sm" variant="outline" onClick={() => refetch()}>Retry</Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const totals = data.totals ?? {};
+  const funnel = data.funnel ?? {};
+  const sessions = data.sessionSummary ?? {};
+  const programs = data.programSummary ?? {};
+  const number = (value: unknown) => Number(value || 0).toLocaleString();
+  const percent = (value: unknown) => `${Number(value || 0).toFixed(1)}%`;
+  const completionRate = Number(funnel.drillViews28d || 0) > 0
+    ? (Number(funnel.drillCompletions28d || 0) / Number(funnel.drillViews28d)) * 100
+    : 0;
+
+  return (
+    <div className="space-y-6" data-testid="section-training-analytics">
+      <AnalyticsSectionIntro
+        eyebrow="Training"
+        title="What players practice, finish, and measure"
+        description={`A complete view of drills, workouts, and programs. Popularity uses the last ${data.windowDays || 28} days; totals are all time.`}
+      />
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <AccentStatCard label="Drill library" value={number(totals.drills)} sub={`${number(totals.drillCompletions)} finished all time`} icon={Target} accent="orange" testId="stat-training-drills" />
+        <AccentStatCard label="Workout library" value={number(totals.workouts)} sub={`${number(sessions.sessionsAllTime)} sessions finished`} icon={Dumbbell} accent="blue" testId="stat-training-workouts" />
+        <AccentStatCard label="Programs" value={number(totals.programs)} sub={`${number(totals.completedPrograms)} completed`} icon={GraduationCap} accent="purple" testId="stat-training-programs" />
+        <AccentStatCard label="Training minutes" value={number(totals.totalMinutes)} sub="logged all time" icon={Clock} accent="green" testId="stat-training-minutes" />
+        <AccentStatCard label="Active enrollments" value={number(totals.activeEnrollments)} sub={`${percent(programs.completionRate)} program completion rate`} icon={Activity} accent="orange" testId="stat-training-enrollments" />
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-[1.25fr_0.75fr]">
+        <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50">
+          <CardHeader className="border-b border-zinc-800/70 pb-3">
+            <CardTitle className="text-base">Training funnel · last {data.windowDays || 28} days</CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">See where interest becomes a finished drill or training session.</p>
+          </CardHeader>
+          <CardContent className="space-y-4 p-5">
+            {[
+              { label: "Drill views", value: funnel.drillViews28d, color: "bg-sky-400", detail: `${number(funnel.drillViewers28d)} unique players` },
+              { label: "Drill completions", value: funnel.drillCompletions28d, color: "bg-orange-400", detail: `${percent(completionRate)} view-to-completion` },
+              { label: "Workout starts", value: funnel.workoutStarts28d, color: "bg-purple-400", detail: "library workout launches" },
+              { label: "Program views", value: funnel.programViews28d, color: "bg-emerald-400", detail: `${number(funnel.enrollmentEvents28d)} enrollment events` },
+            ].map((item) => {
+              const max = Math.max(1, Number(funnel.drillViews28d || 0), Number(funnel.workoutStarts28d || 0), Number(funnel.programViews28d || 0));
+              return (
+                <div key={item.label}>
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="font-medium">{item.label}</span>
+                    <span className="font-bold">{number(item.value)}</span>
+                  </div>
+                  <div className="mt-2 h-2 rounded-full bg-zinc-800">
+                    <div className={`h-2 rounded-full ${item.color}`} style={{ width: `${Math.max(2, (Number(item.value || 0) / max) * 100)}%` }} />
+                  </div>
+                  <p className="mt-1 text-[11px] text-muted-foreground">{item.detail}</p>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+
+        <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50">
+          <CardHeader className="border-b border-zinc-800/70 pb-3">
+            <CardTitle className="text-base">How sessions are logged</CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">Tracked sessions include recorded metrics; quick complete sessions only check drills off.</p>
+          </CardHeader>
+          <CardContent className="space-y-4 p-5">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-xl border border-sky-400/20 bg-sky-400/10 p-4">
+                <p className="text-xs text-sky-200">Tracked sessions</p>
+                <p className="mt-2 text-3xl font-bold">{number(sessions.tracked28d)}</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">last {data.windowDays || 28} days</p>
+              </div>
+              <div className="rounded-xl border border-orange-400/20 bg-orange-400/10 p-4">
+                <p className="text-xs text-orange-200">Quick complete</p>
+                <p className="mt-2 text-3xl font-bold">{number(sessions.quickComplete28d)}</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">last {data.windowDays || 28} days</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 border-t border-zinc-800/70 pt-4 text-sm">
+              <div><p className="text-muted-foreground">Avg drills / session</p><p className="mt-1 font-semibold">{Number(sessions.avgDrills28d || 0).toFixed(1)}</p></div>
+              <div><p className="text-muted-foreground">Avg minutes / session</p><p className="mt-1 font-semibold">{Number(sessions.avgMinutes28d || 0).toFixed(1)}</p></div>
+              <div><p className="text-muted-foreground">Minutes in window</p><p className="mt-1 font-semibold">{number(sessions.minutes28d)}</p></div>
+              <div><p className="text-muted-foreground">Sessions all time</p><p className="mt-1 font-semibold">{number(sessions.sessionsAllTime)}</p></div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50">
+          <CardHeader className="border-b border-zinc-800/70 pb-3">
+            <CardTitle className="text-base">Most popular drills</CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">Views versus completed logs, with all-time completion volume.</p>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader><TableRow><TableHead className="pl-4">Drill</TableHead><TableHead className="text-right">Views</TableHead><TableHead className="text-right">Finished</TableHead><TableHead className="text-right pr-4">Rate</TableHead></TableRow></TableHeader>
+              <TableBody>
+                {(data.topDrills ?? []).slice(0, 10).map((drill: any) => (
+                  <TableRow key={drill.id}>
+                    <TableCell className="max-w-[220px] pl-4"><p className="truncate text-sm font-medium">{drill.title}</p><p className="text-[11px] capitalize text-muted-foreground">{drill.category} · {drill.difficulty}</p></TableCell>
+                    <TableCell className="text-right text-sm">{number(drill.views28d)}</TableCell>
+                    <TableCell className="text-right font-semibold">{number(drill.logs28d)}<span className="block text-[10px] font-normal text-muted-foreground">{number(drill.logsAllTime)} all time</span></TableCell>
+                    <TableCell className="pr-4 text-right text-xs text-orange-300">{percent(drill.completionRate28d)}</TableCell>
+                  </TableRow>
+                ))}
+                {(data.topDrills ?? []).length === 0 && <TableRow><TableCell colSpan={4} className="py-8 text-center text-sm text-muted-foreground">No drill activity yet.</TableCell></TableRow>}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50">
+          <CardHeader className="border-b border-zinc-800/70 pb-3">
+            <CardTitle className="text-base">Programs: discovery to completion</CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">The programs players view, join, progress through, and finish.</p>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader><TableRow><TableHead className="pl-4">Program</TableHead><TableHead className="text-right">Views</TableHead><TableHead className="text-right">Joins</TableHead><TableHead className="text-right pr-4">Done</TableHead></TableRow></TableHeader>
+              <TableBody>
+                {(data.topPrograms ?? []).slice(0, 10).map((program: any) => (
+                  <TableRow key={program.id}>
+                    <TableCell className="max-w-[220px] pl-4"><p className="truncate text-sm font-medium">{program.title}</p><p className="text-[11px] text-muted-foreground">{program.lengthDays} days · {program.difficulty}</p></TableCell>
+                    <TableCell className="text-right text-sm">{number(program.views28d)}</TableCell>
+                    <TableCell className="text-right font-semibold">{number(program.enrollments28d)}<span className="block text-[10px] font-normal text-muted-foreground">{percent(program.viewToEnrollmentRate)} conversion</span></TableCell>
+                    <TableCell className="pr-4 text-right font-semibold">{number(program.completions)}<span className="block text-[10px] font-normal text-muted-foreground">{number(program.itemCompletions)} items</span></TableCell>
+                  </TableRow>
+                ))}
+                {(data.topPrograms ?? []).length === 0 && <TableRow><TableCell colSpan={4} className="py-8 text-center text-sm text-muted-foreground">No program activity yet.</TableCell></TableRow>}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
+        <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50 lg:col-span-2">
+          <CardHeader className="border-b border-zinc-800/70 pb-3">
+            <CardTitle className="text-base">Most-used workout templates</CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">Template starts and completed sessions are tracked from the point workout telemetry was added.</p>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader><TableRow><TableHead className="pl-4">Workout</TableHead><TableHead className="text-right">Drills</TableHead><TableHead className="text-right">Starts</TableHead><TableHead className="text-right">Finished</TableHead><TableHead className="text-right pr-4">Rate</TableHead></TableRow></TableHeader>
+              <TableBody>
+                {(data.workoutLibrary ?? []).slice(0, 10).map((workout: any) => (
+                  <TableRow key={workout.id}>
+                    <TableCell className="pl-4"><p className="text-sm font-medium">{workout.name}</p><p className="text-[11px] capitalize text-muted-foreground">{workout.category}</p></TableCell>
+                    <TableCell className="text-right">{number(workout.drillCount)}</TableCell>
+                    <TableCell className="text-right">{number(workout.starts28d)}</TableCell>
+                    <TableCell className="text-right font-semibold">{number(workout.completions28d)}</TableCell>
+                    <TableCell className="pr-4 text-right text-xs text-orange-300">{percent(workout.completionRate28d)}</TableCell>
+                  </TableRow>
+                ))}
+                {(data.workoutLibrary ?? []).length === 0 && <TableRow><TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">No saved workout templates yet. Session-level totals are shown above.</TableCell></TableRow>}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50">
+          <CardHeader className="border-b border-zinc-800/70 pb-3"><CardTitle className="text-base">Program status</CardTitle><p className="mt-1 text-xs text-muted-foreground">All enrollments, not just the current window.</p></CardHeader>
+          <CardContent className="grid grid-cols-2 gap-3 p-5">
+            {[
+              ["Active", programs.active, "text-sky-300"],
+              ["Completed", programs.completed, "text-emerald-300"],
+              ["Abandoned", programs.abandoned, "text-red-300"],
+              ["Completion rate", percent(programs.completionRate), "text-orange-300"],
+            ].map(([label, value, color]) => <div key={String(label)} className="rounded-xl border border-zinc-800/70 p-3"><p className="text-xs text-muted-foreground">{label}</p><p className={`mt-2 text-2xl font-bold ${color}`}>{typeof value === "string" ? value : number(value)}</p></div>)}
+          </CardContent>
+        </Card>
+
+        <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50">
+          <CardHeader className="border-b border-zinc-800/70 pb-3"><CardTitle className="text-base">Logged performance stats</CardTitle><p className="mt-1 text-xs text-muted-foreground">Which metrics players actually record during tracked sessions.</p></CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader><TableRow><TableHead className="pl-4">Metric</TableHead><TableHead className="text-right">Entries</TableHead><TableHead className="text-right">Players</TableHead><TableHead className="text-right pr-4">Average</TableHead></TableRow></TableHeader>
+              <TableBody>
+                {(data.metrics ?? []).map((metric: any) => <TableRow key={metric.metric}><TableCell className="pl-4 text-sm font-medium">{metric.metric}</TableCell><TableCell className="text-right">{number(metric.entries)}</TableCell><TableCell className="text-right">{number(metric.users)}</TableCell><TableCell className="pr-4 text-right font-semibold">{Number(metric.average || 0).toFixed(1)}</TableCell></TableRow>)}
+                {(data.metrics ?? []).length === 0 && <TableRow><TableCell colSpan={4} className="py-8 text-center text-sm text-muted-foreground">No tracked metric data yet.</TableCell></TableRow>}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="border-orange-500/20 bg-orange-500/5">
+        <CardContent className="p-5">
+          <p className="text-sm font-semibold">Measurement notes</p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">Drill views come from the analytics event stream. Drill completions come from saved training logs. Workout sessions are grouped by session ID, with single-drill logs counted as one session. Older sessions without metric rows are classified as quick-complete-style logs; new saves also record the selected session mode directly.</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ─── Legacy content-performance type retained for older admin components ────
 
 type ContentData = {
   topDrills: Array<{ id: string; title: string; category: string; difficulty: string; logs28d: number; uniqueUsers28d: number; logsAllTime: number }>;

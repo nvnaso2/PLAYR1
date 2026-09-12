@@ -20,3 +20,4 @@
 - [Analytics demo fixture](analytics-demo-fixture.md) — dense analytics sample data is development-only and marked as demo to keep production metrics clean
 - [Activation measurement](activation-measurement.md) — first authenticated app open is the download proxy until a native install event exists
 - [Retention measurement](retention-measurement.md) — Day-N retention uses all registered users as denominator and each user's signup date as the clock
+- [Training analytics measurement](training-analytics-measurement.md) — separate event-based discovery from persisted drill, session, and program completion records
