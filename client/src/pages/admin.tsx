@@ -5813,29 +5813,137 @@ function AreasAnalyticsSubTab() {
 }
 
 function CommunityAnalyticsSubTab() {
-  const { data, isLoading } = useQuery<any>({ queryKey: ["/api/admin/analytics"] });
-  const totals = data?.totals;
+  const { data, isLoading, isError } = useQuery<any>({ queryKey: ["/api/admin/analytics/community"] });
+  const formatNumber = (value: unknown) => Number(value || 0).toLocaleString();
+  const formatAverage = (value: unknown) => Number(value || 0).toFixed(1);
+  const formatPercent = (value: unknown) => `${Number(value || 0).toFixed(1)}%`;
+  const periods = data?.periods ?? [];
+  const maxGoalPlayers = Math.max(...(data?.goalTypes ?? []).map((row: any) => Number(row.players || 0)), 1);
+
   return (
-    <div className="space-y-6">
-      <AnalyticsSectionIntro
-        eyebrow="Community"
-        title="Connection, accountability, and discovery"
-        description="Track whether players are building a useful network: follows, friendships, feedback, challenges, and shared activity."
-      />
-      {isLoading ? <Skeleton className="h-32 w-full rounded-xl" /> : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard label="Connections" value={totals?.connections ?? "—"} sub="friend and follow relationships" icon={Users} />
-          <StatCard label="Feedback posts" value={totals?.feedbackPosts ?? "—"} sub="community accountability signals" icon={MessageCircle} />
-          <StatCard label="Challenge scores" value="—" sub="next community metric" icon={Trophy} />
-          <StatCard label="Friend activity" value="—" sub="next community metric" icon={Activity} />
+    <div className="space-y-6" data-testid="section-community-analytics">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-300">Community pulse</p>
+          <h2 className="mt-1 text-2xl font-black tracking-tight text-white">Connection, accountability, and discovery</h2>
+          <p className="mt-1 max-w-2xl text-sm text-zinc-500">See how players connect, follow, and show up for shared challenges across the app.</p>
         </div>
+        <Badge variant="outline" className="border-orange-300/25 bg-orange-400/10 text-orange-200">Live relationship + challenge data</Badge>
+      </div>
+
+      {isLoading ? (
+        <div className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">{[1, 2, 3, 4, 5, 6].map((item) => <Skeleton key={item} className="h-28 rounded-2xl" />)}</div>
+          <Skeleton className="h-72 rounded-2xl" />
+        </div>
+      ) : isError || !data ? (
+        <Card><CardContent className="py-12 text-center text-sm text-destructive">Couldn’t load Community analytics.</CardContent></Card>
+      ) : (
+        <>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+            <TrainingMetricCard label="Total users" value={formatNumber(data.totals.totalUsers)} sub="accounts across PLAYR1" icon={Users} accent="orange" />
+            <TrainingMetricCard label="Friendships" value={formatNumber(data.totals.totalFriendships)} sub="accepted two-way connections" icon={UserCheck} accent="blue" />
+            <TrainingMetricCard label="Follows" value={formatNumber(data.totals.totalFollows)} sub="directional relationships" icon={UserPlus} accent="purple" />
+            <TrainingMetricCard label="Active challenges" value={formatNumber(data.challenges.active)} sub={`${formatNumber(data.challenges.all)} total challenges`} icon={Flame} accent="green" />
+            <TrainingMetricCard label="Public challenges" value={formatNumber(data.challenges.public)} sub="open for discovery" icon={Globe} accent="orange" />
+            <TrainingMetricCard label="Completion rate" value={formatPercent(data.challenges.completionRate)} sub={`${formatNumber(data.challenges.completions)} players finished`} icon={Trophy} accent="blue" />
+          </div>
+
+          <Card className="overflow-hidden border-white/10 bg-zinc-950/70">
+            <CardHeader className="border-b border-white/[0.07] bg-white/[0.02] pb-4">
+              <CardTitle className="text-base tracking-tight">Relationship growth</CardTitle>
+              <p className="mt-1 text-xs text-zinc-500">New accepted friendships and follows created inside each reporting window.</p>
+            </CardHeader>
+            <CardContent className="overflow-x-auto p-0">
+              <Table>
+                <TableHeader><TableRow><TableHead className="pl-5">Window</TableHead><TableHead>Friendships</TableHead><TableHead>Follows</TableHead><TableHead>Friending users</TableHead><TableHead className="pr-5">Following users</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {periods.map((period: any) => (
+                    <TableRow key={period.key} className={period.key === "lifetime" ? "bg-orange-400/[0.04]" : undefined}>
+                      <TableCell className={`pl-5 font-medium ${period.key === "lifetime" ? "text-orange-200" : ""}`}>{period.label}</TableCell>
+                      <TableCell>{formatNumber(period.friendships)}</TableCell>
+                      <TableCell>{formatNumber(period.follows)}</TableCell>
+                      <TableCell className="text-zinc-400">{formatNumber(period.activeFriendingUsers)}</TableCell>
+                      <TableCell className="pr-5 text-zinc-400">{formatNumber(period.activeFollowingUsers)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+            <Card className="overflow-hidden border-white/10 bg-zinc-950/70">
+              <CardHeader className="border-b border-white/[0.07] bg-white/[0.02] pb-4">
+                <CardTitle className="text-base tracking-tight">Network per user</CardTitle>
+                <p className="mt-1 text-xs text-zinc-500">Current relationship averages across the full user base.</p>
+              </CardHeader>
+              <CardContent className="grid gap-3 p-4 sm:grid-cols-3">
+                {[
+                  ["Friends per user", data.perUser.friends, data.perUser.maxFriends, "text-orange-200"],
+                  ["Follows per user", data.perUser.follows, data.perUser.maxFollows, "text-sky-200"],
+                  ["Followers per user", data.perUser.followers, data.perUser.maxFollowers, "text-violet-200"],
+                ].map(([label, average, max, color]) => (
+                  <div key={String(label)} className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-4">
+                    <p className="text-[10px] font-black uppercase tracking-[0.15em] text-zinc-500">{label}</p>
+                    <p className={`mt-3 text-3xl font-black tracking-tight ${color}`}>{formatAverage(average)}</p>
+                    <p className="mt-1 text-xs text-zinc-500">max player: {formatNumber(max)}</p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            <Card className="overflow-hidden border-white/10 bg-zinc-950/70">
+              <CardHeader className="border-b border-white/[0.07] bg-white/[0.02] pb-4">
+                <CardTitle className="text-base tracking-tight">Challenge pulse</CardTitle>
+                <p className="mt-1 text-xs text-zinc-500">Participation and completion across group challenges.</p>
+              </CardHeader>
+              <CardContent className="grid grid-cols-2 gap-3 p-4">
+                <div className="rounded-2xl border border-emerald-300/15 bg-emerald-400/[0.06] p-3"><p className="text-xs text-zinc-500">Players joined</p><p className="mt-2 text-2xl font-black text-emerald-200">{formatNumber(data.challenges.players)}</p></div>
+                <div className="rounded-2xl border border-sky-300/15 bg-sky-400/[0.06] p-3"><p className="text-xs text-zinc-500">Avg players / challenge</p><p className="mt-2 text-2xl font-black text-sky-200">{formatAverage(data.challenges.averagePlayers)}</p></div>
+                <div className="rounded-2xl border border-orange-300/15 bg-orange-400/[0.06] p-3"><p className="text-xs text-zinc-500">Active avg players</p><p className="mt-2 text-2xl font-black text-orange-200">{formatAverage(data.challenges.activeAveragePlayers)}</p></div>
+                <div className="rounded-2xl border border-violet-300/15 bg-violet-400/[0.06] p-3"><p className="text-xs text-zinc-500">Active completion</p><p className="mt-2 text-2xl font-black text-violet-200">{formatPercent(data.challenges.activeCompletionRate)}</p></div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card className="overflow-hidden border-white/10 bg-zinc-950/70">
+              <CardHeader className="border-b border-white/[0.07] bg-white/[0.02] pb-4"><CardTitle className="text-base tracking-tight">Challenge goals</CardTitle><p className="mt-1 text-xs text-zinc-500">Which types of work players choose to do together.</p></CardHeader>
+              <CardContent className="space-y-4 p-5">
+                {(data.goalTypes ?? []).map((row: any) => (
+                  <div key={row.goalType}>
+                    <div className="flex items-center justify-between gap-3 text-sm"><span className="font-medium">{row.label}</span><span className="text-xs text-zinc-500">{formatNumber(row.players)} players · {formatPercent(row.completionRate)}</span></div>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/[0.07]"><div className="h-full rounded-full bg-gradient-to-r from-orange-500 to-amber-300" style={{ width: `${Math.max(4, (Number(row.players || 0) / maxGoalPlayers) * 100)}%` }} /></div>
+                    <p className="mt-1 text-[11px] text-zinc-600">{formatNumber(row.challenges)} challenges · {formatAverage(row.avgPlayers)} average players</p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            <Card className="overflow-hidden border-white/10 bg-zinc-950/70">
+              <CardHeader className="border-b border-white/[0.07] bg-white/[0.02] pb-4"><CardTitle className="text-base tracking-tight">Challenge audience</CardTitle><p className="mt-1 text-xs text-zinc-500">Where shared challenges start and how they perform.</p></CardHeader>
+              <CardContent className="grid gap-3 p-5 sm:grid-cols-3">
+                {(data.audiences ?? []).map((row: any) => (
+                  <div key={row.audience} className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-4">
+                    <p className="text-xs font-semibold text-zinc-300">{row.label}</p>
+                    <p className="mt-3 text-2xl font-black text-orange-200">{formatNumber(row.challenges)}</p>
+                    <p className="text-[11px] text-zinc-500">challenges</p>
+                    <div className="mt-4 flex items-end justify-between gap-2 text-xs"><span className="text-zinc-500">{formatNumber(row.players)} players</span><span className="font-semibold text-emerald-300">{formatPercent(row.completionRate)}</span></div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card className="border-orange-300/20 bg-[linear-gradient(135deg,rgba(249,115,22,0.10),rgba(24,24,27,0.35))]">
+            <CardContent className="flex gap-3 p-5">
+              <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-orange-300 shadow-[0_0_14px_rgba(253,186,116,0.8)]" />
+              <div><p className="text-sm font-semibold">How to read this dashboard</p><p className="mt-1 text-xs leading-5 text-zinc-400">Friendships count accepted two-way connections. Follows remain directional. Challenge completion is completed accepted participants divided by accepted participants, using each challenge’s goal amount.</p></div>
+            </CardContent>
+          </Card>
+        </>
       )}
-      <Card className="border-orange-500/20 bg-orange-500/5">
-        <CardContent className="p-5">
-          <p className="text-sm font-medium">Community health definition</p>
-          <p className="mt-1 text-sm text-muted-foreground">A healthy community has repeat two-way relationships, useful shared activity, and challenge participation—not just a high follower count.</p>
-        </CardContent>
-      </Card>
     </div>
   );
 }
@@ -7320,30 +7428,6 @@ function TrainingAnalyticsSubTab() {
 
   return (
     <div className="space-y-7" data-testid="section-training-analytics">
-      <section className="relative overflow-hidden rounded-[28px] border border-orange-400/25 bg-[radial-gradient(circle_at_88%_0%,rgba(249,115,22,0.22),transparent_35%),linear-gradient(135deg,rgba(24,24,27,0.98),rgba(9,9,11,0.98))] px-6 py-7 shadow-[0_18px_60px_-30px_rgba(249,115,22,0.6)] sm:px-8">
-        <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-orange-500/10 blur-3xl" />
-        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-2xl">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-2 rounded-full border border-orange-300/30 bg-orange-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-orange-200">
-                <span className="h-1.5 w-1.5 rounded-full bg-orange-300 shadow-[0_0_12px_rgba(253,186,116,0.9)]" />
-                Training intelligence
-              </span>
-              <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">Live product signal</span>
-            </div>
-            <h2 className="mt-4 text-3xl font-black tracking-[-0.04em] text-white sm:text-4xl">The work behind the player.</h2>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-zinc-400">
-              See what players open, finish, repeat, and measure across the training library. The pulse below uses the last {data.windowDays || 28} days; headline totals are all time.
-            </p>
-          </div>
-          <div className="flex shrink-0 flex-wrap gap-2 text-[11px] font-semibold text-zinc-300">
-            <span className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2">DRILLS <strong className="ml-1 text-white">{number(totals.drills)}</strong></span>
-            <span className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2">WORKOUTS <strong className="ml-1 text-white">{number(totals.workouts)}</strong></span>
-            <span className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2">PROGRAMS <strong className="ml-1 text-white">{number(totals.programs)}</strong></span>
-          </div>
-        </div>
-      </section>
-
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <TrainingMetricCard label="Drill library" value={number(totals.drills)} sub={`${number(totals.drillCompletions)} finished all time`} icon={Target} accent="orange" testId="stat-training-drills" />
         <TrainingMetricCard label="Workout library" value={number(totals.workouts)} sub={`${number(sessions.sessionsAllTime)} sessions finished`} icon={Dumbbell} accent="blue" testId="stat-training-workouts" />

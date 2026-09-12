@@ -9578,6 +9578,20 @@ COACHING RULES:
     }
   });
 
+  // Community relationships and group-challenge analytics
+  app.get("/api/admin/analytics/community", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const adminCheck = await storage.isUserAdmin(userId);
+      if (!adminCheck) return res.status(403).json({ message: "Admins only" });
+      const data = await storage.getAdminCommunityAnalytics();
+      res.json(data);
+    } catch (err) {
+      console.error("Error getting community analytics:", err);
+      res.status(500).json({ message: "Failed to get community analytics" });
+    }
+  });
+
   // Live activity feed
   app.get("/api/admin/analytics/live", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {

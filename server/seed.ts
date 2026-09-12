@@ -762,6 +762,125 @@ async function seedCommunityDemo() {
   console.log(`Community demo seeded for ${realUsers.length} local player account(s)`);
 }
 
+async function seedCommunityAnalyticsDemo() {
+  if (process.env.NODE_ENV === "production") return;
+
+  const demoIds = communityDemoPlayers.map((player) => player.id);
+  const available = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(or(inArray(users.id, demoIds), eq(users.role, "player")))
+    .limit(24);
+  const playerIds = Array.from(new Set(available.map((user) => user.id)));
+  if (playerIds.length < 4) {
+    console.log("Community analytics demo skipped: not enough player accounts are available yet");
+    return;
+  }
+
+  const prefix = "playr1-demo-community-analytics-";
+  await db.delete(groupChallengeMembers).where(like(groupChallengeMembers.id, `${prefix}%`));
+  await db.delete(groupChallenges).where(like(groupChallenges.id, `${prefix}%`));
+  await db.delete(friendships).where(like(friendships.id, `${prefix}%`));
+  await db.delete(userFollows).where(like(userFollows.id, `${prefix}%`));
+
+  const now = new Date();
+  const dayMs = 24 * 60 * 60 * 1000;
+  const relationshipRows: Array<typeof userFollows.$inferInsert> = [];
+  const friendshipRows: Array<typeof friendships.$inferInsert> = [];
+
+  // Spread the fixture across the usual reporting windows so the admin
+  // dashboard shows a meaningful trend instead of only rows created today.
+  for (let index = 0; index < 84; index++) {
+    const follower = playerIds[index % playerIds.length];
+    const following = playerIds[(index * 5 + 3) % playerIds.length];
+    if (follower === following) continue;
+    const createdAt = new Date(now.getTime() - ((index * 11) % 365) * dayMs);
+    relationshipRows.push({
+      id: `${prefix}follow-${index}`,
+      followerId: follower,
+      followingId: following,
+      createdAt,
+    });
+  }
+  for (let index = 0; index < 42; index++) {
+    const requester = playerIds[index % playerIds.length];
+    const addressee = playerIds[(index * 3 + 2) % playerIds.length];
+    if (requester === addressee) continue;
+    const createdAt = new Date(now.getTime() - ((index * 17 + 4) % 365) * dayMs);
+    friendshipRows.push({
+      id: `${prefix}friendship-${index}`,
+      requesterId: requester,
+      addresseeId: addressee,
+      status: "accepted",
+      createdAt,
+      updatedAt: createdAt,
+    });
+  }
+  if (relationshipRows.length > 0) {
+    await db.insert(userFollows).values(relationshipRows).onConflictDoNothing({
+      target: [userFollows.followerId, userFollows.followingId],
+    });
+  }
+  if (friendshipRows.length > 0) await db.insert(friendships).values(friendshipRows);
+
+  const goalTypes = [
+    { key: "shots_made" as const, label: "Make It Rain", amount: 100, color: "#f97316", emoji: "🎯" },
+    { key: "shot_attempts" as const, label: "Volume Up", amount: 160, color: "#06b6d4", emoji: "🏀" },
+    { key: "workout_minutes" as const, label: "Put In The Minutes", amount: 180, color: "#22c55e", emoji: "⏱️" },
+    { key: "streak_days" as const, label: "Stay Ready", amount: 14, color: "#a855f7", emoji: "🔥" },
+    { key: "training_sessions" as const, label: "Next Rep", amount: 10, color: "#3b82f6", emoji: "💪" },
+  ];
+  const audiences = ["friends", "followers", "public"] as const;
+  const challengeRows: Array<typeof groupChallenges.$inferInsert> = [];
+  const memberRows: Array<typeof groupChallengeMembers.$inferInsert> = [];
+
+  for (let index = 0; index < 36; index++) {
+    const goal = goalTypes[index % goalTypes.length];
+    const audience = audiences[index % audiences.length];
+    const durationDays = [7, 14, 21, 30, 45][index % 5];
+    const startsDaysAgo = [1, 4, 9, 18, 35, 62, 110, 180, 280][index % 9];
+    const startsAt = new Date(now.getTime() - startsDaysAgo * dayMs);
+    const endsAt = new Date(startsAt.getTime() + durationDays * dayMs);
+    const createdAt = new Date(startsAt.getTime() - (1 + (index % 6)) * dayMs);
+    const challengeId = `${prefix}challenge-${index}`;
+    challengeRows.push({
+      id: challengeId,
+      creatorId: playerIds[index % playerIds.length],
+      name: `${goal.label} ${index + 1}`,
+      goalType: goal.key,
+      goalAmount: goal.amount,
+      durationDays,
+      startsAt,
+      endsAt,
+      audience,
+      color: goal.color,
+      emoji: goal.emoji,
+      createdAt,
+    });
+
+    const memberCount = 3 + (index % Math.min(8, playerIds.length - 2));
+    for (let memberIndex = 0; memberIndex < memberCount; memberIndex++) {
+      const userId = playerIds[(index + memberIndex + 1) % playerIds.length];
+      const accepted = (index + memberIndex) % 7 !== 0;
+      const joinedAt = new Date(startsAt.getTime() + Math.min(memberIndex, 2) * dayMs);
+      memberRows.push({
+        id: `${prefix}member-${index}-${memberIndex}`,
+        challengeId,
+        userId,
+        status: accepted ? "accepted" : "invited",
+        progress: accepted
+          ? ((index + memberIndex) % 4 === 0 ? Math.floor(goal.amount * 0.55) : goal.amount)
+          : 0,
+        joinedAt: accepted ? joinedAt : null,
+        createdAt: joinedAt,
+      });
+    }
+  }
+  await db.insert(groupChallenges).values(challengeRows);
+  await db.insert(groupChallengeMembers).values(memberRows);
+  console.log(`Community analytics demo synced (${relationshipRows.length} follows, ${friendshipRows.length} friendships, ${challengeRows.length} challenges)`);
+}
+
 async function seedAnalyticsDemo() {
   if (process.env.NODE_ENV === "production") return;
 
@@ -1607,6 +1726,7 @@ export async function seedDatabase() {
     }
 
     await seedCommunityDemo();
+    await seedCommunityAnalyticsDemo();
     await seedAnalyticsDemo();
     await seedTrainingAnalyticsDemo();
     console.log("Database seeding complete!");

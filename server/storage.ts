@@ -131,6 +131,7 @@ export interface IStorage {
   setUserAdmin(userId: string, isAdmin: boolean): Promise<boolean>;
   getAdminBusinessAnalytics(): Promise<any>;
   getAdminActivityAnalytics(period?: string): Promise<any>;
+  getAdminCommunityAnalytics(): Promise<any>;
 
   // Brand Principles
   getBrandPrinciples(): Promise<BrandPrinciples | null>;
@@ -6558,6 +6559,186 @@ export class DatabaseStorage {
       underperformers,
       categoryStats,
       dailyChallenge,
+    };
+  }
+
+  async getAdminCommunityAnalytics(): Promise<any> {
+    const rows = <T = any>(res: any): T[] => (res.rows ?? res) as T[];
+    const first = (res: any): any => rows(res)[0] ?? {};
+    const periods = [
+      { key: "1d", label: "Past 1 day", interval: "1 day" },
+      { key: "7d", label: "Past 7 days", interval: "7 days" },
+      { key: "30d", label: "Past 30 days", interval: "30 days" },
+      { key: "90d", label: "Past 90 days", interval: "90 days" },
+      { key: "year", label: "Past year", interval: "1 year" },
+      { key: "lifetime", label: "Lifetime", interval: null },
+    ] as const;
+
+    const relationshipWindows = await Promise.all(periods.map(async (period) => {
+      const since = period.interval ? sql`NOW() - INTERVAL ${sql.raw(`'${period.interval}'`)}` : sql`NULL`;
+      const row = first(await db.execute(sql`
+        SELECT
+          (SELECT COUNT(*) FROM friendships f
+            WHERE f.status = 'accepted'
+            AND (${since} IS NULL OR COALESCE(f.created_at, NOW()) >= ${since}))::int AS friendships,
+          (SELECT COUNT(*) FROM user_follows uf
+            WHERE ${since} IS NULL OR COALESCE(uf.created_at, NOW()) >= ${since})::int AS follows,
+          (SELECT COUNT(DISTINCT f.requester_id) FROM friendships f
+            WHERE f.status = 'accepted'
+            AND (${since} IS NULL OR COALESCE(f.created_at, NOW()) >= ${since}))::int AS active_friending_users,
+          (SELECT COUNT(DISTINCT uf.follower_id) FROM user_follows uf
+            WHERE ${since} IS NULL OR COALESCE(uf.created_at, NOW()) >= ${since})::int AS active_following_users
+      `));
+      return {
+        key: period.key,
+        label: period.label,
+        friendships: Number(row.friendships || 0),
+        follows: Number(row.follows || 0),
+        activeFriendingUsers: Number(row.active_friending_users || 0),
+        activeFollowingUsers: Number(row.active_following_users || 0),
+      };
+    }));
+
+    // Keep the relationship totals separate from the time-window counts:
+    // accepted friendships are current two-way connections, while follows
+    // remain directional and can include a friend relationship.
+    const totals = first(await db.execute(sql`
+      SELECT
+        (SELECT COUNT(*) FROM users)::int AS total_users,
+        (SELECT COUNT(*) FROM friendships WHERE status = 'accepted')::int AS total_friendships,
+        (SELECT COUNT(*) FROM user_follows)::int AS total_follows,
+        (SELECT COUNT(*) FROM user_follows uf
+          WHERE uf.following_id IN (SELECT id FROM users))::int AS total_followers,
+        (SELECT COUNT(*) FROM group_challenges)::int AS total_challenges,
+        (SELECT COUNT(*) FROM group_challenges
+          WHERE starts_at <= NOW() AND ends_at >= NOW())::int AS active_challenges,
+        (SELECT COUNT(*) FROM group_challenges WHERE audience = 'public')::int AS public_challenges
+    `));
+
+    const relationshipAverages = first(await db.execute(sql`
+      WITH user_counts AS (
+        SELECT
+          u.id,
+          COALESCE(friend_counts.friend_count, 0) AS friends,
+          COALESCE(following_counts.following_count, 0) AS following,
+          COALESCE(follower_counts.follower_count, 0) AS followers
+        FROM users u
+        LEFT JOIN (
+          SELECT user_id, COUNT(*) AS friend_count
+          FROM (
+            SELECT requester_id AS user_id FROM friendships WHERE status = 'accepted'
+            UNION ALL
+            SELECT addressee_id AS user_id FROM friendships WHERE status = 'accepted'
+          ) friend_edges
+          GROUP BY user_id
+        ) friend_counts ON friend_counts.user_id = u.id
+        LEFT JOIN (
+          SELECT follower_id, COUNT(*) AS following_count
+          FROM user_follows GROUP BY follower_id
+        ) following_counts ON following_counts.follower_id = u.id
+        LEFT JOIN (
+          SELECT following_id, COUNT(*) AS follower_count
+          FROM user_follows GROUP BY following_id
+        ) follower_counts ON follower_counts.following_id = u.id
+      )
+      SELECT
+        COALESCE(AVG(friends), 0)::numeric AS friends_per_user,
+        COALESCE(AVG(following), 0)::numeric AS follows_per_user,
+        COALESCE(AVG(followers), 0)::numeric AS followers_per_user,
+        COALESCE(MAX(friends), 0)::int AS max_friends,
+        COALESCE(MAX(following), 0)::int AS max_follows,
+        COALESCE(MAX(followers), 0)::int AS max_followers
+      FROM user_counts
+    `));
+
+    const challengeRows = rows(await db.execute(sql`
+      WITH challenge_members AS (
+        SELECT
+          gc.id,
+          gc.goal_type,
+          gc.audience,
+          gc.duration_days,
+          gc.goal_amount,
+          COUNT(gcm.id) FILTER (WHERE gcm.status = 'accepted')::int AS players,
+          COUNT(gcm.id) FILTER (
+            WHERE gcm.status = 'accepted' AND gcm.progress >= gc.goal_amount
+          )::int AS completions
+        FROM group_challenges gc
+        LEFT JOIN group_challenge_members gcm ON gcm.challenge_id = gc.id
+        GROUP BY gc.id, gc.goal_type, gc.audience, gc.duration_days, gc.goal_amount
+      )
+      SELECT
+        id,
+        goal_type,
+        audience,
+        duration_days,
+        players,
+        completions
+      FROM challenge_members
+    `));
+
+    const aggregateChallenges = (filter: (row: any) => boolean) => {
+      const selected = challengeRows.filter(filter);
+      const players = selected.reduce((sum, row) => sum + Number(row.players || 0), 0);
+      const completions = selected.reduce((sum, row) => sum + Number(row.completions || 0), 0);
+      return {
+        challenges: selected.length,
+        players,
+        completions,
+        avgPlayers: selected.length ? Math.round((players / selected.length) * 10) / 10 : 0,
+        completionRate: players ? Math.round((completions / players) * 1000) / 10 : 0,
+      };
+    };
+
+    const goalTypes = Array.from(new Set(challengeRows.map((row) => String(row.goal_type)))).map((goalType) => ({
+      goalType,
+      label: goalType.split("_").map((part) => part[0].toUpperCase() + part.slice(1)).join(" "),
+      ...aggregateChallenges((row) => row.goal_type === goalType),
+    })).sort((a, b) => b.players - a.players);
+
+    const audiences = ["friends", "followers", "public"].map((audience) => ({
+      audience,
+      label: audience[0].toUpperCase() + audience.slice(1),
+      ...aggregateChallenges((row) => row.audience === audience),
+    }));
+
+    const allChallenges = aggregateChallenges(() => true);
+    const activeChallengeCount = Number(totals.active_challenges || 0);
+    const activeChallengeIds = rows(await db.execute(sql`
+      SELECT id FROM group_challenges
+      WHERE starts_at <= NOW() AND ends_at >= NOW()
+    `)).map((row: any) => String(row.id));
+    const activeSummary = aggregateChallenges((row) => activeChallengeIds.includes(String(row.id)));
+
+    return {
+      periods: relationshipWindows,
+      totals: {
+        totalUsers: Number(totals.total_users || 0),
+        totalFriendships: Number(totals.total_friendships || 0),
+        totalFollows: Number(totals.total_follows || 0),
+        totalFollowers: Number(totals.total_followers || 0),
+      },
+      perUser: {
+        friends: Number(relationshipAverages.friends_per_user || 0),
+        follows: Number(relationshipAverages.follows_per_user || 0),
+        followers: Number(relationshipAverages.followers_per_user || 0),
+        maxFriends: Number(relationshipAverages.max_friends || 0),
+        maxFollows: Number(relationshipAverages.max_follows || 0),
+        maxFollowers: Number(relationshipAverages.max_followers || 0),
+      },
+      challenges: {
+        all: Number(totals.total_challenges || 0),
+        active: activeChallengeCount,
+        public: Number(totals.public_challenges || 0),
+        averagePlayers: allChallenges.avgPlayers,
+        completionRate: allChallenges.completionRate,
+        players: allChallenges.players,
+        completions: allChallenges.completions,
+        activeAveragePlayers: activeSummary.avgPlayers,
+        activeCompletionRate: activeSummary.completionRate,
+      },
+      goalTypes,
+      audiences,
     };
   }
 
