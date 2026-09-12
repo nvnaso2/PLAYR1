@@ -4833,7 +4833,6 @@ function StatCard({ label, value, sub, icon: Icon }: { label: string; value: str
 
 function AdminAnalyticsTab() {
   const analyticsTabs = [
-    { value: "overview", label: "Overview", icon: BarChart2 },
     { value: "business", label: "Business", icon: TrendingUp },
     { value: "activity", label: "Activity", icon: Activity },
     { value: "users", label: "Users", icon: Users },
@@ -4846,7 +4845,7 @@ function AdminAnalyticsTab() {
 
   return (
     <div className="space-y-6" data-testid="section-analytics">
-      <Tabs defaultValue="overview" className="w-full">
+      <Tabs defaultValue="business" className="w-full">
         <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-2xl border border-orange-500/15 bg-gradient-to-r from-zinc-950 via-zinc-900 to-orange-950/30 p-2 shadow-[0_12px_40px_rgba(249,115,22,0.08)]">
           {analyticsTabs.map(({ value, label, icon: Icon }) => (
             <TabsTrigger
@@ -4861,7 +4860,6 @@ function AdminAnalyticsTab() {
           ))}
         </TabsList>
 
-        <TabsContent value="overview" className="mt-6"><OverviewSubTab /></TabsContent>
         <TabsContent value="business" className="mt-6"><BusinessAnalyticsSubTab /></TabsContent>
         <TabsContent value="activity" className="mt-6"><ActivityAnalyticsSubTab /></TabsContent>
         <TabsContent value="users" className="mt-6"><UsersSubTab /></TabsContent>
