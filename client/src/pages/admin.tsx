@@ -7416,10 +7416,10 @@ function TrainingAnalyticsSubTab() {
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
-        <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50">
-          <CardHeader className="border-b border-zinc-800/70 pb-3">
-            <CardTitle className="text-base">Most popular drills</CardTitle>
-            <p className="mt-1 text-xs text-muted-foreground">Views versus completed logs, with all-time completion volume.</p>
+        <Card className="overflow-hidden border-white/10 bg-zinc-950/70">
+          <CardHeader className="border-b border-white/[0.07] bg-white/[0.02] pb-4">
+            <CardTitle className="text-base tracking-tight">Most popular drills</CardTitle>
+            <p className="mt-1 text-xs text-zinc-500">Views versus completed logs, with all-time completion volume.</p>
           </CardHeader>
           <CardContent className="p-0">
             <Table>
@@ -7439,10 +7439,10 @@ function TrainingAnalyticsSubTab() {
           </CardContent>
         </Card>
 
-        <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50">
-          <CardHeader className="border-b border-zinc-800/70 pb-3">
-            <CardTitle className="text-base">Programs: discovery to completion</CardTitle>
-            <p className="mt-1 text-xs text-muted-foreground">The programs players view, join, progress through, and finish.</p>
+        <Card className="overflow-hidden border-white/10 bg-zinc-950/70">
+          <CardHeader className="border-b border-white/[0.07] bg-white/[0.02] pb-4">
+            <CardTitle className="text-base tracking-tight">Programs: discovery to completion</CardTitle>
+            <p className="mt-1 text-xs text-zinc-500">The programs players view, join, progress through, and finish.</p>
           </CardHeader>
           <CardContent className="p-0">
             <Table>
@@ -7464,10 +7464,10 @@ function TrainingAnalyticsSubTab() {
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-        <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50 lg:col-span-2">
-          <CardHeader className="border-b border-zinc-800/70 pb-3">
-            <CardTitle className="text-base">Most-used workout templates</CardTitle>
-            <p className="mt-1 text-xs text-muted-foreground">Template starts and completed sessions are tracked from the point workout telemetry was added.</p>
+        <Card className="overflow-hidden border-white/10 bg-zinc-950/70 lg:col-span-2">
+          <CardHeader className="border-b border-white/[0.07] bg-white/[0.02] pb-4">
+            <CardTitle className="text-base tracking-tight">Most-used workout templates</CardTitle>
+            <p className="mt-1 text-xs text-zinc-500">Template starts and completed sessions are tracked from the point workout telemetry was added.</p>
           </CardHeader>
           <CardContent className="p-0">
             <Table>
@@ -7488,20 +7488,20 @@ function TrainingAnalyticsSubTab() {
           </CardContent>
         </Card>
 
-        <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50">
-          <CardHeader className="border-b border-zinc-800/70 pb-3"><CardTitle className="text-base">Program status</CardTitle><p className="mt-1 text-xs text-muted-foreground">All enrollments, not just the current window.</p></CardHeader>
+        <Card className="overflow-hidden border-white/10 bg-zinc-950/70">
+          <CardHeader className="border-b border-white/[0.07] bg-white/[0.02] pb-4"><CardTitle className="text-base tracking-tight">Program status</CardTitle><p className="mt-1 text-xs text-zinc-500">All enrollments, not just the current window.</p></CardHeader>
           <CardContent className="grid grid-cols-2 gap-3 p-5">
             {[
               ["Active", programs.active, "text-sky-300"],
               ["Completed", programs.completed, "text-emerald-300"],
               ["Abandoned", programs.abandoned, "text-red-300"],
               ["Completion rate", percent(programs.completionRate), "text-orange-300"],
-            ].map(([label, value, color]) => <div key={String(label)} className="rounded-xl border border-zinc-800/70 p-3"><p className="text-xs text-muted-foreground">{label}</p><p className={`mt-2 text-2xl font-bold ${color}`}>{typeof value === "string" ? value : number(value)}</p></div>)}
+            ].map(([label, value, color]) => <div key={String(label)} className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-3"><p className="text-xs text-zinc-500">{label}</p><p className={`mt-2 text-2xl font-bold ${color}`}>{typeof value === "string" ? value : number(value)}</p></div>)}
           </CardContent>
         </Card>
 
-        <Card className="overflow-hidden border-zinc-800/80 bg-zinc-950/50">
-          <CardHeader className="border-b border-zinc-800/70 pb-3"><CardTitle className="text-base">Logged performance stats</CardTitle><p className="mt-1 text-xs text-muted-foreground">Which metrics players actually record during tracked sessions.</p></CardHeader>
+        <Card className="overflow-hidden border-white/10 bg-zinc-950/70">
+          <CardHeader className="border-b border-white/[0.07] bg-white/[0.02] pb-4"><CardTitle className="text-base tracking-tight">Logged performance stats</CardTitle><p className="mt-1 text-xs text-zinc-500">Which metrics players actually record during tracked sessions.</p></CardHeader>
           <CardContent className="p-0">
             <Table>
               <TableHeader><TableRow><TableHead className="pl-4">Metric</TableHead><TableHead className="text-right">Entries</TableHead><TableHead className="text-right">Players</TableHead><TableHead className="text-right pr-4">Average</TableHead></TableRow></TableHeader>
@@ -7514,10 +7514,15 @@ function TrainingAnalyticsSubTab() {
         </Card>
       </div>
 
-      <Card className="border-orange-500/20 bg-orange-500/5">
+      <Card className="border-orange-300/20 bg-[linear-gradient(135deg,rgba(249,115,22,0.10),rgba(24,24,27,0.35))]">
         <CardContent className="p-5">
-          <p className="text-sm font-semibold">Measurement notes</p>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">Drill views come from the analytics event stream. Drill completions come from saved training logs. Workout sessions are grouped by session ID, with single-drill logs counted as one session. Older sessions without metric rows are classified as quick-complete-style logs; new saves also record the selected session mode directly.</p>
+          <div className="flex gap-3">
+            <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-orange-300 shadow-[0_0_14px_rgba(253,186,116,0.8)]" />
+            <div>
+              <p className="text-sm font-semibold">Measurement notes</p>
+              <p className="mt-1 text-xs leading-5 text-zinc-400">Drill views come from the analytics event stream. Drill completions come from saved training logs. Workout sessions are grouped by session ID, with single-drill logs counted as one session. Older sessions without metric rows are classified as quick-complete-style logs; new saves also record the selected session mode directly.</p>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>
