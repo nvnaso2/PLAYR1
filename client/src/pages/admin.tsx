@@ -5840,13 +5840,14 @@ function CommunityAnalyticsSubTab() {
         <Card><CardContent className="py-12 text-center text-sm text-destructive">Couldn’t load Community analytics.</CardContent></Card>
       ) : (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
             <TrainingMetricCard label="Total users" value={formatNumber(data.totals.totalUsers)} sub="accounts across PLAYR1" icon={Users} accent="orange" />
             <TrainingMetricCard label="Friendships" value={formatNumber(data.totals.totalFriendships)} sub="accepted two-way connections" icon={UserCheck} accent="blue" />
             <TrainingMetricCard label="Follows" value={formatNumber(data.totals.totalFollows)} sub="directional relationships" icon={UserPlus} accent="purple" />
             <TrainingMetricCard label="Active challenges" value={formatNumber(data.challenges.active)} sub={`${formatNumber(data.challenges.all)} total challenges`} icon={Flame} accent="green" />
             <TrainingMetricCard label="Public challenges" value={formatNumber(data.challenges.public)} sub="open for discovery" icon={Globe} accent="orange" />
             <TrainingMetricCard label="Completion rate" value={formatPercent(data.challenges.completionRate)} sub={`${formatNumber(data.challenges.completions)} players finished`} icon={Trophy} accent="blue" />
+            <TrainingMetricCard label="Feedback posts" value={formatNumber(data.feedback?.total)} sub="player-submitted ideas and issues" icon={MessageCircle} accent="purple" />
           </div>
 
           <Card className="overflow-hidden border-white/10 bg-zinc-950/70">
@@ -5935,6 +5936,31 @@ function CommunityAnalyticsSubTab() {
               </CardContent>
             </Card>
           </div>
+
+          <Card className="overflow-hidden border-white/10 bg-zinc-950/70">
+            <CardHeader className="border-b border-white/[0.07] bg-white/[0.02] pb-4">
+              <CardTitle className="text-base tracking-tight">Feedback post status</CardTitle>
+              <p className="mt-1 text-xs text-zinc-500">How player feedback is distributed across the product review pipeline.</p>
+            </CardHeader>
+            <CardContent className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-5">
+              {(data.feedback?.byStatus ?? []).map((row: any) => {
+                const statusStyles: Record<string, string> = {
+                  open: "border-sky-300/20 bg-sky-400/[0.07] text-sky-200",
+                  "in-review": "border-orange-300/20 bg-orange-400/[0.07] text-orange-200",
+                  planned: "border-violet-300/20 bg-violet-400/[0.07] text-violet-200",
+                  done: "border-emerald-300/20 bg-emerald-400/[0.07] text-emerald-200",
+                  closed: "border-zinc-300/15 bg-zinc-400/[0.06] text-zinc-300",
+                };
+                return (
+                  <div key={row.status} className={`rounded-2xl border p-4 ${statusStyles[row.status] || statusStyles.open}`}>
+                    <p className="text-[10px] font-black uppercase tracking-[0.15em] opacity-75">{row.label}</p>
+                    <p className="mt-3 text-3xl font-black tracking-tight">{formatNumber(row.count)}</p>
+                    <p className="mt-1 text-[11px] opacity-60">feedback posts</p>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
 
           <Card className="border-orange-300/20 bg-[linear-gradient(135deg,rgba(249,115,22,0.10),rgba(24,24,27,0.35))]">
             <CardContent className="flex gap-3 p-5">
