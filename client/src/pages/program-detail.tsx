@@ -113,8 +113,6 @@ export default function ProgramDetailPage() {
   const totalItems = items.length;
   const pct = totalItems > 0 ? Math.round((completedCount / totalItems) * 100) : 0;
   const totalDays = program.lengthDays;
-  const videoCount = items.filter((item) => item.itemType === "watch").length;
-  const workoutCount = items.filter((item) => ["workout", "drill", "challenge"].includes(item.itemType)).length;
 
   if (isCourse) {
     return (
@@ -129,98 +127,42 @@ export default function ProgramDetailPage() {
             All Courses
           </Link>
 
-          <header className="mb-7 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+          <header className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-center">
+            <div
+              className="relative aspect-video w-full shrink-0 overflow-hidden rounded-xl border border-border/70 bg-muted sm:w-64"
+              data-testid="course-cover-thumbnail"
+            >
+              {program.coverImageUrl ? (
+                <img src={program.coverImageUrl} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <div className="h-full w-full" style={{ background: `linear-gradient(135deg, ${accent}bb, #111827 78%)` }} />
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/35 to-transparent" />
+            </div>
             <div className="min-w-0">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-primary">PLAYR1 Course</p>
               <h1 className="text-4xl font-black tracking-tight sm:text-5xl" data-testid="text-program-title">
                 {program.title}
               </h1>
-              {program.tagline && (
-                <p className="mt-2 max-w-2xl text-base leading-relaxed text-muted-foreground" data-testid="text-program-tagline">
-                  {program.tagline}
-                </p>
-              )}
-            </div>
-
-            <div className="shrink-0">
-              {isLocked ? (
-                <Button
-                  size="lg"
-                  className="w-full bg-amber-500 text-black hover:bg-amber-400 sm:w-auto"
-                  onClick={() => setLocation("/subscription")}
-                  data-testid="button-upgrade-program"
-                >
-                  <Lock className="mr-2 h-4 w-4" />
-                  Unlock with PLAYR1 Pro
-                </Button>
-              ) : enrollment ? (
-                <Button
-                  size="lg"
-                  className="w-full border-0 sm:w-auto"
-                  style={{ background: accent, color: "white" }}
-                  onClick={() => setLocation(`${contentBase}/${program.slug}/today`)}
-                  data-testid="button-go-to-today"
-                >
-                  <PlayCircle className="mr-2 h-4 w-4" />
-                  Continue · Day {enrollment.currentDay}
-                </Button>
-              ) : (
-                <Button
-                  size="lg"
-                  className="w-full border-0 sm:w-auto"
-                  style={{ background: accent, color: "white" }}
-                  onClick={() => enroll.mutate()}
-                  disabled={enroll.isPending}
-                  data-testid="button-enroll"
-                >
-                  <PlayCircle className="mr-2 h-4 w-4" />
-                  {enroll.isPending ? "Starting…" : "Start Course"}
-                </Button>
-              )}
+              <p className="mt-2 text-sm font-medium text-muted-foreground">{totalDays} days</p>
             </div>
           </header>
 
-          <main className="space-y-7">
-            <section data-testid="card-program-trailer">
+          <main className="space-y-6">
+            <section className="max-w-2xl" data-testid="card-program-trailer">
               <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-muted-foreground">Course trailer</h2>
-                {enrollment && (
-                  <span className="text-xs text-muted-foreground">
-                    {completedCount}/{totalItems} complete · {pct}%
-                  </span>
-                )}
+                <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Trailer</h2>
               </div>
               {program.trailerVideoUrl ? (
-                <div className="aspect-video overflow-hidden rounded-xl border border-border/70 bg-black shadow-2xl">
+                <div className="aspect-video overflow-hidden rounded-lg border border-border/70 bg-black">
                   <video src={program.trailerVideoUrl} controls className="h-full w-full" preload="metadata" />
                 </div>
               ) : (
-                <div className="flex aspect-video flex-col items-center justify-center rounded-xl border border-dashed border-primary/40 bg-primary/5 p-6 text-center">
-                  <PlayCircle className="mb-3 h-10 w-10 text-primary/70" />
-                  <p className="font-semibold">Course trailer coming soon</p>
-                  <p className="mt-1 max-w-md text-sm text-muted-foreground">Add the trailer URL in Program Studio to make it available to every player.</p>
+                <div className="flex aspect-[16/8] flex-col items-center justify-center rounded-lg border border-dashed border-primary/40 bg-primary/5 p-6 text-center">
+                  <PlayCircle className="mb-2 h-8 w-8 text-primary/70" />
+                  <p className="text-sm font-semibold">Trailer coming soon</p>
                 </div>
               )}
             </section>
-
-            <section className="grid grid-cols-3 divide-x divide-border overflow-hidden rounded-xl border border-border/70 bg-card" aria-label="Course stats">
-              {[
-                { value: totalDays, label: "Days" },
-                { value: videoCount, label: "Videos" },
-                { value: workoutCount, label: "Workouts" },
-              ].map((stat) => (
-                <div key={stat.label} className="px-3 py-4 text-center sm:px-6 sm:py-5">
-                  <p className="text-2xl font-black tracking-tight sm:text-3xl" style={{ color: accent }}>{stat.value}</p>
-                  <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground sm:text-xs">{stat.label}</p>
-                </div>
-              ))}
-            </section>
-
-            {program.description && (
-              <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground" data-testid="text-program-description">
-                {program.description}
-              </p>
-            )}
 
             {isLocked && (
               <Card className="border-amber-500/40 bg-amber-500/5" data-testid="card-program-locked">
@@ -237,12 +179,20 @@ export default function ProgramDetailPage() {
 
             {!isLocked && (
               <section>
-                <div className="mb-3 flex items-end justify-between gap-4">
-                  <div>
-                    <h2 className="text-2xl font-bold tracking-tight">{totalDays} days to better mechanics</h2>
-                    <p className="mt-1 text-sm text-muted-foreground">Pick a day to watch the lesson and open the workout.</p>
-                  </div>
-                  {enrollment && <span className="shrink-0 text-xs font-medium text-muted-foreground">{pct}% complete</span>}
+                <div className="mb-3 flex items-center justify-between gap-4">
+                  <h2 className="text-2xl font-bold tracking-tight">{totalDays} days</h2>
+                  {!enrollment && (
+                    <Button
+                      size="sm"
+                      className="border-0"
+                      style={{ background: accent, color: "white" }}
+                      onClick={() => enroll.mutate()}
+                      disabled={enroll.isPending}
+                      data-testid="button-enroll"
+                    >
+                      {enroll.isPending ? "Starting…" : "Start Course"}
+                    </Button>
+                  )}
                 </div>
                 <CourseDayPlan
                   items={items}
