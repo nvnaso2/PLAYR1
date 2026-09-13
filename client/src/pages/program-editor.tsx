@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -237,19 +237,11 @@ export default function ProgramEditorPage() {
         </div>
 
         <div className="space-y-1">
-          <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Cover Image URL</label>
-          <Input
+          <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Cover image</label>
+          <ProgramCoverPicker
             value={meta.coverImageUrl ?? ""}
-            onChange={(e) => setMeta({ ...meta, coverImageUrl: e.target.value })}
-            className="bg-background border-border h-12"
-            placeholder="https://…"
-            data-testid="input-program-cover-url"
+            onChange={(value) => setMeta({ ...meta, coverImageUrl: value })}
           />
-          {meta.coverImageUrl && (
-            <div className="mt-2 rounded-lg overflow-hidden border border-border h-28">
-              <img src={meta.coverImageUrl} alt="Cover" className="w-full h-full object-cover" />
-            </div>
-          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -387,6 +379,8 @@ export default function ProgramEditorPage() {
 
 function ProgramCoverPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const { toast } = useToast();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const { uploadFile, isUploading, progress } = useUpload({
     onSuccess: (resp) => {
       onChange(resp.objectPath);
@@ -395,46 +389,102 @@ function ProgramCoverPicker({ value, onChange }: { value: string; onChange: (v: 
     onError: (err) => toast({ title: "Upload failed", description: err.message, variant: "destructive" }),
   });
 
-  const pickFile = () => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = "image/*";
-    input.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) return;
-      if (!file.type.startsWith("image/")) {
-        toast({ title: "Please choose an image file", variant: "destructive" });
-        return;
-      }
-      await uploadFile(file);
-    };
-    input.click();
+  const handleFile = async (file?: File) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Please choose an image file", variant: "destructive" });
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: "Image is too large", description: "Choose an image under 10 MB.", variant: "destructive" });
+      return;
+    }
+    await uploadFile(file);
+  };
+
+  const pickFile = () => inputRef.current?.click();
+
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsDragging(false);
+    void handleFile(event.dataTransfer.files?.[0]);
   };
 
   return (
     <div className="space-y-2">
       {value ? (
-        <div className="relative rounded-md overflow-hidden border h-24 bg-muted" data-testid="preview-program-cover">
-          <img src={value} alt="Cover" className="w-full h-full object-cover" />
-          <Button type="button" size="icon" variant="secondary" className="absolute top-1 right-1 h-7 w-7"
-            onClick={() => onChange("")} data-testid="button-clear-program-cover">
-            <X className="w-3.5 h-3.5" />
+        <div className="relative overflow-hidden rounded-lg border border-border bg-muted" data-testid="preview-program-cover">
+          <img src={value} alt="Cover" className="h-32 w-full object-cover" />
+          <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-black/60 px-3 py-2 text-xs text-white">
+            <span className="truncate">Cover image selected</span>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="h-7 shrink-0 px-2 text-xs"
+              onClick={pickFile}
+              disabled={isUploading}
+              data-testid="button-replace-program-cover"
+            >
+              Replace
+            </Button>
+          </div>
+          <Button
+            type="button"
+            size="icon"
+            variant="secondary"
+            className="absolute right-2 top-2 h-7 w-7"
+            onClick={() => onChange("")}
+            data-testid="button-clear-program-cover"
+            aria-label="Remove cover image"
+          >
+            <X className="h-3.5 w-3.5" />
           </Button>
         </div>
       ) : (
-        <div className="rounded-md border border-dashed h-24 flex items-center justify-center text-xs text-muted-foreground">
-          No cover yet
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={pickFile}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              pickFile();
+            }
+          }}
+          onDragOver={(event) => {
+            event.preventDefault();
+            setIsDragging(true);
+          }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={handleDrop}
+          className={`flex min-h-32 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed px-5 py-6 text-center transition-colors ${
+            isDragging ? "border-primary bg-primary/10" : "border-border bg-background hover:border-primary/60 hover:bg-primary/[0.03]"
+          }`}
+          data-testid="dropzone-program-cover"
+        >
+          <Upload className={`mb-2 h-5 w-5 ${isDragging ? "text-primary" : "text-muted-foreground"}`} />
+          <p className="text-sm font-medium">{isDragging ? "Drop image to upload" : "Drop a cover image here"}</p>
+          <p className="mt-1 text-xs text-muted-foreground">or click to browse Downloads and other files</p>
+          <p className="mt-2 text-[11px] text-muted-foreground">PNG, JPG, or WebP · up to 10 MB</p>
         </div>
       )}
-      <div className="flex gap-2">
-        <Button type="button" variant="outline" size="sm" onClick={pickFile} disabled={isUploading}
-          data-testid="button-upload-program-cover">
-          <Upload className="w-3.5 h-3.5 mr-1" />
-          {isUploading ? `Uploading ${progress}%` : "Upload image"}
-        </Button>
-        <Input id="cover" value={value} onChange={(e) => onChange(e.target.value)}
-          placeholder="…or paste URL" className="flex-1" data-testid="input-program-cover" />
-      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        className="hidden"
+        onChange={(event) => {
+          void handleFile(event.target.files?.[0]);
+          event.target.value = "";
+        }}
+        data-testid="input-program-cover-file"
+      />
+      {isUploading && (
+        <p className="text-xs text-muted-foreground" role="status">
+          Uploading cover image… {progress}%
+        </p>
+      )}
     </div>
   );
 }
