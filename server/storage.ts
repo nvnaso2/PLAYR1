@@ -13,6 +13,8 @@ import {
   LOCATION_CLASSIFICATIONS, type ShotLocation,
   workouts, type Workout, type InsertWorkout,
   workoutDrills, type WorkoutDrill, type InsertWorkoutDrill,
+  customWorkoutRequests, type CustomWorkoutRequest, type InsertCustomWorkoutRequest,
+  customWorkoutAssignments, type CustomWorkoutAssignment, type InsertCustomWorkoutAssignment,
   careerProfiles, type CareerProfile, type InsertCareerProfile,
   careerAchievements, type CareerAchievement, type InsertCareerAchievement,
   userAchievements, type UserAchievement, type InsertUserAchievement,
@@ -149,6 +151,25 @@ export interface IStorage {
   createTrainingLog(log: InsertTrainingLog): Promise<TrainingLog>;
   updateTrainingLog(id: string, updates: Partial<InsertTrainingLog>): Promise<TrainingLog>;
   deleteTrainingLog(id: string): Promise<boolean>;
+
+  // Custom workout requests
+  getCustomWorkoutRequestsForPlayer(userId: string): Promise<any[]>;
+  getCustomWorkoutAssignmentsForPlayer(userId: string): Promise<any[]>;
+  getDirectCustomWorkoutAssignmentQueue(): Promise<any[]>;
+  getCustomWorkoutRequestById(id: string): Promise<any | undefined>;
+  getCustomWorkoutRequestQueue(): Promise<any[]>;
+  getActiveCustomWorkoutRequest(userId: string): Promise<CustomWorkoutRequest | undefined>;
+  createCustomWorkoutRequest(request: InsertCustomWorkoutRequest): Promise<CustomWorkoutRequest>;
+  updateCustomWorkoutRequestStatus(id: string, status: string, updates?: { adminNotes?: string | null; declineReason?: string | null }): Promise<CustomWorkoutRequest | undefined>;
+  createCustomWorkoutAssignment(input: {
+    requestId?: string | null;
+    playerId: string;
+    assignedBy: string;
+    workout: InsertWorkout;
+    drills: WorkoutDrillInput[];
+    notes?: string | null;
+  }): Promise<{ request: CustomWorkoutRequest; assignment: CustomWorkoutAssignment; workout: Workout }>;
+  completeCustomWorkoutAssignment(userId: string, workoutId: string): Promise<CustomWorkoutAssignment | undefined>;
 
   // User Profiles
   getUserProfile(userId: string): Promise<UserProfile | undefined>;
@@ -1098,6 +1119,194 @@ export class DatabaseStorage {
   async deleteTrainingLog(id: string): Promise<boolean> {
     const result = await db.delete(trainingLogs).where(eq(trainingLogs.id, id));
     return (result.rowCount ?? 0) > 0;
+  }
+
+  // Custom workout requests
+  async getCustomWorkoutRequestsForPlayer(userId: string): Promise<any[]> {
+    const requests = await db.select().from(customWorkoutRequests)
+      .where(eq(customWorkoutRequests.userId, userId))
+      .orderBy(desc(customWorkoutRequests.createdAt));
+    return Promise.all(requests.map(async (request) => this.getCustomWorkoutRequestById(request.id)));
+  }
+
+  async getCustomWorkoutAssignmentsForPlayer(userId: string): Promise<any[]> {
+    const assignments = await db.select().from(customWorkoutAssignments)
+      .where(eq(customWorkoutAssignments.playerId, userId))
+      .orderBy(desc(customWorkoutAssignments.createdAt));
+    return Promise.all(assignments.map(async (assignment) => ({
+      ...assignment,
+      workout: await this.getWorkoutWithDrills(assignment.workoutId),
+    })));
+  }
+
+  async getDirectCustomWorkoutAssignmentQueue(): Promise<any[]> {
+    const assignments = await db.select().from(customWorkoutAssignments)
+      .where(isNull(customWorkoutAssignments.requestId))
+      .orderBy(desc(customWorkoutAssignments.createdAt));
+    return Promise.all(assignments.map(async (assignment) => {
+      const [player] = await db.select({
+        id: users.id,
+        email: users.email,
+        firstName: users.firstName,
+        lastName: users.lastName,
+      }).from(users).where(eq(users.id, assignment.playerId));
+      return {
+        ...assignment,
+        player: player || null,
+        workout: await this.getWorkoutWithDrills(assignment.workoutId),
+      };
+    }));
+  }
+
+  async getCustomWorkoutRequestById(id: string): Promise<any | undefined> {
+    const [request] = await db.select().from(customWorkoutRequests)
+      .where(eq(customWorkoutRequests.id, id));
+    if (!request) return undefined;
+
+    const [[player], [profile], [career], [assignment]] = await Promise.all([
+      db.select({
+        id: users.id,
+        email: users.email,
+        firstName: users.firstName,
+        lastName: users.lastName,
+      }).from(users).where(eq(users.id, request.userId)),
+      db.select().from(userProfiles).where(eq(userProfiles.userId, request.userId)),
+      db.select().from(careerProfiles).where(eq(careerProfiles.userId, request.userId)),
+      db.select().from(customWorkoutAssignments)
+        .where(eq(customWorkoutAssignments.requestId, request.id)),
+    ]);
+    const workout = assignment ? await this.getWorkoutWithDrills(assignment.workoutId) : undefined;
+    return {
+      ...request,
+      player: player ? { ...player, profile, career } : null,
+      assignment: assignment || null,
+      workout: workout || null,
+    };
+  }
+
+  async getCustomWorkoutRequestQueue(): Promise<any[]> {
+    const requests = await db.select({ id: customWorkoutRequests.id })
+      .from(customWorkoutRequests)
+      .orderBy(asc(customWorkoutRequests.status), desc(customWorkoutRequests.createdAt));
+    return Promise.all(requests.map(({ id }) => this.getCustomWorkoutRequestById(id)));
+  }
+
+  async getActiveCustomWorkoutRequest(userId: string): Promise<CustomWorkoutRequest | undefined> {
+    const [request] = await db.select().from(customWorkoutRequests)
+      .where(and(
+        eq(customWorkoutRequests.userId, userId),
+        inArray(customWorkoutRequests.status, ["submitted", "in_progress", "assigned"]),
+      ))
+      .orderBy(desc(customWorkoutRequests.createdAt))
+      .limit(1);
+    return request;
+  }
+
+  async createCustomWorkoutRequest(request: InsertCustomWorkoutRequest): Promise<CustomWorkoutRequest> {
+    const [created] = await db.insert(customWorkoutRequests).values(request).returning();
+    return created;
+  }
+
+  async updateCustomWorkoutRequestStatus(
+    id: string,
+    status: string,
+    updates: { adminNotes?: string | null; declineReason?: string | null } = {},
+  ): Promise<CustomWorkoutRequest | undefined> {
+    const [updated] = await db.update(customWorkoutRequests)
+      .set({
+        status: status as CustomWorkoutRequest["status"],
+        ...updates,
+        ...(status === "in_progress" ? { startedAt: new Date() } : {}),
+        ...(status === "completed" ? { completedAt: new Date() } : {}),
+        updatedAt: new Date(),
+      })
+      .where(eq(customWorkoutRequests.id, id))
+      .returning();
+    return updated;
+  }
+
+  async createCustomWorkoutAssignment(input: {
+    requestId: string;
+    playerId: string;
+    assignedBy: string;
+    workout: InsertWorkout;
+    drills: WorkoutDrillInput[];
+    notes?: string | null;
+  }): Promise<{ request: CustomWorkoutRequest; assignment: CustomWorkoutAssignment; workout: Workout }> {
+    return db.transaction(async (tx) => {
+      const [workout] = await tx.insert(workouts).values(input.workout as any).returning();
+      const drillValues = input.drills.map((entry, index) => ({
+        workoutId: workout.id,
+        drillId: entry.drillId,
+        sortOrder: entry.sortOrder ?? index,
+        defaultDuration: entry.defaultDuration ?? null,
+        defaultSets: entry.defaultSets ?? null,
+        defaultReps: entry.defaultReps ?? null,
+        coachingNotes: entry.coachingNotes ?? null,
+      }));
+      await tx.insert(workoutDrills).values(drillValues);
+      const [assignment] = await tx.insert(customWorkoutAssignments).values({
+        requestId: input.requestId,
+        playerId: input.playerId,
+        assignedBy: input.assignedBy,
+        workoutId: workout.id,
+        notes: input.notes ?? null,
+        status: "assigned",
+      }).returning();
+      const [request] = await tx.update(customWorkoutRequests)
+        .set({ status: "assigned", updatedAt: new Date() })
+        .where(eq(customWorkoutRequests.id, input.requestId))
+        .returning();
+      return { request, assignment, workout };
+    });
+  }
+
+  async createDirectCustomWorkoutAssignment(input: {
+    playerId: string;
+    assignedBy: string;
+    workout: InsertWorkout;
+    drills: WorkoutDrillInput[];
+    notes?: string | null;
+  }): Promise<{ request: null; assignment: CustomWorkoutAssignment; workout: Workout }> {
+    return db.transaction(async (tx) => {
+      const [workout] = await tx.insert(workouts).values(input.workout as any).returning();
+      const drillValues = input.drills.map((entry, index) => ({
+        workoutId: workout.id,
+        drillId: entry.drillId,
+        sortOrder: entry.sortOrder ?? index,
+        defaultDuration: entry.defaultDuration ?? null,
+        defaultSets: entry.defaultSets ?? null,
+        defaultReps: entry.defaultReps ?? null,
+        coachingNotes: entry.coachingNotes ?? null,
+      }));
+      await tx.insert(workoutDrills).values(drillValues);
+      const [assignment] = await tx.insert(customWorkoutAssignments).values({
+        requestId: null,
+        playerId: input.playerId,
+        assignedBy: input.assignedBy,
+        workoutId: workout.id,
+        notes: input.notes ?? null,
+        status: "assigned",
+      }).returning();
+      return { request: null, assignment, workout };
+    });
+  }
+
+  async completeCustomWorkoutAssignment(userId: string, workoutId: string): Promise<CustomWorkoutAssignment | undefined> {
+    const [assignment] = await db.update(customWorkoutAssignments)
+      .set({ status: "completed", completedAt: new Date(), updatedAt: new Date() })
+      .where(and(
+        eq(customWorkoutAssignments.playerId, userId),
+        eq(customWorkoutAssignments.workoutId, workoutId),
+        eq(customWorkoutAssignments.status, "assigned"),
+      ))
+      .returning();
+    if (assignment?.requestId) {
+      await db.update(customWorkoutRequests)
+        .set({ status: "completed", completedAt: new Date(), updatedAt: new Date() })
+        .where(and(eq(customWorkoutRequests.id, assignment.requestId), eq(customWorkoutRequests.status, "assigned")));
+    }
+    return assignment;
   }
 
   // User Profiles

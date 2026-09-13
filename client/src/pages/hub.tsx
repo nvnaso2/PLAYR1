@@ -720,11 +720,12 @@ export default function HubPage() {
             </div>
             <Dumbbell className="w-5 h-5 text-orange-400" />
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
             {[
               { label: "Log a session", detail: "Track today's work", path: "/log", icon: Dumbbell, testId: "button-start-log" },
               { label: "Start a program", detail: "Follow a plan", path: "/programs", icon: Layers3, testId: "button-start-program" },
               { label: "Drill library", detail: "Find your next drill", path: "/drills", icon: BookOpen, testId: "button-start-drills" },
+              { label: "Custom workout", detail: "Request a session built for you", path: "/custom-workouts", icon: ClipboardCheck, testId: "button-start-custom-workout" },
             ].map(({ label, detail, path, icon: Icon, testId }) => (
               <button
                 key={path}

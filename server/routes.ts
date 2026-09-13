@@ -23,7 +23,7 @@ import {
 import { sendPushNotification, getVapidPublicKey } from "./push";
 import { ensureOnboardingSchema, getDiagnosticSummary, getFixCategory, validateMicroQuizPayload } from "./onboarding";
 import { getMicroQuiz } from "@shared/micro-quizzes";
- import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, playerProfiles, drills, trainingLogs, trainingLogMetrics, feedbackComments, insertProgramSchema, insertProgramItemSchema, insertEventSchema, events, insertStatChallengeSchema, programEnrollments, coachPUsage, friendships, userFollows, analyticsEvents, FRIEND_ACTIVITY_TYPES, type FriendActivityType } from "@shared/schema";
+ import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, playerProfiles, drills, trainingLogs, trainingLogMetrics, feedbackComments, insertProgramSchema, insertProgramItemSchema, insertEventSchema, events, insertStatChallengeSchema, programEnrollments, coachPUsage, friendships, userFollows, analyticsEvents, FRIEND_ACTIVITY_TYPES, type FriendActivityType, CUSTOM_WORKOUT_REQUEST_STATUSES } from "@shared/schema";
 import { getUncachableStripeClient } from "./stripeClient";
 import { WebhookHandlers } from "./webhookHandlers";
 import { JOURNAL_PROMPTS } from "@shared/journalPrompts";
@@ -36,6 +36,7 @@ import {
   type CoachPWorkoutPreview,
 } from "./coach-p-workouts";
 import type { WorkoutDrillInput } from "./storage";
+import { canTransitionCustomWorkoutRequest, hasUniqueDrillIds, isPlayr1CatalogDrill } from "./custom-workout";
 
 const COACH_P_ARCHETYPE_GUIDANCE: Record<string, string> = {
   "Sharpshooter": "Your shot isn't just a skill, it's a weapon defenses have to respect every second you're on the floor. My job is making sure you can get that shot off in more ways than standing still waiting for a pass.",
@@ -2600,6 +2601,232 @@ ${JSON.stringify(catalogForPrompt)}
 
   // ===== WORKOUTS =====
 
+  // ===== CUSTOM WORKOUT REQUESTS =====
+  // This is intentionally separate from support messages and trainer mode. A
+  // request belongs to exactly one player and an assignment can only target
+  // that same player.
+  app.get("/api/custom-workout-requests", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const eligible = await hasProAccess(userId);
+      const requests = eligible ? await storage.getCustomWorkoutRequestsForPlayer(userId) : [];
+      const assignments = eligible ? await storage.getCustomWorkoutAssignmentsForPlayer(userId) : [];
+      res.json({ eligible, requests, assignments });
+    } catch (error) {
+      console.error("Error fetching custom workout requests:", error);
+      res.status(500).json({ message: "Failed to fetch custom workout requests" });
+    }
+  });
+
+  app.post("/api/custom-workout-requests", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      if (!(await hasProAccess(userId))) {
+        return res.status(403).json({ message: "Custom workouts are available with an active PLAYR1 Pro subscription." });
+      }
+      if (await storage.getActiveCustomWorkoutRequest(userId)) {
+        return res.status(409).json({ message: "You already have an active custom-workout request." });
+      }
+      const parsed = z.object({
+        improvementFocus: z.string().trim().min(3).max(1000),
+        desiredOutcome: z.string().trim().min(3).max(1000),
+        availableTime: z.number().int().min(5).max(240),
+        equipmentConstraints: z.string().trim().min(1).max(1000),
+        additionalNotes: z.string().trim().max(2000).optional().nullable(),
+      }).safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Please complete each custom-workout request field.", errors: parsed.error.flatten() });
+      }
+      const request = await storage.createCustomWorkoutRequest({
+        userId,
+        ...parsed.data,
+        additionalNotes: parsed.data.additionalNotes || null,
+      });
+      res.status(201).json(request);
+    } catch (error) {
+      console.error("Error creating custom workout request:", error);
+      res.status(500).json({ message: "Failed to create custom workout request" });
+    }
+  });
+
+  app.get("/api/admin/custom-workout-requests", isAuthenticated, isAdmin, async (_req: AuthenticatedRequest, res) => {
+    try {
+      res.json(await storage.getCustomWorkoutRequestQueue());
+    } catch (error) {
+      console.error("Error fetching custom workout request queue:", error);
+      res.status(500).json({ message: "Failed to fetch custom workout requests" });
+    }
+  });
+
+  app.get("/api/admin/custom-workout-assignments", isAuthenticated, isAdmin, async (_req: AuthenticatedRequest, res) => {
+    try {
+      res.json(await storage.getDirectCustomWorkoutAssignmentQueue());
+    } catch (error) {
+      console.error("Error fetching direct custom workout assignments:", error);
+      res.status(500).json({ message: "Failed to fetch direct custom workout assignments" });
+    }
+  });
+
+  app.get("/api/admin/custom-workout-requests/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const request = await storage.getCustomWorkoutRequestById(req.params.id);
+      if (!request) return res.status(404).json({ message: "Custom workout request not found" });
+      res.json(request);
+    } catch (error) {
+      console.error("Error fetching custom workout request:", error);
+      res.status(500).json({ message: "Failed to fetch custom workout request" });
+    }
+  });
+
+  app.patch("/api/admin/custom-workout-requests/:id/status", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const request = await storage.getCustomWorkoutRequestById(req.params.id);
+      if (!request) return res.status(404).json({ message: "Custom workout request not found" });
+      const parsed = z.object({
+        status: z.enum(CUSTOM_WORKOUT_REQUEST_STATUSES),
+        adminNotes: z.string().trim().max(2000).optional().nullable(),
+        declineReason: z.string().trim().max(1000).optional().nullable(),
+      }).safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid request status.", errors: parsed.error.flatten() });
+      const { status, adminNotes, declineReason } = parsed.data;
+      if (!canTransitionCustomWorkoutRequest(request.status, status)) {
+        return res.status(409).json({ message: `Cannot move a ${request.status} request to ${status}.` });
+      }
+      if (status === "completed") {
+        return res.status(409).json({ message: "A request is completed when the player finishes its assigned workout." });
+      }
+      if (status === "declined" && !declineReason) {
+        return res.status(400).json({ message: "A decline reason is required." });
+      }
+      const updated = await storage.updateCustomWorkoutRequestStatus(req.params.id, status, {
+        adminNotes: adminNotes ?? request.adminNotes ?? null,
+        declineReason: status === "declined" ? declineReason : null,
+      });
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating custom workout request status:", error);
+      res.status(500).json({ message: "Failed to update custom workout request status" });
+    }
+  });
+
+  app.post("/api/admin/custom-workout-requests/:id/assignment", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const adminId = req.user.claims.sub;
+      const request = await storage.getCustomWorkoutRequestById(req.params.id);
+      if (!request) return res.status(404).json({ message: "Custom workout request not found" });
+      if (!["submitted", "in_progress"].includes(request.status)) {
+        return res.status(409).json({ message: "Only an active, unassigned request can receive a workout." });
+      }
+      if (request.assignment) return res.status(409).json({ message: "This request already has an assignment." });
+
+      const parsed = z.object({
+        name: z.string().trim().min(1).max(120),
+        description: z.string().trim().max(2000).optional().nullable(),
+        category: z.string().trim().max(80).optional().nullable(),
+        estimatedDuration: z.number().int().min(1).max(240).optional().nullable(),
+        drills: z.array(z.object({
+          drillId: z.string().min(1),
+          sortOrder: z.number().int().min(0).optional(),
+          defaultDuration: z.number().int().min(1).max(240).optional().nullable(),
+          defaultSets: z.number().int().min(1).max(20).optional().nullable(),
+          defaultReps: z.number().int().min(1).max(500).optional().nullable(),
+          coachingNotes: z.string().trim().max(500).optional().nullable(),
+        })).min(1).max(50),
+        notes: z.string().trim().max(2000).optional().nullable(),
+      }).safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid workout assignment.", errors: parsed.error.flatten() });
+
+      const drillIds = parsed.data.drills.map((drill) => drill.drillId);
+      if (!hasUniqueDrillIds(drillIds)) {
+        return res.status(400).json({ message: "A workout cannot contain the same drill twice." });
+      }
+      const catalogDrills = await Promise.all(drillIds.map((id) => storage.getDrillById(id)));
+      if (catalogDrills.some((drill) => !isPlayr1CatalogDrill(drill))) {
+        return res.status(400).json({ message: "Assignments may only use existing PLAYR1 drills." });
+      }
+      const result = await storage.createCustomWorkoutAssignment({
+        requestId: request.id,
+        playerId: request.userId,
+        assignedBy: adminId,
+        workout: {
+          name: parsed.data.name,
+          description: parsed.data.description || null,
+          category: parsed.data.category || null,
+          estimatedDuration: parsed.data.estimatedDuration ?? null,
+          userId: request.userId,
+          isFavorite: false,
+        },
+        drills: parsed.data.drills,
+        notes: parsed.data.notes || null,
+      });
+      sendPushNotification(request.userId, {
+        title: "Your custom workout is ready",
+        body: "Your PLAYR1 custom workout is ready to start.",
+        url: `/log?workoutId=${encodeURIComponent(result.workout.id)}`,
+      }).catch(() => {});
+      res.status(201).json(result);
+    } catch (error) {
+      console.error("Error assigning custom workout:", error);
+      res.status(500).json({ message: "Failed to assign custom workout" });
+    }
+  });
+
+  app.post("/api/admin/custom-workout-assignments", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const adminId = req.user.claims.sub;
+      const parsed = z.object({
+        playerId: z.string().min(1),
+        name: z.string().trim().min(1).max(120),
+        description: z.string().trim().max(2000).optional().nullable(),
+        estimatedDuration: z.number().int().min(1).max(240).optional().nullable(),
+        notes: z.string().trim().max(2000).optional().nullable(),
+        drills: z.array(z.object({
+          drillId: z.string().min(1),
+          sortOrder: z.number().int().min(0).optional(),
+          defaultDuration: z.number().int().min(1).max(240).optional().nullable(),
+          defaultSets: z.number().int().min(1).max(20).optional().nullable(),
+          defaultReps: z.number().int().min(1).max(500).optional().nullable(),
+          coachingNotes: z.string().trim().max(500).optional().nullable(),
+        })).min(1).max(50),
+      }).safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid direct workout.", errors: parsed.error.flatten() });
+
+      const player = await storage.getUser(parsed.data.playerId);
+      if (!player) return res.status(404).json({ message: "Player not found." });
+      const drillIds = parsed.data.drills.map((drill) => drill.drillId);
+      if (!hasUniqueDrillIds(drillIds)) {
+        return res.status(400).json({ message: "A workout cannot contain the same drill twice." });
+      }
+      const catalogDrills = await Promise.all(drillIds.map((id) => storage.getDrillById(id)));
+      if (catalogDrills.some((drill) => !isPlayr1CatalogDrill(drill))) {
+        return res.status(400).json({ message: "Assignments may only use existing PLAYR1 drills." });
+      }
+
+      const result = await storage.createDirectCustomWorkoutAssignment({
+        playerId: player.id,
+        assignedBy: adminId,
+        workout: {
+          name: parsed.data.name,
+          description: parsed.data.description || null,
+          estimatedDuration: parsed.data.estimatedDuration ?? null,
+          userId: player.id,
+          isFavorite: false,
+        },
+        drills: parsed.data.drills,
+        notes: parsed.data.notes || null,
+      });
+      sendPushNotification(player.id, {
+        title: "A custom workout is ready",
+        body: "A PLAYR1 custom workout was built for you and is ready to start.",
+        url: `/log?workoutId=${encodeURIComponent(result.workout.id)}`,
+      }).catch(() => {});
+      res.status(201).json(result);
+    } catch (error) {
+      console.error("Error creating direct custom workout:", error);
+      res.status(500).json({ message: "Failed to create custom workout" });
+    }
+  });
+
   // Get Handlz (admin) workouts
   app.get("/api/workouts/handlz", async (req, res) => {
     try {
@@ -3050,6 +3277,7 @@ ${JSON.stringify(catalogForPrompt)}
   app.post("/api/training-logs", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
+      const workoutId = typeof req.body.workoutId === "string" ? req.body.workoutId : null;
       const data = insertTrainingLogSchema.parse({ ...req.body, userId });
       if (data.shotsMade !== undefined && data.shotsAttempted !== undefined &&
           data.shotsMade !== null && data.shotsAttempted !== null &&
@@ -3081,6 +3309,9 @@ ${JSON.stringify(catalogForPrompt)}
             console.log(`[AutoComplete] Marked ${toComplete.length} assignment(s) complete for user ${userId}, drill ${log.drillId}`);
           }
         } catch (e) { console.error("Auto-complete assignment error:", e); }
+      }
+      if (workoutId) {
+        try { await storage.completeCustomWorkoutAssignment(userId, workoutId); } catch (e) { console.error("Custom workout completion error:", e); }
       }
 
       // Award archetype XP (fire-and-forget)
@@ -3125,7 +3356,7 @@ ${JSON.stringify(catalogForPrompt)}
   app.post("/api/training-logs/bulk", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { entries } = req.body;
+      const { entries, workoutId } = req.body;
       if (!Array.isArray(entries) || entries.length === 0) {
         return res.status(400).json({ message: "entries must be a non-empty array" });
       }
@@ -3177,6 +3408,9 @@ ${JSON.stringify(catalogForPrompt)}
         }
         return log;
       }));
+      if (typeof workoutId === "string") {
+        try { await storage.completeCustomWorkoutAssignment(userId, workoutId); } catch (e) { console.error("Custom workout completion error:", e); }
+      }
 
       // Auto-complete daily challenge if any logged drill matches today's challenge
       let streakResult: any = null;

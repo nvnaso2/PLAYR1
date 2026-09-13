@@ -146,6 +146,7 @@ export default function TrainingLogPage() {
   const [workoutEntries, setWorkoutEntries] = useState<WorkoutDrillEntry[]>([]);
   const [workoutMode, setWorkoutMode] = useState<WorkoutMode>("track");
   const [activeWorkoutTemplateId, setActiveWorkoutTemplateId] = useState<string | null>(null);
+  const [activeWorkoutName, setActiveWorkoutName] = useState("Training session");
   const [quickCompletedDrillIds, setQuickCompletedDrillIds] = useState<Set<string>>(new Set());
   const [isCreateDrillOpen, setIsCreateDrillOpen] = useState(() => {
     return new URLSearchParams(searchParams).get('create') === '1';
@@ -946,6 +947,7 @@ export default function TrainingLogPage() {
 
     const entries = entriesArrays.flat();
     setActiveWorkoutTemplateId(null);
+    setActiveWorkoutName("Open training session");
     setWorkoutMode(mode);
     setQuickCompletedDrillIds(new Set());
     setWorkoutEntries(entries);
@@ -1023,6 +1025,7 @@ export default function TrainingLogPage() {
 
     const entries = await buildDrillEntries(drillId, drill);
     setActiveWorkoutTemplateId(null);
+    setActiveWorkoutName(drill.title);
     setWorkoutMode("track");
     setQuickCompletedDrillIds(new Set());
     setWorkoutEntries(entries);
@@ -1068,6 +1071,7 @@ export default function TrainingLogPage() {
 
       setWorkoutMode("track");
       setActiveWorkoutTemplateId(workoutId);
+      setActiveWorkoutName(data.workout.name);
       setQuickCompletedDrillIds(new Set());
       setWorkoutEntries(entries);
       setWorkoutInProgress(true);
@@ -1141,6 +1145,7 @@ export default function TrainingLogPage() {
         return;
       }
       setWorkoutMode(mode);
+      setActiveWorkoutName(entries.length === 1 ? entries[0].drill.title : "Training session");
       setQuickCompletedDrillIds(new Set());
       setWorkoutEntries(entries);
       setWorkoutInProgress(true);
@@ -1413,13 +1418,14 @@ export default function TrainingLogPage() {
 
       const clientDate = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD in local timezone
       const [bulkRes] = await Promise.all([
-        apiRequest("POST", "/api/training-logs/bulk", { entries: bulkEntries, clientDate }),
+        apiRequest("POST", "/api/training-logs/bulk", { entries: bulkEntries, clientDate, workoutId: activeWorkoutTemplateId || undefined }),
         ...challengeRequests,
       ]);
 
       // Immediately invalidate only what the user sees next
       queryClient.invalidateQueries({ queryKey: ['/api/training-logs'] });
       queryClient.invalidateQueries({ queryKey: ['/api/assigned-drills'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/custom-workout-requests'] });
 
       // Compute summary before state is cleared
       const challengeCount = Object.keys(challengeUpdates).length;
@@ -1433,6 +1439,8 @@ export default function TrainingLogPage() {
       startTransition(() => {
         setWorkoutEntries([]);
         setWorkoutInProgress(false);
+        setActiveWorkoutTemplateId(null);
+        setActiveWorkoutName("Training session");
         setWorkoutStartTime(null);
         setDrillStartTimes({});
         setManualDurationMinutes("");
@@ -1540,7 +1548,8 @@ export default function TrainingLogPage() {
     setManualDurationMinutes("");
     setQuickCompletedDrillIds(new Set());
     setWorkoutMode("track");
-        setActiveWorkoutTemplateId(null);
+    setActiveWorkoutTemplateId(null);
+    setActiveWorkoutName("Training session");
     setPendingProgramCompletion(null);
     setActiveView("library");
   };
@@ -1634,6 +1643,9 @@ export default function TrainingLogPage() {
       attempts,
     };
   }, [logs]);
+
+  const sessionDrillCount = new Set(workoutEntries.map((entry) => entry.drillId)).size;
+  const completedDrillCount = quickCompletedDrillIds.size;
 
   // Render drill selection list
   return (
@@ -2850,27 +2862,27 @@ export default function TrainingLogPage() {
 
       {/* Active Workout View — full screen takeover */}
       {activeView === "workout" && workoutInProgress && (
-        <div className="fixed inset-0 z-40 bg-background overflow-y-auto" data-testid="workout-fullscreen">
+        <div className="fixed inset-0 z-40 overflow-y-auto bg-[#050505] [background-image:radial-gradient(circle_at_85%_0%,rgba(249,115,22,0.12),transparent_32%)]" data-testid="workout-fullscreen">
           <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
-        <Card>
-          <CardHeader>
+        <Card className="overflow-hidden border-white/10 bg-zinc-950/90 shadow-2xl shadow-orange-950/20">
+          <CardHeader className="border-b border-white/10 bg-white/[0.025] p-5 sm:p-7">
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div className="flex items-center gap-4 flex-wrap">
                 <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <Play className="w-5 h-5 text-primary" />
-                    Active Workout
+                  <CardTitle className="flex items-center gap-2 text-2xl text-white">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-orange-500 text-black"><Play className="h-4 w-4 fill-current" /></span>
+                    {activeWorkoutName}
                   </CardTitle>
-                  <CardDescription>
-                    {quickWorkoutEntries.length} drill{quickWorkoutEntries.length > 1 ? 's' : ''} in this session
+                  <CardDescription className="mt-2 text-zinc-400">
+                    {sessionDrillCount} drill{sessionDrillCount !== 1 ? 's' : ''} · {workoutMode === "complete" ? `${completedDrillCount} completed` : "Track your work as you go"}
                   </CardDescription>
                 </div>
-                <div className="flex rounded-lg border border-zinc-700 bg-zinc-950 p-1" aria-label="Workout logging mode">
+                <div className="flex rounded-xl border border-white/10 bg-black/30 p-1" aria-label="Workout logging mode">
                   <Button
                     type="button"
                     size="sm"
                     variant="ghost"
-                    className={workoutMode === "complete" ? "bg-white text-black hover:bg-zinc-200 hover:text-black" : "text-zinc-400"}
+                     className={workoutMode === "complete" ? "bg-white text-black hover:bg-zinc-200 hover:text-black" : "text-zinc-400 hover:bg-white/5 hover:text-white"}
                     onClick={() => setWorkoutMode("complete")}
                     aria-pressed={workoutMode === "complete"}
                     data-testid="button-mode-quick-complete"
@@ -2882,7 +2894,7 @@ export default function TrainingLogPage() {
                     type="button"
                     size="sm"
                     variant="ghost"
-                    className={workoutMode === "track" ? "bg-orange-500 text-black hover:bg-orange-400 hover:text-black" : "text-zinc-400"}
+                     className={workoutMode === "track" ? "bg-orange-500 text-black hover:bg-orange-400 hover:text-black" : "text-zinc-400 hover:bg-white/5 hover:text-white"}
                     onClick={() => setWorkoutMode("track")}
                     aria-pressed={workoutMode === "track"}
                     data-testid="button-mode-track-stats"
@@ -2892,9 +2904,9 @@ export default function TrainingLogPage() {
                   </Button>
                 </div>
                 {/* Single workout elapsed timer — auto-starts when workout begins */}
-                <div className="flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-lg px-3 py-1.5" data-testid="workout-elapsed-timer">
-                  <Timer className="w-4 h-4 text-primary" />
-                  <span className="font-mono text-lg font-bold text-primary tabular-nums">{workoutElapsed}</span>
+                <div className="flex items-center gap-2 rounded-xl border border-orange-400/20 bg-orange-400/10 px-3 py-2" data-testid="workout-elapsed-timer">
+                  <Timer className="h-4 w-4 text-orange-300" />
+                  <span className="font-mono text-lg font-bold tabular-nums text-orange-200">{workoutElapsed}</span>
                 </div>
                 {/* Manual override — lets user correct the time if timer was started late */}
                 <div className="flex items-center gap-1.5" title="Override session duration if timer was inaccurate">
@@ -2905,14 +2917,14 @@ export default function TrainingLogPage() {
                     placeholder="Override min"
                     value={manualDurationMinutes}
                     onChange={e => setManualDurationMinutes(e.target.value)}
-                    className="w-24 h-8 rounded-md border border-zinc-700 bg-zinc-900 text-white text-sm px-2 tabular-nums focus:outline-none focus:ring-1 focus:ring-primary/60 placeholder:text-zinc-600"
+                    className="h-8 w-24 rounded-lg border border-white/10 bg-black/30 px-2 text-sm tabular-nums text-white focus:outline-none focus:ring-1 focus:ring-orange-400/60 placeholder:text-zinc-600"
                     data-testid="input-manual-duration"
                   />
                   <span className="text-xs text-zinc-500">min</span>
                 </div>
               </div>
               <div className="flex gap-2 flex-wrap">
-                <Button variant="outline" onClick={cancelWorkout} className="gap-2" data-testid="button-cancel-workout">
+                <Button variant="outline" onClick={cancelWorkout} className="gap-2 border-white/10 text-zinc-300 hover:bg-white/5 hover:text-white" data-testid="button-cancel-workout">
                   <X className="w-4 h-4" />
                   Cancel
                 </Button>
@@ -3013,16 +3025,16 @@ export default function TrainingLogPage() {
               </div>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-5 sm:p-7">
             {workoutMode === "complete" ? (
               <div className="space-y-4" data-testid="quick-complete-checklist">
-                <div className="rounded-xl border border-white/10 bg-zinc-950 p-4">
+                <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.06] p-4">
                   <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-black">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-400 text-black">
                       <Check className="h-5 w-5" strokeWidth={3} />
                     </div>
                     <div>
-                      <h3 className="font-heading text-base uppercase tracking-wide">Just check off what you finish</h3>
+                       <h3 className="font-heading text-base uppercase tracking-wide text-white">Check off what you finish</h3>
                       <p className="mt-1 text-sm text-muted-foreground">
                         No numbers are required. Checked drills will be saved to History and count toward your training activity.
                       </p>

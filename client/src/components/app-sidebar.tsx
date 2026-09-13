@@ -308,7 +308,7 @@ export function AppSidebar() {
                         >
                           <Link href="/admin/support-messages" onClick={closeSidebar}>
                             <MessageCircle className="w-4 h-4" />
-                            <span className="flex-1">Player Help</span>
+                            <span className="flex-1">Player Inbox</span>
                             {(playerHelpUnread?.unreadCount || 0) > 0 && (
                               <Badge variant="destructive" className="no-default-hover-elevate ml-auto text-[10px]" data-testid="badge-sidebar-player-help-unread">
                                 {playerHelpUnread?.unreadCount}

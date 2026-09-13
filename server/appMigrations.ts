@@ -139,6 +139,45 @@ export async function runApplicationMigrations(): Promise<void> {
         ON coach_p_requests (created_at);
       CREATE INDEX IF NOT EXISTS coach_p_requests_user_created_at_idx
         ON coach_p_requests (user_id, created_at);
+      CREATE TABLE IF NOT EXISTS custom_workout_requests (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id varchar NOT NULL,
+        status varchar NOT NULL DEFAULT 'submitted',
+        improvement_focus text NOT NULL,
+        desired_outcome text NOT NULL,
+        available_time integer NOT NULL,
+        equipment_constraints text NOT NULL,
+        additional_notes text,
+        admin_notes text,
+        decline_reason text,
+        started_at timestamp,
+        completed_at timestamp,
+        created_at timestamp DEFAULT now(),
+        updated_at timestamp DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS custom_workout_requests_user_idx
+        ON custom_workout_requests (user_id, created_at);
+      CREATE INDEX IF NOT EXISTS custom_workout_requests_queue_idx
+        ON custom_workout_requests (status, created_at);
+      CREATE TABLE IF NOT EXISTS custom_workout_assignments (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+         request_id varchar UNIQUE,
+        player_id varchar NOT NULL,
+        assigned_by varchar NOT NULL,
+        workout_id varchar NOT NULL,
+        notes text,
+        status varchar NOT NULL DEFAULT 'assigned',
+        completed_at timestamp,
+        created_at timestamp DEFAULT now(),
+        updated_at timestamp DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS custom_workout_assignments_player_idx
+        ON custom_workout_assignments (player_id, created_at);
+      CREATE INDEX IF NOT EXISTS custom_workout_assignments_workout_idx
+        ON custom_workout_assignments (workout_id);
+       ALTER TABLE custom_workout_requests DROP COLUMN IF EXISTS preferred_schedule;
+       ALTER TABLE custom_workout_assignments DROP COLUMN IF EXISTS due_date;
+       ALTER TABLE custom_workout_assignments ALTER COLUMN request_id DROP NOT NULL;
     `);
     await client.query("COMMIT");
   } catch (error) {

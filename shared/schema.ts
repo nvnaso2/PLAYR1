@@ -556,6 +556,51 @@ export const workoutDrills = pgTable("workout_drills", {
   createdAt: timestamp("created_at").defaultNow()
 });
 
+export const CUSTOM_WORKOUT_REQUEST_STATUSES = [
+  "submitted",
+  "in_progress",
+  "assigned",
+  "completed",
+  "declined",
+] as const;
+export type CustomWorkoutRequestStatus = typeof CUSTOM_WORKOUT_REQUEST_STATUSES[number];
+
+export const customWorkoutRequests = pgTable("custom_workout_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  status: varchar("status").$type<CustomWorkoutRequestStatus>().notNull().default("submitted"),
+  improvementFocus: text("improvement_focus").notNull(),
+  desiredOutcome: text("desired_outcome").notNull(),
+  availableTime: integer("available_time").notNull(),
+  equipmentConstraints: text("equipment_constraints").notNull(),
+  additionalNotes: text("additional_notes"),
+  adminNotes: text("admin_notes"),
+  declineReason: text("decline_reason"),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  byUser: index("custom_workout_requests_user_idx").on(table.userId, table.createdAt),
+  byQueue: index("custom_workout_requests_queue_idx").on(table.status, table.createdAt),
+}));
+
+export const customWorkoutAssignments = pgTable("custom_workout_assignments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  requestId: varchar("request_id").unique(),
+  playerId: varchar("player_id").notNull(),
+  assignedBy: varchar("assigned_by").notNull(),
+  workoutId: varchar("workout_id").notNull(),
+  notes: text("notes"),
+  status: varchar("status").notNull().default("assigned"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  byPlayer: index("custom_workout_assignments_player_idx").on(table.playerId, table.createdAt),
+  byWorkout: index("custom_workout_assignments_workout_idx").on(table.workoutId),
+}));
+
 // Training logs - users track their drill practice
 export const trainingLogs = pgTable("training_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -915,6 +960,12 @@ export const insertDrillMetricSchema = createInsertSchema(drillMetrics).omit({ i
 export const insertTrainingLogMetricSchema = createInsertSchema(trainingLogMetrics).omit({ id: true, createdAt: true });
 export const insertWorkoutSchema = createInsertSchema(workouts).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertWorkoutDrillSchema = createInsertSchema(workoutDrills).omit({ id: true, createdAt: true });
+export const insertCustomWorkoutRequestSchema = createInsertSchema(customWorkoutRequests).omit({
+  id: true, createdAt: true, updatedAt: true, status: true, adminNotes: true, declineReason: true, startedAt: true, completedAt: true,
+});
+export const insertCustomWorkoutAssignmentSchema = createInsertSchema(customWorkoutAssignments).omit({
+  id: true, createdAt: true, updatedAt: true, status: true, completedAt: true,
+});
 export const insertCareerProfileSchema = createInsertSchema(careerProfiles).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertCareerAchievementSchema = createInsertSchema(careerAchievements).omit({ id: true, createdAt: true });
 export const insertUserAchievementSchema = createInsertSchema(userAchievements).omit({ id: true, unlockedAt: true });
@@ -976,6 +1027,10 @@ export type InsertWorkout = z.infer<typeof insertWorkoutSchema>;
 export type Workout = typeof workouts.$inferSelect;
 export type InsertWorkoutDrill = z.infer<typeof insertWorkoutDrillSchema>;
 export type WorkoutDrill = typeof workoutDrills.$inferSelect;
+export type InsertCustomWorkoutRequest = z.infer<typeof insertCustomWorkoutRequestSchema>;
+export type CustomWorkoutRequest = typeof customWorkoutRequests.$inferSelect;
+export type InsertCustomWorkoutAssignment = z.infer<typeof insertCustomWorkoutAssignmentSchema>;
+export type CustomWorkoutAssignment = typeof customWorkoutAssignments.$inferSelect;
 export type InsertCareerProfile = z.infer<typeof insertCareerProfileSchema>;
 export type CareerProfile = typeof careerProfiles.$inferSelect;
 export type InsertCareerAchievement = z.infer<typeof insertCareerAchievementSchema>;

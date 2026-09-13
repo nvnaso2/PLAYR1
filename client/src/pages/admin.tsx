@@ -60,7 +60,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText, Play, ChevronDown, ChevronLeft, GraduationCap, MapPin, ListFilter, Search, Info, X, BarChart2, BarChart3, TrendingUp, TrendingDown, Activity, UserCheck, Wrench, Flame, Lightbulb, Zap, Globe, AlertTriangle, Trophy, Target, GitBranch, Clock, LogIn, ArrowDown, Flag, ToggleLeft, ToggleRight, UserPlus, Copy, RotateCcw, ExternalLink, MessageCircle, MessageSquare, Dumbbell, BookOpen, Sparkles, BadgeCheck, Gauge, type LucideIcon } from "lucide-react";
+import { Plus, Pencil, Trash2, Video, Star, StarOff, ShieldAlert, Users, Shield, Settings2, Calculator, Hash, Upload, Loader2, Film, Ruler, Check, FileText, Play, ChevronDown, ChevronLeft, GraduationCap, MapPin, ListFilter, Search, Info, X, BarChart2, TrendingUp, TrendingDown, Activity, UserCheck, Wrench, Flame, Lightbulb, Zap, Globe, AlertTriangle, Trophy, Target, GitBranch, Clock, LogIn, ArrowDown, Flag, ToggleLeft, ToggleRight, UserPlus, Copy, RotateCcw, ExternalLink, MessageCircle, Dumbbell, type LucideIcon } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, AreaChart, Area, PieChart, Pie, Cell } from "recharts";
 import type { Drill, DrillCategory, DifficultyLevel, DrillMetric, VideoLibrary, PdfLibrary, MetricTemplate, Workout, WorkoutDrill, TrainingLocation, ShotLocationDB, ShotTypeDB } from "@shared/schema";
@@ -2933,10 +2933,6 @@ export default function AdminPage() {
             <BarChart2 className="h-4 w-4 shrink-0" />
             <span>Analytics</span>
           </TabsTrigger>
-          <TabsTrigger value="community-3-pointers" className="gap-2 px-3 py-2 text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-black sm:text-sm" data-testid="tab-community-3-pointers">
-            <Flame className="h-4 w-4 shrink-0" />
-            <span>Community 3 Pointers</span>
-          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="training" className="mt-0">
@@ -4327,16 +4323,6 @@ export default function AdminPage() {
         <TabsContent value="flags" className="space-y-6">
           <FeatureFlagsTab />
         </TabsContent>
-
-        {activeTab === "community-3-pointers" && (
-        <div className="space-y-6">
-          <div>
-            <h2 className="text-xl font-semibold">Community 3 Pointers</h2>
-            <p className="text-sm text-muted-foreground">Review player submissions and community challenge activity.</p>
-          </div>
-          <ChallengeVideosTab />
-        </div>
-        )}
 
       </Tabs>
 
@@ -5984,49 +5970,39 @@ function CoachPAndJournalAnalyticsSubTab() {
 }
 
 function JournalPromptAnalyticsSubTab() {
-  const { data, isLoading, isError, refetch } = useQuery<any>({
-    queryKey: ["/api/admin/analytics/journal"],
+  const { data: prompts, isLoading, isError } = useQuery<Array<{ id: string; category: string; question: string; votes: number }>>({
+    queryKey: ["/api/admin/journal/prompt-analytics"],
   });
-  if (isLoading) {
-    return <div className="space-y-4"><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{[1, 2, 3, 4].map((item) => <Skeleton key={item} className="h-24 rounded-xl" />)}</div><Skeleton className="h-72 rounded-xl" /></div>;
-  }
-  if (isError || !data) {
-    return <Card><CardContent className="p-8 text-center space-y-3"><AlertTriangle className="mx-auto h-8 w-8 text-orange-500" /><p className="font-medium">Couldn’t load Journal analytics</p><Button size="sm" variant="outline" onClick={() => refetch()}>Retry</Button></CardContent></Card>;
-  }
-  const summary = data.summary;
+  const categoryLabel: Record<string, string> = {
+    "post-workout": "Practice / workout",
+    "post-game": "Game",
+    open: "Open",
+  };
+  const totalVotes = prompts?.reduce((sum, prompt) => sum + prompt.votes, 0) || 0;
   return (
     <div className="space-y-6" data-testid="section-journal-prompt-analytics">
       <div>
-        <h2 className="text-lg font-semibold">Journal analytics</h2>
-        <p className="text-sm text-muted-foreground">Saved reflections, Coach P-assisted entries, prompt usage, and the themes players write about most.</p>
+        <h2 className="text-lg font-semibold">Journal prompt preferences</h2>
+        <p className="text-sm text-muted-foreground">See which reflection questions players choose to upvote.</p>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <AccentStatCard label="Saved journal entries" value={summary.totalEntries.toLocaleString()} sub={`${summary.usersWithEntries.toLocaleString()} players have written`} icon={BookOpen} accent="orange" testId="stat-journal-total-entries" />
-        <AccentStatCard label="AI-assisted entries" value={summary.aiAssistedEntries.toLocaleString()} sub={`${summary.totalEntries ? Math.round((summary.aiAssistedEntries / summary.totalEntries) * 100) : 0}% of saved entries`} icon={Sparkles} accent="purple" testId="stat-journal-ai-entries" />
-        <AccentStatCard label="Avg entries per player" value={Number(summary.avgEntriesPerUser || 0).toFixed(1)} sub="among players with an entry" icon={BarChart3} accent="blue" testId="stat-journal-average-entries" />
-        <AccentStatCard label="Players journaling" value={summary.usersWithEntries.toLocaleString()} sub="unique players with saved entries" icon={Users} accent="green" testId="stat-journal-users" />
-      </div>
-      <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-        <Card>
-          <CardHeader><CardTitle className="text-base">Players with the most entries</CardTitle><p className="text-xs text-muted-foreground">Lifetime saved reflections, ranked by player.</p></CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader><TableRow><TableHead className="pl-5">Player</TableHead><TableHead>Email</TableHead><TableHead className="text-right pr-5">Entries</TableHead></TableRow></TableHeader>
-              <TableBody>{(data.topUsers ?? []).map((row: any, index: number) => <TableRow key={row.userId}><TableCell className="pl-5"><span className="mr-2 text-xs text-muted-foreground">#{index + 1}</span><span className="font-medium">{row.name}</span></TableCell><TableCell className="text-muted-foreground">{row.email || "—"}</TableCell><TableCell className="pr-5 text-right font-semibold">{row.entries.toLocaleString()}</TableCell></TableRow>)}</TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle className="text-base">Most-used prompts</CardTitle><p className="text-xs text-muted-foreground">Top four preset reflection questions by saved response.</p></CardHeader>
-          <CardContent className="space-y-4">
-            {(data.promptUsage ?? []).map((row: any, index: number) => <div key={row.promptId}><div className="flex items-start justify-between gap-3"><div className="flex min-w-0 gap-2"><span className="text-xs text-muted-foreground">#{index + 1}</span><p className="text-sm leading-5">{row.question}</p></div><Badge variant="secondary">{row.uses} uses</Badge></div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-gradient-to-r from-orange-500 to-amber-300" style={{ width: `${Math.max(5, (row.uses / Math.max(1, data.promptUsage[0]?.uses || 1)) * 100)}%` }} /></div><p className="mt-1 text-[11px] text-muted-foreground">{row.players} players used this prompt</p></div>)}
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Card><CardContent className="pt-5"><p className="text-xs text-muted-foreground">Total upvotes</p><p className="mt-1 text-2xl font-semibold">{totalVotes}</p></CardContent></Card>
+        <Card><CardContent className="pt-5"><p className="text-xs text-muted-foreground">Questions with votes</p><p className="mt-1 text-2xl font-semibold">{prompts?.filter((prompt) => prompt.votes > 0).length || 0}</p></CardContent></Card>
+        <Card><CardContent className="pt-5"><p className="text-xs text-muted-foreground">Most preferred</p><p className="mt-1 line-clamp-2 text-sm font-medium">{prompts?.find((prompt) => prompt.votes > 0)?.question || "No votes yet"}</p></CardContent></Card>
       </div>
       <Card>
-        <CardHeader><CardTitle className="text-base">Top AI message keywords</CardTitle><p className="text-xs text-muted-foreground">Common development themes in Coach P feedback written for players. Small filler words are excluded.</p></CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
-          {(data.keywords ?? []).map((row: any) => <div key={row.word} className="rounded-full border border-violet-300/20 bg-violet-400/[0.07] px-3 py-2"><span className="font-semibold text-violet-200">{row.word}</span><span className="ml-2 text-xs text-muted-foreground">{row.mentions} mentions · {row.players} players</span></div>)}
+        <CardContent className="pt-5">
+          {isLoading ? <div className="space-y-2">{[1, 2, 3].map((item) => <Skeleton key={item} className="h-12 w-full" />)}</div> : isError ? <p className="py-8 text-center text-sm text-destructive">Couldn’t load Journal prompt analytics.</p> : (
+            <div className="space-y-2">
+              {prompts?.map((prompt, index) => (
+                <div key={prompt.id} className="flex items-start gap-3 rounded-lg border p-3">
+                  <span className="w-6 shrink-0 text-sm text-muted-foreground">#{index + 1}</span>
+                  <div className="min-w-0 flex-1"><p className="text-sm">{prompt.question}</p><p className="mt-1 text-xs text-muted-foreground">{categoryLabel[prompt.category] || prompt.category}</p></div>
+                  <Badge variant={prompt.votes > 0 ? "default" : "outline"}>{prompt.votes} {prompt.votes === 1 ? "upvote" : "upvotes"}</Badge>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
@@ -6039,13 +6015,15 @@ function formatCoachPCost(value: number) {
   return `$${value.toFixed(2)}`;
 }
 
+function formatCoachPTokens(value: number) {
+  return value >= 1_000_000 ? `${(value / 1_000_000).toFixed(2)}M` : value >= 1_000 ? `${(value / 1_000).toFixed(1)}K` : value.toLocaleString();
+}
 function CoachPAnalyticsSubTab() {
   const [days, setDays] = useState("30");
-  const [selectedMetric, setSelectedMetric] = useState<"requests" | "cost" | "latency">("requests");
   const { data, isLoading, isError, refetch } = useQuery<any>({
     queryKey: ["/api/admin/analytics/coach-p", days],
     queryFn: async () => {
-      const response = await apiRequest("GET", `/api/admin/analytics/coach-p?days=${days === "lifetime" ? "365" : days}`);
+      const response = await apiRequest("GET", `/api/admin/analytics/coach-p?days=${days}`);
       return response.json();
     },
   });
@@ -6071,14 +6049,9 @@ function CoachPAnalyticsSubTab() {
     );
   }
 
-  const periods = data.periods ?? [];
-  const selectedPeriodKey = days === "365" ? "year" : days === "lifetime" ? "lifetime" : `${days}d`;
-  const selectedSummary = periods.find((period: any) => period.key === selectedPeriodKey) || data.summary;
-  const selectedWindowLabel = periods.find((period: any) => period.key === selectedPeriodKey)?.label || `${data.windowDays}-day window`;
-  const adoption = data.adoption ?? {};
-  const paidUseRate = adoption.paidUsers ? (adoption.paidUsersUsed / adoption.paidUsers) * 100 : 0;
-  const freeLimitRate = adoption.freeUsers ? (adoption.freeUsersAtLimit / adoption.freeUsers) * 100 : 0;
-  const metricValue = (period: any) => selectedMetric === "requests" ? period.requests.toLocaleString() : selectedMetric === "cost" ? formatCoachPCost(period.estimatedCostUsd) : `${Math.round(period.avgTotalMs).toLocaleString()} ms`;
+  const summary = data.summary;
+  const daily = data.daily ?? [];
+  const maxDailyCost = Math.max(0.0001, ...daily.map((row: any) => Number(row.estimatedCostUsd || 0)));
 
   return (
     <div className="space-y-6" data-testid="section-coach-p-analytics">
@@ -6086,53 +6059,119 @@ function CoachPAnalyticsSubTab() {
         <div>
           <h2 className="text-lg font-semibold">Coach P Usage & Cost</h2>
           <p className="text-sm text-muted-foreground">
-            Requests, provider cost, response time, and player adoption. Click a headline metric to compare it across every reporting window.
+            Provider-cost estimates from recorded token usage. Conversation text is not shown here.
           </p>
         </div>
         <Select value={days} onValueChange={setDays}>
           <SelectTrigger className="w-[150px]" data-testid="select-coach-p-analytics-window"><SelectValue /></SelectTrigger>
           <SelectContent>
-             <SelectItem value="1">Last 1 day</SelectItem>
             <SelectItem value="7">Last 7 days</SelectItem>
             <SelectItem value="30">Last 30 days</SelectItem>
             <SelectItem value="90">Last 90 days</SelectItem>
             <SelectItem value="365">Last year</SelectItem>
-             <SelectItem value="lifetime">Lifetime</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-        <AccentStatCard label="Total requests" value={selectedSummary.requests.toLocaleString()} sub={selectedWindowLabel} icon={Activity} accent="blue" testId="stat-coach-p-requests" onClick={() => setSelectedMetric("requests")} selected={selectedMetric === "requests"} />
-        <AccentStatCard label="Estimated cost" value={formatCoachPCost(selectedSummary.estimatedCostUsd)} sub={selectedWindowLabel} icon={Calculator} accent="orange" testId="stat-coach-p-cost" onClick={() => setSelectedMetric("cost")} selected={selectedMetric === "cost"} />
-        <AccentStatCard label="Avg response time" value={`${Math.round(selectedSummary.avgTotalMs).toLocaleString()} ms`} sub="completed requests" icon={Clock} accent="green" testId="stat-coach-p-latency" onClick={() => setSelectedMetric("latency")} selected={selectedMetric === "latency"} />
+        <AccentStatCard label="Estimated cost" value={formatCoachPCost(summary.estimatedCostUsd)} sub={`${data.windowDays}-day window`} icon={Calculator} accent="orange" testId="stat-coach-p-cost" />
+        <AccentStatCard label="Requests" value={summary.requests.toLocaleString()} sub={`${summary.chatRequests} chats · ${summary.summaryRequests} summaries`} icon={Activity} accent="blue" testId="stat-coach-p-requests" />
+        <AccentStatCard label="Total tokens" value={formatCoachPTokens(summary.totalTokens)} sub={`${formatCoachPTokens(summary.promptTokens)} input · ${formatCoachPTokens(summary.completionTokens)} output`} icon={Hash} accent="purple" testId="stat-coach-p-tokens" />
+        <AccentStatCard label="Avg response" value={`${Math.round(summary.avgTotalMs).toLocaleString()} ms`} sub={`${Math.round(summary.avgModelMs).toLocaleString()} ms model time`} icon={Clock} accent="green" testId="stat-coach-p-latency" />
+        <AccentStatCard label="Errors" value={summary.errorRequests.toLocaleString()} sub={`${summary.completedRequests} completed`} icon={AlertTriangle} accent="orange" testId="stat-coach-p-errors" />
       </div>
 
       <Card>
-        <CardHeader><CardTitle className="text-base">{selectedMetric === "requests" ? "Requests" : selectedMetric === "cost" ? "Estimated cost" : "Average response time"} by reporting window</CardTitle><p className="text-xs text-muted-foreground">Select any of the three headline cards to change this comparison.</p></CardHeader>
-        <CardContent className="space-y-2">
-          {periods.map((period: any) => <div key={period.key} className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 ${period.key === selectedPeriodKey ? "border-orange-300/30 bg-orange-400/[0.06]" : "border-transparent bg-muted/30"}`}><span className="w-24 text-sm font-medium">{period.label}</span><div className="h-2 flex-1 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-gradient-to-r from-orange-500 to-amber-300" style={{ width: `${Math.max(3, (Number(selectedMetric === "requests" ? period.requests : selectedMetric === "cost" ? period.estimatedCostUsd : period.avgTotalMs) / Math.max(1, ...periods.map((item: any) => Number(selectedMetric === "requests" ? item.requests : selectedMetric === "cost" ? item.estimatedCostUsd : item.avgTotalMs)))) * 100)}%` }} /></div><span className="w-24 text-right text-sm font-semibold">{metricValue(period)}</span></div>)}
+        <CardHeader><CardTitle className="text-base">Daily cost and token usage</CardTitle></CardHeader>
+        <CardContent>
+          {daily.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">No Coach P usage recorded in this window yet.</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={260}>
+              <LineChart data={daily.map((row: any) => ({
+                day: new Date(row.day).toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+                cost: Number(row.estimatedCostUsd || 0),
+                tokens: Number(row.totalTokens || 0),
+              }))}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="day" tick={{ fontSize: 11 }} />
+                <YAxis yAxisId="cost" tickFormatter={(value) => `$${Number(value).toFixed(2)}`} tick={{ fontSize: 11 }} />
+                <YAxis yAxisId="tokens" orientation="right" tickFormatter={(value) => formatCoachPTokens(Number(value))} tick={{ fontSize: 11 }} />
+                <Tooltip formatter={(value: any, name: string) => name === "Estimated cost" ? formatCoachPCost(Number(value)) : formatCoachPTokens(Number(value))} />
+                <Line yAxisId="cost" type="monotone" dataKey="cost" name="Estimated cost" stroke="#f97316" strokeWidth={2} dot={false} />
+                <Line yAxisId="tokens" type="monotone" dataKey="tokens" name="Tokens" stroke="#a855f7" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+          {daily.length > 0 && (
+            <div className="mt-4 space-y-2">
+              {daily.slice(-10).reverse().map((row: any) => (
+                <div key={row.day} className="flex items-center gap-3 text-xs">
+                  <span className="w-20 text-muted-foreground">{new Date(row.day).toLocaleDateString()}</span>
+                  <div className="h-2 flex-1 rounded-full bg-muted overflow-hidden">
+                    <div className="h-full rounded-full bg-orange-500" style={{ width: `${Math.max(2, (Number(row.estimatedCostUsd || 0) / maxDailyCost) * 100)}%` }} />
+                  </div>
+                  <span className="w-16 text-right font-medium">{formatCoachPCost(Number(row.estimatedCostUsd || 0))}</span>
+                  <span className="w-16 text-right text-muted-foreground">{formatCoachPTokens(Number(row.totalTokens || 0))}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <AccentStatCard label="Players who used Coach P" value={adoption.usersUsed.toLocaleString()} sub="unique users with a request" icon={Users} accent="blue" testId="stat-coach-p-users" />
-        <AccentStatCard label="Paid users using Coach P" value={`${paidUseRate.toFixed(1)}%`} sub={`${adoption.paidUsersUsed} of ${adoption.paidUsers} paid users`} icon={BadgeCheck} accent="purple" testId="stat-coach-p-paid-adoption" />
-        <AccentStatCard label="Avg paid messages" value={adoption.paidUsers ? (adoption.paidMessages / adoption.paidUsers).toFixed(1) : "0.0"} sub={`${adoption.paidMessages} chat messages across paid users`} icon={MessageSquare} accent="orange" testId="stat-coach-p-paid-messages" />
-        <AccentStatCard label="Free users at monthly limit" value={`${freeLimitRate.toFixed(1)}%`} sub={`${adoption.freeUsersAtLimit} of ${adoption.freeUsers} reached 3 messages`} icon={Gauge} accent="green" testId="stat-coach-p-free-limit" />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader><CardTitle className="text-base">By model</CardTitle></CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader><TableRow><TableHead>Model</TableHead><TableHead>Requests</TableHead><TableHead>Tokens</TableHead><TableHead>Cached input</TableHead><TableHead className="text-right">Cost</TableHead></TableRow></TableHeader>
+              <TableBody>
+                {(data.byModel ?? []).map((row: any) => (
+                  <TableRow key={row.model}>
+                    <TableCell className="font-medium">{row.model}</TableCell>
+                    <TableCell>{row.requests.toLocaleString()}</TableCell>
+                    <TableCell>{formatCoachPTokens(row.totalTokens)}</TableCell>
+                    <TableCell>{formatCoachPTokens(row.cachedPromptTokens || 0)}</TableCell>
+                    <TableCell className="text-right">{formatCoachPCost(row.estimatedCostUsd)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle className="text-base">By coaching context</CardTitle></CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader><TableRow><TableHead>Context</TableHead><TableHead>Requests</TableHead><TableHead>Avg ms</TableHead><TableHead className="text-right">Cost</TableHead></TableRow></TableHeader>
+              <TableBody>
+                {(data.byMode ?? []).map((row: any) => (
+                  <TableRow key={row.mode}>
+                    <TableCell className="font-medium capitalize">{row.mode}</TableCell>
+                    <TableCell>{row.requests.toLocaleString()}</TableCell>
+                    <TableCell>{Math.round(row.avgTotalMs).toLocaleString()}</TableCell>
+                    <TableCell className="text-right">{formatCoachPCost(row.estimatedCostUsd)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>
         <CardHeader><CardTitle className="text-base">Highest Coach P usage by player</CardTitle></CardHeader>
         <CardContent className="p-0">
           <Table>
-            <TableHeader><TableRow><TableHead>Player</TableHead><TableHead>Email</TableHead><TableHead>Requests</TableHead><TableHead className="text-right">Cost</TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead>Player</TableHead><TableHead>Email</TableHead><TableHead>Requests</TableHead><TableHead>Tokens</TableHead><TableHead className="text-right">Cost</TableHead></TableRow></TableHeader>
             <TableBody>
               {(data.topUsers ?? []).map((row: any) => (
                 <TableRow key={row.userId}>
                   <TableCell className="font-medium">{row.name}</TableCell>
                   <TableCell className="text-muted-foreground">{row.email || "—"}</TableCell>
                   <TableCell>{row.requests.toLocaleString()}</TableCell>
+                  <TableCell>{formatCoachPTokens(row.totalTokens)}</TableCell>
                   <TableCell className="text-right">{formatCoachPCost(row.estimatedCostUsd)}</TableCell>
                 </TableRow>
               ))}
@@ -7811,10 +7850,9 @@ function ContentSubTab() {
   );
 }
 
-function AccentStatCard({ label, value, sub, icon: Icon, accent, testId, onClick, selected }: {
+function AccentStatCard({ label, value, sub, icon: Icon, accent, testId }: {
   label: string; value: string; sub: string; icon: LucideIcon;
   accent: "orange" | "blue" | "purple" | "green"; testId?: string;
-  onClick?: () => void; selected?: boolean;
 }) {
   const colorMap = {
     orange: "text-orange-500 bg-orange-500/10",
@@ -7822,7 +7860,8 @@ function AccentStatCard({ label, value, sub, icon: Icon, accent, testId, onClick
     purple: "text-purple-500 bg-purple-500/10",
     green:  "text-green-500 bg-green-500/10",
   };
-  const content = (
+  return (
+    <Card data-testid={testId}>
       <CardContent className="p-4">
         <div className="flex items-start justify-between mb-2">
           <p className="text-xs font-medium text-muted-foreground">{label}</p>
@@ -7833,11 +7872,8 @@ function AccentStatCard({ label, value, sub, icon: Icon, accent, testId, onClick
         <p className="text-2xl font-bold leading-tight">{value}</p>
         <p className="text-[11px] text-muted-foreground mt-1">{sub}</p>
       </CardContent>
+    </Card>
   );
-  if (onClick) {
-    return <button type="button" className={`w-full rounded-xl text-left transition-shadow ${selected ? "ring-2 ring-orange-400/60" : "hover:ring-1 hover:ring-white/20"}`} onClick={onClick} data-testid={testId}><Card>{content}</Card></button>;
-  }
-  return <Card data-testid={testId}>{content}</Card>;
 }
 
 // ─── Live Activity sub-tab ─────────────────────────────────────────────────
