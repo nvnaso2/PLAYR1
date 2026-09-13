@@ -46,6 +46,7 @@ export default function MicroQuizPage() {
         localStorage.removeItem(storageKey);
         await queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
         await queryClient.invalidateQueries({ queryKey: ["/api/onboarding/fix-drills"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/hub/recommendation"] });
         navigate("/hub?onboarding=complete");
       })
       .catch((err: Error) => {

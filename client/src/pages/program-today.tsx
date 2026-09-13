@@ -132,6 +132,7 @@ export default function ProgramTodayPage() {
     onSuccess: (_res, itemId) => {
       queryClient.invalidateQueries({ queryKey: ["/api/programs", slug] });
       queryClient.invalidateQueries({ queryKey: ["/api/programs/me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/hub/recommendation"] });
       track("program_item_complete", { programSlug: slug, itemId });
       toast({ title: "Nice work.", description: "Logged. Keep stacking days." });
     },

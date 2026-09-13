@@ -844,6 +844,7 @@ export default function CoachPPage() {
     onSuccess: (workout) => {
       setSavedWorkoutId(workout.id);
       queryClient.invalidateQueries({ queryKey: ["/api/workouts/personal"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/hub/recommendation"] });
     },
     onError: () => setErrorMessage("That workout could not be saved. Try again."),
   });

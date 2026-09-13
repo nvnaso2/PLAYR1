@@ -1426,6 +1426,7 @@ export default function TrainingLogPage() {
       queryClient.invalidateQueries({ queryKey: ['/api/training-logs'] });
       queryClient.invalidateQueries({ queryKey: ['/api/assigned-drills'] });
       queryClient.invalidateQueries({ queryKey: ['/api/custom-workout-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/hub/recommendation'] });
 
       // Compute summary before state is cleared
       const challengeCount = Object.keys(challengeUpdates).length;
@@ -1479,6 +1480,7 @@ export default function TrainingLogPage() {
           );
           queryClient.invalidateQueries({ queryKey: ["/api/programs"] });
           queryClient.invalidateQueries({ queryKey: ["/api/programs/me"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/hub/recommendation"] });
           toast({ title: "Program day updated", description: "Workout marked complete in your program." });
         } catch (e) {
           // Non-fatal — surface gently so the user can still mark it manually

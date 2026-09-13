@@ -658,6 +658,11 @@ export interface IStorage {
   getProgramById(id: string): Promise<Program | undefined>;
   getProgramItems(programId: string): Promise<ProgramItem[]>;
   getActiveEnrollmentsForUser(userId: string): Promise<Array<ProgramEnrollment & { program: Program; completedItemCount: number; totalItemCount: number }>>;
+  getNextProgramItemsForUser(userId: string): Promise<Array<{
+    enrollment: ProgramEnrollment;
+    program: Program;
+    item: ProgramItem;
+  }>>;
   getEnrollmentById(enrollmentId: string): Promise<ProgramEnrollment | undefined>;
   getEnrollmentForUserAndProgram(userId: string, programId: string): Promise<ProgramEnrollment | undefined>;
   enrollUserInProgram(userId: string, programId: string, opts?: { assignedByTrainerId?: string; eventId?: string }): Promise<ProgramEnrollment>;
@@ -7822,6 +7827,35 @@ export class DatabaseStorage {
       completedItemCount: Number(r.completedItemCount ?? 0),
       totalItemCount: Number(r.totalItemCount ?? 0),
     }));
+  }
+
+  async getNextProgramItemsForUser(userId: string): Promise<Array<{
+    enrollment: ProgramEnrollment;
+    program: Program;
+    item: ProgramItem;
+  }>> {
+    const enrollments = await db
+      .select({ enrollment: programEnrollments, program: programs })
+      .from(programEnrollments)
+      .innerJoin(programs, eq(programs.id, programEnrollments.programId))
+      .where(and(eq(programEnrollments.userId, userId), eq(programEnrollments.status, "active")))
+      .orderBy(desc(programEnrollments.startedAt), asc(programEnrollments.id));
+
+    const nextItems = await Promise.all(enrollments.map(async ({ enrollment, program }) => {
+      const [items, completions] = await Promise.all([
+        this.getProgramItems(program.id),
+        this.getCompletionsForEnrollment(enrollment.id),
+      ]);
+      const completedIds = new Set(completions.map((completion) => completion.programItemId));
+      const item = items.find((candidate) => !completedIds.has(candidate.id));
+      return item ? { enrollment, program, item } : null;
+    }));
+
+    return nextItems.filter((candidate): candidate is {
+      enrollment: ProgramEnrollment;
+      program: Program;
+      item: ProgramItem;
+    } => Boolean(candidate));
   }
 
   async getEnrollmentById(enrollmentId: string): Promise<ProgramEnrollment | undefined> {

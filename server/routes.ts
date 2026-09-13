@@ -46,6 +46,8 @@ import {
 } from "./coach-p-workouts";
 import type { WorkoutDrillInput } from "./storage";
 import { canTransitionCustomWorkoutRequest, hasUniqueDrillIds, isPlayr1CatalogDrill } from "./custom-workout";
+import { selectHubRecommendation, type HubRecommendationCandidate } from "./hub-recommendations";
+import type { HubRecommendationResponse } from "@shared/hub-recommendations";
 
 const COACH_P_ARCHETYPE_GUIDANCE: Record<string, string> = {
   "Sharpshooter": "Your shot isn't just a skill, it's a weapon defenses have to respect every second you're on the floor. My job is making sure you can get that shot off in more ways than standing still waiting for a pass.",
@@ -540,6 +542,147 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Could not load onboarding fix drills:", error);
       res.status(500).json({ message: "Could not load your fix drill" });
+    }
+  });
+
+  // The Hub's primary next action. All candidates are assembled from records
+  // already authorized by userId; the client only receives a launch route.
+  app.get("/api/hub/recommendation", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const [subscription, profile, programItems, assignments, personalWorkouts] = await Promise.all([
+        getSubscriptionSnapshot(userId),
+        storage.getUserProfile(userId),
+        storage.getNextProgramItemsForUser(userId),
+        storage.getCustomWorkoutAssignmentsForPlayer(userId),
+        storage.getUserWorkouts(userId),
+      ]);
+      const plan = subscription.plan as HubRecommendationResponse["plan"];
+      const candidates: HubRecommendationCandidate[] = [];
+
+      programItems.forEach(({ enrollment, program, item }, index) => {
+        candidates.push({
+          id: `program-${item.id}`,
+          source: "active_program",
+          title: item.title,
+          description: item.notes || `${program.title} · Day ${item.dayNumber}`,
+          reason: `Continue ${program.title} where you left off.`,
+          durationMinutes: item.estimatedMinutes ?? program.estimatedMinutesPerDay ?? 15,
+          actionLabel: "Continue",
+          route: `/programs/${encodeURIComponent(program.slug)}/today`,
+          provenance: {
+            source: "active_program",
+            reasonCode: "next_incomplete_program_item",
+            enrollmentId: enrollment.id,
+            programId: program.id,
+            programItemId: item.id,
+            drillId: item.drillId ?? undefined,
+          },
+          priority: 10 + index,
+        });
+      });
+
+      assignments
+        .filter((assignment) => assignment.status === "assigned" && assignment.workout?.workout)
+        .forEach((assignment, index) => {
+          const workout = assignment.workout.workout;
+          candidates.push({
+            id: `assignment-${assignment.id}`,
+            source: "human_assignment",
+            title: workout.name,
+            description: workout.description || "A workout built and assigned for your next session.",
+            reason: assignment.notes || "Your coach has assigned this workout for you.",
+            durationMinutes: workout.estimatedDuration ?? 20,
+            actionLabel: "Start",
+            route: `/log?workoutId=${encodeURIComponent(workout.id)}`,
+            provenance: {
+              source: "human_assignment",
+              reasonCode: "assigned_workout",
+              assignmentId: assignment.id,
+              workoutId: workout.id,
+            },
+            priority: 100 + index,
+          });
+        });
+
+      const coachPWorkout = personalWorkouts
+        .filter((workout) => workout.description?.includes("Why these drills:"))
+        .sort((a, b) => {
+          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return bTime - aTime || b.id.localeCompare(a.id);
+        })[0];
+      if (coachPWorkout) {
+        candidates.push({
+          id: `coach-p-${coachPWorkout.id}`,
+          source: "coach_p_workout",
+          title: coachPWorkout.name,
+          description: coachPWorkout.description || "A workout built around your latest Coach P focus.",
+          reason: "Your latest Coach P workout is ready to continue.",
+          durationMinutes: coachPWorkout.estimatedDuration ?? 20,
+          actionLabel: "Start",
+          route: `/log?workoutId=${encodeURIComponent(coachPWorkout.id)}`,
+          provenance: {
+            source: "coach_p_workout",
+            reasonCode: "latest_saved_coach_p_workout",
+            workoutId: coachPWorkout.id,
+          },
+          priority: 200,
+        });
+      }
+
+      const assignedFixDrillIds = profile?.assignedFixDrillIds ?? [];
+      const focusDrills = (await Promise.all(
+        assignedFixDrillIds.map((drillId) => storage.getDrillById(drillId)),
+      )).filter((drill): drill is NonNullable<typeof drill> => Boolean(drill));
+      focusDrills.forEach((drill, index) => {
+        candidates.push({
+          id: `focus-${drill.id}`,
+          source: plan === "free" ? "assessment_focus" : "personalized_drill",
+          title: drill.title,
+          description: drill.description || "A focused drill from your PLAYR1 assessment.",
+          reason: plan === "free"
+            ? "This focus drill comes from your assessment results."
+            : "A personalized focus drill from your assessment results.",
+          durationMinutes: drill.duration ? Math.max(1, Math.round(drill.duration / 60)) : 10,
+          actionLabel: "Start",
+          route: `/log?drill=${encodeURIComponent(drill.id)}`,
+          provenance: {
+            source: plan === "free" ? "assessment_focus" : "personalized_drill",
+            reasonCode: plan === "free" ? "assessment_focus_drill" : "personalized_focus_drill",
+            drillId: drill.id,
+          },
+          priority: 300 + index,
+        });
+      });
+
+      candidates.push({
+        id: "library-fallback",
+        source: "library_fallback",
+        title: "Find your next drill",
+        description: "Browse the PLAYR1 drill library and choose a session that fits today.",
+        reason: "A simple place to keep training when no personalized item is ready.",
+        durationMinutes: 15,
+        actionLabel: "View",
+        route: "/drills",
+        provenance: {
+          source: "library_fallback",
+          reasonCode: "generic_library_fallback",
+        },
+        priority: 1000,
+      });
+
+      const selected = selectHubRecommendation(plan, candidates);
+      const response: HubRecommendationResponse = {
+        ...selected,
+        plan,
+        generatedAt: new Date().toISOString(),
+      };
+      res.setHeader("Cache-Control", "private, max-age=30, stale-while-revalidate=120");
+      res.json(response);
+    } catch (error) {
+      console.error("Could not build Hub recommendation:", error);
+      res.status(500).json({ message: "Could not load your next training recommendation" });
     }
   });
 

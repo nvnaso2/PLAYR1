@@ -33,6 +33,7 @@ import {
   Users,
 } from "lucide-react";
 import introTrailer from "@assets/Welcome_To_PLAYR1_1781991119550.mp4";
+import type { HubRecommendation, HubRecommendationResponse } from "@shared/hub-recommendations";
 
 type GoalData = {
   goal: any;
@@ -56,6 +57,15 @@ type WeeklyTrendPoint = {
   midRangeAttempted: number;
 };
 type CategoryStatPoint = { category: string; minutes: number; sessions: number };
+
+const recommendationSourceLabels: Record<HubRecommendation["source"], string> = {
+  active_program: "Active program",
+  human_assignment: "Coach assignment",
+  coach_p_workout: "Coach P workout",
+  assessment_focus: "Your assessment focus",
+  personalized_drill: "Personalized focus",
+  library_fallback: "PLAYR1 library",
+};
 
 const HUB_STAT_GLOW_COLORS: Partial<Record<HubStatKey, string>> = {
   totalDrills: "#38bdf8",
@@ -206,6 +216,22 @@ export default function HubPage() {
   const [hubModeOverride, setHubModeOverride] = useState<HubMode | null>(null);
   const defaultHubMode: HubMode = showProfileSetup ? "onboarding" : "everyday";
   const hubMode = hubModeOverride ?? defaultHubMode;
+  const {
+    data: hubRecommendation,
+    isLoading: hubRecommendationLoading,
+    isError: hubRecommendationError,
+  } = useQuery<HubRecommendationResponse>({
+    queryKey: ["/api/hub/recommendation", user?.id],
+    queryFn: async () => {
+      const response = await nativeFetch("/api/hub/recommendation", { cache: "no-store" });
+      if (!response.ok) throw new Error("Failed to load training recommendation");
+      return response.json();
+    },
+    enabled: !!user && hubMode === "everyday",
+    staleTime: 30_000,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+  });
 
   const firstName = profile?.firstName ?? user?.firstName;
   const { text: greetText, emoji } = greeting(firstName);
@@ -516,6 +542,67 @@ export default function HubPage() {
     </section>
   );
 
+  const recommendationCard = hubMode === "everyday" && (
+    hubRecommendationLoading ? (
+      <section data-testid="card-hub-recommendation-loading" className="rounded-2xl border border-orange-500/20 bg-zinc-900/80 p-4">
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-11 w-11 rounded-xl bg-zinc-800" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-3 w-24 bg-zinc-800" />
+            <Skeleton className="h-5 w-3/4 bg-zinc-800" />
+            <Skeleton className="h-3 w-1/2 bg-zinc-800" />
+          </div>
+        </div>
+      </section>
+    ) : hubRecommendationError || !hubRecommendation?.recommendation ? null : (
+      <section
+        className="rounded-2xl border border-orange-500/35 bg-gradient-to-br from-orange-500/20 via-zinc-900 to-zinc-950 p-4 shadow-[0_12px_36px_rgba(249,115,22,0.10)] sm:p-5"
+        data-testid="card-hub-recommendation"
+      >
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-orange-400/30 bg-orange-500/15 text-orange-300">
+              <Dumbbell className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-300">
+                  Your next training action
+                </p>
+                <Badge className="border-orange-500/25 bg-orange-500/10 text-[10px] text-orange-200" data-testid="badge-recommendation-source">
+                  {recommendationSourceLabels[hubRecommendation.recommendation.source]}
+                </Badge>
+              </div>
+              <h2 className="mt-1 truncate text-lg font-black text-white sm:text-xl" data-testid="text-recommendation-title">
+                {hubRecommendation.recommendation.title}
+              </h2>
+              <p className="mt-1 text-sm text-zinc-300" data-testid="text-recommendation-reason">
+                {hubRecommendation.recommendation.reason}
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-zinc-500">
+                {hubRecommendation.recommendation.durationMinutes != null && (
+                  <span data-testid="text-recommendation-duration">
+                    About {hubRecommendation.recommendation.durationMinutes} min
+                  </span>
+                )}
+                <span className="text-zinc-400">{hubRecommendation.recommendation.description}</span>
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate(hubRecommendation.recommendation.route)}
+            className="flex w-full shrink-0 items-center justify-center gap-1.5 rounded-xl bg-orange-500 px-4 py-2.5 text-sm font-black text-black transition hover:bg-orange-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 sm:w-auto"
+            data-testid="button-hub-recommendation"
+          >
+            {hubRecommendation.recommendation.actionLabel}
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      </section>
+    )
+  );
+
   return (
     <div className="min-h-full bg-background pb-6">
       {/* Greeting Header */}
@@ -710,6 +797,8 @@ export default function HubPage() {
         )}
 
         {hubMode === "everyday" && weeklyRecapSection}
+
+        {recommendationCard}
 
         {/* Start training */}
         <section className="space-y-3" data-testid="section-start-training">
