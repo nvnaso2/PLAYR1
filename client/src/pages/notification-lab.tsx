@@ -32,7 +32,7 @@ function PhonePreview({ item, mode }: { item: NotificationCatalogItem; mode: Pre
         </div>
         <div className={`absolute inset-x-4 ${mode === "banner" ? "top-5" : "top-56"} rounded-2xl border border-white/10 bg-white/90 p-3 text-zinc-900 shadow-xl backdrop-blur-xl`}>
           <div className="flex gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#ff671d] text-sm font-black text-white shadow-sm">P1</div>
+            <img src="/icon-192x192.png" alt="" className="h-9 w-9 shrink-0 rounded-xl object-cover shadow-sm" />
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between gap-2">
                 <p className="truncate text-[12px] font-bold">PLAYR1</p>

@@ -25,7 +25,8 @@ import {
 } from "lucide-react";
 
 function PushNotificationToggle() {
-  const { isSupported, isSubscribed, isLoading, subscribe, unsubscribe } = usePushNotifications();
+  const { isSupported, isSubscribed, isLoading, error, subscribe, unsubscribe } = usePushNotifications();
+  const { toast } = useToast();
   const { data: preferences } = useQuery<any>({ queryKey: ["/api/notifications/preferences"] });
   const updatePreferences = useMutation({
     mutationFn: async (pushEnabled: boolean) => apiRequest("PATCH", "/api/notifications/preferences", { pushEnabled }),
@@ -36,15 +37,20 @@ function PushNotificationToggle() {
   const toggle = async (next: boolean) => {
     if (next) {
       const subscribed = await subscribe();
-      if (subscribed) updatePreferences.mutate(true);
+      if (subscribed) {
+        updatePreferences.mutate(true);
+      } else if (error) {
+        toast({ title: "Notifications could not be enabled", description: error, variant: "destructive" });
+      }
     } else {
       await unsubscribe();
       updatePreferences.mutate(false);
     }
   };
   return (
-    <div className="flex items-center justify-between p-4 rounded-lg border">
-      <div className="flex items-center gap-3">
+    <div className="p-4 rounded-lg border">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
         {isSubscribed ? <Bell className="w-4 h-4 text-primary" /> : <BellOff className="w-4 h-4 text-muted-foreground" />}
         <div>
           <p className="font-medium text-sm">Push Notifications</p>
@@ -52,16 +58,22 @@ function PushNotificationToggle() {
           {enabled ? "You're receiving push notifications" : "All notification delivery is paused"}
           </p>
         </div>
+        </div>
+        <Button
+          variant={enabled ? "outline" : "default"}
+          size="sm"
+          onClick={() => toggle(!enabled)}
+          disabled={isLoading || updatePreferences.isPending}
+          data-testid="button-push-notifications"
+        >
+          {isLoading || updatePreferences.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : enabled ? "Disable" : "Enable"}
+        </Button>
       </div>
-      <Button
-        variant={enabled ? "outline" : "default"}
-        size="sm"
-        onClick={() => toggle(!enabled)}
-        disabled={isLoading || updatePreferences.isPending}
-        data-testid="button-push-notifications"
-      >
-        {isLoading || updatePreferences.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : enabled ? "Disable" : "Enable"}
-      </Button>
+      {error && (
+        <p className="mt-3 text-xs leading-relaxed text-destructive" role="alert">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

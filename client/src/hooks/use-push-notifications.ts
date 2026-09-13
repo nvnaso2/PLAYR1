@@ -8,6 +8,7 @@ export function usePushNotifications() {
   const [isSupported, setIsSupported] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isNative) {
@@ -57,6 +58,7 @@ export function usePushNotifications() {
   const subscribe = useCallback(async () => {
     try {
       setIsLoading(true);
+      setError(null);
       if (isNative) {
         return await subscribeNative();
       } else {
@@ -64,6 +66,7 @@ export function usePushNotifications() {
       }
     } catch (e) {
       console.error("Error subscribing to push:", e);
+      setError(getPushErrorMessage(e));
       setIsLoading(false);
       return false;
     }
@@ -99,16 +102,29 @@ export function usePushNotifications() {
   }
 
   async function subscribeWeb() {
+    if (!window.isSecureContext) {
+      throw new Error("Push notifications require a secure browser connection.");
+    }
+
+    // Ask immediately while the click still has user activation. Waiting for
+    // service-worker setup or a network request first can make browsers ignore
+    // the permission prompt and leave the button appearing to do nothing.
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      setError(
+        permission === "denied"
+          ? "Browser notifications are blocked for this site. Allow notifications in the browser address-bar settings, then try again."
+          : "Notification permission was not granted.",
+      );
+      setIsLoading(false);
+      return false;
+    }
+
     const reg = await navigator.serviceWorker.register("/sw.js");
     await navigator.serviceWorker.ready;
     const res = await fetch("/api/push/vapid-key");
     if (!res.ok) throw new Error("VAPID key not available");
     const { publicKey } = await res.json();
-    const permission = await Notification.requestPermission();
-    if (permission !== "granted") {
-      setIsLoading(false);
-      return false;
-    }
     const sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(publicKey),
@@ -119,6 +135,7 @@ export function usePushNotifications() {
       keys: { p256dh: subJson.keys?.p256dh, auth: subJson.keys?.auth },
     });
     setIsSubscribed(true);
+    setError(null);
     setIsLoading(false);
     return true;
   }
@@ -150,7 +167,28 @@ export function usePushNotifications() {
     }
   }, []);
 
-  return { isSupported, isSubscribed, isLoading, subscribe, unsubscribe };
+  return { isSupported, isSubscribed, isLoading, error, subscribe, unsubscribe };
+}
+
+function getPushErrorMessage(error: unknown): string {
+  if (error instanceof DOMException) {
+    if (error.name === "NotAllowedError") {
+      return "Browser notifications are blocked for this site. Allow notifications in the browser address-bar settings, then try again.";
+    }
+    if (error.name === "InvalidStateError") {
+      return "This browser already has a stale push subscription. Refresh the page and try again.";
+    }
+    if (error.name === "AbortError") {
+      return "The browser cancelled the notification request. Try enabling notifications again.";
+    }
+  }
+  if (error instanceof Error && error.message) {
+    if (error.message.includes("VAPID")) {
+      return "Push notifications are not configured for this environment yet.";
+    }
+    return error.message;
+  }
+  return "Push notifications could not be enabled. Check the browser permission and try again.";
 }
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
