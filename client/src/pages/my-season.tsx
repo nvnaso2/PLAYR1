@@ -178,7 +178,11 @@ export default function MySeasonPage() {
   const copy = modeCopy[mode];
   const ModeIcon = copy.icon;
   const seasonOptions = useMemo(() => seasons.filter((season) => season.isActive !== false), [seasons]);
-  const noSeasonData = !seasonsLoading && seasons.length === 0;
+  const hasConfiguredTeam = useMemo(
+    () => seasons.some((season) => typeof season.teamName === "string" && season.teamName.trim().length > 0),
+    [seasons],
+  );
+  const noSeasonData = !seasonsLoading && !hasConfiguredTeam;
   const showSeasonOnboarding = !setupCompleted && (reopenSetup || (noSeasonData && career?.competitiveBasketball !== false));
   const funOnly = !showSeasonOnboarding && noSeasonData && (career?.competitiveBasketball === false);
   const isLoading = overviewLoading || seasonsLoading || careerLoading;
