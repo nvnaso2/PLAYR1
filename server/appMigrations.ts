@@ -27,6 +27,7 @@ export async function runApplicationMigrations(): Promise<void> {
        ALTER TABLE seasons ADD COLUMN IF NOT EXISTS team_goal text;
        ALTER TABLE games ADD COLUMN IF NOT EXISTS tipoff_time varchar;
        ALTER TABLE games ADD COLUMN IF NOT EXISTS event_type varchar DEFAULT 'game';
+       ALTER TABLE career_profiles ADD COLUMN IF NOT EXISTS competitive_basketball boolean;
       CREATE TABLE IF NOT EXISTS friend_favorites (
         id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id varchar NOT NULL,

@@ -4155,6 +4155,26 @@ ${JSON.stringify(catalogForPrompt)}
     }
   });
 
+  // Save the My Season setup answer, creating a minimal career profile when
+  // a player reaches this flow before completing the rest of onboarding.
+  app.put("/api/career/competitive-basketball", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const competitiveBasketball = z.boolean().parse(req.body.competitiveBasketball);
+      const existing = await storage.getCareerProfile(userId);
+      const profile = existing
+        ? await storage.updateCareerProfile(userId, { competitiveBasketball })
+        : await storage.createCareerProfile({ userId, competitiveBasketball });
+      res.json(profile);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "competitiveBasketball must be a boolean" });
+      }
+      console.error("Error saving competitive basketball preference:", error);
+      res.status(500).json({ message: "Failed to save competitive basketball preference" });
+    }
+  });
+
   // Update career profile
   app.put("/api/career", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
@@ -4173,6 +4193,7 @@ ${JSON.stringify(catalogForPrompt)}
         'alsoPlayer',
         'primaryReason',
         'onboardingTeams',
+         'competitiveBasketball',
         'onboardingCompleted',
         'isMinor',
         'parentEmail',

@@ -121,6 +121,7 @@ export const careerProfiles = pgTable("career_profiles", {
   
   // Onboarding teams (JSON array of team objects with in-season flags)
   onboardingTeams: text("onboarding_teams"), // JSON string: [{name, type, inSeason, seasonStartMonth?}]
+  competitiveBasketball: boolean("competitive_basketball"),
   
   // Minor/Parent
   isMinor: boolean("is_minor").default(false),
