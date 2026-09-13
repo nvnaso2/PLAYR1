@@ -57,6 +57,7 @@ export const pageLoaders = {
   settings: () => import("@/pages/settings"),
   supportMessages: () => import("@/pages/support-messages"),
   adminSupportMessages: () => import("@/pages/support-messages"),
+  notificationLab: () => import("@/pages/notification-lab"),
 } as const;
 
 // Map URL path → loader key. Used by the sidebar to preload on hover/touch.
@@ -73,6 +74,7 @@ const routeToLoader: Record<string, keyof typeof pageLoaders> = {
   "/career": "career",
   "/development": "development",
   "/admin": "admin",
+  "/admin/notification-lab": "notificationLab",
   "/admin/onboarding-preview": "onboardingPreview",
   "/admin/brand-principles": "adminBrandPrinciples",
   "/teams": "finder",

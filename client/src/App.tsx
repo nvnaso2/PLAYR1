@@ -92,6 +92,7 @@ const StreakChallengePage = lazy(pageLoaders.streakChallenge);
 const SettingsPage = lazy(pageLoaders.settings);
 const SupportMessages = lazy(pageLoaders.supportMessages);
 const AdminSupportMessages = lazy(() => pageLoaders.adminSupportMessages().then((module) => ({ default: module.AdminSupportMessagesPage })));
+const NotificationLab = lazy(pageLoaders.notificationLab);
 
 function PageLoader() {
   return (
@@ -337,6 +338,7 @@ function Router() {
                 <Route path="/admin/onboarding-preview">{() => <AdminRoute><OnboardingPreview /></AdminRoute>}</Route>
                 <Route path="/admin/brand-principles">{() => <AdminRoute><AdminBrandPrinciples /></AdminRoute>}</Route>
                 <Route path="/admin/support-messages">{() => <AdminRoute><AdminSupportMessages /></AdminRoute>}</Route>
+                <Route path="/admin/notification-lab">{() => <AdminRoute><Suspense fallback={<LoadingScreen />}><NotificationLab /></Suspense></AdminRoute>}</Route>
                 <Route path="/admin">{() => <AdminRoute />}</Route>
                 <Route path="/coach" component={CoachRedirect} />
                 <Route path="/trainer">{() => <TrainerGuard><TrainerDashboard /></TrainerGuard>}</Route>
