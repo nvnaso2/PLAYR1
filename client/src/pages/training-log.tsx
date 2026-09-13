@@ -2341,16 +2341,16 @@ export default function TrainingLogPage() {
                     <ChevronRight className="h-4 w-4 shrink-0 text-zinc-500 transition group-hover:translate-x-1 group-hover:text-orange-400" />
                   </Link>
                   <Link
-                    href="/programs"
+                    href="/courses"
                     className="group flex min-h-[76px] items-center gap-3 rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                    data-testid="action-programs"
-                    aria-label="Open Programs"
+                    data-testid="action-courses"
+                    aria-label="Open Courses"
                   >
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 text-orange-400">
                       <Layers className="h-4 w-4" />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block font-heading text-base uppercase tracking-wide leading-none">Programs</span>
+                      <span className="block font-heading text-base uppercase tracking-wide leading-none">Courses</span>
                       <span className="mt-1 block text-[11px] text-zinc-500">Follow a structured plan</span>
                     </span>
                     <ChevronRight className="h-4 w-4 shrink-0 text-zinc-500 transition group-hover:translate-x-1 group-hover:text-orange-400" />

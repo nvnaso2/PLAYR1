@@ -48,14 +48,14 @@ export function ContinueProgramsWidget() {
             <Sparkles className="w-7 h-7 text-white" />
           </div>
           <div className="flex-1">
-            <h3 className="text-base font-bold">Start a Training Program</h3>
+            <h3 className="text-base font-bold">Start a Training Course</h3>
             <p className="text-sm text-muted-foreground mt-0.5">
               Hand-built plans for handle, shooting, and finishing. Pick one and follow along.
             </p>
           </div>
-          <Link href="/programs">
-            <Button size="sm" data-testid="button-browse-programs">
-              Browse programs
+          <Link href="/courses">
+            <Button size="sm" data-testid="button-browse-courses">
+              Browse courses
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </Link>
@@ -71,9 +71,9 @@ export function ContinueProgramsWidget() {
           <Flame className="w-4 h-4 text-orange-500" />
           Continue training
         </h2>
-        <Link href="/programs">
+        <Link href="/courses">
           <Button variant="ghost" size="sm" className="text-xs">
-            All programs
+            All courses
             <ArrowRight className="w-3.5 h-3.5 ml-1" />
           </Button>
         </Link>
@@ -84,7 +84,7 @@ export function ContinueProgramsWidget() {
           const pct =
             e.totalItemCount > 0 ? Math.round((e.completedItemCount / e.totalItemCount) * 100) : 0;
           return (
-            <Link key={e.id} href={`/programs/${e.program.slug}/today`} data-testid={`link-dash-program-${e.program.slug}`}>
+            <Link key={e.id} href={`/courses/${e.program.slug}/today`} data-testid={`link-dash-course-${e.program.slug}`}>
               <Card className="hover-elevate active-elevate-2 cursor-pointer overflow-hidden border-border/60 h-full">
                 <div className="h-1.5" style={{ background: `linear-gradient(90deg, ${accent}, ${accent}66)` }} />
                 <CardContent className="p-4">

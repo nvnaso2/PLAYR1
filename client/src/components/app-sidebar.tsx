@@ -62,7 +62,6 @@ import {
   Fingerprint,
   Star,
   BotMessageSquare,
-  BookOpen,
 } from "lucide-react";
 import { Playr1Logo } from "@/components/playr1-logo";
 import { getObjectUrl, nativeFetch } from "@/lib/queryClient";
@@ -70,7 +69,6 @@ import { getObjectUrl, nativeFetch } from "@/lib/queryClient";
 const playerNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: BarChart3 },
   { title: "Coach P", url: "/coach-p", icon: BotMessageSquare },
-  { title: "Courses", url: "/courses", icon: BookOpen },
   { title: "Lead Magnets", url: "/lead-magnets", icon: Sparkles },
   { title: "My Film Room", url: "/videos", icon: Video },
   { title: "Feedback", url: "/feedback", icon: Megaphone },

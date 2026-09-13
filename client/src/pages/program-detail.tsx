@@ -144,7 +144,7 @@ export default function ProgramDetailPage() {
           <Link href={contentBase}>
             <Button variant="ghost" size="sm" className="mb-6 text-white/90 hover:text-white hover:bg-white/10" data-testid="button-back">
               <ArrowLeft className="w-4 h-4 mr-2" />
-              All Programs
+              {isCourse ? "All Courses" : "All Programs"}
             </Button>
           </Link>
 
@@ -205,13 +205,6 @@ export default function ProgramDetailPage() {
             <div className="flex flex-col items-stretch lg:items-end gap-2 min-w-[220px]">
               {isLocked ? (
                 <div className="flex flex-col gap-2">
-                  {isCourse && (
-                    <Link href={`/courses/${program.slug}/lead-magnet`}>
-                      <Button variant="outline" size="lg" className="w-full lg:w-auto border-white/40 text-white hover:bg-white/10">
-                        <Sparkles className="w-4 h-4 mr-2" /> Start with the free scorecard
-                      </Button>
-                    </Link>
-                  )}
                   <Button
                     size="lg"
                     className="w-full lg:w-auto bg-amber-500 text-black hover:bg-amber-400"
@@ -310,7 +303,7 @@ export default function ProgramDetailPage() {
             <Card className="border-amber-500/40 bg-amber-500/5" data-testid="card-program-locked">
               <CardContent className="p-6 text-center">
                 <Lock className="w-8 h-8 text-amber-400 mx-auto mb-3" />
-                <h2 className="text-xl font-bold">Full program is part of PLAYR1 Pro</h2>
+                <h2 className="text-xl font-bold">Full course is part of PLAYR1 Pro</h2>
                 <p className="text-muted-foreground mt-2">Watch the trailer above, then upgrade for the full day-by-day plan.</p>
                 <Button className="mt-5 bg-amber-500 text-black hover:bg-amber-400" onClick={() => setLocation("/subscription")}>
                   View Pro options
@@ -395,7 +388,7 @@ export default function ProgramDetailPage() {
             <CardContent className="p-5">
               <h3 className="font-semibold mb-3 text-sm uppercase tracking-wide text-muted-foreground">How it works</h3>
               <ul className="space-y-3 text-sm">
-                <li className="flex gap-3"><span className="text-primary font-bold">1.</span><span>Enroll once. Multiple programs allowed.</span></li>
+                <li className="flex gap-3"><span className="text-primary font-bold">1.</span><span>Enroll once. Multiple courses allowed.</span></li>
                 <li className="flex gap-3"><span className="text-primary font-bold">2.</span><span>Player-paced. Train when it works for you.</span></li>
                 <li className="flex gap-3"><span className="text-primary font-bold">3.</span><span>Tap items to complete and track progress.</span></li>
               </ul>

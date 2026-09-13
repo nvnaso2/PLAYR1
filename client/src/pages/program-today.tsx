@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams, Link, useLocation } from "wouter";
+import { useParams, Link, useLocation, useSearch } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -46,6 +46,18 @@ import { ChevronDown } from "lucide-react";
 
 type EventListItem = Event & { status: EventStatus; program: Program | null };
 
+function getYouTubeEmbed(url: string | null | undefined): string | null {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    if (!parsed.hostname.includes("youtube.com") && !parsed.hostname.includes("youtu.be")) return null;
+    const id = parsed.hostname.includes("youtu.be") ? parsed.pathname.slice(1) : parsed.searchParams.get("v");
+    return id ? `https://www.youtube.com/embed/${id}` : null;
+  } catch {
+    return null;
+  }
+}
+
 interface ProgramDetailResponse {
   program: Program;
   items: ProgramItem[];
@@ -64,6 +76,7 @@ const itemTypeMeta: Record<string, { label: string; Icon: any; color: string; ve
 export default function ProgramTodayPage() {
   const params = useParams<{ slug: string }>();
   const [location] = useLocation();
+  const search = useSearch();
   const contentBase = location.startsWith("/courses") ? "/courses" : "/programs";
   const slug = params.slug;
   const { toast } = useToast();
@@ -98,9 +111,16 @@ export default function ProgramTodayPage() {
   // Default the viewed day to the user's currentDay once data lands
   useEffect(() => {
     if (data?.enrollment && viewedDay === null) {
-      setViewedDay(data.enrollment.currentDay);
+      const requestedDay = Number(new URLSearchParams(search).get("day"));
+      setViewedDay(
+        Number.isInteger(requestedDay) &&
+          requestedDay >= 1 &&
+          requestedDay <= (data.program?.lengthDays ?? 1)
+          ? requestedDay
+          : data.enrollment.currentDay,
+      );
     }
-  }, [data?.enrollment, viewedDay]);
+  }, [data?.enrollment, data?.program?.lengthDays, search, viewedDay]);
 
   useEffect(() => {
     if (data?.program && data?.enrollment) {
@@ -171,26 +191,29 @@ export default function ProgramTodayPage() {
     return (
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-12 text-center" data-testid="state-program-error">
         <Trophy className="w-12 h-12 mx-auto text-muted-foreground mb-4 opacity-50" />
-        <h1 className="text-2xl font-bold">We couldn't load this program</h1>
+        <h1 className="text-2xl font-bold">We couldn't load this {contentBase === "/courses" ? "course" : "program"}</h1>
         <p className="text-muted-foreground mt-2">It may be private or temporarily unavailable.</p>
         <Link href={contentBase}>
-          <Button className="mt-6" data-testid="button-back-to-programs">Back to Programs</Button>
+          <Button className="mt-6" data-testid="button-back-to-content">
+            Back to {contentBase === "/courses" ? "Courses" : "Programs"}
+          </Button>
         </Link>
       </div>
     );
   }
 
   const { program, items, enrollment } = data;
+  const isCourse = program.contentType === "course" || contentBase === "/courses";
 
   // Not enrolled — bounce to detail
   if (!enrollment) {
     return (
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-12 text-center">
         <Trophy className="w-12 h-12 mx-auto text-muted-foreground mb-4 opacity-50" />
-        <h1 className="text-2xl font-bold">You're not enrolled in this program yet</h1>
-        <p className="text-muted-foreground mt-2">Head back to the program page to start.</p>
+        <h1 className="text-2xl font-bold">You're not enrolled in this {isCourse ? "course" : "program"} yet</h1>
+        <p className="text-muted-foreground mt-2">Head back to the {isCourse ? "course" : "program"} page to start.</p>
         <Link href={`${contentBase}/${slug}`}>
-          <Button className="mt-4">Go to program</Button>
+          <Button className="mt-4">Go to {isCourse ? "course" : "program"}</Button>
         </Link>
       </div>
     );
@@ -203,6 +226,8 @@ export default function ProgramTodayPage() {
   const programDone = enrollment.status === "completed";
   const day = viewedDay ?? enrollment.currentDay;
   const dayItems = items.filter((it) => it.dayNumber === day).sort((a, b) => a.orderInDay - b.orderInDay);
+  const lesson = dayItems.find((item) => item.itemType === "watch");
+  const takeaways = Array.from(new Set(dayItems.flatMap((item) => item.keyTakeaways ?? [])));
   const dayDone = dayItems.length > 0 && dayItems.every((it) => completedItemIds.has(it.id));
   const isToday = day === enrollment.currentDay;
 
@@ -242,20 +267,20 @@ export default function ProgramTodayPage() {
               <AlertDialogTrigger asChild>
                 <Button variant="ghost" size="sm" className="text-white/80 hover:text-white hover:bg-white/10" data-testid="button-abandon">
                   <Pause className="w-4 h-4 mr-2" />
-                  Pause program
+                  Pause {isCourse ? "course" : "program"}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Pause this program?</AlertDialogTitle>
+                    <AlertDialogTitle>Pause this {isCourse ? "course" : "program"}?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Your progress will be saved. You can resume anytime from the program page.
+                      Your progress will be saved. You can resume anytime from the {isCourse ? "course" : "program"} page.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Keep training</AlertDialogCancel>
                   <AlertDialogAction onClick={() => abandonMutation.mutate()} data-testid="button-confirm-abandon">
-                    Pause program
+                    Pause {isCourse ? "course" : "program"}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -342,6 +367,59 @@ export default function ProgramTodayPage() {
       {/* ─── Body ─── */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 md:py-8 grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
         <div className="space-y-4">
+          {isCourse && (
+            <Card className="overflow-hidden border-border/70" data-testid="card-course-day-overview">
+              <CardContent className="p-0">
+                <div className="grid gap-0 lg:grid-cols-[1.15fr_0.85fr]">
+                  <div className="min-w-0 bg-zinc-950">
+                    {lesson?.watchUrl && getYouTubeEmbed(lesson.watchUrl) ? (
+                      <div className="aspect-video">
+                        <iframe
+                          src={getYouTubeEmbed(lesson.watchUrl) ?? undefined}
+                          title={lesson.title}
+                          className="h-full w-full"
+                          allowFullScreen
+                        />
+                      </div>
+                    ) : lesson?.watchUrl ? (
+                      <video src={lesson.watchUrl} controls className="aspect-video h-full w-full object-cover" preload="metadata" />
+                    ) : (
+                      <div
+                        className="flex aspect-video flex-col items-center justify-center gap-2 p-6 text-center"
+                        style={{ background: `linear-gradient(135deg, ${accent}bb, #111827 78%)` }}
+                      >
+                        <Video className="h-8 w-8 text-white/80" />
+                        <p className="text-sm font-semibold text-white">Lesson video coming soon</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-5 p-5 md:p-6">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Today’s focus</p>
+                      <h2 className="mt-2 text-2xl font-bold leading-tight">
+                        {lesson?.title ?? dayItems.find((item) => item.itemType !== "watch")?.title ?? `Day ${day}`}
+                      </h2>
+                      {lesson?.notes && <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{lesson.notes}</p>}
+                    </div>
+                    {takeaways.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: accent }}>Key takeaways</p>
+                        <ul className="mt-3 space-y-2">
+                          {takeaways.map((takeaway) => (
+                            <li key={takeaway} className="flex gap-2 text-sm leading-relaxed">
+                              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" style={{ color: accent }} />
+                              <span>{takeaway}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {programDone && (
             <Card className="border-2" style={{ borderColor: accent }} data-testid="card-program-complete">
               <CardContent className="p-6 text-center">
@@ -361,7 +439,7 @@ export default function ProgramTodayPage() {
               </CardContent>
             </Card>
           ) : (
-            dayItems.map((it) => (
+            dayItems.filter((it) => !(isCourse && it.itemType === "watch")).map((it) => (
               <ItemCard
                 key={it.id}
                 item={it}
