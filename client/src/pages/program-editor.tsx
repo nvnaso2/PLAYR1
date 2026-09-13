@@ -382,6 +382,7 @@ function ProgramCoverPicker({ value, onChange }: { value: string; onChange: (v: 
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const { uploadFile, isUploading, progress } = useUpload({
+    requestUrl: "/api/user/uploads/photo-url",
     onSuccess: (resp) => {
       onChange(resp.objectPath);
       toast({ title: "Cover uploaded — click Save details to apply" });
