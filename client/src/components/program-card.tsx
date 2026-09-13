@@ -36,6 +36,68 @@ export function ProgramCard({ program, enrolledCount, totalItems, variant = "gri
     totalItems && totalItems > 0 && enrolledCount !== undefined
       ? Math.min(100, Math.round((enrolledCount / totalItems) * 100))
       : null;
+  const isCourse = program.contentType === "course" || hrefBase === "/courses";
+
+  if (isCourse) {
+    return (
+      <Link href={`${hrefBase}/${program.slug}`} data-testid={`link-program-${program.slug}`}>
+        <Card className="group relative h-full cursor-pointer overflow-hidden rounded-2xl border-border/60 transition-all hover-elevate active-elevate-2" data-testid={`card-program-${program.slug}`}>
+          <div
+            className={`relative overflow-hidden ${isFeatured ? "h-60 md:h-72" : "h-48"}`}
+            style={{
+              background: program.coverImageUrl
+                ? `linear-gradient(180deg, rgba(0,0,0,0.04) 25%, rgba(0,0,0,0.78) 100%), url("${program.coverImageUrl.replace(/["\\\n\r<>]/g, "")}") center/cover no-repeat`
+                : `linear-gradient(135deg, ${accent}cc 0%, ${accent}66 50%, hsl(var(--card)) 100%)`,
+            }}
+          >
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
+            <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-7">
+              <h3 className="max-w-3xl font-sans text-2xl font-semibold leading-tight tracking-tight text-white sm:text-3xl" data-testid={`text-program-title-${program.slug}`}>
+                {program.title}
+              </h3>
+            </div>
+          </div>
+
+          <CardContent className="p-5 sm:p-6">
+            {(program.tagline || program.description) && (
+              <p className="line-clamp-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                {program.tagline || program.description}
+              </p>
+            )}
+            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted-foreground">
+              <span className="flex items-center gap-1.5" data-testid={`text-length-${program.slug}`}>
+                <Calendar className="h-4 w-4" />
+                {program.lengthDays} days
+              </span>
+              {program.estimatedMinutesPerDay && (
+                <span className="flex items-center gap-1.5">
+                  <Clock className="h-4 w-4" />
+                  ~{program.estimatedMinutesPerDay} min/day
+                </span>
+              )}
+            </div>
+
+            {progressPct !== null && (
+              <div className="mt-4">
+                <div className="mb-1.5 flex items-center justify-between text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1 font-medium text-foreground">
+                    <Flame className="h-3.5 w-3.5" style={{ color: accent }} />
+                    In progress
+                  </span>
+                  <span data-testid={`text-progress-${program.slug}`}>
+                    {enrolledCount}/{totalItems} • {progressPct}%
+                  </span>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                  <div className="h-full rounded-full transition-all" style={{ width: `${progressPct}%`, background: accent }} />
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </Link>
+    );
+  }
 
   return (
     <Link href={`${hrefBase}/${program.slug}`} data-testid={`link-program-${program.slug}`}>

@@ -129,7 +129,7 @@ export default function ProgramDetailPage() {
 
           <header className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-center">
             <div
-              className="relative aspect-video w-full shrink-0 overflow-hidden rounded-xl border border-border/70 bg-muted sm:w-64"
+              className="relative aspect-video w-full shrink-0 overflow-hidden rounded-xl border border-border/70 bg-muted sm:w-72"
               data-testid="course-cover-thumbnail"
             >
               {program.coverImageUrl ? (
@@ -140,10 +140,15 @@ export default function ProgramDetailPage() {
               <div className="absolute inset-0 bg-gradient-to-t from-black/35 to-transparent" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-4xl font-black tracking-tight sm:text-5xl" data-testid="text-program-title">
+              <h1 className="font-sans text-3xl font-semibold leading-tight tracking-tight sm:text-4xl" data-testid="text-program-title">
                 {program.title}
               </h1>
               <p className="mt-2 text-sm font-medium text-muted-foreground">{totalDays} days</p>
+              {(program.tagline || program.description) && (
+                <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground" data-testid="text-program-description">
+                  {program.tagline || program.description}
+                </p>
+              )}
             </div>
           </header>
 
