@@ -47,7 +47,7 @@ export default function CoursesPage() {
           </div>
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight">Build your game.</h1>
           <p className="text-muted-foreground max-w-xl">
-            Focused training systems with a clear day-by-day path. Pick a course, follow the work, and keep moving.
+            Focused training systems with a clear day-by-day path. Pick a course, follow the work, and keep improving.
           </p>
         </div>
 

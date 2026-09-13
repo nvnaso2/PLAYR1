@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Calendar, Clock, Flame, Sparkles, Users, Lock } from "lucide-react";
+import { Calendar, Clock, Dumbbell, Flame, Sparkles, Users, Lock } from "lucide-react";
 import type { Program } from "@shared/schema";
 
 const difficultyColors: Record<string, string> = {
@@ -59,10 +59,15 @@ export function ProgramCard({ program, enrolledCount, totalItems, variant = "gri
           </div>
 
           <div className="bg-background px-1.5 pb-2 pt-4">
-            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-              <span data-testid={`text-length-${program.slug}`}>{program.lengthDays} days</span>
-              <span aria-hidden="true">·</span>
-              <span>{program.lengthDays} workouts</span>
+            <div className="flex flex-wrap items-center gap-2.5 text-sm" data-testid={`course-meta-${program.slug}`}>
+              <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-muted/25 px-3 py-1.5 text-foreground/80" data-testid={`text-length-${program.slug}`}>
+                <Calendar className="h-4 w-4 text-primary" />
+                {program.lengthDays} days
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-muted/25 px-3 py-1.5 text-foreground/80">
+                <Dumbbell className="h-4 w-4 text-primary" />
+                {program.lengthDays} workouts
+              </span>
             </div>
 
             {progressPct !== null && (
