@@ -41,7 +41,7 @@ export function ProgramCard({ program, enrolledCount, totalItems, variant = "gri
   if (isCourse) {
     return (
       <Link href={`${hrefBase}/${program.slug}`} data-testid={`link-program-${program.slug}`}>
-        <Card className="group relative h-full cursor-pointer overflow-hidden rounded-2xl border-border/60 transition-all hover-elevate active-elevate-2" data-testid={`card-program-${program.slug}`}>
+        <Card className="group relative h-full cursor-pointer overflow-hidden rounded-2xl border-border/60 bg-transparent transition-all hover-elevate active-elevate-2" data-testid={`card-program-${program.slug}`}>
           <div
             className={`relative overflow-hidden ${isFeatured ? "h-60 md:h-72" : "h-48"}`}
             style={{
@@ -58,27 +58,15 @@ export function ProgramCard({ program, enrolledCount, totalItems, variant = "gri
             </div>
           </div>
 
-          <CardContent className="p-5 sm:p-6">
-            {(program.tagline || program.description) && (
-              <p className="line-clamp-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-                {program.tagline || program.description}
-              </p>
-            )}
-            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted-foreground">
-              <span className="flex items-center gap-1.5" data-testid={`text-length-${program.slug}`}>
-                <Calendar className="h-4 w-4" />
-                {program.lengthDays} days
-              </span>
-              {program.estimatedMinutesPerDay && (
-                <span className="flex items-center gap-1.5">
-                  <Clock className="h-4 w-4" />
-                  ~{program.estimatedMinutesPerDay} min/day
-                </span>
-              )}
+          <div className="bg-background px-1.5 pb-2 pt-4">
+            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              <span data-testid={`text-length-${program.slug}`}>{program.lengthDays} days</span>
+              <span aria-hidden="true">·</span>
+              <span>{program.lengthDays} workouts</span>
             </div>
 
             {progressPct !== null && (
-              <div className="mt-4">
+              <div className="mt-3">
                 <div className="mb-1.5 flex items-center justify-between text-xs text-muted-foreground">
                   <span className="flex items-center gap-1 font-medium text-foreground">
                     <Flame className="h-3.5 w-3.5" style={{ color: accent }} />
@@ -93,7 +81,7 @@ export function ProgramCard({ program, enrolledCount, totalItems, variant = "gri
                 </div>
               </div>
             )}
-          </CardContent>
+          </div>
         </Card>
       </Link>
     );

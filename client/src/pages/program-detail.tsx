@@ -127,28 +127,30 @@ export default function ProgramDetailPage() {
             All Courses
           </Link>
 
-          <header className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-center">
-            <div
-              className="relative aspect-video w-full shrink-0 overflow-hidden rounded-xl border border-border/70 bg-muted sm:w-72"
-              data-testid="course-cover-thumbnail"
-            >
-              {program.coverImageUrl ? (
-                <img src={program.coverImageUrl} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <div className="h-full w-full" style={{ background: `linear-gradient(135deg, ${accent}bb, #111827 78%)` }} />
-              )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/35 to-transparent" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="font-sans text-3xl font-semibold leading-tight tracking-tight sm:text-4xl" data-testid="text-program-title">
+          <header
+            className="relative mb-7 flex min-h-[390px] items-end overflow-hidden rounded-2xl border border-border/70 bg-muted bg-cover bg-center sm:min-h-[470px]"
+            data-testid="course-cover-thumbnail"
+            style={{
+              backgroundImage: program.coverImageUrl
+                ? `linear-gradient(180deg, rgba(0,0,0,0.08) 20%, rgba(0,0,0,0.86) 100%), url("${program.coverImageUrl.replace(/["\\\n\r<>]/g, "")}")`
+                : `linear-gradient(135deg, ${accent}bb, #111827 78%)`,
+            }}
+          >
+            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/15 to-transparent" />
+            <div className="relative z-10 max-w-3xl p-6 sm:p-10">
+              <h1 className="font-sans text-4xl font-semibold leading-[1.05] tracking-tight text-white sm:text-6xl" data-testid="text-program-title">
                 {program.title}
               </h1>
-              <p className="mt-2 text-sm font-medium text-muted-foreground">{totalDays} days</p>
               {(program.tagline || program.description) && (
-                <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground" data-testid="text-program-description">
+                <p className="mt-4 max-w-2xl text-base leading-relaxed text-white/75 sm:text-lg" data-testid="text-program-description">
                   {program.tagline || program.description}
                 </p>
               )}
+              <div className="mt-5 flex flex-wrap items-center gap-3 text-sm font-medium text-white/80">
+                <span>{totalDays} days</span>
+                <span aria-hidden="true">·</span>
+                <span>{totalDays} workouts</span>
+              </div>
             </div>
           </header>
 
