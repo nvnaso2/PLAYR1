@@ -46,6 +46,7 @@ import {
 } from "./coach-p-workouts";
 import type { WorkoutDrillInput } from "./storage";
 import { canTransitionCustomWorkoutRequest, hasUniqueDrillIds, isPlayr1CatalogDrill } from "./custom-workout";
+import { NOTIFICATION_CATALOG } from "@shared/notification-catalog";
 import { selectHubRecommendation, type HubRecommendationCandidate } from "./hub-recommendations";
 import type { HubRecommendationResponse } from "@shared/hub-recommendations";
 
@@ -9937,6 +9938,22 @@ ${JSON.stringify(catalogForPrompt)}
     } catch (error) {
       console.error("Error updating notification preferences:", error);
       res.status(500).json({ message: "Failed to update notification preferences" });
+    }
+  });
+
+  app.post("/api/notifications/test", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const item = NOTIFICATION_CATALOG.find((candidate) => candidate.id === req.body?.notificationId);
+      if (!item) return res.status(400).json({ message: "Unknown notification preview" });
+      const result = await sendPushNotification(req.user.claims.sub, {
+        title: item.title,
+        body: item.body,
+        url: item.url,
+      }, item.category, { ignorePreferences: true });
+      res.json({ result, notificationId: item.id });
+    } catch (error) {
+      console.error("Error sending notification test:", error);
+      res.status(500).json({ message: "Failed to send notification test" });
     }
   });
 

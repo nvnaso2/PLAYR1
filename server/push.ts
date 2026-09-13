@@ -19,6 +19,8 @@ interface PushPayload {
   icon?: string;
 }
 
+export type PushDeliveryResult = "sent" | "not_configured" | "disabled" | "no_subscription";
+
 export type { NotificationCategory };
 
 export const NOTIFICATION_CATEGORY_LABELS: Record<NotificationCategory, string> = {
@@ -85,18 +87,21 @@ export async function sendPushNotification(
   userId: string,
   payload: PushPayload,
   category?: NotificationCategory,
-): Promise<void> {
+  options?: { ignorePreferences?: boolean },
+): Promise<PushDeliveryResult> {
   if (!vapidPublicKey || !vapidPrivateKey) {
-    return;
+    return "not_configured";
   }
 
   const preferences = await getNotificationPreferences(userId);
-  if (!preferences.pushEnabled || (category && preferences.categories[category] === false)) {
-    return;
+  if (!options?.ignorePreferences && (!preferences.pushEnabled || (category && preferences.categories[category] === false))) {
+    return "disabled";
   }
 
   const subs = await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.userId, userId));
+  if (subs.length === 0) return "no_subscription";
 
+  let delivered = 0;
   for (const sub of subs) {
     try {
       await webpush.sendNotification(
@@ -109,12 +114,14 @@ export async function sendPushNotification(
         },
         JSON.stringify(payload)
       );
+      delivered += 1;
     } catch (error: any) {
       if (error.statusCode === 404 || error.statusCode === 410) {
         await db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, sub.id));
       }
     }
   }
+  return delivered > 0 ? "sent" : "no_subscription";
 }
 
 export async function getAdminUserIds(): Promise<string[]> {
