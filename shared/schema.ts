@@ -1708,6 +1708,51 @@ export const nativePushTokens = pgTable("native_push_tokens", {
 
 export type NativePushToken = typeof nativePushTokens.$inferSelect;
 
+export const NOTIFICATION_CATEGORIES = [
+  "messages",
+  "support",
+  "sessions",
+  "drills",
+  "connections",
+  "challengeInvites",
+  "challengeUpdates",
+  "friendActivity",
+  "programs",
+  "weeklySummary",
+  "streakReminders",
+  "trainingSuggestions",
+  "adminInbox",
+  "adminCustomWorkouts",
+  "adminCommunity",
+  "adminFeedback",
+  "adminWeeklyDigest",
+] as const;
+export type NotificationCategory = typeof NOTIFICATION_CATEGORIES[number];
+export type NotificationCategoryPreferences = Partial<Record<NotificationCategory, boolean>>;
+
+export const notificationPreferences = pgTable("notification_preferences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique(),
+  pushEnabled: boolean("push_enabled").notNull().default(true),
+  categories: jsonb("categories").$type<NotificationCategoryPreferences>().notNull().default(sql`'{}'::jsonb`),
+  onboardingPromptSeen: boolean("onboarding_prompt_seen").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type NotificationPreferences = typeof notificationPreferences.$inferSelect;
+
+export const notificationDispatches = pgTable("notification_dispatches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  kind: varchar("kind").notNull(),
+  periodKey: varchar("period_key").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  uniqueDispatch: uniqueIndex("notification_dispatches_user_kind_period_uq").on(table.userId, table.kind, table.periodKey),
+  byKindPeriod: index("notification_dispatches_kind_period_idx").on(table.kind, table.periodKey),
+}));
+
 // ─── User Feedback Forum ───────────────────────────────────────────────────
 
 export const FEEDBACK_CATEGORIES = ["bug", "feature-request", "suggestion", "general"] as const;

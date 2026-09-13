@@ -20,10 +20,19 @@ import {
   sendInviteEmail,
   sendParentInviteEmail,
 } from "./email";
-import { sendPushNotification, getVapidPublicKey } from "./push";
+import {
+  sendPushNotification,
+  sendPushToAdmins,
+  getVapidPublicKey,
+  getNotificationPreferences,
+  saveNotificationPreferences,
+  NOTIFICATION_CATEGORY_LABELS,
+  sendPushToPlayers,
+  type NotificationCategory,
+} from "./push";
 import { ensureOnboardingSchema, getDiagnosticSummary, getFixCategory, validateMicroQuizPayload } from "./onboarding";
 import { getMicroQuiz } from "@shared/micro-quizzes";
- import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, playerProfiles, drills, trainingLogs, trainingLogMetrics, feedbackComments, insertProgramSchema, insertProgramItemSchema, insertEventSchema, events, insertStatChallengeSchema, programEnrollments, coachPUsage, friendships, userFollows, analyticsEvents, FRIEND_ACTIVITY_TYPES, type FriendActivityType, CUSTOM_WORKOUT_REQUEST_STATUSES } from "@shared/schema";
+ import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, playerProfiles, drills, trainingLogs, trainingLogMetrics, feedbackComments, insertProgramSchema, insertProgramItemSchema, insertEventSchema, events, insertStatChallengeSchema, programEnrollments, coachPUsage, friendships, userFollows, analyticsEvents, streakChallengeParticipants, FRIEND_ACTIVITY_TYPES, type FriendActivityType, CUSTOM_WORKOUT_REQUEST_STATUSES } from "@shared/schema";
 import { getUncachableStripeClient } from "./stripeClient";
 import { WebhookHandlers } from "./webhookHandlers";
 import { JOURNAL_PROMPTS } from "@shared/journalPrompts";
@@ -228,6 +237,24 @@ export async function registerRoutes(
   function fireActivity(userId: string, activityType: FriendActivityType, title: string, description?: string, metadata?: Record<string, unknown>) {
     storage.logFriendActivity({ userId, activityType, title, description: description ?? null, metadata: metadata ?? null })
       .catch(err => console.error("[FriendActivity]", activityType, err));
+    void (async () => {
+      const friendRows = await db.select({
+        requesterId: friendships.requesterId,
+        addresseeId: friendships.addresseeId,
+      }).from(friendships).where(and(
+        eq(friendships.status, "accepted"),
+        or(eq(friendships.requesterId, userId), eq(friendships.addresseeId, userId)),
+      ));
+      const friendIds = new Set(friendRows.map((row) =>
+        row.requesterId === userId ? row.addresseeId : row.requesterId,
+      ));
+      const actorName = await getDisplayNameForUser(userId);
+      await Promise.all([...friendIds].map((friendId) => sendPushNotification(friendId, {
+        title: `${actorName} is active on PLAYR1`,
+        body: `${title}${description ? `: ${description}` : ""}`.substring(0, 180),
+        url: "/community",
+      }, "friendActivity").catch(() => {})));
+    })().catch(err => console.error("[FriendActivityPush]", activityType, err));
   }
 
   const STREAK_MILESTONES = new Set([3, 7, 14, 30, 50, 100, 200, 365]);
@@ -2642,6 +2669,12 @@ ${JSON.stringify(catalogForPrompt)}
         ...parsed.data,
         additionalNotes: parsed.data.additionalNotes || null,
       });
+      const requesterName = await getDisplayNameForUser(userId);
+      sendPushToAdmins({
+        title: "New custom workout request",
+        body: `${requesterName} requested a custom workout: ${parsed.data.improvementFocus.substring(0, 120)}`,
+        url: "/admin",
+      }, "adminCustomWorkouts").catch(() => {});
       res.status(201).json(request);
     } catch (error) {
       console.error("Error creating custom workout request:", error);
@@ -2763,7 +2796,7 @@ ${JSON.stringify(catalogForPrompt)}
         title: "Your custom workout is ready",
         body: "Your PLAYR1 custom workout is ready to start.",
         url: `/log?workoutId=${encodeURIComponent(result.workout.id)}`,
-      }).catch(() => {});
+      }, "drills").catch(() => {});
       res.status(201).json(result);
     } catch (error) {
       console.error("Error assigning custom workout:", error);
@@ -2819,7 +2852,7 @@ ${JSON.stringify(catalogForPrompt)}
         title: "A custom workout is ready",
         body: "A PLAYR1 custom workout was built for you and is ready to start.",
         url: `/log?workoutId=${encodeURIComponent(result.workout.id)}`,
-      }).catch(() => {});
+      }, "drills").catch(() => {});
       res.status(201).json(result);
     } catch (error) {
       console.error("Error creating direct custom workout:", error);
@@ -5862,7 +5895,7 @@ ${JSON.stringify(catalogForPrompt)}
         let pushTarget = assignedTo;
         const [tp] = await db.select({ linkedUserId: trainerPlayers.linkedUserId }).from(trainerPlayers).where(eq(trainerPlayers.id, assignedTo));
         if (tp?.linkedUserId) pushTarget = tp.linkedUserId;
-        sendPushNotification(pushTarget, { title: "New Drill Assigned", body: `${trainerName} assigned you: ${drill?.title || "a new drill"}`, url: "/my-trainer" }).catch(() => {});
+        sendPushNotification(pushTarget, { title: "New Drill Assigned", body: `${trainerName} assigned you: ${drill?.title || "a new drill"}`, url: "/my-trainer" }, "drills").catch(() => {});
       }
       res.status(201).json(assignment);
     } catch (error) {
@@ -6574,7 +6607,7 @@ ${JSON.stringify(catalogForPrompt)}
         title: "New PLAYR1 Support Message",
         body: `${senderName}: ${parsed.data.content.substring(0, 100)}`,
         url: "/admin/support-messages",
-      }).catch(() => {});
+      }, "adminInbox").catch(() => {});
       res.status(201).json(message);
     } catch (error) {
       console.error("Error sending support message:", error);
@@ -6664,7 +6697,7 @@ ${JSON.stringify(catalogForPrompt)}
         title: "New PLAYR1 Support Reply",
         body: `${recipient.displayName}: ${parsed.data.content.substring(0, 100)}`,
         url: "/contact",
-      }).catch(() => {});
+      }, "support").catch(() => {});
       res.status(201).json(message);
     } catch (error) {
       console.error("Error sending support reply:", error);
@@ -6707,7 +6740,7 @@ ${JSON.stringify(catalogForPrompt)}
         teamId: teamId || null,
       });
       const senderName = await getDisplayNameForUser(userId);
-      sendPushNotification(receiverId, { title: "New Message", body: `${senderName}: ${content.substring(0, 100)}`, url: "/chat" }).catch(() => {});
+      sendPushNotification(receiverId, { title: "New Message", body: `${senderName}: ${content.substring(0, 100)}`, url: "/chat" }, "messages").catch(() => {});
       res.status(201).json(message);
     } catch (error) {
       console.error("Error sending message:", error);
@@ -6836,7 +6869,7 @@ ${JSON.stringify(catalogForPrompt)}
       const senderName = await getDisplayNameForUser(userId);
       for (const m of members) {
         if (m.userId !== userId) {
-          sendPushNotification(m.userId, { title: "New Message", body: `${senderName}: ${content.substring(0, 100)}`, url: "/chat" }).catch(() => {});
+          sendPushNotification(m.userId, { title: "New Message", body: `${senderName}: ${content.substring(0, 100)}`, url: "/chat" }, "messages").catch(() => {});
         }
       }
 
@@ -8240,7 +8273,7 @@ ${JSON.stringify(catalogForPrompt)}
         sendSessionRequestedEmail(trainerEmail, { ...emailData, requesterRole: "player" }).catch(() => {});
       }
       const reqName = await getDisplayNameForUser(playerId);
-      sendPushNotification(trainerProfile.userId, { title: "Session Request", body: `${reqName} requested a training session`, url: "/trainer/schedule" }).catch(() => {});
+      sendPushNotification(trainerProfile.userId, { title: "Session Request", body: `${reqName} requested a training session`, url: "/trainer/schedule" }, "sessions").catch(() => {});
 
       res.status(201).json(session);
     } catch (error: any) {
@@ -8318,7 +8351,7 @@ ${JSON.stringify(catalogForPrompt)}
           sendSessionRequestedEmail(playerEmail, { ...emailData, requesterRole: "trainer" }).catch(() => {});
         }
         const tName = await getDisplayNameForUser(trainerId);
-        sendPushNotification(playerId, { title: "Session Request", body: `${tName} wants to schedule a training session`, url: "/my-trainer" }).catch(() => {});
+        sendPushNotification(playerId, { title: "Session Request", body: `${tName} wants to schedule a training session`, url: "/my-trainer" }, "sessions").catch(() => {});
       }
       res.status(201).json(sessions);
     } catch (error: any) {
@@ -8479,7 +8512,7 @@ ${JSON.stringify(catalogForPrompt)}
         sendSessionConfirmedEmail(otherEmail, { ...emailData, confirmedBy }).catch(() => {});
       }
       const confirmerName = await getDisplayNameForUser(userId);
-      sendPushNotification(otherUserId, { title: "Session Confirmed", body: `Your session with ${confirmerName} has been confirmed`, url: userId === session.trainerId ? "/my-trainer" : "/trainer/schedule" }).catch(() => {});
+      sendPushNotification(otherUserId, { title: "Session Confirmed", body: `Your session with ${confirmerName} has been confirmed`, url: userId === session.trainerId ? "/my-trainer" : "/trainer/schedule" }, "sessions").catch(() => {});
 
       res.json(updated);
     } catch (error: any) {
@@ -8506,7 +8539,7 @@ ${JSON.stringify(catalogForPrompt)}
         sendSessionDeclinedEmail(playerEmail, { ...emailData, declineReason: declineReason || undefined }).catch(() => {});
       }
       const declinerName = await getDisplayNameForUser(trainerId);
-      sendPushNotification(session.playerId, { title: "Session Declined", body: `${declinerName} declined your session request`, url: "/my-trainer" }).catch(() => {});
+      sendPushNotification(session.playerId, { title: "Session Declined", body: `${declinerName} declined your session request`, url: "/my-trainer" }, "sessions").catch(() => {});
 
       res.json(updated);
     } catch (error: any) {
@@ -8535,7 +8568,7 @@ ${JSON.stringify(catalogForPrompt)}
         sendSessionCancelledEmail(otherEmail, { ...emailData, cancelledBy }).catch(() => {});
       }
       const cancellerName = await getDisplayNameForUser(userId);
-      sendPushNotification(otherUserId, { title: "Session Cancelled", body: `${cancellerName} cancelled the training session`, url: userId === session.trainerId ? "/my-trainer" : "/trainer/schedule" }).catch(() => {});
+      sendPushNotification(otherUserId, { title: "Session Cancelled", body: `${cancellerName} cancelled the training session`, url: userId === session.trainerId ? "/my-trainer" : "/trainer/schedule" }, "sessions").catch(() => {});
 
       res.json(updated);
     } catch (error: any) {
@@ -8630,7 +8663,7 @@ ${JSON.stringify(catalogForPrompt)}
         }).catch(() => {});
       }
       const reschName = await getDisplayNameForUser(userId);
-      sendPushNotification(otherUserId, { title: "Session Rescheduled", body: `${reschName} wants to reschedule your session`, url: userId === session.trainerId ? "/my-trainer" : "/trainer/schedule" }).catch(() => {});
+      sendPushNotification(otherUserId, { title: "Session Rescheduled", body: `${reschName} wants to reschedule your session`, url: userId === session.trainerId ? "/my-trainer" : "/trainer/schedule" }, "sessions").catch(() => {});
 
       res.json(updated);
     } catch (error: any) {
@@ -9289,7 +9322,7 @@ ${JSON.stringify(catalogForPrompt)}
 
       const conn = await storage.createConnection({ playerId, trainerId, initiatedBy, requesterUserId: userId, status: "pending" });
       const connName = await getDisplayNameForUser(userId);
-      sendPushNotification(targetUserId, { title: "Connection Request", body: `${connName} wants to connect with you`, url: "/connect" }).catch(() => {});
+      sendPushNotification(targetUserId, { title: "Connection Request", body: `${connName} wants to connect with you`, url: "/connect" }, "connections").catch(() => {});
       res.status(201).json(conn);
     } catch (error) {
       console.error("Error creating connection:", error);
@@ -9397,7 +9430,7 @@ ${JSON.stringify(catalogForPrompt)}
       const conn = await storage.updateConnectionStatus(req.params.id, "accepted");
       const acceptorName = await getDisplayNameForUser(userId);
       const requesterId = existing.requesterUserId || (existing.initiatedBy === "player" ? existing.playerId : existing.trainerId);
-      sendPushNotification(requesterId, { title: "Connection Accepted", body: `${acceptorName} accepted your connection request`, url: "/connect" }).catch(() => {});
+      sendPushNotification(requesterId, { title: "Connection Accepted", body: `${acceptorName} accepted your connection request`, url: "/connect" }, "connections").catch(() => {});
 
       // ── Auto-sync: add the player to the trainer's roster ──────────────────
       try {
@@ -9726,6 +9759,44 @@ ${JSON.stringify(catalogForPrompt)}
     res.json({ publicKey: key });
   });
 
+  app.get("/api/notifications/preferences", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const preferences = await getNotificationPreferences(req.user.claims.sub);
+      res.json({
+        ...preferences,
+        labels: NOTIFICATION_CATEGORY_LABELS,
+      });
+    } catch (error) {
+      console.error("Error loading notification preferences:", error);
+      res.status(500).json({ message: "Failed to load notification preferences" });
+    }
+  });
+
+  app.patch("/api/notifications/preferences", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const categories = req.body?.categories;
+      if (categories !== undefined && (!categories || typeof categories !== "object" || Array.isArray(categories))) {
+        return res.status(400).json({ message: "categories must be an object" });
+      }
+      const allowedCategories = new Set(Object.keys(NOTIFICATION_CATEGORY_LABELS));
+      const sanitizedCategories: Partial<Record<NotificationCategory, boolean>> = {};
+      for (const [key, value] of Object.entries(categories ?? {})) {
+        if (allowedCategories.has(key) && typeof value === "boolean") {
+          sanitizedCategories[key as NotificationCategory] = value;
+        }
+      }
+      const preferences = await saveNotificationPreferences(req.user.claims.sub, {
+        pushEnabled: req.body?.pushEnabled === undefined ? undefined : Boolean(req.body.pushEnabled),
+        categories: categories === undefined ? undefined : sanitizedCategories,
+        onboardingPromptSeen: req.body?.onboardingPromptSeen === undefined ? undefined : Boolean(req.body.onboardingPromptSeen),
+      });
+      res.json(preferences);
+    } catch (error) {
+      console.error("Error updating notification preferences:", error);
+      res.status(500).json({ message: "Failed to update notification preferences" });
+    }
+  });
+
   app.post("/api/push/subscribe", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -9802,6 +9873,12 @@ ${JSON.stringify(catalogForPrompt)}
       const { title, content, category } = req.body;
       if (!title?.trim() || !content?.trim()) return res.status(400).json({ message: "Title and content are required" });
       const post = await storage.createFeedbackPost({ userId, title: title.trim(), content: content.trim(), category: category || "general", status: "open" });
+      const authorName = await getDisplayNameForUser(userId);
+      sendPushToAdmins({
+        title: "New feedback post",
+        body: `${authorName}: ${post.title} — ${post.content.substring(0, 120)}`,
+        url: "/admin",
+      }, "adminFeedback").catch(() => {});
       res.json(post);
     } catch (err) {
       console.error("Error creating feedback:", err);
@@ -10718,16 +10795,31 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
         delete (patch as any).authorUserId;
         delete (patch as any).isFeatured;
       }
+      const wasPublished = Boolean(ctx.program.isPublished);
       // If slug is being changed, dedupe + retry on race.
       if (patch.slug && patch.slug !== ctx.program.slug) {
         const updated = await withSlugRetry(patch.slug, ctx.program.id, (slug) =>
           storage.updateProgram(ctx.program.id, { ...patch, slug }),
         );
         invalidateCoachPCache("programs");
+        if (!wasPublished && patch.isPublished === true) {
+          sendPushToPlayers({
+            title: "New training program",
+            body: `${updated?.title || ctx.program.title} is now available in PLAYR1`,
+            url: `/programs/${updated?.slug || ctx.program.slug}`,
+          }, "programs").catch(() => {});
+        }
         return res.json(updated);
       }
       const updated = await storage.updateProgram(ctx.program.id, patch);
       invalidateCoachPCache("programs");
+      if (!wasPublished && patch.isPublished === true) {
+        sendPushToPlayers({
+          title: "New training program",
+          body: `${updated?.title || ctx.program.title} is now available in PLAYR1`,
+          url: `/programs/${updated?.slug || ctx.program.slug}`,
+        }, "programs").catch(() => {});
+      }
       res.json(updated);
     } catch (err: any) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: "Invalid body", errors: err.errors });
@@ -12958,6 +13050,20 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
       res.json(result);
       fireActivity(userId, "three_point_challenge_score", `Logged a 3-point challenge score`,
         `${challenge.title} · score: ${score}`, { score, challengeSlug: req.params.slug });
+      void (async () => {
+        const participants = await db.select({ userId: streakChallengeParticipants.userId })
+          .from(streakChallengeParticipants)
+          .where(eq(streakChallengeParticipants.challengeId, challenge.id));
+        const actorName = await getDisplayNameForUser(userId);
+        await Promise.all(participants
+          .map((participant) => participant.userId)
+          .filter((participantId) => participantId !== userId)
+          .map((participantId) => sendPushNotification(participantId, {
+            title: "Challenge update",
+            body: `${actorName} logged a score of ${score} in ${challenge.title}`,
+            url: `/streak-challenges/${req.params.slug}`,
+          }, "challengeUpdates").catch(() => {})));
+      })().catch(() => {});
     } catch (err) {
       console.error("[streak] attempt:", err);
       res.status(500).json({ message: "Failed to log attempt" });
@@ -13172,6 +13278,12 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
       if (!addresseeId) return res.status(400).json({ message: "addresseeId required" });
       if (addresseeId === userId) return res.status(400).json({ message: "Cannot friend yourself" });
       const friendship = await storage.sendFriendRequest(userId, addresseeId);
+      const requesterName = await getDisplayNameForUser(userId);
+      sendPushNotification(addresseeId, {
+        title: "Friend Invite",
+        body: `${requesterName} wants to be your friend`,
+        url: "/community",
+      }, "connections").catch(() => {});
       res.json(friendship);
     } catch (err: any) {
       res.status(err?.message?.includes("follow this player") ? 400 : 500).json({ message: err?.message || "Failed to send friend request" });
@@ -13379,6 +13491,12 @@ Return ONLY valid JSON. Use 3-5 phases, 3-6 milestones, and 1 clear next action.
       const { userId: invitedUserId } = req.body;
       if (!invitedUserId) return res.status(400).json({ message: "userId required" });
       const member = await storage.inviteToGroupChallenge(req.params.id, invitedUserId);
+      const inviterName = await getDisplayNameForUser(userId);
+      sendPushNotification(invitedUserId, {
+        title: "Challenge Invite",
+        body: `${inviterName} invited you to ${challenge.name}`,
+        url: "/community?tab=challenges",
+      }, "challengeInvites").catch(() => {});
       res.json(member);
     } catch (err) {
       res.status(500).json({ message: "Failed to invite" });

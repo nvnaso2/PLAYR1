@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { usePushNotifications } from "@/hooks/use-push-notifications";
 import { queryClient, apiRequest, nativeFetch, getObjectUrl } from "@/lib/queryClient";
 import { track } from "@/lib/track";
 import { 
@@ -92,6 +93,7 @@ import {
   Sparkles,
   MessageSquare,
   Fingerprint,
+  Bell,
 } from "lucide-react";
 import type { CareerProfile, UserAchievement, CareerAchievement, Challenge, UserChallenge, PersonalRecord, TeamAward, Season, Game, InsertTeamAward, InsertChallenge } from "@shared/schema";
 import { insertTeamAwardSchema, insertChallengeSchema } from "@shared/schema";
@@ -5108,10 +5110,62 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
   );
 }
 
+function OnboardingNotificationPrompt({ onClose }: { onClose: () => void }) {
+  const [open, setOpen] = useState(true);
+  const { isSupported, subscribe, isLoading } = usePushNotifications();
+  const { data: preferences } = useQuery<any>({ queryKey: ["/api/notifications/preferences"] });
+  const markSeen = useMutation({
+    mutationFn: async (pushEnabled?: boolean) => apiRequest("PATCH", "/api/notifications/preferences", {
+      ...(pushEnabled === undefined ? {} : { pushEnabled }),
+      onboardingPromptSeen: true,
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications/preferences"] });
+      onClose();
+    },
+  });
+
+  if (!isSupported || preferences?.onboardingPromptSeen) return null;
+
+  const close = () => {
+    setOpen(false);
+    markSeen.mutate(undefined);
+  };
+
+  const enable = async () => {
+    const subscribed = await subscribe();
+    if (subscribed) markSeen.mutate(true);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(next) => !next && close()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Bell className="w-5 h-5 text-primary" />
+            Stay on track
+          </DialogTitle>
+          <DialogDescription>
+            Get timely reminders for workouts, challenges, friend activity, and your weekly progress. You can customize every category later in Settings.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="gap-2 sm:justify-end">
+          <Button variant="ghost" onClick={close} disabled={markSeen.isPending}>Not now</Button>
+          <Button onClick={enable} disabled={isLoading || markSeen.isPending}>
+            {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+            Enable notifications
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function CareerPage() {
   const { data: careerProfile, isLoading, refetch } = useQuery<CareerProfile | null>({
     queryKey: ['/api/career']
   });
+  const [showNotificationPrompt, setShowNotificationPrompt] = useState(false);
 
   if (isLoading) {
     return (
@@ -5124,8 +5178,13 @@ export default function CareerPage() {
   }
 
   if (!careerProfile || !careerProfile.onboardingCompleted) {
-    return <OnboardingWizard onComplete={() => refetch()} />;
+    return <OnboardingWizard onComplete={() => { setShowNotificationPrompt(true); refetch(); }} />;
   }
 
-  return <CareerDashboard profile={careerProfile} />;
+  return (
+    <>
+      <CareerDashboard profile={careerProfile} />
+      {showNotificationPrompt && <OnboardingNotificationPrompt onClose={() => setShowNotificationPrompt(false)} />}
+    </>
+  );
 }

@@ -4,6 +4,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation, Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,7 +26,22 @@ import {
 
 function PushNotificationToggle() {
   const { isSupported, isSubscribed, isLoading, subscribe, unsubscribe } = usePushNotifications();
+  const { data: preferences } = useQuery<any>({ queryKey: ["/api/notifications/preferences"] });
+  const updatePreferences = useMutation({
+    mutationFn: async (pushEnabled: boolean) => apiRequest("PATCH", "/api/notifications/preferences", { pushEnabled }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/notifications/preferences"] }),
+  });
   if (!isSupported) return null;
+  const enabled = preferences?.pushEnabled ?? isSubscribed;
+  const toggle = async (next: boolean) => {
+    if (next) {
+      const subscribed = await subscribe();
+      if (subscribed) updatePreferences.mutate(true);
+    } else {
+      await unsubscribe();
+      updatePreferences.mutate(false);
+    }
+  };
   return (
     <div className="flex items-center justify-between p-4 rounded-lg border">
       <div className="flex items-center gap-3">
@@ -33,19 +49,77 @@ function PushNotificationToggle() {
         <div>
           <p className="font-medium text-sm">Push Notifications</p>
           <p className="text-xs text-muted-foreground">
-            {isSubscribed ? "You're receiving push notifications" : "Get notified about sessions, messages, and more"}
+          {enabled ? "You're receiving push notifications" : "All notification delivery is paused"}
           </p>
         </div>
       </div>
       <Button
-        variant={isSubscribed ? "outline" : "default"}
+        variant={enabled ? "outline" : "default"}
         size="sm"
-        onClick={isSubscribed ? unsubscribe : subscribe}
-        disabled={isLoading}
+        onClick={() => toggle(!enabled)}
+        disabled={isLoading || updatePreferences.isPending}
         data-testid="button-push-notifications"
       >
-        {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : isSubscribed ? "Disable" : "Enable"}
+        {isLoading || updatePreferences.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : enabled ? "Disable" : "Enable"}
       </Button>
+    </div>
+  );
+}
+
+const PLAYER_NOTIFICATION_GROUPS = [
+  ["connections", "Friend and connection invites"],
+  ["challengeInvites", "Challenge invitations"],
+  ["challengeUpdates", "Challenge updates"],
+  ["messages", "Direct and group messages"],
+  ["support", "PLAYR1 support messages"],
+  ["drills", "Workouts and drills sent by PLAYR1"],
+  ["programs", "New published programs"],
+  ["friendActivity", "Friend community activity"],
+  ["weeklySummary", "Weekly completed-work summary"],
+  ["streakReminders", "Streak continuation reminders"],
+  ["trainingSuggestions", "Suggested drill and workout reminders"],
+] as const;
+
+const ADMIN_NOTIFICATION_GROUPS = [
+  ["adminInbox", "Player inbox messages"],
+  ["adminCustomWorkouts", "Custom workout requests"],
+  ["adminCommunity", "Community 3-pointer activity"],
+  ["adminFeedback", "New feedback posts"],
+  ["adminWeeklyDigest", "Weekly growth, usage, subscription, and revenue summary"],
+] as const;
+
+function NotificationCategorySettings({ isAdmin }: { isAdmin: boolean }) {
+  const { data: preferences, isLoading } = useQuery<any>({ queryKey: ["/api/notifications/preferences"] });
+  const updateCategory = useMutation({
+    mutationFn: async ({ key, value }: { key: string; value: boolean }) =>
+      apiRequest("PATCH", "/api/notifications/preferences", { categories: { [key]: value } }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/notifications/preferences"] }),
+  });
+
+  if (isLoading || !preferences) return <div className="text-sm text-muted-foreground p-4">Loading notification categories…</div>;
+
+  const group = (title: string, items: readonly (readonly [string, string])[]) => (
+    <div className="space-y-2">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
+      {items.map(([key, label]) => (
+        <div key={key} className="flex items-center justify-between gap-4 rounded-lg border p-3">
+          <span className="text-sm">{label}</span>
+          <Switch
+            checked={preferences.categories?.[key] !== false}
+            onCheckedChange={(value) => updateCategory.mutate({ key, value })}
+            disabled={!preferences.pushEnabled || updateCategory.isPending}
+            aria-label={label}
+            data-testid={`switch-notification-${key}`}
+          />
+        </div>
+      ))}
+    </div>
+  );
+
+  return (
+    <div className="space-y-5 mt-4">
+      {group("Player notifications", PLAYER_NOTIFICATION_GROUPS)}
+      {isAdmin && group("Admin notifications", ADMIN_NOTIFICATION_GROUPS)}
     </div>
   );
 }
@@ -54,6 +128,7 @@ export default function SettingsPage() {
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const { data: userProfile } = useQuery<any>({ queryKey: ["/api/profile"] });
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -187,6 +262,7 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent>
           <PushNotificationToggle />
+          <NotificationCategorySettings isAdmin={Boolean(userProfile?.isAdmin)} />
         </CardContent>
       </Card>
 

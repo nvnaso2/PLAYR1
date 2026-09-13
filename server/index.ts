@@ -9,6 +9,7 @@ import { runMigrations } from "stripe-replit-sync";
 import { getStripeSync } from "./stripeClient";
 import { runApplicationMigrations } from "./appMigrations";
 import { ensureProCatalog } from "./proCatalog";
+import { runNotificationJobs } from "./notification-jobs";
 
 const app = express();
 const httpServer = createServer(app);
@@ -127,6 +128,13 @@ app.use((req, res, next) => {
   } catch (error) {
     console.error("Failed to seed database:", error);
   }
+
+  // Scheduled push digests/reminders are deduplicated in the database, so
+  // multiple app instances or restarts do not duplicate user notifications.
+  const notificationJobInterval = setInterval(() => {
+    runNotificationJobs().catch((error) => console.error("Notification job failed:", error));
+  }, 60 * 60 * 1000);
+  notificationJobInterval.unref?.();
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

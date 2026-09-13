@@ -178,6 +178,26 @@ export async function runApplicationMigrations(): Promise<void> {
        ALTER TABLE custom_workout_requests DROP COLUMN IF EXISTS preferred_schedule;
        ALTER TABLE custom_workout_assignments DROP COLUMN IF EXISTS due_date;
        ALTER TABLE custom_workout_assignments ALTER COLUMN request_id DROP NOT NULL;
+      CREATE TABLE IF NOT EXISTS notification_preferences (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id varchar NOT NULL UNIQUE,
+        push_enabled boolean NOT NULL DEFAULT true,
+        categories jsonb NOT NULL DEFAULT '{}'::jsonb,
+        onboarding_prompt_seen boolean NOT NULL DEFAULT false,
+        created_at timestamp DEFAULT now(),
+        updated_at timestamp DEFAULT now()
+      );
+      CREATE TABLE IF NOT EXISTS notification_dispatches (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id varchar NOT NULL,
+        kind varchar NOT NULL,
+        period_key varchar NOT NULL,
+        created_at timestamp DEFAULT now()
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS notification_dispatches_user_kind_period_uq
+        ON notification_dispatches (user_id, kind, period_key);
+      CREATE INDEX IF NOT EXISTS notification_dispatches_kind_period_idx
+        ON notification_dispatches (kind, period_key);
     `);
     await client.query("COMMIT");
   } catch (error) {

@@ -11,7 +11,11 @@ export function usePushNotifications() {
 
   useEffect(() => {
     if (isNative) {
-      checkNativeSubscription();
+      // Native tokens are intentionally not registered until the server has
+      // an APNs/FCM delivery provider. Avoid showing users a working state
+      // that cannot receive the notifications this preference controls.
+      setIsSupported(false);
+      setIsLoading(false);
     } else {
       const supported = "serviceWorker" in navigator && "PushManager" in window;
       setIsSupported(supported);
