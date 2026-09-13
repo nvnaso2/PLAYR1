@@ -2947,7 +2947,7 @@ export default function AdminPage() {
             <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-xl border border-zinc-800/60 bg-zinc-900/60 p-1">
               <TabsTrigger value="drills" className="gap-1.5 text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-black"><Video className="h-3.5 w-3.5" />Drills</TabsTrigger>
               <TabsTrigger value="workouts" className="gap-1.5 text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-black"><Play className="h-3.5 w-3.5" />Workouts</TabsTrigger>
-              <TabsTrigger value="programs" className="gap-1.5 text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-black"><Calendar className="h-3.5 w-3.5" />Programs</TabsTrigger>
+              <TabsTrigger value="programs" className="gap-1.5 text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-black"><Calendar className="h-3.5 w-3.5" />Courses</TabsTrigger>
               <TabsTrigger value="archetypes" className="gap-1.5 text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-black"><Fingerprint className="h-3.5 w-3.5" />Archetypes</TabsTrigger>
             </TabsList>
           </Tabs>

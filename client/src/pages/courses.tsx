@@ -40,8 +40,8 @@ export default function CoursesPage() {
       <div className="relative overflow-hidden border-b border-border/40">
         <div className="absolute inset-0 opacity-30" style={{ backgroundImage: "radial-gradient(circle at 10% 10%, hsl(var(--primary) / 0.25), transparent 50%), radial-gradient(circle at 90% 80%, hsl(24 95% 53% / 0.2), transparent 50%)" }} />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-14">
-          <Link href="/programs" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-5">
-            <ArrowLeft className="w-4 h-4" /> Back to programs
+          <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-5">
+            <ArrowLeft className="w-4 h-4" /> Back to dashboard
           </Link>
           <div className="flex items-center gap-2 text-primary text-sm font-medium mb-3">
             <BookOpen className="w-4 h-4" />

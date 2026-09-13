@@ -694,7 +694,9 @@ export async function seedPrograms() {
   const drillIds = await resolveDrillIds();
   let inserted = 0;
 
-  for (const p of PROGRAMS) {
+  // The product now exposes courses only. Keep the historical definitions in
+  // this file for reference, but never recreate the retired programs.
+  for (const p of PROGRAMS.filter((program) => program.contentType === "course")) {
     if (existingSlugs.has(p.slug)) continue;
 
     const [program] = await db

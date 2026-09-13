@@ -1,12 +1,51 @@
 import { db } from "./db";
 import { drills, benchmarks, evaluationAttributes, shotLocations, shotTypes, userProfiles, metricTemplates, drillMetrics, teamClubs, leagues, archetypes, archetypeRoadmapItems, streakChallenges, type ArchetypeTier, type ArchetypeRoadmapItemType, careerProfiles, playerProfiles, friendships, userFollows, friendActivityFeed, groupChallenges, groupChallengeMembers, userStreaks, trainingLogs, trainingLogMetrics, analyticsEvents, workouts, workoutDrills, programs, programItems, programEnrollments, programItemCompletions, feedbackPosts, coachPRequests, coachPUsage, journalEntries, type ShotLocation } from "@shared/schema";
-// seedPrograms disabled — generic programs removed per user request
-// import { seedPrograms } from "./seed-programs";
+import { seedPrograms } from "./seed-programs";
 import { users } from "@shared/models/auth";
 import { eq, sql, notInArray, inArray, isNull, and, or, like } from "drizzle-orm";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { JOURNAL_PROMPTS } from "@shared/journalPrompts";
+
+async function retainOnlyMechanicalFoundationCourse() {
+  await db.transaction(async (tx) => {
+    const oldPrograms = sql`SELECT id FROM programs WHERE slug <> 'mechanical-foundation-14'`;
+
+    // Preserve event records, but detach retired program content from them.
+    await tx.execute(sql`
+      UPDATE events
+      SET program_id = NULL, final_challenge_item_id = NULL
+      WHERE program_id IN (${oldPrograms})
+    `);
+    await tx.execute(sql`
+      DELETE FROM program_item_completions
+      WHERE enrollment_id IN (
+        SELECT id FROM program_enrollments
+        WHERE program_id IN (${oldPrograms})
+      )
+      OR program_item_id IN (
+        SELECT id FROM program_items
+        WHERE program_id IN (${oldPrograms})
+      )
+    `);
+    await tx.execute(sql`
+      DELETE FROM program_enrollments
+      WHERE program_id IN (${oldPrograms})
+    `);
+    await tx.execute(sql`
+      DELETE FROM archetype_tier_programs
+      WHERE program_id IN (${oldPrograms})
+    `);
+    await tx.execute(sql`
+      DELETE FROM program_items
+      WHERE program_id IN (${oldPrograms})
+    `);
+    await tx.execute(sql`
+      DELETE FROM programs
+      WHERE slug <> 'mechanical-foundation-14'
+    `);
+  });
+}
 
 const sampleDrills = [
   // Ball Handling
@@ -1728,7 +1767,9 @@ export async function seedDatabase() {
       console.log("Leagues already exist, skipping seed");
     }
 
-    // seedPrograms() removed — generic default programs deleted from DB
+    // The catalog is now a single paid course. Seed it before dependent
+    // training/demo records are created.
+    await seedPrograms();
 
     // Seed archetypes (upsert so changes to definitions are applied on restart)
     for (const def of ARCHETYPE_DEFINITIONS) {
@@ -1884,6 +1925,9 @@ export async function seedDatabase() {
     await seedCoachPAndJournalAnalyticsDemo();
     await seedAnalyticsDemo();
     await seedTrainingAnalyticsDemo();
+    // Remove retired program rows after all development fixtures have run so
+    // analytics fixtures cannot recreate visible legacy programs.
+    await retainOnlyMechanicalFoundationCourse();
     console.log("Database seeding complete!");
 
     const adminEmail = process.env.ADMIN_EMAIL;

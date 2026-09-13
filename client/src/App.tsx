@@ -68,6 +68,7 @@ const Courses = lazy(pageLoaders.courses);
 const ProgramDetail = lazy(pageLoaders.programDetail);
 const ProgramToday = lazy(pageLoaders.programToday);
 const CourseLeadMagnet = lazy(pageLoaders.courseLeadMagnet);
+const LeadMagnets = lazy(pageLoaders.leadMagnets);
 const ProgramEditor = lazy(pageLoaders.programEditor);
 const Events = lazy(pageLoaders.events);
 const EventDetail = lazy(pageLoaders.eventDetail);
@@ -325,8 +326,9 @@ function Router() {
                 <Route path="/" component={HomeRedirect} />
                 <Route path="/drills" component={Drills} />
                 <Route path="/drill/:id" component={DrillPage} />
-                <Route path="/programs" component={Programs} />
+                <Route path="/programs">{() => <Redirect to="/courses" />}</Route>
                 <Route path="/courses" component={Courses} />
+                <Route path="/lead-magnets" component={LeadMagnets} />
                 <Route path="/programs/:id/edit" component={ProgramEditor} />
                 <Route path="/programs/:slug/today" component={ProgramToday} />
                 <Route path="/programs/:slug" component={ProgramDetail} />
