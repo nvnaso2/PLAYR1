@@ -154,17 +154,16 @@ export default function ProgramDetailPage() {
                   Unlock with PLAYR1 Pro
                 </Button>
               ) : enrollment ? (
-                <Link href={`${contentBase}/${program.slug}/today`}>
-                  <Button
-                    size="lg"
-                    className="w-full border-0 sm:w-auto"
-                    style={{ background: accent, color: "white" }}
-                    data-testid="button-go-to-today"
-                  >
-                    <PlayCircle className="mr-2 h-4 w-4" />
-                    Continue · Day {enrollment.currentDay}
-                  </Button>
-                </Link>
+                <Button
+                  size="lg"
+                  className="w-full border-0 sm:w-auto"
+                  style={{ background: accent, color: "white" }}
+                  onClick={() => setLocation(`${contentBase}/${program.slug}/today`)}
+                  data-testid="button-go-to-today"
+                >
+                  <PlayCircle className="mr-2 h-4 w-4" />
+                  Continue · Day {enrollment.currentDay}
+                </Button>
               ) : (
                 <Button
                   size="lg"
@@ -240,7 +239,7 @@ export default function ProgramDetailPage() {
               <section>
                 <div className="mb-3 flex items-end justify-between gap-4">
                   <div>
-                    <h2 className="text-2xl font-bold tracking-tight">14 days to better mechanics</h2>
+                    <h2 className="text-2xl font-bold tracking-tight">{totalDays} days to better mechanics</h2>
                     <p className="mt-1 text-sm text-muted-foreground">Pick a day to watch the lesson and open the workout.</p>
                   </div>
                   {enrollment && <span className="shrink-0 text-xs font-medium text-muted-foreground">{pct}% complete</span>}

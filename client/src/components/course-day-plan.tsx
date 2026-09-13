@@ -1,5 +1,4 @@
 import { Link } from "wouter";
-import { Button } from "@/components/ui/button";
 import { CheckCircle2, Clock, Play, Video } from "lucide-react";
 import type { ProgramItem } from "@shared/schema";
 
@@ -90,15 +89,14 @@ export function CourseDayPlan({
               </p>
             </div>
 
-            <Link href={`/courses/${courseSlug}/today?day=${day}`} className="shrink-0">
-              <Button
-                variant={isCurrent ? "default" : "outline"}
-                size="sm"
-                className="px-2.5 text-xs sm:px-3"
-                style={isCurrent ? { background: accent, color: "white" } : undefined}
-              >
-                Open workout
-              </Button>
+            <Link
+              href={`/courses/${courseSlug}/today?day=${day}`}
+              className={`inline-flex h-9 shrink-0 items-center justify-center rounded-md border px-2.5 text-xs font-semibold transition-colors sm:px-3 ${
+                isCurrent ? "border-transparent text-white" : "border-border bg-background hover:bg-muted"
+              }`}
+              style={isCurrent ? { background: accent } : undefined}
+            >
+              Open workout
             </Link>
           </div>
         );
