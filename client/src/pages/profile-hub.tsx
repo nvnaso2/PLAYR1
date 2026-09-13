@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getObjectUrl, nativeFetch } from "@/lib/queryClient";
 import {
-  BarChart3, BotMessageSquare, Zap, BookOpen,
+  BarChart3, BotMessageSquare, Zap, BookOpen, CalendarDays,
   ChevronRight, UserCircle, Settings, Crown, MessageCircle,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
@@ -20,6 +20,15 @@ const sections = [
     bg: "bg-amber-500/10",
     path: "/subscription",
     testId: "card-profile-subscription",
+  },
+  {
+    title: "My Season",
+    description: "Your current mode, next game, and next action",
+    icon: CalendarDays,
+    color: "text-orange-400",
+    bg: "bg-orange-500/10",
+    path: "/my-season",
+    testId: "card-profile-my-season",
   },
   {
     title: "My Career",

@@ -4622,6 +4622,92 @@ ${JSON.stringify(catalogForPrompt)}
 
   // ===== SEASONS AND GAMES (Baseball Card Stats) =====
 
+  const parseDateInput = (value: unknown): Date | null => {
+    if (!value) return null;
+    const raw = String(value);
+    const parsed = new Date(raw.length === 10 ? `${raw}T00:00:00Z` : raw);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  };
+
+  // Current player mode: scheduled events override active seasons, then any
+  // season whose dates contain today keeps the player in season.
+  app.get("/api/my-season", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const userSeasons = await storage.getUserSeasons(userId);
+      const seasonGames = await Promise.all(
+        userSeasons.map(async (season) => ({
+          season,
+          games: await storage.getSeasonGames(season.id),
+        }))
+      );
+      const dateKey = (value: Date | string | null | undefined) =>
+        value ? new Date(value).toISOString().slice(0, 10) : null;
+      const todayKey = dateKey(new Date())!;
+      const activeSeasons = seasonGames.filter(({ season }) => {
+        if (season.isActive === false || !season.startDate || !season.endDate) return false;
+        const start = dateKey(season.startDate);
+        const end = dateKey(season.endDate);
+        return !!start && !!end && start <= todayKey && todayKey <= end;
+      });
+      const allEvents = seasonGames.flatMap(({ season, games }) =>
+        games.map((game) => ({ ...game, seasonName: season.name, teamName: season.teamName }))
+      );
+      const todayEvents = allEvents
+        .filter((game) => dateKey(game.gameDate) === todayKey)
+        .sort((a, b) => (a.tipoffTime || "").localeCompare(b.tipoffTime || ""));
+      const upcomingEvents = allEvents
+        .filter((game) => {
+          const date = dateKey(game.gameDate);
+          return !!date && date >= todayKey;
+        })
+        .sort((a, b) => {
+          const dateCompare = (dateKey(a.gameDate) || "").localeCompare(dateKey(b.gameDate) || "");
+          return dateCompare || (a.tipoffTime || "").localeCompare(b.tipoffTime || "");
+        });
+      const mode = todayEvents.length > 0 ? "game-day" : activeSeasons.length > 0 ? "in-season" : "off-season";
+      const goal = await storage.getActiveGoal(userId);
+      const nextEvent = upcomingEvents[0] || null;
+      const nextAction =
+        mode === "game-day"
+          ? { label: "Open your Game Day preparation", href: "/game-day" }
+          : mode === "in-season"
+            ? nextEvent
+              ? { label: "Prepare for your next game", href: "/game-day" }
+              : { label: "Stay sharp with today's training", href: "/log" }
+            : { label: "Build today's off-season work", href: goal ? "/my-goal" : "/my-goal" };
+
+      res.json({
+        mode,
+        today: todayKey,
+        activeTeams: activeSeasons.map(({ season }) => ({
+          id: season.id,
+          name: season.name,
+          teamName: season.teamName,
+          startDate: season.startDate,
+          endDate: season.endDate,
+          teamGoal: season.teamGoal,
+        })),
+        todayEvents,
+        nextEvent,
+        upcomingEvents: upcomingEvents.slice(0, 5),
+        goal: goal
+          ? {
+              id: goal.id,
+              projectTitle: goal.projectTitle,
+              goalText: goal.goalText,
+              nextAction: goal.nextAction,
+              status: goal.status,
+            }
+          : null,
+        nextAction,
+      });
+    } catch (error) {
+      console.error("Error fetching My Season overview:", error);
+      res.status(500).json({ message: "Failed to fetch My Season overview" });
+    }
+  });
+
   // Get user's seasons
   app.get("/api/seasons", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
@@ -4654,7 +4740,9 @@ ${JSON.stringify(catalogForPrompt)}
       const userId = req.user.claims.sub;
       const validatedData = insertSeasonSchema.parse({
         ...req.body,
-        userId
+        userId,
+        startDate: parseDateInput(req.body.startDate),
+        endDate: parseDateInput(req.body.endDate),
       });
       const season = await storage.createSeason(validatedData);
       res.status(201).json(season);
@@ -4674,7 +4762,10 @@ ${JSON.stringify(catalogForPrompt)}
       const [season] = await db.select().from(seasons).where(eq(seasons.id, req.params.id)).limit(1);
       if (!season) return res.status(404).json({ message: "Season not found" });
       if (season.userId !== userId) return res.status(403).json({ message: "Not authorized" });
-      const updated = await storage.updateSeason(req.params.id, req.body);
+      const updates = { ...req.body };
+      if ("startDate" in updates) updates.startDate = parseDateInput(updates.startDate);
+      if ("endDate" in updates) updates.endDate = parseDateInput(updates.endDate);
+      const updated = await storage.updateSeason(req.params.id, updates);
       res.json(updated);
     } catch (error) {
       console.error("Error updating season:", error);

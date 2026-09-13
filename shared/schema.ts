@@ -272,6 +272,9 @@ export const seasons = pgTable("seasons", {
   teamName: varchar("team_name"),
   seasonType: varchar("season_type").$type<SeasonType>().notNull(),
   year: varchar("year").notNull(), // e.g., "2024-25" or "2024"
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+  teamGoal: text("team_goal"),
   isActive: boolean("is_active").default(true),
   isPublicProfile: boolean("is_public_profile").default(false),
   createdAt: timestamp("created_at").defaultNow(),
@@ -286,6 +289,8 @@ export const games = pgTable("games", {
   
   // Game info
   gameDate: timestamp("game_date").notNull(),
+  tipoffTime: varchar("tipoff_time"),
+  eventType: varchar("event_type").default("game"),
   opponent: varchar("opponent"),
   isHome: boolean("is_home").default(true),
   result: varchar("result"), // "W" or "L"

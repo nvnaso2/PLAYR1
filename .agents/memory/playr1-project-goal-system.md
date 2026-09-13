@@ -16,3 +16,9 @@ If all discovery answers are saved but plan generation was interrupted, reopenin
 **Why:** A failed generation can leave a clarifying goal with five answers and no program; treating that state as ready creates a dead-end review button and a redirect loop.
 
 **How to apply:** On Project resume, distinguish pending discovery, saved-but-unfinalized discovery, and an active plan. Recover the middle state through the same validated plan-generation path, then allow navigation to My PLAYR1 Project.
+
+The My Season mode engine is calendar-driven: a scheduled event today takes priority as Game Day; otherwise today inside any team season is In Season; otherwise the player is Off Season. No teams defaults to Off Season, and overlapping team seasons keep the player In Season until the final season ends.
+
+**Why:** Players can belong to multiple teams with different calendars, and the product should update from dates instead of asking them to manually switch modes.
+
+**How to apply:** Store season dates per team and scheduled events within each season. Show all active teams and today’s events in My Season, with the next event as the primary preparation context.

@@ -22,6 +22,11 @@ export async function runApplicationMigrations(): Promise<void> {
       ALTER TABLE workout_drills ADD COLUMN IF NOT EXISTS coaching_notes text;
       ALTER TABLE player_profiles ADD COLUMN IF NOT EXISTS school_name varchar;
       ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS activity_visibility jsonb DEFAULT '{}'::jsonb;
+       ALTER TABLE seasons ADD COLUMN IF NOT EXISTS start_date timestamp;
+       ALTER TABLE seasons ADD COLUMN IF NOT EXISTS end_date timestamp;
+       ALTER TABLE seasons ADD COLUMN IF NOT EXISTS team_goal text;
+       ALTER TABLE games ADD COLUMN IF NOT EXISTS tipoff_time varchar;
+       ALTER TABLE games ADD COLUMN IF NOT EXISTS event_type varchar DEFAULT 'game';
       CREATE TABLE IF NOT EXISTS friend_favorites (
         id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id varchar NOT NULL,

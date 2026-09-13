@@ -223,13 +223,18 @@ const seasonSchema = z.object({
   name: z.string().min(1, "Season name is required"),
   teamName: z.string().optional(),
   seasonType: z.string().min(1, "Season type is required"),
-  year: z.string().min(1, "Year is required")
+  year: z.string().min(1, "Year is required"),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  teamGoal: z.string().optional(),
 });
 
 type SeasonFormData = z.infer<typeof seasonSchema>;
 
 const gameSchema = z.object({
   gameDate: z.string().min(1, "Game date is required"),
+  tipoffTime: z.string().optional(),
+  eventType: z.string().optional(),
   opponent: z.string().optional(),
   isHome: z.boolean().default(true),
   result: z.string().optional(),
@@ -2860,7 +2865,10 @@ function StatsTab() {
       name: "",
       teamName: "",
       seasonType: "",
-      year: new Date().getFullYear().toString()
+      year: new Date().getFullYear().toString(),
+      startDate: "",
+      endDate: "",
+      teamGoal: "",
     }
   });
 
@@ -2868,6 +2876,8 @@ function StatsTab() {
     resolver: zodResolver(gameSchema),
     defaultValues: {
       gameDate: new Date().toISOString().split('T')[0],
+      tipoffTime: "",
+      eventType: "game",
       isHome: true,
       points: 0,
       rebounds: 0,
@@ -2997,11 +3007,22 @@ function StatsTab() {
         name: season.name,
         teamName: season.teamName || "",
         seasonType: season.seasonType,
-        year: season.year
+        year: season.year,
+        startDate: season.startDate ? new Date(season.startDate).toISOString().split("T")[0] : "",
+        endDate: season.endDate ? new Date(season.endDate).toISOString().split("T")[0] : "",
+        teamGoal: season.teamGoal || "",
       });
     } else {
       setEditingSeason(null);
-      seasonForm.reset({ name: "", teamName: "", seasonType: "", year: new Date().getFullYear().toString() });
+      seasonForm.reset({
+        name: "",
+        teamName: "",
+        seasonType: "",
+        year: new Date().getFullYear().toString(),
+        startDate: "",
+        endDate: "",
+        teamGoal: "",
+      });
     }
     setShowSeasonDialog(true);
   };
@@ -3168,6 +3189,49 @@ function StatsTab() {
                       </FormItem>
                     )}
                   />
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                     <FormField
+                       control={seasonForm.control}
+                       name="startDate"
+                       render={({ field }) => (
+                         <FormItem>
+                           <FormLabel>Season Start</FormLabel>
+                           <FormControl>
+                             <Input type="date" {...field} data-testid="input-season-start-date" />
+                           </FormControl>
+                           <FormDescription>Used to determine In Season mode.</FormDescription>
+                           <FormMessage />
+                         </FormItem>
+                       )}
+                     />
+                     <FormField
+                       control={seasonForm.control}
+                       name="endDate"
+                       render={({ field }) => (
+                         <FormItem>
+                           <FormLabel>Season End</FormLabel>
+                           <FormControl>
+                             <Input type="date" {...field} data-testid="input-season-end-date" />
+                           </FormControl>
+                           <FormDescription>After this date, PLAYR1 returns to Off Season.</FormDescription>
+                           <FormMessage />
+                         </FormItem>
+                       )}
+                     />
+                   </div>
+                   <FormField
+                     control={seasonForm.control}
+                     name="teamGoal"
+                     render={({ field }) => (
+                       <FormItem>
+                         <FormLabel>What does success look like for this team?</FormLabel>
+                         <FormControl>
+                           <Textarea placeholder="e.g., Win the league and become a reliable two-way starter" {...field} data-testid="input-team-goal" />
+                         </FormControl>
+                         <FormMessage />
+                       </FormItem>
+                     )}
+                   />
                   <FormField
                     control={seasonForm.control}
                     name="year"
@@ -3284,7 +3348,10 @@ function StatsTab() {
                           {isActive ? "Active" : "Completed"}
                         </Badge>
                         <span>{season.year}</span>
-                        {season.teamName && <span>• {season.teamName}</span>}
+                         {season.teamName && <span>• {season.teamName}</span>}
+                         {season.startDate && season.endDate && (
+                           <span>• {new Date(season.startDate).toLocaleDateString()} – {new Date(season.endDate).toLocaleDateString()}</span>
+                         )}
                       </div>
                     </div>
 
