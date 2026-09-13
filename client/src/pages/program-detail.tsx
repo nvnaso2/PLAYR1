@@ -113,6 +113,153 @@ export default function ProgramDetailPage() {
   const totalItems = items.length;
   const pct = totalItems > 0 ? Math.round((completedCount / totalItems) * 100) : 0;
   const totalDays = program.lengthDays;
+  const videoCount = items.filter((item) => item.itemType === "watch").length;
+  const workoutCount = items.filter((item) => ["workout", "drill", "challenge"].includes(item.itemType)).length;
+
+  if (isCourse) {
+    return (
+      <div className="min-h-screen pb-12">
+        <div className="mx-auto max-w-5xl px-4 py-5 sm:px-6 sm:py-8">
+          <Link
+            href={contentBase}
+            className="mb-8 inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            data-testid="button-back"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            All Courses
+          </Link>
+
+          <header className="mb-7 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+            <div className="min-w-0">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-primary">PLAYR1 Course</p>
+              <h1 className="text-4xl font-black tracking-tight sm:text-5xl" data-testid="text-program-title">
+                {program.title}
+              </h1>
+              {program.tagline && (
+                <p className="mt-2 max-w-2xl text-base leading-relaxed text-muted-foreground" data-testid="text-program-tagline">
+                  {program.tagline}
+                </p>
+              )}
+            </div>
+
+            <div className="shrink-0">
+              {isLocked ? (
+                <Button
+                  size="lg"
+                  className="w-full bg-amber-500 text-black hover:bg-amber-400 sm:w-auto"
+                  onClick={() => setLocation("/subscription")}
+                  data-testid="button-upgrade-program"
+                >
+                  <Lock className="mr-2 h-4 w-4" />
+                  Unlock with PLAYR1 Pro
+                </Button>
+              ) : enrollment ? (
+                <Link href={`${contentBase}/${program.slug}/today`}>
+                  <Button
+                    size="lg"
+                    className="w-full border-0 sm:w-auto"
+                    style={{ background: accent, color: "white" }}
+                    data-testid="button-go-to-today"
+                  >
+                    <PlayCircle className="mr-2 h-4 w-4" />
+                    Continue · Day {enrollment.currentDay}
+                  </Button>
+                </Link>
+              ) : (
+                <Button
+                  size="lg"
+                  className="w-full border-0 sm:w-auto"
+                  style={{ background: accent, color: "white" }}
+                  onClick={() => enroll.mutate()}
+                  disabled={enroll.isPending}
+                  data-testid="button-enroll"
+                >
+                  <PlayCircle className="mr-2 h-4 w-4" />
+                  {enroll.isPending ? "Starting…" : "Start Course"}
+                </Button>
+              )}
+            </div>
+          </header>
+
+          <main className="space-y-7">
+            <section data-testid="card-program-trailer">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-muted-foreground">Course trailer</h2>
+                {enrollment && (
+                  <span className="text-xs text-muted-foreground">
+                    {completedCount}/{totalItems} complete · {pct}%
+                  </span>
+                )}
+              </div>
+              {program.trailerVideoUrl ? (
+                <div className="aspect-video overflow-hidden rounded-xl border border-border/70 bg-black shadow-2xl">
+                  <video src={program.trailerVideoUrl} controls className="h-full w-full" preload="metadata" />
+                </div>
+              ) : (
+                <div className="flex aspect-video flex-col items-center justify-center rounded-xl border border-dashed border-primary/40 bg-primary/5 p-6 text-center">
+                  <PlayCircle className="mb-3 h-10 w-10 text-primary/70" />
+                  <p className="font-semibold">Course trailer coming soon</p>
+                  <p className="mt-1 max-w-md text-sm text-muted-foreground">Add the trailer URL in Program Studio to make it available to every player.</p>
+                </div>
+              )}
+            </section>
+
+            <section className="grid grid-cols-3 divide-x divide-border overflow-hidden rounded-xl border border-border/70 bg-card" aria-label="Course stats">
+              {[
+                { value: totalDays, label: "Days" },
+                { value: videoCount, label: "Videos" },
+                { value: workoutCount, label: "Workouts" },
+              ].map((stat) => (
+                <div key={stat.label} className="px-3 py-4 text-center sm:px-6 sm:py-5">
+                  <p className="text-2xl font-black tracking-tight sm:text-3xl" style={{ color: accent }}>{stat.value}</p>
+                  <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground sm:text-xs">{stat.label}</p>
+                </div>
+              ))}
+            </section>
+
+            {program.description && (
+              <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground" data-testid="text-program-description">
+                {program.description}
+              </p>
+            )}
+
+            {isLocked && (
+              <Card className="border-amber-500/40 bg-amber-500/5" data-testid="card-program-locked">
+                <CardContent className="p-6 text-center">
+                  <Lock className="mx-auto mb-3 h-8 w-8 text-amber-400" />
+                  <h2 className="text-xl font-bold">Full course is part of PLAYR1 Pro</h2>
+                  <p className="mt-2 text-muted-foreground">Watch the trailer above, then upgrade for the full day-by-day plan.</p>
+                  <Button className="mt-5 bg-amber-500 text-black hover:bg-amber-400" onClick={() => setLocation("/subscription")}>
+                    View Pro options
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {!isLocked && (
+              <section>
+                <div className="mb-3 flex items-end justify-between gap-4">
+                  <div>
+                    <h2 className="text-2xl font-bold tracking-tight">14 days to better mechanics</h2>
+                    <p className="mt-1 text-sm text-muted-foreground">Pick a day to watch the lesson and open the workout.</p>
+                  </div>
+                  {enrollment && <span className="shrink-0 text-xs font-medium text-muted-foreground">{pct}% complete</span>}
+                </div>
+                <CourseDayPlan
+                  items={items}
+                  totalDays={totalDays}
+                  completedItemIds={completedItemIds}
+                  currentDay={enrollment?.currentDay ?? null}
+                  accent={accent}
+                  courseSlug={program.slug}
+                />
+              </section>
+            )}
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen pb-12">
