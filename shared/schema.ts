@@ -1880,6 +1880,9 @@ export type UserStreak = typeof userStreaks.$inferSelect;
 export const PROGRAM_AUTHOR_TYPES = ["system", "trainer", "event"] as const;
 export type ProgramAuthorType = typeof PROGRAM_AUTHOR_TYPES[number];
 
+export const PROGRAM_CONTENT_TYPES = ["program", "course"] as const;
+export type ProgramContentType = typeof PROGRAM_CONTENT_TYPES[number];
+
 export const PROGRAM_CADENCES = ["userPaced", "daily", "fixedDates"] as const;
 export type ProgramCadence = typeof PROGRAM_CADENCES[number];
 
@@ -1900,7 +1903,8 @@ export const programs = pgTable("programs", {
   description: text("description"),
   coverImageUrl: varchar("cover_image_url"),
   trailerVideoUrl: varchar("trailer_video_url"),
-  isPro: boolean("is_pro").default(false),
+  contentType: varchar("content_type").$type<ProgramContentType>().notNull().default("program"),
+  isPro: boolean("is_pro").default(true),
   accentColor: varchar("accent_color"), // optional hex like "#f97316" — themes the hero
   authorType: varchar("author_type").$type<ProgramAuthorType>().notNull().default("system"),
   authorUserId: varchar("author_user_id"), // null for system; set for trainer-authored
@@ -1925,6 +1929,7 @@ export const programItems = pgTable("program_items", {
   itemType: varchar("item_type").$type<ProgramItemType>().notNull(),
   title: varchar("title").notNull(),
   notes: text("notes"), // coach-style instructions for the user
+  keyTakeaways: text("key_takeaways").array(), // course lesson takeaways shown with the day
   // Polymorphic refs — only one is populated based on itemType:
   drillId: varchar("drill_id"), // for "drill" or simple "workout" w/ a single drill
   workoutSpec: jsonb("workout_spec").$type<Array<{

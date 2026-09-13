@@ -64,8 +64,10 @@ const MyTrainer = lazy(pageLoaders.myTrainer);
 const ParentDashboard = lazy(pageLoaders.parentDashboard);
 const FeedbackPage = lazy(pageLoaders.feedback);
 const Programs = lazy(pageLoaders.programs);
+const Courses = lazy(pageLoaders.courses);
 const ProgramDetail = lazy(pageLoaders.programDetail);
 const ProgramToday = lazy(pageLoaders.programToday);
+const CourseLeadMagnet = lazy(pageLoaders.courseLeadMagnet);
 const ProgramEditor = lazy(pageLoaders.programEditor);
 const Events = lazy(pageLoaders.events);
 const EventDetail = lazy(pageLoaders.eventDetail);
@@ -324,9 +326,13 @@ function Router() {
                 <Route path="/drills" component={Drills} />
                 <Route path="/drill/:id" component={DrillPage} />
                 <Route path="/programs" component={Programs} />
+                <Route path="/courses" component={Courses} />
                 <Route path="/programs/:id/edit" component={ProgramEditor} />
                 <Route path="/programs/:slug/today" component={ProgramToday} />
                 <Route path="/programs/:slug" component={ProgramDetail} />
+                <Route path="/courses/:slug/lead-magnet" component={CourseLeadMagnet} />
+                <Route path="/courses/:slug/today" component={ProgramToday} />
+                <Route path="/courses/:slug" component={ProgramDetail} />
                 <Route path="/admin/events/:id/edit" component={EventEditor} />
                 <Route path="/log" component={TrainingLog} />
                 <Route path="/videos" component={Videos} />

@@ -26,9 +26,10 @@ interface ProgramCardProps {
   enrolledCount?: number; // optional progress hint
   totalItems?: number;
   variant?: "grid" | "featured";
+  hrefBase?: "/programs" | "/courses";
 }
 
-export function ProgramCard({ program, enrolledCount, totalItems, variant = "grid" }: ProgramCardProps) {
+export function ProgramCard({ program, enrolledCount, totalItems, variant = "grid", hrefBase = "/programs" }: ProgramCardProps) {
   const accent = program.accentColor || "#f97316";
   const isFeatured = variant === "featured";
   const progressPct =
@@ -37,7 +38,7 @@ export function ProgramCard({ program, enrolledCount, totalItems, variant = "gri
       : null;
 
   return (
-    <Link href={`/programs/${program.slug}`} data-testid={`link-program-${program.slug}`}>
+    <Link href={`${hrefBase}/${program.slug}`} data-testid={`link-program-${program.slug}`}>
       <Card
         className={`group relative overflow-hidden border-border/60 hover-elevate active-elevate-2 cursor-pointer transition-all ${
           isFeatured ? "h-full" : "h-full"
@@ -77,6 +78,11 @@ export function ProgramCard({ program, enrolledCount, totalItems, variant = "gri
             {program.isPro && (
               <Badge className="bg-amber-500 text-black border-0" data-testid={`badge-pro-${program.slug}`}>
                 <Lock className="w-3 h-3 mr-1" /> PRO
+              </Badge>
+            )}
+            {program.contentType === "course" && (
+              <Badge variant="outline" className="border-white/40 text-white/90 backdrop-blur">
+                Course
               </Badge>
             )}
             {program.isFeatured && (

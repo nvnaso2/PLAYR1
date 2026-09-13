@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import type { Program, ProgramItem, ProgramEnrollment, ProgramItemCompletion, Drill } from "@shared/schema";
 import { DayPlanGrid, ProgramStatRibbon } from "@/components/program-day-plan";
+import { CourseDayPlan } from "@/components/course-day-plan";
 
 interface ProgramDetailResponse {
   program: Program;
@@ -39,9 +40,11 @@ const difficultyColors: Record<string, string> = {
 
 export default function ProgramDetailPage() {
   const params = useParams<{ slug: string }>();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const { toast } = useToast();
   const slug = params.slug;
+  const isCourseRoute = location.startsWith("/courses");
+  const contentBase = isCourseRoute ? "/courses" : "/programs";
 
   const { data, isLoading, isError } = useQuery<ProgramDetailResponse>({
     queryKey: ["/api/programs", slug],
@@ -71,7 +74,7 @@ export default function ProgramDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/programs/me"] });
       track("program_enroll", { programId: data?.program.id, slug });
       toast({ title: "You're in!", description: "Let's get to work. Today's session is ready." });
-      setLocation(`/programs/${slug}/today`);
+      setLocation(`${contentBase}/${slug}/today`);
     },
     onError: () => toast({ title: "Couldn't enroll", description: "Try again in a moment.", variant: "destructive" }),
   });
@@ -96,7 +99,7 @@ export default function ProgramDetailPage() {
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-12 text-center" data-testid="state-program-error">
         <h1 className="text-2xl font-bold">We couldn't load this program</h1>
         <p className="text-muted-foreground mt-2">It may not exist or it may not be available right now.</p>
-        <Link href="/programs">
+        <Link href={contentBase}>
           <Button className="mt-6" data-testid="button-back-to-programs">Back to Programs</Button>
         </Link>
       </div>
@@ -104,6 +107,7 @@ export default function ProgramDetailPage() {
   }
 
   const { program, items, enrollment, isLocked } = data;
+  const isCourse = program.contentType === "course" || isCourseRoute;
   const accent = program.accentColor || "#f97316";
   const completedCount = completedItemIds.size;
   const totalItems = items.length;
@@ -137,7 +141,7 @@ export default function ProgramDetailPage() {
         />
 
         <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-6 md:py-10">
-          <Link href="/programs">
+          <Link href={contentBase}>
             <Button variant="ghost" size="sm" className="mb-6 text-white/90 hover:text-white hover:bg-white/10" data-testid="button-back">
               <ArrowLeft className="w-4 h-4 mr-2" />
               All Programs
@@ -153,6 +157,7 @@ export default function ProgramDetailPage() {
                     Featured
                   </Badge>
                 )}
+                {isCourse && <Badge variant="outline" className="border-white/40 text-white/90 backdrop-blur">COURSE</Badge>}
                 <Badge variant="outline" className={`backdrop-blur ${difficultyColors[program.difficulty] || ""}`}>
                   {program.difficulty}
                 </Badge>
@@ -199,18 +204,27 @@ export default function ProgramDetailPage() {
             {/* Enrollment CTA */}
             <div className="flex flex-col items-stretch lg:items-end gap-2 min-w-[220px]">
               {isLocked ? (
-                <Button
-                  size="lg"
-                  className="w-full lg:w-auto bg-amber-500 text-black hover:bg-amber-400"
-                  onClick={() => setLocation("/subscription")}
-                  data-testid="button-upgrade-program"
-                >
-                  <Lock className="w-5 h-5 mr-2" />
-                  Unlock with PLAYR1 Pro
-                </Button>
+                <div className="flex flex-col gap-2">
+                  {isCourse && (
+                    <Link href={`/courses/${program.slug}/lead-magnet`}>
+                      <Button variant="outline" size="lg" className="w-full lg:w-auto border-white/40 text-white hover:bg-white/10">
+                        <Sparkles className="w-4 h-4 mr-2" /> Start with the free scorecard
+                      </Button>
+                    </Link>
+                  )}
+                  <Button
+                    size="lg"
+                    className="w-full lg:w-auto bg-amber-500 text-black hover:bg-amber-400"
+                    onClick={() => setLocation("/subscription")}
+                    data-testid="button-upgrade-program"
+                  >
+                    <Lock className="w-5 h-5 mr-2" />
+                    Unlock with PLAYR1 Pro
+                  </Button>
+                </div>
               ) : enrollment ? (
                 <>
-                  <Link href={`/programs/${program.slug}/today`}>
+                  <Link href={`${contentBase}/${program.slug}/today`}>
                     <Button
                       size="lg"
                       className="w-full lg:w-auto border-0"
@@ -218,7 +232,7 @@ export default function ProgramDetailPage() {
                       data-testid="button-go-to-today"
                     >
                       <PlayCircle className="w-5 h-5 mr-2" />
-                      Continue Day {enrollment.currentDay}
+                      Continue {isCourse ? "Course" : "Day"} {isCourse ? `· Day ${enrollment.currentDay}` : enrollment.currentDay}
                     </Button>
                   </Link>
                   <p className="text-xs text-white/80 text-center lg:text-right" data-testid="text-progress-hero">
@@ -235,7 +249,7 @@ export default function ProgramDetailPage() {
                   data-testid="button-enroll"
                 >
                   <PlayCircle className="w-5 h-5 mr-2" />
-                  {enroll.isPending ? "Starting…" : "Start Program"}
+                  {enroll.isPending ? "Starting…" : `Start ${isCourse ? "Course" : "Program"}`}
                 </Button>
               )}
             </div>
@@ -258,7 +272,28 @@ export default function ProgramDetailPage() {
             </Card>
           )}
 
-          {program.trailerVideoUrl && (
+          {isCourse && (
+            <Card data-testid="card-program-trailer">
+              <CardContent className="p-4">
+                <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                  <PlayCircle className="w-5 h-5" /> Free trailer
+                </h2>
+                {program.trailerVideoUrl ? (
+                  <div className="aspect-video rounded-lg overflow-hidden bg-black">
+                    <video src={program.trailerVideoUrl} controls className="w-full h-full" preload="metadata" />
+                  </div>
+                ) : (
+                  <div className="aspect-video rounded-lg border border-dashed border-primary/40 bg-primary/5 flex flex-col items-center justify-center text-center p-6">
+                    <PlayCircle className="w-10 h-10 text-primary/70 mb-3" />
+                    <p className="font-semibold">Course trailer coming soon</p>
+                    <p className="text-sm text-muted-foreground mt-1 max-w-md">Add the trailer URL in Program Studio to make it available to every player, including free players.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {!isCourse && program.trailerVideoUrl && (
             <Card data-testid="card-program-trailer">
               <CardContent className="p-4">
                 <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
@@ -298,17 +333,28 @@ export default function ProgramDetailPage() {
           {!isLocked && <div>
             <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
               <Calendar className="w-5 h-5" style={{ color: accent }} />
-              Day-by-day plan
+              {isCourse ? "Course curriculum" : "Day-by-day plan"}
             </h2>
-            <DayPlanGrid
-              items={items}
-              totalDays={totalDays}
-              completedItemIds={completedItemIds}
-              currentDay={enrollment?.currentDay ?? null}
-              drillsById={drillsById}
-              accent={accent}
-              layout="rows"
-            />
+            {isCourse ? (
+              <CourseDayPlan
+                items={items}
+                totalDays={totalDays}
+                completedItemIds={completedItemIds}
+                currentDay={enrollment?.currentDay ?? null}
+                accent={accent}
+                courseSlug={program.slug}
+              />
+            ) : (
+              <DayPlanGrid
+                items={items}
+                totalDays={totalDays}
+                completedItemIds={completedItemIds}
+                currentDay={enrollment?.currentDay ?? null}
+                drillsById={drillsById}
+                accent={accent}
+                layout="rows"
+              />
+            )}
           </div>}
         </div>
 

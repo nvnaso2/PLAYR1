@@ -7765,11 +7765,13 @@ export class DatabaseStorage {
     category?: string;
     difficulty?: string;
     authorType?: string;
+    contentType?: string;
     featuredFirst?: boolean;
   }): Promise<Program[]> {
     const conds = [eq(programs.isPublished, true), eq(programs.visibility, "public")];
     if (opts?.difficulty) conds.push(eq(programs.difficulty, opts.difficulty as any));
     if (opts?.authorType) conds.push(eq(programs.authorType, opts.authorType as any));
+    if (opts?.contentType) conds.push(eq(programs.contentType, opts.contentType as any));
     let q = db.select().from(programs).where(and(...conds));
     if (opts?.category) {
       // Postgres array contains check via sql template

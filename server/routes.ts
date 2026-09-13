@@ -10630,7 +10630,8 @@ Only include zones where you saw actual shots. If you cannot reliably detect sho
       const category = (req.query.category as string) || undefined;
       const difficulty = (req.query.difficulty as string) || undefined;
       const authorType = (req.query.authorType as string) || undefined;
-      const programs = await storage.listPrograms({ category, difficulty, authorType });
+      const contentType = (req.query.contentType as string) || undefined;
+      const programs = await storage.listPrograms({ category, difficulty, authorType, contentType });
       res.json(programs);
     } catch (err) {
       console.error("Error listing programs:", err);

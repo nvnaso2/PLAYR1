@@ -124,8 +124,11 @@ export default function ProgramEditorPage() {
       accentColor: meta.accentColor,
       estimatedMinutesPerDay: meta.estimatedMinutesPerDay,
       coverImageUrl: meta.coverImageUrl,
+      trailerVideoUrl: meta.trailerVideoUrl,
       categoryTags: meta.categoryTags,
       slug: meta.slug,
+      contentType: meta.contentType,
+      isPro: meta.isPro,
     };
     updateMeta.mutate(patch);
   };
@@ -249,22 +252,45 @@ export default function ProgramEditorPage() {
           )}
         </div>
 
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Content type</label>
+            <Select value={meta.contentType ?? "program"} onValueChange={(v) => setMeta({ ...meta, contentType: v as any })}>
+              <SelectTrigger data-testid="select-program-content-type"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="program">Program</SelectItem>
+                <SelectItem value="course">Course</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Trailer video URL</label>
+            <Input
+              value={meta.trailerVideoUrl ?? ""}
+              onChange={(e) => setMeta({ ...meta, trailerVideoUrl: e.target.value })}
+              className="bg-background border-border"
+              placeholder="Paste an uploaded video or hosted URL…"
+              data-testid="input-program-trailer-url"
+            />
+          </div>
+        </div>
+
         {/* Tier toggle */}
         <div className="space-y-2">
           <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Tier</label>
           <div className="flex rounded-lg border border-border overflow-hidden">
             <button
               type="button"
-              onClick={() => setMeta({ ...meta, tier: "free" } as any)}
-              className={`flex-1 py-3 text-sm font-bold uppercase tracking-wide transition-colors ${(meta as any).tier !== "pro" ? "bg-background text-foreground" : "bg-transparent text-muted-foreground"}`}
+              onClick={() => setMeta({ ...meta, isPro: false })}
+              className={`flex-1 py-3 text-sm font-bold uppercase tracking-wide transition-colors ${!meta.isPro ? "bg-background text-foreground" : "bg-transparent text-muted-foreground"}`}
               data-testid="button-tier-free"
             >
               Free
             </button>
             <button
               type="button"
-              onClick={() => setMeta({ ...meta, tier: "pro" } as any)}
-              className={`flex-1 py-3 text-sm font-bold uppercase tracking-wide transition-colors ${(meta as any).tier === "pro" ? "bg-primary text-white" : "bg-transparent text-muted-foreground"}`}
+              onClick={() => setMeta({ ...meta, isPro: true })}
+              className={`flex-1 py-3 text-sm font-bold uppercase tracking-wide transition-colors ${meta.isPro ? "bg-primary text-white" : "bg-transparent text-muted-foreground"}`}
               data-testid="button-tier-pro"
             >
               Pro
@@ -586,6 +612,7 @@ function ItemEditorDialog({
   const { toast } = useToast();
   const [title, setTitle] = useState(existingItem?.title ?? "");
   const [notes, setNotes] = useState(existingItem?.notes ?? "");
+  const [keyTakeaways, setKeyTakeaways] = useState((existingItem?.keyTakeaways ?? []).join("\n"));
   const [estMin, setEstMin] = useState<number>(existingItem?.estimatedMinutes ?? 15);
   const [watchUrl, setWatchUrl] = useState(existingItem?.watchUrl ?? "");
   const isNonWorkout = !!existingItem && existingItem.itemType !== "workout";
@@ -622,6 +649,7 @@ function ItemEditorDialog({
     if (open) {
       setTitle(existingItem?.title ?? "");
       setNotes(existingItem?.notes ?? "");
+      setKeyTakeaways((existingItem?.keyTakeaways ?? []).join("\n"));
       setEstMin(existingItem?.estimatedMinutes ?? 15);
       setWatchUrl(existingItem?.watchUrl ?? "");
       const initialRowsVal = initialRows();
@@ -688,6 +716,7 @@ function ItemEditorDialog({
         const payload: any = {
           title: title.trim() || existingItem.title,
           notes: notes || null,
+          keyTakeaways: keyTakeaways.split("\n").map((line) => line.trim()).filter(Boolean),
           estimatedMinutes: estMin || null,
           watchUrl: watchUrl.trim() || null,
         };
@@ -703,6 +732,7 @@ function ItemEditorDialog({
         itemType: "workout",
         title: title.trim() || `Day ${day} workout`,
         notes: notes || null,
+        keyTakeaways: keyTakeaways.split("\n").map((line) => line.trim()).filter(Boolean),
         estimatedMinutes: estMin || null,
         drillId: cleanRows[0].drillId,
         workoutSpec: cleanRows,
@@ -745,6 +775,18 @@ function ItemEditorDialog({
             <Label>Notes / coaching cues (optional)</Label>
             <Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)}
               data-testid="input-item-notes" />
+          </div>
+
+          <div>
+            <Label>Key takeaways (one per line, optional)</Label>
+            <Textarea
+              rows={4}
+              value={keyTakeaways}
+              onChange={(e) => setKeyTakeaways(e.target.value)}
+              placeholder={"Stay stacked through the finish.\nKeep the pickup compact."}
+              data-testid="input-item-key-takeaways"
+            />
+            <p className="text-xs text-muted-foreground mt-1">Course lessons show these as the player’s recap points.</p>
           </div>
 
           <div>

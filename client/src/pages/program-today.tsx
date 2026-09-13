@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams, Link } from "wouter";
+import { useParams, Link, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -63,6 +63,8 @@ const itemTypeMeta: Record<string, { label: string; Icon: any; color: string; ve
 
 export default function ProgramTodayPage() {
   const params = useParams<{ slug: string }>();
+  const [location] = useLocation();
+  const contentBase = location.startsWith("/courses") ? "/courses" : "/programs";
   const slug = params.slug;
   const { toast } = useToast();
 
@@ -171,7 +173,7 @@ export default function ProgramTodayPage() {
         <Trophy className="w-12 h-12 mx-auto text-muted-foreground mb-4 opacity-50" />
         <h1 className="text-2xl font-bold">We couldn't load this program</h1>
         <p className="text-muted-foreground mt-2">It may be private or temporarily unavailable.</p>
-        <Link href="/programs">
+        <Link href={contentBase}>
           <Button className="mt-6" data-testid="button-back-to-programs">Back to Programs</Button>
         </Link>
       </div>
@@ -187,7 +189,7 @@ export default function ProgramTodayPage() {
         <Trophy className="w-12 h-12 mx-auto text-muted-foreground mb-4 opacity-50" />
         <h1 className="text-2xl font-bold">You're not enrolled in this program yet</h1>
         <p className="text-muted-foreground mt-2">Head back to the program page to start.</p>
-        <Link href={`/programs/${slug}`}>
+        <Link href={`${contentBase}/${slug}`}>
           <Button className="mt-4">Go to program</Button>
         </Link>
       </div>

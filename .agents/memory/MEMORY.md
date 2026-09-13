@@ -22,3 +22,4 @@
 - [Retention measurement](retention-measurement.md) — Day-N retention uses all registered users as denominator and each user's signup date as the clock
 - [Training analytics measurement](training-analytics-measurement.md) — separate event-based discovery from persisted drill, session, and program completion records
 - [Direct custom workout assignments](direct-custom-workout-assignments.md) — admin-built workouts can be assigned without creating a player request
+- [Course content model](course-content-model.md) — paid courses extend programs with content type, day takeaways, and server-side item locking

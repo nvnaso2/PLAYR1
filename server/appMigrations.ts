@@ -15,6 +15,10 @@ export async function runApplicationMigrations(): Promise<void> {
       ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_cancel_at_period_end boolean DEFAULT false;
       ALTER TABLE programs ADD COLUMN IF NOT EXISTS trailer_video_url varchar;
       ALTER TABLE programs ADD COLUMN IF NOT EXISTS is_pro boolean DEFAULT false;
+      ALTER TABLE programs ALTER COLUMN is_pro SET DEFAULT true;
+      ALTER TABLE programs ADD COLUMN IF NOT EXISTS content_type varchar NOT NULL DEFAULT 'program';
+      ALTER TABLE program_items ADD COLUMN IF NOT EXISTS key_takeaways text[];
+      UPDATE programs SET is_pro = true WHERE is_published = true;
       ALTER TABLE workout_drills ADD COLUMN IF NOT EXISTS coaching_notes text;
       ALTER TABLE player_profiles ADD COLUMN IF NOT EXISTS school_name varchar;
       ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS activity_visibility jsonb DEFAULT '{}'::jsonb;
