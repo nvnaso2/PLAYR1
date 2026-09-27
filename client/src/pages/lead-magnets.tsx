@@ -66,23 +66,58 @@ export default function LeadMagnetsPage() {
 
   return (
     <main className="min-h-full bg-zinc-950 px-4 pb-10 pt-6 text-white sm:px-6 sm:pt-10">
-      <div className="mx-auto max-w-2xl">
+      <div className="mx-auto max-w-5xl">
         <div className="mb-6 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">
           <Target className="h-4 w-4 text-orange-400" />
           Free shooting diagnostic
         </div>
 
-        <header className="mb-6">
+        <header className="mb-6 max-w-2xl">
           <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange-400">PLAYR1 Lead Magnet</p>
           <h1 className="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl">
-            Find your shooting cue.
+            Lead Magnets
           </h1>
           <p className="mt-3 max-w-xl text-sm leading-relaxed text-zinc-400">
-            Answer two quick questions to find one clear mechanics cue and the drills to work on next.
+            Choose a free tool to find your next focus and drills.
           </p>
         </header>
 
-        {!result ? (
+        <div className="grid items-start gap-5 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-6">
+          <aside className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-3" aria-label="Lead magnet menu">
+            <p className="px-2 pb-2 pt-1 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+              Browse tools
+            </p>
+            <nav className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible" aria-label="Lead magnets">
+              <button
+                type="button"
+                aria-current="page"
+                onClick={resetQuiz}
+                className="flex min-w-[220px] flex-1 items-center gap-3 rounded-xl border border-orange-500/40 bg-orange-500/10 p-3 text-left transition hover:bg-orange-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 lg:min-w-0"
+              >
+                <Target className="h-4 w-4 shrink-0 text-orange-400" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-bold text-white">Shooting Mechanics</span>
+                  <span className="mt-0.5 block text-xs text-zinc-500">Free diagnostic</span>
+                </span>
+                <ArrowRight className="h-4 w-4 shrink-0 text-orange-400" />
+              </button>
+              <div
+                aria-disabled="true"
+                className="flex min-w-[190px] flex-1 items-center gap-3 rounded-xl border border-dashed border-zinc-800 bg-zinc-950/40 p-3 lg:min-w-0"
+              >
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900 text-sm text-zinc-600">
+                  +
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-bold text-zinc-400">More lead magnets</span>
+                  <span className="mt-0.5 block text-xs text-zinc-600">Coming soon</span>
+                </span>
+              </div>
+            </nav>
+          </aside>
+
+          <div id="shooting-mechanics" className="min-w-0 max-w-2xl">
+            {!result ? (
           <section
             className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/70"
             aria-labelledby="diagnostic-question"
@@ -226,7 +261,9 @@ export default function LeadMagnetsPage() {
               </div>
             </div>
           </section>
-        )}
+            )}
+          </div>
+        </div>
       </div>
     </main>
   );
