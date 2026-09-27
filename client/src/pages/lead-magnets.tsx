@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { ArrowLeft, ArrowRight, Check, RotateCcw, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { FootworkOpenShotsQuiz } from "@/components/lead-magnets/footwork-open-shots-quiz";
 import { track } from "@/lib/track";
 import {
   getShootingMechanicsOutcome,
@@ -34,9 +35,12 @@ const stepProgress = {
   result: "w-full",
 };
 
+type LeadMagnetId = "shooting-mechanics" | "footwork-open-shots";
+
 export default function LeadMagnetsPage() {
   const [branch, setBranch] = useState<ShootingMechanicsBranch | null>(null);
   const [outcome, setOutcome] = useState<ShootingMechanicsOutcome | null>(null);
+  const [activeLeadMagnet, setActiveLeadMagnet] = useState<LeadMagnetId>("shooting-mechanics");
 
   useEffect(() => {
     track("lead_magnets_browse_view");
@@ -61,6 +65,11 @@ export default function LeadMagnetsPage() {
     track("shooting_mechanics_diagnostic_completed", { outcome: selectedOutcome });
   };
 
+  const selectLeadMagnet = (selected: LeadMagnetId) => {
+    setActiveLeadMagnet(selected);
+    track("lead_magnet_selected", { lead_magnet: selected });
+  };
+
   const result = outcome ? shootingMechanicsResults[outcome] : null;
   const secondQuestion = branch ? shootingMechanicsBranches[branch] : null;
 
@@ -69,7 +78,7 @@ export default function LeadMagnetsPage() {
       <div className="mx-auto max-w-5xl">
         <div className="mb-6 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">
           <Target className="h-4 w-4 text-orange-400" />
-          Free shooting diagnostic
+          Free lead magnet library
         </div>
 
         <header className="mb-6 max-w-2xl">
@@ -90,33 +99,54 @@ export default function LeadMagnetsPage() {
             <nav className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible" aria-label="Lead magnets">
               <button
                 type="button"
-                aria-current="page"
-                onClick={resetQuiz}
-                className="flex min-w-[220px] flex-1 items-center gap-3 rounded-xl border border-orange-500/40 bg-orange-500/10 p-3 text-left transition hover:bg-orange-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 lg:min-w-0"
+                aria-current={activeLeadMagnet === "shooting-mechanics" ? "page" : undefined}
+                aria-pressed={activeLeadMagnet === "shooting-mechanics"}
+                onClick={() => selectLeadMagnet("shooting-mechanics")}
+                className={`flex min-w-[220px] flex-1 items-center gap-3 rounded-xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 lg:min-w-0 ${
+                  activeLeadMagnet === "shooting-mechanics"
+                    ? "border-orange-500/40 bg-orange-500/10 hover:bg-orange-500/15"
+                    : "border-zinc-800 bg-zinc-950/40 hover:border-zinc-700 hover:bg-zinc-950"
+                }`}
               >
-                <Target className="h-4 w-4 shrink-0 text-orange-400" />
+                <Target className={`h-4 w-4 shrink-0 ${activeLeadMagnet === "shooting-mechanics" ? "text-orange-400" : "text-zinc-500"}`} />
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-bold text-white">Shooting Mechanics</span>
+                  <span className={`block text-sm font-bold ${activeLeadMagnet === "shooting-mechanics" ? "text-white" : "text-zinc-300"}`}>Shooting Mechanics</span>
                   <span className="mt-0.5 block text-xs text-zinc-500">Free diagnostic</span>
                 </span>
-                <ArrowRight className="h-4 w-4 shrink-0 text-orange-400" />
+                <ArrowRight className={`h-4 w-4 shrink-0 ${activeLeadMagnet === "shooting-mechanics" ? "text-orange-400" : "text-zinc-600"}`} />
               </button>
-              <div
-                aria-disabled="true"
-                className="flex min-w-[190px] flex-1 items-center gap-3 rounded-xl border border-dashed border-zinc-800 bg-zinc-950/40 p-3 lg:min-w-0"
+              <button
+                type="button"
+                aria-current={activeLeadMagnet === "footwork-open-shots" ? "page" : undefined}
+                aria-pressed={activeLeadMagnet === "footwork-open-shots"}
+                onClick={() => selectLeadMagnet("footwork-open-shots")}
+                className={`flex min-w-[240px] flex-1 items-center gap-3 rounded-xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 lg:min-w-0 ${
+                  activeLeadMagnet === "footwork-open-shots"
+                    ? "border-orange-500/40 bg-orange-500/10 hover:bg-orange-500/15"
+                    : "border-zinc-800 bg-zinc-950/40 hover:border-zinc-700 hover:bg-zinc-950"
+                }`}
               >
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900 text-sm text-zinc-600">
-                  +
+                <Target className={`h-4 w-4 shrink-0 ${activeLeadMagnet === "footwork-open-shots" ? "text-orange-400" : "text-zinc-500"}`} />
+                <span className="min-w-0 flex-1">
+                  <span className={`block text-sm font-bold ${activeLeadMagnet === "footwork-open-shots" ? "text-white" : "text-zinc-300"}`}>
+                    Footwork That Leads to Open Shots
+                  </span>
+                  <span className="mt-0.5 block text-xs text-zinc-500">Free footwork diagnostic</span>
                 </span>
-                <span className="min-w-0">
-                  <span className="block text-sm font-bold text-zinc-400">More lead magnets</span>
-                  <span className="mt-0.5 block text-xs text-zinc-600">Coming soon</span>
-                </span>
-              </div>
+                <ArrowRight className={`h-4 w-4 shrink-0 ${activeLeadMagnet === "footwork-open-shots" ? "text-orange-400" : "text-zinc-600"}`} />
+              </button>
             </nav>
           </aside>
 
-          <div id="shooting-mechanics" className="min-w-0 max-w-2xl">
+          <div className="min-w-0 max-w-2xl">
+            <div id="shooting-mechanics" hidden={activeLeadMagnet !== "shooting-mechanics"}>
+              <header className="mb-6">
+                <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange-400">Shooting diagnostic</p>
+                <h2 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">Find your shooting cue.</h2>
+                <p className="mt-2 max-w-xl text-sm leading-relaxed text-zinc-400">
+                  Answer two quick questions to find one clear mechanics cue and the drills to work on next.
+                </p>
+              </header>
             {!result ? (
           <section
             className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/70"
@@ -262,6 +292,10 @@ export default function LeadMagnetsPage() {
             </div>
           </section>
             )}
+            </div>
+            <div id="footwork-open-shots" hidden={activeLeadMagnet !== "footwork-open-shots"}>
+              <FootworkOpenShotsQuiz />
+            </div>
           </div>
         </div>
       </div>
