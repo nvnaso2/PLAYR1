@@ -135,6 +135,7 @@ export interface IStorage {
   getAdminActivityAnalytics(period?: string): Promise<any>;
   getAdminCommunityAnalytics(): Promise<any>;
   getAdminJournalAnalytics(): Promise<any>;
+  getAdminLeadMagnetAnalytics(period?: string): Promise<any>;
 
   // Brand Principles
   getBrandPrinciples(): Promise<BrandPrinciples | null>;
@@ -5544,6 +5545,161 @@ export class DatabaseStorage {
       viewedDrills:     viewedDrills.map((x: any) => ({ id: String(x.id), title: String(x.title), views: Number(x.view_count), uniqueUsers: Number(x.unique_users) })),
       viewedPrograms:   viewedPrograms.map((x: any) => ({ id: String(x.id), name: String(x.title), views: Number(x.view_count), uniqueUsers: Number(x.unique_users) })),
     };
+  }
+
+  async getAdminLeadMagnetAnalytics(periodKey = "30d"): Promise<any> {
+    const r = <T = any>(res: any): T[] => (res.rows ?? res) as T[];
+    const supportedPeriods: Record<string, number | null> = {
+      "7d": 7,
+      "30d": 30,
+      "90d": 90,
+      lifetime: null,
+    };
+    const period = Object.prototype.hasOwnProperty.call(supportedPeriods, periodKey)
+      ? periodKey
+      : "30d";
+    const days = supportedPeriods[period];
+    const windowCondition =
+      days == null
+        ? sql`TRUE`
+        : sql`created_at >= NOW() - (${days}::int * INTERVAL '1 day')`;
+
+    const [answerResult, resultResult] = await Promise.all([
+      db.execute(sql`
+        WITH normalized_answers AS (
+          SELECT
+            metadata ->> 'lead_magnet' AS lead_magnet,
+            metadata ->> 'question_id' AS question_id,
+            metadata ->> 'answer_id' AS answer_id,
+            user_id
+          FROM analytics_events
+          WHERE event = 'lead_magnet_answer_selected'
+            AND ${windowCondition}
+
+          UNION ALL
+          SELECT 'shooting-mechanics'::text, 'q1'::text, metadata ->> 'branch', user_id
+          FROM analytics_events
+          WHERE event = 'shooting_mechanics_diagnostic_q1'
+            AND ${windowCondition}
+
+          UNION ALL
+          SELECT
+            'shooting-mechanics'::text,
+            CASE
+              WHEN metadata ->> 'outcome' IN ('guide-hand', 'stay-on-line') THEN 'q2-spray'
+              WHEN metadata ->> 'outcome' IN ('floor-springboard', 'elbow-wrist-load', 'snap-wrist') THEN 'q2-short'
+              WHEN metadata ->> 'outcome' IN ('ball-first-hips-load', 'slow-smooth', 'set-feet-balance') THEN 'q2-clunky'
+            END,
+            CASE metadata ->> 'outcome'
+              WHEN 'guide-hand' THEN 'release-friction'
+              WHEN 'stay-on-line' THEN 'balance-drift'
+              WHEN 'floor-springboard' THEN 'dead-disconnected'
+              WHEN 'elbow-wrist-load' THEN 'flat-or-high-arc'
+              WHEN 'snap-wrist' THEN 'smooth-but-short'
+              WHEN 'ball-first-hips-load' THEN 'playing-catch-up'
+              WHEN 'slow-smooth' THEN 'rushed-or-choppy'
+              WHEN 'set-feet-balance' THEN 'off-from-start'
+            END,
+            user_id
+          FROM analytics_events
+          WHERE event = 'shooting_mechanics_diagnostic_completed'
+            AND ${windowCondition}
+
+          UNION ALL
+          SELECT 'footwork-open-shots'::text, 'q1'::text, metadata ->> 'role', user_id
+          FROM analytics_events
+          WHERE event = 'footwork_open_shots_role_selected'
+            AND ${windowCondition}
+
+          UNION ALL
+          SELECT 'footwork-open-shots'::text, 'q2'::text, metadata ->> 'shot_source', user_id
+          FROM analytics_events
+          WHERE event = 'footwork_open_shots_source_selected'
+            AND ${windowCondition}
+
+          UNION ALL
+          SELECT
+            'footwork-open-shots'::text,
+            CASE
+              WHEN metadata ->> 'outcome' IN ('step-back-side-step', 'attack-off-dribble', 'jab-return') THEN 'q3-on-ball'
+              WHEN metadata ->> 'outcome' IN ('catch-and-shoot', 'corner', 'wings') THEN 'q3-off-ball'
+            END,
+            CASE metadata ->> 'outcome'
+              WHEN 'step-back-side-step' THEN 'quick-lateral-separation'
+              WHEN 'attack-off-dribble' THEN 'attack-and-stop'
+              WHEN 'jab-return' THEN 'triple-threat-pivots'
+              WHEN 'catch-and-shoot' THEN 'stationary-catch-and-shoot'
+              WHEN 'corner' THEN 'transition-corner'
+              WHEN 'wings' THEN 'curls-and-screens'
+            END,
+            user_id
+          FROM analytics_events
+          WHERE event = 'footwork_open_shots_completed'
+            AND ${windowCondition}
+        )
+        SELECT
+          lead_magnet,
+          question_id,
+          answer_id,
+          COUNT(*)::int AS count,
+          COUNT(DISTINCT user_id)::int AS unique_users
+        FROM normalized_answers
+        WHERE lead_magnet IN ('shooting-mechanics', 'footwork-open-shots', 'confidence-reality-check')
+          AND question_id IS NOT NULL
+          AND answer_id IS NOT NULL
+        GROUP BY lead_magnet, question_id, answer_id
+        ORDER BY lead_magnet, question_id, count DESC
+      `),
+      db.execute(sql`
+        WITH normalized_results AS (
+          SELECT
+            metadata ->> 'lead_magnet' AS lead_magnet,
+            metadata ->> 'result_id' AS result_id,
+            user_id
+          FROM analytics_events
+          WHERE event = 'lead_magnet_result_reached'
+            AND ${windowCondition}
+
+          UNION ALL
+          SELECT 'shooting-mechanics'::text, metadata ->> 'outcome', user_id
+          FROM analytics_events
+          WHERE event = 'shooting_mechanics_diagnostic_completed'
+            AND ${windowCondition}
+
+          UNION ALL
+          SELECT 'footwork-open-shots'::text, metadata ->> 'outcome', user_id
+          FROM analytics_events
+          WHERE event = 'footwork_open_shots_completed'
+            AND ${windowCondition}
+        )
+        SELECT
+          lead_magnet,
+          result_id,
+          COUNT(*)::int AS count,
+          COUNT(DISTINCT user_id)::int AS unique_users
+        FROM normalized_results
+        WHERE lead_magnet IN ('shooting-mechanics', 'footwork-open-shots', 'confidence-reality-check')
+          AND result_id IS NOT NULL
+        GROUP BY lead_magnet, result_id
+        ORDER BY lead_magnet, count DESC
+      `),
+    ]);
+
+    const answers = r(answerResult).map((row: any) => ({
+      leadMagnet: row.lead_magnet,
+      questionId: row.question_id,
+      answerId: row.answer_id,
+      count: Number(row.count || 0),
+      uniqueUsers: Number(row.unique_users || 0),
+    }));
+    const results = r(resultResult).map((row: any) => ({
+      leadMagnet: row.lead_magnet,
+      resultId: row.result_id,
+      count: Number(row.count || 0),
+      uniqueUsers: Number(row.unique_users || 0),
+    }));
+
+    return { period, answers, results };
   }
 
   // ─── Retention & Cohort Analysis ─────────────────────────────────────────

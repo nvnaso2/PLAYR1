@@ -10350,6 +10350,16 @@ ${JSON.stringify(catalogForPrompt)}
     }
   });
 
+  app.get("/api/admin/analytics/lead-magnets", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const period = typeof req.query.period === "string" ? req.query.period : "30d";
+      res.json(await storage.getAdminLeadMagnetAnalytics(period));
+    } catch (err) {
+      console.error("Error getting lead magnet analytics:", err);
+      res.status(500).json({ message: "Failed to get lead magnet analytics" });
+    }
+  });
+
   // Retention & cohort analysis
   app.get("/api/admin/analytics/retention", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {

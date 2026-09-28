@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { ArrowLeft, ArrowRight, Check, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { track } from "@/lib/track";
+import { trackLeadMagnetAnswer, trackLeadMagnetResult } from "@/lib/track";
 import {
   footworkCourtRoles,
   footworkFollowUpQuestions,
@@ -34,14 +34,14 @@ export function FootworkOpenShotsQuiz() {
     setShotSource(null);
     setOutcome(null);
     setStep(2);
-    track("footwork_open_shots_role_selected", { role: selectedRole });
+    trackLeadMagnetAnswer("footwork-open-shots", "q1", selectedRole);
   };
 
   const chooseShotSource = (selectedSource: FootworkShotSource) => {
     setShotSource(selectedSource);
     setOutcome(null);
     setStep(3);
-    track("footwork_open_shots_source_selected", { role, shot_source: selectedSource });
+    trackLeadMagnetAnswer("footwork-open-shots", "q2", selectedSource);
   };
 
   const chooseFollowUp = (answerId: string) => {
@@ -50,11 +50,8 @@ export function FootworkOpenShotsQuiz() {
     if (!selectedOutcome) return;
     setOutcome(selectedOutcome);
     setStep(4);
-    track("footwork_open_shots_completed", {
-      role,
-      shot_source: shotSource,
-      outcome: selectedOutcome,
-    });
+    trackLeadMagnetAnswer("footwork-open-shots", `q3-${shotSource}`, answerId);
+    trackLeadMagnetResult("footwork-open-shots", selectedOutcome);
   };
 
   const goBack = () => {

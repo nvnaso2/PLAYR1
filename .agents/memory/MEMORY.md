@@ -24,3 +24,4 @@
 - [Direct custom workout assignments](direct-custom-workout-assignments.md) — admin-built workouts can be assigned without creating a player request
 - [Course content model](course-content-model.md) — paid courses extend programs with content type, day takeaways, and server-side item locking
 - [My Season eligibility](my-season-eligibility.md) — ask whether the player competes before introducing season management; fun-only players can skip it
+- [Confidence quiz routing](confidence-reality-check-routing.md) — Q1 is self-reflection; both answers continue to the reps question

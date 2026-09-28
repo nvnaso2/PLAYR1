@@ -19,6 +19,25 @@ export function track(event: string, metadata?: Record<string, any>): void {
   }
 }
 
+export function trackLeadMagnetAnswer(
+  leadMagnet: string,
+  questionId: string,
+  answerId: string,
+): void {
+  track("lead_magnet_answer_selected", {
+    lead_magnet: leadMagnet,
+    question_id: questionId,
+    answer_id: answerId,
+  });
+}
+
+export function trackLeadMagnetResult(leadMagnet: string, resultId: string): void {
+  track("lead_magnet_result_reached", {
+    lead_magnet: leadMagnet,
+    result_id: resultId,
+  });
+}
+
 /**
  * Hook that auto-tracks a page_view event whenever the route changes.
  * Mount once at the App root.

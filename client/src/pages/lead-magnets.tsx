@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { ArrowLeft, ArrowRight, Check, RotateCcw, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConfidenceRealityCheckQuiz } from "@/components/lead-magnets/confidence-reality-check-quiz";
 import { FootworkOpenShotsQuiz } from "@/components/lead-magnets/footwork-open-shots-quiz";
-import { track } from "@/lib/track";
+import { track, trackLeadMagnetAnswer, trackLeadMagnetResult } from "@/lib/track";
 import {
   getShootingMechanicsOutcome,
   shootingMechanicsBranches,
@@ -35,7 +36,7 @@ const stepProgress = {
   result: "w-full",
 };
 
-type LeadMagnetId = "shooting-mechanics" | "footwork-open-shots";
+type LeadMagnetId = "shooting-mechanics" | "footwork-open-shots" | "confidence-reality-check";
 
 export default function LeadMagnetsPage() {
   const [branch, setBranch] = useState<ShootingMechanicsBranch | null>(null);
@@ -54,7 +55,7 @@ export default function LeadMagnetsPage() {
   const chooseFirstAnswer = (selectedBranch: ShootingMechanicsBranch) => {
     setBranch(selectedBranch);
     setOutcome(null);
-    track("shooting_mechanics_diagnostic_q1", { branch: selectedBranch });
+    trackLeadMagnetAnswer("shooting-mechanics", "q1", selectedBranch);
   };
 
   const chooseSecondAnswer = (answerId: string) => {
@@ -62,7 +63,8 @@ export default function LeadMagnetsPage() {
     const selectedOutcome = getShootingMechanicsOutcome(branch, answerId);
     if (!selectedOutcome) return;
     setOutcome(selectedOutcome);
-    track("shooting_mechanics_diagnostic_completed", { outcome: selectedOutcome });
+    trackLeadMagnetAnswer("shooting-mechanics", `q2-${branch}`, answerId);
+    trackLeadMagnetResult("shooting-mechanics", selectedOutcome);
   };
 
   const selectLeadMagnet = (selected: LeadMagnetId) => {
@@ -134,6 +136,26 @@ export default function LeadMagnetsPage() {
                   <span className="mt-0.5 block text-xs text-zinc-500">Free footwork diagnostic</span>
                 </span>
                 <ArrowRight className={`h-4 w-4 shrink-0 ${activeLeadMagnet === "footwork-open-shots" ? "text-orange-400" : "text-zinc-600"}`} />
+              </button>
+              <button
+                type="button"
+                aria-current={activeLeadMagnet === "confidence-reality-check" ? "page" : undefined}
+                aria-pressed={activeLeadMagnet === "confidence-reality-check"}
+                onClick={() => selectLeadMagnet("confidence-reality-check")}
+                className={`flex min-w-[240px] flex-1 items-center gap-3 rounded-xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 lg:min-w-0 ${
+                  activeLeadMagnet === "confidence-reality-check"
+                    ? "border-orange-500/40 bg-orange-500/10 hover:bg-orange-500/15"
+                    : "border-zinc-800 bg-zinc-950/40 hover:border-zinc-700 hover:bg-zinc-950"
+                }`}
+              >
+                <Target className={`h-4 w-4 shrink-0 ${activeLeadMagnet === "confidence-reality-check" ? "text-orange-400" : "text-zinc-500"}`} />
+                <span className="min-w-0 flex-1">
+                  <span className={`block text-sm font-bold ${activeLeadMagnet === "confidence-reality-check" ? "text-white" : "text-zinc-300"}`}>
+                    Confidence Reality Check
+                  </span>
+                  <span className="mt-0.5 block text-xs text-zinc-500">Free confidence diagnostic</span>
+                </span>
+                <ArrowRight className={`h-4 w-4 shrink-0 ${activeLeadMagnet === "confidence-reality-check" ? "text-orange-400" : "text-zinc-600"}`} />
               </button>
             </nav>
           </aside>
@@ -295,6 +317,9 @@ export default function LeadMagnetsPage() {
             </div>
             <div id="footwork-open-shots" hidden={activeLeadMagnet !== "footwork-open-shots"}>
               <FootworkOpenShotsQuiz />
+            </div>
+            <div id="confidence-reality-check" hidden={activeLeadMagnet !== "confidence-reality-check"}>
+              <ConfidenceRealityCheckQuiz />
             </div>
           </div>
         </div>

@@ -75,6 +75,7 @@ import { useUpload } from "@/hooks/use-upload";
 import { LiveWorldMap } from "@/components/admin/LiveWorldMap";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { LeadMagnetAnalyticsSubTab } from "@/components/admin/lead-magnet-analytics";
 
 type AdminUser = {
   id: string;
@@ -4830,6 +4831,7 @@ function AdminAnalyticsTab() {
     { value: "activity", label: "Activity", icon: Activity },
     { value: "users", label: "Users", icon: Users },
     { value: "funnels", label: "Funnels", icon: GitBranch },
+    { value: "lead-magnets", label: "Lead Magnets", icon: BarChart2 },
     { value: "training", label: "Training", icon: Dumbbell },
     { value: "community", label: "Community", icon: Users },
     { value: "coach-p", label: "Coach P", icon: Calculator },
@@ -4857,6 +4859,7 @@ function AdminAnalyticsTab() {
         <TabsContent value="activity" className="mt-6"><ActivityAnalyticsSubTab /></TabsContent>
         <TabsContent value="users" className="mt-6"><UsersSubTab /></TabsContent>
         <TabsContent value="funnels" className="mt-6"><FunnelsSubTab /></TabsContent>
+        <TabsContent value="lead-magnets" className="mt-6"><LeadMagnetAnalyticsSubTab /></TabsContent>
         <TabsContent value="training" className="mt-6"><TrainingAnalyticsSubTab /></TabsContent>
         <TabsContent value="community" className="mt-6"><CommunityAnalyticsSubTab /></TabsContent>
         <TabsContent value="coach-p" className="mt-6"><CoachPAndJournalAnalyticsSubTab /></TabsContent>
