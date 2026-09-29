@@ -25,3 +25,4 @@
 - [Course content model](course-content-model.md) — paid courses extend programs with content type, day takeaways, and server-side item locking
 - [My Season eligibility](my-season-eligibility.md) — ask whether the player competes before introducing season management; fun-only players can skip it
 - [Confidence quiz routing](confidence-reality-check-routing.md) — Q1 is self-reflection; both answers continue to the reps question
+- [Game-speed shooting diagnostic](game-speed-shooting-diagnostic.md) — score the leading conversion leak but keep one drill for every answer; a 1-1-1 split stays mixed

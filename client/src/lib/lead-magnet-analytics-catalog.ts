@@ -6,6 +6,7 @@ import {
   footworkShotSources,
 } from "@/lib/footwork-open-shots-diagnostic";
 import { shootingMechanicsBranches, shootingMechanicsResults } from "@/lib/shooting-mechanics-diagnostic";
+import { gameSpeedCategoryResults, gameSpeedShootingQuestions } from "@/lib/game-speed-shooting-diagnostic";
 
 export type LeadMagnetAnalyticsOption = { id: string; label: string };
 export type LeadMagnetAnalyticsQuestion = {
@@ -100,6 +101,22 @@ export const leadMagnetAnalyticsCatalog: LeadMagnetAnalyticsDefinition[] = [
       },
     ],
     results: Object.entries(confidenceRealityResults).map(([id, result]) => ({
+      id,
+      label: result.title,
+    })),
+  },
+  {
+    id: "game-speed-shooting",
+    title: "Game-Speed Shooting Diagnostic",
+    questions: Object.entries(gameSpeedShootingQuestions).map(([id, question]) => ({
+      id,
+      title: question.title,
+      answers: question.answers.map((answer) => ({
+        id: answer.id,
+        label: answer.label,
+      })),
+    })),
+    results: Object.entries(gameSpeedCategoryResults).map(([id, result]) => ({
       id,
       label: result.title,
     })),

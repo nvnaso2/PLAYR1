@@ -155,7 +155,9 @@ export function GameSpeedShootingQuiz() {
           </div>
 
           <div className="p-5 sm:p-6">
-            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">Primary conversion leak</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">
+              {result.outcome === "mixed" ? "Your conversion profile" : "Primary conversion leak"}
+            </p>
             <h3 id="game-speed-result" className="mt-2 text-2xl font-black leading-tight text-white sm:text-3xl">
               {resultSummary.title}
             </h3>

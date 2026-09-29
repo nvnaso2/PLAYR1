@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Check, RotateCcw, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfidenceRealityCheckQuiz } from "@/components/lead-magnets/confidence-reality-check-quiz";
 import { FootworkOpenShotsQuiz } from "@/components/lead-magnets/footwork-open-shots-quiz";
+import { GameSpeedShootingQuiz } from "@/components/lead-magnets/game-speed-shooting-quiz";
 import { track, trackLeadMagnetAnswer, trackLeadMagnetResult } from "@/lib/track";
 import {
   getShootingMechanicsOutcome,
@@ -36,7 +37,7 @@ const stepProgress = {
   result: "w-full",
 };
 
-type LeadMagnetId = "shooting-mechanics" | "footwork-open-shots" | "confidence-reality-check";
+type LeadMagnetId = "shooting-mechanics" | "footwork-open-shots" | "confidence-reality-check" | "game-speed-shooting";
 
 export default function LeadMagnetsPage() {
   const [branch, setBranch] = useState<ShootingMechanicsBranch | null>(null);
@@ -156,6 +157,26 @@ export default function LeadMagnetsPage() {
                   <span className="mt-0.5 block text-xs text-zinc-500">Free confidence diagnostic</span>
                 </span>
                 <ArrowRight className={`h-4 w-4 shrink-0 ${activeLeadMagnet === "confidence-reality-check" ? "text-orange-400" : "text-zinc-600"}`} />
+              </button>
+              <button
+                type="button"
+                aria-current={activeLeadMagnet === "game-speed-shooting" ? "page" : undefined}
+                aria-pressed={activeLeadMagnet === "game-speed-shooting"}
+                onClick={() => selectLeadMagnet("game-speed-shooting")}
+                className={`flex min-w-[240px] flex-1 items-center gap-3 rounded-xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 lg:min-w-0 ${
+                  activeLeadMagnet === "game-speed-shooting"
+                    ? "border-orange-500/40 bg-orange-500/10 hover:bg-orange-500/15"
+                    : "border-zinc-800 bg-zinc-950/40 hover:border-zinc-700 hover:bg-zinc-950"
+                }`}
+              >
+                <Target className={`h-4 w-4 shrink-0 ${activeLeadMagnet === "game-speed-shooting" ? "text-orange-400" : "text-zinc-500"}`} />
+                <span className="min-w-0 flex-1">
+                  <span className={`block text-sm font-bold ${activeLeadMagnet === "game-speed-shooting" ? "text-white" : "text-zinc-300"}`}>
+                    Game-Speed Shooting
+                  </span>
+                  <span className="mt-0.5 block text-xs text-zinc-500">Free 5v5 conversion diagnostic</span>
+                </span>
+                <ArrowRight className={`h-4 w-4 shrink-0 ${activeLeadMagnet === "game-speed-shooting" ? "text-orange-400" : "text-zinc-600"}`} />
               </button>
             </nav>
           </aside>
@@ -320,6 +341,9 @@ export default function LeadMagnetsPage() {
             </div>
             <div id="confidence-reality-check" hidden={activeLeadMagnet !== "confidence-reality-check"}>
               <ConfidenceRealityCheckQuiz />
+            </div>
+            <div id="game-speed-shooting" hidden={activeLeadMagnet !== "game-speed-shooting"}>
+              <GameSpeedShootingQuiz />
             </div>
           </div>
         </div>

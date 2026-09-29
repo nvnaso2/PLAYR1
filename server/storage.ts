@@ -5644,7 +5644,7 @@ export class DatabaseStorage {
           COUNT(*)::int AS count,
           COUNT(DISTINCT user_id)::int AS unique_users
         FROM normalized_answers
-        WHERE lead_magnet IN ('shooting-mechanics', 'footwork-open-shots', 'confidence-reality-check')
+        WHERE lead_magnet IN ('shooting-mechanics', 'footwork-open-shots', 'confidence-reality-check', 'game-speed-shooting')
           AND question_id IS NOT NULL
           AND answer_id IS NOT NULL
         GROUP BY lead_magnet, question_id, answer_id
@@ -5678,7 +5678,7 @@ export class DatabaseStorage {
           COUNT(*)::int AS count,
           COUNT(DISTINCT user_id)::int AS unique_users
         FROM normalized_results
-        WHERE lead_magnet IN ('shooting-mechanics', 'footwork-open-shots', 'confidence-reality-check')
+        WHERE lead_magnet IN ('shooting-mechanics', 'footwork-open-shots', 'confidence-reality-check', 'game-speed-shooting')
           AND result_id IS NOT NULL
         GROUP BY lead_magnet, result_id
         ORDER BY lead_magnet, count DESC
