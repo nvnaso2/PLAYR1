@@ -612,6 +612,28 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/lead-magnets/submissions", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.claims.sub;
+      const submissions = await db.select({
+        clientSubmissionId: leadMagnetSubmissions.clientSubmissionId,
+        leadMagnetId: leadMagnetSubmissions.leadMagnetId,
+        answers: leadMagnetSubmissions.answers,
+        resultId: leadMagnetSubmissions.resultId,
+        createdAt: leadMagnetSubmissions.createdAt,
+      })
+        .from(leadMagnetSubmissions)
+        .where(eq(leadMagnetSubmissions.userId, userId))
+        .orderBy(desc(leadMagnetSubmissions.createdAt))
+        .limit(100);
+
+      return res.json({ submissions });
+    } catch (error: any) {
+      console.error("Failed to load saved lead magnet submissions:", error);
+      return res.status(500).json({ message: "Could not load saved diagnostics" });
+    }
+  });
+
   app.get("/api/onboarding/fix-drills", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user!.claims.sub;
