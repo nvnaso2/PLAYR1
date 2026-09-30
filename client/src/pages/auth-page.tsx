@@ -280,7 +280,9 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
 }
 
 export default function AuthPage() {
-  const [mode, setMode] = useState<"login" | "register">("login");
+  const [mode, setMode] = useState<"login" | "register">(() =>
+    new URLSearchParams(window.location.search).get("mode") === "register" ? "register" : "login"
+  );
 
   return (
     <div className="min-h-screen flex safe-area-top" data-testid="page-auth">

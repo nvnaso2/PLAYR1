@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { ArrowLeft, ArrowRight, Check, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { trackLeadMagnetAnswer, trackLeadMagnetResult } from "@/lib/track";
+import { LeadMagnetResultGate } from "@/components/lead-magnets/lead-magnet-result-gate";
+import { clearLeadMagnetDraft, readLeadMagnetDraft } from "@/lib/lead-magnet-drafts";
 import {
   footworkCourtRoles,
   footworkFollowUpQuestions,
@@ -20,10 +21,26 @@ const roleQuestion = "What is your primary role on the court?";
 const shotSourceQuestion = "Where do the majority of your shots come from?";
 
 export function FootworkOpenShotsQuiz() {
-  const [step, setStep] = useState<QuizStep>(1);
-  const [role, setRole] = useState<FootworkCourtRole | null>(null);
-  const [shotSource, setShotSource] = useState<FootworkShotSource | null>(null);
-  const [outcome, setOutcome] = useState<FootworkOutcome | null>(null);
+  const [restored] = useState(() => {
+    const draft = readLeadMagnetDraft("footwork-open-shots");
+    const answers = draft?.answers;
+    const role = answers?.q1 as FootworkCourtRole | undefined;
+    const shotSource = answers?.q2 as FootworkShotSource | undefined;
+    const followUpAnswerId = shotSource ? answers?.[`q3-${shotSource}`] : undefined;
+    const outcome = shotSource && followUpAnswerId ? getFootworkOutcome(shotSource, followUpAnswerId) : null;
+    return {
+      role: role ?? null,
+      shotSource: shotSource ?? null,
+      followUpAnswerId: followUpAnswerId ?? null,
+      outcome,
+      step: outcome ? 4 as QuizStep : shotSource ? 3 as QuizStep : role ? 2 as QuizStep : 1 as QuizStep,
+    };
+  });
+  const [step, setStep] = useState<QuizStep>(restored.step);
+  const [role, setRole] = useState<FootworkCourtRole | null>(restored.role);
+  const [shotSource, setShotSource] = useState<FootworkShotSource | null>(restored.shotSource);
+  const [followUpAnswerId, setFollowUpAnswerId] = useState<string | null>(restored.followUpAnswerId);
+  const [outcome, setOutcome] = useState<FootworkOutcome | null>(restored.outcome);
 
   const result = outcome ? footworkResults[outcome] : null;
   const followUp = shotSource ? footworkFollowUpQuestions[shotSource] : null;
@@ -32,16 +49,16 @@ export function FootworkOpenShotsQuiz() {
   const chooseRole = (selectedRole: FootworkCourtRole) => {
     setRole(selectedRole);
     setShotSource(null);
+    setFollowUpAnswerId(null);
     setOutcome(null);
     setStep(2);
-    trackLeadMagnetAnswer("footwork-open-shots", "q1", selectedRole);
   };
 
   const chooseShotSource = (selectedSource: FootworkShotSource) => {
     setShotSource(selectedSource);
+    setFollowUpAnswerId(null);
     setOutcome(null);
     setStep(3);
-    trackLeadMagnetAnswer("footwork-open-shots", "q2", selectedSource);
   };
 
   const chooseFollowUp = (answerId: string) => {
@@ -49,9 +66,8 @@ export function FootworkOpenShotsQuiz() {
     const selectedOutcome = getFootworkOutcome(shotSource, answerId);
     if (!selectedOutcome) return;
     setOutcome(selectedOutcome);
+    setFollowUpAnswerId(answerId);
     setStep(4);
-    trackLeadMagnetAnswer("footwork-open-shots", `q3-${shotSource}`, answerId);
-    trackLeadMagnetResult("footwork-open-shots", selectedOutcome);
   };
 
   const goBack = () => {
@@ -66,9 +82,11 @@ export function FootworkOpenShotsQuiz() {
   };
 
   const resetQuiz = () => {
+    clearLeadMagnetDraft("footwork-open-shots");
     setStep(1);
     setRole(null);
     setShotSource(null);
+    setFollowUpAnswerId(null);
     setOutcome(null);
   };
 
@@ -225,26 +243,37 @@ export function FootworkOpenShotsQuiz() {
               {result.title}
             </h3>
 
-            <div className="mt-7">
-              <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange-400">Drills to try</p>
-              <ul className="mt-3 space-y-2">
-                {result.drills.map((drill, index) => (
-                  <li key={drill} className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-950/60 p-3.5">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900 text-[10px] font-black text-zinc-500">
-                      {String(index + 1).padStart(2, "0")}
-                    </span>
-                    <span className="text-sm font-semibold leading-relaxed text-zinc-200">{drill}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="mt-6 flex flex-col gap-2 border-t border-zinc-800 pt-5 sm:flex-row">
+            <LeadMagnetResultGate
+              leadMagnetId="footwork-open-shots"
+              resultId={outcome!}
+              answers={{
+                q1: role!,
+                q2: shotSource!,
+                [`q3-${shotSource!}`]: followUpAnswerId!,
+              }}
+            >
+              <div className="mt-7">
+                <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange-400">Drills to try</p>
+                <ul className="mt-3 space-y-2">
+                  {result.drills.map((drill, index) => (
+                    <li key={drill} className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-950/60 p-3.5">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900 text-[10px] font-black text-zinc-500">
+                        {String(index + 1).padStart(2, "0")}
+                      </span>
+                      <span className="text-sm font-semibold leading-relaxed text-zinc-200">{drill}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="mt-6 border-t border-zinc-800 pt-5">
               <Link href="/drills">
                 <Button className="w-full bg-orange-500 font-black text-black hover:bg-orange-400 sm:w-auto">
                   Explore the Drill Library <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
+              </div>
+            </LeadMagnetResultGate>
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
               <Button
                 type="button"
                 variant="outline"

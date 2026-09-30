@@ -32,10 +32,11 @@ import {
 } from "./push";
 import { ensureOnboardingSchema, getDiagnosticSummary, getFixCategory, validateMicroQuizPayload } from "./onboarding";
 import { getMicroQuiz } from "@shared/micro-quizzes";
- import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, playerProfiles, drills, trainingLogs, trainingLogMetrics, feedbackComments, insertProgramSchema, insertProgramItemSchema, insertEventSchema, events, insertStatChallengeSchema, programEnrollments, coachPUsage, friendships, userFollows, analyticsEvents, streakChallengeParticipants, FRIEND_ACTIVITY_TYPES, type FriendActivityType, CUSTOM_WORKOUT_REQUEST_STATUSES } from "@shared/schema";
+ import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, playerProfiles, drills, trainingLogs, trainingLogMetrics, feedbackComments, insertProgramSchema, insertProgramItemSchema, insertEventSchema, events, insertStatChallengeSchema, programEnrollments, coachPUsage, friendships, userFollows, analyticsEvents, leadMagnetSubmissions, streakChallengeParticipants, FRIEND_ACTIVITY_TYPES, type FriendActivityType, CUSTOM_WORKOUT_REQUEST_STATUSES } from "@shared/schema";
 import { getUncachableStripeClient } from "./stripeClient";
 import { WebhookHandlers } from "./webhookHandlers";
 import { JOURNAL_PROMPTS } from "@shared/journalPrompts";
+import { validateAndScoreLeadMagnetSubmission } from "@shared/lead-magnet-submissions";
 import {
   COACH_P_WORKOUT_INTAKE,
   formatCoachPWorkoutIntake,
@@ -516,6 +517,98 @@ export async function registerRoutes(
       const status = message.startsWith("Missing or invalid") ? 400 : 500;
       console.error("Micro-quiz completion failed:", error);
       res.status(status).json({ message });
+    }
+  });
+
+  app.post("/api/lead-magnets/submissions", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    const userId = req.user!.claims.sub;
+    let payload: ReturnType<typeof validateAndScoreLeadMagnetSubmission>;
+    try {
+      payload = validateAndScoreLeadMagnetSubmission(req.body);
+    } catch (error: any) {
+      return res.status(400).json({ message: error?.message || "Invalid lead magnet submission" });
+    }
+
+    try {
+      const saved = await db.transaction(async (tx) => {
+        const existingWhere = and(
+          eq(leadMagnetSubmissions.userId, userId),
+          eq(leadMagnetSubmissions.clientSubmissionId, payload.clientSubmissionId),
+        );
+        const [existing] = await tx.select()
+          .from(leadMagnetSubmissions)
+          .where(existingWhere)
+          .limit(1);
+        const answersMatch = (storedAnswers: Record<string, string>) =>
+          Object.keys(storedAnswers).length === Object.keys(payload.answers).length &&
+          Object.entries(payload.answers).every(([questionId, answerId]) => storedAnswers[questionId] === answerId);
+        const isSameSubmission = (stored: typeof leadMagnetSubmissions.$inferSelect) =>
+          stored.leadMagnetId === payload.leadMagnetId &&
+          stored.resultId === payload.resultId &&
+          answersMatch(stored.answers);
+
+        if (existing) {
+          return isSameSubmission(existing)
+            ? { submission: existing, alreadySaved: true, conflict: false }
+            : { submission: null, alreadySaved: false, conflict: true };
+        }
+
+        const [submission] = await tx.insert(leadMagnetSubmissions)
+          .values({
+            userId,
+            clientSubmissionId: payload.clientSubmissionId,
+            leadMagnetId: payload.leadMagnetId,
+            answers: payload.answers,
+            resultId: payload.resultId,
+          })
+          .onConflictDoNothing()
+          .returning();
+
+        if (!submission) {
+          const [retryExisting] = await tx.select()
+            .from(leadMagnetSubmissions)
+            .where(existingWhere)
+            .limit(1);
+          if (retryExisting && isSameSubmission(retryExisting)) {
+            return { submission: retryExisting, alreadySaved: true, conflict: false };
+          }
+          return { submission: null, alreadySaved: false, conflict: true };
+        }
+
+        const eventRows: (typeof analyticsEvents.$inferInsert)[] = Object.entries(payload.answers).map(([questionId, answerId]) => ({
+          userId,
+          event: "lead_magnet_answer_selected",
+          page: `/lead-magnets/${payload.leadMagnetId}`,
+          metadata: {
+            lead_magnet: payload.leadMagnetId,
+            question_id: questionId,
+            answer_id: answerId,
+          },
+        }));
+        eventRows.push({
+          userId,
+          event: "lead_magnet_result_reached",
+          page: `/lead-magnets/${payload.leadMagnetId}`,
+          metadata: {
+            lead_magnet: payload.leadMagnetId,
+            result_id: payload.resultId,
+          },
+        });
+        await tx.insert(analyticsEvents).values(eventRows);
+        return { submission, alreadySaved: false, conflict: false };
+      });
+
+      if (saved.conflict || !saved.submission) {
+        return res.status(409).json({ message: "This submission ID has already been used with different answers or another account." });
+      }
+      return res.status(saved.alreadySaved ? 200 : 201).json({
+        submission: saved.submission,
+        alreadySaved: saved.alreadySaved,
+      });
+    } catch (error: any) {
+      const message = error?.message || "Could not save lead magnet result";
+      console.error("Failed to save lead magnet submission:", error);
+      return res.status(500).json({ message });
     }
   });
 

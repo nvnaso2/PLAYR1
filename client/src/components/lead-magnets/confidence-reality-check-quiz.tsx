@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { ArrowLeft, ArrowRight, Check, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { trackLeadMagnetAnswer, trackLeadMagnetResult } from "@/lib/track";
+import { LeadMagnetResultGate } from "@/components/lead-magnets/lead-magnet-result-gate";
+import { clearLeadMagnetDraft, readLeadMagnetDraft } from "@/lib/lead-magnet-drafts";
 import {
   confidenceRealityQuestions,
   confidenceRealityResults,
@@ -10,29 +11,44 @@ import {
   getConfidenceRealityOutcome,
   type ConfidenceRealityOutcome,
 } from "@/lib/confidence-reality-check";
+import type { LeadMagnetAnswers } from "@shared/lead-magnet-submissions";
 
 type QuizStep = 1 | 2 | 3 | 4;
 
 export function ConfidenceRealityCheckQuiz() {
-  const [step, setStep] = useState<QuizStep>(1);
-  const [outcome, setOutcome] = useState<ConfidenceRealityOutcome | null>(null);
+  const [restored] = useState(() => {
+    const draft = readLeadMagnetDraft("confidence-reality-check");
+    const answers = draft?.answers ?? {};
+    const q2Outcome = answers.q2 ? getConfidenceRealityOutcome("q2", answers.q2) : null;
+    const q3Outcome = answers.q3 ? getConfidenceRealityOutcome("q3", answers.q3) : null;
+    const outcome = q2Outcome ?? q3Outcome;
+    return {
+      answers,
+      outcome,
+      step: outcome ? 4 as QuizStep : answers.q2 === "yes" ? 3 as QuizStep : answers.q1 ? 2 as QuizStep : 1 as QuizStep,
+    };
+  });
+  const [answers, setAnswers] = useState<LeadMagnetAnswers>(restored.answers);
+  const [step, setStep] = useState<QuizStep>(restored.step);
+  const [outcome, setOutcome] = useState<ConfidenceRealityOutcome | null>(restored.outcome);
   const result = outcome ? confidenceRealityResults[outcome] : null;
   const progressValue = step === 4 ? 100 : Math.round((step / 3) * 100);
 
   const chooseConfidenceAnswer = (answerId: string) => {
     if (getConfidenceRealityNextQuestion("q1", answerId) !== "q2") return;
-    trackLeadMagnetAnswer("confidence-reality-check", "q1", answerId);
+    setAnswers({ q1: answerId });
+    setOutcome(null);
     setStep(2);
   };
 
   const chooseRepsAnswer = (answerId: string) => {
-    trackLeadMagnetAnswer("confidence-reality-check", "q2", answerId);
+    setAnswers((current) => ({ q1: current.q1 ?? "no", q2: answerId }));
     const selectedOutcome = getConfidenceRealityOutcome("q2", answerId);
     if (selectedOutcome) {
       setOutcome(selectedOutcome);
       setStep(4);
-      trackLeadMagnetResult("confidence-reality-check", selectedOutcome);
     } else if (getConfidenceRealityNextQuestion("q2", answerId) === "q3") {
+      setOutcome(null);
       setStep(3);
     }
   };
@@ -40,10 +56,9 @@ export function ConfidenceRealityCheckQuiz() {
   const chooseConfidenceLeak = (answerId: string) => {
     const selectedOutcome = getConfidenceRealityOutcome("q3", answerId);
     if (!selectedOutcome) return;
-    trackLeadMagnetAnswer("confidence-reality-check", "q3", answerId);
+    setAnswers((current) => ({ ...current, q3: answerId }));
     setOutcome(selectedOutcome);
     setStep(4);
-    trackLeadMagnetResult("confidence-reality-check", selectedOutcome);
   };
 
   const goBack = () => {
@@ -58,6 +73,8 @@ export function ConfidenceRealityCheckQuiz() {
   };
 
   const resetQuiz = () => {
+    clearLeadMagnetDraft("confidence-reality-check");
+    setAnswers({});
     setStep(1);
     setOutcome(null);
   };
@@ -236,6 +253,11 @@ export function ConfidenceRealityCheckQuiz() {
               <p className="mt-2 text-sm leading-relaxed text-zinc-300">{result.coreLesson}</p>
             </div>
 
+            <LeadMagnetResultGate
+              leadMagnetId="confidence-reality-check"
+              resultId={outcome!}
+              answers={answers}
+            >
             {"protocol" in result && (
               <div className="mt-6">
                 <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange-400">4-step pre-game protocol</p>
@@ -281,12 +303,15 @@ export function ConfidenceRealityCheckQuiz() {
               </ul>
             </div>
 
-            <div className="mt-6 flex flex-col gap-2 border-t border-zinc-800 pt-5 sm:flex-row">
+            <div className="mt-6 border-t border-zinc-800 pt-5">
               <Link href="/drills">
                 <Button className="w-full bg-orange-500 font-black text-black hover:bg-orange-400 sm:w-auto">
                   Explore the Drill Library <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
+            </div>
+            </LeadMagnetResultGate>
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
               <Button
                 type="button"
                 variant="outline"

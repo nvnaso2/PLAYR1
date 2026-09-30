@@ -1,11 +1,15 @@
 import { useEffect, useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { ArrowLeft, ArrowRight, Check, RotateCcw, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/use-auth";
 import { ConfidenceRealityCheckQuiz } from "@/components/lead-magnets/confidence-reality-check-quiz";
 import { FootworkOpenShotsQuiz } from "@/components/lead-magnets/footwork-open-shots-quiz";
 import { GameSpeedShootingQuiz } from "@/components/lead-magnets/game-speed-shooting-quiz";
-import { track, trackLeadMagnetAnswer, trackLeadMagnetResult } from "@/lib/track";
+import { LeadMagnetResultGate } from "@/components/lead-magnets/lead-magnet-result-gate";
+import { clearLeadMagnetDraft, readLeadMagnetDraft } from "@/lib/lead-magnet-drafts";
+import { track } from "@/lib/track";
+import { LEAD_MAGNET_IDS, type LeadMagnetId } from "@shared/lead-magnet-submissions";
 import {
   getShootingMechanicsOutcome,
   shootingMechanicsBranches,
@@ -37,44 +41,79 @@ const stepProgress = {
   result: "w-full",
 };
 
-type LeadMagnetId = "shooting-mechanics" | "footwork-open-shots" | "confidence-reality-check" | "game-speed-shooting";
-
 export default function LeadMagnetsPage() {
-  const [branch, setBranch] = useState<ShootingMechanicsBranch | null>(null);
-  const [outcome, setOutcome] = useState<ShootingMechanicsOutcome | null>(null);
-  const [activeLeadMagnet, setActiveLeadMagnet] = useState<LeadMagnetId>("shooting-mechanics");
+  const pathParts = window.location.pathname.split("/");
+  const routeMagnetId = pathParts[1] === "lead-magnets" ? pathParts[2] : undefined;
+  const { isAuthenticated } = useAuth();
+  const [, navigate] = useLocation();
+  const validRouteMagnet = LEAD_MAGNET_IDS.includes(routeMagnetId as LeadMagnetId)
+    ? routeMagnetId as LeadMagnetId
+    : null;
+  const initialShootingDraft = readLeadMagnetDraft("shooting-mechanics");
+  const initialBranch = initialShootingDraft?.answers.q1 as ShootingMechanicsBranch | undefined;
+  const initialSecondAnswer = initialBranch
+    ? initialShootingDraft?.answers[`q2-${initialBranch}`]
+    : undefined;
+  const [branch, setBranch] = useState<ShootingMechanicsBranch | null>(initialBranch ?? null);
+  const [secondAnswerId, setSecondAnswerId] = useState<string | null>(initialSecondAnswer ?? null);
+  const [outcome, setOutcome] = useState<ShootingMechanicsOutcome | null>(
+    initialBranch && initialSecondAnswer
+      ? getShootingMechanicsOutcome(initialBranch, initialSecondAnswer)
+      : null,
+  );
+  const [activeLeadMagnet, setActiveLeadMagnet] = useState<LeadMagnetId>(validRouteMagnet ?? "shooting-mechanics");
 
   useEffect(() => {
-    track("lead_magnets_browse_view");
-  }, []);
+    if (isAuthenticated) track("lead_magnets_browse_view");
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (validRouteMagnet) setActiveLeadMagnet(validRouteMagnet);
+  }, [validRouteMagnet]);
 
   const resetQuiz = () => {
+    clearLeadMagnetDraft("shooting-mechanics");
     setBranch(null);
+    setSecondAnswerId(null);
     setOutcome(null);
   };
 
   const chooseFirstAnswer = (selectedBranch: ShootingMechanicsBranch) => {
     setBranch(selectedBranch);
+    setSecondAnswerId(null);
     setOutcome(null);
-    trackLeadMagnetAnswer("shooting-mechanics", "q1", selectedBranch);
   };
 
   const chooseSecondAnswer = (answerId: string) => {
     if (!branch) return;
     const selectedOutcome = getShootingMechanicsOutcome(branch, answerId);
     if (!selectedOutcome) return;
+    setSecondAnswerId(answerId);
     setOutcome(selectedOutcome);
-    trackLeadMagnetAnswer("shooting-mechanics", `q2-${branch}`, answerId);
-    trackLeadMagnetResult("shooting-mechanics", selectedOutcome);
   };
 
   const selectLeadMagnet = (selected: LeadMagnetId) => {
     setActiveLeadMagnet(selected);
-    track("lead_magnet_selected", { lead_magnet: selected });
+    if (isAuthenticated) track("lead_magnet_selected", { lead_magnet: selected });
+    navigate(`/lead-magnets/${selected}`);
   };
 
   const result = outcome ? shootingMechanicsResults[outcome] : null;
   const secondQuestion = branch ? shootingMechanicsBranches[branch] : null;
+
+  if (routeMagnetId && !validRouteMagnet) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-zinc-950 px-4 text-white">
+        <div className="max-w-md text-center">
+          <h1 className="text-2xl font-black">Diagnostic not found</h1>
+          <p className="mt-2 text-sm text-zinc-400">Choose one of the available PLAYR1 diagnostics.</p>
+          <Link href="/lead-magnets">
+            <Button className="mt-5 bg-orange-500 font-black text-black hover:bg-orange-400">Browse diagnostics</Button>
+          </Link>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-full bg-zinc-950 px-4 pb-10 pt-6 text-white sm:px-6 sm:pt-10">
@@ -206,6 +245,7 @@ export default function LeadMagnetsPage() {
                     type="button"
                     onClick={() => {
                       setBranch(null);
+                      setSecondAnswerId(null);
                       setOutcome(null);
                     }}
                     className="inline-flex items-center gap-1 text-xs font-semibold text-zinc-500 transition hover:text-white"
@@ -302,6 +342,11 @@ export default function LeadMagnetsPage() {
                 {result.cue}
               </h2>
 
+              <LeadMagnetResultGate
+                leadMagnetId="shooting-mechanics"
+                resultId={outcome!}
+                answers={{ q1: branch!, [`q2-${branch}`]: secondAnswerId! }}
+              >
               <div className="mt-7">
                 <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange-400">Drills to try</p>
                 <ul className="mt-3 space-y-2">
@@ -315,13 +360,16 @@ export default function LeadMagnetsPage() {
                   ))}
                 </ul>
               </div>
-
-              <div className="mt-6 flex flex-col gap-2 border-t border-zinc-800 pt-5 sm:flex-row">
+              <div className="mt-6 border-t border-zinc-800 pt-5">
                 <Link href="/drills">
                   <Button className="w-full bg-orange-500 font-black text-black hover:bg-orange-400 sm:w-auto">
                     Explore the Drill Library <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </Link>
+              </div>
+              </LeadMagnetResultGate>
+
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                 <Button
                   type="button"
                   variant="outline"

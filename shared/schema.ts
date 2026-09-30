@@ -2,6 +2,7 @@ import { sql, relations } from "drizzle-orm";
 import { pgTable, text, varchar, integer, timestamp, boolean, decimal, doublePrecision, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { users } from "./models/auth";
 
 // Re-export auth models
 export * from "./models/auth";
@@ -1823,6 +1824,23 @@ export const analyticsEvents = pgTable("analytics_events", {
   eventCreatedAtIdx: index("analytics_events_event_created_at_idx").on(table.event, table.createdAt),
   userCreatedAtIdx:  index("analytics_events_user_created_at_idx").on(table.userId, table.createdAt),
 }));
+
+export const leadMagnetSubmissions = pgTable("lead_magnet_submissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  clientSubmissionId: varchar("client_submission_id", { length: 36 }).notNull(),
+  leadMagnetId: varchar("lead_magnet_id", { length: 50 }).notNull(),
+  answers: jsonb("answers").$type<Record<string, string>>().notNull(),
+  resultId: varchar("result_id", { length: 80 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  userClientSubmissionUnique: uniqueIndex("lead_magnet_submission_user_client_uq")
+    .on(table.userId, table.clientSubmissionId),
+  userCreatedAtIdx: index("lead_magnet_submission_user_created_idx")
+    .on(table.userId, table.createdAt),
+}));
+
+export type LeadMagnetSubmission = typeof leadMagnetSubmissions.$inferSelect;
 
 // ─── Analytics Insights (cached AI-generated insights & anomaly alerts) ────
 

@@ -94,6 +94,12 @@ function handle401(error: unknown) {
     if (localStorage.getItem(TOKEN_KEY)) return;
     // Already on auth page — nothing to do.
     if (window.location.pathname === "/auth") return;
+    // Lead magnets are intentionally public; background authenticated queries
+    // must not interrupt a guest while they are taking a diagnostic.
+    if (
+      window.location.pathname === "/lead-magnets" ||
+      window.location.pathname.startsWith("/lead-magnets/")
+    ) return;
     // Only redirect once; multiple in-flight 401s after logout cause a cascade loop.
     if (_redirectingToAuth) return;
     _redirectingToAuth = true;

@@ -272,7 +272,15 @@ function Router() {
   const { user, isLoading, isAuthenticated } = useAuth();
   const [location] = useLocation();
   const [splashDone, setSplashDone] = useState(false);
-  const isQuizDeepLink = location === "/quiz" || location.startsWith("/quiz/");
+  const currentPath = typeof window === "undefined" ? location : window.location.pathname;
+  const isQuizDeepLink = currentPath === "/quiz" || currentPath.startsWith("/quiz/");
+  const isLeadMagnetDeepLink = currentPath === "/lead-magnets" || currentPath.startsWith("/lead-magnets/");
+
+  if (isLeadMagnetDeepLink) {
+    return isAuthenticated
+      ? <AuthenticatedLayout><LeadMagnets /></AuthenticatedLayout>
+      : <Suspense fallback={<LoadingScreen />}><LeadMagnets /></Suspense>;
+  }
 
   if (!splashDone && !isQuizDeepLink) {
     return (
@@ -329,7 +337,6 @@ function Router() {
                 <Route path="/drill/:id" component={DrillPage} />
                 <Route path="/programs">{() => <Redirect to="/courses" />}</Route>
                 <Route path="/courses" component={Courses} />
-                <Route path="/lead-magnets" component={LeadMagnets} />
                 <Route path="/programs/:id/edit" component={ProgramEditor} />
                 <Route path="/programs/:slug/today" component={ProgramToday} />
                 <Route path="/programs/:slug" component={ProgramDetail} />
