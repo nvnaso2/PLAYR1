@@ -120,15 +120,15 @@ type SavedConversation = {
 
 const STARTER_PROMPTS = [
   {
-    label: "Find my biggest opportunity",
-    prompt: "Find my biggest opportunity",
-    icon: Target,
-  },
-  {
     label: "Build my next workout",
     prompt: "Build my next workout",
     icon: Dumbbell,
     workoutBuilder: true,
+  },
+  {
+    label: "Find my biggest opportunity",
+    prompt: "Find my biggest opportunity",
+    icon: Target,
   },
   {
     label: "Review my last training session",
@@ -263,6 +263,11 @@ function WorkoutPreviewCard({
             </Button>
           )}
         </div>
+        {savedWorkoutId && (
+          <p className="mt-3 text-xs text-emerald-300" role="status" data-testid="status-coach-p-workout-saved">
+            Saved to Training Log · Saved Workouts.
+          </p>
+        )}
       </div>
     </div>
   );

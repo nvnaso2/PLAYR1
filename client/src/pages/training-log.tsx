@@ -406,7 +406,12 @@ export default function TrainingLogPage() {
     queryKey: ['/api/workouts/handlz'],
   });
 
-  const { data: personalWorkouts, isLoading: personalWorkoutsLoading } = useQuery<Workout[]>({
+  const {
+    data: personalWorkouts,
+    isLoading: personalWorkoutsLoading,
+    isError: personalWorkoutsError,
+    refetch: refetchPersonalWorkouts,
+  } = useQuery<Workout[]>({
     queryKey: ['/api/workouts/personal'],
   });
 
@@ -2126,66 +2131,114 @@ export default function TrainingLogPage() {
                 <ChevronRight className="h-4 w-4 shrink-0 text-zinc-500 transition group-hover:translate-x-1 group-hover:text-orange-400" />
               </button>
 
-              {/* Favorite Workouts Section */}
+              <section className="space-y-3" data-testid="section-saved-workouts">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                    <Bookmark className="h-4 w-4 text-primary" />
+                    Saved Workouts
+                  </h3>
+                  {!!personalWorkouts?.length && (
+                    <Badge variant="secondary">{personalWorkouts.length}</Badge>
+                  )}
+                </div>
+
+                {personalWorkoutsLoading ? (
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <Skeleton className="h-[88px] rounded-xl" />
+                    <Skeleton className="h-[88px] rounded-xl" />
+                  </div>
+                ) : personalWorkoutsError ? (
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4">
+                    <p className="text-sm text-muted-foreground">Saved workouts couldn’t be loaded.</p>
+                    <Button type="button" size="sm" variant="outline" onClick={() => void refetchPersonalWorkouts()}>
+                      Try again
+                    </Button>
+                  </div>
+                ) : personalWorkouts?.length ? (
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {personalWorkouts.map((workout) => (
+                      <Card key={`saved-workout-${workout.id}`} data-testid={`saved-workout-${workout.id}`}>
+                        <CardContent className="flex items-center gap-3 p-3">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                            <Layers className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <h4 className="truncate text-sm font-medium">{workout.name}</h4>
+                              {workout.isFavorite && (
+                                <Heart className="h-3.5 w-3.5 shrink-0 fill-current text-primary" aria-label="Favorite workout" />
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              {workout.category ? formatCategory(workout.category) : "Workout"}
+                              {workout.estimatedDuration ? ` · ${workout.estimatedDuration} min` : ""}
+                            </p>
+                            {workout.description && (
+                              <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{workout.description}</p>
+                            )}
+                          </div>
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => void startWorkoutFromTemplate(workout.id)}
+                            data-testid={`button-start-saved-workout-${workout.id}`}
+                          >
+                            <Play className="mr-1.5 h-3.5 w-3.5 fill-current" />
+                            Start
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-border bg-card/40 p-4">
+                    <div>
+                      <p className="text-sm font-medium">No saved workouts yet</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Workouts you save with Coach P or build from drills will appear here.
+                      </p>
+                    </div>
+                    <Button type="button" size="sm" variant="outline" onClick={() => setLocation("/drills?build=1")}>
+                      Build a workout
+                    </Button>
+                  </div>
+                )}
+              </section>
+
+              {/* Favorite Drills Section */}
               {(() => {
-                const favWorkouts = (personalWorkouts || []).filter(w => w.isFavorite);
                 const favDrills = (allDrills || []).filter(d => favoriteDrillIds?.includes(d.id));
-                const hasFavorites = favWorkouts.length > 0 || favDrills.length > 0;
-                
-                if (!hasFavorites) return null;
-                
+                if (!favDrills.length) return null;
                 return (
-                  <div className="space-y-3" data-testid="section-favorite-workouts">
-                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                      <Heart className="w-4 h-4 text-primary" fill="currentColor" />
-                      Favorite Workouts
+                  <section className="space-y-3" data-testid="section-favorite-drills">
+                    <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                      <Heart className="h-4 w-4 fill-current text-primary" />
+                      Favorite Drills
                     </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {favWorkouts.map(workout => (
-                        <Card 
-                          key={`fav-workout-${workout.id}`} 
-                          className="cursor-pointer hover-elevate group"
-                          onClick={() => startWorkoutFromTemplate(workout.id)}
-                          data-testid={`fav-workout-${workout.id}`}
-                        >
-                          <CardContent className="p-3 flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-lg bg-zinc-800 flex items-center justify-center shrink-0">
-                              <Layers className="w-4 h-4 text-primary" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-medium text-sm truncate">{workout.name}</h4>
-                              <p className="text-xs text-muted-foreground">
-                                {workout.category ? formatCategory(workout.category) : "Workout"}
-                                {workout.estimatedDuration ? ` · ${workout.estimatedDuration} min` : ""}
-                              </p>
-                            </div>
-                            <Play className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                          </CardContent>
-                        </Card>
-                      ))}
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                       {favDrills.map(drill => (
-                        <Card 
-                          key={`fav-drill-${drill.id}`} 
+                        <Card
+                          key={`fav-drill-${drill.id}`}
                           className="cursor-pointer hover-elevate group"
                           onClick={() => quickStartDrill(drill.id)}
                           data-testid={`fav-drill-${drill.id}`}
                         >
-                          <CardContent className="p-3 flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-lg bg-orange-500/10 flex items-center justify-center shrink-0">
-                              <Target className="w-4 h-4 text-orange-500" />
+                          <CardContent className="flex items-center gap-3 p-3">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-500/10">
+                              <Target className="h-4 w-4 text-orange-500" />
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-medium text-sm truncate">{drill.title}</h4>
+                            <div className="min-w-0 flex-1">
+                              <h4 className="truncate text-sm font-medium">{drill.title}</h4>
                               <p className="text-xs text-muted-foreground">
                                 {formatCategory(drill.category)} · {drill.difficulty}
                               </p>
                             </div>
-                            <Play className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <Play className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
                           </CardContent>
                         </Card>
                       ))}
                     </div>
-                  </div>
+                  </section>
                 );
               })()}
 
