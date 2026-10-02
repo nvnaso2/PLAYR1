@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowLeft, ArrowUp, CalendarDays, Check, ChevronLeft, ChevronRight, Dumbbell, GraduationCap, History, Loader2, Menu, MessageSquarePlus, Pencil, Pin, PinOff, Target, Trash2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { countSavedWorkouts, getSavedWorkoutLimit, isAtSavedWorkoutLimit } from "@shared/workout-limits";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -45,7 +46,7 @@ type CoachPUsage = {
 };
 
 type SubscriptionState = {
-  plan: "free" | "pro";
+  plan: "free" | "pro" | "pro-infinity";
   coachP: CoachPUsage;
 };
 
@@ -147,7 +148,10 @@ function WorkoutPreviewCard({
   answers,
   savedWorkoutId,
   isSaving,
+  canSave,
+  saveLimitReached,
   onSave,
+  onUpgrade,
   onStart,
   onAdjustAnswers,
 }: {
@@ -155,7 +159,10 @@ function WorkoutPreviewCard({
   answers: CoachPWorkoutAnswers | null;
   savedWorkoutId: string | null;
   isSaving: boolean;
+  canSave: boolean;
+  saveLimitReached: boolean;
   onSave: () => void;
+  onUpgrade: () => void;
   onStart: () => void;
   onAdjustAnswers: () => void;
 }) {
@@ -257,9 +264,13 @@ function WorkoutPreviewCard({
             <Button size="sm" onClick={onStart} className="h-8 bg-orange-500 px-3 text-xs font-semibold text-black shadow-[0_8px_20px_rgba(249,115,22,0.2)] hover:bg-orange-400" data-testid="button-coach-p-start-workout">
               Start workout <ChevronRight className="ml-1.5 h-4 w-4" />
             </Button>
+          ) : saveLimitReached ? (
+            <Button size="sm" onClick={onUpgrade} className="h-8 bg-orange-500 px-3 text-xs font-semibold text-black shadow-[0_8px_20px_rgba(249,115,22,0.2)] hover:bg-orange-400" data-testid="button-coach-p-upgrade-save-limit">
+              Upgrade to Pro <ChevronRight className="ml-1.5 h-4 w-4" />
+            </Button>
           ) : (
-            <Button size="sm" onClick={onSave} disabled={isSaving} className="h-8 bg-orange-500 px-3 text-xs font-semibold text-black shadow-[0_8px_20px_rgba(249,115,22,0.2)] hover:bg-orange-400" data-testid="button-coach-p-save-workout">
-              {isSaving ? "Saving workout..." : "Save workout"} <ChevronRight className="ml-1.5 h-4 w-4" />
+            <Button size="sm" onClick={onSave} disabled={isSaving || !canSave} className="h-8 bg-orange-500 px-3 text-xs font-semibold text-black shadow-[0_8px_20px_rgba(249,115,22,0.2)] hover:bg-orange-400" data-testid="button-coach-p-save-workout">
+              {isSaving ? "Saving workout..." : canSave ? "Save workout" : "Checking saves..."} <ChevronRight className="ml-1.5 h-4 w-4" />
             </Button>
           )}
         </div>
@@ -693,9 +704,17 @@ export default function CoachPPage() {
   });
   const playerConversations = conversations.filter((conversation) => conversation.title !== "Build my PLAYR1 Project");
 
-  const { data: subscription } = useQuery<SubscriptionState>({
+  const { data: subscription, isLoading: subscriptionLoading } = useQuery<SubscriptionState>({
     queryKey: ["/api/billing/subscription"],
   });
+  const { data: savedWorkouts, isLoading: savedWorkoutsLoading } = useQuery<Array<{ id: string; isAssigned?: boolean }>>({
+    queryKey: ["/api/workouts/personal"],
+  });
+  const savedWorkoutLimit = getSavedWorkoutLimit(subscription?.plan);
+  const savedWorkoutLimitReached = !subscriptionLoading
+    && !savedWorkoutsLoading
+    && isAtSavedWorkoutLimit(countSavedWorkouts(savedWorkouts ?? []), savedWorkoutLimit);
+  const canSaveWorkout = !subscriptionLoading && !savedWorkoutsLoading && !savedWorkoutLimitReached;
 
   const currentUsage = usage ?? subscription?.coachP ?? null;
   const isUnlimited = subscription?.plan === "pro" || (subscription?.plan as string | undefined) === "pro-infinity" || currentUsage?.limit === null;
@@ -846,7 +865,14 @@ export default function CoachPPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/workouts/personal"] });
       queryClient.invalidateQueries({ queryKey: ["/api/hub/recommendation"] });
     },
-    onError: () => setErrorMessage("That workout could not be saved. Try again."),
+    onError: (error: Error) => {
+      if (error.message.includes("WORKOUT_LIMIT_REACHED")) {
+        queryClient.invalidateQueries({ queryKey: ["/api/workouts/personal"] });
+        setErrorMessage("Free accounts can save up to 3 workouts. Remove a saved workout or upgrade to Pro for unlimited saves.");
+        return;
+      }
+      setErrorMessage("That workout could not be saved. Try again.");
+    },
   });
 
   useEffect(() => {
@@ -1304,7 +1330,10 @@ export default function CoachPPage() {
                     answers={workoutAnswers}
                     savedWorkoutId={savedWorkoutId}
                     isSaving={saveWorkoutMutation.isPending}
+                    canSave={canSaveWorkout}
+                    saveLimitReached={savedWorkoutLimitReached}
                     onSave={() => saveWorkoutMutation.mutate(workoutPreview)}
+                    onUpgrade={() => navigate("/subscription")}
                     onAdjustAnswers={() => {
                       setWorkoutPreview(null);
                       setSavedWorkoutId(null);

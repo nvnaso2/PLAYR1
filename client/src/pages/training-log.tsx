@@ -36,6 +36,17 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest, nativeFetch } from "@/lib/queryClient";
 import { track } from "@/lib/track";
@@ -85,6 +96,7 @@ import { DrillTimer } from "@/components/drill-timer";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { countSavedWorkouts, getSavedWorkoutLimit, isAtSavedWorkoutLimit } from "@shared/workout-limits";
 
 type DrillMetricWithTemplate = DrillMetric & { template: MetricTemplate };
 
@@ -152,6 +164,7 @@ export default function TrainingLogPage() {
     return new URLSearchParams(searchParams).get('create') === '1';
   });
   const [isSaveWorkoutOpen, setIsSaveWorkoutOpen] = useState(false);
+  const [savedWorkoutsExpanded, setSavedWorkoutsExpanded] = useState(true);
   const [isAddDrillToWorkoutOpen, setIsAddDrillToWorkoutOpen] = useState(false);
   const [isStartWorkoutDialogOpen, setIsStartWorkoutDialogOpen] = useState(false);
   const [drillSearchQuery, setDrillSearchQuery] = useState("");
@@ -411,9 +424,18 @@ export default function TrainingLogPage() {
     isLoading: personalWorkoutsLoading,
     isError: personalWorkoutsError,
     refetch: refetchPersonalWorkouts,
-  } = useQuery<Workout[]>({
+  } = useQuery<Array<Workout & { isAssigned?: boolean }>>({
     queryKey: ['/api/workouts/personal'],
   });
+  const savedWorkoutCount = countSavedWorkouts(personalWorkouts ?? []);
+  const assignedWorkoutCount = personalWorkouts?.filter((workout) => workout.isAssigned).length ?? 0;
+  const { data: workoutSubscription, isLoading: workoutSubscriptionLoading } = useQuery<{ plan?: string }>({
+    queryKey: ['/api/billing/subscription'],
+  });
+  const savedWorkoutLimit = getSavedWorkoutLimit(workoutSubscription?.plan);
+  const savedWorkoutLimitReached = !personalWorkoutsLoading
+    && !workoutSubscriptionLoading
+    && isAtSavedWorkoutLimit(savedWorkoutCount, savedWorkoutLimit);
 
   // Fetch training logs
   type TrainingLogWithMetricsResponse = TrainingLog & { metrics: Array<{ metricId: string; value: string | null }> };
@@ -584,8 +606,30 @@ export default function TrainingLogPage() {
       setShowCreateWorkoutMode(false);
       saveWorkoutForm.reset();
     },
+    onError: (error: Error) => {
+      if (error.message.includes("WORKOUT_LIMIT_REACHED")) {
+        queryClient.invalidateQueries({ queryKey: ['/api/workouts/personal'] });
+        toast({
+          title: "Free workout limit reached",
+          description: "Remove a saved workout or upgrade to Pro for unlimited saves.",
+          variant: "destructive",
+        });
+        return;
+      }
+      toast({ title: "Failed to save workout", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteSavedWorkoutMutation = useMutation({
+    mutationFn: async (workoutId: string) => {
+      await apiRequest("DELETE", `/api/workouts/${workoutId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/workouts/personal'] });
+      toast({ title: "Workout removed" });
+    },
     onError: () => {
-      toast({ title: "Failed to save workout", variant: "destructive" });
+      toast({ title: "Failed to remove workout", variant: "destructive" });
     },
   });
 
@@ -2131,78 +2175,132 @@ export default function TrainingLogPage() {
                 <ChevronRight className="h-4 w-4 shrink-0 text-zinc-500 transition group-hover:translate-x-1 group-hover:text-orange-400" />
               </button>
 
-              <section className="space-y-3" data-testid="section-saved-workouts">
-                <div className="flex items-center justify-between gap-3">
-                  <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                    <Bookmark className="h-4 w-4 text-primary" />
-                    Saved Workouts
-                  </h3>
-                  {!!personalWorkouts?.length && (
-                    <Badge variant="secondary">{personalWorkouts.length}</Badge>
-                  )}
-                </div>
+              <section data-testid="section-saved-workouts">
+                <Collapsible open={savedWorkoutsExpanded} onOpenChange={setSavedWorkoutsExpanded}>
+                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                    <CollapsibleTrigger asChild>
+                      <button
+                        type="button"
+                        className="flex min-h-9 items-center gap-2 text-left text-sm font-semibold uppercase tracking-wider text-muted-foreground transition hover:text-foreground"
+                        aria-label={`${savedWorkoutsExpanded ? "Collapse" : "Expand"} saved workouts`}
+                        data-testid="button-toggle-saved-workouts"
+                      >
+                        <Bookmark className="h-4 w-4 text-primary" />
+                        <span>Saved Workouts</span>
+                        <Badge variant="secondary" className="normal-case tracking-normal">
+                          {savedWorkoutCount}
+                        </Badge>
+                        <ChevronDown className={`h-4 w-4 transition-transform ${savedWorkoutsExpanded ? "rotate-180" : ""}`} />
+                      </button>
+                    </CollapsibleTrigger>
+                    <span className="text-xs text-muted-foreground" data-testid="text-saved-workout-limit">
+                      {savedWorkoutLimit === null
+                        ? `Unlimited saves${assignedWorkoutCount ? ` · ${assignedWorkoutCount} assigned` : ""}`
+                        : `${savedWorkoutCount}/${savedWorkoutLimit} saved${assignedWorkoutCount ? ` · ${assignedWorkoutCount} assigned` : ""}`}
+                    </span>
+                  </div>
 
-                {personalWorkoutsLoading ? (
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <Skeleton className="h-[88px] rounded-xl" />
-                    <Skeleton className="h-[88px] rounded-xl" />
-                  </div>
-                ) : personalWorkoutsError ? (
-                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4">
-                    <p className="text-sm text-muted-foreground">Saved workouts couldn’t be loaded.</p>
-                    <Button type="button" size="sm" variant="outline" onClick={() => void refetchPersonalWorkouts()}>
-                      Try again
-                    </Button>
-                  </div>
-                ) : personalWorkouts?.length ? (
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    {personalWorkouts.map((workout) => (
-                      <Card key={`saved-workout-${workout.id}`} data-testid={`saved-workout-${workout.id}`}>
-                        <CardContent className="flex items-center gap-3 p-3">
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                            <Layers className="h-4 w-4" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <h4 className="truncate text-sm font-medium">{workout.name}</h4>
-                              {workout.isFavorite && (
-                                <Heart className="h-3.5 w-3.5 shrink-0 fill-current text-primary" aria-label="Favorite workout" />
-                              )}
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                              {workout.category ? formatCategory(workout.category) : "Workout"}
-                              {workout.estimatedDuration ? ` · ${workout.estimatedDuration} min` : ""}
-                            </p>
-                            {workout.description && (
-                              <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{workout.description}</p>
-                            )}
-                          </div>
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={() => void startWorkoutFromTemplate(workout.id)}
-                            data-testid={`button-start-saved-workout-${workout.id}`}
-                          >
-                            <Play className="mr-1.5 h-3.5 w-3.5 fill-current" />
-                            Start
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-border bg-card/40 p-4">
-                    <div>
-                      <p className="text-sm font-medium">No saved workouts yet</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Workouts you save with Coach P or build from drills will appear here.
+                  {savedWorkoutLimitReached && (
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-orange-500/20 bg-orange-500/[0.06] px-3 py-2">
+                      <p className="text-xs text-muted-foreground">
+                        Free includes 3 saved workouts. Remove one or upgrade for unlimited saves.
                       </p>
+                      <Button type="button" size="sm" variant="outline" onClick={() => setLocation("/subscription")}>
+                        Upgrade to Pro
+                      </Button>
                     </div>
-                    <Button type="button" size="sm" variant="outline" onClick={() => setLocation("/drills?build=1")}>
-                      Build a workout
-                    </Button>
-                  </div>
-                )}
+                  )}
+
+                  <CollapsibleContent className="pt-2">
+                    {personalWorkoutsLoading ? (
+                      <div className="space-y-2">
+                        <Skeleton className="h-12 rounded-lg" />
+                        <Skeleton className="h-12 rounded-lg" />
+                      </div>
+                    ) : personalWorkoutsError ? (
+                      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4">
+                        <p className="text-sm text-muted-foreground">Saved workouts couldn’t be loaded.</p>
+                        <Button type="button" size="sm" variant="outline" onClick={() => void refetchPersonalWorkouts()}>
+                          Try again
+                        </Button>
+                      </div>
+                    ) : personalWorkouts?.length ? (
+                      <div className="space-y-2">
+                        {personalWorkouts.map((workout) => (
+                          <Card
+                            key={`saved-workout-${workout.id}`}
+                            className="border-zinc-800 bg-zinc-950/60 transition-colors hover:border-zinc-700"
+                            data-testid={`saved-workout-${workout.id}`}
+                          >
+                            <CardContent className="flex min-h-12 items-center gap-2.5 p-2">
+                              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-orange-500/10 text-orange-300">
+                                <Dumbbell className="h-4 w-4" />
+                              </span>
+                              <h4 className="min-w-0 flex-1 truncate text-sm font-medium">{workout.name}</h4>
+                              {workout.isAssigned ? (
+                                <Badge variant="outline" className="shrink-0 text-[9px]">Assigned</Badge>
+                              ) : (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                                      aria-label={`Remove ${workout.name}`}
+                                      data-testid={`button-delete-saved-workout-${workout.id}`}
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Remove saved workout?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        “{workout.name}” will be removed from Saved Workouts. This won’t delete any training history.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Keep workout</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() => deleteSavedWorkoutMutation.mutate(workout.id)}
+                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                      >
+                                        Remove
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              )}
+                              <Button
+                                type="button"
+                                size="sm"
+                                className="h-8 shrink-0 px-3"
+                                onClick={() => void startWorkoutFromTemplate(workout.id)}
+                                data-testid={`button-start-saved-workout-${workout.id}`}
+                              >
+                                <Play className="mr-1 h-3 w-3 fill-current" />
+                                Start
+                              </Button>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-border bg-card/40 p-4">
+                        <div>
+                          <p className="text-sm font-medium">No saved workouts yet</p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Workouts you save with Coach P or build from drills will appear here.
+                          </p>
+                        </div>
+                        <Button type="button" size="sm" variant="outline" onClick={() => setLocation("/drills?build=1")}>
+                          Build a workout
+                        </Button>
+                      </div>
+                    )}
+                  </CollapsibleContent>
+                </Collapsible>
               </section>
 
               {/* Favorite Drills Section */}
@@ -2752,9 +2850,17 @@ export default function TrainingLogPage() {
                       <FormMessage />
                     </FormItem>
                   )} />
+                  {savedWorkoutLimitReached && (
+                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-orange-500/20 bg-orange-500/[0.06] p-3">
+                      <p className="text-xs text-muted-foreground">Free accounts can save up to 3 workouts.</p>
+                      <Button type="button" size="sm" variant="outline" onClick={() => setLocation("/subscription")}>
+                        Upgrade to Pro
+                      </Button>
+                    </div>
+                  )}
                   <DialogFooter>
                     <Button type="button" variant="outline" onClick={() => setIsSaveWorkoutOpen(false)}>Cancel</Button>
-                    <Button type="submit" disabled={saveWorkoutMutation.isPending} data-testid="button-confirm-create-workout">
+                    <Button type="submit" disabled={saveWorkoutMutation.isPending || savedWorkoutLimitReached} data-testid="button-confirm-create-workout">
                       {saveWorkoutMutation.isPending ? "Saving..." : "Save Workout"}
                     </Button>
                   </DialogFooter>
@@ -2899,6 +3005,14 @@ export default function TrainingLogPage() {
                   <FormMessage />
                 </FormItem>
               )} />
+              {savedWorkoutLimitReached && (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-orange-500/20 bg-orange-500/[0.06] p-3">
+                  <p className="text-xs text-muted-foreground">Free accounts can save up to 3 workouts.</p>
+                  <Button type="button" size="sm" variant="outline" onClick={() => setLocation("/subscription")}>
+                    Upgrade to Pro
+                  </Button>
+                </div>
+              )}
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => {
                   setIsSaveWorkoutOpen(false);
@@ -2906,7 +3020,7 @@ export default function TrainingLogPage() {
                   setSelectedDrillIds(new Set());
                   setActiveView("library");
                 }}>Skip</Button>
-                <Button type="submit" disabled={saveWorkoutMutation.isPending} data-testid="button-confirm-fav-workout">
+                <Button type="submit" disabled={saveWorkoutMutation.isPending || savedWorkoutLimitReached} data-testid="button-confirm-fav-workout">
                   {saveWorkoutMutation.isPending ? "Saving..." : "Save Favorite Workout"}
                 </Button>
               </DialogFooter>
@@ -2983,7 +3097,18 @@ export default function TrainingLogPage() {
                   <X className="w-4 h-4" />
                   Cancel
                 </Button>
-                {workoutEntries.length >= 2 && (
+                {workoutEntries.length >= 2 && savedWorkoutLimitReached && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setLocation("/subscription")}
+                    className="gap-2"
+                    data-testid="button-upgrade-save-workout"
+                  >
+                    <Bookmark className="w-4 h-4" />
+                    Upgrade to save
+                  </Button>
+                )}
+                {workoutEntries.length >= 2 && !savedWorkoutLimitReached && (
                   <Dialog open={isSaveWorkoutOpen} onOpenChange={setIsSaveWorkoutOpen}>
                     <DialogTrigger asChild>
                       <Button variant="outline" className="gap-2" data-testid="button-save-as-workout">
@@ -3055,7 +3180,7 @@ export default function TrainingLogPage() {
                             <Button type="button" variant="outline" onClick={() => setIsSaveWorkoutOpen(false)}>
                               Cancel
                             </Button>
-                            <Button type="submit" disabled={saveWorkoutMutation.isPending} data-testid="button-confirm-save-workout">
+                            <Button type="submit" disabled={saveWorkoutMutation.isPending || savedWorkoutLimitReached} data-testid="button-confirm-save-workout">
                               {saveWorkoutMutation.isPending ? "Saving..." : "Save Workout"}
                             </Button>
                           </DialogFooter>

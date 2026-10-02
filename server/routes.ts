@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { spawn } from "child_process";
 import path from "path";
 import { storage } from "./storage";
+import { FREE_SAVED_WORKOUT_LIMIT } from "@shared/workout-limits";
 import { setupAuth, registerAuthRoutes, isAuthenticated, optionalAuth, getAppBaseUrl, type AuthenticatedRequest } from "./auth";
 import { registerObjectStorageRoutes, processVideoObject } from "./replit_integrations/object_storage";
 import { users } from "@shared/models/auth";
@@ -3232,8 +3233,15 @@ ${JSON.stringify(catalogForPrompt)}
   app.get("/api/workouts/personal", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
-      const workouts = await storage.getUserWorkouts(userId);
-      res.json(workouts);
+      const [workouts, assignedWorkoutIds] = await Promise.all([
+        storage.getUserWorkouts(userId),
+        storage.getUserAssignedWorkoutIds(userId),
+      ]);
+      const assignedIds = new Set(assignedWorkoutIds);
+      res.json(workouts.map((workout) => ({
+        ...workout,
+        isAssigned: assignedIds.has(workout.id),
+      })));
     } catch (error) {
       console.error("Error fetching user workouts:", error);
       res.status(500).json({ message: "Failed to fetch workouts" });
@@ -3298,11 +3306,22 @@ ${JSON.stringify(catalogForPrompt)}
         return res.status(400).json({ message: "Workout includes a drill that is not available to this player." });
       }
       
-      const workout = await storage.createWorkout(
+      const limit = await hasProAccess(userId) ? null : FREE_SAVED_WORKOUT_LIMIT;
+      const result = await storage.createUserWorkoutWithLimit(
+        userId,
         { name, description, category, estimatedDuration, userId, isFavorite: isFavorite || false } as any,
-        drillEntries
+        drillEntries,
+        limit,
       );
-      res.status(201).json(workout);
+      if (result.limitReached) {
+        return res.status(403).json({
+          code: "WORKOUT_LIMIT_REACHED",
+          message: "Free accounts can save up to 3 workouts. Delete a saved workout or upgrade to Pro for unlimited saves.",
+          limit: FREE_SAVED_WORKOUT_LIMIT,
+          currentCount: result.savedCount,
+        });
+      }
+      res.status(201).json(result.workout);
     } catch (error) {
       console.error("Error creating workout:", error);
       res.status(500).json({ message: "Failed to create workout" });
@@ -3383,6 +3402,9 @@ ${JSON.stringify(catalogForPrompt)}
       const isAdminUser = await storage.isUserAdmin(userId);
       if (workout.userId !== userId && !isAdminUser) {
         return res.status(403).json({ message: "Not authorized to delete this workout" });
+      }
+      if (!isAdminUser && (await storage.getUserAssignedWorkoutIds(userId)).includes(workout.id)) {
+        return res.status(409).json({ message: "Coach-assigned workouts cannot be removed from Saved Workouts." });
       }
       
       await storage.deleteWorkout(req.params.id);

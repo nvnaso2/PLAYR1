@@ -32,6 +32,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { track } from "@/lib/track";
+import { countSavedWorkouts, getSavedWorkoutLimit, isAtSavedWorkoutLimit } from "@shared/workout-limits";
 import { 
   Search, 
   Grid3X3, 
@@ -80,16 +81,15 @@ function DrillGrid({ drills, viewMode, searchQuery, isLoading, showShareToggle, 
   if (isLoading) {
     return (
       <div className={viewMode === "grid" 
-        ? "grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" 
-        : "space-y-4"
+        ? "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
+        : "space-y-2"
       }>
         {[...Array(8)].map((_, i) => (
-          <Card key={i}>
-            <Skeleton className="aspect-video" />
-            <CardContent className="p-4 space-y-2">
+          <Card key={i} className="overflow-hidden">
+            <Skeleton className="aspect-[2/1]" />
+            <CardContent className="space-y-2 p-3">
               <Skeleton className="h-5 w-3/4" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-1/2" />
+              <Skeleton className="h-3 w-1/2" />
             </CardContent>
           </Card>
         ))}
@@ -116,13 +116,14 @@ function DrillGrid({ drills, viewMode, searchQuery, isLoading, showShareToggle, 
   return (
     <>
       <div className={viewMode === "grid" 
-        ? "grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" 
-        : "space-y-4"
+        ? "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
+        : "space-y-2"
       }>
         {drills.map((drill) => (
           <div key={drill.id} className="relative">
             <DrillCard
               drill={drill}
+              viewMode={viewMode}
               selectable={selectionMode}
               selected={selectedDrillIds?.has(drill.id)}
               onSelect={onSelect}
@@ -207,6 +208,16 @@ export default function Drills() {
   const [, setLocation] = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { data: savedWorkouts, isLoading: savedWorkoutsLoading } = useQuery<Array<{ id: string; isAssigned?: boolean }>>({
+    queryKey: ["/api/workouts/personal"],
+  });
+  const { data: subscription, isLoading: subscriptionLoading } = useQuery<{ plan?: string }>({
+    queryKey: ["/api/billing/subscription"],
+  });
+  const savedWorkoutLimit = getSavedWorkoutLimit(subscription?.plan);
+  const savedWorkoutLimitReached = !savedWorkoutsLoading
+    && !subscriptionLoading
+    && isAtSavedWorkoutLimit(countSavedWorkouts(savedWorkouts ?? []), savedWorkoutLimit);
 
   const toggleDrillSelection = (drillId: string) => {
     setSelectedDrillIds((current) => {
@@ -234,7 +245,7 @@ export default function Drills() {
   };
 
   const saveSelectedWorkout = () => {
-    if (selectedDrillIds.size < 2) return;
+    if (selectedDrillIds.size < 2 || savedWorkoutLimitReached) return;
     const ids = Array.from(selectedDrillIds).join(",");
     track("drill_library_workout_save_started", { drillCount: selectedDrillIds.size });
     setLocation(`/log?startDrills=${encodeURIComponent(ids)}&mode=track&saveTemplate=1`);
@@ -416,7 +427,7 @@ export default function Drills() {
           {user && (
             <TabsTrigger value="my-drills" data-testid="tab-my-drills" className="flex-1 gap-1.5 text-xs sm:text-sm">
               <User className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              Mine
+              My Drills
               {myDrills.length > 0 && (
                 <Badge variant="secondary" className="text-[10px] sm:text-xs">{myDrills.length}</Badge>
               )}
@@ -436,59 +447,66 @@ export default function Drills() {
             />
           </div>
           
-          <div className="flex items-center gap-2">
-            <Select value={selectedDifficulty} onValueChange={setSelectedDifficulty}>
-              <SelectTrigger className="flex-1 min-w-0" data-testid="select-difficulty">
-                <SelectValue placeholder="Difficulty" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Levels</SelectItem>
-                <SelectItem value="beginner">Beginner</SelectItem>
-                <SelectItem value="intermediate">Intermediate</SelectItem>
-                <SelectItem value="advanced">Advanced</SelectItem>
-                <SelectItem value="elite">Elite</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto pb-1" role="group" aria-label="Filter drills by category">
+              {Object.entries(categoryInfo).map(([key, { label }]) => {
+                const count = key === "all"
+                  ? Object.values(categoryStats).reduce((total, categoryCount) => total + categoryCount, 0)
+                  : categoryStats[key];
+                return (
+                  <Button
+                    key={key}
+                    type="button"
+                    size="sm"
+                    variant={selectedCategory === key ? "secondary" : "ghost"}
+                    onClick={() => setSelectedCategory(key)}
+                    aria-pressed={selectedCategory === key}
+                    className="h-8 shrink-0 gap-1.5 px-2.5 text-xs"
+                    data-testid={`button-category-${key}`}
+                  >
+                    {label}
+                    {count > 0 && <span className="text-[10px] text-muted-foreground">{count}</span>}
+                  </Button>
+                );
+              })}
+            </div>
 
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="flex-1 min-w-0" data-testid="select-category">
-                <SelectValue>
-                  <span className="truncate">{categoryInfo[selectedCategory]?.label || "All Drills"}</span>
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(categoryInfo).map(([key, { label }]) => (
-                  <SelectItem key={key} value={key} data-testid={`option-category-${key}`}>
-                    <span className="flex items-center gap-2">
-                      {label}
-                      {key !== 'all' && categoryStats[key] && (
-                        <Badge variant="secondary" className="text-xs ml-1">
-                          {categoryStats[key]}
-                        </Badge>
-                      )}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex shrink-0 items-center gap-2">
+              <Select value={selectedDifficulty} onValueChange={setSelectedDifficulty}>
+                <SelectTrigger className="h-8 w-[128px] text-xs" data-testid="select-difficulty">
+                  <SelectValue placeholder="All levels" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All levels</SelectItem>
+                  <SelectItem value="beginner">Beginner</SelectItem>
+                  <SelectItem value="intermediate">Intermediate</SelectItem>
+                  <SelectItem value="advanced">Advanced</SelectItem>
+                  <SelectItem value="elite">Elite</SelectItem>
+                </SelectContent>
+              </Select>
 
-            <div className="flex border rounded-md shrink-0">
-              <Button
-                variant={viewMode === "grid" ? "secondary" : "ghost"}
-                size="icon"
-                onClick={() => setViewMode("grid")}
-                data-testid="button-view-grid"
-              >
-                <Grid3X3 className="w-4 h-4" />
-              </Button>
-              <Button
-                variant={viewMode === "list" ? "secondary" : "ghost"}
-                size="icon"
-                onClick={() => setViewMode("list")}
-                data-testid="button-view-list"
-              >
-                <List className="w-4 h-4" />
-              </Button>
+              <div className="flex shrink-0 rounded-md border">
+                <Button
+                  variant={viewMode === "grid" ? "secondary" : "ghost"}
+                  size="icon"
+                  onClick={() => setViewMode("grid")}
+                  aria-label="Grid view"
+                  className="h-8 w-8"
+                  data-testid="button-view-grid"
+                >
+                  <Grid3X3 className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant={viewMode === "list" ? "secondary" : "ghost"}
+                  size="icon"
+                  onClick={() => setViewMode("list")}
+                  aria-label="List view"
+                  className="h-8 w-8"
+                  data-testid="button-view-list"
+                >
+                  <List className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -550,14 +568,14 @@ export default function Drills() {
               <Button
                 size="sm"
                 variant="outline"
-                disabled={selectedDrillIds.size < 2}
+                disabled={selectedDrillIds.size < 2 || savedWorkoutLimitReached || savedWorkoutsLoading || subscriptionLoading}
                 onClick={saveSelectedWorkout}
                 className="h-9 min-w-0 gap-1 border-zinc-600 px-2 text-xs sm:px-3"
                 data-testid="button-save-selected-workout"
               >
                 <Dumbbell className="h-3.5 w-3.5 shrink-0" />
-                <span className="sm:hidden">Save</span>
-                <span className="hidden sm:inline">Save Workout</span>
+                <span className="sm:hidden">{savedWorkoutLimitReached ? "Limit" : "Save"}</span>
+                <span className="hidden sm:inline">{savedWorkoutLimitReached ? "Limit Reached" : "Save Workout"}</span>
               </Button>
               <Button
                 size="sm"
@@ -584,6 +602,14 @@ export default function Drills() {
               </Button>
             </div>
           </div>
+          {savedWorkoutLimitReached && (
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 px-1">
+              <p className="text-xs text-zinc-400">Free includes 3 saved workouts. Remove one or upgrade to save another.</p>
+              <Button type="button" size="sm" variant="ghost" className="h-7 px-1 text-orange-300 hover:text-orange-200" onClick={() => setLocation("/subscription")}>
+                Upgrade to Pro
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>

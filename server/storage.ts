@@ -106,7 +106,8 @@ import {
 } from "@shared/schema";
 import { users, type User } from "@shared/models/auth";
 import { db, pool } from "./db";
-import { eq, desc, asc, and, or, sql, gte, isNotNull, isNull, inArray } from "drizzle-orm";
+import { eq, desc, asc, and, or, sql, gte, isNotNull, isNull, inArray, notExists } from "drizzle-orm";
+import { isAtSavedWorkoutLimit } from "@shared/workout-limits";
 import { generateAiDrill } from "./ai-drill-generator";
 
 export interface IStorage {
@@ -270,9 +271,19 @@ export interface IStorage {
   getWorkouts(): Promise<Workout[]>;
   getHandlzWorkouts(): Promise<Workout[]>; // Admin-created workouts (userId is null)
   getUserWorkouts(userId: string): Promise<Workout[]>; // User's own workouts
+  getUserAssignedWorkoutIds(userId: string): Promise<string[]>;
   getWorkoutById(id: string): Promise<Workout | undefined>;
   getWorkoutWithDrills(id: string): Promise<{ workout: Workout; drills: Array<WorkoutDrill & { drill: Drill }> } | undefined>;
   createWorkout(workout: InsertWorkout, drillIds: string[] | WorkoutDrillInput[]): Promise<Workout>;
+  createUserWorkoutWithLimit(
+    userId: string,
+    workout: InsertWorkout,
+    drillEntries: WorkoutDrillInput[],
+    limit: number | null,
+  ): Promise<
+    | { workout: null; savedCount: number; limitReached: true }
+    | { workout: Workout; savedCount: number; limitReached: false }
+  >;
   updateWorkout(id: string, workout: Partial<InsertWorkout>, drillIds?: string[]): Promise<Workout | undefined>;
   toggleWorkoutFavorite(id: string): Promise<Workout | undefined>;
   deleteWorkout(id: string): Promise<boolean>;
@@ -2161,6 +2172,13 @@ export class DatabaseStorage {
       .orderBy(desc(workouts.createdAt));
   }
 
+  async getUserAssignedWorkoutIds(userId: string): Promise<string[]> {
+    const assigned = await db.select({ workoutId: customWorkoutAssignments.workoutId })
+      .from(customWorkoutAssignments)
+      .where(eq(customWorkoutAssignments.playerId, userId));
+    return assigned.map((row) => row.workoutId);
+  }
+
   async getWorkoutById(id: string): Promise<Workout | undefined> {
     const [workout] = await db.select().from(workouts).where(eq(workouts.id, id));
     return workout;
@@ -2205,6 +2223,54 @@ export class DatabaseStorage {
     }
     
     return newWorkout;
+  }
+
+  async createUserWorkoutWithLimit(
+    userId: string,
+    workout: InsertWorkout,
+    drillEntries: WorkoutDrillInput[],
+    limit: number | null,
+  ): Promise<
+    | { workout: null; savedCount: number; limitReached: true }
+    | { workout: Workout; savedCount: number; limitReached: false }
+  > {
+    return db.transaction(async (tx) => {
+      if (limit !== null) {
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${userId})::bigint)`);
+      }
+
+      const [countRow] = await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(workouts)
+        .where(and(
+          eq(workouts.userId, userId),
+          notExists(
+            tx.select({ id: customWorkoutAssignments.id })
+              .from(customWorkoutAssignments)
+              .where(eq(customWorkoutAssignments.workoutId, workouts.id)),
+          ),
+        ));
+      const savedCount = Number(countRow?.count ?? 0);
+
+      if (isAtSavedWorkoutLimit(savedCount, limit)) {
+        return { workout: null, savedCount, limitReached: true };
+      }
+
+      const [newWorkout] = await tx.insert(workouts).values(workout as any).returning();
+      if (drillEntries.length > 0) {
+        await tx.insert(workoutDrills).values(drillEntries.map((entry, index) => ({
+          workoutId: newWorkout.id,
+          drillId: entry.drillId,
+          sortOrder: entry.sortOrder ?? index,
+          defaultDuration: entry.defaultDuration ?? null,
+          defaultSets: entry.defaultSets ?? null,
+          defaultReps: entry.defaultReps ?? null,
+          coachingNotes: entry.coachingNotes ?? null,
+        })));
+      }
+
+      return { workout: newWorkout, savedCount: savedCount + 1, limitReached: false };
+    });
   }
 
   async toggleWorkoutFavorite(id: string): Promise<Workout | undefined> {
