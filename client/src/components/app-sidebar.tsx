@@ -299,6 +299,21 @@ export function AppSidebar() {
                       <SidebarMenuItem>
                         <SidebarMenuButton
                           asChild
+                          isActive={isActiveLink("/community")}
+                          data-testid="link-nav-admin-community"
+                          onMouseEnter={() => preloadRoute("/community")}
+                          onTouchStart={() => preloadRoute("/community")}
+                          onFocus={() => preloadRoute("/community")}
+                        >
+                          <Link href="/community" onClick={closeSidebar}>
+                            <Users className="w-4 h-4" />
+                            <span>Community</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton
+                          asChild
                           isActive={location === "/admin/support-messages" || location.startsWith("/admin/support-messages/")}
                           data-testid="link-nav-admin-support-messages"
                           onMouseEnter={() => preloadRoute("/admin/support-messages")}

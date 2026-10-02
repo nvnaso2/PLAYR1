@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { nativeFetch } from "@/lib/queryClient";
-import { BarChart3, Dumbbell, Home, Users, UserCircle, CalendarDays } from "lucide-react";
+import { BarChart3, BotMessageSquare, Dumbbell, Home, Users, UserCircle, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRole } from "@/hooks/use-role";
 
@@ -30,18 +30,18 @@ const playerTabs = [
     activePatterns: ["/hub"],
   },
   {
-    id: "community",
-    label: "Community",
-    icon: Users,
-    path: "/community",
-    activePatterns: ["/community", "/connect"],
+    id: "coach-p",
+    label: "Coach P",
+    icon: BotMessageSquare,
+    path: "/coach-p",
+    activePatterns: ["/coach-p"],
   },
   {
     id: "profile",
     label: "Profile",
     icon: UserCircle,
     path: "/profile-hub",
-    activePatterns: ["/profile-hub", "/profile", "/subscription", "/career", "/development", "/archetypes", "/my-archetype", "/my-goal", "/game-day", "/streak-challenges"],
+    activePatterns: ["/profile-hub", "/profile", "/subscription", "/career", "/development", "/archetypes", "/my-archetype", "/my-goal", "/game-day"],
   },
 ];
 
@@ -109,6 +109,11 @@ export function BottomTabBar() {
   const tabs = isTrainerView ? trainerTabs : playerTabs;
 
   function isTabActive(tab: typeof tabs[0]): boolean {
+    if (location.startsWith("/streak-challenges/")) {
+      const returnTo = new URLSearchParams(window.location.search).get("returnTo");
+      if (tab.id === "hub") return returnTo === "/hub";
+      if (tab.id === "profile") return returnTo === "/profile-hub";
+    }
     if (tab.id === "hub" || tab.id === "trainer-hub") {
       if (isTrainerView) return location === "/trainer";
       return location === "/" || location === "/hub";
