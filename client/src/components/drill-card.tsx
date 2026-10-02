@@ -94,7 +94,7 @@ export function DrillCard({
       >
         <div className={cn(
           "relative shrink-0 overflow-hidden bg-muted",
-          viewMode === "list" ? "h-[88px] w-28 sm:h-24 sm:w-36" : "aspect-[2/1] w-full"
+          viewMode === "list" ? "h-[88px] w-28 sm:h-24 sm:w-36" : "aspect-[11/5] w-full"
         )}>
           {drill.videoUrl ? (
             <video
@@ -165,18 +165,18 @@ export function DrillCard({
         </div>
         <CardContent className={cn(
           "min-w-0 flex-1",
-          viewMode === "list" ? "flex items-center gap-3 p-2.5 sm:p-3" : "p-3"
+          viewMode === "list" ? "flex items-center gap-3 p-2.5 sm:p-3" : "p-2.5"
         )}>
           <div className={cn("min-w-0 flex-1", viewMode === "list" && "flex flex-col items-start")}>
             <h3 className={cn(
               "font-semibold leading-snug transition-colors group-hover:text-primary",
-              viewMode === "list" ? "line-clamp-2 text-sm" : "line-clamp-2 min-h-9 text-sm"
+              viewMode === "list" ? "line-clamp-2 text-sm" : "line-clamp-2 min-h-8 text-[13px]"
             )} data-testid={`text-drill-title-${drill.id}`}>
               {drill.title}
             </h3>
             <div className={cn(
               "flex min-w-0 items-center gap-2 text-[10px] text-muted-foreground",
-              viewMode === "list" ? "mt-1.5" : "mt-2"
+              viewMode === "list" ? "mt-1.5" : "mt-1.5"
             )}>
               <span className="flex shrink-0 items-center gap-1">
                 <Clock className="h-3 w-3" />
@@ -187,7 +187,7 @@ export function DrillCard({
           </div>
           <div className={cn(
             "flex shrink-0 items-center gap-2",
-            viewMode === "list" ? "ml-auto flex-col items-end" : "mt-2 justify-between"
+            viewMode === "list" ? "ml-auto flex-col items-end" : "mt-1.5 justify-between"
           )}>
             <BasketballRating drillId={drill.id} size="sm" showCount={false} />
             {totalSessions !== undefined && totalSessions > 0 && (

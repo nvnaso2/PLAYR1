@@ -5,7 +5,6 @@ import { useLocation, useSearch } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
@@ -66,6 +65,8 @@ const categoryInfo: Record<string, { label: string; icon: React.ReactNode; color
   "workouts": { label: "Workouts", icon: <Dumbbell className="w-4 h-4" />, color: "#14b8a6" },
 };
 
+const drillGridClass = "grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5";
+
 function DrillGrid({ drills, viewMode, searchQuery, isLoading, showShareToggle, onToggleShare, onDelete, selectionMode, selectedDrillIds, onSelect }: {
   drills: Drill[] | undefined; 
   viewMode: "grid" | "list"; 
@@ -80,13 +81,10 @@ function DrillGrid({ drills, viewMode, searchQuery, isLoading, showShareToggle, 
 }) {
   if (isLoading) {
     return (
-      <div className={viewMode === "grid" 
-        ? "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
-        : "space-y-2"
-      }>
+      <div className={viewMode === "grid" ? drillGridClass : "space-y-2"}>
         {[...Array(8)].map((_, i) => (
           <Card key={i} className="overflow-hidden">
-            <Skeleton className="aspect-[2/1]" />
+            <Skeleton className="aspect-[11/5]" />
             <CardContent className="space-y-2 p-3">
               <Skeleton className="h-5 w-3/4" />
               <Skeleton className="h-3 w-1/2" />
@@ -115,10 +113,7 @@ function DrillGrid({ drills, viewMode, searchQuery, isLoading, showShareToggle, 
 
   return (
     <>
-      <div className={viewMode === "grid" 
-        ? "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
-        : "space-y-2"
-      }>
+      <div className={viewMode === "grid" ? drillGridClass : "space-y-2"}>
         {drills.map((drill) => (
           <div key={drill.id} className="relative">
             <DrillCard
@@ -412,43 +407,96 @@ export default function Drills() {
         onValueChange={setActiveTab}
         className={selectionMode ? "workout-builder-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain pb-2 pr-1" : undefined}
       >
-        <TabsList className="w-full" data-testid="tabs-drill-library">
-          <TabsTrigger value="handlz" data-testid="tab-handlz-drills" className="flex-1 gap-1.5 text-xs sm:text-sm">
-            <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            PLAYR1
-          </TabsTrigger>
-          <TabsTrigger value="community" data-testid="tab-community-drills" className="flex-1 gap-1.5 text-xs sm:text-sm">
-            <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            Community
-            {communityDrills && communityDrills.length > 0 && (
-              <Badge variant="secondary" className="text-[10px] sm:text-xs">{communityDrills.length}</Badge>
-            )}
-          </TabsTrigger>
-          {user && (
-            <TabsTrigger value="my-drills" data-testid="tab-my-drills" className="flex-1 gap-1.5 text-xs sm:text-sm">
-              <User className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              My Drills
-              {myDrills.length > 0 && (
-                <Badge variant="secondary" className="text-[10px] sm:text-xs">{myDrills.length}</Badge>
-              )}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+          <span className="hidden shrink-0 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground sm:block">
+            Browse
+          </span>
+          <TabsList
+            className={`grid h-auto w-full max-w-[560px] ${user ? "grid-cols-3" : "grid-cols-2"} gap-1 rounded-xl border border-border/60 bg-muted/30 p-1`}
+            data-testid="tabs-drill-library"
+          >
+            <TabsTrigger
+              value="handlz"
+              data-testid="tab-handlz-drills"
+              className="h-9 gap-1.5 rounded-lg px-2 text-xs data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm sm:gap-2 sm:px-4 sm:text-sm"
+            >
+              <Target className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
+              PLAYR1
             </TabsTrigger>
-          )}
-        </TabsList>
+            <TabsTrigger
+              value="community"
+              data-testid="tab-community-drills"
+              className="h-9 gap-1.5 rounded-lg px-2 text-xs data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm sm:gap-2 sm:px-4 sm:text-sm"
+            >
+              <Users className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
+              Community
+            </TabsTrigger>
+            {user && (
+              <TabsTrigger
+                value="my-drills"
+                data-testid="tab-my-drills"
+                className="h-9 gap-1.5 rounded-lg px-2 text-xs data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm sm:gap-2 sm:px-4 sm:text-sm"
+              >
+                <User className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
+                My Drills
+              </TabsTrigger>
+            )}
+          </TabsList>
+        </div>
 
-        <div className="mt-4 space-y-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Search drills..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-              data-testid="input-search-drills"
-            />
-          </div>
-          
+        <div className="mt-4 space-y-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto pb-1" role="group" aria-label="Filter drills by category">
+            <div className="relative w-full sm:max-w-[400px]">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search drills..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-9 pl-10"
+                data-testid="input-search-drills"
+              />
+            </div>
+
+            <div className="flex shrink-0 items-center gap-2 sm:ml-auto">
+              <Select value={selectedDifficulty} onValueChange={setSelectedDifficulty}>
+                <SelectTrigger className="h-9 w-[128px] text-xs" data-testid="select-difficulty">
+                  <SelectValue placeholder="All levels" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All levels</SelectItem>
+                  <SelectItem value="beginner">Beginner</SelectItem>
+                  <SelectItem value="intermediate">Intermediate</SelectItem>
+                  <SelectItem value="advanced">Advanced</SelectItem>
+                  <SelectItem value="elite">Elite</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <div className="flex shrink-0 rounded-md border">
+                <Button
+                  variant={viewMode === "grid" ? "secondary" : "ghost"}
+                  size="icon"
+                  onClick={() => setViewMode("grid")}
+                  aria-label="Grid view"
+                  className="h-9 w-9"
+                  data-testid="button-view-grid"
+                >
+                  <Grid3X3 className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === "list" ? "secondary" : "ghost"}
+                  size="icon"
+                  onClick={() => setViewMode("list")}
+                  aria-label="List view"
+                  className="h-9 w-9"
+                  data-testid="button-view-list"
+                >
+                  <List className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter drills by category">
               {Object.entries(categoryInfo).map(([key, { label }]) => {
                 const count = key === "all"
                   ? Object.values(categoryStats).reduce((total, categoryCount) => total + categoryCount, 0)
@@ -469,45 +517,6 @@ export default function Drills() {
                   </Button>
                 );
               })}
-            </div>
-
-            <div className="flex shrink-0 items-center gap-2">
-              <Select value={selectedDifficulty} onValueChange={setSelectedDifficulty}>
-                <SelectTrigger className="h-8 w-[128px] text-xs" data-testid="select-difficulty">
-                  <SelectValue placeholder="All levels" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All levels</SelectItem>
-                  <SelectItem value="beginner">Beginner</SelectItem>
-                  <SelectItem value="intermediate">Intermediate</SelectItem>
-                  <SelectItem value="advanced">Advanced</SelectItem>
-                  <SelectItem value="elite">Elite</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <div className="flex shrink-0 rounded-md border">
-                <Button
-                  variant={viewMode === "grid" ? "secondary" : "ghost"}
-                  size="icon"
-                  onClick={() => setViewMode("grid")}
-                  aria-label="Grid view"
-                  className="h-8 w-8"
-                  data-testid="button-view-grid"
-                >
-                  <Grid3X3 className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant={viewMode === "list" ? "secondary" : "ghost"}
-                  size="icon"
-                  onClick={() => setViewMode("list")}
-                  aria-label="List view"
-                  className="h-8 w-8"
-                  data-testid="button-view-list"
-                >
-                  <List className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
           </div>
 
           <TabsContent value="handlz" className="mt-0 space-y-4">
