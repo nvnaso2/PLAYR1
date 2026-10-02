@@ -3,7 +3,6 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { nativeFetch, statsUrl } from "@/lib/queryClient";
 import {
   HUB_STAT_DEFINITIONS,
@@ -35,13 +34,6 @@ import {
 } from "lucide-react";
 import introTrailer from "@assets/Welcome_To_PLAYR1_1781991119550.mp4";
 import type { HubRecommendation, HubRecommendationResponse } from "@shared/hub-recommendations";
-
-type GoalData = {
-  goal: any;
-  clarifications: any[];
-  milestones: any[];
-  checkIns: any[];
-} | null;
 
 type HubMode = "onboarding" | "everyday";
 type WeeklyStatPoint = { date: string; minutes: number; sessions: number };
@@ -185,14 +177,6 @@ export default function HubPage() {
       return res.json();
     },
   });
-  const { data: goalData, isLoading: goalLoading } = useQuery<GoalData>({
-    queryKey: ["/api/goals/active"],
-    queryFn: () =>
-      fetch("/api/goals/active", { credentials: "include" })
-        .then((r) => r.json())
-        .then((d) => d ?? null),
-    enabled: !!user,
-  });
   const { data: fixData } = useQuery<any>({
     queryKey: ["/api/onboarding/fix-drills"],
     enabled: !!user,
@@ -238,12 +222,6 @@ export default function HubPage() {
   const { text: greetText, emoji } = greeting(firstName);
   const streak = overview?.streak ?? 0;
   const totalSessions = overview?.totalSessions ?? 0;
-  const activeGoal = goalData?.goal?.status === "active" ? goalData : null;
-  const completedMilestones = activeGoal?.milestones?.filter((m: any) => m.completed).length ?? 0;
-  const totalMilestones = activeGoal?.milestones?.length ?? 0;
-  const goalWeek = activeGoal?.goal?.currentWeek ?? 1;
-  const goalTotalWeeks = activeGoal?.goal?.totalWeeks ?? 8;
-  const goalPct = Math.min(100, Math.max(0, Math.round(((goalWeek - 1) / goalTotalWeeks) * 100)));
   const totalMinutes = overview?.totalMinutes ?? 0;
   const activeDays = monthlyStats?.filter((day) => day.sessions > 0).length ?? 0;
   const maxDailyMinutes = Math.max(...(weeklyStats?.map((day) => day.minutes) ?? [0]), 1);
@@ -852,34 +830,6 @@ export default function HubPage() {
         </section>
 
         {hubMode !== "everyday" && weeklyRecapSection}
-
-        {/* Goal Progress (if active) */}
-        {!goalLoading && activeGoal && (
-          <button
-            data-testid="card-goal-progress"
-            onClick={() => navigate("/my-goal")}
-            className="group w-full text-left rounded-xl border border-zinc-700 bg-zinc-900 p-4 text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.99]"
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Target className="h-4 w-4 text-orange-400" />
-                <p className="font-heading text-sm uppercase tracking-wide text-white">Active goal</p>
-              </div>
-              <div className="flex items-center gap-1 text-xs text-zinc-500">
-                {completedMilestones}/{totalMilestones} milestones
-                <ChevronRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5 group-hover:text-orange-400" />
-              </div>
-            </div>
-            <p className="mb-3 line-clamp-1 text-sm text-zinc-300">"{activeGoal.goal.goalText}"</p>
-            <div className="space-y-1.5">
-              <div className="flex justify-between text-xs text-zinc-500">
-                <span>Week {goalWeek} of {goalTotalWeeks}</span>
-                <span>{goalPct}%</span>
-              </div>
-              <Progress value={goalPct} className="h-1.5 bg-zinc-800" aria-label={`Goal progress: ${goalPct}%`} />
-            </div>
-          </button>
-        )}
 
         {hubMode === "everyday" && (
           <section className="space-y-3" data-testid="section-everyday-connections">

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowUp, Check, ChevronLeft, ChevronRight, Dumbbell, Flag, Gamepad2, GraduationCap, Loader2, Menu, MessageSquarePlus, Pencil, Pin, PinOff, Target, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowUp, Check, ChevronLeft, ChevronRight, Dumbbell, GraduationCap, Loader2, Menu, MessageSquarePlus, Pencil, Pin, PinOff, Target, Trash2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -129,17 +129,6 @@ const STARTER_PROMPTS = [
     prompt: "Build my next workout",
     icon: Dumbbell,
     workoutBuilder: true,
-  },
-  {
-    label: "Prepare me for game day",
-    prompt: "Based on my PLAYR1 profile, training history, game statistics, and assessment, prepare me for my next game from start to finish. Give me practical pregame physical preparation (readiness, fueling and hydration guidance, movement prep, and a basketball-specific warm-up), pregame mental preparation (focus, confidence, visualization, and a simple reset routine), then a simple in-game plan: what to hunt on offense, what to prioritize on defense, and one mental cue I can use when the game gets hard. Keep it realistic for my context and do not give medical advice.",
-    icon: Gamepad2,
-  },
-  {
-    label: "Build my PLAYR1 Project",
-    prompt: "I want to build my PLAYR1 Project with Coach P. Start the discovery conversation from my basketball story and help me figure out what I want basketball to make possible.",
-    icon: Flag,
-    projectBuilder: true,
   },
 ];
 
@@ -623,14 +612,12 @@ export default function CoachPPage() {
   const [conversationToRename, setConversationToRename] = useState<SavedConversation | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
   const [projectBuilderMode, setProjectBuilderMode] = useState(false);
-  const [projectReady, setProjectReady] = useState(false);
   const [projectPrompt, setProjectPrompt] = useState<ProjectBuilderPrompt | null>(null);
   const [workoutBuilderMode, setWorkoutBuilderMode] = useState(false);
   const [workoutIntake, setWorkoutIntake] = useState<CoachPWorkoutIntake | null>(null);
   const [workoutAnswers, setWorkoutAnswers] = useState<CoachPWorkoutAnswers | null>(null);
   const [workoutPreview, setWorkoutPreview] = useState<CoachPWorkoutPreview | null>(null);
   const [savedWorkoutId, setSavedWorkoutId] = useState<string | null>(null);
-  const projectResumeAttemptedRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const pendingAssistantTextRef = useRef("");
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -689,6 +676,7 @@ export default function CoachPPage() {
   const { data: conversations = [] } = useQuery<SavedConversation[]>({
     queryKey: ["/api/coach-p/conversations"],
   });
+  const playerConversations = conversations.filter((conversation) => conversation.title !== "Build my PLAYR1 Project");
 
   const { data: subscription } = useQuery<SubscriptionState>({
     queryKey: ["/api/billing/subscription"],
@@ -697,8 +685,6 @@ export default function CoachPPage() {
   const currentUsage = usage ?? subscription?.coachP ?? null;
   const isUnlimited = subscription?.plan === "pro" || (subscription?.plan as string | undefined) === "pro-infinity" || currentUsage?.limit === null;
   const canSend = projectBuilderMode || isUnlimited || currentUsage?.remaining == null || currentUsage.remaining > 0;
-  const shouldResumeProject = typeof window !== "undefined"
-    && new URLSearchParams(window.location.search).get("project") === "continue";
 
   const chatMutation = useMutation({
     mutationFn: async (request: {
@@ -783,7 +769,6 @@ export default function CoachPPage() {
       setUsage(data.coachP);
       setConversationId(data.conversationId);
       if (data.projectReady) {
-        setProjectReady(true);
         setProjectBuilderMode(false);
         setProjectPrompt(null);
       } else if (data.projectPrompt) {
@@ -933,7 +918,6 @@ export default function CoachPPage() {
     setLimitReached(false);
     setThinkingStage(null);
     setProjectBuilderMode(false);
-    setProjectReady(false);
     setProjectPrompt(null);
     setWorkoutBuilderMode(false);
     setWorkoutIntake(null);
@@ -959,7 +943,6 @@ export default function CoachPPage() {
       setWorkoutAnswers(null);
       setWorkoutPreview(null);
       setSavedWorkoutId(null);
-      setProjectReady(savedProjectReady);
       setProjectPrompt(null);
       if (isProjectConversation && !savedProjectReady) {
         const goalResponse = await apiRequest("GET", "/api/goals/active");
@@ -1001,22 +984,6 @@ export default function CoachPPage() {
       setLoadingConversation(false);
     }
   };
-
-  useEffect(() => {
-    if (
-      !shouldResumeProject
-      || projectResumeAttemptedRef.current
-      || loadingConversation
-      || conversationId
-      || messages.length > 0
-    ) {
-      return;
-    }
-    const projectConversation = conversations.find((conversation) => conversation.title === "Build my PLAYR1 Project");
-    if (!projectConversation) return;
-    projectResumeAttemptedRef.current = true;
-    void openConversation(projectConversation.id);
-  }, [conversations, conversationId, loadingConversation, messages.length, openConversation, shouldResumeProject]);
 
   const deleteConversation = async (id: string) => {
     if (chatMutation.isPending) return;
@@ -1172,13 +1139,13 @@ export default function CoachPPage() {
                 <p className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-600">
                   Recent chats
                 </p>
-                {conversations.length === 0 ? (
+                {playerConversations.length === 0 ? (
                   <p className="px-2 py-6 text-sm leading-relaxed text-zinc-500">
                     Your Coach P conversations will appear here.
                   </p>
                 ) : (
                   <div className="space-y-1">
-                    {conversations.map((conversation) => (
+                    {playerConversations.map((conversation) => (
                       <div
                         key={conversation.id}
                         className={`group flex items-center rounded-lg ${
@@ -1279,28 +1246,24 @@ export default function CoachPPage() {
                   <h1 className="text-2xl font-semibold tracking-tight">What are you working on?</h1>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                   {STARTER_PROMPTS.map(({ label, prompt, icon: Icon, projectBuilder, workoutBuilder }, index) => (
+                   {STARTER_PROMPTS.map(({ label, prompt, icon: Icon, workoutBuilder }) => (
                     <button
                       key={label}
                       onClick={() => {
-                        if (projectBuilder) {
-                          setProjectBuilderMode(true);
-                          setProjectReady(false);
-                          sendMessage(prompt, { projectBuilder: true, projectBuilderAction: "start" });
-                        } else if (workoutBuilder) {
+                         if (workoutBuilder) {
                           setWorkoutBuilderMode(true);
                           sendMessage(prompt, { workoutBuilder: true });
                         } else {
                           sendMessage(prompt);
                         }
                       }}
-                      disabled={chatMutation.isPending || (!projectBuilder && !workoutBuilder && !canSend)}
+                       disabled={chatMutation.isPending || (!workoutBuilder && !canSend)}
                       className={`min-h-[58px] rounded-xl border bg-zinc-950 px-4 py-3 flex items-center gap-3 text-left transition-colors hover:bg-zinc-900 disabled:opacity-50 ${
-                        projectBuilder || index === 3 ? "border-orange-500/35 hover:border-orange-500/60" : "border-zinc-800 hover:border-zinc-700"
+                         workoutBuilder ? "border-orange-500/35 hover:border-orange-500/60" : "border-zinc-800 hover:border-zinc-700"
                       }`}
                       data-testid={`button-coach-p-starter-${label.toLowerCase().replace(/\s+/g, "-")}`}
                     >
-                      <Icon className={`w-4 h-4 shrink-0 ${projectBuilder || index === 3 ? "text-orange-400" : "text-zinc-500"}`} />
+                       <Icon className={`w-4 h-4 shrink-0 ${workoutBuilder ? "text-orange-400" : "text-zinc-500"}`} />
                       <span className="text-sm text-zinc-200">{label}</span>
                       <ArrowUp className="w-3.5 h-3.5 text-zinc-600 rotate-45 ml-auto shrink-0" />
                     </button>
@@ -1371,23 +1334,6 @@ export default function CoachPPage() {
             )}
           </div>
         </section>
-
-        {projectReady && (
-          <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-4 rounded-2xl border border-orange-500/25 bg-orange-500/[0.08] px-4 py-3">
-            <div>
-              <p className="text-sm font-semibold text-orange-100">Your Project is saved.</p>
-              <p className="mt-1 text-xs text-orange-100/65">Review your plan, milestones, and next action.</p>
-            </div>
-            <Button
-              size="sm"
-              onClick={() => navigate("/my-goal")}
-              className="shrink-0 bg-orange-500 text-black hover:bg-orange-400"
-              data-testid="button-open-project-home"
-            >
-              Open Project
-            </Button>
-          </div>
-        )}
 
         {errorMessage && (
           <div className="flex items-center justify-between gap-3 text-xs text-red-300 py-3">

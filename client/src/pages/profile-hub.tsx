@@ -6,94 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getObjectUrl, nativeFetch } from "@/lib/queryClient";
 import {
-  BarChart3, BotMessageSquare, Zap, BookOpen, CalendarDays,
-  ChevronRight, UserCircle, Settings, Crown, MessageCircle, Trophy,
+  BarChart3, BookOpen, ChevronRight, UserCircle, Settings, Crown, MessageCircle, Trophy,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-
-const sections = [
-  {
-    title: "PLAYR1 Pro",
-    description: "Plan, Coach P usage and subscription controls",
-    icon: Crown,
-    color: "text-amber-400",
-    bg: "bg-amber-500/10",
-    path: "/subscription",
-    testId: "card-profile-subscription",
-  },
-  {
-    title: "My Season",
-    description: "Your current mode, next game, and next action",
-    icon: CalendarDays,
-    color: "text-orange-400",
-    bg: "bg-orange-500/10",
-    path: "/my-season",
-    testId: "card-profile-my-season",
-  },
-  {
-    title: "My Career",
-    description: "Stats, trophies, training history and milestones",
-    icon: BarChart3,
-    color: "text-orange-400",
-    bg: "bg-orange-500/10",
-    path: "/career",
-    testId: "card-profile-career",
-  },
-  {
-    title: "My PLAYR1 Project",
-    description: "Discover and follow the basketball project that fits your story",
-    icon: BotMessageSquare,
-    color: "text-blue-400",
-    bg: "bg-blue-500/10",
-    path: "/my-goal",
-    testId: "card-profile-goal",
-  },
-  {
-    title: "Journal & Reflections",
-    description: "Reflect on your training, games and player growth",
-    icon: BookOpen,
-    color: "text-purple-400",
-    bg: "bg-purple-500/10",
-    path: "/journal",
-    testId: "card-profile-journal",
-  },
-  {
-    title: "Game Day",
-    description: "Pre-game prep, mental reps and game-day routines",
-    icon: Zap,
-    color: "text-green-400",
-    bg: "bg-green-500/10",
-    path: "/game-day",
-    testId: "card-profile-gameday",
-  },
-  {
-    title: "3 Point Community Challenge",
-    description: "Log your best 3-point streak and see the community leaderboard",
-    icon: Trophy,
-    color: "text-amber-400",
-    bg: "bg-amber-500/10",
-    path: "/streak-challenges/fifty-in-a-row?returnTo=%2Fprofile-hub",
-    testId: "card-profile-3-point-community-challenge",
-  },
-  {
-    title: "Settings",
-    description: "Privacy, family controls, notifications and account",
-    icon: Settings,
-    color: "text-zinc-400",
-    bg: "bg-zinc-500/10",
-    path: "/settings",
-    testId: "card-profile-settings",
-  },
-  {
-    title: "Talk Through Your Game",
-    description: "Personal basketball help, directly with Nick, the founder of The PLAYR1 Project",
-    icon: MessageCircle,
-    color: "text-orange-400",
-    bg: "bg-orange-500/10",
-    path: "/contact",
-    testId: "card-profile-contact",
-  },
-];
 
 export default function ProfileHubPage() {
   const [, navigate] = useLocation();
@@ -108,6 +23,17 @@ export default function ProfileHubPage() {
   const { data: archetype } = useQuery<any>({
     queryKey: ["/api/archetypes/user"],
     enabled: !!user,
+  });
+
+  const {
+    data: subscription,
+    isLoading: subscriptionLoading,
+    isError: subscriptionError,
+    refetch: refetchSubscription,
+  } = useQuery<{ plan?: string }>({
+    queryKey: ["/api/billing/subscription"],
+    enabled: !!user,
+    staleTime: 30_000,
   });
 
   const { data: supportUnread } = useQuery<{ available: boolean; unreadCount: number }>({
@@ -138,9 +64,24 @@ export default function ProfileHubPage() {
     .join("")
     .toUpperCase()
     .slice(0, 2);
+  const isPro = subscription?.plan === "pro" || subscription?.plan === "pro-infinity";
+  const unreadCount = supportUnread?.unreadCount ?? 0;
 
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6 pb-6">
+      <header className="flex items-center justify-between">
+        <h1 className="text-lg font-bold">Profile</h1>
+        <button
+          type="button"
+          onClick={() => navigate("/settings")}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/60 text-zinc-400 transition hover:border-zinc-700 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+          aria-label="Settings"
+          data-testid="card-profile-settings"
+        >
+          <Settings className="h-4 w-4" />
+        </button>
+      </header>
+
       {/* My Profile card — tap to view/customize public profile */}
       <Card
         className="cursor-pointer hover-elevate border-zinc-800/60 bg-zinc-900/40"
@@ -175,40 +116,143 @@ export default function ProfileHubPage() {
         </CardContent>
       </Card>
 
-      {/* Section nav */}
-      <div>
-        <p className="text-xs text-zinc-600 font-semibold uppercase tracking-wider mb-3">Development</p>
-        <div className="space-y-3">
-          {sections.map((section) => {
-            const Icon = section.icon;
-            const isContactSection = section.path === "/contact";
-            const unreadCount = isContactSection ? supportUnread?.unreadCount || 0 : 0;
-            return (
-              <Card
-                key={section.path}
-                className={`cursor-pointer hover-elevate border-zinc-800/60 bg-zinc-900/40 ${unreadCount > 0 ? "border-red-500/40 bg-red-500/[0.06]" : ""}`}
-                onClick={() => navigate(section.path)}
-                data-testid={section.testId}
-              >
-                <CardContent className="p-5 flex items-center gap-4">
-                  <div className={`relative w-12 h-12 rounded-xl ${section.bg} flex items-center justify-center shrink-0`}>
-                    <Icon className={`w-6 h-6 ${section.color}`} />
-                    {unreadCount > 0 && <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-zinc-950 bg-red-500" aria-label="New message" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-base">{section.title}</h3>
-                      {unreadCount > 0 && <Badge variant="destructive" className="h-5 min-w-5 rounded-full px-1.5 text-[10px]" aria-label={`${unreadCount} new messages`}>{unreadCount}</Badge>}
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-0.5">{section.description}</p>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-zinc-600 shrink-0" />
-                </CardContent>
-              </Card>
-            );
-          })}
+      {subscriptionLoading ? (
+        <Skeleton className="h-48 w-full rounded-2xl" />
+      ) : subscriptionError || !subscription ? (
+        <Card className="rounded-2xl border border-zinc-800 bg-zinc-900/60" data-testid="card-profile-subscription-error">
+          <CardContent className="flex items-center justify-between gap-3 p-5">
+            <p className="text-sm text-zinc-400">Your plan details could not be loaded.</p>
+            <button
+              type="button"
+              onClick={() => void refetchSubscription()}
+              className="shrink-0 rounded-lg border border-zinc-700 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+            >
+              Try again
+            </button>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card
+          className="overflow-hidden rounded-2xl border border-orange-400/40 bg-gradient-to-br from-orange-950/80 via-zinc-900 to-zinc-950 shadow-[0_16px_42px_rgba(249,115,22,0.09)]"
+          data-testid="card-profile-subscription"
+        >
+          <CardContent className="p-5 sm:p-6">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-500/15">
+                <Crown className="h-5 w-5 text-amber-300" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-orange-200/70">PLAYR1 Pro</p>
+                <h2 className="text-lg font-bold text-white">
+                  {isPro ? "Your training, unlocked." : "More coaching. More ways to train."}
+                </h2>
+              </div>
+            </div>
+
+            {isPro ? (
+              <>
+                <p className="mt-3 text-sm text-zinc-300">
+                  Unlimited Coach P, full programs, and courses are active on your account.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => navigate("/subscription")}
+                  className="mt-4 inline-flex items-center gap-2 rounded-lg border border-orange-400/35 bg-orange-500/10 px-4 py-2.5 text-sm font-semibold text-orange-100 transition hover:bg-orange-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                >
+                  View your plan <ChevronRight className="h-4 w-4" />
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="mt-3 text-sm leading-relaxed text-zinc-300">
+                  A private training hour can cost $50–$100. Get a full month of PLAYR1 Pro for <span className="font-bold text-white">$9.99</span>.
+                </p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {["Unlimited Coach P", "Full programs & courses", "Custom workout requests"].map((benefit) => (
+                    <span key={benefit} className="rounded-full border border-orange-300/15 bg-black/20 px-2.5 py-1 text-[11px] font-medium text-orange-50/90">
+                      {benefit}
+                    </span>
+                  ))}
+                </div>
+                <p className="mt-3 text-xs text-zinc-500">Or choose $99.99/year. Cancel anytime.</p>
+                <button
+                  type="button"
+                  onClick={() => navigate("/subscription")}
+                  className="mt-4 inline-flex items-center gap-2 rounded-lg bg-orange-500 px-4 py-2.5 text-sm font-bold text-black transition hover:bg-orange-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300"
+                >
+                  Compare Free and Pro <ChevronRight className="h-4 w-4" />
+                </button>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      <section aria-labelledby="profile-career-heading">
+        <p id="profile-career-heading" className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-600">Career</p>
+        <Card
+          className="cursor-pointer border-zinc-800/60 bg-zinc-900/40 transition hover:border-zinc-700 hover:bg-zinc-900"
+          onClick={() => navigate("/career")}
+          data-testid="card-profile-career"
+        >
+          <CardContent className="flex items-center gap-4 p-5">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-orange-500/10">
+              <BarChart3 className="h-5 w-5 text-orange-400" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2 className="font-semibold text-base">My Career</h2>
+              <p className="mt-0.5 text-sm text-muted-foreground">Stats, trophies, training history and milestones</p>
+            </div>
+            <ChevronRight className="h-4 w-4 shrink-0 text-zinc-600" />
+          </CardContent>
+        </Card>
+      </section>
+
+      <section aria-label="Profile shortcuts">
+        <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
+          <button
+            type="button"
+            onClick={() => navigate("/streak-challenges/fifty-in-a-row?returnTo=%2Fprofile-hub")}
+            className="relative aspect-square min-w-0 rounded-2xl border border-orange-400/50 bg-gradient-to-br from-orange-500/25 to-orange-700/10 px-2 py-3 text-center text-orange-100 transition hover:border-orange-300 hover:bg-orange-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300"
+            aria-label="3 Point Community Challenge"
+            data-testid="card-profile-3-point-community-challenge"
+          >
+            <span className="flex h-full flex-col items-center justify-center gap-2">
+              <Trophy className="h-5 w-5 shrink-0 text-orange-300" />
+              <span className="text-[10px] font-bold leading-tight sm:text-xs">3 Point Community Challenge</span>
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate("/journal")}
+            className="aspect-square min-w-0 rounded-2xl border border-zinc-800 bg-zinc-900/60 px-2 py-3 text-center text-zinc-100 transition hover:border-zinc-700 hover:bg-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+            aria-label="Journal"
+            data-testid="card-profile-journal"
+          >
+            <span className="flex h-full flex-col items-center justify-center gap-2">
+              <BookOpen className="h-5 w-5 shrink-0 text-purple-300" />
+              <span className="text-xs font-semibold">Journal</span>
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate("/contact")}
+            className="relative aspect-square min-w-0 rounded-2xl border border-zinc-800 bg-zinc-900/60 px-2 py-3 text-center text-zinc-100 transition hover:border-zinc-700 hover:bg-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+            aria-label={unreadCount > 0 ? `Talk Through Your Game, ${unreadCount} unread messages` : "Talk Through Your Game"}
+            data-testid="card-profile-contact"
+          >
+            {unreadCount > 0 && (
+              <span className="absolute right-2 top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                {unreadCount}
+              </span>
+            )}
+            <span className="flex h-full flex-col items-center justify-center gap-2">
+              <MessageCircle className="h-5 w-5 shrink-0 text-orange-300" />
+              <span className="text-[10px] font-semibold leading-tight sm:text-xs">Talk Through Your Game</span>
+            </span>
+          </button>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

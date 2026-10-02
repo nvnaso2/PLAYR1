@@ -46,7 +46,9 @@ export default function SubscriptionPage() {
       <Button variant="ghost" onClick={() => navigate("/profile-hub")}><ArrowLeft className="w-4 h-4 mr-2" />Profile</Button>
       <div>
         <div className="flex items-center gap-2"><Crown className="w-7 h-7 text-amber-400" /><h1 className="text-3xl font-bold">PLAYR1 Pro</h1></div>
-        <p className="text-muted-foreground mt-2">Full programs and unlimited access to Coach P.</p>
+        <p className="text-muted-foreground mt-2">
+          A private training hour can cost $50–$100. PLAYR1 Pro is $9.99/month for full programs, courses, and unlimited Coach P.
+        </p>
       </div>
 
       <Card data-testid="card-current-plan">
@@ -58,6 +60,61 @@ export default function SubscriptionPage() {
           {isPro && !isInfinity && <Button variant="outline" onClick={() => portal.mutate()} disabled={portal.isPending}>Manage subscription</Button>}
         </CardContent>
       </Card>
+
+      <section aria-labelledby="plan-comparison-heading" data-testid="section-plan-comparison">
+        <h2 id="plan-comparison-heading" className="mb-3 text-lg font-bold">Free vs. Pro</h2>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Card className="border-zinc-800 bg-zinc-900/50">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between gap-2">
+                <span>PLAYR1 Free</span>
+                <Badge variant="secondary">FREE</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="mb-4 text-sm text-muted-foreground">Keep training and tracking at no cost.</p>
+              <ul className="space-y-2.5 text-sm">
+                {[
+                  "3 Coach P questions each month",
+                  "Diagnostics and daily drills",
+                  "Workout and game tracking",
+                  "Heatmaps, player profile, and Community",
+                ].map((feature) => (
+                  <li key={feature} className="flex items-start gap-2">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-zinc-400" />
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+
+          <Card className="border-orange-500/45 bg-gradient-to-br from-orange-950/45 to-zinc-900/80">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between gap-2">
+                <span>PLAYR1 Pro</span>
+                <Badge className="bg-orange-500 text-black hover:bg-orange-500">FROM $9.99/MONTH</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="mb-4 text-sm text-orange-50/70">More coaching and structured training for your game.</p>
+              <ul className="space-y-2.5 text-sm">
+                {[
+                  "Unlimited Coach P",
+                  "All full programs and courses",
+                  "Custom workout requests",
+                  "Personalized Journal coaching",
+                ].map((feature) => (
+                  <li key={feature} className="flex items-start gap-2">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-green-400" />
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
 
       <Card data-testid="card-coach-p-usage">
         <CardHeader><CardTitle className="flex items-center gap-2"><MessageSquare className="w-5 h-5" />Coach P usage</CardTitle></CardHeader>
@@ -91,7 +148,6 @@ export default function SubscriptionPage() {
         ))}
       </div>}
 
-      <p className="text-xs text-muted-foreground text-center">Diagnostics, daily drills, workout and game tracking, heatmaps, profiles, and Community stay free.</p>
     </div>
   );
 }
