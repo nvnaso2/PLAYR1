@@ -181,7 +181,7 @@ export default function ProfileHubPage() {
         </Card>
       ) : (
         <Card
-          className="overflow-hidden rounded-2xl border border-orange-400/35 bg-gradient-to-br from-orange-950/65 via-zinc-900 to-zinc-950 shadow-[0_16px_42px_rgba(249,115,22,0.08)]"
+          className="overflow-hidden rounded-2xl border border-zinc-800 bg-black shadow-none"
           data-testid="card-profile-subscription"
         >
           <CardContent className="p-4 sm:p-5">
@@ -197,9 +197,22 @@ export default function ProfileHubPage() {
               </div>
               <div className="shrink-0 text-right">
                 <p className="text-[9px] font-semibold uppercase tracking-wider text-zinc-500">Current plan</p>
-                <Badge className={isPro ? "mt-1 border border-orange-300/20 bg-orange-400/15 text-orange-100 hover:bg-orange-400/15" : "mt-1 border border-zinc-700 bg-zinc-800 text-zinc-200 hover:bg-zinc-800"}>
-                  {currentPlan}{isPro && currentPlanInterval ? ` · ${currentPlanInterval}` : ""}
-                </Badge>
+                <div className="mt-1 flex items-center justify-end gap-1.5">
+                  <Badge className={isPro ? "border border-orange-300/20 bg-orange-400/15 text-orange-100 hover:bg-orange-400/15" : "border border-zinc-700 bg-zinc-800 text-zinc-200 hover:bg-zinc-800"}>
+                    {currentPlan}{isPro && currentPlanInterval ? ` · ${currentPlanInterval}` : ""}
+                  </Badge>
+                  {!isPro && (
+                    <button
+                      type="button"
+                      onClick={() => checkout.mutate("month")}
+                      disabled={checkout.isPending}
+                      className="min-h-7 rounded-md bg-orange-500 px-2.5 text-[10px] font-bold text-black transition hover:bg-orange-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 disabled:cursor-wait disabled:opacity-60"
+                      data-testid="button-profile-upgrade-month"
+                    >
+                      {checkout.isPending ? "Opening…" : "Upgrade"}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -233,7 +246,7 @@ export default function ProfileHubPage() {
               </div>
             </div>
             <p className="mt-2 text-[11px] leading-relaxed text-zinc-400">
-              A month of structured workouts and courses—plus personalized coaching—for less than one in-person hour.
+              A month of structured workouts and courses plus personalized drills for less than one in-person hour of training.
             </p>
 
             <div className="mt-3 grid grid-cols-2 gap-2">
@@ -243,10 +256,10 @@ export default function ProfileHubPage() {
                   {!isPro && <span className="text-[9px] font-semibold uppercase text-zinc-400">Your plan</span>}
                 </div>
                 <ul className="space-y-1.5 text-[10px] leading-tight text-zinc-400">
-                  <li className="flex gap-1.5"><Check className="h-3 w-3 shrink-0 text-zinc-500" />3 Coach P questions/month</li>
-                  <li className="flex gap-1.5"><Check className="h-3 w-3 shrink-0 text-zinc-500" />Diagnostics + daily drills</li>
-                  <li className="flex gap-1.5"><Check className="h-3 w-3 shrink-0 text-zinc-500" />Workout + game tracking</li>
-                  <li className="flex gap-1.5"><Check className="h-3 w-3 shrink-0 text-zinc-500" />Profile, heatmaps + Community</li>
+                  <li className="flex gap-1.5"><Check className="h-3 w-3 shrink-0 text-zinc-500" />Daily Drills + Full Drill Library Access (100+ Drills)</li>
+                  <li className="flex gap-1.5"><Check className="h-3 w-3 shrink-0 text-zinc-500" />3 Coach P questions / month</li>
+                  <li className="flex gap-1.5"><Check className="h-3 w-3 shrink-0 text-zinc-500" />Workouts + Game Stat Tracking</li>
+                  <li className="flex gap-1.5"><Check className="h-3 w-3 shrink-0 text-zinc-500" />Profile + Dashboard Analytics</li>
                 </ul>
               </div>
               <div className={`rounded-xl border p-3 ${isPro ? "border-orange-300/45 bg-orange-400/[0.08]" : "border-orange-300/15 bg-black/20"}`}>
@@ -256,32 +269,22 @@ export default function ProfileHubPage() {
                 </div>
                 <ul className="space-y-1.5 text-[10px] leading-tight text-zinc-300">
                   <li className="flex gap-1.5"><Check className="h-3 w-3 shrink-0 text-emerald-400" />Unlimited Coach P</li>
-                  <li className="flex gap-1.5"><Check className="h-3 w-3 shrink-0 text-emerald-400" />Full programs + courses</li>
-                  <li className="flex gap-1.5"><Check className="h-3 w-3 shrink-0 text-emerald-400" />Custom workout requests</li>
-                  <li className="flex gap-1.5"><Check className="h-3 w-3 shrink-0 text-emerald-400" />Personalized Journal coaching</li>
+                  <li className="flex gap-1.5"><Check className="h-3 w-3 shrink-0 text-emerald-400" />Full Programs + Courses Access</li>
+                  <li className="flex gap-1.5"><Check className="h-3 w-3 shrink-0 text-emerald-400" />Full Workout Library Access</li>
                 </ul>
               </div>
             </div>
 
             {!isPro ? (
-              <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
-                <button
-                  type="button"
-                  onClick={() => checkout.mutate("month")}
-                  disabled={checkout.isPending}
-                  className="min-h-10 rounded-lg bg-orange-500 px-3 text-xs font-bold text-black transition hover:bg-orange-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 disabled:cursor-wait disabled:opacity-60"
-                  data-testid="button-profile-upgrade-month"
-                >
-                  {checkout.isPending ? "Opening checkout…" : "Get Pro · $9.99/month"}
-                </button>
+              <div className="mt-3">
                 <button
                   type="button"
                   onClick={() => checkout.mutate("year")}
                   disabled={checkout.isPending}
-                  className="min-h-10 rounded-lg border border-orange-300/25 bg-orange-400/[0.08] px-3 text-[11px] font-semibold text-orange-100 transition hover:bg-orange-400/[0.15] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 disabled:cursor-wait disabled:opacity-60"
+                  className="min-h-10 w-full rounded-lg border border-orange-300/25 bg-zinc-950 px-3 text-[11px] font-semibold text-orange-100 transition hover:bg-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 disabled:cursor-wait disabled:opacity-60"
                   data-testid="button-profile-upgrade-year"
                 >
-                  $99.99/year
+                  Choose annual · $99.99/year
                 </button>
               </div>
             ) : !isInfinity ? (
