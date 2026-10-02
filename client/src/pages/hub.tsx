@@ -31,6 +31,7 @@ import {
   Layers3,
   CheckCircle2,
   Users,
+  Trophy,
 } from "lucide-react";
 import introTrailer from "@assets/Welcome_To_PLAYR1_1781991119550.mp4";
 import type { HubRecommendation, HubRecommendationResponse } from "@shared/hub-recommendations";
@@ -799,6 +800,22 @@ export default function HubPage() {
         {hubMode === "everyday" && weeklyRecapSection}
 
         {recommendationCard}
+
+        <button
+          type="button"
+          onClick={() => navigate("/streak-challenges/fifty-in-a-row?returnTo=%2Fhub")}
+          className="group flex w-full items-center gap-3 rounded-2xl border border-orange-400/50 bg-gradient-to-r from-orange-500/20 via-orange-500/10 to-zinc-900/70 p-4 text-left text-zinc-100 transition hover:border-orange-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.99]"
+          data-testid="button-hub-3-point-community-challenge"
+        >
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-orange-400/40 bg-orange-500/15 text-orange-300">
+            <Trophy className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-heading text-sm tracking-wide">3 Point Community Challenge</span>
+            <span className="mt-1 block text-xs text-zinc-400">Log your best streak and see how you rank with the community.</span>
+          </span>
+          <ChevronRight className="h-5 w-5 shrink-0 text-orange-300 transition group-hover:translate-x-1" aria-hidden="true" />
+        </button>
 
         {/* Start training */}
         <section className="space-y-3" data-testid="section-start-training">

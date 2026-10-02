@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getObjectUrl, nativeFetch } from "@/lib/queryClient";
 import {
   BarChart3, BotMessageSquare, Zap, BookOpen, CalendarDays,
-  ChevronRight, UserCircle, Settings, Crown, MessageCircle,
+  ChevronRight, UserCircle, Settings, Crown, MessageCircle, Trophy,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -65,6 +65,15 @@ const sections = [
     bg: "bg-green-500/10",
     path: "/game-day",
     testId: "card-profile-gameday",
+  },
+  {
+    title: "3 Point Community Challenge",
+    description: "Log your best 3-point streak and see the community leaderboard",
+    icon: Trophy,
+    color: "text-amber-400",
+    bg: "bg-amber-500/10",
+    path: "/streak-challenges/fifty-in-a-row?returnTo=%2Fprofile-hub",
+    testId: "card-profile-3-point-community-challenge",
   },
   {
     title: "Settings",

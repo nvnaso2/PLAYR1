@@ -206,6 +206,9 @@ export default function StreakChallengePage() {
   const { slug } = useParams<{ slug: string }>();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const requestedReturnTo = new URLSearchParams(window.location.search).get("returnTo");
+  const backHref = requestedReturnTo === "/profile-hub" ? "/profile-hub" : "/hub";
+  const backLabel = requestedReturnTo === "/profile-hub" ? "Profile" : "Hub";
 
   const [challengeView, setChallengeView] = useState<"progress" | "leaderboard">("progress");
   const [leaderSort, setLeaderSort] = useState<"best" | "closest" | "percent">("best");
@@ -358,8 +361,8 @@ export default function StreakChallengePage() {
     return (
       <div className="min-h-screen bg-black max-w-5xl mx-auto px-4 py-16 text-center">
         <p className="text-zinc-500">Challenge not found.</p>
-        <Link href="/events">
-          <Button variant="ghost" className="mt-4 text-zinc-400"><ChevronLeft className="w-4 h-4 mr-1" />Back to Compete</Button>
+        <Link href={backHref}>
+          <Button variant="ghost" className="mt-4 text-zinc-400"><ChevronLeft className="w-4 h-4 mr-1" />Back to {backLabel}</Button>
         </Link>
       </div>
     );
@@ -386,9 +389,9 @@ export default function StreakChallengePage() {
       {/* ─── Hero ─── */}
       <div className="relative overflow-hidden border-b border-zinc-800/80 bg-zinc-950">
         <div className="relative max-w-5xl mx-auto px-4 sm:px-6 py-6 md:py-7">
-          <Link href="/events">
-            <Button variant="ghost" size="sm" className="mb-4 -ml-2 text-zinc-500 hover:text-white" data-testid="button-back-compete">
-              <ChevronLeft className="w-4 h-4 mr-1" />Compete
+          <Link href={backHref}>
+            <Button variant="ghost" size="sm" className="mb-4 -ml-2 text-zinc-500 hover:text-white" data-testid="button-back-to-origin">
+              <ChevronLeft className="w-4 h-4 mr-1" />{backLabel}
             </Button>
           </Link>
           <div className="border-l-2 border-orange-400 pl-4 sm:pl-5" style={{ borderColor: accent }}>

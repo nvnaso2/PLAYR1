@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { nativeFetch } from "@/lib/queryClient";
-import { Dumbbell, Trophy, Home, Users, UserCircle, CalendarDays, Sparkles } from "lucide-react";
+import { BarChart3, Dumbbell, Home, Users, UserCircle, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRole } from "@/hooks/use-role";
 
@@ -15,11 +15,11 @@ const playerTabs = [
     activePatterns: ["/log", "/programs", "/courses", "/lead-magnets"],
   },
   {
-    id: "compete",
-    label: "Compete",
-    icon: Trophy,
-    path: "/events",
-    activePatterns: ["/events"],
+    id: "dashboard",
+    label: "Dashboard",
+    icon: BarChart3,
+    path: "/dashboard",
+    activePatterns: ["/dashboard", "/progress"],
   },
   {
     id: "hub",
@@ -27,7 +27,7 @@ const playerTabs = [
     icon: Home,
     path: "/hub",
     center: true,
-    activePatterns: ["/hub", "/dashboard"],
+    activePatterns: ["/hub"],
   },
   {
     id: "community",
@@ -41,7 +41,7 @@ const playerTabs = [
     label: "Profile",
     icon: UserCircle,
     path: "/profile-hub",
-    activePatterns: ["/profile-hub", "/profile", "/subscription", "/career", "/development", "/archetypes", "/my-archetype", "/my-goal", "/game-day"],
+    activePatterns: ["/profile-hub", "/profile", "/subscription", "/career", "/development", "/archetypes", "/my-archetype", "/my-goal", "/game-day", "/streak-challenges"],
   },
 ];
 
@@ -111,7 +111,7 @@ export function BottomTabBar() {
   function isTabActive(tab: typeof tabs[0]): boolean {
     if (tab.id === "hub" || tab.id === "trainer-hub") {
       if (isTrainerView) return location === "/trainer";
-      return location === "/" || location === "/hub" || location === "/dashboard";
+      return location === "/" || location === "/hub";
     }
     // "players" tab: active for /trainer but NOT /trainer/profile etc. handled by activePatterns
     return tab.activePatterns.some(

@@ -33,7 +33,6 @@ import {
 import { 
   Target, 
   ClipboardList, 
-  BarChart3, 
   Video, 
   User,
   UserCircle,
@@ -67,7 +66,6 @@ import { Playr1Logo } from "@/components/playr1-logo";
 import { getObjectUrl, nativeFetch } from "@/lib/queryClient";
 
 const playerNavItems = [
-  { title: "Dashboard", url: "/dashboard", icon: BarChart3 },
   { title: "Coach P", url: "/coach-p", icon: BotMessageSquare },
   { title: "Lead Magnets", url: "/lead-magnets", icon: Sparkles },
   { title: "My Film Room", url: "/videos", icon: Video },
