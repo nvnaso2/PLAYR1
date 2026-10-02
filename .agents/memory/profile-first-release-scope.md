@@ -9,6 +9,8 @@ The Profile page is the primary PLAYR1 Pro value and upgrade surface: keep its F
 
 Add an inline player summary above PLAYR1 Training Plan with photo, name, location (US: city and state; elsewhere: city and country), jersey number, positions, headline, bio, and up to three selectable stats. Keep the existing My Profile entry in the Career section, directly after My Career. This summary does not merge the Profile and Career destinations or their underlying content.
 
-**Why:** The user specified the summary fields and placement, and asked to move the existing My Profile entry below My Career while preserving other Profile-tab content.
+Use the app's warm orange for the photo ring. On desktop, place the selected stats to the right of the player details, keeping the bold value above its label. At phone widths, keep the stats readable to the right of the portrait and above the bio. Order the Profile header actions as orange Edit Profile, Choose stats, then Settings.
 
-**How to apply:** Preserve deferred routes, the inline upgrade surface, and compact shortcuts. Keep the player summary above the training plan and order the Career entries as My Career, then My Profile; do not merge or remove the separate pages.
+**Why:** The user specified the summary fields and placement, the Career entry order, and then clarified the visual treatment and control order after reviewing the preview.
+
+**How to apply:** Preserve deferred routes, the inline upgrade surface, and compact shortcuts. Keep the summary above the training plan and Career entries as My Career, then My Profile; retain the orange ring, readable right-side stats, and Edit Profile → Choose stats → Settings order.

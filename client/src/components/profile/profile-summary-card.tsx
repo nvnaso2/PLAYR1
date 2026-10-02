@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { MapPin, Settings2 } from "lucide-react";
+import { MapPin, Settings, Settings2 } from "lucide-react";
 import type { ProfileDisplayStatKey } from "@shared/schema";
 import { COUNTRIES, PROFILE_DISPLAY_STAT_KEYS } from "@shared/schema";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -32,6 +32,8 @@ type ProfileSummaryCardProps = {
   career: any;
   careerStats: any;
   isLoading: boolean;
+  onEditProfile: () => void;
+  onSettings: () => void;
 };
 
 const STAT_GROUPS: { label: string; keys: ProfileDisplayStatKey[] }[] = [
@@ -168,6 +170,8 @@ export function ProfileSummaryCard({
   career,
   careerStats,
   isLoading,
+  onEditProfile,
+  onSettings,
 }: ProfileSummaryCardProps) {
   const { toast } = useToast();
   const [statsDialogOpen, setStatsDialogOpen] = useState(false);
@@ -241,111 +245,144 @@ export function ProfileSummaryCard({
   };
 
   return (
-    <Card className="overflow-hidden border-zinc-800/60 bg-zinc-900/40" data-testid="card-profile-summary">
-      <CardContent className="p-5">
+    <div className="space-y-4">
+      <header className="flex items-center justify-between gap-2">
+        <h1 className="text-lg font-bold text-white">Profile</h1>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <Button
+            type="button"
+            size="sm"
+            className="h-9 bg-orange-500 px-3 text-xs font-bold text-zinc-950 hover:bg-orange-400"
+            onClick={onEditProfile}
+            data-testid="button-edit-profile"
+          >
+            Edit Profile
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-9 gap-1 px-2 text-xs text-zinc-300 hover:text-white sm:gap-1.5 sm:px-2.5"
+            onClick={openStatsDialog}
+            disabled={!availableStats.length}
+            data-testid="button-edit-profile-stats"
+          >
+            <Settings2 className="h-3.5 w-3.5 shrink-0" />
+            Choose stats
+          </Button>
+          <button
+            type="button"
+            onClick={onSettings}
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/60 text-zinc-400 transition hover:border-zinc-700 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+            aria-label="Settings"
+            data-testid="card-profile-settings"
+          >
+            <Settings className="h-4 w-4" />
+          </button>
+        </div>
+      </header>
+
+      <Card className="overflow-hidden border-zinc-800/60 bg-zinc-900/40" data-testid="card-profile-summary">
+      <CardContent className="p-4 sm:p-5">
         {isLoading ? (
-          <div className="flex items-center gap-4" aria-label="Loading player summary">
-            <div className="h-20 w-20 shrink-0 animate-pulse rounded-full bg-zinc-800" />
-            <div className="flex-1 space-y-2">
-              <div className="h-5 w-40 animate-pulse rounded bg-zinc-800" />
-              <div className="h-4 w-28 animate-pulse rounded bg-zinc-800" />
-              <div className="h-4 w-32 animate-pulse rounded bg-zinc-800" />
+          <div
+            className="grid grid-cols-[64px_minmax(0,1fr)] gap-x-3 gap-y-3 sm:grid-cols-[80px_minmax(0,1fr)_minmax(190px,0.68fr)] sm:gap-x-4 sm:gap-y-0"
+            aria-label="Loading player summary"
+          >
+            <div className="row-span-2 h-16 w-16 animate-pulse rounded-full bg-zinc-800 sm:h-20 sm:w-20" />
+            <div className="space-y-2 pt-1">
+              <div className="h-5 w-40 max-w-full animate-pulse rounded bg-zinc-800" />
+              <div className="h-4 w-28 max-w-full animate-pulse rounded bg-zinc-800" />
+              <div className="h-4 w-32 max-w-full animate-pulse rounded bg-zinc-800" />
+            </div>
+            <div className="h-14 animate-pulse rounded-xl bg-zinc-800 sm:col-start-3 sm:row-start-1" />
+            <div className="col-span-2 space-y-2 pl-[76px] pt-1 sm:col-span-1 sm:col-start-2 sm:row-start-2 sm:pl-0">
+              <div className="h-4 w-48 max-w-full animate-pulse rounded bg-zinc-800" />
+              <div className="h-10 w-full animate-pulse rounded bg-zinc-800" />
             </div>
           </div>
         ) : (
-          <>
-            <div className="flex items-start gap-4">
-              <Avatar className="h-20 w-20 shrink-0 border-2 border-orange-400/40 ring-2 ring-zinc-950">
-                <AvatarImage src={avatarSrc} alt={`${displayName} profile photo`} />
-                <AvatarFallback className="bg-orange-500/20 text-lg font-bold text-orange-300">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
-              <div className="min-w-0 flex-1 pt-1">
-                <h2 className="truncate text-lg font-bold leading-tight text-white">{displayName}</h2>
-                {location && (
-                  <p className="mt-1 flex items-center gap-1 text-xs text-zinc-400">
-                    <MapPin className="h-3.5 w-3.5 shrink-0 text-orange-400" />
-                    <span className="truncate">{location}</span>
-                  </p>
-                )}
-                {(career?.jerseyNumber !== null && career?.jerseyNumber !== undefined || positions.length > 0) && (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {career?.jerseyNumber !== null && career?.jerseyNumber !== undefined && (
-                      <Badge variant="outline" className="border-zinc-700 bg-zinc-950/70 text-xs text-zinc-200">
-                        Jersey #{career.jerseyNumber}
-                      </Badge>
-                    )}
-                    {positions.length > 0 && (
-                      <Badge variant="outline" className="border-zinc-700 bg-zinc-950/70 text-xs text-zinc-200">
-                        {positions.join(" · ")}
-                      </Badge>
-                    )}
-                  </div>
-                )}
-              </div>
+          <div className="grid grid-cols-[64px_minmax(0,1fr)] gap-x-3 gap-y-3 sm:grid-cols-[80px_minmax(0,1fr)_minmax(190px,0.68fr)] sm:gap-x-4 sm:gap-y-0">
+            <Avatar className="row-span-2 h-16 w-16 shrink-0 border-2 border-orange-500 ring-2 ring-orange-500/80 shadow-[0_0_16px_rgba(249,115,22,0.38)] sm:h-20 sm:w-20">
+              <AvatarImage src={avatarSrc} alt={`${displayName} profile photo`} />
+              <AvatarFallback className="bg-orange-500/20 text-lg font-bold text-orange-300">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 pt-1">
+              <h2 className="truncate text-lg font-bold leading-tight text-white">{displayName}</h2>
+              {location && (
+                <p className="mt-1 flex items-center gap-1 text-xs text-zinc-400">
+                  <MapPin className="h-3.5 w-3.5 shrink-0 text-orange-400" />
+                  <span className="truncate">{location}</span>
+                </p>
+              )}
+              {(career?.jerseyNumber !== null && career?.jerseyNumber !== undefined || positions.length > 0) && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {career?.jerseyNumber !== null && career?.jerseyNumber !== undefined && (
+                    <Badge variant="outline" className="border-zinc-700 bg-zinc-950/70 text-[10px] text-zinc-200 sm:text-xs">
+                      Jersey #{career.jerseyNumber}
+                    </Badge>
+                  )}
+                  {positions.length > 0 && (
+                    <Badge variant="outline" className="border-zinc-700 bg-zinc-950/70 text-[10px] text-zinc-200 sm:text-xs">
+                      {positions.join(" · ")}
+                    </Badge>
+                  )}
+                </div>
+              )}
             </div>
 
-            {(playerProfile?.headline || playerProfile?.bio) ? (
-              <div className="mt-4 space-y-1.5">
-                {playerProfile?.headline && (
-                  <p className="text-sm font-semibold leading-snug text-zinc-100">{playerProfile.headline}</p>
-                )}
-                {playerProfile?.bio && (
-                  <p className="line-clamp-3 whitespace-pre-line text-sm leading-relaxed text-zinc-400">
-                    {playerProfile.bio}
-                  </p>
-                )}
-              </div>
-            ) : (
-              <p className="mt-4 text-sm text-zinc-500">Add a headline and bio to introduce your game.</p>
-            )}
-
-            <div className="mt-4 border-t border-zinc-800/80 pt-3">
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-500">Player stats</p>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 gap-1.5 px-2 text-xs text-zinc-400 hover:text-white"
-                  onClick={openStatsDialog}
-                  disabled={!availableStats.length}
-                  data-testid="button-edit-profile-stats"
-                >
-                  <Settings2 className="h-3.5 w-3.5" />
-                  Choose stats
-                </Button>
-              </div>
-
+            <section className="min-w-0 sm:col-start-3 sm:row-start-1 sm:pt-1" aria-label="Player stats">
+              <p className="mb-2 text-[9px] font-bold uppercase tracking-[0.14em] text-zinc-500 sm:text-[10px] sm:tracking-[0.16em]">
+                Player stats
+              </p>
               {selectedStatValues.length > 0 ? (
                 <div
                   className={`grid overflow-hidden rounded-xl border border-zinc-800 bg-black/25 ${
                     selectedStatValues.length === 1 ? "grid-cols-1" : selectedStatValues.length === 2 ? "grid-cols-2" : "grid-cols-3"
                   }`}
-                  aria-label="Selected player stats"
                 >
                   {selectedStatValues.map((stat, index) => (
                     <div
                       key={stat.key}
-                      className={`min-w-0 px-2 py-2.5 text-center ${
+                      className={`min-w-0 px-1 py-2 text-center sm:px-2 sm:py-2.5 ${
                         index > 0 ? "border-l border-zinc-800" : ""
                       }`}
                     >
-                      <p className="truncate text-base font-black leading-tight text-white">{stat.value}</p>
-                      <p className="mt-1 truncate text-[9px] font-bold uppercase tracking-wider text-zinc-500">
+                      <p className="truncate text-xs font-black leading-tight text-white sm:text-base">{stat.value}</p>
+                      <p className="mt-1 truncate text-[8px] font-bold uppercase tracking-wider text-zinc-500 sm:text-[9px]">
                         {stat.label}
                       </p>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="rounded-xl border border-dashed border-zinc-800 px-3 py-3 text-center text-xs text-zinc-500">
-                  Add game stats, measurements, or skill ratings to choose what appears here.
+                <p className="rounded-xl border border-dashed border-zinc-800 px-2 py-3 text-center text-[10px] leading-snug text-zinc-500 sm:px-3 sm:text-xs">
+                  Add stats or measurements to choose what appears here.
                 </p>
               )}
+            </section>
+
+            <div className="col-span-2 min-w-0 space-y-1.5 pl-[76px] pt-1 sm:col-span-1 sm:col-start-2 sm:row-start-2 sm:pl-0">
+              {(playerProfile?.headline || playerProfile?.bio) ? (
+                <>
+                  {playerProfile?.headline && (
+                    <p className="text-xs font-semibold leading-snug text-zinc-100 sm:text-sm">
+                      {playerProfile.headline}
+                    </p>
+                  )}
+                  {playerProfile?.bio && (
+                    <p className="line-clamp-3 whitespace-pre-line text-xs leading-relaxed text-zinc-400 sm:text-sm">
+                      {playerProfile.bio}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="text-xs text-zinc-500 sm:text-sm">Add a headline and bio to introduce your game.</p>
+              )}
             </div>
-          </>
+          </div>
         )}
       </CardContent>
 
@@ -411,6 +448,7 @@ export function ProfileSummaryCard({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Card>
+      </Card>
+    </div>
   );
 }

@@ -122,46 +122,44 @@ export function Updated() {
         </header>
         <Card className="overflow-hidden border-zinc-800/60 bg-zinc-900/40">
           <CardContent className="p-4 sm:p-5">
-            <div className="grid grid-cols-[64px_minmax(0,1fr)] gap-3 sm:grid-cols-[80px_minmax(0,1fr)] sm:gap-4">
-              <Avatar className="h-16 w-16 shrink-0 border-2 border-orange-500 ring-2 ring-orange-500/80 shadow-[0_0_16px_rgba(249,115,22,0.38)] sm:h-20 sm:w-20">
+            <div className="grid grid-cols-[64px_minmax(0,1fr)] gap-x-3 gap-y-3 sm:grid-cols-[80px_minmax(0,1fr)_minmax(190px,0.68fr)] sm:gap-x-4 sm:gap-y-0">
+              <Avatar className="row-span-2 h-16 w-16 shrink-0 border-2 border-orange-500 ring-2 ring-orange-500/80 shadow-[0_0_16px_rgba(249,115,22,0.38)] sm:h-20 sm:w-20">
                 <AvatarImage src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=160&q=80" alt="Jordan Parker profile photo" />
                 <AvatarFallback className="bg-orange-500/20 text-lg font-bold text-orange-300">JP</AvatarFallback>
               </Avatar>
-              <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(105px,0.72fr)] items-start gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(190px,0.68fr)] sm:gap-4">
-                <div className="min-w-0 pt-1">
-                  <h2 className="truncate text-lg font-bold leading-tight text-white">Jordan Parker</h2>
-                  <p className="mt-1 flex items-center gap-1 text-xs text-zinc-400">
-                    <MapPin className="h-3.5 w-3.5 shrink-0 text-orange-400" />
-                    <span className="truncate">Atlanta, GA</span>
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    <Badge variant="outline" className="border-zinc-700 bg-zinc-950/70 text-[10px] text-zinc-200 sm:text-xs">Jersey #11</Badge>
-                    <Badge variant="outline" className="border-zinc-700 bg-zinc-950/70 text-[10px] text-zinc-200 sm:text-xs">PG · SG</Badge>
+              <div className="min-w-0 pt-1">
+                <h2 className="truncate text-lg font-bold leading-tight text-white">Jordan Parker</h2>
+                <p className="mt-1 flex items-center gap-1 text-xs text-zinc-400">
+                  <MapPin className="h-3.5 w-3.5 shrink-0 text-orange-400" />
+                  <span className="truncate">Atlanta, GA</span>
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  <Badge variant="outline" className="border-zinc-700 bg-zinc-950/70 text-[10px] text-zinc-200 sm:text-xs">Jersey #11</Badge>
+                  <Badge variant="outline" className="border-zinc-700 bg-zinc-950/70 text-[10px] text-zinc-200 sm:text-xs">PG · SG</Badge>
+                </div>
+              </div>
+              <div className="min-w-0 sm:col-start-3 sm:row-start-1 sm:pt-1">
+                <p className="mb-2 text-[9px] font-bold uppercase tracking-[0.14em] text-zinc-500 sm:text-[10px] sm:tracking-[0.16em]">Player stats</p>
+                <div className="grid grid-cols-3 overflow-hidden rounded-xl border border-zinc-800 bg-black/25">
+                  <div className="px-1 py-2 text-center sm:px-2 sm:py-2.5">
+                    <p className="truncate text-sm font-black leading-tight text-white sm:text-base">18.6</p>
+                    <p className="mt-1 truncate text-[9px] font-bold uppercase tracking-wider text-zinc-500">PPG</p>
                   </div>
-                  <div className="mt-3 space-y-1.5">
-                    <p className="text-xs font-semibold leading-snug text-zinc-100 sm:text-sm">Crafting winning plays, one rep at a time.</p>
-                    <p className="line-clamp-3 text-xs leading-relaxed text-zinc-400 sm:text-sm">
-                      I love creating shots for my teammates and bringing energy on both ends of the court.
-                    </p>
+                  <div className="border-l border-zinc-800 px-1 py-2 text-center sm:px-2 sm:py-2.5">
+                    <p className="truncate text-sm font-black leading-tight text-white sm:text-base">6′2″</p>
+                    <p className="mt-1 truncate text-[9px] font-bold uppercase tracking-wider text-zinc-500">Height</p>
+                  </div>
+                  <div className="border-l border-zinc-800 px-1 py-2 text-center sm:px-2 sm:py-2.5">
+                    <p className="truncate text-sm font-black leading-tight text-white sm:text-base">185 lb</p>
+                    <p className="mt-1 truncate text-[9px] font-bold uppercase tracking-wider text-zinc-500">Weight</p>
                   </div>
                 </div>
-                <div className="min-w-0 pt-1">
-                  <p className="mb-2 text-[9px] font-bold uppercase tracking-[0.14em] text-zinc-500 sm:text-[10px] sm:tracking-[0.16em]">Player stats</p>
-                  <div className="grid grid-cols-3 overflow-hidden rounded-xl border border-zinc-800 bg-black/25">
-                    <div className="px-1 py-2 text-center sm:px-2 sm:py-2.5">
-                      <p className="truncate text-xs font-black leading-tight text-white sm:text-base">18.6</p>
-                      <p className="mt-1 truncate text-[8px] font-bold uppercase tracking-wider text-zinc-500 sm:text-[9px]">PPG</p>
-                    </div>
-                    <div className="border-l border-zinc-800 px-1 py-2 text-center sm:px-2 sm:py-2.5">
-                      <p className="truncate text-xs font-black leading-tight text-white sm:text-base">6′2″</p>
-                      <p className="mt-1 truncate text-[8px] font-bold uppercase tracking-wider text-zinc-500 sm:text-[9px]">Height</p>
-                    </div>
-                    <div className="border-l border-zinc-800 px-1 py-2 text-center sm:px-2 sm:py-2.5">
-                      <p className="truncate text-xs font-black leading-tight text-white sm:text-base">185 lb</p>
-                      <p className="mt-1 truncate text-[8px] font-bold uppercase tracking-wider text-zinc-500 sm:text-[9px]">Weight</p>
-                    </div>
-                  </div>
-                </div>
+              </div>
+              <div className="col-span-2 min-w-0 space-y-1.5 pl-[76px] pt-1 sm:col-span-1 sm:col-start-2 sm:row-start-2 sm:pl-0">
+                <p className="text-xs font-semibold leading-snug text-zinc-100 sm:text-sm">Crafting winning plays, one rep at a time.</p>
+                <p className="line-clamp-3 text-xs leading-relaxed text-zinc-400 sm:text-sm">
+                  I love creating shots for my teammates and bringing energy on both ends of the court.
+                </p>
               </div>
             </div>
           </CardContent>
