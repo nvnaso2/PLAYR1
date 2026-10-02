@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, Link } from "wouter";
 import { track } from "@/lib/track";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -33,13 +33,6 @@ import type { Drill } from "@shared/schema";
 import { BasketballRating } from "@/components/basketball-rating";
 import { apiRequest, getObjectUrl } from "@/lib/queryClient";
 
-const difficultyColors = {
-  beginner: "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20",
-  intermediate: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20",
-  advanced: "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20",
-  elite: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20",
-};
-
 const categoryLabels: Record<string, string> = {
   "ball-handling": "Ball Handling",
   "shooting": "Shooting",
@@ -58,16 +51,16 @@ function VideoPlayer({ src, poster }: { src: string | null; poster?: string }) {
   if (hasError) {
     return (
       <div
-        className="relative aspect-video bg-muted rounded-xl overflow-hidden flex flex-col items-center justify-center gap-2 text-muted-foreground"
+        className="relative flex aspect-video flex-col items-center justify-center gap-2 overflow-hidden bg-zinc-950 text-zinc-400"
         data-testid="video-player-error"
       >
-        <Play className="h-10 w-10 opacity-40" />
+        <Play className="h-10 w-10 text-orange-400/70" />
         <p className="text-sm">Video unavailable or unsupported format</p>
         <a
           href={src}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-xs underline text-primary"
+          className="text-xs text-orange-300 underline underline-offset-4 hover:text-orange-200"
         >
           Open video directly
         </a>
@@ -75,7 +68,7 @@ function VideoPlayer({ src, poster }: { src: string | null; poster?: string }) {
     );
   }
   return (
-    <div className="relative aspect-video bg-muted rounded-xl overflow-hidden">
+    <div className="relative aspect-video overflow-hidden bg-zinc-950">
       <video
         src={src}
         controls

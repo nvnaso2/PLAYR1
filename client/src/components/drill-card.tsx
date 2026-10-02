@@ -77,8 +77,8 @@ export function DrillCard({
           "group cursor-pointer overflow-hidden border-white/[0.08] bg-zinc-950/90 text-zinc-100 shadow-[0_8px_24px_rgba(0,0,0,0.28)] transition-all duration-200",
           viewMode === "list" && "flex min-h-[88px] flex-row",
           selectable
-            ? "relative hover:border-orange-400/70"
-            : "hover:border-orange-400/35 hover:shadow-[0_12px_30px_rgba(249,115,22,0.08)]",
+            ? "relative hover:border-white/70"
+            : "hover:border-white/70 hover:shadow-[0_12px_30px_rgba(255,255,255,0.05)]",
           selected && "border-orange-400 ring-2 ring-orange-400/40"
         )}
         data-testid={`card-drill-${drill.id}`}
@@ -127,14 +127,14 @@ export function DrillCard({
             </div>
           )}
           <div className={cn(
-            "absolute inset-0 transition-colors flex items-center justify-center",
-            selectable ? "bg-black/0" : "bg-black/0 group-hover:bg-black/40"
+            "absolute inset-0 flex items-center justify-center transition-colors duration-200",
+            selectable ? "bg-transparent" : "bg-transparent group-hover:bg-black/20"
           )}>
             <div className={cn(
-              "w-14 h-14 rounded-full bg-primary items-center justify-center opacity-0 transition-opacity transform scale-75",
-              selectable ? "hidden" : "flex group-hover:opacity-100 group-hover:scale-100"
+              "flex h-11 w-11 scale-90 items-center justify-center rounded-full border border-white/25 bg-zinc-950/70 text-orange-300 opacity-0 shadow-lg backdrop-blur-md transition-all duration-200 group-hover:scale-100 group-hover:border-white/60 group-hover:bg-zinc-950/90 group-hover:text-orange-400 group-hover:opacity-100",
+              selectable && "hidden"
             )}>
-              <Play className="w-6 h-6 text-primary-foreground fill-current ml-1" />
+              <Play className="ml-0.5 h-4 w-4 fill-current" />
             </div>
           </div>
           <div className="absolute left-2 top-2 flex max-w-[calc(100%-1rem)] gap-2">
@@ -171,12 +171,12 @@ export function DrillCard({
           <div className={cn("min-w-0 flex-1", viewMode === "list" && "flex flex-col items-start")}>
             <h3 className={cn(
               "font-semibold leading-snug transition-colors group-hover:text-primary",
-              viewMode === "list" ? "line-clamp-2 text-sm" : "line-clamp-2 min-h-8 text-[13px]"
+              viewMode === "list" ? "line-clamp-2 text-sm" : "line-clamp-2 text-[13px]"
             )} data-testid={`text-drill-title-${drill.id}`}>
               {drill.title}
             </h3>
             <div className={cn(
-              "mt-1.5 flex min-w-0 items-center gap-3 text-[10px] text-zinc-400"
+              "flex min-w-0 items-center gap-3 text-[10px] text-zinc-400"
             )}>
               <span className="flex shrink-0 items-center gap-1">
                 <Clock className="h-3 w-3 text-orange-400" />
