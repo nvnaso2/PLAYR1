@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DrillCard } from "@/components/drill-card";
+import { Playr1Logo } from "@/components/playr1-logo";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -46,6 +47,7 @@ import {
   Flame,
   Users,
   User,
+  ArrowLeft,
   Share2,
   Plus,
   Trash2,
@@ -384,10 +386,16 @@ export default function Drills() {
             <Button
               variant={selectionMode ? "secondary" : "default"}
               onClick={() => selectionMode ? closeSelectionMode() : setSelectionMode(true)}
-              className="gap-2"
+              className={selectionMode
+                ? "h-10 gap-2 rounded-lg border border-white/10 bg-zinc-900/80 px-3 text-zinc-100 shadow-sm hover:border-orange-400/30 hover:bg-zinc-800"
+                : "h-10 gap-2 rounded-lg border border-orange-400/40 bg-orange-500 px-3 font-semibold text-black shadow-[0_8px_20px_rgba(249,115,22,0.18)] hover:bg-orange-400"
+              }
               data-testid="button-build-workout"
             >
-              {selectionMode ? <X className="w-4 h-4" /> : <Check className="w-4 h-4" />}
+              {selectionMode
+                ? launchedFromTrain ? <ArrowLeft className="h-4 w-4" /> : <X className="h-4 w-4" />
+                : <Dumbbell className="h-4 w-4" />
+              }
               <span className="hidden sm:inline">{selectionMode && launchedFromTrain ? "Back to Train" : selectionMode ? "Cancel Selection" : "Build Workout"}</span>
               <span className="sm:hidden">{selectionMode && launchedFromTrain ? "Back" : selectionMode ? "Cancel" : "Select"}</span>
             </Button>
@@ -418,10 +426,10 @@ export default function Drills() {
             <TabsTrigger
               value="handlz"
               data-testid="tab-handlz-drills"
+              aria-label="PLAYR1 drills"
               className="h-9 gap-1.5 rounded-lg px-2 text-xs data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm sm:gap-2 sm:px-4 sm:text-sm"
             >
-              <Target className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
-              PLAYR1
+              <Playr1Logo className="h-4 w-[58px] object-contain" />
             </TabsTrigger>
             <TabsTrigger
               value="community"

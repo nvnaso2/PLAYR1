@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Play, Clock, Target, Trophy, Check, HandMetal, Crosshair, Flame, Shield, Brain, Dumbbell } from "lucide-react";
 import type { Drill } from "@shared/schema";
-import { BasketballRating } from "@/components/basketball-rating";
+import { CompactDrillRating } from "@/components/basketball-rating";
 import { getObjectUrl } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 
@@ -74,9 +74,11 @@ export function DrillCard({
   const card = (
       <Card
         className={cn(
-          "group cursor-pointer overflow-hidden transition-colors duration-200",
+          "group cursor-pointer overflow-hidden border-white/[0.08] bg-zinc-950/90 text-zinc-100 shadow-[0_8px_24px_rgba(0,0,0,0.28)] transition-all duration-200",
           viewMode === "list" && "flex min-h-[88px] flex-row",
-          selectable ? "relative hover:border-orange-400/70" : "hover-elevate",
+          selectable
+            ? "relative hover:border-orange-400/70"
+            : "hover:border-orange-400/35 hover:shadow-[0_12px_30px_rgba(249,115,22,0.08)]",
           selected && "border-orange-400 ring-2 ring-orange-400/40"
         )}
         data-testid={`card-drill-${drill.id}`}
@@ -93,7 +95,7 @@ export function DrillCard({
         } : undefined}
       >
         <div className={cn(
-          "relative shrink-0 overflow-hidden bg-muted",
+          "relative shrink-0 overflow-hidden bg-zinc-900",
           viewMode === "list" ? "h-[88px] w-28 sm:h-24 sm:w-36" : "aspect-[11/5] w-full"
         )}>
           {drill.videoUrl ? (
@@ -122,9 +124,6 @@ export function DrillCard({
               <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-current/20 bg-black/20">
                 <CategoryIcon className="h-5 w-5" />
               </div>
-              <span className="absolute bottom-2 left-2.5 text-[9px] font-semibold uppercase tracking-[0.16em] opacity-70">
-                {categoryLabels[drill.category] || drill.category}
-              </span>
             </div>
           )}
           <div className={cn(
@@ -138,8 +137,10 @@ export function DrillCard({
               <Play className="w-6 h-6 text-primary-foreground fill-current ml-1" />
             </div>
           </div>
-          <div className="absolute left-2 top-2 flex gap-2">
-            <Badge className={cn("px-1.5 py-0 text-[9px] capitalize", difficultyColors[drill.difficulty || 'beginner'])}>
+          <div className="absolute left-2 top-2 flex max-w-[calc(100%-1rem)] gap-2">
+            <Badge className={cn("max-w-full truncate px-1.5 py-0 text-[9px] capitalize", difficultyColors[drill.difficulty || 'beginner'])}>
+              {categoryLabels[drill.category] || drill.category}
+              <span className="mx-1 opacity-60">·</span>
               {drill.difficulty || 'beginner'}
             </Badge>
           </div>
@@ -175,27 +176,20 @@ export function DrillCard({
               {drill.title}
             </h3>
             <div className={cn(
-              "flex min-w-0 items-center gap-2 text-[10px] text-muted-foreground",
-              "mt-1.5"
+              "mt-1.5 flex min-w-0 items-center gap-3 text-[10px] text-zinc-400"
             )}>
               <span className="flex shrink-0 items-center gap-1">
-                <Clock className="h-3 w-3" />
+                <Clock className="h-3 w-3 text-orange-400" />
                 {formatDuration(drill.duration)}
               </span>
-              <span className="truncate">{categoryLabels[drill.category] || drill.category}</span>
+              <CompactDrillRating drillId={drill.id} />
             </div>
           </div>
-          <div className={cn(
-            "flex shrink-0 items-center gap-2",
-            viewMode === "list" ? "ml-auto flex-col items-end" : "mt-1.5 justify-between"
-          )}>
-            <BasketballRating drillId={drill.id} size="sm" showCount={false} />
-            {totalSessions !== undefined && totalSessions > 0 && (
-              <span className="text-[10px] text-muted-foreground" data-testid={`text-sessions-${drill.id}`}>
-                {totalSessions} {totalSessions === 1 ? "session" : "sessions"}
-              </span>
-            )}
-          </div>
+          {totalSessions !== undefined && totalSessions > 0 && (
+            <span className="shrink-0 text-[10px] text-zinc-500" data-testid={`text-sessions-${drill.id}`}>
+              {totalSessions} {totalSessions === 1 ? "session" : "sessions"}
+            </span>
+          )}
         </CardContent>
       </Card>
   );

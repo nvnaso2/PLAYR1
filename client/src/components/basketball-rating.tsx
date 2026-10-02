@@ -3,6 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
+import { Star } from "lucide-react";
 
 function BasketballIcon({ filled, className }: { filled: boolean; className?: string }) {
   return (
@@ -32,6 +33,26 @@ interface RatingData {
   userRating: number | null;
   averageRating: number;
   totalRatings: number;
+}
+
+export function CompactDrillRating({ drillId, className }: { drillId: string; className?: string }) {
+  const { data: ratingData } = useQuery<RatingData>({
+    queryKey: ["/api/drills", drillId, "rating"],
+  });
+  const hasRatings = (ratingData?.totalRatings ?? 0) > 0;
+  const formattedRating = hasRatings ? (ratingData?.averageRating ?? 0).toFixed(1) : "—";
+
+  return (
+    <span
+      className={cn("inline-flex shrink-0 items-center gap-1 text-[10px] font-medium tabular-nums text-zinc-300", className)}
+      role="img"
+      aria-label={hasRatings ? `Average rating ${formattedRating} out of 5` : "Not rated yet"}
+      data-testid={`rating-summary-${drillId}`}
+    >
+      <Star className="h-3 w-3 fill-orange-400 text-orange-400" />
+      <span>{formattedRating}</span>
+    </span>
+  );
 }
 
 export function BasketballRating({ drillId, size = "md", showCount = true, interactive = true }: BasketballRatingProps) {
