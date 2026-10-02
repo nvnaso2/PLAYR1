@@ -858,8 +858,8 @@ export async function registerRoutes(
         client_reference_id: userId,
         line_items: [{ price: price.id, quantity: 1 }],
         allow_promotion_codes: false,
-        success_url: `${baseUrl}/subscription?checkout=success`,
-        cancel_url: `${baseUrl}/subscription?checkout=cancelled`,
+        success_url: `${baseUrl}/profile-hub?checkout=success`,
+        cancel_url: `${baseUrl}/profile-hub?checkout=cancelled`,
         metadata: { userId, playr1_plan: "pro" },
         subscription_data: { metadata: { userId, playr1_plan: "pro" } },
       });
@@ -878,7 +878,7 @@ export async function registerRoutes(
       const stripe = await getUncachableStripeClient();
       const session = await stripe.billingPortal.sessions.create({
         customer: user.stripeCustomerId,
-        return_url: `${getAppBaseUrl()}/subscription`,
+        return_url: `${getAppBaseUrl()}/profile-hub`,
       });
       res.json({ url: session.url });
     } catch (error) {
