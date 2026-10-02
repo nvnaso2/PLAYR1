@@ -47,6 +47,7 @@ import {
   type CoachPWorkoutAnswers,
   type CoachPWorkoutPreview,
 } from "./coach-p-workouts";
+import { formatCoachPLeadMagnetResults } from "./coach-p-context";
 import {
   classifyCoachPQuestion,
   getActiveCoachPFlow,
@@ -605,28 +606,6 @@ export async function registerRoutes(
       const message = error?.message || "Could not save lead magnet result";
       console.error("Failed to save lead magnet submission:", error);
       return res.status(500).json({ message });
-    }
-  });
-
-  app.get("/api/lead-magnets/submissions", isAuthenticated, async (req: AuthenticatedRequest, res) => {
-    try {
-      const userId = req.user!.claims.sub;
-      const submissions = await db.select({
-        clientSubmissionId: leadMagnetSubmissions.clientSubmissionId,
-        leadMagnetId: leadMagnetSubmissions.leadMagnetId,
-        answers: leadMagnetSubmissions.answers,
-        resultId: leadMagnetSubmissions.resultId,
-        createdAt: leadMagnetSubmissions.createdAt,
-      })
-        .from(leadMagnetSubmissions)
-        .where(eq(leadMagnetSubmissions.userId, userId))
-        .orderBy(desc(leadMagnetSubmissions.createdAt))
-        .limit(100);
-
-      return res.json({ submissions });
-    } catch (error: any) {
-      console.error("Failed to load saved lead magnet submissions:", error);
-      return res.status(500).json({ message: "Could not load saved diagnostics" });
     }
   });
 
@@ -1660,8 +1639,9 @@ Start now with a warm one-line greeting that briefly references something specif
       const needsJournal = contextMode === "goal" || isJournalCoach;
       const needsAssessmentAnswers = ["profile", "goal", "opportunity", "workout"].includes(contextMode) || isJournalCoach;
       const needsPrograms = contextMode === "workout" || isJournalCoach;
+      const needsLeadMagnetResults = contextMode !== "general" || isJournalCoach;
       const contextStartedAt = Date.now();
-      const [userProfile, career, playerProfile, userArchetypes, activeGoal, journalEntries, trainingLogs, principles, userStats, weeklyStats, categoryStats, dashboardStats, progressTrends, shotStats, careerStats, drillProgress, availableDrills, availablePrograms, activeEnrollments] = await Promise.all([
+      const [userProfile, career, playerProfile, userArchetypes, activeGoal, journalEntries, trainingLogs, principles, userStats, weeklyStats, categoryStats, dashboardStats, progressTrends, shotStats, careerStats, drillProgress, availableDrills, availablePrograms, activeEnrollments, playerLeadMagnetSubmissions] = await Promise.all([
         storage.getUserProfile(userId),
         storage.getCareerProfile(userId),
         storage.getPlayerProfile(userId),
@@ -1681,6 +1661,17 @@ Start now with a warm one-line greeting that briefly references something specif
         needsWorkoutCatalog ? getCoachPCached(`drills:${userId}`, 30_000, () => storage.getDrillsForUser(userId)) : Promise.resolve([]),
         needsPrograms ? getCoachPCached("program-catalog", 60_000, () => storage.listPrograms({ featuredFirst: true })) : Promise.resolve([]),
         needsPrograms ? storage.getActiveEnrollmentsForUser(userId) : Promise.resolve([]),
+        needsLeadMagnetResults
+          ? db.select({
+              leadMagnetId: leadMagnetSubmissions.leadMagnetId,
+              answers: leadMagnetSubmissions.answers,
+              resultId: leadMagnetSubmissions.resultId,
+              createdAt: leadMagnetSubmissions.createdAt,
+            })
+              .from(leadMagnetSubmissions)
+              .where(eq(leadMagnetSubmissions.userId, userId))
+              .orderBy(desc(leadMagnetSubmissions.createdAt))
+          : Promise.resolve([]),
       ]);
       const selectedJournalSource = journalEntry
         ? await getJournalSource(userId, journalEntry.gameId ? "game" : "workout", journalEntry.gameId || journalEntry.trainingLogId || "")
@@ -1717,6 +1708,9 @@ Start now with a warm one-line greeting that briefly references something specif
       const assessmentAnswers = needsAssessmentAnswers && career?.assessmentAnswers
         ? JSON.stringify(career.assessmentAnswers).slice(0, 10000)
         : "Assessment answers were not needed for this question.";
+      const leadMagnetResultsText = needsLeadMagnetResults
+        ? formatCoachPLeadMagnetResults(playerLeadMagnetSubmissions)
+        : "Not loaded because quiz results are not relevant to this question.";
       const recentJournal = journalEntries.slice(0, 5).map((entry: any) => {
         const answers = (entry.responses ?? []).map((response: any) => `${response.question}: ${response.answer}`).join(" | ");
         return `${entry.createdAt ? new Date(entry.createdAt).toLocaleDateString() : "unknown date"}${entry.mood ? `, mood ${entry.mood}/5` : ""}: ${answers.slice(0, 500)}${entry.thoughts ? ` | Thoughts: ${entry.thoughts.slice(0, 500)}` : ""}`;
@@ -1836,6 +1830,10 @@ ASSESSMENT RESULTS
 - Dedication: ${career?.assessmentDedicationScore ?? "?"}/100 (${career?.assessmentDedicationBand || "not scored"})
 - Experience: ${career?.assessmentExperienceScore ?? "?"}/100 (${career?.assessmentExperienceBand || "not scored"})
 - Raw assessment answers: ${assessmentAnswers}
+
+LEAD MAGNET QUIZ RESULTS
+All saved quiz attempts for this player, newest first. These are self-reported diagnostic answers, not objective performance measurements. Refer to them when relevant.
+${leadMagnetResultsText}
 
 SELECTED ARCHETYPES
 ${archetypeText}

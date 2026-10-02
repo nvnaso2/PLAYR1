@@ -39,6 +39,7 @@ export function classifyCoachPQuestion(question: string): CoachPContextMode {
   if (/\b(game|matchup|opponent|scout|competition|stats|statistic|heat ?map|shot chart|shooting percentage|box score)\b/.test(text)) return "game";
   if (/\b(workout|session|practice|train|training|drill|exercise|sets|reps|routine|program)\b/.test(text)) return "workout";
   if (/\b(goal|objective|plan|focus|priority|mindset|confidence|motivation|journal|reflection)\b/.test(text)) return "goal";
+  if (/\b(lead[ -]?magnet|quiz|diagnostic)\b|\bmy (?:quiz|assessment|diagnostic )?results?\b/.test(text)) return "profile";
   if (/\b(archetype|profile|assessment|bottleneck|stage|strength|weakness|identity|career|position)\b/.test(text)) return "profile";
   if (/\b(progress|improv|develop|recent|last session|history|habit|streak)\b/.test(text)) return "training";
   return "general";

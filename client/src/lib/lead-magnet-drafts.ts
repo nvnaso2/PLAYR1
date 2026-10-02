@@ -62,15 +62,6 @@ export function markLeadMagnetDraftSaved(
   return saved;
 }
 
-export function restoreSavedLeadMagnetDraft(
-  submission: Pick<LeadMagnetDraft, "clientSubmissionId" | "leadMagnetId" | "answers" | "resultId">,
-  userId: string,
-): LeadMagnetDraft {
-  const restored: LeadMagnetDraft = { ...submission, userId, saved: true };
-  localStorage.setItem(draftKey(submission.leadMagnetId), JSON.stringify(restored));
-  return restored;
-}
-
 export function clearLeadMagnetDraft(leadMagnetId: LeadMagnetId): void {
   localStorage.removeItem(draftKey(leadMagnetId));
 }

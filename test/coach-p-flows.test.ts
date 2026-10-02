@@ -19,6 +19,12 @@ describe("Coach P starter flows", () => {
     assert.equal(classifyCoachPQuestion("Review my training session from last week"), "training-review");
   });
 
+  it("routes quiz-result questions to player-profile context", () => {
+    assert.equal(classifyCoachPQuestion("What were my lead magnet quiz results?"), "profile");
+    assert.equal(classifyCoachPQuestion("Can you refer to my shooting diagnostic?"), "profile");
+    assert.equal(classifyCoachPQuestion("What were my results?"), "profile");
+  });
+
   it("advances opportunity discovery through two clarifications, then ends the guided flow", () => {
     const start = "Find my biggest opportunity";
     assert.deepEqual(getActiveCoachPFlow(start, []), { type: "opportunity", clarificationPhase: 0 });

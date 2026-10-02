@@ -1,15 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { ArrowLeft, ArrowRight, Brain, Check, Crosshair, RotateCcw, Target, Zap } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { ConfidenceRealityCheckQuiz } from "@/components/lead-magnets/confidence-reality-check-quiz";
 import { FootworkOpenShotsQuiz } from "@/components/lead-magnets/footwork-open-shots-quiz";
 import { GameSpeedShootingQuiz } from "@/components/lead-magnets/game-speed-shooting-quiz";
 import { LeadMagnetResultGate } from "@/components/lead-magnets/lead-magnet-result-gate";
-import { clearLeadMagnetDraft, readLeadMagnetDraft, restoreSavedLeadMagnetDraft } from "@/lib/lead-magnet-drafts";
-import { apiRequest } from "@/lib/queryClient";
+import { clearLeadMagnetDraft, readLeadMagnetDraft } from "@/lib/lead-magnet-drafts";
 import { track } from "@/lib/track";
 import { LEAD_MAGNET_IDS, type LeadMagnetAnswers, type LeadMagnetId } from "@shared/lead-magnet-submissions";
 import {
@@ -43,13 +41,6 @@ const stepProgress = {
   result: "w-full",
 };
 
-const LEAD_MAGNET_TITLES: Record<LeadMagnetId, string> = {
-  "shooting-mechanics": "Shooting Mechanics",
-  "footwork-open-shots": "Footwork That Leads to Open Shots",
-  "confidence-reality-check": "Confidence Reality Check",
-  "game-speed-shooting": "Game-Speed Shooting",
-};
-
 const leadMagnetCards = [
   {
     id: "shooting-mechanics",
@@ -81,37 +72,11 @@ const leadMagnetCards = [
   },
 ] as const;
 
-interface SavedLeadMagnetSubmission {
-  clientSubmissionId: string;
-  leadMagnetId: LeadMagnetId;
-  answers: LeadMagnetAnswers;
-  resultId: string;
-  createdAt: string;
-}
-
-function formatResultLabel(resultId: string): string {
-  return resultId.replace(/-/g, " ").replace(/\b\w/g, (character) => character.toUpperCase());
-}
-
 export default function LeadMagnetsPage() {
   const pathParts = window.location.pathname.split("/");
   const routeMagnetId = pathParts[1] === "lead-magnets" ? pathParts[2] : undefined;
-  const { user, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
-  const {
-    data: savedSubmissionsResponse,
-    isLoading: savedSubmissionsLoading,
-    isError: savedSubmissionsError,
-    refetch: refetchSavedSubmissions,
-  } = useQuery<{ submissions: SavedLeadMagnetSubmission[] }>({
-    queryKey: ["/api/lead-magnets/submissions", user?.id],
-    enabled: !!user && !!routeMagnetId,
-    queryFn: async () => {
-      const response = await apiRequest("GET", "/api/lead-magnets/submissions");
-      return response.json();
-    },
-  });
-  const savedSubmissions = savedSubmissionsResponse?.submissions ?? [];
   const validRouteMagnet = LEAD_MAGNET_IDS.includes(routeMagnetId as LeadMagnetId)
     ? routeMagnetId as LeadMagnetId
     : null;
@@ -164,12 +129,6 @@ export default function LeadMagnetsPage() {
     navigate(`/lead-magnets/${selected}`);
   };
 
-  const openSavedSubmission = (submission: SavedLeadMagnetSubmission) => {
-    if (!user) return;
-    restoreSavedLeadMagnetDraft(submission, user.id);
-    window.location.assign(`/lead-magnets/${submission.leadMagnetId}`);
-  };
-
   const result = outcome ? shootingMechanicsResults[outcome] : null;
   const secondQuestion = branch ? shootingMechanicsBranches[branch] : null;
 
@@ -209,7 +168,7 @@ export default function LeadMagnetsPage() {
               Game Insights
             </h1>
             <p className="mt-3 text-sm leading-relaxed text-zinc-400 sm:text-base">
-              Short, focused reads on your game—with a practical next step to put into action.
+              Take a short quiz and get customized drills tailored to help improve your game.
             </p>
           </header>
 
@@ -269,55 +228,6 @@ export default function LeadMagnetsPage() {
             </Button>
           </Link>
         </header>
-
-        {user && (
-          <section className="mb-5 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 sm:p-5" aria-labelledby="saved-results-heading">
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-400">Your account</p>
-                <h2 id="saved-results-heading" className="mt-1 text-lg font-black text-white">Saved results</h2>
-                <p className="mt-1 text-xs text-zinc-400">Your saved results are available whenever you sign in to this account.</p>
-              </div>
-              {!savedSubmissionsLoading && savedSubmissions.length > 0 && (
-                <span className="text-xs font-semibold text-zinc-500">{savedSubmissions.length} saved</span>
-              )}
-            </div>
-
-            {savedSubmissionsLoading ? (
-              <p className="mt-4 text-sm text-zinc-400" role="status">Loading your saved results…</p>
-            ) : savedSubmissionsError ? (
-              <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm text-red-300">Your saved results couldn’t be loaded.</p>
-                <Button type="button" variant="outline" onClick={() => refetchSavedSubmissions()} className="border-zinc-700 text-zinc-200">
-                  Try again
-                </Button>
-              </div>
-            ) : savedSubmissions.length === 0 ? (
-              <p className="mt-4 text-sm text-zinc-400">Complete a game insight and save your result to see it here.</p>
-            ) : (
-              <ul className="mt-4 grid gap-2 sm:grid-cols-2">
-                {savedSubmissions.map((submission) => (
-                  <li key={submission.clientSubmissionId} className="flex flex-col gap-3 rounded-xl border border-zinc-800 bg-zinc-950/60 p-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-bold text-white">{LEAD_MAGNET_TITLES[submission.leadMagnetId]}</p>
-                      <p className="mt-1 text-xs text-zinc-400">
-                        {formatResultLabel(submission.resultId)} · {new Date(submission.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <Button
-                      type="button"
-                      onClick={() => openSavedSubmission(submission)}
-                      className="shrink-0 bg-orange-500 font-bold text-black hover:bg-orange-400"
-                    >
-                      Open result
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        )}
 
         <div className="mx-auto max-w-2xl">
           <div className="min-w-0 max-w-2xl">

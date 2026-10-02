@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, Check, LockKeyhole } from "lucide-react";
 import { useLocation } from "wouter";
-import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest } from "@/lib/queryClient";
@@ -30,7 +29,6 @@ export function LeadMagnetResultGate({
 }: LeadMagnetResultGateProps) {
   const { user, isLoading, isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
-  const queryClient = useQueryClient();
   const answersJson = useMemo(() => JSON.stringify(answers), [answers]);
   const [draft, setDraft] = useState<LeadMagnetDraft | null>(() => readLeadMagnetDraft(leadMagnetId));
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error" | "account-mismatch">("idle");
@@ -76,7 +74,6 @@ export function LeadMagnetResultGate({
         const savedDraft = markLeadMagnetDraftSaved(leadMagnetId, submission.clientSubmissionId, user.id);
         setDraft(savedDraft);
         setStatus("saved");
-        queryClient.invalidateQueries({ queryKey: ["/api/lead-magnets/submissions"] });
       })
       .catch(() => {
         if (!cancelled) setStatus("error");
@@ -85,7 +82,7 @@ export function LeadMagnetResultGate({
     return () => {
       cancelled = true;
     };
-  }, [answersJson, isAuthenticated, isLoading, leadMagnetId, queryClient, resultId, retryNonce, user]);
+  }, [answersJson, isAuthenticated, isLoading, leadMagnetId, resultId, retryNonce, user]);
 
   const openAuth = () => {
     const existing = readLeadMagnetDraft(leadMagnetId);
