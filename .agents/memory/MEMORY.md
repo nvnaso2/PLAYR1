@@ -6,6 +6,7 @@
 - [Archetype content source](archetype-content-source.md) — descriptions and four core characteristics come from database definitions with explicit assessment-label mapping
 - [Coach P model budget](coach-p-model-budget.md) — leave enough completion budget for reasoning and visible coaching text
 - [Coach P context routing](coach-p-context-routing.md) — load only question-relevant context and invalidate cached Coach P catalogs after edits
+- [Coach P starter flows](coach-p-starter-flows.md) — keep each starter prompt aligned with its player context, clarification steps, and save path
 - [Journal Coach P entitlement](journal-coach-entitlement.md) — Journal coaching is a separate Pro entitlement and never spends the standalone free allowance
 - [Onboarding copy and scoring maps](onboarding-copy-score-maps.md) — visible answer text is also used as client-side scoring keys
 - [Coach P conversation memory](coach-p-conversation-memory.md) — persist full chats, send a rolling summary plus recent messages, and keep request cost records separate from content

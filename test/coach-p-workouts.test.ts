@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  createCoachPWorkoutIntake,
   normalizeCoachPWorkoutAnswers,
   normalizeCoachPWorkoutResponse,
+  recommendCoachPWorkoutFocus,
 } from "../server/coach-p-workouts";
 
 const catalog = [
@@ -11,6 +13,21 @@ const catalog = [
 ];
 
 describe("Coach P workout contract", () => {
+  it("prioritizes a profile-based focus in the workout clarification flow", () => {
+    assert.equal(recommendCoachPWorkoutFocus(["Shooting is the main assessment bottleneck"]), "shooting");
+    assert.equal(recommendCoachPWorkoutFocus(["Ball Handling", "Shooting"]), "ball-handling");
+    assert.equal(recommendCoachPWorkoutFocus(["Decision-making", "Passing"]), "decision-making");
+    const intake = createCoachPWorkoutIntake({
+      intro: "I reviewed your recent sessions.",
+      recommendedFocus: "shooting",
+    });
+    const focusQuestion = intake.questions.find((question) => question.id === "primaryFocus");
+    assert.equal(intake.intro, "I reviewed your recent sessions.");
+    assert.equal(intake.questions[0].id, "primaryFocus");
+    assert.match(focusQuestion?.question ?? "", /Shooting and shot-making/);
+    assert.equal(focusQuestion?.options[0].value, "shooting");
+  });
+
   it("normalizes the required workout intake and rejects invalid combinations", () => {
     assert.deepEqual(normalizeCoachPWorkoutAnswers({
       durationMinutes: "45",

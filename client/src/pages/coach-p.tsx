@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowUp, Check, ChevronLeft, ChevronRight, Dumbbell, GraduationCap, Loader2, Menu, MessageSquarePlus, Pencil, Pin, PinOff, Target, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowUp, CalendarDays, Check, ChevronLeft, ChevronRight, Dumbbell, GraduationCap, History, Loader2, Menu, MessageSquarePlus, Pencil, Pin, PinOff, Target, Trash2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -121,7 +121,7 @@ type SavedConversation = {
 const STARTER_PROMPTS = [
   {
     label: "Find my biggest opportunity",
-    prompt: "Look at my PLAYR1 profile and tell me the one skill that would make the biggest difference in my game right now. Explain why, then give me the first two steps to start fixing it.",
+    prompt: "Find my biggest opportunity",
     icon: Target,
   },
   {
@@ -129,6 +129,16 @@ const STARTER_PROMPTS = [
     prompt: "Build my next workout",
     icon: Dumbbell,
     workoutBuilder: true,
+  },
+  {
+    label: "Review my last training session",
+    prompt: "Review my last training session",
+    icon: History,
+  },
+  {
+    label: "Prepare for my next game",
+    prompt: "Prepare for my next game",
+    icon: CalendarDays,
   },
 ];
 
@@ -1252,9 +1262,9 @@ export default function CoachPPage() {
                       onClick={() => {
                          if (workoutBuilder) {
                           setWorkoutBuilderMode(true);
-                          sendMessage(prompt, { workoutBuilder: true });
+                            sendMessage(prompt, { workoutBuilder: true, displayContent: label });
                         } else {
-                          sendMessage(prompt);
+                            sendMessage(prompt, { displayContent: label });
                         }
                       }}
                        disabled={chatMutation.isPending || (!workoutBuilder && !canSend)}

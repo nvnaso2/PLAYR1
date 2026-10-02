@@ -70,6 +70,12 @@ export const COACH_P_WORKOUT_INTAKE: CoachPWorkoutIntake = {
   intro: "Before I build your one focused workout, choose a few details so I can make it fit your session and your game.",
   questions: [
     {
+      id: "primaryFocus",
+      question: "What is the primary thing you want to work on?",
+      selection: "single",
+      options: FOCUS_OPTIONS,
+    },
+    {
       id: "durationMinutes",
       question: "How long should the workout be?",
       selection: "single",
@@ -91,12 +97,6 @@ export const COACH_P_WORKOUT_INTAKE: CoachPWorkoutIntake = {
       ],
     },
     {
-      id: "primaryFocus",
-      question: "What is the primary thing you want to work on?",
-      selection: "single",
-      options: FOCUS_OPTIONS,
-    },
-    {
       id: "secondaryFocuses",
       question: "Choose exactly two secondary focuses.",
       selection: "multiple",
@@ -106,6 +106,46 @@ export const COACH_P_WORKOUT_INTAKE: CoachPWorkoutIntake = {
     },
   ],
 };
+
+const FOCUS_SIGNAL_PATTERNS: Array<{ focus: string; pattern: RegExp }> = [
+  { focus: "shooting", pattern: /\b(shoot|shooting|shot-making|shot selection|three-point|3-point|jumper)\b/i },
+  { focus: "finishing", pattern: /\b(finish|finishing|rim|layup|contact scoring)\b/i },
+  { focus: "ball-handling", pattern: /\b(ball[\s-]+handling|handle|handles|turnover|first step|creating space)\b/i },
+  { focus: "decision-making", pattern: /\b(decision-making|decision making|basketball iq|game read|read the game|awareness)\b/i },
+  { focus: "playmaking", pattern: /\b(pass|passing|playmaking|playmaker)\b/i },
+  { focus: "perimeter-defense", pattern: /\b(defen|defend|defense|defensive|perimeter|on-ball)\b/i },
+  { focus: "footwork", pattern: /\b(footwork|change of direction|balance|pivot)\b/i },
+  { focus: "athleticism", pattern: /\b(athletic|speed|quickness|conditioning|movement)\b/i },
+];
+
+export function recommendCoachPWorkoutFocus(signals: Array<string | null | undefined>): string | null {
+  for (const signal of signals) {
+    if (typeof signal !== "string") continue;
+    const match = FOCUS_SIGNAL_PATTERNS.find(({ pattern }) => pattern.test(signal));
+    if (match) return match.focus;
+  }
+  return null;
+}
+
+export function createCoachPWorkoutIntake(options: {
+  intro?: string;
+  recommendedFocus?: string | null;
+} = {}): CoachPWorkoutIntake {
+  const recommended = FOCUS_OPTIONS.find((option) => option.value === options.recommendedFocus);
+  return {
+    intro: options.intro?.trim() || COACH_P_WORKOUT_INTAKE.intro,
+    questions: COACH_P_WORKOUT_INTAKE.questions.map((question) => {
+      if (question.id !== "primaryFocus" || !recommended) {
+        return { ...question, options: [...question.options] };
+      }
+      return {
+        ...question,
+        question: `Your profile points to ${recommended.label}. Is that your focus for this workout?`,
+        options: [recommended, ...question.options.filter((option) => option.value !== recommended.value)],
+      };
+    }),
+  };
+}
 
 export function formatCoachPWorkoutIntake(intake: CoachPWorkoutIntake = COACH_P_WORKOUT_INTAKE): string {
   return [

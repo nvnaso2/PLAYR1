@@ -38,13 +38,20 @@ import { WebhookHandlers } from "./webhookHandlers";
 import { JOURNAL_PROMPTS } from "@shared/journalPrompts";
 import { validateAndScoreLeadMagnetSubmission } from "@shared/lead-magnet-submissions";
 import {
-  COACH_P_WORKOUT_INTAKE,
+  createCoachPWorkoutIntake,
   formatCoachPWorkoutIntake,
   normalizeCoachPWorkoutAnswers,
   normalizeCoachPWorkoutResponse,
+  recommendCoachPWorkoutFocus,
   type CoachPWorkoutAnswers,
   type CoachPWorkoutPreview,
 } from "./coach-p-workouts";
+import {
+  classifyCoachPQuestion,
+  getActiveCoachPFlow,
+  getCoachPStarterFlow,
+  type CoachPContextMode,
+} from "./coach-p-flows";
 import type { WorkoutDrillInput } from "./storage";
 import { canTransitionCustomWorkoutRequest, hasUniqueDrillIds, isPlayr1CatalogDrill } from "./custom-workout";
 import { NOTIFICATION_CATALOG } from "@shared/notification-catalog";
@@ -63,18 +70,6 @@ const COACH_P_ARCHETYPE_GUIDANCE: Record<string, string> = {
   "Rim Protector": "You make your team feel safe just by being on the floor. To take the next step, we need to make sure you can move well enough on defense to handle being pulled away from the paint.",
   "Stretch Big": "That combination of size and shooting is exactly what modern basketball is built around. Just make sure you don't become only a shooter. We still need you to win the physical battles in the paint.",
 };
-
-type CoachPContextMode = "general" | "profile" | "training" | "workout" | "game" | "goal";
-
-function classifyCoachPQuestion(question: string): CoachPContextMode {
-  const text = question.toLowerCase();
-  if (/\b(game|matchup|opponent|scout|competition|stats|statistic|heat ?map|shot chart|shooting percentage|box score)\b/.test(text)) return "game";
-  if (/\b(workout|session|practice|train|training|drill|exercise|sets|reps|routine|program)\b/.test(text)) return "workout";
-  if (/\b(goal|objective|plan|focus|priority|mindset|confidence|motivation|journal|reflection)\b/.test(text)) return "goal";
-  if (/\b(archetype|profile|assessment|bottleneck|stage|strength|weakness|identity|career|position)\b/.test(text)) return "profile";
-  if (/\b(progress|improv|develop|recent|last session|history|habit|streak)\b/.test(text)) return "training";
-  return "general";
-}
 
 function isCoachPWorkoutBuilderRequest(question: string): boolean {
   const hasWorkoutSubject = /\b(workout|session|routine|practice|training plan)\b/i.test(question);
@@ -1366,7 +1361,7 @@ Start now with a warm one-line greeting that briefly references something specif
       const journalMessages = parsed.data.messages || (parsed.data.message ? [{ role: "user" as const, content: parsed.data.message }] : []);
       const lastUserMessage = [...journalMessages].reverse().find((message) => message.role === "user");
       if (!lastUserMessage) return res.status(400).json({ message: "Coach P needs a player question." });
-      const workoutBuilderRequest = parsed.data.projectBuilder !== true
+      let workoutBuilderRequest = parsed.data.projectBuilder !== true
         && (parsed.data.workoutBuilder === true || isCoachPWorkoutBuilderRequest(lastUserMessage.content));
 
       // Project discovery is a free Coach P entry path. It uses the same
@@ -1629,63 +1624,40 @@ Start now with a warm one-line greeting that briefly references something specif
       res.flushHeaders?.();
       sendSse("status", { stage: "Reading your question..." });
 
-      const contextMode = workoutBuilderRequest ? "workout" : classifyCoachPQuestion(lastUserMessage.content);
+      const firstUserMessage = previousMessages.find((message) => message.role === "user")?.content
+        ?? lastUserMessage.content;
+      const priorAssistantMessages = previousMessages
+        .filter((message) => message.role === "assistant")
+        .map((message) => message.content);
+      const firstStarterFlow = getCoachPStarterFlow(firstUserMessage);
+      const currentStarterFlow = getCoachPStarterFlow(lastUserMessage.content);
+      const activeFlow = currentStarterFlow && currentStarterFlow !== firstStarterFlow
+        ? getActiveCoachPFlow(lastUserMessage.content, [])
+        : getActiveCoachPFlow(firstUserMessage, priorAssistantMessages);
+      if (activeFlow?.type === "workout") workoutBuilderRequest = true;
+      const contextMode: CoachPContextMode = workoutBuilderRequest
+        ? "workout"
+        : activeFlow?.type === "opportunity"
+          ? "opportunity"
+          : activeFlow?.type === "training-review"
+            ? "training-review"
+            : activeFlow?.type === "game-prep"
+              ? "game"
+              : classifyCoachPQuestion(lastUserMessage.content);
+      const opportunityClarificationPhase = activeFlow?.type === "opportunity"
+        ? activeFlow.clarificationPhase ?? 0
+        : null;
+      const isWorkoutIntakeStart = workoutBuilderRequest
+        && !workoutAnswers
+        && (previousMessages.length === 0 || getCoachPStarterFlow(lastUserMessage.content) === "workout");
       requestContextMode = contextMode;
-      if (workoutBuilderRequest && !workoutAnswers && conversation) {
-        const intakeMessage = COACH_P_WORKOUT_INTAKE.intro;
-        const storedIntakeMessage = formatCoachPWorkoutIntake();
-        await storage.createCoachPMessage({
-          conversationId: conversation.id,
-          role: "user",
-          content: lastUserMessage.content,
-          model: null,
-          contextMode: "workout",
-          promptTokens: null,
-          completionTokens: null,
-          totalTokens: null,
-          latencyMs: null,
-        });
-        await storage.createCoachPMessage({
-          conversationId: conversation.id,
-          role: "assistant",
-          content: storedIntakeMessage,
-          model: "workout-intake",
-          contextMode: "workout",
-          promptTokens: null,
-          completionTokens: null,
-          totalTokens: null,
-          latencyMs: Date.now() - requestStartedAt,
-        });
-        await storage.updateCoachPConversation(conversation.id, userId, {
-          messageCount: previousMessages.length + 2,
-        });
-        await storage.recordCoachPRequest({
-          userId,
-          conversationId: conversation.id,
-          operation: "workout_builder",
-          status: "completed",
-          model: "workout-intake",
-          contextMode: "workout",
-          totalMs: Date.now() - requestStartedAt,
-        }).catch((analyticsError) => console.error("Coach P workout intake analytics failed:", analyticsError));
-        sendSse("status", { stage: "Setting up your workout..." });
-        sendSse("delta", { text: intakeMessage });
-        sendSse("done", {
-          message: intakeMessage,
-          coachP: coachPAccess,
-          conversationId: conversation.id,
-          workoutIntake: COACH_P_WORKOUT_INTAKE,
-        });
-        res.end();
-        return;
-      }
       sendSse("status", { stage: "Checking your player profile..." });
       const isJournalCoach = !!journalEntry;
-      const needsTraining = ["training", "workout", "game", "goal"].includes(contextMode) || isJournalCoach;
-      const needsWorkoutCatalog = contextMode === "workout" || isJournalCoach;
-      const needsGameData = contextMode === "game" || !!journalEntry?.gameId;
+      const needsTraining = ["training", "workout", "game", "goal", "opportunity", "training-review"].includes(contextMode) || isJournalCoach;
+      const needsWorkoutCatalog = ["workout", "opportunity", "training-review"].includes(contextMode) || isJournalCoach;
+      const needsGameData = ["game", "workout", "opportunity", "training-review"].includes(contextMode) || !!journalEntry?.gameId;
       const needsJournal = contextMode === "goal" || isJournalCoach;
-      const needsAssessmentAnswers = contextMode === "profile" || contextMode === "goal" || isJournalCoach;
+      const needsAssessmentAnswers = ["profile", "goal", "opportunity", "workout"].includes(contextMode) || isJournalCoach;
       const needsPrograms = contextMode === "workout" || isJournalCoach;
       const contextStartedAt = Date.now();
       const [userProfile, career, playerProfile, userArchetypes, activeGoal, journalEntries, trainingLogs, principles, userStats, weeklyStats, categoryStats, dashboardStats, progressTrends, shotStats, careerStats, drillProgress, availableDrills, availablePrograms, activeEnrollments] = await Promise.all([
@@ -1762,11 +1734,20 @@ Start now with a warm one-line greeting that briefly references something specif
         tracksShots: drill.trackShots,
       }));
       const drillNameById = new Map(availableDrills.map((drill: any) => [drill.id, drill.title]));
+      const workoutSessionLabels = new Map<string, string>();
       const trainingHistory = trainingLogs.map((log: any) => {
         const date = log.completedAt ? new Date(log.completedAt).toLocaleDateString() : "unknown date";
         const drillName = log.drillId ? drillNameById.get(log.drillId) || `drill ${log.drillId}` : "free session";
+        let sessionLabel = "";
+        if (log.workoutSessionId) {
+          if (!workoutSessionLabels.has(log.workoutSessionId)) {
+            workoutSessionLabels.set(log.workoutSessionId, `Session ${workoutSessionLabels.size + 1}`);
+          }
+          sessionLabel = `, ${workoutSessionLabels.get(log.workoutSessionId)}`;
+        }
         const shooting = log.shotsAttempted ? `, shooting ${log.shotsMade ?? 0}/${log.shotsAttempted}` : "";
-        return `${date}: ${drillName}, ${log.duration} min${log.sets ? `, ${log.sets} sets` : ""}${log.reps ? `, ${log.reps} reps` : ""}${log.score ? `, self-score ${log.score}/10` : ""}${shooting}${log.notes ? `, note: ${String(log.notes).slice(0, 240)}` : ""}`;
+        const shotLocation = log.shotLocation ? `, shot location ${log.shotLocation}` : "";
+        return `${date}${sessionLabel}: ${drillName}, ${log.duration} min${log.sets ? `, ${log.sets} sets` : ""}${log.reps ? `, ${log.reps} reps` : ""}${log.score != null ? `, self-score ${log.score}/10` : ""}${shooting}${shotLocation}${log.notes ? `, note: ${String(log.notes).slice(0, 240)}` : ""}`;
       }).join("\n") || "No training sessions logged yet.";
       const allTimeTraining = {
         sessions: trainingLogs.length,
@@ -1815,7 +1796,13 @@ Start now with a warm one-line greeting that briefly references something specif
         ? `\nSELECTED JOURNAL ENTRY\nType: ${journalEntry.type}; mood: ${journalEntry.mood ?? "not rated"}/5.\n${(journalEntry.responses || []).map((response: any) => `Q: ${response.question}\nA: ${response.answer}`).join("\n\n")}${journalEntry.thoughts ? `\nYOUR THOUGHTS\n${journalEntry.thoughts}` : ""}\nLINKED PERFORMANCE SOURCE\n${JSON.stringify(selectedJournalSource).slice(0, 12000)}`
         : "";
 
-      const contextModeLabel = contextMode === "general" ? "general coaching" : `${contextMode} coaching`;
+      const contextModeLabel = contextMode === "general"
+        ? "general coaching"
+        : contextMode === "training-review"
+          ? "training session review"
+          : contextMode === "opportunity"
+            ? "player opportunity analysis"
+            : `${contextMode} coaching`;
       timings.prompt = Date.now() - promptStartedAt;
       sendSse("status", { stage: "Preparing your personalized coaching response..." });
 
@@ -1886,6 +1873,115 @@ PLAYER PROFILE DETAILS
 }).slice(0, 2000)}
 `.trim();
 
+      if (isWorkoutIntakeStart && conversation) {
+        const textualFocus = recommendCoachPWorkoutFocus([
+          career?.assessmentBottleneck,
+          career?.focusSkill,
+          career?.assessmentPrimaryGoal,
+          ...userArchetypes.map((entry: any) => entry.archetype?.name),
+        ]);
+        const selfRatedSkills: Array<{ focus: string; score: unknown }> = [
+          { focus: "ball-handling", score: career?.skillBallHandling },
+          { focus: "shooting", score: career?.skillShooting },
+          { focus: "playmaking", score: career?.skillPassing },
+          { focus: "finishing", score: career?.skillFinishing },
+          { focus: "perimeter-defense", score: career?.skillDefense },
+          { focus: "decision-making", score: career?.skillBasketballIQ },
+          { focus: "athleticism", score: career?.skillAthletics },
+        ].filter((skill) => skill.score != null && Number.isFinite(Number(skill.score)));
+        const sortedSelfRatedSkills = selfRatedSkills.sort(
+          (left, right) => Number(left.score) - Number(right.score),
+        );
+        const lowestSelfRatedSkill = sortedSelfRatedSkills.length > 0
+          && (sortedSelfRatedSkills.length === 1
+            || Number(sortedSelfRatedSkills[0].score) < Number(sortedSelfRatedSkills[1].score))
+          ? sortedSelfRatedSkills[0].focus
+          : null;
+        const recommendedFocus = textualFocus ?? lowestSelfRatedSkill;
+        const intake = createCoachPWorkoutIntake({
+          recommendedFocus,
+          intro: [
+            "I reviewed your player profile and training history.",
+            recommendedFocus
+              ? `Your profile points to ${recommendedFocus.replaceAll("-", " ")} as one area to consider.`
+              : "I’ll use the profile details available on your account to guide the drill choices.",
+            trainingLogs[0]
+              ? `Your latest logged work was ${trainingLogs[0].drillId ? drillNameById.get(trainingLogs[0].drillId) || "a saved drill" : "a free training session"}${trainingLogs[0].completedAt ? ` on ${new Date(trainingLogs[0].completedAt).toLocaleDateString()}` : ""}${trainingLogs[0].duration ? ` for ${trainingLogs[0].duration} minutes` : ""}.`
+              : "There are no saved training sessions yet, so I’ll start with your profile and the focus you choose.",
+            "Tell me what you specifically want to work on, then choose the session length, setting, and two supporting focuses.",
+          ].join(" "),
+        });
+        const intakeMessage = intake.intro;
+        const storedIntakeMessage = formatCoachPWorkoutIntake(intake);
+        await storage.createCoachPMessage({
+          conversationId: conversation.id,
+          role: "user",
+          content: lastUserMessage.content,
+          model: null,
+          contextMode: "workout",
+          promptTokens: null,
+          completionTokens: null,
+          totalTokens: null,
+          latencyMs: null,
+        });
+        await storage.createCoachPMessage({
+          conversationId: conversation.id,
+          role: "assistant",
+          content: storedIntakeMessage,
+          model: "workout-intake",
+          contextMode: "workout",
+          promptTokens: null,
+          completionTokens: null,
+          totalTokens: null,
+          latencyMs: Date.now() - requestStartedAt,
+        });
+        await storage.updateCoachPConversation(conversation.id, userId, {
+          messageCount: previousMessages.length + 2,
+        });
+        await storage.recordCoachPRequest({
+          userId,
+          conversationId: conversation.id,
+          operation: "workout_builder",
+          status: "completed",
+          model: "workout-intake",
+          contextMode: "workout",
+          contextMs: timings.context,
+          totalMs: Date.now() - requestStartedAt,
+        }).catch((analyticsError) => console.error("Coach P workout intake analytics failed:", analyticsError));
+        sendSse("status", { stage: "Setting up your personalized workout..." });
+        sendSse("delta", { text: intakeMessage });
+        sendSse("done", {
+          message: intakeMessage,
+          coachP: coachPAccess,
+          conversationId: conversation.id,
+          workoutIntake: intake,
+        });
+        res.end();
+        return;
+      }
+
+      const flowInstructions = contextMode === "opportunity"
+        ? `
+GUIDED BIGGEST OPPORTUNITY FLOW
+Clarification step: ${(opportunityClarificationPhase ?? 0) + 1} of 3.
+Use the player's full profile, assessment answers, archetype, training history, progress, and available game statistics already provided above.
+${(opportunityClarificationPhase ?? 0) < 2
+  ? "Ask exactly one focused question about the player's play style, role, or how they handle a real game situation. Choose the question that would most change your assessment. Do not name the final biggest opportunity yet. Each answer should lead to one different follow-up question."
+  : "The player has answered two clarifying questions. Stop asking questions. Identify exactly one biggest opportunity, explain it with specific evidence from their profile and training or game data, state any important uncertainty, and give a practical first action. If a drill would help, select only an exact drill from AVAILABLE DRILLS."}
+`
+        : contextMode === "training-review"
+          ? `
+TRAINING SESSION REVIEW
+Use the session or date range the player requested. If they asked for their last session without a date, review the most recent completed session. Training records with the same session label belong together. Use all available details for the selected session: drills, duration, sets, reps, self-score, shooting results, and notes. Do not combine unrelated sessions or invent missing details.
+Give concise key takeaways grounded in those records, followed by practical next actions. Any drill recommendation must use an exact item from AVAILABLE DRILLS. If a full workout is a better next step, suggest building it with the Build my next workout option. Ask one focused question only if the requested session or timeframe cannot be identified from the available data.
+`
+          : activeFlow?.type === "game-prep"
+            ? `
+NEXT GAME PREPARATION
+Help the player connect their profile and recent performance to their next game. Use any available schedule and game data; do not invent an opponent, game date, or role. If a missing detail would materially change the plan, ask one focused question before giving the tailored preparation.
+`
+            : "";
+
       const systemPrompt = `You are Coach P, the personal AI basketball coach inside PLAYR1.
 
 Your job is to help this specific player make better decisions, train with purpose, and understand their game. You are not a generic motivational chatbot. Use the player's profile and current data naturally, especially the player's assessment bottleneck, archetype, goal, recent training, and reflections.
@@ -1896,6 +1992,8 @@ ${principlesText}
 
 PLAYER CONTEXT:
 ${playerContext}
+
+${flowInstructions}
 
 COACHING RULES:
 - Be direct, warm, specific, and honest. Sound like a great coach who pays attention.
@@ -1919,7 +2017,7 @@ COACHING RULES:
         apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
         baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
       });
-      const useStrongModel = contextMode === "workout" || contextMode === "game" || contextMode === "goal";
+      const useStrongModel = ["workout", "game", "goal", "opportunity", "training-review"].includes(contextMode);
       const model = useStrongModel ? "gpt-5" : "gpt-5-mini";
       // GPT-5 family models use part of max_completion_tokens for reasoning.
       // Low effort keeps normal chat responsive while the larger budget leaves
