@@ -1,27 +1,21 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useLocation, Link } from "wouter";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
-} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest, clearAuthToken } from "@/lib/queryClient";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
 import {
-  Shield, Users, Mail, Send, Copy, LogOut, Trash2, Bell, BellOff,
-  ChevronLeft, Loader2, Settings, ChevronRight,
+  Bell, BellOff, ChevronLeft, Loader2, LogOut, Settings, ShieldAlert, Trash2,
 } from "lucide-react";
 
 function PushNotificationToggle() {
@@ -48,29 +42,36 @@ function PushNotificationToggle() {
     }
   };
   return (
-    <div className="p-4 rounded-lg border">
+    <div className="rounded-xl border border-white/[0.07] bg-black/25 p-4">
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-        {isSubscribed ? <Bell className="w-4 h-4 text-primary" /> : <BellOff className="w-4 h-4 text-muted-foreground" />}
-        <div>
-          <p className="font-medium text-sm">Push Notifications</p>
-          <p className="text-xs text-muted-foreground">
-          {enabled ? "You're receiving push notifications" : "All notification delivery is paused"}
-          </p>
-        </div>
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-500/15">
+            {isSubscribed
+              ? <Bell className="h-4 w-4 text-orange-300" />
+              : <BellOff className="h-4 w-4 text-zinc-500" />}
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-zinc-100">Push Notifications</p>
+            <p className="mt-0.5 text-xs text-zinc-500">
+              {enabled ? "You're receiving push notifications" : "All notification delivery is paused"}
+            </p>
+          </div>
         </div>
         <Button
           variant={enabled ? "outline" : "default"}
           size="sm"
           onClick={() => toggle(!enabled)}
           disabled={isLoading || updatePreferences.isPending}
+          className={enabled
+            ? "shrink-0 border-zinc-700 bg-zinc-900 text-zinc-200 hover:border-orange-400/40 hover:bg-zinc-800 hover:text-white"
+            : "shrink-0 bg-orange-500 text-zinc-950 hover:bg-orange-400"}
           data-testid="button-push-notifications"
         >
           {isLoading || updatePreferences.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : enabled ? "Disable" : "Enable"}
         </Button>
       </div>
       {error && (
-        <p className="mt-3 text-xs leading-relaxed text-destructive" role="alert">
+        <p className="mt-3 text-xs leading-relaxed text-red-300" role="alert">
           {error}
         </p>
       )}
@@ -108,14 +109,20 @@ function NotificationCategorySettings({ isAdmin }: { isAdmin: boolean }) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/notifications/preferences"] }),
   });
 
-  if (isLoading || !preferences) return <div className="text-sm text-muted-foreground p-4">Loading notification categories…</div>;
+  if (isLoading || !preferences) {
+    return (
+      <div className="rounded-xl border border-zinc-800 bg-black/20 p-4 text-sm text-zinc-500">
+        Loading notification categories…
+      </div>
+    );
+  }
 
   const group = (title: string, items: readonly (readonly [string, string])[]) => (
     <div className="space-y-2">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
+      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange-200/70">{title}</p>
       {items.map(([key, label]) => (
-        <div key={key} className="flex items-center justify-between gap-4 rounded-lg border p-3">
-          <span className="text-sm">{label}</span>
+        <div key={key} className="flex min-h-12 items-center justify-between gap-4 border-b border-white/[0.06] px-1 py-3 last:border-0">
+          <span className="text-sm text-zinc-300">{label}</span>
           <Switch
             checked={preferences.categories?.[key] !== false}
             onCheckedChange={(value) => updateCategory.mutate({ key, value })}
@@ -129,7 +136,7 @@ function NotificationCategorySettings({ isAdmin }: { isAdmin: boolean }) {
   );
 
   return (
-    <div className="space-y-5 mt-4">
+    <div className="mt-5 space-y-6">
       {group("Player notifications", PLAYER_NOTIFICATION_GROUPS)}
       {isAdmin && group("Admin notifications", ADMIN_NOTIFICATION_GROUPS)}
     </div>
@@ -137,24 +144,11 @@ function NotificationCategorySettings({ isAdmin }: { isAdmin: boolean }) {
 }
 
 export default function SettingsPage() {
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const { data: userProfile } = useQuery<any>({ queryKey: ["/api/profile"] });
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
-  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteSent, setInviteSent] = useState(false);
-
-  const { data: careerProfile } = useQuery<any>({ queryKey: ["/api/career"] });
-  const isMinor = careerProfile?.isMinor === true;
-  const parentInviteCode = careerProfile?.parentInviteCode;
-
-  const sendInviteMutation = useMutation({
-    mutationFn: async (parentEmail: string) => apiRequest("POST", "/api/parent/send-invite", { parentEmail }),
-    onSuccess: () => { setInviteSent(true); queryClient.invalidateQueries({ queryKey: ["/api/career"] }); },
-    onError: () => toast({ title: "Failed to send invite", variant: "destructive" }),
-  });
 
   const deleteAccountMutation = useMutation({
     mutationFn: async () => apiRequest("DELETE", "/api/auth/me"),
@@ -167,160 +161,120 @@ export default function SettingsPage() {
     onError: () => toast({ title: "Error", description: "Failed to delete account.", variant: "destructive" }),
   });
 
-  const copyInviteCode = () => {
-    if (parentInviteCode) {
-      navigator.clipboard.writeText(parentInviteCode);
-      toast({ title: "Copied!", description: "Parent invite code copied to clipboard." });
-    }
-  };
-
   return (
-    <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => window.history.back()} className="gap-1.5">
-          <ChevronLeft className="w-4 h-4" />
+    <main className="mx-auto max-w-2xl space-y-5 px-4 pb-12 pt-5 sm:px-6 sm:pt-8">
+      <header className="flex items-center gap-3">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => window.history.back()}
+          className="shrink-0 gap-1.5 rounded-full border border-zinc-800 bg-zinc-900/60 px-3 text-zinc-300 hover:border-zinc-700 hover:bg-zinc-800 hover:text-white"
+        >
+          <ChevronLeft className="h-4 w-4" />
           Back
         </Button>
-        <div>
-          <h1 className="text-xl font-bold flex items-center gap-2">
-            <Settings className="w-5 h-5" />
-            Settings
-          </h1>
-          <p className="text-sm text-muted-foreground">Privacy, family controls, and account</p>
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-500/15">
+          <Settings className="h-5 w-5 text-orange-300" />
         </div>
-      </div>
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange-200/70">PLAYR1 · ACCOUNT</p>
+          <h1 className="mt-0.5 text-xl font-bold text-white">Settings</h1>
+          <p className="mt-0.5 text-xs text-zinc-500">Manage notifications and account access.</p>
+        </div>
+      </header>
 
-      <Card data-testid="card-family-privacy">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Shield className="w-4 h-4 text-primary" />
-            Family &amp; Privacy
-          </CardTitle>
-          <CardDescription>Age assurance and parental oversight controls</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="p-4 rounded-lg border space-y-2">
-            <div className="flex items-center gap-2">
-              <Shield className="w-4 h-4 text-primary" />
-              <p className="font-medium text-sm">Age Assurance</p>
-              {isMinor ? (
-                <Badge variant="secondary" className="text-xs">Minor Account</Badge>
-              ) : (
-                <Badge variant="outline" className="text-xs">Adult Account</Badge>
-              )}
+      <Card
+        className="overflow-hidden rounded-2xl border border-zinc-800/80 bg-zinc-900/60 text-zinc-100 shadow-none"
+        data-testid="card-settings-notifications"
+      >
+        <CardHeader className="border-b border-zinc-800/80 px-4 pb-4 pt-5 sm:px-5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-500/15">
+              <Bell className="h-4 w-4 text-orange-300" />
             </div>
-            <p className="text-sm text-muted-foreground">
-              {isMinor
-                ? "Your account is registered as a minor (under 18). You can invite a parent or guardian to follow your training in read-only mode."
-                : "Your account is registered as an adult. PLAYR1 collects birth year during onboarding to provide age-appropriate parental oversight for minor users."}
-            </p>
+            <div>
+              <CardTitle className="text-base font-bold text-white">Notifications</CardTitle>
+              <CardDescription className="mt-1 text-xs text-zinc-500">
+                Control push delivery and the updates you receive.
+              </CardDescription>
+            </div>
           </div>
-
-          {isMinor && (
-            <div className="p-4 rounded-lg border space-y-4" data-testid="section-parental-controls">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4 text-primary" />
-                  <p className="font-medium text-sm">Parent / Guardian Access</p>
-                </div>
-                <Button
-                  size="sm" variant="outline" className="gap-1.5"
-                  onClick={() => { setInviteSent(false); setInviteEmail(""); setInviteDialogOpen(true); }}
-                  data-testid="button-invite-parent"
-                >
-                  <Mail className="w-3.5 h-3.5" />
-                  Invite Parent
-                </Button>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Send your parent or guardian an email invite. They'll get a link to create a simple parent account and connect to your profile automatically.
-              </p>
-              {parentInviteCode && (
-                <div className="space-y-1.5">
-                  <p className="text-xs text-muted-foreground font-medium">Manual invite code (share directly if needed)</p>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 bg-muted rounded-md px-3 py-2 font-mono text-sm tracking-widest" data-testid="text-parent-invite-code">
-                      {parentInviteCode}
-                    </div>
-                    <Button size="icon" variant="outline" onClick={copyInviteCode} data-testid="button-copy-invite-code">
-                      <Copy className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {!isMinor && (
-            <div className="flex items-center justify-between p-4 rounded-lg border">
-              <div>
-                <p className="font-medium text-sm">Parent Dashboard</p>
-                <p className="text-sm text-muted-foreground">View linked children's activity</p>
-              </div>
-              <Button variant="ghost" size="sm" className="gap-1" onClick={() => setLocation("/parent")} data-testid="button-parent-dashboard">
-                Open <ChevronRight className="w-4 h-4" />
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Bell className="w-4 h-4" />
-            Notifications
-          </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 sm:p-5">
           <PushNotificationToggle />
           <NotificationCategorySettings isAdmin={Boolean(userProfile?.isAdmin)} />
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <LogOut className="w-4 h-4" />
-            Account
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between p-4 rounded-lg border">
-            <div>
-              <p className="font-medium text-sm">Sign Out</p>
-              <p className="text-xs text-muted-foreground">Sign out of your PLAYR1 account</p>
+      <Card
+        className="overflow-hidden rounded-2xl border border-zinc-800/80 bg-zinc-900/60 text-zinc-100 shadow-none"
+        data-testid="card-settings-account"
+      >
+        <CardHeader className="border-b border-zinc-800/80 px-4 pb-4 pt-5 sm:px-5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-500/15">
+              <LogOut className="h-4 w-4 text-orange-300" />
             </div>
-            <Button variant="outline" size="sm" className="gap-2" data-testid="button-signout" onClick={() => logout()}>
-              <LogOut className="w-4 h-4" />
+            <div>
+              <CardTitle className="text-base font-bold text-white">Account</CardTitle>
+              <CardDescription className="mt-1 text-xs text-zinc-500">
+                Manage access to your PLAYR1 account.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4 p-4 sm:p-5">
+          <div className="flex flex-col gap-3 rounded-xl border border-white/[0.07] bg-black/25 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-zinc-100">Sign Out</p>
+              <p className="mt-0.5 text-xs text-zinc-500">Sign out of your PLAYR1 account</p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 gap-2 border-zinc-700 bg-zinc-900 text-zinc-200 hover:border-orange-400/40 hover:bg-zinc-800 hover:text-white"
+              data-testid="button-signout"
+              onClick={() => logout()}
+            >
+              <LogOut className="h-4 w-4" />
               Sign Out
             </Button>
           </div>
 
-          <Separator />
+          <Separator className="bg-zinc-800/80" />
 
-          <div className="flex items-center justify-between p-4 rounded-lg border border-destructive/30 bg-destructive/5">
-            <div>
-              <p className="font-medium text-destructive text-sm">Delete Account</p>
-              <p className="text-xs text-muted-foreground">Permanently delete your account and all data</p>
+          <div className="flex flex-col gap-3 rounded-xl border border-red-400/20 bg-red-500/[0.04] p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-500/10">
+                <ShieldAlert className="h-4 w-4 text-red-300" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-red-200">Delete Account</p>
+                <p className="mt-0.5 text-xs text-zinc-500">Permanently delete your account and all data</p>
+              </div>
             </div>
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="destructive" size="sm" className="gap-2" data-testid="button-delete-account">
-                  <Trash2 className="w-4 h-4" />
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="shrink-0 gap-2 border border-red-400/30 bg-red-500/10 text-red-200 hover:bg-red-500/20"
+                  data-testid="button-delete-account"
+                >
+                  <Trash2 className="h-4 w-4" />
                   Delete
                 </Button>
               </AlertDialogTrigger>
-              <AlertDialogContent>
+              <AlertDialogContent className="border-zinc-800 bg-zinc-950 text-zinc-100">
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete your account?</AlertDialogTitle>
-                  <AlertDialogDescription className="space-y-3">
+                  <AlertDialogDescription className="space-y-3 text-zinc-400">
                     <span className="block">
                       This will permanently delete your PLAYR1 account including all training logs, sessions, videos, achievements, and profile data. This action cannot be undone.
                     </span>
-                    <span className="block mt-3">Type <strong>DELETE</strong> below to confirm.</span>
+                    <span className="block">Type <strong className="text-zinc-100">DELETE</strong> below to confirm.</span>
                     <Input
-                      className="mt-2"
+                      className="mt-2 border-zinc-700 bg-zinc-900 text-zinc-100 placeholder:text-zinc-500"
                       placeholder="Type DELETE to confirm"
                       value={deleteConfirmText}
                       onChange={e => setDeleteConfirmText(e.target.value)}
@@ -335,7 +289,7 @@ export default function SettingsPage() {
                   <AlertDialogAction
                     onClick={() => deleteAccountMutation.mutate()}
                     disabled={deleteConfirmText !== "DELETE" || deleteAccountMutation.isPending}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    className="bg-red-600 text-white hover:bg-red-500"
                     data-testid="button-confirm-delete"
                   >
                     {deleteAccountMutation.isPending ? "Deleting..." : "Delete Account"}
@@ -347,59 +301,6 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={inviteDialogOpen} onOpenChange={open => { setInviteDialogOpen(open); if (!open) setInviteSent(false); }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Invite a Parent or Guardian</DialogTitle>
-            <DialogDescription>
-              We'll send them an email with a private link to create a parent account and connect to your profile.
-            </DialogDescription>
-          </DialogHeader>
-          {inviteSent ? (
-            <div className="py-4 text-center space-y-2">
-              <div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center mx-auto">
-                <Send className="w-5 h-5 text-green-500" />
-              </div>
-              <p className="font-medium">Invite sent!</p>
-              <p className="text-sm text-muted-foreground">They'll receive an email shortly with a link to set up their parent account.</p>
-            </div>
-          ) : (
-            <>
-              <div className="space-y-3 py-2">
-                <div>
-                  <Label htmlFor="invite-email" className="text-sm font-medium">Parent / Guardian Email</Label>
-                  <Input
-                    id="invite-email" type="email" value={inviteEmail}
-                    onChange={e => setInviteEmail(e.target.value)}
-                    placeholder="parent@example.com" className="mt-1.5"
-                    data-testid="input-invite-email"
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setInviteDialogOpen(false)}>Cancel</Button>
-                <Button
-                  onClick={() => {
-                    if (!inviteEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteEmail.trim())) {
-                      toast({ title: "Please enter a valid email address", variant: "destructive" });
-                      return;
-                    }
-                    sendInviteMutation.mutate(inviteEmail.trim());
-                  }}
-                  disabled={sendInviteMutation.isPending}
-                  data-testid="button-send-invite"
-                >
-                  {sendInviteMutation.isPending ? (
-                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Sending…</>
-                  ) : (
-                    <><Send className="w-4 h-4 mr-2" />Send Invite</>
-                  )}
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
-    </div>
+    </main>
   );
 }
