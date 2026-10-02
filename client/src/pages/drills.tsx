@@ -497,26 +497,26 @@ export default function Drills() {
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter drills by category">
-              {Object.entries(categoryInfo).map(([key, { label }]) => {
-                const count = key === "all"
-                  ? Object.values(categoryStats).reduce((total, categoryCount) => total + categoryCount, 0)
-                  : categoryStats[key];
-                return (
-                  <Button
-                    key={key}
-                    type="button"
-                    size="sm"
-                    variant={selectedCategory === key ? "secondary" : "ghost"}
-                    onClick={() => setSelectedCategory(key)}
-                    aria-pressed={selectedCategory === key}
-                    className="h-8 shrink-0 gap-1.5 px-2.5 text-xs"
-                    data-testid={`button-category-${key}`}
-                  >
-                    {label}
-                    {count > 0 && <span className="text-[10px] text-muted-foreground">{count}</span>}
-                  </Button>
-                );
-              })}
+            {Object.entries(categoryInfo).map(([key, { label }]) => {
+              const count = key === "all"
+                ? Object.values(categoryStats).reduce((total, categoryCount) => total + categoryCount, 0)
+                : categoryStats[key];
+              return (
+                <Button
+                  key={key}
+                  type="button"
+                  size="sm"
+                  variant={selectedCategory === key ? "secondary" : "ghost"}
+                  onClick={() => setSelectedCategory(key)}
+                  aria-pressed={selectedCategory === key}
+                  className="h-8 shrink-0 gap-1.5 px-2.5 text-xs"
+                  data-testid={`button-category-${key}`}
+                >
+                  {label}
+                  {count > 0 && <span className="text-[10px] text-muted-foreground">{count}</span>}
+                </Button>
+              );
+            })}
           </div>
 
           <TabsContent value="handlz" className="mt-0 space-y-4">

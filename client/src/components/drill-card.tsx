@@ -176,7 +176,7 @@ export function DrillCard({
             </h3>
             <div className={cn(
               "flex min-w-0 items-center gap-2 text-[10px] text-muted-foreground",
-              viewMode === "list" ? "mt-1.5" : "mt-1.5"
+              "mt-1.5"
             )}>
               <span className="flex shrink-0 items-center gap-1">
                 <Clock className="h-3 w-3" />
