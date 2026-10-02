@@ -1,0 +1,416 @@
+import { useMemo, useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { MapPin, Settings2 } from "lucide-react";
+import type { ProfileDisplayStatKey } from "@shared/schema";
+import { COUNTRIES, PROFILE_DISPLAY_STAT_KEYS } from "@shared/schema";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, getObjectUrl, queryClient } from "@/lib/queryClient";
+
+type ProfileStat = {
+  key: ProfileDisplayStatKey;
+  label: string;
+  value: string;
+};
+
+type ProfileSummaryCardProps = {
+  user: any;
+  userProfile: any;
+  playerProfile: any;
+  career: any;
+  careerStats: any;
+  isLoading: boolean;
+};
+
+const STAT_GROUPS: { label: string; keys: ProfileDisplayStatKey[] }[] = [
+  { label: "Game stats", keys: ["ppg", "rpg", "apg", "spg", "bpg", "games", "record"] },
+  { label: "Measurements", keys: ["height", "weight", "wingspan"] },
+  {
+    label: "Skill ratings",
+    keys: ["shooting", "ballHandling", "passing", "finishing", "defense", "basketballIq", "athletics"],
+  },
+  { label: "Academic", keys: ["gradYear", "gpa"] },
+];
+
+const RECOMMENDED_STAT_ORDER: ProfileDisplayStatKey[] = [
+  "ppg",
+  "height",
+  "weight",
+  "rpg",
+  "apg",
+  "spg",
+  "bpg",
+  "wingspan",
+  "games",
+  "record",
+  "shooting",
+  "ballHandling",
+  "passing",
+  "finishing",
+  "defense",
+  "basketballIq",
+  "athletics",
+  "gradYear",
+  "gpa",
+];
+
+function finitePositiveNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : null;
+}
+
+function buildAvailableStats(
+  playerProfile: any,
+  career: any,
+  careerStats: any,
+): ProfileStat[] {
+  const available = new Map<ProfileDisplayStatKey, ProfileStat>();
+  const gamesPlayed = finitePositiveNumber(careerStats?.totalGames);
+
+  if (gamesPlayed) {
+    const gameStatEntries: Array<[ProfileDisplayStatKey, string, unknown]> = [
+      ["ppg", "PPG", careerStats.avgPoints],
+      ["rpg", "RPG", careerStats.avgRebounds],
+      ["apg", "APG", careerStats.avgAssists],
+      ["spg", "SPG", careerStats.avgSteals],
+      ["bpg", "BPG", careerStats.avgBlocks],
+    ];
+    for (const [key, label, rawValue] of gameStatEntries) {
+      const value = Number(rawValue);
+      if (Number.isFinite(value)) available.set(key, { key, label, value: value.toFixed(1) });
+    }
+
+    available.set("games", { key: "games", label: "GP", value: String(gamesPlayed) });
+    const wins = Number(careerStats?.wins ?? 0);
+    const losses = Number(careerStats?.losses ?? 0);
+    if (wins + losses > 0) {
+      available.set("record", { key: "record", label: "Record", value: `${wins}–${losses}` });
+    }
+  }
+
+  const feet = finitePositiveNumber(playerProfile?.heightFeet);
+  const inches = finitePositiveNumber(playerProfile?.heightInches) ?? 0;
+  if (feet) available.set("height", { key: "height", label: "Height", value: `${feet}'${inches}"` });
+
+  const weight = finitePositiveNumber(playerProfile?.weight);
+  if (weight) available.set("weight", { key: "weight", label: "Weight", value: `${weight} lb` });
+
+  const wingspan = typeof playerProfile?.wingspan === "string" ? playerProfile.wingspan.trim() : "";
+  if (wingspan) available.set("wingspan", { key: "wingspan", label: "Wingspan", value: wingspan });
+
+  const skillEntries: Array<[ProfileDisplayStatKey, string, unknown]> = [
+    ["shooting", "Shot", career?.skillShooting],
+    ["ballHandling", "Handle", career?.skillBallHandling],
+    ["passing", "Passing", career?.skillPassing],
+    ["finishing", "Finishing", career?.skillFinishing],
+    ["defense", "Defense", career?.skillDefense],
+    ["basketballIq", "Basketball IQ", career?.skillBasketballIQ],
+    ["athletics", "Athleticism", career?.skillAthletics],
+  ];
+  for (const [key, label, rawValue] of skillEntries) {
+    const value = finitePositiveNumber(rawValue);
+    if (value) available.set(key, { key, label, value: `${value}/10` });
+  }
+
+  const gradYear = finitePositiveNumber(playerProfile?.gradYear);
+  if (gradYear) available.set("gradYear", { key: "gradYear", label: "Class of", value: String(gradYear) });
+
+  const gpa = typeof playerProfile?.gpa === "string" ? playerProfile.gpa.trim() : "";
+  if (gpa) available.set("gpa", { key: "gpa", label: "GPA", value: gpa });
+
+  return PROFILE_DISPLAY_STAT_KEYS
+    .filter((key) => available.has(key))
+    .map((key) => available.get(key)!);
+}
+
+function formatLocation(userProfile: any): string {
+  const city = typeof userProfile?.city === "string" ? userProfile.city.trim() : "";
+  if (!city) return "";
+
+  const countryCode = typeof userProfile?.country === "string" ? userProfile.country : "USA";
+  const country = COUNTRIES.find((item) => item.code === countryCode || item.name === countryCode);
+  const isUnitedStates = country?.code === "USA" || countryCode === "US" || countryCode === "USA";
+  if (isUnitedStates) {
+    const stateValue = typeof userProfile?.state === "string" ? userProfile.state.trim() : "";
+    return [city, stateValue].filter(Boolean).join(", ");
+  }
+
+  return [city, country?.name ?? countryCode].filter(Boolean).join(", ");
+}
+
+function makeProfileSlug(displayName: string, userId?: string): string {
+  const namePart = displayName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 40);
+  const suffix = userId?.slice(-6).toLowerCase() || "player";
+  return `${namePart || "player"}-${suffix}`;
+}
+
+export function ProfileSummaryCard({
+  user,
+  userProfile,
+  playerProfile,
+  career,
+  careerStats,
+  isLoading,
+}: ProfileSummaryCardProps) {
+  const { toast } = useToast();
+  const [statsDialogOpen, setStatsDialogOpen] = useState(false);
+  const [draftStats, setDraftStats] = useState<ProfileDisplayStatKey[]>([]);
+
+  const displayName =
+    userProfile?.displayName ||
+    [user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
+    user?.email?.split("@")[0] ||
+    "Player";
+  const initials = displayName
+    .split(/\s+/)
+    .map((part: string) => part[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+  const avatarPath = userProfile?.profilePhotoUrl || user?.profileImageUrl;
+  const avatarSrc = avatarPath ? getObjectUrl(avatarPath) : undefined;
+  const location = formatLocation(userProfile);
+  const positions = Array.isArray(career?.positions)
+    ? career.positions.filter((position: unknown) => typeof position === "string" && position.trim())
+    : [];
+  const availableStats = useMemo(
+    () => buildAvailableStats(playerProfile, career, careerStats),
+    [playerProfile, career, careerStats],
+  );
+  const availableByKey = new Map<ProfileDisplayStatKey, ProfileStat>(
+    availableStats.map((stat) => [stat.key, stat]),
+  );
+  const savedStats: ProfileDisplayStatKey[] = Array.isArray(playerProfile?.displayStats)
+    ? playerProfile.displayStats.filter((key: unknown): key is ProfileDisplayStatKey =>
+        PROFILE_DISPLAY_STAT_KEYS.includes(key as ProfileDisplayStatKey) && availableByKey.has(key as ProfileDisplayStatKey),
+      )
+    : [];
+  const selectedStats: ProfileDisplayStatKey[] = savedStats.length
+    ? savedStats
+    : RECOMMENDED_STAT_ORDER.filter((key) => availableByKey.has(key)).slice(0, 3);
+  const selectedStatValues: ProfileStat[] = selectedStats
+    .map((key) => availableByKey.get(key))
+    .filter((stat): stat is ProfileStat => Boolean(stat));
+
+  const saveStats = useMutation({
+    mutationFn: async (displayStats: ProfileDisplayStatKey[]) => {
+      const slug = playerProfile?.slug || makeProfileSlug(displayName, user?.id);
+      await apiRequest("PUT", "/api/player-profile", { slug, displayStats });
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["/api/player-profile"] });
+      setStatsDialogOpen(false);
+      toast({ title: "Profile stats saved", description: "Your summary now shows the stats you selected." });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Could not save profile stats",
+        description: error?.message || "Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const openStatsDialog = () => {
+    setDraftStats([...selectedStats]);
+    setStatsDialogOpen(true);
+  };
+
+  const toggleDraftStat = (key: ProfileDisplayStatKey, checked: boolean) => {
+    setDraftStats((current) => {
+      if (checked) return current.includes(key) || current.length >= 3 ? current : [...current, key];
+      return current.filter((selected) => selected !== key);
+    });
+  };
+
+  return (
+    <Card className="overflow-hidden border-zinc-800/60 bg-zinc-900/40" data-testid="card-profile-summary">
+      <CardContent className="p-5">
+        {isLoading ? (
+          <div className="flex items-center gap-4" aria-label="Loading player summary">
+            <div className="h-20 w-20 shrink-0 animate-pulse rounded-full bg-zinc-800" />
+            <div className="flex-1 space-y-2">
+              <div className="h-5 w-40 animate-pulse rounded bg-zinc-800" />
+              <div className="h-4 w-28 animate-pulse rounded bg-zinc-800" />
+              <div className="h-4 w-32 animate-pulse rounded bg-zinc-800" />
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-start gap-4">
+              <Avatar className="h-20 w-20 shrink-0 border-2 border-orange-400/40 ring-2 ring-zinc-950">
+                <AvatarImage src={avatarSrc} alt={`${displayName} profile photo`} />
+                <AvatarFallback className="bg-orange-500/20 text-lg font-bold text-orange-300">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 flex-1 pt-1">
+                <h2 className="truncate text-lg font-bold leading-tight text-white">{displayName}</h2>
+                {location && (
+                  <p className="mt-1 flex items-center gap-1 text-xs text-zinc-400">
+                    <MapPin className="h-3.5 w-3.5 shrink-0 text-orange-400" />
+                    <span className="truncate">{location}</span>
+                  </p>
+                )}
+                {(career?.jerseyNumber !== null && career?.jerseyNumber !== undefined || positions.length > 0) && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {career?.jerseyNumber !== null && career?.jerseyNumber !== undefined && (
+                      <Badge variant="outline" className="border-zinc-700 bg-zinc-950/70 text-xs text-zinc-200">
+                        Jersey #{career.jerseyNumber}
+                      </Badge>
+                    )}
+                    {positions.length > 0 && (
+                      <Badge variant="outline" className="border-zinc-700 bg-zinc-950/70 text-xs text-zinc-200">
+                        {positions.join(" · ")}
+                      </Badge>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {(playerProfile?.headline || playerProfile?.bio) ? (
+              <div className="mt-4 space-y-1.5">
+                {playerProfile?.headline && (
+                  <p className="text-sm font-semibold leading-snug text-zinc-100">{playerProfile.headline}</p>
+                )}
+                {playerProfile?.bio && (
+                  <p className="line-clamp-3 whitespace-pre-line text-sm leading-relaxed text-zinc-400">
+                    {playerProfile.bio}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="mt-4 text-sm text-zinc-500">Add a headline and bio to introduce your game.</p>
+            )}
+
+            <div className="mt-4 border-t border-zinc-800/80 pt-3">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-500">Player stats</p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 gap-1.5 px-2 text-xs text-zinc-400 hover:text-white"
+                  onClick={openStatsDialog}
+                  disabled={!availableStats.length}
+                  data-testid="button-edit-profile-stats"
+                >
+                  <Settings2 className="h-3.5 w-3.5" />
+                  Choose stats
+                </Button>
+              </div>
+
+              {selectedStatValues.length > 0 ? (
+                <div
+                  className={`grid overflow-hidden rounded-xl border border-zinc-800 bg-black/25 ${
+                    selectedStatValues.length === 1 ? "grid-cols-1" : selectedStatValues.length === 2 ? "grid-cols-2" : "grid-cols-3"
+                  }`}
+                  aria-label="Selected player stats"
+                >
+                  {selectedStatValues.map((stat, index) => (
+                    <div
+                      key={stat.key}
+                      className={`min-w-0 px-2 py-2.5 text-center ${
+                        index > 0 ? "border-l border-zinc-800" : ""
+                      }`}
+                    >
+                      <p className="truncate text-base font-black leading-tight text-white">{stat.value}</p>
+                      <p className="mt-1 truncate text-[9px] font-bold uppercase tracking-wider text-zinc-500">
+                        {stat.label}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="rounded-xl border border-dashed border-zinc-800 px-3 py-3 text-center text-xs text-zinc-500">
+                  Add game stats, measurements, or skill ratings to choose what appears here.
+                </p>
+              )}
+            </div>
+          </>
+        )}
+      </CardContent>
+
+      <Dialog open={statsDialogOpen} onOpenChange={setStatsDialogOpen}>
+        <DialogContent className="max-h-[85vh] max-w-md overflow-y-auto border-zinc-800 bg-zinc-950 text-zinc-100">
+          <DialogHeader>
+            <DialogTitle>Choose your profile stats</DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              Choose up to three stats to show in your Profile summary.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5">
+            {STAT_GROUPS.map((group) => {
+              const options = group.keys
+                .map((key) => availableByKey.get(key))
+                .filter((stat): stat is ProfileStat => Boolean(stat));
+              if (!options.length) return null;
+
+              return (
+                <fieldset key={group.label} className="space-y-2">
+                  <legend className="mb-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                    {group.label}
+                  </legend>
+                  {options.map((stat) => {
+                    const isSelected = draftStats.includes(stat.key);
+                    return (
+                      <label
+                        key={stat.key}
+                        className="flex cursor-pointer items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2.5 transition hover:border-zinc-700"
+                      >
+                        <span>
+                          <span className="block text-sm font-medium text-zinc-100">{stat.label}</span>
+                          <span className="mt-0.5 block text-xs text-zinc-500">{stat.value}</span>
+                        </span>
+                        <Checkbox
+                          checked={isSelected}
+                          disabled={!isSelected && draftStats.length >= 3}
+                          onCheckedChange={(checked) => toggleDraftStat(stat.key, checked === true)}
+                          aria-label={`Show ${stat.label}`}
+                        />
+                      </label>
+                    );
+                  })}
+                </fieldset>
+              );
+            })}
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button type="button" variant="outline" onClick={() => setStatsDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="bg-orange-500 text-zinc-950 hover:bg-orange-400"
+              disabled={!draftStats.length || saveStats.isPending}
+              onClick={() => saveStats.mutate(draftStats)}
+              data-testid="button-save-profile-stats"
+            >
+              {saveStats.isPending ? "Saving…" : "Save stats"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+}

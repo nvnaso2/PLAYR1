@@ -711,6 +711,30 @@ const urlOrObjectPath = z.string().nullish().refine(
 );
 
 // Public player profiles - recruiting-style profile page
+export const PROFILE_DISPLAY_STAT_KEYS = [
+  "ppg",
+  "rpg",
+  "apg",
+  "spg",
+  "bpg",
+  "games",
+  "record",
+  "height",
+  "weight",
+  "wingspan",
+  "shooting",
+  "ballHandling",
+  "passing",
+  "finishing",
+  "defense",
+  "basketballIq",
+  "athletics",
+  "gradYear",
+  "gpa",
+] as const;
+
+export type ProfileDisplayStatKey = typeof PROFILE_DISPLAY_STAT_KEYS[number];
+
 export const playerProfiles = pgTable("player_profiles", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().unique(),
@@ -752,6 +776,7 @@ export const playerProfiles = pgTable("player_profiles", {
   cardShowHighlightReel: boolean("card_show_highlight_reel").default(true),
   cardShowMeasurements: boolean("card_show_measurements").default(false),
   cardShowAcademic: boolean("card_show_academic").default(false),
+  displayStats: jsonb("display_stats").$type<ProfileDisplayStatKey[]>().notNull().default(sql`'[]'::jsonb`),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow()
 });

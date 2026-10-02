@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ProfileSummaryCard } from "@/components/profile/profile-summary-card";
 import { apiRequest, getObjectUrl, nativeFetch } from "@/lib/queryClient";
 import {
   BarChart3, BookMarked, Check, ChevronRight, UserCircle, Settings, Crown, MessageCircle, Play, Radar,
@@ -24,6 +25,24 @@ export default function ProfileHubPage() {
 
   const { data: profile, isLoading } = useQuery<any>({
     queryKey: ["/api/profile"],
+    enabled: !!user,
+    staleTime: 30_000,
+  });
+
+  const { data: playerProfile, isLoading: playerProfileLoading } = useQuery<any>({
+    queryKey: ["/api/player-profile"],
+    enabled: !!user,
+    staleTime: 30_000,
+  });
+
+  const { data: career, isLoading: careerLoading } = useQuery<any>({
+    queryKey: ["/api/career"],
+    enabled: !!user,
+    staleTime: 30_000,
+  });
+
+  const { data: careerStats, isLoading: careerStatsLoading } = useQuery<any>({
+    queryKey: ["/api/stats/career"],
     enabled: !!user,
     staleTime: 30_000,
   });
@@ -86,7 +105,7 @@ export default function ProfileHubPage() {
   });
 
   const displayName =
-    [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.email || "Player";
+    profile?.displayName || [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.email || "Player";
   const avatarSrc = profile?.profilePhotoUrl
     ? getObjectUrl(profile.profilePhotoUrl)
     : profile?.profileImageUrl
@@ -130,39 +149,14 @@ export default function ProfileHubPage() {
         </button>
       </header>
 
-      {/* My Profile card — tap to view/customize public profile */}
-      <Card
-        className="cursor-pointer hover-elevate border-zinc-800/60 bg-zinc-900/40"
-        onClick={() => navigate("/profile")}
-        data-testid="card-profile-edit"
-      >
-        <CardContent className="p-5 flex items-center gap-4">
-          {isLoading ? (
-            <Skeleton className="w-14 h-14 rounded-full" />
-          ) : (
-            <Avatar className="w-14 h-14 border-2 border-zinc-700">
-              <AvatarImage src={avatarSrc} />
-              <AvatarFallback className="bg-orange-500/20 text-orange-400 font-bold text-lg">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
-          )}
-          <div className="flex-1 min-w-0">
-            {isLoading ? (
-              <Skeleton className="h-5 w-32" />
-            ) : (
-              <h2 className="font-bold text-lg leading-tight truncate">{displayName}</h2>
-            )}
-            {archetype?.archetypeName && (
-              <Badge variant="secondary" className="mt-1 text-xs">
-                {archetype.archetypeName}
-              </Badge>
-            )}
-            <p className="text-xs text-zinc-500 mt-1">My Profile · View &amp; customize</p>
-          </div>
-          <UserCircle className="w-4 h-4 text-zinc-600 shrink-0" />
-        </CardContent>
-      </Card>
+      <ProfileSummaryCard
+        user={user}
+        userProfile={profile}
+        playerProfile={playerProfile}
+        career={career}
+        careerStats={careerStats}
+        isLoading={isLoading || playerProfileLoading || careerLoading || careerStatsLoading}
+      />
 
       {subscriptionLoading ? (
         <Skeleton className="h-80 w-full rounded-2xl" />
@@ -311,7 +305,7 @@ export default function ProfileHubPage() {
         </Card>
       )}
 
-      <section aria-labelledby="profile-career-heading">
+      <section aria-labelledby="profile-career-heading" className="space-y-2">
         <p id="profile-career-heading" className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-600">Career</p>
         <Card
           className="cursor-pointer border-zinc-800/60 bg-zinc-900/40 transition hover:border-zinc-700 hover:bg-zinc-900"
@@ -327,6 +321,38 @@ export default function ProfileHubPage() {
               <p className="mt-0.5 text-sm text-muted-foreground">Stats, trophies, training history and milestones</p>
             </div>
             <ChevronRight className="h-4 w-4 shrink-0 text-zinc-600" />
+          </CardContent>
+        </Card>
+        <Card
+          className="cursor-pointer border-zinc-800/60 bg-zinc-900/40 transition hover:border-zinc-700 hover:bg-zinc-900"
+          onClick={() => navigate("/profile")}
+          data-testid="card-profile-edit"
+        >
+          <CardContent className="flex items-center gap-4 p-5">
+            {isLoading ? (
+              <Skeleton className="h-14 w-14 rounded-full" />
+            ) : (
+              <Avatar className="h-14 w-14 border-2 border-zinc-700">
+                <AvatarImage src={avatarSrc} />
+                <AvatarFallback className="bg-orange-500/20 text-lg font-bold text-orange-400">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+            )}
+            <div className="min-w-0 flex-1">
+              {isLoading ? (
+                <Skeleton className="h-5 w-32" />
+              ) : (
+                <h2 className="truncate text-lg font-bold leading-tight">{displayName}</h2>
+              )}
+              {archetype?.archetypeName && (
+                <Badge variant="secondary" className="mt-1 text-xs">
+                  {archetype.archetypeName}
+                </Badge>
+              )}
+              <p className="mt-1 text-xs text-zinc-500">My Profile · View &amp; customize</p>
+            </div>
+            <UserCircle className="h-4 w-4 shrink-0 text-zinc-600" />
           </CardContent>
         </Card>
       </section>

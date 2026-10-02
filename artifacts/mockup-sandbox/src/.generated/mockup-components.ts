@@ -4,5 +4,7 @@ export const modules: ModuleMap = {
   "./components/mockups/journal-redesign/Current.tsx": () => import("../components/mockups/journal-redesign/Current.tsx"),
   "./components/mockups/journal-redesign/JournalRedesign.tsx": () => import("../components/mockups/journal-redesign/JournalRedesign.tsx"),
   "./components/mockups/settings-redesign/Current.tsx": () => import("../components/mockups/settings-redesign/Current.tsx"),
-  "./components/mockups/settings-redesign/Updated.tsx": () => import("../components/mockups/settings-redesign/Updated.tsx")
+  "./components/mockups/settings-redesign/Updated.tsx": () => import("../components/mockups/settings-redesign/Updated.tsx"),
+  "./components/mockups/profile-hub-redesign/Current.tsx": () => import("../components/mockups/profile-hub-redesign/Current.tsx"),
+  "./components/mockups/profile-hub-redesign/Updated.tsx": () => import("../components/mockups/profile-hub-redesign/Updated.tsx")
 };
