@@ -12,7 +12,7 @@ const playerTabs = [
     label: "Train",
     icon: Dumbbell,
     path: "/log",
-    activePatterns: ["/log", "/programs", "/courses", "/lead-magnets"],
+    activePatterns: ["/log", "/programs", "/courses"],
   },
   {
     id: "dashboard",
@@ -41,7 +41,7 @@ const playerTabs = [
     label: "Profile",
     icon: UserCircle,
     path: "/profile-hub",
-    activePatterns: ["/profile-hub", "/profile", "/subscription", "/career", "/development", "/archetypes", "/my-archetype"],
+    activePatterns: ["/profile-hub", "/profile", "/subscription", "/career", "/development", "/archetypes", "/my-archetype", "/lead-magnets"],
   },
 ];
 

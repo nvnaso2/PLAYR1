@@ -56,7 +56,6 @@ import {
   ClipboardCheck,
   Eye,
   Megaphone,
-  Sparkles,
   Zap,
   Fingerprint,
   Star,
@@ -65,7 +64,6 @@ import { Playr1Logo } from "@/components/playr1-logo";
 import { getObjectUrl, nativeFetch } from "@/lib/queryClient";
 
 const playerNavItems = [
-  { title: "Lead Magnets", url: "/lead-magnets", icon: Sparkles },
   { title: "My Film Room", url: "/videos", icon: Video },
   { title: "Feedback", url: "/feedback", icon: Megaphone },
 ];

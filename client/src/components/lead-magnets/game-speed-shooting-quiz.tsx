@@ -73,7 +73,7 @@ export function GameSpeedShootingQuiz() {
   return (
     <div>
       <header className="mb-6">
-        <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange-400">Game-speed shooting diagnostic</p>
+        <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange-400">Game-speed shooting</p>
         <h2 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">
           Why Your Makes in the Empty Gym Aren’t Translating to 5v5
         </h2>
@@ -160,7 +160,7 @@ export function GameSpeedShootingQuiz() {
                 Back
               </button>
             </div>
-            <div className="mt-3 h-1 overflow-hidden rounded-full bg-zinc-800" role="progressbar" aria-label="Diagnostic complete" aria-valuemin={0} aria-valuemax={100} aria-valuenow={100}>
+            <div className="mt-3 h-1 overflow-hidden rounded-full bg-zinc-800" role="progressbar" aria-label="Check-in complete" aria-valuemin={0} aria-valuemax={100} aria-valuenow={100}>
               <div className="h-full w-full rounded-full bg-orange-500" />
             </div>
           </div>

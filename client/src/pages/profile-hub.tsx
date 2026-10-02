@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest, getObjectUrl, nativeFetch } from "@/lib/queryClient";
 import {
-  BarChart3, BookMarked, Check, ChevronRight, UserCircle, Settings, Crown, MessageCircle, Play,
+  BarChart3, BookMarked, Check, ChevronRight, UserCircle, Settings, Crown, MessageCircle, Play, Radar,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -332,7 +332,7 @@ export default function ProfileHubPage() {
       </section>
 
       <section aria-label="Profile shortcuts">
-        <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
+        <div className="grid grid-cols-4 gap-2.5 sm:gap-3">
           <button
             type="button"
             onClick={() => navigate("/streak-challenges/fifty-in-a-row?returnTo=%2Fprofile-hub")}
@@ -360,6 +360,19 @@ export default function ProfileHubPage() {
               <span className="absolute right-3 top-0 h-4 w-2 rounded-b-sm bg-orange-600" />
             </span>
             <span className="text-[10px] font-bold leading-tight text-zinc-300">Journal</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate("/lead-magnets")}
+            className="group flex min-w-0 flex-col items-center gap-1.5 rounded-2xl px-1 py-1 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+            aria-label="Game Insights: quick reads and practical next steps for your game"
+            data-testid="card-profile-game-insights"
+          >
+            <span className="relative flex h-[68px] w-[68px] items-center justify-center rounded-[20px] border border-orange-300/30 bg-[radial-gradient(circle_at_35%_25%,rgba(249,115,22,0.24),rgba(24,24,27,0.96)_72%)] shadow-[0_0_18px_rgba(249,115,22,0.14)] transition group-hover:scale-[1.04] group-hover:border-orange-200/60 group-hover:shadow-[0_0_24px_rgba(249,115,22,0.28)]">
+              <Radar className="h-8 w-8 text-orange-200" strokeWidth={1.8} />
+              <span className="absolute right-4 top-4 h-1.5 w-1.5 rounded-full bg-orange-300 shadow-[0_0_8px_rgba(253,186,116,0.9)]" />
+            </span>
+            <span className="max-w-[100px] text-[10px] font-bold leading-tight text-zinc-300">Game Insights</span>
           </button>
           <button
             type="button"

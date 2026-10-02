@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { ArrowLeft, ArrowRight, Check, RotateCcw, Target } from "lucide-react";
+import { ArrowLeft, ArrowRight, Brain, Check, Crosshair, RotateCcw, Target, Zap } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
@@ -50,6 +50,37 @@ const LEAD_MAGNET_TITLES: Record<LeadMagnetId, string> = {
   "game-speed-shooting": "Game-Speed Shooting",
 };
 
+const leadMagnetCards = [
+  {
+    id: "shooting-mechanics",
+    title: "Shooting Mechanics",
+    category: "Shooting",
+    description: "Find a clear adjustment for your shot and the drills to practice it.",
+    icon: Target,
+  },
+  {
+    id: "footwork-open-shots",
+    title: "Footwork That Leads to Open Shots",
+    category: "Footwork",
+    description: "Build the footwork habits that help you create cleaner looks.",
+    icon: Crosshair,
+  },
+  {
+    id: "confidence-reality-check",
+    title: "Confidence Reality Check",
+    category: "Confidence",
+    description: "Turn what you feel on court into a useful focus for your next reps.",
+    icon: Brain,
+  },
+  {
+    id: "game-speed-shooting",
+    title: "Game-Speed Shooting",
+    category: "Game performance",
+    description: "See what changes when your shot moves from practice into live play.",
+    icon: Zap,
+  },
+] as const;
+
 interface SavedLeadMagnetSubmission {
   clientSubmissionId: string;
   leadMagnetId: LeadMagnetId;
@@ -74,7 +105,7 @@ export default function LeadMagnetsPage() {
     refetch: refetchSavedSubmissions,
   } = useQuery<{ submissions: SavedLeadMagnetSubmission[] }>({
     queryKey: ["/api/lead-magnets/submissions", user?.id],
-    enabled: !!user,
+    enabled: !!user && !!routeMagnetId,
     queryFn: async () => {
       const response = await apiRequest("GET", "/api/lead-magnets/submissions");
       return response.json();
@@ -146,11 +177,77 @@ export default function LeadMagnetsPage() {
     return (
       <main className="flex min-h-screen items-center justify-center bg-zinc-950 px-4 text-white">
         <div className="max-w-md text-center">
-          <h1 className="text-2xl font-black">Diagnostic not found</h1>
-          <p className="mt-2 text-sm text-zinc-400">Choose one of the available PLAYR1 diagnostics.</p>
+          <h1 className="text-2xl font-black">Game insight not found</h1>
+          <p className="mt-2 text-sm text-zinc-400">Choose one of the available PLAYR1 tools.</p>
           <Link href="/lead-magnets">
-            <Button className="mt-5 bg-orange-500 font-black text-black hover:bg-orange-400">Browse diagnostics</Button>
+            <Button className="mt-5 bg-orange-500 font-bold text-black hover:bg-orange-400">Browse Game Insights</Button>
           </Link>
+        </div>
+      </main>
+    );
+  }
+
+  if (!routeMagnetId) {
+    return (
+      <main className="min-h-full bg-zinc-950 px-4 pb-10 pt-5 text-white sm:px-6 sm:pt-7">
+        <div className="mx-auto max-w-5xl">
+          <Link href="/profile-hub">
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-9 gap-1.5 rounded-lg border border-white/10 bg-white/[0.02] px-3 text-zinc-300 hover:border-white/20 hover:bg-white/[0.06] hover:text-white"
+              data-testid="button-back-to-profile"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Profile
+            </Button>
+          </Link>
+
+          <header className="mb-6 mt-5 max-w-2xl sm:mb-7">
+            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-orange-400">PLAYR1 · Player tools</p>
+            <h1 className="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl" data-testid="text-game-insights-title">
+              Game Insights
+            </h1>
+            <p className="mt-3 text-sm leading-relaxed text-zinc-400 sm:text-base">
+              Short, focused reads on your game—with a practical next step to put into action.
+            </p>
+          </header>
+
+          <section aria-label="Game insight tools">
+            <div className="grid gap-3 sm:grid-cols-2 sm:gap-4">
+              {leadMagnetCards.map((magnet) => {
+                const Icon = magnet.icon;
+                return (
+                  <button
+                    key={magnet.id}
+                    type="button"
+                    onClick={() => selectLeadMagnet(magnet.id)}
+                    className="group flex min-h-44 flex-col rounded-2xl border border-white/[0.08] bg-zinc-900/50 p-4 text-left transition duration-200 hover:-translate-y-0.5 hover:border-white/25 hover:bg-zinc-900/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 sm:p-5"
+                    data-testid={`card-lead-magnet-${magnet.id}`}
+                  >
+                    <div className="flex w-full items-center justify-between gap-3">
+                      <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-orange-400/20 bg-orange-500/10 text-orange-300 transition group-hover:border-orange-300/40 group-hover:bg-orange-500/15">
+                        <Icon className="h-5 w-5" />
+                      </span>
+                      <span className="rounded-full border border-white/[0.07] bg-black/20 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.13em] text-zinc-500">
+                        {magnet.category}
+                      </span>
+                    </div>
+                    <h2 className="mt-4 text-base font-bold leading-snug text-white sm:text-lg">
+                      {magnet.title}
+                    </h2>
+                    <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+                      {magnet.description}
+                    </p>
+                    <span className="mt-auto flex items-center gap-1.5 pt-5 text-xs font-semibold text-orange-300">
+                      Explore
+                      <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
         </div>
       </main>
     );
@@ -158,28 +255,27 @@ export default function LeadMagnetsPage() {
 
   return (
     <main className="min-h-full bg-zinc-950 px-4 pb-10 pt-6 text-white sm:px-6 sm:pt-10">
-      <div className="mx-auto max-w-5xl">
-        <div className="mb-6 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">
-          <Target className="h-4 w-4 text-orange-400" />
-          Free lead magnet library
-        </div>
-
-        <header className="mb-6 max-w-2xl">
-          <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange-400">PLAYR1 Lead Magnet</p>
-          <h1 className="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl">
-            Lead Magnets
-          </h1>
-          <p className="mt-3 max-w-xl text-sm leading-relaxed text-zinc-400">
-            Choose a free tool to find your next focus and drills.
-          </p>
+      <div className="mx-auto max-w-3xl">
+        <header className="mb-5">
+          <Link href="/lead-magnets">
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-9 gap-1.5 rounded-lg border border-white/10 bg-white/[0.02] px-3 text-zinc-300 hover:border-white/20 hover:bg-white/[0.06] hover:text-white"
+              data-testid="button-back-to-game-insights"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              All Game Insights
+            </Button>
+          </Link>
         </header>
 
         {user && (
-          <section className="mb-6 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 sm:p-5" aria-labelledby="saved-diagnostics-heading">
+          <section className="mb-5 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 sm:p-5" aria-labelledby="saved-results-heading">
             <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-400">Your account</p>
-                <h2 id="saved-diagnostics-heading" className="mt-1 text-lg font-black text-white">Saved diagnostics</h2>
+                <h2 id="saved-results-heading" className="mt-1 text-lg font-black text-white">Saved results</h2>
                 <p className="mt-1 text-xs text-zinc-400">Your saved results are available whenever you sign in to this account.</p>
               </div>
               {!savedSubmissionsLoading && savedSubmissions.length > 0 && (
@@ -188,16 +284,16 @@ export default function LeadMagnetsPage() {
             </div>
 
             {savedSubmissionsLoading ? (
-              <p className="mt-4 text-sm text-zinc-400" role="status">Loading your saved diagnostics…</p>
+              <p className="mt-4 text-sm text-zinc-400" role="status">Loading your saved results…</p>
             ) : savedSubmissionsError ? (
               <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm text-red-300">Your saved diagnostics couldn’t be loaded.</p>
+                <p className="text-sm text-red-300">Your saved results couldn’t be loaded.</p>
                 <Button type="button" variant="outline" onClick={() => refetchSavedSubmissions()} className="border-zinc-700 text-zinc-200">
                   Try again
                 </Button>
               </div>
             ) : savedSubmissions.length === 0 ? (
-              <p className="mt-4 text-sm text-zinc-400">Complete a diagnostic and save your result to see it here.</p>
+              <p className="mt-4 text-sm text-zinc-400">Complete a game insight and save your result to see it here.</p>
             ) : (
               <ul className="mt-4 grid gap-2 sm:grid-cols-2">
                 {savedSubmissions.map((submission) => (
@@ -223,97 +319,11 @@ export default function LeadMagnetsPage() {
           </section>
         )}
 
-        <div className="grid items-start gap-5 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-6">
-          <aside className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-3" aria-label="Lead magnet menu">
-            <p className="px-2 pb-2 pt-1 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
-              Browse tools
-            </p>
-            <nav className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible" aria-label="Lead magnets">
-              <button
-                type="button"
-                aria-current={activeLeadMagnet === "shooting-mechanics" ? "page" : undefined}
-                aria-pressed={activeLeadMagnet === "shooting-mechanics"}
-                onClick={() => selectLeadMagnet("shooting-mechanics")}
-                className={`flex min-w-[220px] flex-1 items-center gap-3 rounded-xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 lg:min-w-0 ${
-                  activeLeadMagnet === "shooting-mechanics"
-                    ? "border-orange-500/40 bg-orange-500/10 hover:bg-orange-500/15"
-                    : "border-zinc-800 bg-zinc-950/40 hover:border-zinc-700 hover:bg-zinc-950"
-                }`}
-              >
-                <Target className={`h-4 w-4 shrink-0 ${activeLeadMagnet === "shooting-mechanics" ? "text-orange-400" : "text-zinc-500"}`} />
-                <span className="min-w-0 flex-1">
-                  <span className={`block text-sm font-bold ${activeLeadMagnet === "shooting-mechanics" ? "text-white" : "text-zinc-300"}`}>Shooting Mechanics</span>
-                  <span className="mt-0.5 block text-xs text-zinc-500">Free diagnostic</span>
-                </span>
-                <ArrowRight className={`h-4 w-4 shrink-0 ${activeLeadMagnet === "shooting-mechanics" ? "text-orange-400" : "text-zinc-600"}`} />
-              </button>
-              <button
-                type="button"
-                aria-current={activeLeadMagnet === "footwork-open-shots" ? "page" : undefined}
-                aria-pressed={activeLeadMagnet === "footwork-open-shots"}
-                onClick={() => selectLeadMagnet("footwork-open-shots")}
-                className={`flex min-w-[240px] flex-1 items-center gap-3 rounded-xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 lg:min-w-0 ${
-                  activeLeadMagnet === "footwork-open-shots"
-                    ? "border-orange-500/40 bg-orange-500/10 hover:bg-orange-500/15"
-                    : "border-zinc-800 bg-zinc-950/40 hover:border-zinc-700 hover:bg-zinc-950"
-                }`}
-              >
-                <Target className={`h-4 w-4 shrink-0 ${activeLeadMagnet === "footwork-open-shots" ? "text-orange-400" : "text-zinc-500"}`} />
-                <span className="min-w-0 flex-1">
-                  <span className={`block text-sm font-bold ${activeLeadMagnet === "footwork-open-shots" ? "text-white" : "text-zinc-300"}`}>
-                    Footwork That Leads to Open Shots
-                  </span>
-                  <span className="mt-0.5 block text-xs text-zinc-500">Free footwork diagnostic</span>
-                </span>
-                <ArrowRight className={`h-4 w-4 shrink-0 ${activeLeadMagnet === "footwork-open-shots" ? "text-orange-400" : "text-zinc-600"}`} />
-              </button>
-              <button
-                type="button"
-                aria-current={activeLeadMagnet === "confidence-reality-check" ? "page" : undefined}
-                aria-pressed={activeLeadMagnet === "confidence-reality-check"}
-                onClick={() => selectLeadMagnet("confidence-reality-check")}
-                className={`flex min-w-[240px] flex-1 items-center gap-3 rounded-xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 lg:min-w-0 ${
-                  activeLeadMagnet === "confidence-reality-check"
-                    ? "border-orange-500/40 bg-orange-500/10 hover:bg-orange-500/15"
-                    : "border-zinc-800 bg-zinc-950/40 hover:border-zinc-700 hover:bg-zinc-950"
-                }`}
-              >
-                <Target className={`h-4 w-4 shrink-0 ${activeLeadMagnet === "confidence-reality-check" ? "text-orange-400" : "text-zinc-500"}`} />
-                <span className="min-w-0 flex-1">
-                  <span className={`block text-sm font-bold ${activeLeadMagnet === "confidence-reality-check" ? "text-white" : "text-zinc-300"}`}>
-                    Confidence Reality Check
-                  </span>
-                  <span className="mt-0.5 block text-xs text-zinc-500">Free confidence diagnostic</span>
-                </span>
-                <ArrowRight className={`h-4 w-4 shrink-0 ${activeLeadMagnet === "confidence-reality-check" ? "text-orange-400" : "text-zinc-600"}`} />
-              </button>
-              <button
-                type="button"
-                aria-current={activeLeadMagnet === "game-speed-shooting" ? "page" : undefined}
-                aria-pressed={activeLeadMagnet === "game-speed-shooting"}
-                onClick={() => selectLeadMagnet("game-speed-shooting")}
-                className={`flex min-w-[240px] flex-1 items-center gap-3 rounded-xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 lg:min-w-0 ${
-                  activeLeadMagnet === "game-speed-shooting"
-                    ? "border-orange-500/40 bg-orange-500/10 hover:bg-orange-500/15"
-                    : "border-zinc-800 bg-zinc-950/40 hover:border-zinc-700 hover:bg-zinc-950"
-                }`}
-              >
-                <Target className={`h-4 w-4 shrink-0 ${activeLeadMagnet === "game-speed-shooting" ? "text-orange-400" : "text-zinc-500"}`} />
-                <span className="min-w-0 flex-1">
-                  <span className={`block text-sm font-bold ${activeLeadMagnet === "game-speed-shooting" ? "text-white" : "text-zinc-300"}`}>
-                    Game-Speed Shooting
-                  </span>
-                  <span className="mt-0.5 block text-xs text-zinc-500">Free 5v5 conversion diagnostic</span>
-                </span>
-                <ArrowRight className={`h-4 w-4 shrink-0 ${activeLeadMagnet === "game-speed-shooting" ? "text-orange-400" : "text-zinc-600"}`} />
-              </button>
-            </nav>
-          </aside>
-
+        <div className="mx-auto max-w-2xl">
           <div className="min-w-0 max-w-2xl">
             <div id="shooting-mechanics" hidden={activeLeadMagnet !== "shooting-mechanics"}>
               <header className="mb-6">
-                <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange-400">Shooting diagnostic</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange-400">Shooting mechanics</p>
                 <h2 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">Find your shooting cue.</h2>
                 <p className="mt-2 max-w-xl text-sm leading-relaxed text-zinc-400">
                   Answer two quick questions to find one clear mechanics cue and the drills to work on next.
@@ -322,7 +332,7 @@ export default function LeadMagnetsPage() {
             {!result ? (
           <section
             className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/70"
-            aria-labelledby="diagnostic-question"
+            aria-labelledby="shooting-question"
             aria-live="polite"
           >
             <div className="border-b border-zinc-800 px-5 py-4 sm:px-6">
@@ -360,7 +370,7 @@ export default function LeadMagnetsPage() {
             <div className="p-5 sm:p-6">
               {!branch ? (
                 <>
-                  <h2 id="diagnostic-question" className="text-xl font-black leading-snug sm:text-2xl">
+                  <h2 id="shooting-question" className="text-xl font-black leading-snug sm:text-2xl">
                     When your shot feels off or inconsistent, what do you notice most?
                   </h2>
                   <p className="mt-2 text-sm text-zinc-500">Choose the one that sounds most like you.</p>
@@ -383,7 +393,7 @@ export default function LeadMagnetsPage() {
                 </>
               ) : secondQuestion ? (
                 <>
-                  <h2 id="diagnostic-question" className="text-xl font-black leading-snug sm:text-2xl">
+                  <h2 id="shooting-question" className="text-xl font-black leading-snug sm:text-2xl">
                     {secondQuestion.question}
                   </h2>
                   <p className="mt-2 text-sm text-zinc-500">Pick the feeling that fits best.</p>
@@ -410,7 +420,7 @@ export default function LeadMagnetsPage() {
         ) : (
           <section
             className="overflow-hidden rounded-2xl border border-orange-500/30 bg-zinc-900/70"
-            aria-labelledby="diagnostic-result"
+            aria-labelledby="shooting-result"
             aria-live="polite"
           >
             <div className="border-b border-zinc-800 bg-gradient-to-r from-orange-500/10 to-transparent px-5 py-4 sm:px-6">
@@ -421,14 +431,14 @@ export default function LeadMagnetsPage() {
                 </p>
                 <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">Result</span>
               </div>
-              <div className="mt-3 h-1 overflow-hidden rounded-full bg-zinc-800" role="progressbar" aria-label="Diagnostic complete" aria-valuemin={0} aria-valuemax={100} aria-valuenow={100}>
+              <div className="mt-3 h-1 overflow-hidden rounded-full bg-zinc-800" role="progressbar" aria-label="Check-in complete" aria-valuemin={0} aria-valuemax={100} aria-valuenow={100}>
                 <div className={`h-full rounded-full bg-orange-500 ${stepProgress.result}`} />
               </div>
             </div>
 
             <div className="p-5 sm:p-6">
               <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">Your shooting cue</p>
-              <h2 id="diagnostic-result" className="mt-2 text-2xl font-black leading-tight text-white sm:text-3xl">
+              <h2 id="shooting-result" className="mt-2 text-2xl font-black leading-tight text-white sm:text-3xl">
                 {result.cue}
               </h2>
 

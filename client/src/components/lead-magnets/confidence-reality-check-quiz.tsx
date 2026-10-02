@@ -88,7 +88,7 @@ export function ConfidenceRealityCheckQuiz() {
   return (
     <div>
       <header className="mb-6">
-        <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange-400">Confidence diagnostic</p>
+        <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange-400">Confidence reality check</p>
         <h2 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">
           Confidence Reality Check
         </h2>
@@ -227,7 +227,7 @@ export function ConfidenceRealityCheckQuiz() {
             <div
               className="mt-3 h-1 overflow-hidden rounded-full bg-zinc-800"
               role="progressbar"
-              aria-label="Diagnostic complete"
+              aria-label="Check-in complete"
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={100}
