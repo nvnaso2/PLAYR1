@@ -14,6 +14,7 @@
 - [Workout builder flow](workout-builder-flow.md) — Start and Create Workout both enter the Drill Library card selector before save or logging-mode choice
 - [PLAYR1 Project goal system](playr1-project-goal-system.md) — player-owned projects are broader than workouts; discovery is free, while ongoing coaching is Pro
 - [Community feed baseline](community-feed-baseline.md) — uniform, multi-item activity feed is the approved rollback baseline before single-activity browsing
+- [Community first-release navigation](community-first-release-navigation.md) — preserve Community code while keeping its entry point in the admin menu, not player tabs
 - [Wouter search routing](wouter-search-routing.md) — pathname and query are separate, and useSearch omits the leading question mark
 - [Business analytics sources](business-analytics-sources.md) — separate Stripe revenue, app subscription state, tracked AI costs, and unavailable platform billing
 - [Activity duration estimates](activity-analytics-duration.md) — report usage time as an event-span estimate; heartbeats improve future precision without rewriting history
