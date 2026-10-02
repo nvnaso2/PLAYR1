@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ProfileSummaryCard } from "@/components/profile/profile-summary-card";
 import { apiRequest, getObjectUrl, nativeFetch } from "@/lib/queryClient";
 import {
-  BarChart3, BookMarked, Check, ChevronRight, UserCircle, Settings, Crown, MessageCircle, Play, Radar,
+  BarChart3, BookMarked, Check, ChevronRight, UserCircle, Crown, MessageCircle, Play, Radar,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -136,19 +136,6 @@ export default function ProfileHubPage() {
 
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6 pb-6">
-      <header className="flex items-center justify-between">
-        <h1 className="text-lg font-bold">Profile</h1>
-        <button
-          type="button"
-          onClick={() => navigate("/settings")}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/60 text-zinc-400 transition hover:border-zinc-700 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
-          aria-label="Settings"
-          data-testid="card-profile-settings"
-        >
-          <Settings className="h-4 w-4" />
-        </button>
-      </header>
-
       <ProfileSummaryCard
         user={user}
         userProfile={profile}
@@ -156,6 +143,8 @@ export default function ProfileHubPage() {
         career={career}
         careerStats={careerStats}
         isLoading={isLoading || playerProfileLoading || careerLoading || careerStatsLoading}
+        onEditProfile={() => navigate("/profile")}
+        onSettings={() => navigate("/settings")}
       />
 
       {subscriptionLoading ? (

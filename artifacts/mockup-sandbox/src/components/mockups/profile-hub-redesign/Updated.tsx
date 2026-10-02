@@ -1,5 +1,5 @@
 import "./_group.css";
-import { BarChart3, Check, ChevronRight, Crown, MapPin, Settings, UserCircle } from "lucide-react";
+import { BarChart3, Check, ChevronRight, Crown, MapPin, Settings, Settings2, UserCircle } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -108,56 +108,59 @@ export function Updated() {
   return (
     <div className="dark min-h-screen bg-zinc-950 px-4 py-5 text-white sm:px-6">
       <main className="mx-auto max-w-2xl space-y-6">
-        <header className="flex items-center justify-between">
+        <header className="flex items-center justify-between gap-2">
           <h1 className="text-lg font-bold">Profile</h1>
-          <button className="flex h-9 w-9 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/60 text-zinc-400" aria-label="Settings">
-            <Settings className="h-4 w-4" />
-          </button>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <Button size="sm" className="h-9 bg-orange-500 px-3 text-xs font-bold text-zinc-950 hover:bg-orange-400">Edit Profile</Button>
+            <Button variant="ghost" size="sm" className="h-9 gap-1 px-2 text-xs text-zinc-300 sm:gap-1.5 sm:px-2.5">
+              <Settings2 className="h-3.5 w-3.5 shrink-0" />Choose stats
+            </Button>
+            <button className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/60 text-zinc-400" aria-label="Settings">
+              <Settings className="h-4 w-4" />
+            </button>
+          </div>
         </header>
         <Card className="overflow-hidden border-zinc-800/60 bg-zinc-900/40">
-          <CardContent className="p-5">
-            <div className="flex items-start gap-4">
-              <Avatar className="h-20 w-20 shrink-0 border-2 border-orange-400/40 ring-2 ring-zinc-950">
+          <CardContent className="p-4 sm:p-5">
+            <div className="grid grid-cols-[64px_minmax(0,1fr)] gap-3 sm:grid-cols-[80px_minmax(0,1fr)] sm:gap-4">
+              <Avatar className="h-16 w-16 shrink-0 border-2 border-orange-500 ring-2 ring-orange-500/80 shadow-[0_0_16px_rgba(249,115,22,0.38)] sm:h-20 sm:w-20">
                 <AvatarImage src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=160&q=80" alt="Jordan Parker profile photo" />
                 <AvatarFallback className="bg-orange-500/20 text-lg font-bold text-orange-300">JP</AvatarFallback>
               </Avatar>
-              <div className="min-w-0 flex-1 pt-1">
-                <h2 className="truncate text-lg font-bold leading-tight text-white">Jordan Parker</h2>
-                <p className="mt-1 flex items-center gap-1 text-xs text-zinc-400">
-                  <MapPin className="h-3.5 w-3.5 shrink-0 text-orange-400" />
-                  <span>Atlanta, GA</span>
-                </p>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  <Badge variant="outline" className="border-zinc-700 bg-zinc-950/70 text-xs text-zinc-200">Jersey #11</Badge>
-                  <Badge variant="outline" className="border-zinc-700 bg-zinc-950/70 text-xs text-zinc-200">PG · SG</Badge>
+              <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(105px,0.72fr)] items-start gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(190px,0.68fr)] sm:gap-4">
+                <div className="min-w-0 pt-1">
+                  <h2 className="truncate text-lg font-bold leading-tight text-white">Jordan Parker</h2>
+                  <p className="mt-1 flex items-center gap-1 text-xs text-zinc-400">
+                    <MapPin className="h-3.5 w-3.5 shrink-0 text-orange-400" />
+                    <span className="truncate">Atlanta, GA</span>
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    <Badge variant="outline" className="border-zinc-700 bg-zinc-950/70 text-[10px] text-zinc-200 sm:text-xs">Jersey #11</Badge>
+                    <Badge variant="outline" className="border-zinc-700 bg-zinc-950/70 text-[10px] text-zinc-200 sm:text-xs">PG · SG</Badge>
+                  </div>
+                  <div className="mt-3 space-y-1.5">
+                    <p className="text-xs font-semibold leading-snug text-zinc-100 sm:text-sm">Crafting winning plays, one rep at a time.</p>
+                    <p className="line-clamp-3 text-xs leading-relaxed text-zinc-400 sm:text-sm">
+                      I love creating shots for my teammates and bringing energy on both ends of the court.
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </div>
-            <div className="mt-4 space-y-1.5">
-              <p className="text-sm font-semibold leading-snug text-zinc-100">Crafting winning plays, one rep at a time.</p>
-              <p className="line-clamp-3 text-sm leading-relaxed text-zinc-400">
-                I love creating shots for my teammates and bringing energy on both ends of the court.
-              </p>
-            </div>
-            <div className="mt-4 border-t border-zinc-800/80 pt-3">
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-500">Player stats</p>
-                <Button variant="ghost" size="sm" className="h-8 gap-1.5 px-2 text-xs text-zinc-400">
-                  <Settings className="h-3.5 w-3.5" />Choose stats
-                </Button>
-              </div>
-              <div className="grid grid-cols-3 overflow-hidden rounded-xl border border-zinc-800 bg-black/25">
-                <div className="px-2 py-2.5 text-center">
-                  <p className="text-base font-black leading-tight text-white">18.6</p>
-                  <p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-zinc-500">PPG</p>
-                </div>
-                <div className="border-l border-zinc-800 px-2 py-2.5 text-center">
-                  <p className="text-base font-black leading-tight text-white">6′2″</p>
-                  <p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-zinc-500">Height</p>
-                </div>
-                <div className="border-l border-zinc-800 px-2 py-2.5 text-center">
-                  <p className="text-base font-black leading-tight text-white">185 lb</p>
-                  <p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-zinc-500">Weight</p>
+                <div className="min-w-0 pt-1">
+                  <p className="mb-2 text-[9px] font-bold uppercase tracking-[0.14em] text-zinc-500 sm:text-[10px] sm:tracking-[0.16em]">Player stats</p>
+                  <div className="grid grid-cols-3 overflow-hidden rounded-xl border border-zinc-800 bg-black/25">
+                    <div className="px-1 py-2 text-center sm:px-2 sm:py-2.5">
+                      <p className="truncate text-xs font-black leading-tight text-white sm:text-base">18.6</p>
+                      <p className="mt-1 truncate text-[8px] font-bold uppercase tracking-wider text-zinc-500 sm:text-[9px]">PPG</p>
+                    </div>
+                    <div className="border-l border-zinc-800 px-1 py-2 text-center sm:px-2 sm:py-2.5">
+                      <p className="truncate text-xs font-black leading-tight text-white sm:text-base">6′2″</p>
+                      <p className="mt-1 truncate text-[8px] font-bold uppercase tracking-wider text-zinc-500 sm:text-[9px]">Height</p>
+                    </div>
+                    <div className="border-l border-zinc-800 px-1 py-2 text-center sm:px-2 sm:py-2.5">
+                      <p className="truncate text-xs font-black leading-tight text-white sm:text-base">185 lb</p>
+                      <p className="mt-1 truncate text-[8px] font-bold uppercase tracking-wider text-zinc-500 sm:text-[9px]">Weight</p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
