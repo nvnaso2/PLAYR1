@@ -8,7 +8,7 @@
 - [Journal Coach P entitlement](journal-coach-entitlement.md) — Journal coaching is a separate Pro entitlement and never spends the standalone free allowance
 - [Onboarding copy and scoring maps](onboarding-copy-score-maps.md) — visible answer text is also used as client-side scoring keys
 - [Coach P conversation memory](coach-p-conversation-memory.md) — persist full chats, send a rolling summary plus recent messages, and keep request cost records separate from content
-- [Coach P navigation](coach-p-navigation.md) — Coach P is a top-level menu destination, with Hub launch access and an internal saved-chat drawer
+- [Coach P navigation](coach-p-navigation.md) — keep Coach P on the bottom tab and Hub, not the sidebar menu; saved chats remain in its internal drawer
 - [Subscription entitlement boundary](subscription-entitlement-boundary.md) — effective plan and Stripe status are read from the users table, while Pro Infinity bypasses Stripe activity
 - [Training streak activity](training-streak-activity.md) — any saved workout advances the streak once per server day; daily challenge completion remains drill-specific
 - [Workout builder flow](workout-builder-flow.md) — Start and Create Workout both enter the Drill Library card selector before save or logging-mode choice

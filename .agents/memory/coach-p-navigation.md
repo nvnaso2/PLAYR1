@@ -3,8 +3,8 @@ name: Coach P navigation
 description: Permanent Coach P placement and conversation-history interaction model
 ---
 
-Coach P has one canonical dedicated page. It is linked from the authenticated player menu and from Hub, while saved conversations live inside a toggleable Coach P chat drawer rather than in the Hub layout.
+Coach P has one canonical dedicated page. It is available from the player bottom tab and Hub, but not from the sidebar menu. Saved conversations live inside a toggleable Coach P chat drawer rather than in the Hub layout.
 
-**Why:** Hub is a launchpad and dashboard, while long-running AI conversations need a focused workspace with familiar chat-history controls.
+**Why:** The user wants a focused first-version navigation and chose Coach P as a bottom-tab destination instead of a sidebar menu item.
 
-**How to apply:** Keep contextual actions in Train, Compete, Profile, or Journal routed into the same Coach P page instead of creating separate assistant experiences.
+**How to apply:** Keep the Coach P page, Hub entry, and bottom tab pointing to the same experience. Do not add Coach P back to the sidebar menu unless the user changes this decision. Keep saved-chat controls inside Coach P.
