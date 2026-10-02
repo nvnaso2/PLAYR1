@@ -6,153 +6,179 @@ id = "aETHZwhTxyQHaphDQO7sX"
 uri = "file://public_build.tar.gz"
 type = "unspecified"
 title = "PLAYR1 Web Build (public_build.tar.gz)"
+logical_id = "a6c1aa11-17bf-413d-a611-56527ad2b3df"
 
 [[outputs]]
 id = "p0hDuZCQmFBOcWZpL6DBI"
 uri = "file://PLAYR1_iOS.zip"
 type = "unspecified"
 title = "PLAYR1 iOS Project"
+logical_id = "ac27889e-7edf-4eb9-857e-eabcd6101ad7"
 
 [[outputs]]
 id = "dy6BHWr1V7U-F35ISlLgG"
 uri = "file://PLAYR1_iOS.tar.gz"
 type = "unspecified"
 title = "PLAYR1 iOS Project"
+logical_id = "74802b0d-caa9-4b79-af59-fa01a94feebf"
 
 [[outputs]]
 id = "HghpazVEzWuwE95IPD50S"
 uri = "file://PLAYR1_public.tar.gz"
 type = "unspecified"
 title = "PLAYR1 iOS public folder — prior working version (Mar 25)"
+logical_id = "6f131964-1922-4844-a2cc-60a36c90fcb4"
 
 [[outputs]]
 id = "a_gvO8dRS1oF3dxM6rQqP"
 uri = "file://playr1-public-bundle.tar.gz"
 type = "unspecified"
 title = "PLAYR1 iOS Public Bundle"
+logical_id = "6a5b0117-1f66-4e86-8717-161a4f7bceec"
 
 [[outputs]]
 id = "1x9ItTLi-GyZH85HCLxxv"
 uri = "file://playr1-ios-public.tar.gz"
 type = "unspecified"
 title = "PLAYR1 iOS public folder (fixed — includes cordova runtime)"
+logical_id = "e91a11e2-eafb-4130-a7c6-fe5ca7e24a30"
 
 [[outputs]]
 id = "DmGTpk4uCM30Ig-kKPitH"
 uri = "file://playr1-ios-bundle.tar.gz"
 type = "unspecified"
 title = "PLAYR1 iOS Bundle (updated)"
+logical_id = "cb95d7e4-4eeb-4049-9509-2b05018ad10c"
 
 [[outputs]]
 id = "iLRE8j6clrI73oho3gH40"
 uri = "file://PLAYR1_App_Overview.md"
 type = "text"
 title = "PLAYR1 Full App Overview — Every Screen, UI & Function"
+logical_id = "eb5a9df3-5407-4c46-a360-ac25253f4847"
 
 [[outputs]]
 id = "QsTzbTg65MpfE9xW_fmPN"
 uri = "file://PLAYR1_Schema.txt"
 type = "text"
 title = "PLAYR1 Database Schema — All Data Models (Code)"
+logical_id = "bafcdc1a-ece6-49c3-bc2b-8092bee3e541"
 
 [[outputs]]
 id = "0vQ1gABzVvBdW1uYX7AsU"
 uri = "file://docs/REQUIREMENTS.md"
 type = "text"
 title = "PLAYR1 Requirements Document"
+logical_id = "0fa97812-3a31-48a8-a731-93b4481444de"
 
 [[outputs]]
 id = "oKz1mjiW1dZDUBSaSziU6"
 uri = "file://playr1-ios-update.zip"
 type = "unspecified"
 title = "PLAYR1 iOS Update Package"
+logical_id = "6d1ccb2e-96d7-4b68-bf38-d5dddb922bbb"
 
 [[outputs]]
 id = "yvOTdxGgEqt3ZnxqJHr12"
 uri = "file://playr1-config-fix.zip"
 type = "unspecified"
 title = "capacitor.config.json (iosScheme restored)"
+logical_id = "03f73659-c5aa-43de-941f-8509d05ad9c0"
 
 [[outputs]]
 id = "wmk2e0MkGT5drInQFF4yr"
 uri = "file://playr1-ios-original.zip"
 type = "unspecified"
 title = "PLAYR1 iOS — Original Working Config"
+logical_id = "f2fc54f9-236c-4546-bd5f-acb6ac7f9b18"
 
 [[outputs]]
 id = "SydZUVoFAancGQRnnwCNd"
 uri = "file://playr1-public.zip"
 type = "unspecified"
 title = "PLAYR1 public/ folder"
+logical_id = "95f9d277-6336-4a96-b31d-55e7088899b6"
 
 [[outputs]]
 id = "c5j9Pi4bvjJE1O1W1AOw3"
 uri = "file://playr1-ios-source.zip"
 type = "unspecified"
 title = "PLAYR1 iOS Source Files (AppDelegate + Config)"
+logical_id = "c3b32f9e-bdb4-4a2f-842f-838b5b708c96"
 
 [[outputs]]
 id = "fLeoYjlkkdqyc0lwFeH4O"
 uri = "file://playr1-local-bundle.zip"
 type = "unspecified"
 title = "PLAYR1 iOS - Local Bundle (Final Clean Setup)"
+logical_id = "adff54e1-6922-4cc9-b619-aac1a020ed6e"
 
 [[outputs]]
 id = "MPPyZhlV4-gFvnxIEGdLt"
 uri = "file://playr1-final-fix.zip"
 type = "unspecified"
 title = "PLAYR1 Final Fix — Safari Redirect Resolved"
+logical_id = "86236261-0765-42b6-83ac-20607774d0fc"
 
 [[outputs]]
 id = "YE4NYAgzy65me4PnZZH6s"
 uri = "file://playr1-viewcontroller-fix.zip"
 type = "unspecified"
 title = "PLAYR1 ViewController Fix — Permanent Code-Level Safari Block"
+logical_id = "83b426e0-3763-4669-b0c1-9d18cdf02e83"
 
 [[outputs]]
 id = "WXUSKN7sLJazQEy1x_Yz3"
 uri = "file://playr1-appdelegate-fix.zip"
 type = "unspecified"
 title = "PLAYR1 Fix — AppDelegate with ViewController (no new files needed)"
+logical_id = "bc3b130d-008c-40ba-8aeb-ea39ff0274fc"
 
 [[outputs]]
 id = "GbXUGFgP6OwpLJfaUwsCi"
 uri = "file://playr1-programmatic-fix.zip"
 type = "unspecified"
 title = "PLAYR1 Programmatic Fix — No Storyboard Class Issues"
+logical_id = "2d035cfd-0edc-449c-9842-f4f70c24c7c4"
 
 [[outputs]]
 id = "gHg5YE3XZIltHIo8-Vnsc"
 uri = "file://playr1-complete-fix.zip"
 type = "unspecified"
 title = "PLAYR1 Complete Fix — ALL Files Included"
+logical_id = "910d4a0a-c36f-4fdf-9ca2-b0002973b213"
 
 [[outputs]]
 id = "mMYFtCwTqUh8HHsnUa2nE"
 uri = "file://playr1-revert-fix.zip"
 type = "unspecified"
 title = "PLAYR1 Reverted — Correct Safari Fix Only"
+logical_id = "ae02af0a-dc21-4532-8ce9-8a1dc775d9e1"
 
 [[outputs]]
 id = "SUk0ScC49v0vz0Ck_hCGa"
 uri = "file://playr1-config-only.zip"
 type = "unspecified"
 title = "PLAYR1 — Config Fix Only (1 file)"
+logical_id = "f4019d07-b855-418b-bec8-7d0cec38ce61"
 
 [[outputs]]
 id = "ymw2QIqaf5H0Df4GjU51i"
 uri = "file://playr1-ios-fix.zip"
 type = "unspecified"
 title = "PLAYR1 iOS Fix Package"
+logical_id = "5b1b33d5-be2f-4afe-9a3b-687448b98a10"
 
 [[outputs]]
 id = "6Bw0Sf3fwv9jQnEGf4xZO"
 uri = "file://playr1-launch-fix.zip"
 type = "unspecified"
 title = "PLAYR1 Launch Screen Fix"
+logical_id = "7170c22f-c5ec-434d-821a-fb4b558647d4"
 
 [[outputs]]
 id = "p3c7_IyNAZnl23tBfNeru"
 uri = "file://playr1-ios-bundle.zip"
 type = "unspecified"
 title = "PLAYR1 iOS Bundle — Frame Fix"
+logical_id = "b342e974-e1ba-4b2e-a743-2f1655c2d184"
