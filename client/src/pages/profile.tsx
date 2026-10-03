@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ShareMenu } from "@/components/share-menu";
 import { useProUpgrade } from "@/components/pro-upgrade-dialog";
 import { queryClient } from "@/lib/queryClient";
-import { BaseballCard } from "@/pages/career";
+import { BaseballCard, StatsTab } from "@/pages/career";
 import { PlayerProfileSection } from "@/pages/player-profile";
 import { Link } from "wouter";
 
@@ -47,7 +47,6 @@ export default function ProfilePage() {
   const slug =
     playerProfile?.slug ||
     `${displayName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "player"}${user?.id ? `-${user.id.slice(-5)}` : ""}`;
-  const totalGames = Number(careerStats?.totalGames || 0);
   const unlockedAchievements = (achievements ?? [])
     .map((entry) => entry?.achievement ?? entry)
     .filter((entry) => entry && (entry.name || entry.title));
@@ -95,15 +94,17 @@ export default function ProfilePage() {
     <main className="mx-auto min-h-screen max-w-2xl px-4 pb-24 pt-5">
       <header className="mb-5 flex flex-wrap items-center justify-between gap-x-5 gap-y-3">
         <div className="flex items-start gap-3">
-          <button
-            type="button"
-            onClick={() => editing ? returnToCard() : window.history.back()}
-            className="mt-1 rounded-lg p-1.5 text-zinc-500 transition-colors hover:bg-zinc-900 hover:text-zinc-200"
-            aria-label={editing ? "Return to player card" : "Go back"}
-            data-testid="button-back"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
+          {!editing && (
+            <button
+              type="button"
+              onClick={() => window.history.back()}
+              className="mt-1 rounded-lg p-1.5 text-zinc-500 transition-colors hover:bg-zinc-900 hover:text-zinc-200"
+              aria-label="Go back"
+              data-testid="button-back"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+          )}
           <div>
             <h1 className="text-2xl font-black tracking-tight sm:text-3xl" data-testid="text-page-title">My Profile</h1>
           </div>
@@ -152,7 +153,6 @@ export default function ProfilePage() {
         <PlayerProfileSection
           concise
           onCancel={returnToCard}
-          onSaved={returnToCard}
         />
       ) : (
         <section className="flex flex-col items-center gap-5">
@@ -174,49 +174,8 @@ export default function ProfilePage() {
           />
 
           <section aria-labelledby="profile-stats-heading" className="w-full max-w-xl space-y-3" data-testid="section-profile-career-stats">
-            <div className="flex items-end justify-between gap-3">
-              <div>
-                <h2 id="profile-stats-heading" className="mt-1 text-lg font-black tracking-tight text-zinc-100">Career stats</h2>
-              </div>
-              <span className="rounded-full border border-white/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
-                {totalGames} games logged
-              </span>
-            </div>
-            <div className="overflow-hidden rounded-xl border border-white/[0.08] bg-[#141414]">
-              <div className="grid grid-cols-3 gap-y-4 px-4 py-4 sm:grid-cols-6">
-                {[
-                  ["Points", careerStats?.avgPoints],
-                  ["Rebounds", careerStats?.avgRebounds],
-                  ["Assists", careerStats?.avgAssists],
-                  ["Steals", careerStats?.avgSteals],
-                  ["Blocks", careerStats?.avgBlocks],
-                ].map(([label, value], index) => (
-                  <div key={String(label)} className="text-center">
-                    <p className={`text-lg font-black tabular-nums ${index === 0 ? "text-orange-300" : "text-zinc-100"}`}>
-                      {totalGames > 0 && Number.isFinite(Number(value)) ? Number(value).toFixed(1) : "—"}
-                    </p>
-                    <p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-zinc-600">{label}</p>
-                  </div>
-                ))}
-                <div className="text-center">
-                  <p className="text-lg font-black tabular-nums text-zinc-100">
-                    {totalGames > 0 ? `${Number(careerStats?.wins || 0)}–${Number(careerStats?.losses || 0)}` : "—"}
-                  </p>
-                  <p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-zinc-600">Record</p>
-                </div>
-              </div>
-              <details className="group border-t border-white/[0.07] bg-black/20">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-xs font-semibold text-zinc-400 transition hover:text-zinc-200 [&::-webkit-details-marker]:hidden">
-                  Season &amp; game management
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-600">Import · Share · Edit</span>
-                </summary>
-                <div className="border-t border-white/[0.07] px-4 py-3">
-                  <Link href="/profile-hub" className="text-xs font-semibold text-orange-300 hover:text-orange-200">
-                    Open season and game management
-                  </Link>
-                </div>
-              </details>
-            </div>
+            <h2 id="profile-stats-heading" className="mt-1 text-lg font-black tracking-tight text-zinc-100">Career &amp; Season Stats</h2>
+            <StatsTab />
           </section>
 
           <section aria-labelledby="profile-trophies-heading" className="w-full max-w-xl space-y-3" data-testid="section-profile-trophy-room">

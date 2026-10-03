@@ -364,7 +364,6 @@ export function PlayerProfileSection({
         description: "Your player profile has been updated.",
       });
       if (concise) {
-        setWizardStep(0);
         onSaved?.();
       }
     },
@@ -545,7 +544,29 @@ export function PlayerProfileSection({
       )}
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className={concise ? "space-y-3" : "space-y-6"}>
+        <form
+          onSubmit={(event) => {
+            if (concise) {
+              const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLElement | null;
+              if (
+                wizardStep !== conciseProfileSteps.length - 1 ||
+                submitter?.dataset.testid !== "button-save-profile"
+              ) {
+                event.preventDefault();
+                return;
+              }
+            }
+            void form.handleSubmit(onSubmit)(event);
+          }}
+          onKeyDown={(event) => {
+            if (!concise || event.key !== "Enter") return;
+            const target = event.target as HTMLElement;
+            const isMultilineOrSelect = target.tagName === "TEXTAREA" || target.getAttribute("role") === "combobox";
+            const isSaveButton = target.closest("button")?.dataset.testid === "button-save-profile";
+            if (!isMultilineOrSelect && !isSaveButton) event.preventDefault();
+          }}
+          className={concise ? "space-y-3" : "space-y-6"}
+        >
           {!concise && <Card>
             <CardHeader>
               <CardTitle className="text-lg">Profile URL</CardTitle>
@@ -1379,16 +1400,30 @@ export function PlayerProfileSection({
 
           {concise ? (
             <div className="flex items-center justify-between gap-3 pt-1">
-              <Button
-                type="button"
-                variant="outline"
-                className="border-zinc-700 bg-zinc-950 text-zinc-300 hover:bg-zinc-800"
-                onClick={() => wizardStep > 0 ? setWizardStep(wizardStep - 1) : onCancel?.()}
-                disabled={saveMutation.isPending}
-                data-testid="button-profile-step-back"
-              >
-                {wizardStep === 0 ? "Back to card" : "Back"}
-              </Button>
+              <div className="flex items-center gap-2">
+                {wizardStep > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="border-zinc-700 bg-zinc-950 text-zinc-300 hover:bg-zinc-800"
+                    onClick={() => setWizardStep(wizardStep - 1)}
+                    disabled={saveMutation.isPending}
+                    data-testid="button-profile-step-back"
+                  >
+                    Back
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="border-zinc-700 bg-zinc-950 text-zinc-300 hover:bg-zinc-800"
+                  onClick={onCancel}
+                  disabled={saveMutation.isPending}
+                  data-testid="button-exit-profile-editor"
+                >
+                  Exit
+                </Button>
+              </div>
               <Button
                 type={wizardStep === conciseProfileSteps.length - 1 ? "submit" : "button"}
                 onClick={wizardStep < conciseProfileSteps.length - 1 ? () => setWizardStep(wizardStep + 1) : undefined}
@@ -1397,7 +1432,7 @@ export function PlayerProfileSection({
                 data-testid={wizardStep === conciseProfileSteps.length - 1 ? "button-save-profile" : "button-profile-step-next"}
               >
                 {wizardStep === conciseProfileSteps.length - 1 ? (
-                  <><Save className="mr-1 h-4 w-4" />{saveMutation.isPending ? "Saving..." : "Save & return to card"}</>
+                  <><Save className="mr-1 h-4 w-4" />{saveMutation.isPending ? "Saving..." : "Save"}</>
                 ) : "Next"}
               </Button>
             </div>

@@ -166,7 +166,23 @@ export default function TrainingLogPage() {
     return new URLSearchParams(searchParams).get('create') === '1';
   });
   const [isSaveWorkoutOpen, setIsSaveWorkoutOpen] = useState(false);
-  const [savedWorkoutsExpanded, setSavedWorkoutsExpanded] = useState(true);
+  const [savedWorkoutsExpanded, setSavedWorkoutsExpanded] = useState(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      const saved = window.localStorage.getItem("playr1-training-log-saved-workouts-expanded");
+      return saved === null ? true : saved === "true";
+    } catch {
+      return true;
+    }
+  });
+  const persistSavedWorkoutsExpanded = (expanded: boolean) => {
+    setSavedWorkoutsExpanded(expanded);
+    try {
+      window.localStorage.setItem("playr1-training-log-saved-workouts-expanded", String(expanded));
+    } catch {
+      // Keep the control usable when browser storage is unavailable.
+    }
+  };
   const [isAddDrillToWorkoutOpen, setIsAddDrillToWorkoutOpen] = useState(false);
   const [isStartWorkoutDialogOpen, setIsStartWorkoutDialogOpen] = useState(false);
   const [drillSearchQuery, setDrillSearchQuery] = useState("");
@@ -2178,7 +2194,7 @@ export default function TrainingLogPage() {
               </button>
 
               <section data-testid="section-saved-workouts">
-                <Collapsible open={savedWorkoutsExpanded} onOpenChange={setSavedWorkoutsExpanded}>
+                <Collapsible open={savedWorkoutsExpanded} onOpenChange={persistSavedWorkoutsExpanded}>
                   <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                     <CollapsibleTrigger asChild>
                       <button

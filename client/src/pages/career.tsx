@@ -2924,7 +2924,6 @@ function StatsOverviewCard({
 export function StatsTab() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const [selectedSeasonId, setSelectedSeasonId] = useState<string | null>(null);
   const [statsScope, setStatsScope] = useState<"career" | "season">("career");
   const [statsSeasonId, setStatsSeasonId] = useState<string>("");
   const [showSeasonDialog, setShowSeasonDialog] = useState(false);
@@ -2934,8 +2933,6 @@ export function StatsTab() {
   const [shareGameId, setShareGameId] = useState<string | null>(null);
   const [shareSeasonId, setShareSeasonId] = useState<string | null>(null);
   const [showSeasonShareDialog, setShowSeasonShareDialog] = useState(false);
-  const [expandedSeasons, setExpandedSeasons] = useState<Set<string>>(new Set());
-  const [initialExpandDone, setInitialExpandDone] = useState(false);
   const [showCsvImport, setShowCsvImport] = useState(false);
   const [postJournalGameId, setPostJournalGameId] = useState<string | null>(null);
 
@@ -2943,25 +2940,10 @@ export function StatsTab() {
     queryKey: ['/api/seasons']
   });
 
-  useEffect(() => {
-    if (!initialExpandDone && seasons.length > 0) {
-      const activeIds = seasons.filter(s => s.isActive !== false).map(s => s.id);
-      if (activeIds.length > 0) {
-        setExpandedSeasons(new Set(activeIds));
-        setSelectedSeasonId(activeIds[0]);
-      }
-      setInitialExpandDone(true);
-    }
-  }, [seasons, initialExpandDone]);
-
   const { data: careerStats } = useQuery<CareerStats>({
     queryKey: ['/api/stats/career']
   });
 
-  const { data: seasonGames, isLoading: seasonGamesLoading } = useQuery<Game[]>({
-    queryKey: [`/api/seasons/${selectedSeasonId}/games`],
-    enabled: !!selectedSeasonId
-  });
   const { data: statsSeasonGames, isLoading: statsSeasonGamesLoading } = useQuery<Game[]>({
     queryKey: [`/api/seasons/${statsSeasonId}/games`],
     enabled: statsScope === "season" && !!statsSeasonId
@@ -2971,7 +2953,6 @@ export function StatsTab() {
     if (statsScope !== "season" || statsSeasonId || seasonsLoading || seasons.length === 0) return;
     const season = seasons.find((entry) => entry.isActive !== false) ?? seasons[0];
     setStatsSeasonId(season.id);
-    setSelectedSeasonId(season.id);
   }, [statsScope, statsSeasonId, seasons, seasonsLoading]);
 
   const seasonForm = useForm<SeasonFormData>({
@@ -3048,9 +3029,6 @@ export function StatsTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/seasons'] });
       queryClient.invalidateQueries({ queryKey: ['/api/stats/career'] });
-      if (selectedSeasonId === deleteSeasonMutation.variables) {
-        setSelectedSeasonId(null);
-      }
       if (statsSeasonId === deleteSeasonMutation.variables) {
         setStatsSeasonId("");
         setStatsScope("career");
@@ -3075,7 +3053,7 @@ export function StatsTab() {
       return apiRequest("POST", `/api/seasons/${seasonId}/games`, gameData);
     },
     onSuccess: async (response) => {
-      queryClient.invalidateQueries({ queryKey: [`/api/seasons/${selectedSeasonId}/games`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/seasons/${statsSeasonId}/games`] });
       queryClient.invalidateQueries({ queryKey: ['/api/stats/career'] });
       setShowGameDialog(false);
       setEditingGame(null);
@@ -3091,7 +3069,7 @@ export function StatsTab() {
       return apiRequest("PUT", `/api/games/${id}`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/seasons/${selectedSeasonId}/games`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/seasons/${statsSeasonId}/games`] });
       queryClient.invalidateQueries({ queryKey: ['/api/stats/career'] });
       setShowGameDialog(false);
       setEditingGame(null);
@@ -3105,7 +3083,7 @@ export function StatsTab() {
       return apiRequest("DELETE", `/api/games/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/seasons/${selectedSeasonId}/games`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/seasons/${statsSeasonId}/games`] });
       queryClient.invalidateQueries({ queryKey: ['/api/stats/career'] });
       toast({ title: "Game deleted" });
     }
@@ -3147,11 +3125,11 @@ export function StatsTab() {
   };
 
   const handleCreateGame = (data: GameFormData) => {
-    if (!selectedSeasonId) return;
+    if (!statsSeasonId) return;
     if (editingGame) {
       updateGameMutation.mutate({ id: editingGame.id, data });
     } else {
-      createGameMutation.mutate({ ...data, seasonId: selectedSeasonId });
+      createGameMutation.mutate({ ...data, seasonId: statsSeasonId });
     }
   };
 
@@ -3190,17 +3168,6 @@ export function StatsTab() {
     setShowGameDialog(true);
   };
 
-  const toggleSeasonExpand = (seasonId: string) => {
-    const newExpanded = new Set(expandedSeasons);
-    if (newExpanded.has(seasonId)) {
-      newExpanded.delete(seasonId);
-    } else {
-      newExpanded.add(seasonId);
-    }
-    setExpandedSeasons(newExpanded);
-    setSelectedSeasonId(seasonId);
-  };
-
   if (seasonsLoading) {
     return (
       <div className="space-y-6">
@@ -3237,30 +3204,23 @@ export function StatsTab() {
             const season = seasons.find((entry) => entry.isActive !== false) ?? seasons[0];
             if (season) {
               setStatsSeasonId(season.id);
-              setSelectedSeasonId(season.id);
             }
           }
         }}
         onSeasonChange={(seasonId) => {
           setStatsSeasonId(seasonId);
-          setSelectedSeasonId(seasonId);
         }}
         seasonGames={statsSeasonGames}
         seasonGamesLoading={statsSeasonGamesLoading}
         onCreateSeason={() => openSeasonDialog()}
         onLogGame={() => {
           if (!statsSeasonId) return;
-          setSelectedSeasonId(statsSeasonId);
           openGameDialog();
         }}
         onShareGame={setShareGameId}
-        onEditGame={(game) => {
-          if (statsSeasonId) setSelectedSeasonId(statsSeasonId);
-          openGameDialog(game);
-        }}
+        onEditGame={(game) => openGameDialog(game)}
         onDeleteGame={(gameId) => {
           if (confirm('Delete this game?')) {
-            if (statsSeasonId) setSelectedSeasonId(statsSeasonId);
             deleteGameMutation.mutate(gameId);
           }
         }}
@@ -3423,253 +3383,112 @@ export function StatsTab() {
           </Dialog>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
+          <p className="text-xs leading-relaxed text-zinc-500">
+            Update season details and status here. Season stats and game logs stay in the Career/Season view above.
+          </p>
           {seasons.length === 0 ? (
-            <div className="text-center p-8">
-              <Calendar className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-              <p className="text-muted-foreground">No seasons yet. Create your first season to start tracking game stats!</p>
+            <div className="rounded-lg border border-dashed border-white/[0.08] px-4 py-6 text-center">
+              <Calendar className="mx-auto mb-2 h-8 w-8 text-zinc-700" />
+              <p className="text-sm font-semibold text-zinc-300">No seasons yet</p>
+              <p className="mt-1 text-xs text-zinc-500">Create a season to start tracking game stats.</p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {[...seasons].sort((a, b) => (a.isActive === false ? 1 : 0) - (b.isActive === false ? 1 : 0)).map((season) => {
-                const isExpanded = expandedSeasons.has(season.id);
-                const seasonStats = careerStats?.seasonBreakdown.find(s => s.seasonId === season.id);
-                const isActive = season.isActive !== false;
-                
-                return (
-                  <div key={season.id} className={`border rounded-lg ${!isActive ? "opacity-70" : ""}`} data-testid={`season-item-${season.id}`}>
-                    <div className="p-4 hover-elevate">
-                      <div className="flex items-center justify-between gap-2">
+            <div className="space-y-2">
+              {[...seasons]
+                .sort((a, b) => (a.isActive === false ? 1 : 0) - (b.isActive === false ? 1 : 0))
+                .map((season) => {
+                  const isActive = season.isActive !== false;
+                  return (
+                    <article
+                      key={season.id}
+                      className={`flex flex-col gap-3 rounded-lg border border-white/[0.07] bg-black/15 p-3 sm:flex-row sm:items-center sm:justify-between ${!isActive ? "opacity-75" : ""}`}
+                      data-testid={`season-item-${season.id}`}
+                    >
+                      <div className="min-w-0">
                         <button
                           type="button"
-                          className="flex min-w-0 flex-1 items-center gap-2 rounded text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
-                          onClick={() => toggleSeasonExpand(season.id)}
-                          aria-expanded={isExpanded}
-                          aria-label={`${isExpanded ? "Collapse" : "Expand"} ${season.name}`}
+                          className="truncate text-left text-sm font-bold text-zinc-100 transition hover:text-orange-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                          onClick={() => {
+                            setStatsSeasonId(season.id);
+                            setStatsScope("season");
+                          }}
+                          aria-label={`View ${season.name} stats`}
                         >
-                          <span className="truncate font-medium">{season.name}</span>
-                          {isExpanded ? <ChevronUp className="h-4 w-4 shrink-0 text-zinc-500" /> : <ChevronDown className="h-4 w-4 shrink-0 text-zinc-500" />}
+                          {season.name}
                         </button>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleSeasonActiveMutation.mutate({ id: season.id, isActive: !isActive });
-                            }}
-                            title={isActive ? "Mark as Completed" : "Mark as Active"}
-                            aria-label={isActive ? `Mark ${season.name} as completed` : `Mark ${season.name} as active`}
-                            data-testid={`button-toggle-season-${season.id}`}
-                          >
-                            {isActive ? <CheckCircle className="w-4 h-4 text-green-500" /> : <Circle className="w-4 h-4 text-muted-foreground" />}
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openSeasonDialog(season);
-                            }}
-                            title="Edit season"
-                            aria-label={`Edit ${season.name}`}
-                            data-testid={`button-edit-season-${season.id}`}
-                          >
-                            <Pencil className="w-4 h-4 text-muted-foreground" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setShareSeasonId(season.id);
-                              setShowSeasonShareDialog(true);
-                            }}
-                            title="Share season stats"
-                            aria-label={`Share ${season.name} stats`}
-                            data-testid={`button-share-season-${season.id}`}
-                          >
-                            <Share2 className="w-4 h-4 text-muted-foreground" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (confirm('Delete this season and all its games?')) {
-                                deleteSeasonMutation.mutate(season.id);
-                              }
-                            }}
-                            title="Delete season"
-                            aria-label={`Delete ${season.name}`}
-                            data-testid={`button-delete-season-${season.id}`}
-                          >
-                            <Trash2 className="w-4 h-4 text-muted-foreground" />
-                          </Button>
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-zinc-500">
+                          <Badge variant="outline" className="h-5 border-white/10 px-1.5 text-[10px]">
+                            {SEASON_TYPE_LABELS[season.seasonType]}
+                          </Badge>
+                          <Badge variant={isActive ? "default" : "secondary"} className="h-5 px-1.5 text-[10px]">
+                            {isActive ? "Active" : "Completed"}
+                          </Badge>
+                          <span>{season.year}</span>
+                          {season.teamName && <span>· {season.teamName}</span>}
+                          {season.startDate && season.endDate && (
+                            <span>
+                              · {new Date(season.startDate).toLocaleDateString()} – {new Date(season.endDate).toLocaleDateString()}
+                            </span>
+                          )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1 flex-wrap">
-                        <Badge variant="outline" className="text-xs">
-                          {SEASON_TYPE_LABELS[season.seasonType]}
-                        </Badge>
-                        <Badge variant={isActive ? "default" : "secondary"} className="text-xs">
-                          {isActive ? "Active" : "Completed"}
-                        </Badge>
-                        <span>{season.year}</span>
-                         {season.teamName && <span>• {season.teamName}</span>}
-                         {season.startDate && season.endDate && (
-                           <span>• {new Date(season.startDate).toLocaleDateString()} – {new Date(season.endDate).toLocaleDateString()}</span>
-                         )}
+                      <div className="flex shrink-0 items-center gap-1 self-end sm:self-auto">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8"
+                          onClick={() => toggleSeasonActiveMutation.mutate({ id: season.id, isActive: !isActive })}
+                          title={isActive ? "Mark as Completed" : "Mark as Active"}
+                          aria-label={isActive ? `Mark ${season.name} as completed` : `Mark ${season.name} as active`}
+                          data-testid={`button-toggle-season-${season.id}`}
+                        >
+                          {isActive ? <CheckCircle className="h-4 w-4 text-green-500" /> : <Circle className="h-4 w-4 text-zinc-500" />}
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8"
+                          onClick={() => openSeasonDialog(season)}
+                          title="Edit season"
+                          aria-label={`Edit ${season.name}`}
+                          data-testid={`button-edit-season-${season.id}`}
+                        >
+                          <Pencil className="h-4 w-4 text-zinc-400" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8"
+                          onClick={() => {
+                            setShareSeasonId(season.id);
+                            setShowSeasonShareDialog(true);
+                          }}
+                          title="Share season stats"
+                          aria-label={`Share ${season.name} stats`}
+                          data-testid={`button-share-season-${season.id}`}
+                        >
+                          <Share2 className="h-4 w-4 text-zinc-400" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 hover:text-red-300"
+                          onClick={() => {
+                            if (confirm("Delete this season and all its games?")) {
+                              deleteSeasonMutation.mutate(season.id);
+                            }
+                          }}
+                          title="Delete season"
+                          aria-label={`Delete ${season.name}`}
+                          data-testid={`button-delete-season-${season.id}`}
+                        >
+                          <Trash2 className="h-4 w-4 text-zinc-400" />
+                        </Button>
                       </div>
-                    </div>
-
-                    {isExpanded && (
-                      <div className="border-t p-4 space-y-4">
-                        {seasonStats && (
-                          <>
-                            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 text-center">
-                              <div className="p-2 bg-muted/50 rounded">
-                                <p className="text-lg font-semibold">{seasonStats.avgPoints}</p>
-                                <p className="text-xs text-muted-foreground">PPG</p>
-                              </div>
-                              <div className="p-2 bg-muted/50 rounded">
-                                <p className="text-lg font-semibold">{seasonStats.avgRebounds}</p>
-                                <p className="text-xs text-muted-foreground">RPG</p>
-                              </div>
-                              <div className="p-2 bg-muted/50 rounded">
-                                <p className="text-lg font-semibold">{seasonStats.avgAssists}</p>
-                                <p className="text-xs text-muted-foreground">APG</p>
-                              </div>
-                              <div className="p-2 bg-muted/50 rounded">
-                                <p className="text-lg font-semibold">{seasonStats.avgSteals}</p>
-                                <p className="text-xs text-muted-foreground">SPG</p>
-                              </div>
-                              <div className="p-2 bg-muted/50 rounded">
-                                <p className="text-lg font-semibold">{seasonStats.avgBlocks}</p>
-                                <p className="text-xs text-muted-foreground">BPG</p>
-                              </div>
-                            </div>
-                            {((seasonStats.totalFgAttempted ?? 0) > 0 || (seasonStats.totalThreePtAttempted ?? 0) > 0 || (seasonStats.totalFtAttempted ?? 0) > 0) && (
-                              <div className="grid grid-cols-3 gap-2 text-center">
-                                <div className="p-2 bg-muted/50 rounded">
-                                  <p className="text-base font-semibold text-orange-500">{fmtPct(seasonStats.totalFgMade ?? 0, seasonStats.totalFgAttempted ?? 0)}</p>
-                                  <p className="text-xs text-muted-foreground">FG% ({seasonStats.totalFgMade}/{seasonStats.totalFgAttempted})</p>
-                                </div>
-                                <div className="p-2 bg-muted/50 rounded">
-                                  <p className="text-base font-semibold text-orange-500">{fmtPct(seasonStats.totalThreePtMade ?? 0, seasonStats.totalThreePtAttempted ?? 0)}</p>
-                                  <p className="text-xs text-muted-foreground">3P% ({seasonStats.totalThreePtMade}/{seasonStats.totalThreePtAttempted})</p>
-                                </div>
-                                <div className="p-2 bg-muted/50 rounded">
-                                  <p className="text-base font-semibold text-orange-500">{fmtPct(seasonStats.totalFtMade ?? 0, seasonStats.totalFtAttempted ?? 0)}</p>
-                                  <p className="text-xs text-muted-foreground">FT% ({seasonStats.totalFtMade}/{seasonStats.totalFtAttempted})</p>
-                                </div>
-                              </div>
-                            )}
-                          </>
-                        )}
-
-                        <div className="flex items-center justify-between">
-                          <h4 className="font-medium">Game Log</h4>
-                          <Button 
-                            size="sm" 
-                            onClick={() => openGameDialog()}
-                            data-testid="button-add-game"
-                          >
-                            <Plus className="w-4 h-4 mr-1" />
-                            Log Game
-                          </Button>
-                        </div>
-
-                        {selectedSeasonId === season.id && seasonGames && seasonGames.length > 0 ? (
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                              <thead>
-                                <tr className="border-b">
-                                  <th className="text-left py-2 px-2">Date</th>
-                                  <th className="text-left py-2 px-2">Opponent</th>
-                                  <th className="text-center py-2 px-2">Result</th>
-                                  <th className="text-center py-2 px-2">PTS</th>
-                                  <th className="text-center py-2 px-2">REB</th>
-                                  <th className="text-center py-2 px-2">AST</th>
-                                  <th className="text-center py-2 px-2">STL</th>
-                                  <th className="text-center py-2 px-2">BLK</th>
-                                  <th className="text-center py-2 px-2">Actions</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {seasonGames.map((game) => (
-                                  <tr key={game.id} className="border-b hover:bg-muted/30" data-testid={`game-row-${game.id}`}>
-                                    <td className="py-2 px-2">
-                                      {game.gameDate ? new Date(new Date(game.gameDate).toISOString().split('T')[0] + 'T12:00:00').toLocaleDateString() : '-'}
-                                    </td>
-                                    <td className="py-2 px-2">
-                                      {game.isHome ? 'vs' : '@'} {game.opponent || 'TBD'}
-                                    </td>
-                                    <td className="text-center py-2 px-2">
-                                      {game.result && (
-                                        <Badge variant={game.result === 'W' ? 'default' : 'secondary'}>
-                                          {game.result} {game.teamScore}-{game.opponentScore}
-                                        </Badge>
-                                      )}
-                                    </td>
-                                    <td className="text-center py-2 px-2 font-medium">{game.points}</td>
-                                    <td className="text-center py-2 px-2">{game.rebounds}</td>
-                                    <td className="text-center py-2 px-2">{game.assists}</td>
-                                    <td className="text-center py-2 px-2">{game.steals}</td>
-                                    <td className="text-center py-2 px-2">{game.blocks}</td>
-                                    <td className="text-center py-2 px-2">
-                                      <div className="flex items-center justify-center gap-1">
-                                        <Button 
-                                          size="icon" 
-                                          variant="ghost"
-                                          onClick={() => setShareGameId(game.id)}
-                                          aria-label={`Share stats for ${game.opponent || "game"}`}
-                                          title="Share game stats"
-                                          data-testid={`button-share-game-${game.id}`}
-                                        >
-                                          <Share2 className="w-3 h-3" />
-                                        </Button>
-                                        <Button 
-                                          size="icon" 
-                                          variant="ghost"
-                                          onClick={() => openGameDialog(game)}
-                                          aria-label={`Edit game against ${game.opponent || "opponent"}`}
-                                          title="Edit game"
-                                          data-testid={`button-edit-game-${game.id}`}
-                                        >
-                                          <Pencil className="w-3 h-3" />
-                                        </Button>
-                                        <Button 
-                                          size="icon" 
-                                          variant="ghost"
-                                          onClick={() => {
-                                            if (confirm('Delete this game?')) {
-                                              deleteGameMutation.mutate(game.id);
-                                            }
-                                          }}
-                                          aria-label={`Delete game against ${game.opponent || "opponent"}`}
-                                          title="Delete game"
-                                          data-testid={`button-delete-game-${game.id}`}
-                                        >
-                                          <Trash2 className="w-3 h-3" />
-                                        </Button>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        ) : selectedSeasonId === season.id ? (
-                          <p className="text-sm text-muted-foreground text-center py-4">
-                            No games logged yet. Add your first game!
-                          </p>
-                        ) : null}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                    </article>
+                  );
+                })}
             </div>
           )}
         </CardContent>
