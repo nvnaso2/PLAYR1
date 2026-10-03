@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useProUpgrade } from "@/components/pro-upgrade-dialog";
 import { useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -296,6 +297,7 @@ function EntryEditor({
 function CoachPanel({ entry, isPro }: { entry: JournalEntry; isPro: boolean }) {
   const { toast } = useToast();
   const [, navigate] = useLocation();
+  const { openProOffer } = useProUpgrade();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [pending, setPending] = useState(false);
@@ -303,7 +305,7 @@ function CoachPanel({ entry, isPro }: { entry: JournalEntry; isPro: boolean }) {
   const send = async (text: string) => {
     const content = text.trim();
     if (!content || pending) return;
-    if (!isPro) { navigate("/subscription"); return; }
+    if (!isPro) { openProOffer("Journal coaching"); return; }
     const history = [...messages, { role: "user" as const, content }];
     setMessages(history); setDraft(""); setError(""); setPending(true);
     try {

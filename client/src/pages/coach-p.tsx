@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useProUpgrade } from "@/components/pro-upgrade-dialog";
 import { useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowLeft, ArrowUp, CalendarDays, Check, ChevronLeft, ChevronRight, Dumbbell, GraduationCap, History, Loader2, Menu, MessageSquarePlus, Pencil, Pin, PinOff, Target, Trash2 } from "lucide-react";
@@ -625,6 +626,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
 
 export default function CoachPPage() {
   const [, navigate] = useLocation();
+  const { openProOffer } = useProUpgrade();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [usage, setUsage] = useState<CoachPUsage | null>(null);
@@ -1333,7 +1335,7 @@ export default function CoachPPage() {
                     canSave={canSaveWorkout}
                     saveLimitReached={savedWorkoutLimitReached}
                     onSave={() => saveWorkoutMutation.mutate(workoutPreview)}
-                    onUpgrade={() => navigate("/subscription")}
+                    onUpgrade={() => openProOffer("unlimited saved workouts")}
                     onAdjustAnswers={() => {
                       setWorkoutPreview(null);
                       setSavedWorkoutId(null);
@@ -1383,7 +1385,7 @@ export default function CoachPPage() {
           <div className="flex items-center justify-between gap-3 text-xs text-red-300 py-3">
             <span>{errorMessage}</span>
             {limitReached && (
-              <Button size="sm" variant="outline" className="border-zinc-700 text-zinc-200" onClick={() => navigate("/subscription")}>
+              <Button size="sm" variant="outline" className="border-zinc-700 text-zinc-200" onClick={() => openProOffer("unlimited Coach P")}>
                 View options
               </Button>
             )}

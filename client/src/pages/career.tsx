@@ -2819,7 +2819,7 @@ function StatsOverviewCard({ careerStats, seasons }: { careerStats?: CareerStats
   );
 }
 
-function StatsTab() {
+export function StatsTab() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [selectedSeasonId, setSelectedSeasonId] = useState<string | null>(null);
@@ -3863,7 +3863,7 @@ function StatsTab() {
 type TrophySection = "achievements" | "challenges" | "prs" | "awards";
 // Achievements hidden until achievement definitions are seeded
 
-function TrophyRoomTab({ 
+export function TrophyRoomTab({
   achievements, 
   userChallenges, 
   personalRecords, 

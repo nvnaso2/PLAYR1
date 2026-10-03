@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useProUpgrade } from "@/components/pro-upgrade-dialog";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -301,6 +302,7 @@ function PhaseCard({ phase, isExpanded, onToggle }: { phase: NonNullable<GoalPro
 function ActiveGoalView({ data, onAbandoned }: { data: GoalData; onAbandoned: () => void }) {
   const { toast } = useToast();
   const [, navigate] = useLocation();
+  const { openProOffer } = useProUpgrade();
   const [expandedPhase, setExpandedPhase] = useState<number | null>(1);
   const [checkInText, setCheckInText] = useState("");
   const [expandedCheckIn, setExpandedCheckIn] = useState<string | null>(null);
@@ -517,7 +519,7 @@ function ActiveGoalView({ data, onAbandoned }: { data: GoalData; onAbandoned: ()
                     size="sm"
                     variant="outline"
                     className="flex-shrink-0 border-orange-500/40 text-orange-400 hover:bg-orange-500/10 hover:border-orange-500/60 text-xs"
-                    onClick={() => data?.isPro ? completeMilestoneMutation.mutate(m.id) : navigate("/subscription")}
+                    onClick={() => data?.isPro ? completeMilestoneMutation.mutate(m.id) : openProOffer("goal check-ins")}
                     disabled={completeMilestoneMutation.isPending}
                   >
                     {completeMilestoneMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : data?.isPro ? "Mark Done" : <><LockKeyhole className="w-3 h-3 mr-1" />Unlock</>}
@@ -547,7 +549,7 @@ function ActiveGoalView({ data, onAbandoned }: { data: GoalData; onAbandoned: ()
                       <div className="flex-1">
                         <p className="text-sm font-semibold text-white">Your project is ready.</p>
                         <p className="text-sm text-zinc-300 mt-1">Upgrade to Pro to keep checking in with Coach P, adapt your plan, and keep building momentum.</p>
-                        <Button onClick={() => navigate("/subscription")} className="mt-3 bg-orange-500 hover:bg-orange-600 text-black font-semibold">
+                        <Button onClick={() => openProOffer("ongoing goal coaching")} className="mt-3 bg-orange-500 hover:bg-orange-600 text-black font-semibold">
                           Continue with Pro <ArrowRight className="w-4 h-4 ml-2" />
                         </Button>
                       </div>

@@ -27,10 +27,12 @@ import {
   UserRound,
   MessageCircle,
   BookOpen,
+  BookMarked,
   Layers3,
   CheckCircle2,
   Users,
   Trophy,
+  Radar,
 } from "lucide-react";
 import introTrailer from "@assets/Welcome_To_PLAYR1_1781991119550.mp4";
 import type { HubRecommendation, HubRecommendationResponse } from "@shared/hub-recommendations";
@@ -779,22 +781,6 @@ export default function HubPage() {
 
         {recommendationCard}
 
-        <button
-          type="button"
-          onClick={() => navigate("/streak-challenges/fifty-in-a-row?returnTo=%2Fhub")}
-          className="group flex w-full items-center gap-3 rounded-2xl border border-orange-400/50 bg-gradient-to-r from-orange-500/20 via-orange-500/10 to-zinc-900/70 p-4 text-left text-zinc-100 transition hover:border-orange-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.99]"
-          data-testid="button-hub-3-point-community-challenge"
-        >
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-orange-400/40 bg-orange-500/15 text-orange-300">
-            <Trophy className="h-5 w-5" aria-hidden="true" />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block font-heading text-sm tracking-wide">3 Point Community Challenge</span>
-            <span className="mt-1 block text-xs text-zinc-400">Log your best streak and see how you rank with the community.</span>
-          </span>
-          <ChevronRight className="h-5 w-5 shrink-0 text-orange-300 transition group-hover:translate-x-1" aria-hidden="true" />
-        </button>
-
         {/* Start training */}
         <section className="space-y-3" data-testid="section-start-training">
           <div className="flex items-end justify-between">
@@ -826,6 +812,70 @@ export default function HubPage() {
                 </span>
               </button>
             ))}
+          </div>
+        </section>
+
+        <section className="space-y-3" aria-label="Player shortcuts" data-testid="section-hub-player-tools">
+          <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">PLAYER TOOLS</p>
+          <div className="grid grid-cols-4 gap-2.5 sm:gap-3">
+            <button
+              type="button"
+              onClick={() => navigate("/streak-challenges/fifty-in-a-row?returnTo=%2Fhub")}
+              className="group flex min-w-0 flex-col items-center gap-1.5 rounded-2xl px-1 py-1 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300"
+              aria-label="3 Point Challenge"
+              data-testid="button-hub-3-point-challenge"
+            >
+              <span className="flex h-[68px] w-[68px] items-center justify-center rounded-[20px] border border-orange-300/70 bg-gradient-to-br from-orange-400 via-orange-500 to-orange-700 shadow-[0_7px_22px_rgba(249,115,22,0.24)] transition group-hover:scale-[1.03]">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl border-2 border-white/90 bg-zinc-950 shadow-[0_2px_6px_rgba(0,0,0,0.4)]">
+                  <Play className="h-5 w-5 fill-white text-white" />
+                </span>
+              </span>
+              <span className="text-[10px] font-bold leading-tight text-zinc-300">3 Point Challenge</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/journal")}
+              className="group flex min-w-0 flex-col items-center gap-1.5 rounded-2xl px-1 py-1 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+              aria-label="Journal"
+              data-testid="button-hub-journal"
+            >
+              <span className="relative flex h-[68px] w-[68px] items-center justify-center rounded-[18px] border border-[#f2e6cc] bg-gradient-to-br from-[#eee1c4] to-[#c9b894] shadow-[0_5px_18px_rgba(0,0,0,0.28)] transition group-hover:-translate-y-0.5">
+                <span className="absolute inset-y-2 left-2 w-px bg-[#9c8765]/60" />
+                <BookMarked className="h-8 w-8 text-[#423727]" strokeWidth={1.8} />
+                <span className="absolute right-3 top-0 h-4 w-2 rounded-b-sm bg-orange-600" />
+              </span>
+              <span className="text-[10px] font-bold leading-tight text-zinc-300">Journal</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/lead-magnets")}
+              className="group flex min-w-0 flex-col items-center gap-1.5 rounded-2xl px-1 py-1 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+              aria-label="Game Insights"
+              data-testid="button-hub-game-insights"
+            >
+              <span className="relative flex h-[68px] w-[68px] items-center justify-center rounded-[20px] border border-orange-300/30 bg-[radial-gradient(circle_at_35%_25%,rgba(249,115,22,0.24),rgba(24,24,27,0.96)_72%)] shadow-[0_0_18px_rgba(249,115,22,0.14)] transition group-hover:scale-[1.04]">
+                <Radar className="h-8 w-8 text-orange-200" strokeWidth={1.8} />
+                <span className="absolute right-4 top-4 h-1.5 w-1.5 rounded-full bg-orange-300 shadow-[0_0_8px_rgba(253,186,116,0.9)]" />
+              </span>
+              <span className="text-[10px] font-bold leading-tight text-zinc-300">Game Insights</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/contact")}
+              className="group relative flex min-w-0 flex-col items-center gap-1.5 rounded-2xl px-1 py-1 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+              aria-label={(supportUnread?.unreadCount || 0) > 0 ? `Talk Through Your Game, ${supportUnread?.unreadCount} unread messages` : "Talk Through Your Game"}
+              data-testid="button-hub-talk-through-game"
+            >
+              {(supportUnread?.unreadCount || 0) > 0 && (
+                <span className="absolute right-1 top-1 z-10 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                  {supportUnread?.unreadCount}
+                </span>
+              )}
+              <span className="flex h-[68px] w-[68px] items-center justify-center rounded-full border border-orange-200/80 bg-gradient-to-br from-orange-300 via-orange-500 to-orange-700 shadow-[0_0_16px_rgba(249,115,22,0.42),inset_0_2px_5px_rgba(255,255,255,0.4)] transition group-hover:scale-[1.04]">
+                <MessageCircle className="h-8 w-8 text-zinc-950" strokeWidth={2.6} />
+              </span>
+              <span className="max-w-[100px] text-[10px] font-bold leading-tight text-zinc-300">Talk Through Your Game</span>
+            </button>
           </div>
         </section>
 
@@ -869,26 +919,6 @@ export default function HubPage() {
                     <Badge className="border-orange-500/20 bg-orange-500/15 text-[10px] text-orange-300">AI COACH</Badge>
                   </span>
                   <span className="mt-1 block text-[11px] text-zinc-400">Get your next question answered</span>
-                </span>
-                <ChevronRight className="h-4 w-4 shrink-0 text-orange-400/70 transition group-hover:translate-x-1" />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => navigate("/contact")}
-                className="group relative flex min-h-[88px] items-center gap-3 rounded-xl border border-orange-500/30 bg-gradient-to-r from-orange-500/15 via-orange-500/8 to-transparent p-4 text-left text-zinc-100 transition hover:border-orange-500/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.99]"
-                data-testid="button-hub-contact-playr1"
-              >
-                <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-orange-500/30 bg-orange-500/15 text-orange-400">
-                  <MessageCircle className="h-4 w-4" />
-                  {(supportUnread?.unreadCount || 0) > 0 && <span className="absolute -right-1.5 -top-1.5 h-3 w-3 rounded-full border-2 border-zinc-950 bg-red-500" aria-label="New message" />}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-2">
-                    <span className="block font-heading text-sm uppercase tracking-wide leading-tight">Talk Through Your Game</span>
-                    {(supportUnread?.unreadCount || 0) > 0 && <Badge variant="destructive" className="h-5 min-w-5 rounded-full px-1.5 text-[10px]" aria-label={`${supportUnread?.unreadCount} new messages`}>{supportUnread?.unreadCount}</Badge>}
-                  </span>
-                  <span className="mt-1 block text-[11px] text-zinc-400">Personal basketball help, directly with Nick, the founder of The PLAYR1 Project</span>
                 </span>
                 <ChevronRight className="h-4 w-4 shrink-0 text-orange-400/70 transition group-hover:translate-x-1" />
               </button>

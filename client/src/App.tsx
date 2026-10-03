@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { ProUpgradeProvider } from "@/components/pro-upgrade-dialog";
 import { useAuth } from "@/hooks/use-auth";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -40,7 +41,6 @@ const TrainingLog = lazy(pageLoaders.trainingLog);
 const Dashboard = lazy(pageLoaders.dashboard);
 const Videos = lazy(pageLoaders.videos);
 const Profile = lazy(pageLoaders.profile);
-const Career = lazy(pageLoaders.career);
 const MySeason = lazy(pageLoaders.mySeason);
 const Development = lazy(pageLoaders.development);
 const PlayerPublic = lazy(pageLoaders.playerPublic);
@@ -346,7 +346,7 @@ function Router() {
                 <Route path="/admin/events/:id/edit" component={EventEditor} />
                 <Route path="/log" component={TrainingLog} />
                 <Route path="/videos" component={Videos} />
-                <Route path="/career" component={Career} />
+                <Route path="/career">{() => <Redirect to="/profile-hub" />}</Route>
                 <Route path="/my-season" component={MySeason} />
                 <Route path="/development" component={Development} />
                 <Route path="/profile" component={Profile} />
@@ -417,9 +417,11 @@ function App() {
       <ThemeProvider defaultTheme="dark" storageKey="playr1-theme">
         <TooltipProvider>
           <Toaster />
-          <RoleProvider>
-            <Router />
-          </RoleProvider>
+          <ProUpgradeProvider>
+            <RoleProvider>
+              <Router />
+            </RoleProvider>
+          </ProUpgradeProvider>
         </TooltipProvider>
       </ThemeProvider>
     </QueryClientProvider>

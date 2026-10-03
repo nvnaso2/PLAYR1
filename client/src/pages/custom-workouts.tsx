@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useProUpgrade } from "@/components/pro-upgrade-dialog";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -74,6 +75,7 @@ const statusIcon: Record<CustomRequest["status"], typeof Clock3> = {
 
 export default function CustomWorkoutsPage() {
   const [, navigate] = useLocation();
+  const { openProOffer } = useProUpgrade();
   const { toast } = useToast();
   const [view, setView] = useState<PageView>("menu");
   const [form, setForm] = useState({
@@ -146,7 +148,7 @@ export default function CustomWorkoutsPage() {
             canSubmit={canSubmit}
             isPending={createRequest.isPending}
             onBack={() => setView("menu")}
-            onUpgrade={() => navigate("/subscription")}
+            onUpgrade={() => openProOffer("custom coaching")}
             onChange={update}
             onSubmit={() => createRequest.mutate()}
           />

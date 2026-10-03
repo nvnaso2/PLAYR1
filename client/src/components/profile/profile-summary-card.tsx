@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { MapPin, Settings, Settings2 } from "lucide-react";
+import { Crown, MapPin, Settings, Settings2 } from "lucide-react";
 import type { ProfileDisplayStatKey } from "@shared/schema";
 import { COUNTRIES, PROFILE_DISPLAY_STAT_KEYS } from "@shared/schema";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -33,6 +33,7 @@ type ProfileSummaryCardProps = {
   careerStats: any;
   isLoading: boolean;
   onEditProfile: () => void;
+  onOpenPro: () => void;
   onSettings: () => void;
 };
 
@@ -171,6 +172,7 @@ export function ProfileSummaryCard({
   careerStats,
   isLoading,
   onEditProfile,
+  onOpenPro,
   onSettings,
 }: ProfileSummaryCardProps) {
   const { toast } = useToast();
@@ -246,9 +248,9 @@ export function ProfileSummaryCard({
 
   return (
     <div className="space-y-4">
-      <header className="flex items-center justify-between gap-2">
+      <header className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-lg font-bold text-white">Profile</h1>
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5">
           <Button
             type="button"
             size="sm"
@@ -257,6 +259,16 @@ export function ProfileSummaryCard({
             data-testid="button-edit-profile"
           >
             Edit Profile
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            onClick={onOpenPro}
+            className="h-9 rounded-full border border-orange-200/70 bg-gradient-to-br from-orange-300 via-orange-500 to-orange-700 px-3 text-[11px] font-black text-zinc-950 shadow-[0_0_18px_rgba(249,115,22,0.35)] transition hover:brightness-110 hover:shadow-[0_0_24px_rgba(249,115,22,0.5)]"
+            data-testid="button-playr1-pro"
+          >
+            <Crown className="mr-1.5 h-3.5 w-3.5" />
+            PLAYR1 Pro
           </Button>
           <Button
             type="button"

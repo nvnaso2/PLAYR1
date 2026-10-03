@@ -13,6 +13,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest, getObjectUrl } from "@/lib/queryClient";
 import { BaseballCard } from "@/pages/career";
+import { PlayerProfileSection } from "@/pages/player-profile";
+import { CareerProfileEditor } from "@/components/profile/career-profile-editor";
 import {
   Eye, EyeOff, Globe, Lock, Save, Loader2, Camera, Share2,
   Ruler, GraduationCap, Video, Star, Zap, Trophy, Medal,
@@ -248,7 +250,11 @@ export default function ProfilePage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const photoInputRef = useRef<HTMLInputElement>(null);
-  const [tab, setTab] = useState<"profile" | "visibility">("profile");
+  const [tab, setTab] = useState<"profile" | "visibility" | "player-details">(() => {
+    return new URLSearchParams(window.location.search).get("tab") === "player-details"
+      ? "player-details"
+      : "profile";
+  });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [vis, setVis] = useState<VisState>(VIS_DEFAULTS);
@@ -435,12 +441,12 @@ export default function ProfilePage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mx-4 mb-5 p-1 bg-zinc-900 border border-zinc-800 rounded-xl">
-        {(["profile", "visibility"] as const).map(t => (
+      <div className="mx-4 mb-5 flex gap-1 overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-900 p-1">
+        {(["profile", "player-details", "visibility"] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
-            className={`flex-1 px-3 py-2 text-sm font-bold rounded-lg transition-all ${tab === t ? "bg-orange-500 text-white shadow-lg shadow-orange-500/30" : "text-zinc-500 hover:text-zinc-200"}`}
+            className={`min-w-0 flex-1 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-bold transition-all sm:text-sm ${tab === t ? "bg-orange-500 text-white shadow-lg shadow-orange-500/30" : "text-zinc-500 hover:text-zinc-200"}`}
             data-testid={`tab-${t}`}>
-            {t === "profile" ? "My Profile" : "Visibility"}
+            {t === "profile" ? "My Profile" : t === "player-details" ? "Player Details" : "Visibility"}
           </button>
         ))}
       </div>
@@ -679,7 +685,7 @@ export default function ProfilePage() {
                     <SkillBar label="Athleticism"   value={career.skillAthletics} />
                     <SkillBar label="Basketball IQ" value={career.skillBasketballIQ} />
                   </div>
-                ) : <p className="text-xs text-zinc-500 text-center py-2">Set skill ratings in <Link href="/career" className="text-orange-500 underline">My Career</Link></p>}
+                ) : <p className="text-xs text-zinc-500 text-center py-2">Set skill ratings in <Link href="/profile?tab=player-details" className="text-orange-500 underline">Player Details</Link></p>}
               </SectionCard>
             )}
 
@@ -694,7 +700,7 @@ export default function ProfilePage() {
                       </div>
                     ))}
                   </div>
-                ) : <p className="text-xs text-zinc-500 text-center py-2">No awards — add in <Link href="/career" className="text-orange-500 underline">My Career</Link></p>}
+                ) : <p className="text-xs text-zinc-500 text-center py-2">No awards — add them in <Link href="/profile-hub" className="text-orange-500 underline">Trophy Room</Link></p>}
               </SectionCard>
             )}
 
@@ -755,6 +761,13 @@ export default function ProfilePage() {
 
             <div className="pt-2 text-center"><Separator className="mb-3" /><p className="text-xs text-zinc-700 font-semibold tracking-widest uppercase">PLAYR1</p></div>
           </div>
+        </div>
+      )}
+
+      {tab === "player-details" && (
+        <div className="space-y-4 px-4 pb-6">
+          <CareerProfileEditor />
+          <PlayerProfileSection />
         </div>
       )}
 

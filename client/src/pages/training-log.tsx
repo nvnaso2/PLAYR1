@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef, startTransition } from "react";
+import { useProUpgrade } from "@/components/pro-upgrade-dialog";
 import { useLocation, useSearch, Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -151,6 +152,7 @@ const saveWorkoutFormSchema = insertWorkoutSchema.pick({
 type SaveWorkoutFormData = z.infer<typeof saveWorkoutFormSchema>;
 
 export default function TrainingLogPage() {
+  const { openProOffer } = useProUpgrade();
   const { toast } = useToast();
   const searchParams = useSearch();
   const [selectedDrillIds, setSelectedDrillIds] = useState<Set<string>>(new Set());
@@ -2205,7 +2207,7 @@ export default function TrainingLogPage() {
                       <p className="text-xs text-muted-foreground">
                         Free includes 3 saved workouts. Remove one or upgrade for unlimited saves.
                       </p>
-                      <Button type="button" size="sm" variant="outline" onClick={() => setLocation("/subscription")}>
+                      <Button type="button" size="sm" variant="outline" onClick={() => openProOffer("unlimited saved workouts")}>
                         Upgrade to Pro
                       </Button>
                     </div>
@@ -2853,7 +2855,7 @@ export default function TrainingLogPage() {
                   {savedWorkoutLimitReached && (
                     <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-orange-500/20 bg-orange-500/[0.06] p-3">
                       <p className="text-xs text-muted-foreground">Free accounts can save up to 3 workouts.</p>
-                      <Button type="button" size="sm" variant="outline" onClick={() => setLocation("/subscription")}>
+                      <Button type="button" size="sm" variant="outline" onClick={() => openProOffer("unlimited saved workouts")}>
                         Upgrade to Pro
                       </Button>
                     </div>
@@ -3008,7 +3010,7 @@ export default function TrainingLogPage() {
               {savedWorkoutLimitReached && (
                 <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-orange-500/20 bg-orange-500/[0.06] p-3">
                   <p className="text-xs text-muted-foreground">Free accounts can save up to 3 workouts.</p>
-                  <Button type="button" size="sm" variant="outline" onClick={() => setLocation("/subscription")}>
+                  <Button type="button" size="sm" variant="outline" onClick={() => openProOffer("unlimited saved workouts")}>
                     Upgrade to Pro
                   </Button>
                 </div>
@@ -3100,7 +3102,7 @@ export default function TrainingLogPage() {
                 {workoutEntries.length >= 2 && savedWorkoutLimitReached && (
                   <Button
                     variant="outline"
-                    onClick={() => setLocation("/subscription")}
+                    onClick={() => openProOffer("PLAYR1 Pro training features")}
                     className="gap-2"
                     data-testid="button-upgrade-save-workout"
                   >

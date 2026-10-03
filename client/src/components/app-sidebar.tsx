@@ -418,7 +418,7 @@ export function AppSidebar() {
                 align="start"
               >
                 <DropdownMenuItem asChild>
-                  <Link href="/profile" className="cursor-pointer" data-testid="link-profile" onClick={closeSidebar}>
+                  <Link href="/profile-hub" className="cursor-pointer" data-testid="link-profile" onClick={closeSidebar}>
                     <User className="mr-2 h-4 w-4" />
                     My Profile
                   </Link>

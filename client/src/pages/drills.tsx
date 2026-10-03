@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useProUpgrade } from "@/components/pro-upgrade-dialog";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { QueryError } from "@/components/query-error";
 import { useLocation, useSearch } from "wouter";
@@ -203,6 +204,7 @@ export default function Drills() {
   const [selectionMode, setSelectionMode] = useState(launchedFromTrain);
   const [selectedDrillIds, setSelectedDrillIds] = useState<Set<string>>(new Set());
   const [, setLocation] = useLocation();
+  const { openProOffer } = useProUpgrade();
   const { user } = useAuth();
   const { toast } = useToast();
   const { data: savedWorkouts, isLoading: savedWorkoutsLoading } = useQuery<Array<{ id: string; isAssigned?: boolean }>>({
@@ -622,7 +624,7 @@ export default function Drills() {
           {savedWorkoutLimitReached && (
             <div className="mt-2 flex flex-wrap items-center justify-between gap-2 px-1">
               <p className="text-xs text-zinc-400">Free includes 3 saved workouts. Remove one or upgrade to save another.</p>
-              <Button type="button" size="sm" variant="ghost" className="h-7 px-1 text-orange-300 hover:text-orange-200" onClick={() => setLocation("/subscription")}>
+              <Button type="button" size="sm" variant="ghost" className="h-7 px-1 text-orange-300 hover:text-orange-200" onClick={() => openProOffer("unlimited saved workouts")}>
                 Upgrade to Pro
               </Button>
             </div>

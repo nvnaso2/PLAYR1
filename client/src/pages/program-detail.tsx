@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from "react";
+import { useProUpgrade } from "@/components/pro-upgrade-dialog";
 import { useParams, Link, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -40,6 +41,7 @@ const difficultyColors: Record<string, string> = {
 };
 
 export default function ProgramDetailPage() {
+  const { openProOffer } = useProUpgrade();
   const params = useParams<{ slug: string }>();
   const [location, setLocation] = useLocation();
   const { toast } = useToast();
@@ -183,7 +185,7 @@ export default function ProgramDetailPage() {
                   <Lock className="mx-auto mb-3 h-8 w-8 text-amber-400" />
                   <h2 className="text-xl font-bold">Full course is part of PLAYR1 Pro</h2>
                   <p className="mt-2 text-muted-foreground">Watch the trailer above, then upgrade for the full day-by-day plan.</p>
-                  <Button className="mt-5 bg-amber-500 text-black hover:bg-amber-400" onClick={() => setLocation("/subscription")}>
+                  <Button className="mt-5 bg-amber-500 text-black hover:bg-amber-400" onClick={() => openProOffer("full programs and courses")}>
                     View Pro options
                   </Button>
                 </CardContent>
@@ -317,7 +319,7 @@ export default function ProgramDetailPage() {
                   <Button
                     size="lg"
                     className="w-full lg:w-auto bg-amber-500 text-black hover:bg-amber-400"
-                    onClick={() => setLocation("/subscription")}
+                    onClick={() => openProOffer("full programs and courses")}
                     data-testid="button-upgrade-program"
                   >
                     <Lock className="w-5 h-5 mr-2" />
@@ -414,7 +416,7 @@ export default function ProgramDetailPage() {
                 <Lock className="w-8 h-8 text-amber-400 mx-auto mb-3" />
                 <h2 className="text-xl font-bold">Full course is part of PLAYR1 Pro</h2>
                 <p className="text-muted-foreground mt-2">Watch the trailer above, then upgrade for the full day-by-day plan.</p>
-                <Button className="mt-5 bg-amber-500 text-black hover:bg-amber-400" onClick={() => setLocation("/subscription")}>
+                <Button className="mt-5 bg-amber-500 text-black hover:bg-amber-400" onClick={() => openProOffer("full programs and courses")}>
                   View Pro options
                 </Button>
               </CardContent>

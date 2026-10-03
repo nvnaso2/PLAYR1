@@ -1,16 +1,18 @@
 ---
-name: Profile first-release scope
-description: Profile tab ordering, inline player summary, and deferred feature routes
+name: Profile and Hub scope
+description: Profile tab now hosts Career content, while shortcuts and shared Pro offers have clear destinations
 ---
 
-For the first Profile version, hide My Season, My PLAYR1 Project, and Game Day from player-facing entry points, but preserve their pages and routes for later.
+Keep My Season, My PLAYR1 Project, and Game Day out of the Profile and Hub entry points while preserving their pages and routes.
 
-The Profile page is the primary PLAYR1 Pro value and upgrade surface: keep its Free-vs-Pro summary, value comparison, and current-plan status inline rather than sending players to a separate marketing page. Keep the four Profile shortcuts compact and icon-led: 3 Point Challenge orange/play-inspired, Journal notebook-like and non-purple, Talk Through Your Game as an orange glowing chat icon, and Game Insights linking to the four-tool library. Game Insights should communicate understanding a player's game and giving them a practical next step; avoid "diagnostic" in its tile and library copy.
+The Profile tab is the player’s main career view: show the horizontal player summary first, detailed Career stats directly below it, then Player Development and Trophy Room. Keep career and profile records intact; `/career` remains a compatibility route to the main Profile view.
 
-Add an inline player summary above PLAYR1 Training Plan with photo, name, location (US: city and state; elsewhere: city and country), jersey number, positions, headline, bio, and up to three selectable stats. Keep the existing My Profile entry in the Career section, directly after My Career. This summary does not merge the Profile and Career destinations or their underlying content.
+Move Career’s player information, skill ratings, and player-profile editor into the Edit Profile destination (`/profile?tab=player-details`); retain the shareable profile preview and visibility controls there.
 
-Use the app's warm orange for the photo ring. On desktop, place the selected stats to the right of the player details, keeping the bold value above its label. At phone widths, keep the stats readable to the right of the portrait and above the bio. Order the Profile header actions as orange Edit Profile, Choose stats, then Settings.
+Keep the four compact, icon-led shortcuts on Hub: 3 Point Challenge, Journal, Talk Through Your Game, and Game Insights. Do not also show the Challenge or Talk Through Your Game as separate Hub cards. Keep Game Insights linked to the four-tool library and avoid "diagnostic" in its tile and library copy.
 
-**Why:** The user specified the summary fields and placement, the Career entry order, and then clarified the visual treatment and control order after reviewing the preview.
+Place the orange, oval PLAYR1 Pro button beside Edit Profile. It opens the shared offer dialog; locked Pro actions elsewhere in the app should open that same dialog. Show Free-vs-Pro details and subscription management inside the dialog, not inline on Profile.
 
-**How to apply:** Preserve deferred routes, the inline upgrade surface, and compact shortcuts. Keep the summary above the training plan and Career entries as My Career, then My Profile; retain the orange ring, readable right-side stats, and Edit Profile → Choose stats → Settings order.
+**Why:** The user revised the earlier Profile layout: Profile now takes over Career, the player editor belongs behind Edit Profile, Hub owns the four shortcuts, and one offer dialog should serve all upgrade entry points.
+
+**How to apply:** Preserve stored player and billing data, keep legacy routes working, and avoid duplicate Hub entry points. Continue treating the users record as the authoritative subscription source, with Pro Infinity excluded from Stripe portal actions.
