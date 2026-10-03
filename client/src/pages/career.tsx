@@ -2814,7 +2814,7 @@ function StatsOverviewCard({
           <div className="flex w-full min-w-0 items-center gap-1 sm:w-auto sm:gap-2">
             <div className="w-[84px] shrink-0 sm:w-48">
               {statsScope === "season" ? (
-                <Select value={selectedSeasonId || undefined} onValueChange={onSeasonChange} disabled={seasons.length === 0}>
+                <Select value={selectedSeasonId} onValueChange={onSeasonChange} disabled={seasons.length === 0}>
                   <SelectTrigger className="h-9 w-full min-w-0 border-white/10 bg-black/25 px-2 text-[11px] text-zinc-200 sm:px-3 sm:text-xs" data-testid="select-stats-season" aria-label="Choose season stats">
                     <SelectValue className="truncate" placeholder="Season" />
                   </SelectTrigger>
