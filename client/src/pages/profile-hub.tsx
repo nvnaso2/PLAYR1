@@ -145,8 +145,7 @@ export default function ProfileHubPage() {
     <main className="mx-auto min-h-[100dvh] max-w-6xl space-y-8 px-4 pb-12 pt-5 text-zinc-100 sm:px-6 sm:pt-8">
       <header className="flex flex-wrap items-center justify-between gap-x-5 gap-y-3">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.24em] text-orange-400">PLAYR1 · PLAYER CARD</p>
-          <h1 className="mt-1 font-display text-2xl font-black tracking-tight text-zinc-50 sm:text-3xl">Your profile</h1>
+          <h1 className="font-display text-2xl font-black tracking-tight text-zinc-50 sm:text-3xl" data-testid="text-page-title">My Profile</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button
@@ -214,7 +213,6 @@ export default function ProfileHubPage() {
       <section aria-labelledby="profile-stats-heading" className="space-y-4" data-testid="section-profile-career-stats">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-400">The numbers behind your game</p>
             <h2 id="profile-stats-heading" className="mt-1 font-display text-xl font-black tracking-tight sm:text-2xl">Career stats</h2>
           </div>
           <span className="rounded-full border border-white/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-500">

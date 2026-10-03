@@ -105,9 +105,7 @@ export default function ProfilePage() {
             <ArrowLeft className="h-4 w-4" />
           </button>
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange-400">PLAYR1</p>
-            <h1 className="text-xl font-black tracking-tight sm:text-2xl" data-testid="text-page-title">My Profile</h1>
-            {!editing && <p className="mt-1 text-sm text-zinc-500">Your player card + profile</p>}
+            <h1 className="text-2xl font-black tracking-tight sm:text-3xl" data-testid="text-page-title">My Profile</h1>
           </div>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
@@ -178,7 +176,6 @@ export default function ProfilePage() {
           <section aria-labelledby="profile-stats-heading" className="w-full max-w-xl space-y-3" data-testid="section-profile-career-stats">
             <div className="flex items-end justify-between gap-3">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange-400">The numbers behind your game</p>
                 <h2 id="profile-stats-heading" className="mt-1 text-lg font-black tracking-tight text-zinc-100">Career stats</h2>
               </div>
               <span className="rounded-full border border-white/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
