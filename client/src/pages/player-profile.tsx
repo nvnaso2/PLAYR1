@@ -912,23 +912,6 @@ export function PlayerProfileSection({
                   }}
                 />
               </div>
-              <FormField
-                control={form.control}
-                name="zipCode"
-                render={({ field }) => {
-                  const countryVal = form.watch("country") || "USA";
-                  return (
-                    <FormItem className={concise ? "space-y-1" : undefined}>
-                      <FormLabel className={concise ? "text-[11px] text-zinc-400" : undefined}>{countryVal === "USA" ? "Zip Code" : "Postal Code"}</FormLabel>
-                      <FormControl>
-                        <Input className={concise ? "h-8 text-xs" : undefined} placeholder={countryVal === "USA" ? "e.g. 30009" : "Postal code"} data-testid="input-zip-code" {...field} />
-                      </FormControl>
-                      {!concise && <FormDescription>Used for finding nearby teams, leagues, and trainers</FormDescription>}
-                      <FormMessage />
-                    </FormItem>
-                  );
-                }}
-              />
             </CardContent>
           </Card>}
 

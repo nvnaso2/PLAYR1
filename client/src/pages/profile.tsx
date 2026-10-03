@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Award, Crown, Fingerprint, Medal, Pencil, Target, Trophy } from "lucide-react";
+import { ArrowLeft, Award, Crown, Fingerprint, Medal, Pencil, Settings, Target, Trophy } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -93,22 +93,60 @@ export default function ProfilePage() {
 
   return (
     <main className="mx-auto min-h-screen max-w-2xl px-4 pb-24 pt-5">
-      <header className="mb-5 flex items-start gap-3">
-        <button
-          type="button"
-          onClick={() => editing ? returnToCard() : window.history.back()}
-          className="mt-1 rounded-lg p-1.5 text-zinc-500 transition-colors hover:bg-zinc-900 hover:text-zinc-200"
-          aria-label={editing ? "Return to player card" : "Go back"}
-          data-testid="button-back"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </button>
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange-400">PLAYR1</p>
-          <h1 className="text-xl font-black tracking-tight sm:text-2xl" data-testid="text-page-title">
-            {editing ? "Edit Player Profile" : "Player Profile"}
-          </h1>
-          {!editing && <p className="mt-1 text-sm text-zinc-500">Your player card and recruiting details</p>}
+      <header className="mb-5 flex flex-wrap items-center justify-between gap-x-5 gap-y-3">
+        <div className="flex items-start gap-3">
+          <button
+            type="button"
+            onClick={() => editing ? returnToCard() : window.history.back()}
+            className="mt-1 rounded-lg p-1.5 text-zinc-500 transition-colors hover:bg-zinc-900 hover:text-zinc-200"
+            aria-label={editing ? "Return to player card" : "Go back"}
+            data-testid="button-back"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange-400">PLAYR1</p>
+            <h1 className="text-xl font-black tracking-tight sm:text-2xl" data-testid="text-page-title">My Profile</h1>
+            {!editing && <p className="mt-1 text-sm text-zinc-500">Your player card + profile</p>}
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {!editing && (
+            <>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setEditing(true)}
+                className="h-9 border border-orange-400/80 bg-[#11100f] px-3.5 text-xs font-extrabold text-orange-100 shadow-[0_0_12px_rgba(249,115,22,0.18),inset_0_0_0_1px_rgba(249,115,22,0.08)] transition hover:border-orange-300 hover:bg-[#1b1510] hover:text-white hover:shadow-[0_0_18px_rgba(249,115,22,0.3)]"
+                data-testid="button-edit-profile"
+              >
+                <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                Edit Profile
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => openProOffer()}
+                className="h-9 rounded-full border border-orange-200/60 bg-gradient-to-br from-orange-300 via-orange-500 to-orange-700 px-3 text-[11px] font-black text-zinc-950 shadow-[0_0_16px_rgba(249,115,22,0.28)] transition hover:brightness-110"
+                data-testid="button-playr1-pro"
+              >
+                <Crown className="mr-1.5 h-3.5 w-3.5" />
+                PLAYR1 Pro
+              </Button>
+            </>
+          )}
+          <Button
+            asChild
+            size="icon"
+            variant="outline"
+            aria-label="Settings"
+            title="Settings"
+            className="h-9 w-9 shrink-0 border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 hover:text-white"
+          >
+            <Link href="/settings" aria-label="Settings" data-testid="button-profile-settings">
+              <Settings className="h-4 w-4" />
+            </Link>
+          </Button>
         </div>
       </header>
 
@@ -130,33 +168,12 @@ export default function ProfilePage() {
               onPhotoUpdated={() => queryClient.invalidateQueries({ queryKey: ["/api/career"] })}
             />
           </div>
-
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <Button
-              type="button"
-              onClick={() => setEditing(true)}
-              className="border border-orange-400/50 bg-zinc-950 font-black text-orange-300 shadow-[0_0_20px_rgba(249,115,22,0.18)] hover:bg-zinc-900 hover:text-orange-200"
-              data-testid="button-edit-profile"
-            >
-              <Pencil className="mr-2 h-4 w-4" />
-              Edit Profile
-            </Button>
-            <Button
-              type="button"
-              onClick={() => openProOffer()}
-              className="h-9 rounded-full border border-orange-200/60 bg-gradient-to-br from-orange-300 via-orange-500 to-orange-700 px-3 text-[11px] font-black text-zinc-950 shadow-[0_0_16px_rgba(249,115,22,0.28)] transition hover:brightness-110"
-              data-testid="button-playr1-pro"
-            >
-              <Crown className="mr-1.5 h-3.5 w-3.5" />
-              PLAYR1 Pro
-            </Button>
-            <ShareMenu
-              url={`/player/${slug}`}
-              title={`${displayName} - PLAYR1 Player Profile`}
-              description="Check out my basketball profile on PLAYR1!"
-              testId="button-share-profile"
-            />
-          </div>
+          <ShareMenu
+            url={`/player/${slug}`}
+            title={`${displayName} - PLAYR1 Player Profile`}
+            description="Check out my basketball profile on PLAYR1!"
+            testId="button-share-profile"
+          />
 
           <section aria-labelledby="profile-stats-heading" className="w-full max-w-xl space-y-3" data-testid="section-profile-career-stats">
             <div className="flex items-end justify-between gap-3">
