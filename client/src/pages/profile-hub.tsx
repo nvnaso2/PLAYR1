@@ -153,7 +153,7 @@ export default function ProfileHubPage() {
             type="button"
             size="sm"
             onClick={() => navigate("/profile?tab=player-details")}
-            className="h-9 bg-orange-500 px-3.5 text-xs font-extrabold text-zinc-950 hover:bg-orange-400"
+            className="h-9 border border-orange-400/80 bg-[#11100f] px-3.5 text-xs font-extrabold text-orange-100 shadow-[0_0_12px_rgba(249,115,22,0.18),inset_0_0_0_1px_rgba(249,115,22,0.08)] transition hover:border-orange-300 hover:bg-[#1b1510] hover:text-white hover:shadow-[0_0_18px_rgba(249,115,22,0.3)]"
             data-testid="button-edit-profile"
           >
             <Pencil className="mr-1.5 h-3.5 w-3.5" />
@@ -183,9 +183,8 @@ export default function ProfileHubPage() {
         </div>
       </header>
 
-      <section className="relative overflow-hidden rounded-2xl border border-orange-500/20 bg-[#111110] px-3 py-5 sm:px-6 sm:py-6" aria-label="Basketball player trading card">
-        <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-orange-500/[0.055] blur-3xl" />
-        <div className="relative flex flex-col items-center">
+      <section className="flex justify-center" aria-label="Basketball player trading card">
+        <div className="flex flex-col items-center">
           {loadingCard ? (
             <div className="space-y-3">
               <Skeleton className="h-[340px] w-[240px] rounded-md bg-zinc-800" />
@@ -198,7 +197,6 @@ export default function ProfileHubPage() {
                 careerStats={careerStats as any}
                 userName={profile?.displayName || [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.email?.split("@")[0] || "Player"}
               />
-              <p className="mt-3 text-[9px] font-bold uppercase tracking-[0.18em] text-zinc-600">Tap the card to view season stats · Select the camera to update your photo</p>
             </>
           ) : (
             <div className="flex min-h-[250px] w-full max-w-md flex-col items-center justify-center rounded-xl border border-dashed border-zinc-700 bg-zinc-900/60 px-6 text-center">

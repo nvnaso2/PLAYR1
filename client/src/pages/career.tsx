@@ -2379,7 +2379,8 @@ export function BaseballCard({ profile, careerStats, onPhotoUpdated, userName }:
             height: frontH,
             left: (maxW - frontW) / 2,
             top: 0,
-            border: "3px solid #f97316",
+            border: "3px solid #ff8a24",
+            boxShadow: "0 0 16px rgba(249, 115, 22, 0.26), inset 0 0 0 1px rgba(255, 188, 112, 0.24)",
           }}
         >
           <div className="relative w-full h-full bg-black">
@@ -2392,7 +2393,7 @@ export function BaseballCard({ profile, careerStats, onPhotoUpdated, userName }:
 
             {profile.jerseyNumber != null && (
               <div
-                className="absolute top-0 left-0 flex items-center justify-center bg-orange-500"
+                className="absolute top-0 left-0 flex items-center justify-center bg-orange-400 shadow-[0_0_12px_rgba(249,115,22,0.38)]"
                 style={{ width: 34, height: 34 }}
               >
                 <span className="text-black font-black text-sm leading-none">
@@ -2424,7 +2425,7 @@ export function BaseballCard({ profile, careerStats, onPhotoUpdated, userName }:
                   </p>
                 )}
                 {(profile.schoolName || profile.teamName || positionsText) && (
-                  <p className="text-orange-400 font-semibold text-[11px] uppercase tracking-wider leading-none mt-1 truncate">
+                  <p className="text-orange-300 font-semibold text-[11px] uppercase tracking-wider leading-none mt-1 truncate [text-shadow:0_0_10px_rgba(249,115,22,0.45)]">
                     {[profile.schoolName || profile.teamName, positionsText].filter(Boolean).join(" \u00B7 ")}
                   </p>
                 )}
@@ -2449,17 +2450,18 @@ export function BaseballCard({ profile, careerStats, onPhotoUpdated, userName }:
             height: backH,
             top: (maxH - backH) / 2,
             left: (maxW - backW) / 2,
-            border: "3px solid #f97316",
+            border: "3px solid #ff8a24",
+            boxShadow: "0 0 16px rgba(249, 115, 22, 0.26), inset 0 0 0 1px rgba(255, 188, 112, 0.24)",
           }}
         >
           <div className="w-full h-full flex flex-col bg-black text-white">
-            <div className="flex items-center justify-between px-3 py-1.5 border-b border-orange-500/40">
+            <div className="flex items-center justify-between px-3 py-1.5 border-b border-orange-400/70 shadow-[0_1px_8px_rgba(249,115,22,0.1)]">
               <div className="flex items-center gap-2 min-w-0">
                 <p className="text-white font-bold text-xs uppercase tracking-wide leading-tight truncate">
                   {userName || profile.schoolName || profile.teamName || "Player"}
                 </p>
                 {profile.jerseyNumber != null && (
-                  <span className="text-orange-400 font-black text-xs">#{profile.jerseyNumber}</span>
+                   <span className="text-orange-300 font-black text-xs [text-shadow:0_0_8px_rgba(249,115,22,0.4)]">#{profile.jerseyNumber}</span>
                 )}
                 {positionsText && (
                   <span className="text-white/50 text-[10px] uppercase tracking-wider">
@@ -2480,7 +2482,7 @@ export function BaseballCard({ profile, careerStats, onPhotoUpdated, userName }:
                       data-testid={`filter-${f.key}`}
                       className={`px-1.5 py-0.5 text-[8px] font-bold uppercase rounded-sm transition-colors ${
                         seasonFilter === f.key
-                          ? "bg-orange-500 text-white"
+                           ? "bg-orange-400 text-zinc-950 shadow-[0_0_8px_rgba(249,115,22,0.3)]"
                           : "bg-white/10 text-white/50 hover:bg-white/20"
                       }`}
                       onClick={(e) => { e.stopPropagation(); setSeasonFilter(f.key); }}
@@ -2499,11 +2501,11 @@ export function BaseballCard({ profile, careerStats, onPhotoUpdated, userName }:
                   style={{ gridTemplateColumns: "minmax(50px, 1.2fr) 28px repeat(5, 1fr) repeat(5, 1fr)" }}>
                   <span>Season</span>
                   <span className="text-center">GP</span>
-                  <span className="text-center text-orange-400/70">PTS</span>
-                  <span className="text-center text-orange-400/70">REB</span>
-                  <span className="text-center text-orange-400/70">AST</span>
-                  <span className="text-center text-orange-400/70">STL</span>
-                  <span className="text-center text-orange-400/70">BLK</span>
+                   <span className="text-center text-orange-300/90">PTS</span>
+                   <span className="text-center text-orange-300/90">REB</span>
+                   <span className="text-center text-orange-300/90">AST</span>
+                   <span className="text-center text-orange-300/90">STL</span>
+                   <span className="text-center text-orange-300/90">BLK</span>
                   <span className="text-center">PTS</span>
                   <span className="text-center">REB</span>
                   <span className="text-center">AST</span>
@@ -2514,7 +2516,7 @@ export function BaseballCard({ profile, careerStats, onPhotoUpdated, userName }:
                   style={{ gridTemplateColumns: "minmax(50px, 1.2fr) 28px repeat(5, 1fr) repeat(5, 1fr)" }}>
                   <span></span>
                   <span></span>
-                  <span className="text-center col-span-5 border-b border-orange-500/20 pb-0.5">Averages</span>
+                   <span className="text-center col-span-5 border-b border-orange-400/35 pb-0.5">Averages</span>
                   <span className="text-center col-span-5 border-b border-white/10 pb-0.5">Totals</span>
                 </div>
 
@@ -2527,7 +2529,7 @@ export function BaseballCard({ profile, careerStats, onPhotoUpdated, userName }:
                           {SEASON_TYPE_LABELS[s.seasonType] ? SEASON_TYPE_LABELS[s.seasonType].split(" ")[0] : s.seasonType} '{s.year?.slice(-2) || ""}
                         </span>
                         <span className="text-center text-white/60">{s.gamesPlayed}</span>
-                        <span className="text-center font-semibold text-orange-400">{s.avgPoints?.toFixed(1)}</span>
+                       <span className="text-center font-semibold text-orange-300 [text-shadow:0_0_8px_rgba(249,115,22,0.32)]">{s.avgPoints?.toFixed(1)}</span>
                         <span className="text-center text-white/60">{s.avgRebounds?.toFixed(1)}</span>
                         <span className="text-center text-white/60">{s.avgAssists?.toFixed(1)}</span>
                         <span className="text-center text-white/60">{s.avgSteals?.toFixed(1)}</span>
@@ -2549,11 +2551,11 @@ export function BaseballCard({ profile, careerStats, onPhotoUpdated, userName }:
                       const filteredTotalBlk = seasonBreakdown.reduce((sum, s) => sum + s.totalBlocks, 0);
                       if (filteredGames === 0) return null;
                       return (
-                        <div className="grid gap-0.5 text-[9px] py-1 mt-0.5 border-t-2 border-orange-500/50 font-bold"
+                         <div className="grid gap-0.5 text-[9px] py-1 mt-0.5 border-t-2 border-orange-400/75 font-bold shadow-[0_-2px_8px_rgba(249,115,22,0.1)]"
                           style={{ gridTemplateColumns: "minmax(50px, 1.2fr) 28px repeat(5, 1fr) repeat(5, 1fr)" }}>
-                          <span className="text-orange-400 uppercase">Total</span>
+                           <span className="text-orange-300 uppercase">Total</span>
                           <span className="text-center">{filteredGames}</span>
-                          <span className="text-center text-orange-400">{filteredGames > 0 ? (filteredTotalPts / filteredGames).toFixed(1) : "0.0"}</span>
+                           <span className="text-center text-orange-300">{filteredGames > 0 ? (filteredTotalPts / filteredGames).toFixed(1) : "0.0"}</span>
                           <span className="text-center">{filteredGames > 0 ? (filteredTotalReb / filteredGames).toFixed(1) : "0.0"}</span>
                           <span className="text-center">{filteredGames > 0 ? (filteredTotalAst / filteredGames).toFixed(1) : "0.0"}</span>
                           <span className="text-center">{filteredGames > 0 ? (filteredTotalStl / filteredGames).toFixed(1) : "0.0"}</span>
