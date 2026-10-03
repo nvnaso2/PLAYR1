@@ -765,9 +765,9 @@ export default function ProfilePage() {
       )}
 
       {tab === "player-details" && (
-        <div className="space-y-4 px-4 pb-6">
+        <div className="space-y-3 px-4 pb-6">
           <CareerProfileEditor />
-          <PlayerProfileSection />
+          <PlayerProfileSection concise />
         </div>
       )}
 

@@ -15,7 +15,6 @@ type CareerForm = {
   jerseyNumber: number;
   positions: string[];
   gradeLevel: string;
-  schoolName: string;
   teamName: string;
   aspiration: string;
   headline: string;
@@ -53,7 +52,6 @@ const emptyForm: CareerForm = {
   jerseyNumber: 0,
   positions: [],
   gradeLevel: "",
-  schoolName: "",
   teamName: "",
   aspiration: "",
   headline: "",
@@ -99,7 +97,7 @@ export function CareerProfileEditor() {
   const { toast } = useToast();
   const { user } = useAuth();
   const { data: profile, isLoading } = useQuery<any>({ queryKey: ["/api/career"] });
-  const { data: playerProfile } = useQuery<any>({ queryKey: ["/api/player-profile"] });
+  const { data: playerProfile, isLoading: isPlayerProfileLoading } = useQuery<any>({ queryKey: ["/api/player-profile"] });
   const [form, setForm] = useState<CareerForm>(emptyForm);
 
   useEffect(() => {
@@ -109,7 +107,6 @@ export function CareerProfileEditor() {
       jerseyNumber: profile.jerseyNumber ?? 0,
       positions: profile.positions ?? [],
       gradeLevel: profile.gradeLevel ?? "",
-      schoolName: profile.schoolName || current.schoolName,
       teamName: profile.teamName ?? "",
       aspiration: profile.aspiration ?? "",
     }));
@@ -119,7 +116,6 @@ export function CareerProfileEditor() {
     if (!playerProfile) return;
     setForm((current) => ({
       ...current,
-      schoolName: current.schoolName || playerProfile.schoolName || "",
       headline: playerProfile.headline ?? "",
       bio: playerProfile.bio ?? "",
     }));
@@ -137,9 +133,7 @@ export function CareerProfileEditor() {
         || `${makeSlug(displayName)}${user?.id ? `-${user.id.slice(-5)}` : ""}`;
 
       await apiRequest("PUT", "/api/player-profile", {
-        ...(playerProfile || {}),
         slug,
-        schoolName: form.schoolName || null,
         headline: headline || null,
         bio: bio || null,
       });
@@ -170,7 +164,7 @@ export function CareerProfileEditor() {
     setForm((current) => ({ ...current, [key]: value }));
   };
 
-  if (isLoading) {
+  if (isLoading || isPlayerProfileLoading) {
     return <Card className="border-zinc-800 bg-zinc-900/60"><CardContent className="p-6 text-sm text-zinc-400">Loading player details…</CardContent></Card>;
   }
 
@@ -195,10 +189,6 @@ export function CareerProfileEditor() {
               placeholder="Select grade"
               options={GRADE_LEVELS.map((value) => ({ value, label: gradeLabels[value] || value }))}
             />
-            <div className="space-y-1.5">
-              <Label htmlFor="career-school">School</Label>
-              <Input id="career-school" value={form.schoolName} onChange={(event) => setField("schoolName", event.target.value)} placeholder="School name" />
-            </div>
             <div className="space-y-1.5">
               <Label htmlFor="career-team">Team</Label>
               <Input id="career-team" value={form.teamName} onChange={(event) => setField("teamName", event.target.value)} placeholder="Team name" />

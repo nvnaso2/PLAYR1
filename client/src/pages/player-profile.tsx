@@ -94,9 +94,16 @@ const playerProfileFormSchema = z.object({
 
 type PlayerProfileFormData = z.infer<typeof playerProfileFormSchema>;
 
-export function PlayerProfileSection() {
+function makeProfileSlug(name: string, userId?: string) {
+  const base = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "player";
+  return `${base}${userId ? `-${userId.slice(-5)}` : ""}`;
+}
+
+export function PlayerProfileSection({ concise = false }: { concise?: boolean } = {}) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const profileName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.email?.split("@")[0] || "player";
+  const fallbackSlug = makeProfileSlug(profileName, user?.id);
   const [location, setLocation] = useLocation();
   const search = useSearch();
   const [uploading, setUploading] = useState(false);
@@ -107,6 +114,11 @@ export function PlayerProfileSection() {
 
   const { data: userProfile } = useQuery<UserProfile | null>({
     queryKey: ["/api/profile"],
+  });
+
+  const { data: careerProfile, isLoading: isCareerProfileLoading } = useQuery<any>({
+    queryKey: ["/api/career"],
+    enabled: concise,
   });
 
   const { data: userSeasons = [] } = useQuery<Season[]>({
@@ -166,7 +178,7 @@ export function PlayerProfileSection() {
   useEffect(() => {
     if (profile) {
       form.reset({
-        slug: profile.slug || "",
+        slug: profile.slug || fallbackSlug,
         headline: profile.headline || "",
         bio: profile.bio || "",
         country: userProfile?.country || "USA",
@@ -193,12 +205,22 @@ export function PlayerProfileSection() {
         showTrainingLog: profile.showTrainingLog ?? false,
       });
     }
-  }, [profile, userProfile, form]);
+  }, [profile, userProfile, form, fallbackSlug]);
+
+  useEffect(() => {
+    if (!profile?.slug && !form.getValues("slug")) {
+      form.setValue("slug", fallbackSlug);
+    }
+  }, [profile?.slug, fallbackSlug, form]);
 
   const saveMutation = useMutation({
     mutationFn: async (data: PlayerProfileFormData) => {
       const { city, state, zipCode, country, ...playerFields } = data;
       const payload: any = { ...playerFields };
+      if (concise) {
+        delete payload.headline;
+        delete payload.bio;
+      }
       if (payload.heightFeet === 0) payload.heightFeet = null;
       if (payload.heightInches === 0) payload.heightInches = null;
       if (payload.weight === 0) payload.weight = null;
@@ -220,12 +242,19 @@ export function PlayerProfileSection() {
         state: state || "",
         zipCode: zipCode || "",
       });
+      if (concise && careerProfile) {
+        await apiRequest("PUT", "/api/career", { schoolName: payload.schoolName });
+      }
       return await apiRequest("PUT", "/api/player-profile", payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/player-profile"] });
       queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
       queryClient.invalidateQueries({ queryKey: ["/api/user/location"] });
+      if (concise && careerProfile) {
+        queryClient.invalidateQueries({ queryKey: ["/api/career"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/stats/career"] });
+      }
       if (profile?.slug) {
         queryClient.invalidateQueries({ queryKey: ["/api/player", profile.slug] });
       }
@@ -314,49 +343,51 @@ export function PlayerProfileSection() {
   }
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col items-center gap-4">
-            <div className="relative">
-              <Avatar className="h-24 w-24">
-                <AvatarImage src={profilePhotoSrc} />
-                <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
-                  {getInitials()}
-                </AvatarFallback>
-              </Avatar>
-              <label
-                className="absolute bottom-0 right-0 flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground cursor-pointer hover:opacity-90 transition-opacity"
-                data-testid="button-upload-player-photo"
-              >
-                <Camera className="w-4 h-4" />
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/gif,image/webp"
-                  className="hidden"
-                  onChange={handlePhotoUpload}
-                  disabled={uploading}
-                />
-              </label>
-              {uploading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full">
-                  <div className="text-white text-[10px] font-medium">...</div>
-                </div>
-              )}
+    <div className={concise ? "space-y-3" : "space-y-6"}>
+      {!concise && (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex flex-col items-center gap-4">
+              <div className="relative">
+                <Avatar className="h-24 w-24">
+                  <AvatarImage src={profilePhotoSrc} />
+                  <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
+                    {getInitials()}
+                  </AvatarFallback>
+                </Avatar>
+                <label
+                  className="absolute bottom-0 right-0 flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground cursor-pointer hover:opacity-90 transition-opacity"
+                  data-testid="button-upload-player-photo"
+                >
+                  <Camera className="w-4 h-4" />
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    className="hidden"
+                    onChange={handlePhotoUpload}
+                    disabled={uploading}
+                  />
+                </label>
+                {uploading && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full">
+                    <div className="text-white text-[10px] font-medium">...</div>
+                  </div>
+                )}
+              </div>
+              <div className="text-center">
+                <p className="font-semibold text-lg" data-testid="text-player-name">
+                  {user?.firstName && user?.lastName
+                    ? `${user.firstName} ${user.lastName}`
+                    : user?.firstName || "Player"}
+                </p>
+                <p className="text-sm text-muted-foreground">{user?.email}</p>
+              </div>
             </div>
-            <div className="text-center">
-              <p className="font-semibold text-lg" data-testid="text-player-name">
-                {user?.firstName && user?.lastName
-                  ? `${user.firstName} ${user.lastName}`
-                  : user?.firstName || "Player"}
-              </p>
-              <p className="text-sm text-muted-foreground">{user?.email}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
-      {false && profile?.slug && isPublicValue && (
+      {!concise && false && profile?.slug && isPublicValue && (
         <Card>
           <CardContent className="p-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0">
@@ -387,8 +418,8 @@ export function PlayerProfileSection() {
       )}
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <Card>
+        <form onSubmit={form.handleSubmit(onSubmit)} className={concise ? "space-y-3" : "space-y-6"}>
+          {!concise && <Card>
             <CardHeader>
               <CardTitle className="text-lg">Profile URL</CardTitle>
               <CardDescription>Choose a unique URL-friendly username for your profile</CardDescription>
@@ -417,9 +448,9 @@ export function PlayerProfileSection() {
                 )}
               />
             </CardContent>
-          </Card>
+          </Card>}
 
-          <Card>
+          {!concise && <Card>
             <CardHeader>
               <CardTitle className="text-lg">About</CardTitle>
               <CardDescription>Tell coaches and recruiters about yourself</CardDescription>
@@ -461,16 +492,16 @@ export function PlayerProfileSection() {
                 )}
               />
             </CardContent>
-          </Card>
+          </Card>}
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <MapPin className="h-5 w-5" />
+          <Card className={concise ? "border-zinc-800/70 bg-zinc-900/60" : undefined}>
+            <CardHeader className={concise ? "px-4 pb-2 pt-4" : undefined}>
+              <CardTitle className={`flex items-center gap-2 ${concise ? "text-sm" : "text-lg"}`}>
+                <MapPin className={concise ? "h-4 w-4 text-orange-400" : "h-5 w-5"} />
                 Location
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className={concise ? "space-y-3 pt-0" : "space-y-4"}>
               <FormField
                 control={form.control}
                 name="country"
@@ -493,7 +524,7 @@ export function PlayerProfileSection() {
                   </FormItem>
                 )}
               />
-              <div className="grid grid-cols-2 gap-4">
+              <div className={`grid grid-cols-2 ${concise ? "gap-3" : "gap-4"}`}>
                 <FormField
                   control={form.control}
                   name="city"
@@ -565,7 +596,7 @@ export function PlayerProfileSection() {
                       <FormControl>
                         <Input placeholder={countryVal === "USA" ? "e.g. 30009" : "Postal code"} data-testid="input-zip-code" {...field} />
                       </FormControl>
-                      <FormDescription>Used for finding nearby teams, leagues, and trainers</FormDescription>
+                      {!concise && <FormDescription>Used for finding nearby teams, leagues, and trainers</FormDescription>}
                       <FormMessage />
                     </FormItem>
                   );
@@ -574,15 +605,15 @@ export function PlayerProfileSection() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Ruler className="h-5 w-5" />
+          <Card className={concise ? "border-zinc-800/70 bg-zinc-900/60" : undefined}>
+            <CardHeader className={concise ? "px-4 pb-2 pt-4" : undefined}>
+              <CardTitle className={`flex items-center gap-2 ${concise ? "text-sm" : "text-lg"}`}>
+                <Ruler className={concise ? "h-4 w-4 text-orange-400" : "h-5 w-5"} />
                 Physical Attributes
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            <CardContent className={concise ? "space-y-3 pt-0" : "space-y-4"}>
+              <div className={`grid grid-cols-2 ${concise ? "gap-3" : "gap-4"}`}>
                 <FormField
                   control={form.control}
                   name="heightFeet"
@@ -639,7 +670,7 @@ export function PlayerProfileSection() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className={`grid grid-cols-2 ${concise ? "gap-3" : "gap-4"}`}>
                 <FormField
                   control={form.control}
                   name="weight"
@@ -680,20 +711,20 @@ export function PlayerProfileSection() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <GraduationCap className="h-5 w-5" />
+          <Card className={concise ? "border-zinc-800/70 bg-zinc-900/60" : undefined}>
+            <CardHeader className={concise ? "px-4 pb-2 pt-4" : undefined}>
+              <CardTitle className={`flex items-center gap-2 ${concise ? "text-sm" : "text-lg"}`}>
+                <GraduationCap className={concise ? "h-4 w-4 text-orange-400" : "h-5 w-5"} />
                 Academics
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className={concise ? "space-y-3 pt-0" : "space-y-4"}>
               <FormField
                 control={form.control}
                 name="schoolName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>School Name</FormLabel>
+                    <FormLabel>{concise ? "School" : "School Name"}</FormLabel>
                     <FormControl>
                       <Input
                         placeholder="e.g., Lincoln High School"
@@ -705,7 +736,7 @@ export function PlayerProfileSection() {
                   </FormItem>
                 )}
               />
-              <div className="grid grid-cols-2 gap-4">
+              <div className={`grid grid-cols-2 ${concise ? "gap-3" : "gap-4"}`}>
                 <FormField
                   control={form.control}
                   name="gradYear"
@@ -1033,7 +1064,7 @@ export function PlayerProfileSection() {
           <div className="flex justify-end">
             <Button
               type="submit"
-              disabled={saveMutation.isPending}
+              disabled={saveMutation.isPending || (concise && isCareerProfileLoading)}
               data-testid="button-save-profile"
             >
               <Save className="h-4 w-4 mr-1" />
