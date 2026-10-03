@@ -2811,24 +2811,28 @@ function StatsOverviewCard({
               </p>
             </div>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-            <div className="flex min-w-0 items-center gap-2">
-              <Select value={selectedSeasonId || undefined} onValueChange={onSeasonChange} disabled={seasons.length === 0}>
-                <SelectTrigger className="h-9 min-w-0 flex-1 border-white/10 bg-black/25 text-xs text-zinc-200 sm:w-48 sm:flex-none" data-testid="select-stats-season" aria-label="Choose season stats">
-                  <SelectValue placeholder="Choose season" />
-                </SelectTrigger>
-                <SelectContent>
-                  {seasons.map((season) => <SelectItem key={season.id} value={season.id}>{season.name} ({season.year})</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <div className="grid shrink-0 grid-cols-2 rounded-lg border border-white/[0.08] bg-black/30 p-0.5" role="group" aria-label="Choose stats period">
-                <Button type="button" size="sm" variant="ghost" aria-pressed={statsScope === "career"} className={`h-8 px-3 text-xs ${statsScope === "career" ? "bg-orange-500 font-bold text-zinc-950 hover:bg-orange-400 hover:text-zinc-950" : "text-zinc-400 hover:text-white"}`} onClick={() => onScopeChange("career")} data-testid="button-stats-career">Career</Button>
-                <Button type="button" size="sm" variant="ghost" aria-pressed={statsScope === "season"} className={`h-8 px-3 text-xs ${statsScope === "season" ? "bg-orange-500 font-bold text-zinc-950 hover:bg-orange-400 hover:text-zinc-950" : "text-zinc-400 hover:text-white"}`} onClick={() => onScopeChange("season")} data-testid="button-stats-season">Season</Button>
-              </div>
+          <div className="flex w-full min-w-0 items-center gap-1 sm:w-auto sm:gap-2">
+            <div className="w-[84px] shrink-0 sm:w-48">
+              {statsScope === "season" ? (
+                <Select value={selectedSeasonId || undefined} onValueChange={onSeasonChange} disabled={seasons.length === 0}>
+                  <SelectTrigger className="h-9 w-full min-w-0 border-white/10 bg-black/25 px-2 text-[11px] text-zinc-200 sm:px-3 sm:text-xs" data-testid="select-stats-season" aria-label="Choose season stats">
+                    <SelectValue className="truncate" placeholder="Season" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {seasons.map((season) => <SelectItem key={season.id} value={season.id}>{season.name} ({season.year})</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="h-9 w-full" aria-hidden="true" />
+              )}
             </div>
-            <div className="flex justify-end gap-1 sm:justify-start" role="group" aria-label="Choose stat display">
-              <Button type="button" size="sm" variant="ghost" onClick={() => setStatsView("averages")} aria-pressed={statsView === "averages"} className={`h-8 px-2.5 text-[11px] ${statsView === "averages" ? "text-orange-300" : "text-zinc-500"}`} data-testid="btn-stats-averages">Averages</Button>
-              <Button type="button" size="sm" variant="ghost" onClick={() => setStatsView("totals")} aria-pressed={statsView === "totals"} className={`h-8 px-2.5 text-[11px] ${statsView === "totals" ? "text-orange-300" : "text-zinc-500"}`} data-testid="btn-stats-totals">Totals</Button>
+            <div className="grid shrink-0 grid-cols-2 rounded-lg border border-white/[0.08] bg-black/30 p-0.5" role="group" aria-label="Choose stats period">
+              <Button type="button" size="sm" variant="ghost" aria-pressed={statsScope === "career"} className={`h-8 px-1.5 text-xs ${statsScope === "career" ? "bg-orange-500 font-bold text-zinc-950 hover:bg-orange-400 hover:text-zinc-950" : "text-zinc-400 hover:text-white"}`} onClick={() => onScopeChange("career")} data-testid="button-stats-career">Career</Button>
+              <Button type="button" size="sm" variant="ghost" aria-pressed={statsScope === "season"} className={`h-8 px-1.5 text-xs ${statsScope === "season" ? "bg-orange-500 font-bold text-zinc-950 hover:bg-orange-400 hover:text-zinc-950" : "text-zinc-400 hover:text-white"}`} onClick={() => onScopeChange("season")} data-testid="button-stats-season">Season</Button>
+            </div>
+            <div className="flex shrink-0 gap-0" role="group" aria-label="Choose stat display">
+              <Button type="button" size="sm" variant="ghost" onClick={() => setStatsView("averages")} aria-pressed={statsView === "averages"} className={`h-8 px-1.5 text-[11px] ${statsView === "averages" ? "text-orange-300" : "text-zinc-500"}`} data-testid="btn-stats-averages">Averages</Button>
+              <Button type="button" size="sm" variant="ghost" onClick={() => setStatsView("totals")} aria-pressed={statsView === "totals"} className={`h-8 px-1.5 text-[11px] ${statsView === "totals" ? "text-orange-300" : "text-zinc-500"}`} data-testid="btn-stats-totals">Totals</Button>
             </div>
           </div>
         </div>

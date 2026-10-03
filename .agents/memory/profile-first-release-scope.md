@@ -5,13 +5,13 @@ description: Profile leads with the player's sports card and concise career/trop
 
 Keep My Season, My PLAYR1 Project, and Game Day out of the Profile and Hub entry points while preserving their pages and routes.
 
-The Profile tab is the player’s main career view: lead with the existing sports trading card, then concise Career Stats and Trophy Room summaries. Keep season and game stats available for viewing, but remove season/game management controls from Profile. Keep trophy management reachable in its existing expandable section, and place Player Development after the two summaries. Preserve career/profile records; `/career` remains a compatibility route to the main Profile view.
+The Profile and Profile Hub stats views are read-only: keep season and game stats available for viewing, but remove season/game management controls from both. The Profile tab is the player’s main career view: lead with the existing sports trading card, then concise Career Stats and Trophy Room summaries. Keep trophy management reachable in its existing expandable section, and place Player Development after the two summaries. Preserve career/profile records; `/career` redirects to Profile Hub.
 
-For Career Stats, use a Career/Season switcher, defaulting to Career. Keep the season selector visible to the left of the switcher in both modes so changing the stats scope does not move the controls. Season mode shows the selected season’s summary and read-only game log.
+For Career Stats, use a Career/Season switcher, defaulting to Career. In Career mode, keep an empty fixed-width slot to the left of the switcher; show the season selector in that slot only in Season mode. Keep Averages/Totals in the same top toolbar row.
 
-**Why:** the user asked to remove game and season management from Profile and reported that switching to Season moved the controls.
+**Why:** the user asked to remove game and season management from Profile and Profile Hub, and reported that selecting Season moved the controls and displaced Averages/Totals.
 
-**How to apply:** render the Profile stats view without season/game management actions. Keep season creation, game logging/editing/deletion, imports, and sharing available on the existing Career management path; do not delete stored seasons or games.
+**How to apply:** render both Profile and Profile Hub stats without season/game management actions. Reserve the season selector’s toolbar space while Career is active, reveal it only for Season, and never let the toolbar wrap at mobile widths. Do not delete stored seasons or games.
 
 Keep the card on the page background without a separate frame or instruction line. Style Edit Profile black with an orange glow and outline, and use the same brighter glowing orange on the card accents.
 
