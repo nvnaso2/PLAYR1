@@ -48,8 +48,16 @@ import {
   Calendar,
   Camera,
   MapPin,
+  UserRound,
 } from "lucide-react";
-import { US_STATES, COUNTRIES, CANADIAN_PROVINCES } from "@shared/schema";
+import {
+  BASKETBALL_ASPIRATIONS,
+  BASKETBALL_POSITIONS,
+  CANADIAN_PROVINCES,
+  COUNTRIES,
+  GRADE_LEVELS,
+  US_STATES,
+} from "@shared/schema";
 import type { PlayerProfile, Season } from "@shared/schema";
 
 interface UserProfile {
@@ -72,6 +80,11 @@ const playerProfileFormSchema = z.object({
   city: z.string().max(100).optional().or(z.literal("")),
   state: z.string().max(100).optional().or(z.literal("")),
   zipCode: z.string().max(20).optional().or(z.literal("")),
+  jerseyNumber: z.coerce.number().int().min(0).max(99).default(0),
+  positions: z.array(z.string()).default([]),
+  gradeLevel: z.string().max(30).optional().or(z.literal("")),
+  teamName: z.string().max(100).optional().or(z.literal("")),
+  aspiration: z.string().max(40).optional().or(z.literal("")),
   heightFeet: z.coerce.number().min(3).max(8).optional().or(z.literal(0)),
   heightInches: z.coerce.number().min(0).max(11).optional().or(z.literal(0)),
   weight: z.coerce.number().min(50).max(400).optional().or(z.literal(0)),
@@ -91,6 +104,33 @@ const playerProfileFormSchema = z.object({
   showPersonalRecords: z.boolean().default(false),
   showTrainingLog: z.boolean().default(false),
 });
+
+const gradeLabels: Record<string, string> = {
+  elementary: "Elementary",
+  "6th": "6th grade",
+  "7th": "7th grade",
+  "8th": "8th grade",
+  freshman: "High school freshman",
+  sophomore: "High school sophomore",
+  junior: "High school junior",
+  senior: "High school senior",
+  "college-freshman": "College freshman",
+  "college-sophomore": "College sophomore",
+  "college-junior": "College junior",
+  "college-senior": "College senior",
+  "post-college": "Post-college",
+};
+
+const aspirationLabels: Record<string, string> = {
+  recreational: "Recreational",
+  "feeder-team": "Feeder team",
+  aau: "AAU",
+  "middle-school": "Middle school",
+  "high-school": "High school",
+  college: "College",
+  "professional-non-nba": "Professional",
+  nba: "NBA",
+};
 
 type PlayerProfileFormData = z.infer<typeof playerProfileFormSchema>;
 
@@ -112,7 +152,7 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
     queryKey: ["/api/player-profile"],
   });
 
-  const { data: userProfile } = useQuery<UserProfile | null>({
+  const { data: userProfile, isLoading: isUserProfileLoading } = useQuery<UserProfile | null>({
     queryKey: ["/api/profile"],
   });
 
@@ -154,11 +194,16 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
       city: "",
       state: "",
       zipCode: "",
+      jerseyNumber: 0,
+      positions: [],
+      gradeLevel: "",
+      teamName: "",
+      aspiration: "",
       heightFeet: 0,
       heightInches: 0,
       weight: 0,
       wingspan: "",
-        schoolName: "",
+      schoolName: "",
       gradYear: 0,
       gpa: "",
       highlightVideoUrl: "",
@@ -176,36 +221,39 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
   });
 
   useEffect(() => {
-    if (profile) {
-      form.reset({
-        slug: profile.slug || fallbackSlug,
-        headline: profile.headline || "",
-        bio: profile.bio || "",
-        country: userProfile?.country || "USA",
-        city: userProfile?.city || "",
-        state: userProfile?.state || "",
-        zipCode: (userProfile as any)?.zipCode || "",
-        heightFeet: profile.heightFeet || 0,
-        heightInches: profile.heightInches || 0,
-        weight: profile.weight || 0,
-        wingspan: profile.wingspan || "",
-        schoolName: profile.schoolName || "",
-        gradYear: profile.gradYear || 0,
-        gpa: profile.gpa || "",
-        highlightVideoUrl: profile.highlightVideoUrl || "",
-        socialTwitter: profile.socialTwitter || "",
-        socialInstagram: profile.socialInstagram || "",
-        socialTiktok: profile.socialTiktok || "",
-        socialYoutube: profile.socialYoutube || "",
-        isPublic: profile.isPublic ?? false,
-        showStats: profile.showStats ?? false,
-        showAchievements: profile.showAchievements ?? false,
-        showVideos: profile.showVideos ?? false,
-        showPersonalRecords: (profile as any).showPersonalRecords ?? false,
-        showTrainingLog: profile.showTrainingLog ?? false,
-      });
-    }
-  }, [profile, userProfile, form, fallbackSlug]);
+    form.reset({
+      slug: profile?.slug || fallbackSlug,
+      headline: profile?.headline || "",
+      bio: profile?.bio || "",
+      country: userProfile?.country || "USA",
+      city: userProfile?.city || "",
+      state: userProfile?.state || "",
+      zipCode: (userProfile as any)?.zipCode || "",
+      jerseyNumber: careerProfile?.jerseyNumber ?? 0,
+      positions: careerProfile?.positions ?? [],
+      gradeLevel: careerProfile?.gradeLevel ?? "",
+      teamName: careerProfile?.teamName ?? "",
+      aspiration: careerProfile?.aspiration ?? "",
+      heightFeet: profile?.heightFeet || 0,
+      heightInches: profile?.heightInches || 0,
+      weight: profile?.weight || 0,
+      wingspan: profile?.wingspan || "",
+      schoolName: profile?.schoolName || "",
+      gradYear: profile?.gradYear || 0,
+      gpa: profile?.gpa || "",
+      highlightVideoUrl: profile?.highlightVideoUrl || "",
+      socialTwitter: profile?.socialTwitter || "",
+      socialInstagram: profile?.socialInstagram || "",
+      socialTiktok: profile?.socialTiktok || "",
+      socialYoutube: profile?.socialYoutube || "",
+      isPublic: profile?.isPublic ?? false,
+      showStats: profile?.showStats ?? false,
+      showAchievements: profile?.showAchievements ?? false,
+      showVideos: profile?.showVideos ?? false,
+      showPersonalRecords: (profile as any)?.showPersonalRecords ?? false,
+      showTrainingLog: profile?.showTrainingLog ?? false,
+    });
+  }, [profile, userProfile, careerProfile, form, fallbackSlug]);
 
   useEffect(() => {
     if (!profile?.slug && !form.getValues("slug")) {
@@ -215,12 +263,22 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
 
   const saveMutation = useMutation({
     mutationFn: async (data: PlayerProfileFormData) => {
-      const { city, state, zipCode, country, ...playerFields } = data;
-      const payload: any = { ...playerFields };
-      if (concise) {
-        delete payload.headline;
-        delete payload.bio;
+      if (concise && !careerProfile) {
+        throw new Error("Player details could not be loaded. Reload the page and try again.");
       }
+      const {
+        city,
+        state,
+        zipCode,
+        country,
+        jerseyNumber,
+        positions,
+        gradeLevel,
+        teamName,
+        aspiration,
+        ...playerFields
+      } = data;
+      const payload: any = { ...playerFields };
       if (payload.heightFeet === 0) payload.heightFeet = null;
       if (payload.heightInches === 0) payload.heightInches = null;
       if (payload.weight === 0) payload.weight = null;
@@ -242,8 +300,15 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
         state: state || "",
         zipCode: zipCode || "",
       });
-      if (concise && careerProfile) {
-        await apiRequest("PUT", "/api/career", { schoolName: payload.schoolName });
+      if (concise) {
+        await apiRequest("PUT", "/api/career", {
+          jerseyNumber,
+          positions,
+          gradeLevel: gradeLevel || null,
+          teamName: teamName || null,
+          aspiration: aspiration || null,
+          schoolName: payload.schoolName,
+        });
       }
       return await apiRequest("PUT", "/api/player-profile", payload);
     },
@@ -251,7 +316,7 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
       queryClient.invalidateQueries({ queryKey: ["/api/player-profile"] });
       queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
       queryClient.invalidateQueries({ queryKey: ["/api/user/location"] });
-      if (concise && careerProfile) {
+      if (concise) {
         queryClient.invalidateQueries({ queryKey: ["/api/career"] });
         queryClient.invalidateQueries({ queryKey: ["/api/stats/career"] });
       }
@@ -332,7 +397,7 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
   const isPublicValue = form.watch("isPublic");
   const profileUrl = slugValue ? `${window.location.origin}/player/${slugValue}` : "";
 
-  if (isLoading) {
+  if (isLoading || isUserProfileLoading || (concise && isCareerProfileLoading)) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-10 w-full" />
@@ -494,23 +559,182 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
             </CardContent>
           </Card>}
 
-          <Card className={concise ? "border-zinc-800/70 bg-zinc-900/60" : undefined}>
-            <CardHeader className={concise ? "px-4 pb-2 pt-4" : undefined}>
-              <CardTitle className={`flex items-center gap-2 ${concise ? "text-sm" : "text-lg"}`}>
+          <Card className={concise ? "border-zinc-800/70 bg-zinc-900/60 shadow-none" : "contents"}>
+            {concise && (
+              <CardHeader className="px-3 pb-2 pt-3">
+                <CardTitle className="flex items-center gap-2 text-sm">
+                  <UserRound className="h-4 w-4 text-orange-400" />
+                  Player Profile Information
+                </CardTitle>
+              </CardHeader>
+            )}
+            <CardContent className={concise ? "space-y-2 px-3 pb-3 pt-0" : "contents"}>
+              {concise && (
+                <>
+                  <section className="space-y-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500">Player</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <FormField
+                        control={form.control}
+                        name="gradeLevel"
+                        render={({ field }) => (
+                          <FormItem className="space-y-1">
+                            <FormLabel className="text-[11px] text-zinc-400">Grade</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value || ""}>
+                              <FormControl>
+                                <SelectTrigger className="h-8 text-xs" data-testid="select-grade-level">
+                                  <SelectValue placeholder="Select" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {GRADE_LEVELS.map((grade) => (
+                                  <SelectItem key={grade} value={grade}>{gradeLabels[grade] || grade}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="jerseyNumber"
+                        render={({ field }) => (
+                          <FormItem className="space-y-1">
+                            <FormLabel className="text-[11px] text-zinc-400">Jersey #</FormLabel>
+                            <FormControl>
+                              <Input
+                                className="h-8 text-xs"
+                                type="number"
+                                min={0}
+                                max={99}
+                                placeholder="0"
+                                data-testid="input-jersey-number"
+                                {...field}
+                                onChange={(event) => field.onChange(Number(event.target.value) || 0)}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="teamName"
+                        render={({ field }) => (
+                          <FormItem className="space-y-1">
+                            <FormLabel className="text-[11px] text-zinc-400">Team</FormLabel>
+                            <FormControl>
+                              <Input className="h-8 text-xs" placeholder="Team name" {...field} />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="aspiration"
+                        render={({ field }) => (
+                          <FormItem className="space-y-1">
+                            <FormLabel className="text-[11px] text-zinc-400">Goal</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value || ""}>
+                              <FormControl>
+                                <SelectTrigger className="h-8 text-xs" data-testid="select-basketball-goal">
+                                  <SelectValue placeholder="Select" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {BASKETBALL_ASPIRATIONS.map((goal) => (
+                                  <SelectItem key={goal} value={goal}>{aspirationLabels[goal] || goal}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[11px] font-medium text-zinc-400">Position(s)</p>
+                      <div className="flex flex-wrap gap-1">
+                        {BASKETBALL_POSITIONS.map((position) => {
+                          const selected = form.watch("positions").includes(position);
+                          return (
+                            <button
+                              key={position}
+                              type="button"
+                              aria-pressed={selected}
+                              onClick={() => {
+                                const positions = form.getValues("positions");
+                                form.setValue(
+                                  "positions",
+                                  positions.includes(position)
+                                    ? positions.filter((item) => item !== position)
+                                    : [...positions, position],
+                                  { shouldDirty: true },
+                                );
+                              }}
+                              className={`rounded-md border px-2 py-1 text-[11px] font-semibold transition ${
+                                selected
+                                  ? "border-orange-400 bg-orange-500/15 text-orange-200"
+                                  : "border-zinc-700 bg-zinc-950 text-zinc-400 hover:border-zinc-500"
+                              }`}
+                            >
+                              {position}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </section>
+                  <section className="space-y-2 border-t border-zinc-800 pt-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500">About</p>
+                    <FormField
+                      control={form.control}
+                      name="headline"
+                      render={({ field }) => (
+                        <FormItem className="space-y-1">
+                          <FormLabel className="text-[11px] text-zinc-400">Headline</FormLabel>
+                          <FormControl>
+                            <Input className="h-8 text-xs" placeholder="A quick introduction" {...field} />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="bio"
+                      render={({ field }) => (
+                        <FormItem className="space-y-1">
+                          <FormLabel className="text-[11px] text-zinc-400">Bio</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              rows={2}
+                              className="min-h-[52px] resize-y text-xs"
+                              placeholder="A few lines about your game and goals"
+                              {...field}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </section>
+                </>
+              )}
+
+          <Card className={concise ? "contents" : undefined}>
+            <CardHeader className={concise ? "px-0 pb-0 pt-0" : undefined}>
+              <CardTitle className={`flex items-center gap-2 ${concise ? "text-xs" : "text-lg"}`}>
                 <MapPin className={concise ? "h-4 w-4 text-orange-400" : "h-5 w-5"} />
                 Location
               </CardTitle>
             </CardHeader>
-            <CardContent className={concise ? "space-y-3 pt-0" : "space-y-4"}>
+            <CardContent className={concise ? "space-y-2 p-0" : "space-y-4"}>
               <FormField
                 control={form.control}
                 name="country"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Country</FormLabel>
+                  <FormItem className={concise ? "space-y-1" : undefined}>
+                    <FormLabel className={concise ? "text-[11px] text-zinc-400" : undefined}>Country</FormLabel>
                     <Select onValueChange={v => { field.onChange(v); form.setValue("state", ""); }} value={field.value || "USA"}>
                       <FormControl>
-                        <SelectTrigger data-testid="select-country">
+                        <SelectTrigger className={concise ? "h-8 text-xs" : undefined} data-testid="select-country">
                           <SelectValue placeholder="Select country" />
                         </SelectTrigger>
                       </FormControl>
@@ -524,15 +748,15 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
                   </FormItem>
                 )}
               />
-              <div className={`grid grid-cols-2 ${concise ? "gap-3" : "gap-4"}`}>
+              <div className={`grid grid-cols-2 ${concise ? "gap-2" : "gap-4"}`}>
                 <FormField
                   control={form.control}
                   name="city"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>City</FormLabel>
+                    <FormItem className={concise ? "space-y-1" : undefined}>
+                      <FormLabel className={concise ? "text-[11px] text-zinc-400" : undefined}>City</FormLabel>
                       <FormControl>
-                        <Input placeholder="Your city" data-testid="input-city" {...field} />
+                        <Input className={concise ? "h-8 text-xs" : undefined} placeholder="Your city" data-testid="input-city" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -544,14 +768,14 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
                   render={({ field }) => {
                     const countryVal = form.watch("country") || "USA";
                     return (
-                      <FormItem>
-                        <FormLabel>
+                      <FormItem className={concise ? "space-y-1" : undefined}>
+                        <FormLabel className={concise ? "text-[11px] text-zinc-400" : undefined}>
                           {countryVal === "USA" ? "State" : countryVal === "CAN" ? "Province" : "Region / Province"}
                         </FormLabel>
                         {countryVal === "USA" ? (
                           <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
-                              <SelectTrigger data-testid="select-state">
+                              <SelectTrigger className={concise ? "h-8 text-xs" : undefined} data-testid="select-state">
                                 <SelectValue placeholder="Select state" />
                               </SelectTrigger>
                             </FormControl>
@@ -564,7 +788,7 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
                         ) : countryVal === "CAN" ? (
                           <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
-                              <SelectTrigger data-testid="select-province">
+                              <SelectTrigger className={concise ? "h-8 text-xs" : undefined} data-testid="select-province">
                                 <SelectValue placeholder="Select province" />
                               </SelectTrigger>
                             </FormControl>
@@ -576,7 +800,7 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
                           </Select>
                         ) : (
                           <FormControl>
-                            <Input placeholder="Region / Province (optional)" data-testid="input-region" {...field} />
+                            <Input className={concise ? "h-8 text-xs" : undefined} placeholder="Region / Province (optional)" data-testid="input-region" {...field} />
                           </FormControl>
                         )}
                         <FormMessage />
@@ -591,10 +815,10 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
                 render={({ field }) => {
                   const countryVal = form.watch("country") || "USA";
                   return (
-                    <FormItem>
-                      <FormLabel>{countryVal === "USA" ? "Zip Code" : "Postal Code"}</FormLabel>
+                    <FormItem className={concise ? "space-y-1" : undefined}>
+                      <FormLabel className={concise ? "text-[11px] text-zinc-400" : undefined}>{countryVal === "USA" ? "Zip Code" : "Postal Code"}</FormLabel>
                       <FormControl>
-                        <Input placeholder={countryVal === "USA" ? "e.g. 30009" : "Postal code"} data-testid="input-zip-code" {...field} />
+                        <Input className={concise ? "h-8 text-xs" : undefined} placeholder={countryVal === "USA" ? "e.g. 30009" : "Postal code"} data-testid="input-zip-code" {...field} />
                       </FormControl>
                       {!concise && <FormDescription>Used for finding nearby teams, leagues, and trainers</FormDescription>}
                       <FormMessage />
@@ -605,27 +829,27 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
             </CardContent>
           </Card>
 
-          <Card className={concise ? "border-zinc-800/70 bg-zinc-900/60" : undefined}>
-            <CardHeader className={concise ? "px-4 pb-2 pt-4" : undefined}>
-              <CardTitle className={`flex items-center gap-2 ${concise ? "text-sm" : "text-lg"}`}>
+          <Card className={concise ? "contents" : undefined}>
+            <CardHeader className={concise ? "px-0 pb-0 pt-0" : undefined}>
+              <CardTitle className={`flex items-center gap-2 ${concise ? "text-xs" : "text-lg"}`}>
                 <Ruler className={concise ? "h-4 w-4 text-orange-400" : "h-5 w-5"} />
                 Physical Attributes
               </CardTitle>
             </CardHeader>
-            <CardContent className={concise ? "space-y-3 pt-0" : "space-y-4"}>
-              <div className={`grid grid-cols-2 ${concise ? "gap-3" : "gap-4"}`}>
+            <CardContent className={concise ? "space-y-2 p-0" : "space-y-4"}>
+              <div className={`grid grid-cols-2 ${concise ? "gap-2" : "gap-4"}`}>
                 <FormField
                   control={form.control}
                   name="heightFeet"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Height (ft)</FormLabel>
+                    <FormItem className={concise ? "space-y-1" : undefined}>
+                      <FormLabel className={concise ? "text-[11px] text-zinc-400" : undefined}>Height (ft)</FormLabel>
                       <FormControl>
                         <Select
                           value={field.value ? String(field.value) : ""}
                           onValueChange={(val) => field.onChange(parseInt(val) || 0)}
                         >
-                          <SelectTrigger data-testid="select-height-feet">
+                          <SelectTrigger className={concise ? "h-8 text-xs" : undefined} data-testid="select-height-feet">
                             <SelectValue placeholder="Feet" />
                           </SelectTrigger>
                           <SelectContent>
@@ -645,14 +869,14 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
                   control={form.control}
                   name="heightInches"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Height (in)</FormLabel>
+                    <FormItem className={concise ? "space-y-1" : undefined}>
+                      <FormLabel className={concise ? "text-[11px] text-zinc-400" : undefined}>Height (in)</FormLabel>
                       <FormControl>
                         <Select
                           value={field.value !== undefined ? String(field.value) : ""}
                           onValueChange={(val) => field.onChange(parseInt(val))}
                         >
-                          <SelectTrigger data-testid="select-height-inches">
+                          <SelectTrigger className={concise ? "h-8 text-xs" : undefined} data-testid="select-height-inches">
                             <SelectValue placeholder="Inches" />
                           </SelectTrigger>
                           <SelectContent>
@@ -670,15 +894,16 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
                 />
               </div>
 
-              <div className={`grid grid-cols-2 ${concise ? "gap-3" : "gap-4"}`}>
+              <div className={`grid grid-cols-2 ${concise ? "gap-2" : "gap-4"}`}>
                 <FormField
                   control={form.control}
                   name="weight"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Weight (lbs)</FormLabel>
+                    <FormItem className={concise ? "space-y-1" : undefined}>
+                      <FormLabel className={concise ? "text-[11px] text-zinc-400" : undefined}>Weight (lbs)</FormLabel>
                       <FormControl>
                         <Input
+                          className={concise ? "h-8 text-xs" : undefined}
                           type="number"
                           placeholder="175"
                           data-testid="input-weight"
@@ -694,10 +919,11 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
                   control={form.control}
                   name="wingspan"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Wingspan</FormLabel>
+                    <FormItem className={concise ? "space-y-1" : undefined}>
+                      <FormLabel className={concise ? "text-[11px] text-zinc-400" : undefined}>Wingspan</FormLabel>
                       <FormControl>
                         <Input
+                          className={concise ? "h-8 text-xs" : undefined}
                           placeholder={`6'8"`}
                           data-testid="input-wingspan"
                           {...field}
@@ -711,22 +937,23 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
             </CardContent>
           </Card>
 
-          <Card className={concise ? "border-zinc-800/70 bg-zinc-900/60" : undefined}>
-            <CardHeader className={concise ? "px-4 pb-2 pt-4" : undefined}>
-              <CardTitle className={`flex items-center gap-2 ${concise ? "text-sm" : "text-lg"}`}>
+          <Card className={concise ? "contents" : undefined}>
+            <CardHeader className={concise ? "px-0 pb-0 pt-0" : undefined}>
+              <CardTitle className={`flex items-center gap-2 ${concise ? "text-xs" : "text-lg"}`}>
                 <GraduationCap className={concise ? "h-4 w-4 text-orange-400" : "h-5 w-5"} />
                 Academics
               </CardTitle>
             </CardHeader>
-            <CardContent className={concise ? "space-y-3 pt-0" : "space-y-4"}>
+            <CardContent className={concise ? "space-y-2 p-0" : "space-y-4"}>
               <FormField
                 control={form.control}
                 name="schoolName"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{concise ? "School" : "School Name"}</FormLabel>
+                  <FormItem className={concise ? "space-y-1" : undefined}>
+                    <FormLabel className={concise ? "text-[11px] text-zinc-400" : undefined}>{concise ? "School" : "School Name"}</FormLabel>
                     <FormControl>
                       <Input
+                        className={concise ? "h-8 text-xs" : undefined}
                         placeholder="e.g., Lincoln High School"
                         data-testid="input-school-name"
                         {...field}
@@ -741,14 +968,14 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
                   control={form.control}
                   name="gradYear"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Graduation Year</FormLabel>
+                      <FormItem className={concise ? "space-y-1" : undefined}>
+                        <FormLabel className={concise ? "text-[11px] text-zinc-400" : undefined}>Graduation Year</FormLabel>
                       <FormControl>
                         <Select
                           value={field.value ? String(field.value) : ""}
                           onValueChange={(val) => field.onChange(parseInt(val) || 0)}
                         >
-                          <SelectTrigger data-testid="select-grad-year">
+                          <SelectTrigger className={concise ? "h-8 text-xs" : undefined} data-testid="select-grad-year">
                             <SelectValue placeholder="Year" />
                           </SelectTrigger>
                           <SelectContent>
@@ -768,10 +995,11 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
                   control={form.control}
                   name="gpa"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>GPA</FormLabel>
+                    <FormItem className={concise ? "space-y-1" : undefined}>
+                      <FormLabel className={concise ? "text-[11px] text-zinc-400" : undefined}>GPA</FormLabel>
                       <FormControl>
                         <Input
+                          className={concise ? "h-8 text-xs" : undefined}
                           placeholder="3.5"
                           data-testid="input-gpa"
                           {...field}
@@ -782,6 +1010,8 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
                   )}
                 />
               </div>
+            </CardContent>
+          </Card>
             </CardContent>
           </Card>
 
@@ -1068,7 +1298,7 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
               data-testid="button-save-profile"
             >
               <Save className="h-4 w-4 mr-1" />
-              {saveMutation.isPending ? "Saving..." : "Save Profile"}
+              {saveMutation.isPending ? "Saving..." : concise ? "Save profile information" : "Save Profile"}
             </Button>
           </div>
         </form>

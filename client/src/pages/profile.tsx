@@ -14,7 +14,6 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest, getObjectUrl } from "@/lib/queryClient";
 import { BaseballCard } from "@/pages/career";
 import { PlayerProfileSection } from "@/pages/player-profile";
-import { CareerProfileEditor } from "@/components/profile/career-profile-editor";
 import {
   Eye, EyeOff, Globe, Lock, Save, Loader2, Camera, Share2,
   Ruler, GraduationCap, Video, Star, Zap, Trophy, Medal,
@@ -765,8 +764,7 @@ export default function ProfilePage() {
       )}
 
       {tab === "player-details" && (
-        <div className="space-y-3 px-4 pb-6">
-          <CareerProfileEditor />
+        <div className="px-4 pb-6">
           <PlayerProfileSection concise />
         </div>
       )}
