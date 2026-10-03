@@ -2373,18 +2373,21 @@ function PlayerCardBack({
         {playerProfile?.bio?.trim() || "Add a short bio in Player Details."}
       </p>
 
-      <div className="mx-2.5 mt-1.5 grid grid-cols-2 gap-2 border-y border-white/10 py-1.5">
+      <div className="mx-2.5 mt-1.5 border-y border-white/10 py-1.5">
         <div className="min-w-0">
           <p className="mb-0.5 text-[7px] font-bold uppercase tracking-[0.16em] text-white/35">Measurements</p>
           <p className="line-clamp-2 text-[8px] font-semibold leading-snug text-white/80">
             {physicalDetails.length ? physicalDetails.join(" · ") : "Not added"}
           </p>
         </div>
-        <div className="min-w-0">
-          <p className="mb-0.5 text-[7px] font-bold uppercase tracking-[0.16em] text-white/35">Academics</p>
-          <p className="line-clamp-2 text-[8px] font-semibold leading-snug text-white/80">
-            {academicDetails.length ? academicDetails.join(" · ") : "Not added"}
-          </p>
+      </div>
+
+      <div className="mx-2.5 mt-1.5 min-w-0 border-b border-white/10 pb-1.5" data-testid="player-card-academics">
+        <p className="mb-0.5 text-[7px] font-bold uppercase tracking-[0.16em] text-white/35">Academics</p>
+        <div className="space-y-0.5 text-[8px] font-semibold leading-snug text-white/80">
+          {academicDetails.length ? academicDetails.map((detail, index) => (
+            <p key={`${index}-${detail}`} className="truncate">{detail}</p>
+          )) : <p>Not added</p>}
         </div>
       </div>
 

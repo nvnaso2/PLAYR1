@@ -144,6 +144,15 @@ const cardCareerStatLabels: Record<PlayerCardCareerStatKey, string> = {
   record: "W-L",
 };
 
+const conciseProfileSteps = [
+  { title: "General player information", detail: "The details coaches use to recognize your game." },
+  { title: "Location", detail: "Help teams and trainers find you nearby." },
+  { title: "Physical attributes", detail: "Share your measurements with a recruiting audience." },
+  { title: "Academics", detail: "Add your school, graduation year, and GPA." },
+  { title: "About", detail: "Introduce yourself and how you play." },
+  { title: "Card stats", detail: "Choose the career numbers shown on your player card." },
+] as const;
+
 type PlayerProfileFormData = z.infer<typeof playerProfileFormSchema>;
 
 function makeProfileSlug(name: string, userId?: string) {
@@ -151,7 +160,15 @@ function makeProfileSlug(name: string, userId?: string) {
   return `${base}${userId ? `-${userId.slice(-5)}` : ""}`;
 }
 
-export function PlayerProfileSection({ concise = false }: { concise?: boolean } = {}) {
+export function PlayerProfileSection({
+  concise = false,
+  onCancel,
+  onSaved,
+}: {
+  concise?: boolean;
+  onCancel?: () => void;
+  onSaved?: () => void;
+} = {}) {
   const { user } = useAuth();
   const { toast } = useToast();
   const profileName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.email?.split("@")[0] || "player";
@@ -159,6 +176,7 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
   const [location, setLocation] = useLocation();
   const search = useSearch();
   const [uploading, setUploading] = useState(false);
+  const [wizardStep, setWizardStep] = useState(0);
 
   const { data: profile, isLoading } = useQuery<PlayerProfile | null>({
     queryKey: ["/api/player-profile"],
@@ -345,6 +363,10 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
         title: "Profile Saved",
         description: "Your player profile has been updated.",
       });
+      if (concise) {
+        setWizardStep(0);
+        onSaved?.();
+      }
     },
     onError: (error: any) => {
       toast({
@@ -427,6 +449,28 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
 
   return (
     <div className={concise ? "space-y-3" : "space-y-6"}>
+      {concise && (
+        <div className="rounded-xl border border-zinc-800/70 bg-zinc-900/60 p-3">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-orange-400">Player profile setup</p>
+            <span className="shrink-0 text-[10px] font-semibold tabular-nums text-zinc-500" data-testid="text-profile-step-count">
+              {wizardStep + 1} of {conciseProfileSteps.length}
+            </span>
+          </div>
+          <div className="grid grid-cols-6 gap-1.5" aria-label={`Step ${wizardStep + 1} of ${conciseProfileSteps.length}`}>
+            {conciseProfileSteps.map((step, index) => (
+              <span
+                key={step.title}
+                aria-current={index === wizardStep ? "step" : undefined}
+                className={`h-1.5 rounded-full transition-colors ${
+                  index <= wizardStep ? "bg-orange-400" : "bg-zinc-800"
+                }`}
+              />
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-zinc-500">{conciseProfileSteps[wizardStep].detail}</p>
+        </div>
+      )}
       {!concise && (
         <Card>
           <CardContent className="pt-6">
@@ -582,14 +626,14 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
               <CardHeader className="px-3 pb-2 pt-3">
                 <CardTitle className="flex items-center gap-2 text-sm">
                   <UserRound className="h-4 w-4 text-orange-400" />
-                  Player Profile Information
+                  {conciseProfileSteps[wizardStep].title}
                 </CardTitle>
               </CardHeader>
             )}
             <CardContent className={concise ? "space-y-2 px-3 pb-3 pt-0" : "contents"}>
               {concise && (
                 <>
-                  <section className="space-y-2">
+                  {wizardStep === 0 && <section className="space-y-2">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500">Player</p>
                     <div className="grid grid-cols-2 gap-2">
                       <FormField
@@ -700,8 +744,8 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
                         })}
                       </div>
                     </div>
-                  </section>
-                  <section className="space-y-2 border-t border-zinc-800 pt-2">
+                  </section>}
+                  {wizardStep === 4 && <section className="space-y-2">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500">About</p>
                     <FormField
                       control={form.control}
@@ -732,8 +776,8 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
                         </FormItem>
                       )}
                     />
-                  </section>
-                  <section className="space-y-2 border-t border-zinc-800 pt-2">
+                  </section>}
+                  {wizardStep === 5 && <section className="space-y-2">
                     <div>
                       <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500">
                         <BarChart3 className="h-3.5 w-3.5 text-orange-400" />
@@ -773,11 +817,11 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
                         );
                       })}
                     </div>
-                  </section>
+                  </section>}
                 </>
               )}
 
-          <Card className={concise ? "contents" : undefined}>
+          {(!concise || wizardStep === 1) && <Card className={concise ? "contents" : undefined}>
             <CardHeader className={concise ? "px-0 pb-0 pt-0" : undefined}>
               <CardTitle className={`flex items-center gap-2 ${concise ? "text-xs" : "text-lg"}`}>
                 <MapPin className={concise ? "h-4 w-4 text-orange-400" : "h-5 w-5"} />
@@ -886,9 +930,9 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
                 }}
               />
             </CardContent>
-          </Card>
+          </Card>}
 
-          <Card className={concise ? "contents" : undefined}>
+          {(!concise || wizardStep === 2) && <Card className={concise ? "contents" : undefined}>
             <CardHeader className={concise ? "px-0 pb-0 pt-0" : undefined}>
               <CardTitle className={`flex items-center gap-2 ${concise ? "text-xs" : "text-lg"}`}>
                 <Ruler className={concise ? "h-4 w-4 text-orange-400" : "h-5 w-5"} />
@@ -994,9 +1038,9 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
                 />
               </div>
             </CardContent>
-          </Card>
+          </Card>}
 
-          <Card className={concise ? "contents" : undefined}>
+          {(!concise || wizardStep === 3) && <Card className={concise ? "contents" : undefined}>
             <CardHeader className={concise ? "px-0 pb-0 pt-0" : undefined}>
               <CardTitle className={`flex items-center gap-2 ${concise ? "text-xs" : "text-lg"}`}>
                 <GraduationCap className={concise ? "h-4 w-4 text-orange-400" : "h-5 w-5"} />
@@ -1070,11 +1114,11 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
                 />
               </div>
             </CardContent>
-          </Card>
+          </Card>}
             </CardContent>
           </Card>
 
-          <Card>
+          {!concise && <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <Video className="h-5 w-5" />
@@ -1101,9 +1145,9 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
                 )}
               />
             </CardContent>
-          </Card>
+          </Card>}
 
-          <Card>
+          {!concise && <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <LinkIcon className="h-5 w-5" />
@@ -1164,7 +1208,7 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
                 )}
               />
             </CardContent>
-          </Card>
+          </Card>}
 
           {false && <Card>
             <CardHeader>
@@ -1315,7 +1359,7 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
             </CardContent>
           </Card>}
 
-          {userSeasons.length > 0 && (
+          {!concise && userSeasons.length > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -1350,16 +1394,42 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
             </Card>
           )}
 
-          <div className="flex justify-end">
-            <Button
-              type="submit"
-              disabled={saveMutation.isPending || (concise && isCareerProfileLoading)}
-              data-testid="button-save-profile"
-            >
-              <Save className="h-4 w-4 mr-1" />
-              {saveMutation.isPending ? "Saving..." : concise ? "Save profile information" : "Save Profile"}
-            </Button>
-          </div>
+          {concise ? (
+            <div className="flex items-center justify-between gap-3 pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                className="border-zinc-700 bg-zinc-950 text-zinc-300 hover:bg-zinc-800"
+                onClick={() => wizardStep > 0 ? setWizardStep(wizardStep - 1) : onCancel?.()}
+                disabled={saveMutation.isPending}
+                data-testid="button-profile-step-back"
+              >
+                {wizardStep === 0 ? "Back to card" : "Back"}
+              </Button>
+              <Button
+                type={wizardStep === conciseProfileSteps.length - 1 ? "submit" : "button"}
+                onClick={wizardStep < conciseProfileSteps.length - 1 ? () => setWizardStep(wizardStep + 1) : undefined}
+                disabled={saveMutation.isPending || isCareerProfileLoading}
+                className="bg-orange-500 font-bold text-white shadow-[0_0_18px_rgba(249,115,22,0.2)] hover:bg-orange-600"
+                data-testid={wizardStep === conciseProfileSteps.length - 1 ? "button-save-profile" : "button-profile-step-next"}
+              >
+                {wizardStep === conciseProfileSteps.length - 1 ? (
+                  <><Save className="mr-1 h-4 w-4" />{saveMutation.isPending ? "Saving..." : "Save & return to card"}</>
+                ) : "Next"}
+              </Button>
+            </div>
+          ) : (
+            <div className="flex justify-end">
+              <Button
+                type="submit"
+                disabled={saveMutation.isPending}
+                data-testid="button-save-profile"
+              >
+                <Save className="h-4 w-4 mr-1" />
+                {saveMutation.isPending ? "Saving..." : "Save Profile"}
+              </Button>
+            </div>
+          )}
         </form>
       </Form>
     </div>
