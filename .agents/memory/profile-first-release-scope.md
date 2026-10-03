@@ -5,13 +5,13 @@ description: Profile leads with the player's sports card and concise career/trop
 
 Keep My Season, My PLAYR1 Project, and Game Day out of the Profile and Hub entry points while preserving their pages and routes.
 
-The Profile tab is the player’s main career view: lead with the existing sports trading card, then concise Career Stats and Trophy Room summaries. Keep season/game and trophy management reachable in expandable sections, and place Player Development after the two summaries. Preserve career/profile records; `/career` remains a compatibility route to the main Profile view.
+The Profile tab is the player’s main career view: lead with the existing sports trading card, then concise Career Stats and Trophy Room summaries. Keep season and game stats available for viewing, but remove season/game management controls from Profile. Keep trophy management reachable in its existing expandable section, and place Player Development after the two summaries. Preserve career/profile records; `/career` remains a compatibility route to the main Profile view.
 
-For Career Stats, use a Career/Season switcher, defaulting to Career. Season mode shows the selected season’s summary and game log; keep the existing season and game management actions available in a disclosure.
+For Career Stats, use a Career/Season switcher, defaulting to Career. Keep the season selector visible to the left of the switcher in both modes so changing the stats scope does not move the controls. Season mode shows the selected season’s summary and read-only game log.
 
-**Why:** the user chose a switcher to separate career and seasonal stats compactly while retaining season creation and game logging.
+**Why:** the user asked to remove game and season management from Profile and reported that switching to Season moved the controls.
 
-**How to apply:** make the career view the default, keep per-season stats and game logs accessible by selecting a season, and preserve every existing season/game action.
+**How to apply:** render the Profile stats view without season/game management actions. Keep season creation, game logging/editing/deletion, imports, and sharing available on the existing Career management path; do not delete stored seasons or games.
 
 Keep the card on the page background without a separate frame or instruction line. Style Edit Profile black with an orange glow and outline, and use the same brighter glowing orange on the card accents.
 
@@ -23,7 +23,7 @@ Place the orange, oval PLAYR1 Pro button beside Edit Profile. It opens the share
 
 **Why:** The user wants Profile to lead with the sports card and concise Career Stats/Trophy Room summaries, and clarified that the Player Details editor still felt too spacious unless all specified information shared one concise card.
 
-**How to apply:** Preserve the card's flip/photo-upload behavior, career/profile data, public-profile routes, and existing season/game and trophy CRUD actions. Keep the player editor behind Edit Profile, preserve legacy routes, avoid duplicate Hub entry points, and leave social/highlight/season fields in place until their new destination is decided. Continue treating the users record as the authoritative subscription source, with Pro Infinity excluded from Stripe portal actions.
+**How to apply:** Preserve the card's flip/photo-upload behavior, career/profile data, public-profile routes, and existing season/game and trophy CRUD actions outside the read-only Profile stats view. Keep the player editor behind Edit Profile, preserve legacy routes, avoid duplicate Hub entry points, and leave social/highlight/season fields in place until their new destination is decided. Continue treating the users record as the authoritative subscription source, with Pro Infinity excluded from Stripe portal actions.
 
 Keep the established Profile header title “My Profile” and group Edit Profile, PLAYR1 Pro, and Settings in that header; do not move the actions below the card. Omit ZIP/postal code from the Location editor, but retain existing stored values unless the user explicitly asks to delete them.
 

@@ -2720,6 +2720,7 @@ function StatsOverviewCard({
   seasons,
   statsScope,
   selectedSeasonId,
+  readOnly,
   onScopeChange,
   onSeasonChange,
   seasonGames,
@@ -2734,6 +2735,7 @@ function StatsOverviewCard({
   seasons: Season[];
   statsScope: "career" | "season";
   selectedSeasonId: string;
+  readOnly: boolean;
   onScopeChange: (scope: "career" | "season") => void;
   onSeasonChange: (seasonId: string) => void;
   seasonGames?: Game[];
@@ -2809,22 +2811,22 @@ function StatsOverviewCard({
               </p>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="grid grid-cols-2 rounded-lg border border-white/[0.08] bg-black/30 p-0.5" role="group" aria-label="Choose stats period">
-              <Button type="button" size="sm" variant="ghost" aria-pressed={statsScope === "career"} className={`h-8 px-3 text-xs ${statsScope === "career" ? "bg-orange-500 font-bold text-zinc-950 hover:bg-orange-400 hover:text-zinc-950" : "text-zinc-400 hover:text-white"}`} onClick={() => onScopeChange("career")} data-testid="button-stats-career">Career</Button>
-              <Button type="button" size="sm" variant="ghost" aria-pressed={statsScope === "season"} className={`h-8 px-3 text-xs ${statsScope === "season" ? "bg-orange-500 font-bold text-zinc-950 hover:bg-orange-400 hover:text-zinc-950" : "text-zinc-400 hover:text-white"}`} onClick={() => onScopeChange("season")} data-testid="button-stats-season">Season</Button>
-            </div>
-            {statsScope === "season" && (
-              <Select value={selectedSeasonId || undefined} onValueChange={onSeasonChange}>
-                <SelectTrigger className="h-9 min-w-[150px] border-white/10 bg-black/25 text-xs text-zinc-200 sm:w-48" data-testid="select-stats-season" aria-label="Choose season stats">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+            <div className="flex min-w-0 items-center gap-2">
+              <Select value={selectedSeasonId || undefined} onValueChange={onSeasonChange} disabled={seasons.length === 0}>
+                <SelectTrigger className="h-9 min-w-0 flex-1 border-white/10 bg-black/25 text-xs text-zinc-200 sm:w-48 sm:flex-none" data-testid="select-stats-season" aria-label="Choose season stats">
                   <SelectValue placeholder="Choose season" />
                 </SelectTrigger>
                 <SelectContent>
                   {seasons.map((season) => <SelectItem key={season.id} value={season.id}>{season.name} ({season.year})</SelectItem>)}
                 </SelectContent>
               </Select>
-            )}
-            <div className="flex gap-1" role="group" aria-label="Choose stat display">
+              <div className="grid shrink-0 grid-cols-2 rounded-lg border border-white/[0.08] bg-black/30 p-0.5" role="group" aria-label="Choose stats period">
+                <Button type="button" size="sm" variant="ghost" aria-pressed={statsScope === "career"} className={`h-8 px-3 text-xs ${statsScope === "career" ? "bg-orange-500 font-bold text-zinc-950 hover:bg-orange-400 hover:text-zinc-950" : "text-zinc-400 hover:text-white"}`} onClick={() => onScopeChange("career")} data-testid="button-stats-career">Career</Button>
+                <Button type="button" size="sm" variant="ghost" aria-pressed={statsScope === "season"} className={`h-8 px-3 text-xs ${statsScope === "season" ? "bg-orange-500 font-bold text-zinc-950 hover:bg-orange-400 hover:text-zinc-950" : "text-zinc-400 hover:text-white"}`} onClick={() => onScopeChange("season")} data-testid="button-stats-season">Season</Button>
+              </div>
+            </div>
+            <div className="flex justify-end gap-1 sm:justify-start" role="group" aria-label="Choose stat display">
               <Button type="button" size="sm" variant="ghost" onClick={() => setStatsView("averages")} aria-pressed={statsView === "averages"} className={`h-8 px-2.5 text-[11px] ${statsView === "averages" ? "text-orange-300" : "text-zinc-500"}`} data-testid="btn-stats-averages">Averages</Button>
               <Button type="button" size="sm" variant="ghost" onClick={() => setStatsView("totals")} aria-pressed={statsView === "totals"} className={`h-8 px-2.5 text-[11px] ${statsView === "totals" ? "text-orange-300" : "text-zinc-500"}`} data-testid="btn-stats-totals">Totals</Button>
             </div>
@@ -2868,7 +2870,13 @@ function StatsOverviewCard({
         )}
         {totals.games === 0 && (
           <p className="rounded-lg border border-dashed border-white/[0.08] bg-black/10 px-3 py-2 text-center text-xs text-zinc-500">
-            {statsScope === "season" && !selectedSeason ? "Choose a season to see its stats." : "No games logged yet. Create a season and log your first game."}
+            {statsScope === "season" && !selectedSeason
+              ? seasons.length > 0
+                ? "Choose a season to see its stats."
+                : "No season stats available yet."
+              : readOnly
+                ? "No games logged yet."
+                : "No games logged yet. Create a season and log your first game."}
           </p>
         )}
         {statsScope === "season" && selectedSeason && (
@@ -2878,9 +2886,11 @@ function StatsOverviewCard({
                 <h3 id="stats-game-log-heading" className="text-xs font-bold text-zinc-200">Game log</h3>
                 <p className="mt-0.5 text-[10px] text-zinc-600">{selectedSeason.name} · {seasonGames?.length ?? 0} games</p>
               </div>
-              <Button type="button" size="sm" onClick={onLogGame} className="h-8 bg-orange-500 px-3 text-xs font-bold text-zinc-950 hover:bg-orange-400" data-testid="button-add-game-overview">
-                <Plus className="mr-1.5 h-3.5 w-3.5" />Log Game
-              </Button>
+              {!readOnly && (
+                <Button type="button" size="sm" onClick={onLogGame} className="h-8 bg-orange-500 px-3 text-xs font-bold text-zinc-950 hover:bg-orange-400" data-testid="button-add-game-overview">
+                  <Plus className="mr-1.5 h-3.5 w-3.5" />Log Game
+                </Button>
+              )}
             </div>
             {seasonGamesLoading ? (
               <div className="space-y-2" aria-label="Loading game log">
@@ -2900,28 +2910,36 @@ function StatsOverviewCard({
                       <p className="text-right text-[10px] font-bold tabular-nums text-zinc-300 sm:text-xs"><span className="text-orange-300">{game.points}</span> PTS<span className="ml-1.5 text-zinc-500">{game.rebounds} REB · {game.assists} AST · {game.steals} STL · {game.blocks} BLK</span></p>
                       <div className="col-span-2 flex justify-end gap-1">
                         <Button type="button" size="icon" variant="ghost" className="h-7 w-7 text-zinc-500 hover:text-zinc-100" aria-label={`Share stats for ${game.opponent || "game"} on ${date}`} title="Share game stats" onClick={() => onShareGame(game.id)} data-testid={`button-share-game-overview-${game.id}`}><Share2 className="h-3.5 w-3.5" /></Button>
-                        <Button type="button" size="icon" variant="ghost" className="h-7 w-7 text-zinc-500 hover:text-zinc-100" aria-label={`Edit game against ${game.opponent || "opponent"}`} title="Edit game" onClick={() => onEditGame(game)} data-testid={`button-edit-game-overview-${game.id}`}><Pencil className="h-3.5 w-3.5" /></Button>
-                        <Button type="button" size="icon" variant="ghost" className="h-7 w-7 text-zinc-500 hover:text-red-300" aria-label={`Delete game against ${game.opponent || "opponent"}`} title="Delete game" onClick={() => onDeleteGame(game.id)} data-testid={`button-delete-game-overview-${game.id}`}><Trash2 className="h-3.5 w-3.5" /></Button>
+                        {!readOnly && (
+                          <>
+                            <Button type="button" size="icon" variant="ghost" className="h-7 w-7 text-zinc-500 hover:text-zinc-100" aria-label={`Edit game against ${game.opponent || "opponent"}`} title="Edit game" onClick={() => onEditGame(game)} data-testid={`button-edit-game-overview-${game.id}`}><Pencil className="h-3.5 w-3.5" /></Button>
+                            <Button type="button" size="icon" variant="ghost" className="h-7 w-7 text-zinc-500 hover:text-red-300" aria-label={`Delete game against ${game.opponent || "opponent"}`} title="Delete game" onClick={() => onDeleteGame(game.id)} data-testid={`button-delete-game-overview-${game.id}`}><Trash2 className="h-3.5 w-3.5" /></Button>
+                          </>
+                        )}
                       </div>
                     </article>
                   );
                 })}
               </div>
             ) : (
-              <p className="rounded-lg border border-dashed border-white/[0.08] px-3 py-4 text-center text-xs text-zinc-500">No games logged yet. Log the first game for this season.</p>
+              <p className="rounded-lg border border-dashed border-white/[0.08] px-3 py-4 text-center text-xs text-zinc-500">
+                {readOnly ? "No games logged for this season yet." : "No games logged yet. Log the first game for this season."}
+              </p>
             )}
           </section>
         )}
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.07] pt-3">
+        <div className={`flex flex-wrap items-center gap-2 border-t border-white/[0.07] pt-3 ${readOnly ? "justify-start" : "justify-between"}`}>
           <p className="text-[10px] text-zinc-600">{statsScope === "career" ? "All recorded seasons" : selectedSeason ? `${selectedSeason.year}${selectedSeason.teamName ? ` · ${selectedSeason.teamName}` : ""}` : "Season totals"}</p>
-          <Button type="button" size="sm" variant="outline" onClick={onCreateSeason} className="h-8 border-orange-400/25 bg-orange-400/[0.04] px-3 text-xs text-orange-200 hover:bg-orange-400/10 hover:text-orange-100" data-testid="button-create-season-overview"><Plus className="mr-1.5 h-3.5 w-3.5" />Create Season</Button>
+          {!readOnly && (
+            <Button type="button" size="sm" variant="outline" onClick={onCreateSeason} className="h-8 border-orange-400/25 bg-orange-400/[0.04] px-3 text-xs text-orange-200 hover:bg-orange-400/10 hover:text-orange-100" data-testid="button-create-season-overview"><Plus className="mr-1.5 h-3.5 w-3.5" />Create Season</Button>
+          )}
         </div>
       </CardContent>
     </Card>
   );
 }
 
-export function StatsTab() {
+export function StatsTab({ readOnly = false }: { readOnly?: boolean } = {}) {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [statsScope, setStatsScope] = useState<"career" | "season">("career");
@@ -2950,10 +2968,10 @@ export function StatsTab() {
   });
 
   useEffect(() => {
-    if (statsScope !== "season" || statsSeasonId || seasonsLoading || seasons.length === 0) return;
+    if (statsSeasonId || seasonsLoading || seasons.length === 0) return;
     const season = seasons.find((entry) => entry.isActive !== false) ?? seasons[0];
     setStatsSeasonId(season.id);
-  }, [statsScope, statsSeasonId, seasons, seasonsLoading]);
+  }, [statsSeasonId, seasons, seasonsLoading]);
 
   const seasonForm = useForm<SeasonFormData>({
     resolver: zodResolver(seasonSchema),
@@ -3198,6 +3216,7 @@ export function StatsTab() {
         seasons={seasons}
         statsScope={statsScope}
         selectedSeasonId={statsSeasonId}
+        readOnly={readOnly}
         onScopeChange={(scope) => {
           setStatsScope(scope);
           if (scope === "season" && !statsSeasonId) {
@@ -3226,7 +3245,7 @@ export function StatsTab() {
         }}
       />
 
-      <details className="group overflow-hidden rounded-xl border border-white/[0.08] bg-[#141414]" data-testid="details-season-management">
+      {!readOnly && <details className="group overflow-hidden rounded-xl border border-white/[0.08] bg-[#141414]" data-testid="details-season-management">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-xs font-semibold text-zinc-400 transition hover:text-zinc-200 [&::-webkit-details-marker]:hidden">
           <span className="flex items-center gap-2">
             <Calendar className="h-4 w-4 text-orange-400" />
@@ -3493,8 +3512,10 @@ export function StatsTab() {
           )}
         </CardContent>
         </Card>
-      </details>
+      </details>}
 
+      {!readOnly && (
+      <>
       <Dialog open={showGameDialog} onOpenChange={(open) => {
         setShowGameDialog(open);
         if (!open) {
@@ -3831,14 +3852,6 @@ export function StatsTab() {
         </DialogContent>
       </Dialog>
 
-      {shareGameId && (
-        <ShareCardDialog
-          open={!!shareGameId}
-          onOpenChange={(open) => { if (!open) setShareGameId(null); }}
-          gameId={shareGameId}
-        />
-      )}
-
       <CsvImportDialog open={showCsvImport} onOpenChange={setShowCsvImport} />
 
       <WorkoutShareDialog
@@ -3850,6 +3863,16 @@ export function StatsTab() {
         seasonId={shareSeasonId}
         defaultTab="season"
       />
+      </>
+      )}
+
+      {shareGameId && (
+        <ShareCardDialog
+          open={!!shareGameId}
+          onOpenChange={(open) => { if (!open) setShareGameId(null); }}
+          gameId={shareGameId}
+        />
+      )}
     </div>
   );
 }
