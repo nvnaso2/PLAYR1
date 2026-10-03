@@ -3,34 +3,15 @@ import React, { useState } from "react";
 import { Camera, MapPin } from "lucide-react";
 type PlayerCardCareerStatKey = "ppg" | "rpg" | "apg" | "spg" | "bpg" | "games" | "record";
 type CareerProfile = any;
-type CareerStats = {
-  totalGames: number;
-  wins: number;
-  losses: number;
-  avgPoints: number;
-  avgRebounds: number;
-  avgAssists: number;
-  avgSteals: number;
-  avgBlocks: number;
-};
-type PlayerProfile = {
-  headline?: string | null;
-  bio?: string | null;
-  heightFeet?: number | null;
-  heightInches?: number | null;
-  weight?: number | null;
-  wingspan?: string | null;
-  schoolName?: string | null;
-  gradYear?: number | null;
-  gpa?: string | null;
-  cardCareerStats?: PlayerCardCareerStatKey[];
-};
+type CareerStats = { totalGames: number; wins: number; losses: number; avgPoints: number; avgRebounds: number; avgAssists: number; avgSteals: number; avgBlocks: number };
+type PlayerProfile = { headline?: string | null; bio?: string | null; heightFeet?: number | null; heightInches?: number | null; weight?: number | null; wingspan?: string | null; schoolName?: string | null; gradYear?: number | null; gpa?: string | null; cardCareerStats?: PlayerCardCareerStatKey[] };
 const COUNTRIES = [{ code: "USA", name: "United States" }, { code: "CAN", name: "Canada" }];
 const defaultPlayerImg = "/__mockup/images/default-player.jpg";
 const getObjectUrl = (path?: string | null) => path ?? undefined;
 const queryClient = { invalidateQueries: (_options: any) => undefined };
 const useToast = () => ({ toast: (_options: any) => undefined });
 const apiRequest = async (..._args: any[]) => ({ json: async () => ({ uploadURL: "/mock-upload", objectPath: "mock-card-photo.jpg" }) });
+function useQuery<T>(_options: { queryKey: string[]; enabled?: boolean }): { data: T | undefined } { return { data: undefined }; }
 const DEFAULT_PLAYER_CARD_STATS: PlayerCardCareerStatKey[] = ["ppg", "rpg", "apg"];
 
 const PLAYER_CARD_STAT_LABELS: Record<PlayerCardCareerStatKey, string> = {
@@ -45,14 +26,16 @@ const PLAYER_CARD_STAT_LABELS: Record<PlayerCardCareerStatKey, string> = {
 
 function formatPlayerCardLocation(userProfile: any): string {
   const city = typeof userProfile?.city === "string" ? userProfile.city.trim() : "";
-  if (!city) return "";
+  const state = typeof userProfile?.state === "string" ? userProfile.state.trim() : "";
+  if (!city && !state) return "";
   const countryCode = typeof userProfile?.country === "string" ? userProfile.country : "USA";
   const country = COUNTRIES.find((item) => item.code === countryCode || item.name === countryCode);
-  if (country?.code === "USA" || countryCode === "US" || countryCode === "USA") {
-    const state = typeof userProfile?.state === "string" ? userProfile.state.trim() : "";
-    return [city, state].filter(Boolean).join(", ");
-  }
-  return [city, country?.name ?? countryCode].filter(Boolean).join(", ");
+  const isUnitedStates = country?.code === "USA" || countryCode === "US" || countryCode === "USA";
+  return [
+    city,
+    state,
+    isUnitedStates ? null : country?.name ?? countryCode,
+  ].filter(Boolean).join(", ");
 }
 
 function PlayerCardBack({
@@ -97,12 +80,12 @@ function PlayerCardBack({
       <div className="flex items-start gap-2.5 px-2.5 pt-2">
         <img
           src={portraitSrc}
-          alt={`${userName || "Player"} profile`}
+          alt={`${userProfile?.displayName || userName || "Player"} profile`}
           className="h-12 w-12 shrink-0 rounded-full border-2 border-orange-400 object-cover shadow-[0_0_12px_rgba(249,115,22,0.22)]"
         />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[12px] font-black uppercase tracking-wide text-white">
-            {userName || teamLabel || "Player"}
+            {userProfile?.displayName || userName || teamLabel || "Player"}
           </p>
           <p className="mt-0.5 line-clamp-2 text-[9px] font-semibold leading-tight text-orange-200">
             {playerProfile?.headline || [positionsText, teamLabel].filter(Boolean).join(" — ") || "Player"}
@@ -179,11 +162,21 @@ export function BaseballCard({
   const [isFlipped, setIsFlipped] = useState(() => new URLSearchParams(window.location.search).get("side") === "back");
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
+  const { data: queriedPlayerProfile } = useQuery<PlayerProfile | null>({
+    queryKey: ["/api/player-profile"],
+    enabled: playerProfile === undefined,
+  });
+  const { data: queriedUserProfile } = useQuery<any>({
+    queryKey: ["/api/profile"],
+    enabled: userProfile === undefined,
+  });
+  const cardPlayerProfile = playerProfile !== undefined ? playerProfile : queriedPlayerProfile;
+  const cardUserProfile = userProfile !== undefined ? userProfile : queriedUserProfile;
 
   const frontW = 240;
   const frontH = 340;
-  const backW = 320;
-  const backH = 286;
+  const backW = frontW;
+  const backH = frontH;
 
   const photoSrc = profile.cardPhotoUrl
     ? (getObjectUrl(profile.cardPhotoUrl) ?? defaultPlayerImg)
@@ -234,22 +227,22 @@ export function BaseballCard({
 
   const positionsText = profile.positions && profile.positions.length > 0 ? profile.positions.join(" / ") : "";
   const teamLabel = profile.teamName || profile.schoolName || "";
-  const location = formatPlayerCardLocation(userProfile);
-  const height = playerProfile?.heightFeet
-    ? `${playerProfile.heightFeet}'${playerProfile.heightInches ?? 0}"`
+  const location = formatPlayerCardLocation(cardUserProfile);
+  const height = cardPlayerProfile?.heightFeet
+    ? `${cardPlayerProfile.heightFeet}'${cardPlayerProfile.heightInches ?? 0}"`
     : null;
   const physicalDetails = [
     height,
-    playerProfile?.weight ? `${playerProfile.weight} lb` : null,
-    playerProfile?.wingspan ? `${playerProfile.wingspan} span` : null,
+    cardPlayerProfile?.weight ? `${cardPlayerProfile.weight} lb` : null,
+    cardPlayerProfile?.wingspan ? `${cardPlayerProfile.wingspan} span` : null,
   ].filter(Boolean);
   const academicDetails = [
-    playerProfile?.schoolName || null,
-    playerProfile?.gradYear ? `Class of ${playerProfile.gradYear}` : null,
-    playerProfile?.gpa ? `GPA ${playerProfile.gpa}` : null,
+    cardPlayerProfile?.schoolName || profile.schoolName || null,
+    cardPlayerProfile?.gradYear ? `Class of ${cardPlayerProfile.gradYear}` : null,
+    cardPlayerProfile?.gpa ? `GPA ${cardPlayerProfile.gpa}` : null,
   ].filter(Boolean);
-  const savedCardStats = Array.isArray(playerProfile?.cardCareerStats)
-    ? playerProfile.cardCareerStats.filter((key): key is PlayerCardCareerStatKey =>
+  const savedCardStats = Array.isArray(cardPlayerProfile?.cardCareerStats)
+    ? cardPlayerProfile.cardCareerStats.filter((key): key is PlayerCardCareerStatKey =>
         Object.prototype.hasOwnProperty.call(PLAYER_CARD_STAT_LABELS, key),
       ).slice(0, 3)
     : [];
@@ -268,7 +261,8 @@ export function BaseballCard({
       : "—",
   };
 
-  const maxW = Math.max(frontW, backW);
+  const stageW = 320;
+  const maxW = Math.max(stageW, frontW, backW);
   const maxH = Math.max(frontH, backH);
 
   return (
@@ -362,7 +356,7 @@ export function BaseballCard({
           </div>
         </div>
 
-        {/* BACK - Landscape (horizontal) */}
+        {/* BACK - Portrait, matching the front dimensions */}
         <div
           className="absolute rounded-md overflow-hidden"
           style={{
@@ -379,8 +373,8 @@ export function BaseballCard({
           <PlayerCardBack
             profile={profile}
             careerStats={careerStats}
-            playerProfile={playerProfile}
-            userProfile={userProfile}
+            playerProfile={cardPlayerProfile}
+            userProfile={cardUserProfile}
             userName={userName}
             positionsText={positionsText}
             teamLabel={teamLabel}

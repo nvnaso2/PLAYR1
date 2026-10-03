@@ -326,19 +326,21 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
           schoolName: payload.schoolName,
         });
       }
-      return await apiRequest("PUT", "/api/player-profile", payload);
+      const savedPlayerProfile = await apiRequest("PUT", "/api/player-profile", payload);
+      return await savedPlayerProfile.json() as PlayerProfile;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/player-profile"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/user/location"] });
+    onSuccess: async (savedPlayerProfile: PlayerProfile) => {
+      queryClient.setQueryData(["/api/player-profile"], savedPlayerProfile);
+      const keysToRefresh = ["/api/player-profile", "/api/profile", "/api/user/location"];
       if (concise) {
-        queryClient.invalidateQueries({ queryKey: ["/api/career"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/stats/career"] });
+        keysToRefresh.push("/api/career", "/api/stats/career");
       }
       if (profile?.slug) {
         queryClient.invalidateQueries({ queryKey: ["/api/player", profile.slug] });
       }
+      await Promise.all(keysToRefresh.map(queryKey =>
+        queryClient.invalidateQueries({ queryKey: [queryKey] }),
+      ));
       toast({
         title: "Profile Saved",
         description: "Your player profile has been updated.",
