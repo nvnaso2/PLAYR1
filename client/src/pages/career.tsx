@@ -2943,7 +2943,15 @@ function StatsOverviewCard({
   );
 }
 
-export function StatsTab({ readOnly = false }: { readOnly?: boolean } = {}) {
+export function StatsTab({
+  readOnly = false,
+  showManagementAtBottom = false,
+}: {
+  readOnly?: boolean;
+  showManagementAtBottom?: boolean;
+} = {}) {
+  const canManage = !readOnly || showManagementAtBottom;
+  const overviewReadOnly = readOnly || showManagementAtBottom;
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [statsScope, setStatsScope] = useState<"career" | "season">("career");
@@ -3155,7 +3163,11 @@ export function StatsTab({ readOnly = false }: { readOnly?: boolean } = {}) {
     }
   };
 
-  const openGameDialog = (game?: Game) => {
+  const openGameDialog = (game?: Game, seasonId?: string) => {
+    if (seasonId) {
+      setStatsSeasonId(seasonId);
+      setStatsScope("season");
+    }
     if (game) {
       setEditingGame(game);
       gameForm.reset({
@@ -3220,7 +3232,7 @@ export function StatsTab({ readOnly = false }: { readOnly?: boolean } = {}) {
         seasons={seasons}
         statsScope={statsScope}
         selectedSeasonId={statsSeasonId}
-        readOnly={readOnly}
+        readOnly={overviewReadOnly}
         onScopeChange={(scope) => {
           setStatsScope(scope);
           if (scope === "season" && !statsSeasonId) {
@@ -3249,7 +3261,7 @@ export function StatsTab({ readOnly = false }: { readOnly?: boolean } = {}) {
         }}
       />
 
-      {!readOnly && <details className="group overflow-hidden rounded-xl border border-white/[0.08] bg-[#141414]" data-testid="details-season-management">
+      {canManage && <details className="group overflow-hidden rounded-xl border border-white/[0.08] bg-[#141414]" data-testid="details-season-management">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-xs font-semibold text-zinc-400 transition hover:text-zinc-200 [&::-webkit-details-marker]:hidden">
           <span className="flex items-center gap-2">
             <Calendar className="h-4 w-4 text-orange-400" />
@@ -3408,7 +3420,7 @@ export function StatsTab({ readOnly = false }: { readOnly?: boolean } = {}) {
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-xs leading-relaxed text-zinc-500">
-            Update season details and status here. Season stats and game logs stay in the Career/Season view above.
+            Add seasons and log games here. Select a season above to view its stats and read-only game log.
           </p>
           {seasons.length === 0 ? (
             <div className="rounded-lg border border-dashed border-white/[0.08] px-4 py-6 text-center">
@@ -3456,7 +3468,21 @@ export function StatsTab({ readOnly = false }: { readOnly?: boolean } = {}) {
                           )}
                         </div>
                       </div>
-                      <div className="flex shrink-0 items-center gap-1 self-end sm:self-auto">
+                      <div className="flex shrink-0 flex-wrap items-center justify-end gap-1 self-end sm:self-auto">
+                        {showManagementAtBottom && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-8 border-orange-400/20 px-2 text-[11px] text-orange-200 hover:bg-orange-400/10 hover:text-orange-100"
+                            onClick={() => openGameDialog(undefined, season.id)}
+                            aria-label={`Add game to ${season.name}`}
+                            data-testid={`button-add-game-to-season-${season.id}`}
+                          >
+                            <Plus className="mr-1 h-3.5 w-3.5" />
+                            Add Game
+                          </Button>
+                        )}
                         <Button
                           size="icon"
                           variant="ghost"
@@ -3518,7 +3544,7 @@ export function StatsTab({ readOnly = false }: { readOnly?: boolean } = {}) {
         </Card>
       </details>}
 
-      {!readOnly && (
+      {canManage && (
       <>
       <Dialog open={showGameDialog} onOpenChange={(open) => {
         setShowGameDialog(open);

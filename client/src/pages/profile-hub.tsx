@@ -204,7 +204,7 @@ export default function ProfileHubPage() {
             <Skeleton className="h-36 w-full rounded-xl bg-zinc-900" />
           </div>
         ) : (
-          <StatsTab readOnly />
+          <StatsTab readOnly showManagementAtBottom />
         )}
       </section>
 

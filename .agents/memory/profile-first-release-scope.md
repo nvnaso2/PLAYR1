@@ -5,13 +5,13 @@ description: Profile leads with the player's sports card and concise career/trop
 
 Keep My Season, My PLAYR1 Project, and Game Day out of the Profile and Hub entry points while preserving their pages and routes.
 
-The Profile and Profile Hub stats views are read-only: keep season and game stats available for viewing, but remove season/game management controls from both. The Profile tab is the player’s main career view: lead with the existing sports trading card, then concise Career Stats and Trophy Room summaries. Keep trophy management reachable in its existing expandable section, and place Player Development after the two summaries. Preserve career/profile records; `/career` redirects to Profile Hub.
+The Profile and Profile Hub stats views keep season and game stats available for viewing, plus one season/game management panel at the bottom where players can add seasons and log games. Keep the game log read-only; do not duplicate add actions in the stats toolbar. The Profile tab is the player’s main career view: lead with the existing sports trading card, then concise Career Stats and Trophy Room summaries. Keep trophy management reachable in its existing expandable section, and place Player Development after the two summaries. Preserve career/profile records; `/career` redirects to Profile Hub.
 
 For Career Stats, use a Career/Season switcher, defaulting to Career. In Career mode, keep an empty fixed-width slot to the left of the switcher; show the season selector in that slot only in Season mode. Keep Averages/Totals in the same top toolbar row.
 
-**Why:** the user asked to remove game and season management from Profile and Profile Hub, and reported that selecting Season moved the controls and displaced Averages/Totals.
+**Why:** the user clarified that season creation and game logging must remain available together at the bottom of the stats view, while the game log itself remains read-only. They also reported that selecting Season moved the controls and displaced Averages/Totals.
 
-**How to apply:** render both Profile and Profile Hub stats without season/game management actions. Reserve the season selector’s toolbar space while Career is active, reveal it only for Season, and never let the toolbar wrap at mobile widths. Do not delete stored seasons or games.
+**How to apply:** render a single bottom management panel on both Profile and Profile Hub for season/game actions; keep create/log actions out of the toolbar and game log. Reserve the season selector’s toolbar space while Career is active, reveal it only for Season, and keep Averages/Totals in the same row. Do not delete stored seasons or games.
 
 Keep the card on the page background without a separate frame or instruction line. Style Edit Profile black with an orange glow and outline, and use the same brighter glowing orange on the card accents.
 
@@ -23,7 +23,7 @@ Place the orange, oval PLAYR1 Pro button beside Edit Profile. It opens the share
 
 **Why:** The user wants Profile to lead with the sports card and concise Career Stats/Trophy Room summaries, and clarified that the Player Details editor still felt too spacious unless all specified information shared one concise card.
 
-**How to apply:** Preserve the card's flip/photo-upload behavior, career/profile data, public-profile routes, and existing season/game and trophy CRUD actions outside the read-only Profile stats view. Keep the player editor behind Edit Profile, preserve legacy routes, avoid duplicate Hub entry points, and leave social/highlight/season fields in place until their new destination is decided. Continue treating the users record as the authoritative subscription source, with Pro Infinity excluded from Stripe portal actions.
+**How to apply:** Preserve the card's flip/photo-upload behavior, career/profile data, public-profile routes, and existing season/game and trophy CRUD actions. Keep game logs read-only and place season/game creation actions together at the bottom of the Profile stats view. Keep the player editor behind Edit Profile, preserve legacy routes, avoid duplicate Hub entry points, and leave social/highlight/season fields in place until their new destination is decided. Continue treating the users record as the authoritative subscription source, with Pro Infinity excluded from Stripe portal actions.
 
 Keep the established Profile header title “My Profile” and group Edit Profile, PLAYR1 Pro, and Settings in that header; do not move the actions below the card. Omit ZIP/postal code from the Location editor, but retain existing stored values unless the user explicitly asks to delete them.
 
