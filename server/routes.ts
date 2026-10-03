@@ -33,7 +33,7 @@ import {
 } from "./push";
 import { ensureOnboardingSchema, getDiagnosticSummary, getFixCategory, validateMicroQuizPayload } from "./onboarding";
 import { getMicroQuiz } from "@shared/micro-quizzes";
- import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, PROFILE_DISPLAY_STAT_KEYS, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, playerProfiles, drills, trainingLogs, trainingLogMetrics, feedbackComments, insertProgramSchema, insertProgramItemSchema, insertEventSchema, events, insertStatChallengeSchema, programEnrollments, coachPUsage, friendships, userFollows, analyticsEvents, leadMagnetSubmissions, streakChallengeParticipants, FRIEND_ACTIVITY_TYPES, type FriendActivityType, CUSTOM_WORKOUT_REQUEST_STATUSES } from "@shared/schema";
+import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, PROFILE_DISPLAY_STAT_KEYS, PLAYER_CARD_CAREER_STAT_KEYS, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, playerProfiles, drills, trainingLogs, trainingLogMetrics, feedbackComments, insertProgramSchema, insertProgramItemSchema, insertEventSchema, events, insertStatChallengeSchema, programEnrollments, coachPUsage, friendships, userFollows, analyticsEvents, leadMagnetSubmissions, streakChallengeParticipants, FRIEND_ACTIVITY_TYPES, type FriendActivityType, CUSTOM_WORKOUT_REQUEST_STATUSES } from "@shared/schema";
 import { getUncachableStripeClient } from "./stripeClient";
 import { WebhookHandlers } from "./webhookHandlers";
 import { JOURNAL_PROMPTS } from "@shared/journalPrompts";
@@ -5264,6 +5264,19 @@ ${JSON.stringify(catalogForPrompt)}
           new Set(selectedStats).size !== selectedStats.length
         ) {
           return res.status(400).json({ message: "Select one to three valid profile stats." });
+        }
+      }
+      if (data.cardCareerStats !== undefined) {
+        const allowedCardStats = new Set<string>(PLAYER_CARD_CAREER_STAT_KEYS);
+        const selectedCardStats = data.cardCareerStats;
+        if (
+          !Array.isArray(selectedCardStats) ||
+          selectedCardStats.length < 1 ||
+          selectedCardStats.length > 3 ||
+          selectedCardStats.some((stat: unknown) => typeof stat !== "string" || !allowedCardStats.has(stat)) ||
+          new Set(selectedCardStats).size !== selectedCardStats.length
+        ) {
+          return res.status(400).json({ message: "Select one to three valid career stats for your player card." });
         }
       }
       const profile = await storage.upsertPlayerProfile(data);

@@ -566,6 +566,9 @@ export default function ProfilePage() {
                       <BaseballCard
                         profile={career}
                         careerStats={careerStats}
+                        playerProfile={playerProfile}
+                        userProfile={userProfile || { profileImageUrl: user?.profileImageUrl }}
+                        userName={[user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.email?.split("@")[0] || "Player"}
                         onPhotoUpdated={() => queryClient.invalidateQueries({ queryKey: ["/api/career"] })}
                       />
                     </div>

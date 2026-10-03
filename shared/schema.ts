@@ -711,6 +711,18 @@ const urlOrObjectPath = z.string().nullish().refine(
 );
 
 // Public player profiles - recruiting-style profile page
+export const PLAYER_CARD_CAREER_STAT_KEYS = [
+  "ppg",
+  "rpg",
+  "apg",
+  "spg",
+  "bpg",
+  "games",
+  "record",
+] as const;
+
+export type PlayerCardCareerStatKey = typeof PLAYER_CARD_CAREER_STAT_KEYS[number];
+
 export const PROFILE_DISPLAY_STAT_KEYS = [
   "ppg",
   "rpg",
@@ -776,6 +788,10 @@ export const playerProfiles = pgTable("player_profiles", {
   cardShowHighlightReel: boolean("card_show_highlight_reel").default(true),
   cardShowMeasurements: boolean("card_show_measurements").default(false),
   cardShowAcademic: boolean("card_show_academic").default(false),
+  cardCareerStats: jsonb("card_career_stats")
+    .$type<PlayerCardCareerStatKey[]>()
+    .notNull()
+    .default(sql`'["ppg","rpg","apg"]'::jsonb`),
   displayStats: jsonb("display_stats").$type<ProfileDisplayStatKey[]>().notNull().default(sql`'[]'::jsonb`),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow()

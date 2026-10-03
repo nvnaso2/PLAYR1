@@ -22,6 +22,7 @@ export async function runApplicationMigrations(): Promise<void> {
       ALTER TABLE workout_drills ADD COLUMN IF NOT EXISTS coaching_notes text;
       ALTER TABLE player_profiles ADD COLUMN IF NOT EXISTS school_name varchar;
       ALTER TABLE player_profiles ADD COLUMN IF NOT EXISTS display_stats jsonb NOT NULL DEFAULT '[]'::jsonb;
+      ALTER TABLE player_profiles ADD COLUMN IF NOT EXISTS card_career_stats jsonb NOT NULL DEFAULT '["ppg","rpg","apg"]'::jsonb;
       ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS activity_visibility jsonb DEFAULT '{}'::jsonb;
        ALTER TABLE seasons ADD COLUMN IF NOT EXISTS start_date timestamp;
        ALTER TABLE seasons ADD COLUMN IF NOT EXISTS end_date timestamp;

@@ -95,7 +95,7 @@ import {
   Fingerprint,
   Bell,
 } from "lucide-react";
-import type { CareerProfile, UserAchievement, CareerAchievement, Challenge, UserChallenge, PersonalRecord, TeamAward, Season, Game, InsertTeamAward, InsertChallenge } from "@shared/schema";
+import type { CareerProfile, UserAchievement, CareerAchievement, Challenge, UserChallenge, PersonalRecord, TeamAward, Season, Game, InsertTeamAward, InsertChallenge, PlayerProfile, PlayerCardCareerStatKey } from "@shared/schema";
 import { insertTeamAwardSchema, insertChallengeSchema } from "@shared/schema";
 import defaultPlayerImg from "@assets/default-player.jpg";
 import { 
@@ -2282,20 +2282,159 @@ export function OnboardingWizard({ onComplete, previewMode = false }: { onComple
   return null;
 }
 
-export function BaseballCard({ profile, careerStats, onPhotoUpdated, userName }: { profile: CareerProfile; careerStats?: CareerStats; onPhotoUpdated?: () => void; userName?: string }) {
+const DEFAULT_PLAYER_CARD_STATS: PlayerCardCareerStatKey[] = ["ppg", "rpg", "apg"];
+
+const PLAYER_CARD_STAT_LABELS: Record<PlayerCardCareerStatKey, string> = {
+  ppg: "PPG",
+  rpg: "RPG",
+  apg: "APG",
+  spg: "SPG",
+  bpg: "BPG",
+  games: "GP",
+  record: "W-L",
+};
+
+function formatPlayerCardLocation(userProfile: any): string {
+  const city = typeof userProfile?.city === "string" ? userProfile.city.trim() : "";
+  if (!city) return "";
+  const countryCode = typeof userProfile?.country === "string" ? userProfile.country : "USA";
+  const country = COUNTRIES.find((item) => item.code === countryCode || item.name === countryCode);
+  if (country?.code === "USA" || countryCode === "US" || countryCode === "USA") {
+    const state = typeof userProfile?.state === "string" ? userProfile.state.trim() : "";
+    return [city, state].filter(Boolean).join(", ");
+  }
+  return [city, country?.name ?? countryCode].filter(Boolean).join(", ");
+}
+
+function PlayerCardBack({
+  profile,
+  careerStats,
+  playerProfile,
+  userProfile,
+  userName,
+  positionsText,
+  teamLabel,
+  location,
+  physicalDetails,
+  academicDetails,
+  selectedCardStats,
+  cardStatValues,
+}: {
+  profile: CareerProfile;
+  careerStats?: CareerStats;
+  playerProfile?: PlayerProfile | null;
+  userProfile?: any;
+  userName?: string;
+  positionsText: string;
+  teamLabel: string;
+  location: string;
+  physicalDetails: (string | null)[];
+  academicDetails: (string | null)[];
+  selectedCardStats: PlayerCardCareerStatKey[];
+  cardStatValues: Record<PlayerCardCareerStatKey, string>;
+}) {
+  const portraitPath = userProfile?.profilePhotoUrl || userProfile?.profileImageUrl || profile.cardPhotoUrl;
+  const portraitSrc = getObjectUrl(portraitPath) ?? defaultPlayerImg;
+
+  return (
+    <div className="w-full h-full flex flex-col bg-black text-white">
+      <div className="flex items-center justify-between border-b border-orange-400/70 px-2.5 py-1.5">
+        <span className="text-[8px] font-bold uppercase tracking-[0.2em] text-orange-300">Player profile</span>
+        {profile.jerseyNumber != null && (
+          <span className="text-[9px] font-black text-orange-300">#{profile.jerseyNumber}</span>
+        )}
+      </div>
+
+      <div className="flex items-start gap-2.5 px-2.5 pt-2">
+        <img
+          src={portraitSrc}
+          alt={`${userName || "Player"} profile`}
+          className="h-12 w-12 shrink-0 rounded-full border-2 border-orange-400 object-cover shadow-[0_0_12px_rgba(249,115,22,0.22)]"
+        />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[12px] font-black uppercase tracking-wide text-white">
+            {userName || teamLabel || "Player"}
+          </p>
+          <p className="mt-0.5 line-clamp-2 text-[9px] font-semibold leading-tight text-orange-200">
+            {playerProfile?.headline || [positionsText, teamLabel].filter(Boolean).join(" — ") || "Player"}
+          </p>
+          {location && (
+            <p className="mt-1 flex items-center gap-1 truncate text-[8px] text-white/55">
+              <MapPin className="h-2.5 w-2.5 shrink-0 text-orange-300" />
+              {location}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <p className="mx-2.5 mt-1.5 line-clamp-2 min-h-[22px] text-[8px] leading-[1.35] text-white/70">
+        {playerProfile?.bio?.trim() || "Add a short bio in Player Details."}
+      </p>
+
+      <div className="mx-2.5 mt-1.5 grid grid-cols-2 gap-2 border-y border-white/10 py-1.5">
+        <div className="min-w-0">
+          <p className="mb-0.5 text-[7px] font-bold uppercase tracking-[0.16em] text-white/35">Measurements</p>
+          <p className="line-clamp-2 text-[8px] font-semibold leading-snug text-white/80">
+            {physicalDetails.length ? physicalDetails.join(" · ") : "Not added"}
+          </p>
+        </div>
+        <div className="min-w-0">
+          <p className="mb-0.5 text-[7px] font-bold uppercase tracking-[0.16em] text-white/35">Academics</p>
+          <p className="line-clamp-2 text-[8px] font-semibold leading-snug text-white/80">
+            {academicDetails.length ? academicDetails.join(" · ") : "Not added"}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-auto px-2.5 pb-1.5 pt-1.5">
+        <div className="mb-1 flex items-center justify-between">
+          <p className="text-[7px] font-bold uppercase tracking-[0.16em] text-white/40">Career highlights</p>
+          <span className="text-[7px] text-white/25">{careerStats?.totalGames || 0} games</span>
+        </div>
+        <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${selectedCardStats.length}, minmax(0, 1fr))` }}>
+          {selectedCardStats.map((key) => (
+            <div key={key} className="rounded-sm border border-orange-400/25 bg-orange-400/[0.07] px-1.5 py-1 text-center">
+              <p className="text-[13px] font-black leading-none text-orange-300">
+                {cardStatValues[key]}
+              </p>
+              <p className="mt-1 text-[7px] font-bold uppercase tracking-[0.12em] text-white/45">
+                {PLAYER_CARD_STAT_LABELS[key]}
+              </p>
+            </div>
+          ))}
+        </div>
+        <div className="mt-1 flex justify-between text-[7px] text-white/25">
+          <span>{teamLabel}</span>
+          <span>Tap to flip</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function BaseballCard({
+  profile,
+  careerStats,
+  onPhotoUpdated,
+  userName,
+  playerProfile,
+  userProfile,
+}: {
+  profile: CareerProfile;
+  careerStats?: CareerStats;
+  onPhotoUpdated?: () => void;
+  userName?: string;
+  playerProfile?: PlayerProfile | null;
+  userProfile?: any;
+}) {
   const [isFlipped, setIsFlipped] = useState(false);
-  const [seasonFilter, setSeasonFilter] = useState<string>("all");
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
 
-  const allSeasons = careerStats?.seasonBreakdown || [];
-  const seasonBreakdown = seasonFilter === "all"
-    ? allSeasons
-    : allSeasons.filter(s => s.seasonType === seasonFilter);
   const frontW = 240;
   const frontH = 340;
   const backW = 320;
-  const backH = 240;
+  const backH = 286;
 
   const photoSrc = profile.cardPhotoUrl
     ? (getObjectUrl(profile.cardPhotoUrl) ?? defaultPlayerImg)
@@ -2345,6 +2484,40 @@ export function BaseballCard({ profile, careerStats, onPhotoUpdated, userName }:
   };
 
   const positionsText = profile.positions && profile.positions.length > 0 ? profile.positions.join(" / ") : "";
+  const teamLabel = profile.teamName || profile.schoolName || "";
+  const location = formatPlayerCardLocation(userProfile);
+  const height = playerProfile?.heightFeet
+    ? `${playerProfile.heightFeet}'${playerProfile.heightInches ?? 0}"`
+    : null;
+  const physicalDetails = [
+    height,
+    playerProfile?.weight ? `${playerProfile.weight} lb` : null,
+    playerProfile?.wingspan ? `${playerProfile.wingspan} span` : null,
+  ].filter(Boolean);
+  const academicDetails = [
+    playerProfile?.schoolName || null,
+    playerProfile?.gradYear ? `Class of ${playerProfile.gradYear}` : null,
+    playerProfile?.gpa ? `GPA ${playerProfile.gpa}` : null,
+  ].filter(Boolean);
+  const savedCardStats = Array.isArray(playerProfile?.cardCareerStats)
+    ? playerProfile.cardCareerStats.filter((key): key is PlayerCardCareerStatKey =>
+        Object.prototype.hasOwnProperty.call(PLAYER_CARD_STAT_LABELS, key),
+      ).slice(0, 3)
+    : [];
+  const selectedCardStats = savedCardStats.length ? savedCardStats : DEFAULT_PLAYER_CARD_STATS;
+  const avgValue = (value: number | undefined) =>
+    careerStats?.totalGames && Number.isFinite(value) ? value!.toFixed(1) : "—";
+  const cardStatValues: Record<PlayerCardCareerStatKey, string> = {
+    ppg: avgValue(careerStats?.avgPoints),
+    rpg: avgValue(careerStats?.avgRebounds),
+    apg: avgValue(careerStats?.avgAssists),
+    spg: avgValue(careerStats?.avgSteals),
+    bpg: avgValue(careerStats?.avgBlocks),
+    games: careerStats?.totalGames ? String(careerStats.totalGames) : "—",
+    record: careerStats && careerStats.wins + careerStats.losses > 0
+      ? `${careerStats.wins}–${careerStats.losses}`
+      : "—",
+  };
 
   const maxW = Math.max(frontW, backW);
   const maxH = Math.max(frontH, backH);
@@ -2426,7 +2599,7 @@ export function BaseballCard({ profile, careerStats, onPhotoUpdated, userName }:
                 )}
                 {(profile.schoolName || profile.teamName || positionsText) && (
                   <p className="text-orange-300 font-semibold text-[11px] uppercase tracking-wider leading-none mt-1 truncate [text-shadow:0_0_10px_rgba(249,115,22,0.45)]">
-                    {[profile.schoolName || profile.teamName, positionsText].filter(Boolean).join(" \u00B7 ")}
+                {[positionsText, teamLabel].filter(Boolean).join(" — ")}
                   </p>
                 )}
               </div>
@@ -2454,137 +2627,20 @@ export function BaseballCard({ profile, careerStats, onPhotoUpdated, userName }:
             boxShadow: "0 0 16px rgba(249, 115, 22, 0.26), inset 0 0 0 1px rgba(255, 188, 112, 0.24)",
           }}
         >
-          <div className="w-full h-full flex flex-col bg-black text-white">
-            <div className="flex items-center justify-between px-3 py-1.5 border-b border-orange-400/70 shadow-[0_1px_8px_rgba(249,115,22,0.1)]">
-              <div className="flex items-center gap-2 min-w-0">
-                <p className="text-white font-bold text-xs uppercase tracking-wide leading-tight truncate">
-                  {userName || profile.schoolName || profile.teamName || "Player"}
-                </p>
-                {profile.jerseyNumber != null && (
-                   <span className="text-orange-300 font-black text-xs [text-shadow:0_0_8px_rgba(249,115,22,0.4)]">#{profile.jerseyNumber}</span>
-                )}
-                {positionsText && (
-                  <span className="text-white/50 text-[10px] uppercase tracking-wider">
-                    {positionsText}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <div className="flex gap-0.5" onClick={(e) => e.stopPropagation()}>
-                  {[
-                    { key: "all", label: "ALL" },
-                    { key: "aau-travel-club", label: "AAU" },
-                    { key: "high-school", label: "SCH" },
-                    { key: "recreational", label: "REC" },
-                  ].map((f) => (
-                    <button
-                      key={f.key}
-                      data-testid={`filter-${f.key}`}
-                      className={`px-1.5 py-0.5 text-[8px] font-bold uppercase rounded-sm transition-colors ${
-                        seasonFilter === f.key
-                           ? "bg-orange-400 text-zinc-950 shadow-[0_0_8px_rgba(249,115,22,0.3)]"
-                          : "bg-white/10 text-white/50 hover:bg-white/20"
-                      }`}
-                      onClick={(e) => { e.stopPropagation(); setSeasonFilter(f.key); }}
-                    >
-                      {f.label}
-                    </button>
-                  ))}
-                </div>
-                <span className="text-white/30 text-[9px]">Tap to flip</span>
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-auto px-3 py-1.5">
-              <div>
-                <div className="grid gap-0.5 text-[8px] font-bold uppercase text-white/40 border-b border-white/10 pb-1 mb-0.5"
-                  style={{ gridTemplateColumns: "minmax(50px, 1.2fr) 28px repeat(5, 1fr) repeat(5, 1fr)" }}>
-                  <span>Season</span>
-                  <span className="text-center">GP</span>
-                   <span className="text-center text-orange-300/90">PTS</span>
-                   <span className="text-center text-orange-300/90">REB</span>
-                   <span className="text-center text-orange-300/90">AST</span>
-                   <span className="text-center text-orange-300/90">STL</span>
-                   <span className="text-center text-orange-300/90">BLK</span>
-                  <span className="text-center">PTS</span>
-                  <span className="text-center">REB</span>
-                  <span className="text-center">AST</span>
-                  <span className="text-center">STL</span>
-                  <span className="text-center">BLK</span>
-                </div>
-                <div className="grid gap-0.5 text-[7px] uppercase text-white/25 mb-0.5"
-                  style={{ gridTemplateColumns: "minmax(50px, 1.2fr) 28px repeat(5, 1fr) repeat(5, 1fr)" }}>
-                  <span></span>
-                  <span></span>
-                   <span className="text-center col-span-5 border-b border-orange-400/35 pb-0.5">Averages</span>
-                  <span className="text-center col-span-5 border-b border-white/10 pb-0.5">Totals</span>
-                </div>
-
-                {seasonBreakdown.length > 0 ? (
-                  <>
-                    {seasonBreakdown.map((s, i) => (
-                      <div key={i} className="grid gap-0.5 text-[9px] py-0.5 border-b border-white/5 last:border-0"
-                        style={{ gridTemplateColumns: "minmax(50px, 1.2fr) 28px repeat(5, 1fr) repeat(5, 1fr)" }}>
-                        <span className="font-medium truncate text-white/70" title={s.seasonName}>
-                          {SEASON_TYPE_LABELS[s.seasonType] ? SEASON_TYPE_LABELS[s.seasonType].split(" ")[0] : s.seasonType} '{s.year?.slice(-2) || ""}
-                        </span>
-                        <span className="text-center text-white/60">{s.gamesPlayed}</span>
-                       <span className="text-center font-semibold text-orange-300 [text-shadow:0_0_8px_rgba(249,115,22,0.32)]">{s.avgPoints?.toFixed(1)}</span>
-                        <span className="text-center text-white/60">{s.avgRebounds?.toFixed(1)}</span>
-                        <span className="text-center text-white/60">{s.avgAssists?.toFixed(1)}</span>
-                        <span className="text-center text-white/60">{s.avgSteals?.toFixed(1)}</span>
-                        <span className="text-center text-white/60">{s.avgBlocks?.toFixed(1)}</span>
-                        <span className="text-center text-white/50">{s.totalPoints}</span>
-                        <span className="text-center text-white/50">{s.totalRebounds}</span>
-                        <span className="text-center text-white/50">{s.totalAssists}</span>
-                        <span className="text-center text-white/50">{s.totalSteals}</span>
-                        <span className="text-center text-white/50">{s.totalBlocks}</span>
-                      </div>
-                    ))}
-
-                    {(() => {
-                      const filteredGames = seasonBreakdown.reduce((sum, s) => sum + s.gamesPlayed, 0);
-                      const filteredTotalPts = seasonBreakdown.reduce((sum, s) => sum + s.totalPoints, 0);
-                      const filteredTotalReb = seasonBreakdown.reduce((sum, s) => sum + s.totalRebounds, 0);
-                      const filteredTotalAst = seasonBreakdown.reduce((sum, s) => sum + s.totalAssists, 0);
-                      const filteredTotalStl = seasonBreakdown.reduce((sum, s) => sum + s.totalSteals, 0);
-                      const filteredTotalBlk = seasonBreakdown.reduce((sum, s) => sum + s.totalBlocks, 0);
-                      if (filteredGames === 0) return null;
-                      return (
-                         <div className="grid gap-0.5 text-[9px] py-1 mt-0.5 border-t-2 border-orange-400/75 font-bold shadow-[0_-2px_8px_rgba(249,115,22,0.1)]"
-                          style={{ gridTemplateColumns: "minmax(50px, 1.2fr) 28px repeat(5, 1fr) repeat(5, 1fr)" }}>
-                           <span className="text-orange-300 uppercase">Total</span>
-                          <span className="text-center">{filteredGames}</span>
-                           <span className="text-center text-orange-300">{filteredGames > 0 ? (filteredTotalPts / filteredGames).toFixed(1) : "0.0"}</span>
-                          <span className="text-center">{filteredGames > 0 ? (filteredTotalReb / filteredGames).toFixed(1) : "0.0"}</span>
-                          <span className="text-center">{filteredGames > 0 ? (filteredTotalAst / filteredGames).toFixed(1) : "0.0"}</span>
-                          <span className="text-center">{filteredGames > 0 ? (filteredTotalStl / filteredGames).toFixed(1) : "0.0"}</span>
-                          <span className="text-center">{filteredGames > 0 ? (filteredTotalBlk / filteredGames).toFixed(1) : "0.0"}</span>
-                          <span className="text-center">{filteredTotalPts}</span>
-                          <span className="text-center">{filteredTotalReb}</span>
-                          <span className="text-center">{filteredTotalAst}</span>
-                          <span className="text-center">{filteredTotalStl}</span>
-                          <span className="text-center">{filteredTotalBlk}</span>
-                        </div>
-                      );
-                    })()}
-                  </>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-4 text-center">
-                    <BarChart3 className="w-5 h-5 text-white/20 mb-1" />
-                    <p className="text-[10px] text-white/40">No seasons yet -- add seasons in the Stats tab</p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="px-3 py-1.5 bg-neutral-900 border-t border-white/10 flex items-center justify-between">
-              <span className="text-[9px] text-white/30">
-                {profile.schoolName || profile.teamName || ""}
-              </span>
-              <span className="text-[9px] text-white/30">'{new Date().getFullYear().toString().slice(-2)}</span>
-            </div>
-          </div>
+          <PlayerCardBack
+            profile={profile}
+            careerStats={careerStats}
+            playerProfile={playerProfile}
+            userProfile={userProfile}
+            userName={userName}
+            positionsText={positionsText}
+            teamLabel={teamLabel}
+            location={location}
+            physicalDetails={physicalDetails}
+            academicDetails={academicDetails}
+            selectedCardStats={selectedCardStats}
+            cardStatValues={cardStatValues}
+          />
         </div>
       </div>
     </div>

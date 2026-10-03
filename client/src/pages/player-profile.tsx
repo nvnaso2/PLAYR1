@@ -56,9 +56,10 @@ import {
   CANADIAN_PROVINCES,
   COUNTRIES,
   GRADE_LEVELS,
+  PLAYER_CARD_CAREER_STAT_KEYS,
   US_STATES,
 } from "@shared/schema";
-import type { PlayerProfile, Season } from "@shared/schema";
+import type { PlayerCardCareerStatKey, PlayerProfile, Season } from "@shared/schema";
 
 interface UserProfile {
   profilePhotoUrl: string | null;
@@ -85,6 +86,7 @@ const playerProfileFormSchema = z.object({
   gradeLevel: z.string().max(30).optional().or(z.literal("")),
   teamName: z.string().max(100).optional().or(z.literal("")),
   aspiration: z.string().max(40).optional().or(z.literal("")),
+  cardCareerStats: z.array(z.enum(PLAYER_CARD_CAREER_STAT_KEYS)).min(1).max(3).default(["ppg", "rpg", "apg"]),
   heightFeet: z.coerce.number().min(3).max(8).optional().or(z.literal(0)),
   heightInches: z.coerce.number().min(0).max(11).optional().or(z.literal(0)),
   weight: z.coerce.number().min(50).max(400).optional().or(z.literal(0)),
@@ -130,6 +132,16 @@ const aspirationLabels: Record<string, string> = {
   college: "College",
   "professional-non-nba": "Professional",
   nba: "NBA",
+};
+
+const cardCareerStatLabels: Record<PlayerCardCareerStatKey, string> = {
+  ppg: "PPG",
+  rpg: "RPG",
+  apg: "APG",
+  spg: "SPG",
+  bpg: "BPG",
+  games: "GP",
+  record: "W-L",
 };
 
 type PlayerProfileFormData = z.infer<typeof playerProfileFormSchema>;
@@ -199,6 +211,7 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
       gradeLevel: "",
       teamName: "",
       aspiration: "",
+      cardCareerStats: ["ppg", "rpg", "apg"],
       heightFeet: 0,
       heightInches: 0,
       weight: 0,
@@ -234,6 +247,9 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
       gradeLevel: careerProfile?.gradeLevel ?? "",
       teamName: careerProfile?.teamName ?? "",
       aspiration: careerProfile?.aspiration ?? "",
+      cardCareerStats: profile?.cardCareerStats?.length
+        ? profile.cardCareerStats.slice(0, 3)
+        : ["ppg", "rpg", "apg"],
       heightFeet: profile?.heightFeet || 0,
       heightInches: profile?.heightInches || 0,
       weight: profile?.weight || 0,
@@ -714,6 +730,47 @@ export function PlayerProfileSection({ concise = false }: { concise?: boolean } 
                         </FormItem>
                       )}
                     />
+                  </section>
+                  <section className="space-y-2 border-t border-zinc-800 pt-2">
+                    <div>
+                      <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500">
+                        <BarChart3 className="h-3.5 w-3.5 text-orange-400" />
+                        Card stats
+                      </p>
+                      <p className="mt-1 text-[10px] text-zinc-500">Choose up to 3 to show on the back of your player card.</p>
+                    </div>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {PLAYER_CARD_CAREER_STAT_KEYS.map((key) => {
+                        const selectedStats = form.watch("cardCareerStats") || [];
+                        const selected = selectedStats.includes(key);
+                        const atLimit = selectedStats.length >= 3;
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            aria-pressed={selected}
+                            disabled={!selected && atLimit}
+                            onClick={() => {
+                              const current = form.getValues("cardCareerStats") || [];
+                              const next = current.includes(key)
+                                ? current.filter((stat) => stat !== key)
+                                : current.length < 3
+                                  ? [...current, key]
+                                  : current;
+                              form.setValue("cardCareerStats", next, { shouldDirty: true, shouldValidate: true });
+                            }}
+                            className={`rounded-md border px-2 py-1.5 text-[10px] font-bold transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                              selected
+                                ? "border-orange-400 bg-orange-500/15 text-orange-200"
+                                : "border-zinc-700 bg-zinc-950 text-zinc-400 hover:border-zinc-500"
+                            }`}
+                            data-testid={`button-card-stat-${key}`}
+                          >
+                            {cardCareerStatLabels[key]}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </section>
                 </>
               )}
