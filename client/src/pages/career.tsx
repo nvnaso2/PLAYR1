@@ -2715,178 +2715,206 @@ function fmtPct(made: number, attempted: number): string {
   return ((made / attempted) * 100).toFixed(1) + "%";
 }
 
-function StatsOverviewCard({ careerStats, seasons }: { careerStats?: CareerStats; seasons: Season[] }) {
+function StatsOverviewCard({
+  careerStats,
+  seasons,
+  statsScope,
+  selectedSeasonId,
+  onScopeChange,
+  onSeasonChange,
+  seasonGames,
+  seasonGamesLoading,
+  onCreateSeason,
+  onLogGame,
+  onShareGame,
+  onEditGame,
+  onDeleteGame,
+}: {
+  careerStats?: CareerStats;
+  seasons: Season[];
+  statsScope: "career" | "season";
+  selectedSeasonId: string;
+  onScopeChange: (scope: "career" | "season") => void;
+  onSeasonChange: (seasonId: string) => void;
+  seasonGames?: Game[];
+  seasonGamesLoading: boolean;
+  onCreateSeason: () => void;
+  onLogGame: () => void;
+  onShareGame: (gameId: string) => void;
+  onEditGame: (game: Game) => void;
+  onDeleteGame: (gameId: string) => void;
+}) {
   const [statsView, setStatsView] = useState<"averages" | "totals">("averages");
-  const [selectedSeasonId, setSelectedSeasonId] = useState<string>("career");
-
-  if (!careerStats || careerStats.totalGames === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <BarChart className="w-5 h-5 text-blue-500" />
-            Stats
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center p-8">
-            <BarChart className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-            <p className="text-muted-foreground">No game stats yet. Add seasons and games below!</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const breakdown = careerStats.seasonBreakdown;
-  const displaySeasons = selectedSeasonId === "career"
-    ? breakdown
-    : breakdown.filter(s => s.seasonId === selectedSeasonId);
-
-  const totalGames = displaySeasons.reduce((s, ss) => s + ss.gamesPlayed, 0);
-  const totalPts = displaySeasons.reduce((s, ss) => s + ss.totalPoints, 0);
-  const totalReb = displaySeasons.reduce((s, ss) => s + ss.totalRebounds, 0);
-  const totalAst = displaySeasons.reduce((s, ss) => s + ss.totalAssists, 0);
-  const totalStl = displaySeasons.reduce((s, ss) => s + ss.totalSteals, 0);
-  const totalBlk = displaySeasons.reduce((s, ss) => s + ss.totalBlocks, 0);
-  const totalFgMade = displaySeasons.reduce((s, ss) => s + (ss.totalFgMade ?? 0), 0);
-  const totalFgAtt = displaySeasons.reduce((s, ss) => s + (ss.totalFgAttempted ?? 0), 0);
-  const total3Made = displaySeasons.reduce((s, ss) => s + (ss.totalThreePtMade ?? 0), 0);
-  const total3Att = displaySeasons.reduce((s, ss) => s + (ss.totalThreePtAttempted ?? 0), 0);
-  const totalFtMade = displaySeasons.reduce((s, ss) => s + (ss.totalFtMade ?? 0), 0);
-  const totalFtAtt = displaySeasons.reduce((s, ss) => s + (ss.totalFtAttempted ?? 0), 0);
-  const displayWins = displaySeasons.reduce((s, ss) => s + ss.wins, 0);
-  const displayLosses = displaySeasons.reduce((s, ss) => s + ss.losses, 0);
-
+  const selectedSeason = seasons.find((season) => season.id === selectedSeasonId);
+  const seasonStats = careerStats?.seasonBreakdown?.find((season) => season.seasonId === selectedSeasonId);
+  const totals = statsScope === "career" ? {
+    games: careerStats?.totalGames ?? 0,
+    points: careerStats?.totalPoints ?? 0,
+    rebounds: careerStats?.totalRebounds ?? 0,
+    assists: careerStats?.totalAssists ?? 0,
+    steals: careerStats?.totalSteals ?? 0,
+    blocks: careerStats?.totalBlocks ?? 0,
+    fgMade: careerStats?.totalFgMade ?? 0,
+    fgAttempted: careerStats?.totalFgAttempted ?? 0,
+    threeMade: careerStats?.totalThreePtMade ?? 0,
+    threeAttempted: careerStats?.totalThreePtAttempted ?? 0,
+    ftMade: careerStats?.totalFtMade ?? 0,
+    ftAttempted: careerStats?.totalFtAttempted ?? 0,
+    wins: careerStats?.wins ?? 0,
+    losses: careerStats?.losses ?? 0,
+  } : {
+    games: seasonStats?.gamesPlayed ?? 0,
+    points: seasonStats?.totalPoints ?? 0,
+    rebounds: seasonStats?.totalRebounds ?? 0,
+    assists: seasonStats?.totalAssists ?? 0,
+    steals: seasonStats?.totalSteals ?? 0,
+    blocks: seasonStats?.totalBlocks ?? 0,
+    fgMade: seasonStats?.totalFgMade ?? 0,
+    fgAttempted: seasonStats?.totalFgAttempted ?? 0,
+    threeMade: seasonStats?.totalThreePtMade ?? 0,
+    threeAttempted: seasonStats?.totalThreePtAttempted ?? 0,
+    ftMade: seasonStats?.totalFtMade ?? 0,
+    ftAttempted: seasonStats?.totalFtAttempted ?? 0,
+    wins: seasonStats?.wins ?? 0,
+    losses: seasonStats?.losses ?? 0,
+  };
   const statItems = statsView === "averages" ? [
-    { label: "PPG", value: totalGames > 0 ? (totalPts / totalGames).toFixed(1) : "0.0", highlight: true },
-    { label: "RPG", value: totalGames > 0 ? (totalReb / totalGames).toFixed(1) : "0.0" },
-    { label: "APG", value: totalGames > 0 ? (totalAst / totalGames).toFixed(1) : "0.0" },
-    { label: "SPG", value: totalGames > 0 ? (totalStl / totalGames).toFixed(1) : "0.0" },
-    { label: "BPG", value: totalGames > 0 ? (totalBlk / totalGames).toFixed(1) : "0.0" },
+    { label: "PPG", value: totals.games ? (totals.points / totals.games).toFixed(1) : "0.0", highlight: true },
+    { label: "RPG", value: totals.games ? (totals.rebounds / totals.games).toFixed(1) : "0.0" },
+    { label: "APG", value: totals.games ? (totals.assists / totals.games).toFixed(1) : "0.0" },
+    { label: "SPG", value: totals.games ? (totals.steals / totals.games).toFixed(1) : "0.0" },
+    { label: "BPG", value: totals.games ? (totals.blocks / totals.games).toFixed(1) : "0.0" },
   ] : [
-    { label: "PTS", value: totalPts.toString(), highlight: true },
-    { label: "REB", value: totalReb.toString() },
-    { label: "AST", value: totalAst.toString() },
-    { label: "STL", value: totalStl.toString() },
-    { label: "BLK", value: totalBlk.toString() },
+    { label: "PTS", value: totals.points.toString(), highlight: true },
+    { label: "REB", value: totals.rebounds.toString() },
+    { label: "AST", value: totals.assists.toString() },
+    { label: "STL", value: totals.steals.toString() },
+    { label: "BLK", value: totals.blocks.toString() },
   ];
-
-  const hasShootingData = totalFgAtt > 0 || total3Att > 0 || totalFtAtt > 0;
+  const hasShootingData = totals.fgAttempted > 0 || totals.threeAttempted > 0 || totals.ftAttempted > 0;
+  const recordCount = totals.wins + totals.losses;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <BarChart className="w-5 h-5 text-blue-500" />
-          Stats
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="flex items-center gap-2 mb-4 flex-wrap">
-          <div className="flex gap-1">
-            <Button size="sm" variant={statsView === "averages" ? "default" : "outline"} onClick={() => setStatsView("averages")} data-testid="btn-stats-averages">
-              Averages
-            </Button>
-            <Button size="sm" variant={statsView === "totals" ? "default" : "outline"} onClick={() => setStatsView("totals")} data-testid="btn-stats-totals">
-              Totals
-            </Button>
+    <Card className="overflow-hidden border-white/[0.08] bg-[#141414] text-zinc-100">
+      <CardContent className="space-y-4 p-3 sm:p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-orange-400/20 bg-orange-400/[0.08] text-orange-300">
+              <BarChart className="h-4 w-4" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Stats</p>
+              <p className="text-xs font-semibold capitalize text-zinc-300">
+                {statsScope === "career" ? `Career ${statsView}` : `${selectedSeason?.name || "Season"} ${statsView}`}
+              </p>
+            </div>
           </div>
-          <Select value={selectedSeasonId} onValueChange={setSelectedSeasonId}>
-            <SelectTrigger className="w-44 h-8 text-sm" data-testid="select-stats-season">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="career">Career</SelectItem>
-              {seasons.filter(s => breakdown.some(b => b.seasonId === s.id)).map(s => (
-                <SelectItem key={s.id} value={s.id}>{s.name} ({s.year})</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="grid grid-cols-2 rounded-lg border border-white/[0.08] bg-black/30 p-0.5" role="group" aria-label="Choose stats period">
+              <Button type="button" size="sm" variant="ghost" aria-pressed={statsScope === "career"} className={`h-8 px-3 text-xs ${statsScope === "career" ? "bg-orange-500 font-bold text-zinc-950 hover:bg-orange-400 hover:text-zinc-950" : "text-zinc-400 hover:text-white"}`} onClick={() => onScopeChange("career")} data-testid="button-stats-career">Career</Button>
+              <Button type="button" size="sm" variant="ghost" aria-pressed={statsScope === "season"} className={`h-8 px-3 text-xs ${statsScope === "season" ? "bg-orange-500 font-bold text-zinc-950 hover:bg-orange-400 hover:text-zinc-950" : "text-zinc-400 hover:text-white"}`} onClick={() => onScopeChange("season")} data-testid="button-stats-season">Season</Button>
+            </div>
+            {statsScope === "season" && (
+              <Select value={selectedSeasonId || undefined} onValueChange={onSeasonChange}>
+                <SelectTrigger className="h-9 min-w-[150px] border-white/10 bg-black/25 text-xs text-zinc-200 sm:w-48" data-testid="select-stats-season" aria-label="Choose season stats">
+                  <SelectValue placeholder="Choose season" />
+                </SelectTrigger>
+                <SelectContent>
+                  {seasons.map((season) => <SelectItem key={season.id} value={season.id}>{season.name} ({season.year})</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
+            <div className="flex gap-1" role="group" aria-label="Choose stat display">
+              <Button type="button" size="sm" variant="ghost" onClick={() => setStatsView("averages")} aria-pressed={statsView === "averages"} className={`h-8 px-2.5 text-[11px] ${statsView === "averages" ? "text-orange-300" : "text-zinc-500"}`} data-testid="btn-stats-averages">Averages</Button>
+              <Button type="button" size="sm" variant="ghost" onClick={() => setStatsView("totals")} aria-pressed={statsView === "totals"} className={`h-8 px-2.5 text-[11px] ${statsView === "totals" ? "text-orange-300" : "text-zinc-500"}`} data-testid="btn-stats-totals">Totals</Button>
+            </div>
+          </div>
         </div>
 
-        <div className="space-y-4">
-          <div className={`grid gap-2 sm:gap-3 ${(displayWins + displayLosses) > 0 ? 'grid-cols-4' : 'grid-cols-3'}`}>
-            <div className="text-center p-2 sm:p-3 rounded-md bg-muted/50">
-              <p className="text-lg sm:text-2xl font-bold">{totalGames}</p>
-              <p className="text-[10px] sm:text-xs text-muted-foreground">GP</p>
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+          {[
+            { label: "Games", value: totals.games, tone: "text-zinc-100" },
+            { label: "Wins", value: totals.wins, tone: "text-emerald-400" },
+            { label: "Losses", value: totals.losses, tone: "text-zinc-400" },
+            { label: "Win rate", value: recordCount ? `${((totals.wins / recordCount) * 100).toFixed(0)}%` : "—", tone: "text-orange-300" },
+          ].map((item, index) => (
+            <div key={item.label} className={`rounded-lg border border-white/[0.05] bg-black/20 px-2 py-2 text-center ${index === 3 ? "col-span-3 sm:col-span-1" : ""}`}>
+              <p className={`font-display text-xl font-black leading-none tabular-nums sm:text-2xl ${item.tone}`}>{item.value}</p>
+              <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.14em] text-zinc-600">{item.label}</p>
             </div>
-            <div className="text-center p-2 sm:p-3 rounded-md bg-muted/50">
-              <p className="text-lg sm:text-2xl font-bold text-green-600 dark:text-green-400">{displayWins}</p>
-              <p className="text-[10px] sm:text-xs text-muted-foreground">Wins</p>
+          ))}
+        </div>
+        <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+          {statItems.map((item) => (
+            <div key={item.label} className="rounded-lg border border-white/[0.05] bg-[#1a1a1a] px-1.5 py-2.5 text-center sm:py-3">
+              <p className={`font-display text-lg font-black leading-none tabular-nums sm:text-2xl ${item.highlight ? "text-orange-400" : "text-zinc-100"}`}>{item.value}</p>
+              <p className="mt-1.5 text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-600">{item.label}</p>
             </div>
-            <div className="text-center p-2 sm:p-3 rounded-md bg-muted/50">
-              <p className="text-lg sm:text-2xl font-bold text-red-600 dark:text-red-400">{displayLosses}</p>
-              <p className="text-[10px] sm:text-xs text-muted-foreground">Losses</p>
-            </div>
-            {(displayWins + displayLosses) > 0 && (
-              <div className="text-center p-2 sm:p-3 rounded-md bg-muted/50">
-                <p className="text-lg sm:text-2xl font-bold">{((displayWins / (displayWins + displayLosses)) * 100).toFixed(0)}%</p>
-                <p className="text-[10px] sm:text-xs text-muted-foreground">Win %</p>
-              </div>
-            )}
-          </div>
-
-          <div className="grid grid-cols-5 gap-2 sm:gap-3">
-            {statItems.map((item) => (
-              <div key={item.label} className="text-center p-2 sm:p-3 rounded-md bg-muted/50">
-                <p className={`text-lg sm:text-2xl font-bold ${item.highlight ? 'text-primary' : ''}`}>{item.value}</p>
-                <p className="text-[10px] sm:text-xs text-muted-foreground">{item.label}</p>
+          ))}
+        </div>
+        {hasShootingData && (
+          <div className="grid grid-cols-3 divide-x divide-white/[0.07] rounded-lg border border-white/[0.06] bg-black/15 py-2">
+            {[
+              { label: "FG", value: fmtPct(totals.fgMade, totals.fgAttempted), detail: `${totals.fgMade}/${totals.fgAttempted}` },
+              { label: "3PT", value: fmtPct(totals.threeMade, totals.threeAttempted), detail: `${totals.threeMade}/${totals.threeAttempted}` },
+              { label: "FT", value: fmtPct(totals.ftMade, totals.ftAttempted), detail: `${totals.ftMade}/${totals.ftAttempted}` },
+            ].map((item) => (
+              <div key={item.label} className="text-center">
+                <p className="text-sm font-bold tabular-nums text-orange-300">{item.value}</p>
+                <p className="mt-0.5 text-[9px] font-semibold uppercase tracking-wider text-zinc-600">{item.label} · {item.detail}</p>
               </div>
             ))}
           </div>
-
-          {hasShootingData && (
-            <div className="grid grid-cols-3 gap-2 sm:gap-3">
-              <div className="text-center p-2 sm:p-3 rounded-md bg-muted/50">
-                <p className="text-lg sm:text-xl font-bold text-orange-500">{fmtPct(totalFgMade, totalFgAtt)}</p>
-                <p className="text-[10px] sm:text-xs text-muted-foreground">FG% ({totalFgMade}/{totalFgAtt})</p>
+        )}
+        {totals.games === 0 && (
+          <p className="rounded-lg border border-dashed border-white/[0.08] bg-black/10 px-3 py-2 text-center text-xs text-zinc-500">
+            {statsScope === "season" && !selectedSeason ? "Choose a season to see its stats." : "No games logged yet. Create a season and log your first game."}
+          </p>
+        )}
+        {statsScope === "season" && selectedSeason && (
+          <section aria-labelledby="stats-game-log-heading" className="border-t border-white/[0.07] pt-3">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <div>
+                <h3 id="stats-game-log-heading" className="text-xs font-bold text-zinc-200">Game log</h3>
+                <p className="mt-0.5 text-[10px] text-zinc-600">{selectedSeason.name} · {seasonGames?.length ?? 0} games</p>
               </div>
-              <div className="text-center p-2 sm:p-3 rounded-md bg-muted/50">
-                <p className="text-lg sm:text-xl font-bold text-orange-500">{fmtPct(total3Made, total3Att)}</p>
-                <p className="text-[10px] sm:text-xs text-muted-foreground">3P% ({total3Made}/{total3Att})</p>
-              </div>
-              <div className="text-center p-2 sm:p-3 rounded-md bg-muted/50">
-                <p className="text-lg sm:text-xl font-bold text-orange-500">{fmtPct(totalFtMade, totalFtAtt)}</p>
-                <p className="text-[10px] sm:text-xs text-muted-foreground">FT% ({totalFtMade}/{totalFtAtt})</p>
-              </div>
+              <Button type="button" size="sm" onClick={onLogGame} className="h-8 bg-orange-500 px-3 text-xs font-bold text-zinc-950 hover:bg-orange-400" data-testid="button-add-game-overview">
+                <Plus className="mr-1.5 h-3.5 w-3.5" />Log Game
+              </Button>
             </div>
-          )}
-
-          {selectedSeasonId === "career" && breakdown.length > 1 && (
-            <div className="mt-4">
-              <p className="text-sm font-medium mb-2 text-muted-foreground">Season Breakdown</p>
-              <div className="space-y-2">
-                {breakdown.map((s, i) => (
-                  <div key={i} className="p-2 rounded-md bg-muted/30 space-y-1">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium text-xs sm:text-sm">
-                        {SEASON_TYPE_LABELS[s.seasonType]?.split(" ")[0] || s.seasonType} '{s.year?.slice(-2) || ""}
-                      </span>
-                      <span className="text-xs text-muted-foreground">{s.gamesPlayed} GP</span>
-                    </div>
-                    <div className="flex gap-2 sm:gap-3 text-muted-foreground text-xs flex-wrap">
-                      {statsView === "averages" ? (
-                        <>
-                          <span className="font-semibold text-foreground">{s.avgPoints.toFixed(1)} PPG</span>
-                          <span>{s.avgRebounds.toFixed(1)} RPG</span>
-                          <span>{s.avgAssists.toFixed(1)} APG</span>
-                          {(s.totalFgAttempted ?? 0) > 0 && <span className="text-orange-400">{fmtPct(s.totalFgMade ?? 0, s.totalFgAttempted ?? 0)} FG</span>}
-                        </>
-                      ) : (
-                        <>
-                          <span className="font-semibold text-foreground">{s.totalPoints} PTS</span>
-                          <span>{s.totalRebounds} REB</span>
-                          <span>{s.totalAssists} AST</span>
-                          {(s.totalFgAttempted ?? 0) > 0 && <span className="text-orange-400">{fmtPct(s.totalFgMade ?? 0, s.totalFgAttempted ?? 0)} FG</span>}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                ))}
+            {seasonGamesLoading ? (
+              <div className="space-y-2" aria-label="Loading game log">
+                <Skeleton className="h-12 rounded-lg bg-zinc-800" />
+                <Skeleton className="h-12 rounded-lg bg-zinc-800" />
               </div>
-            </div>
-          )}
+            ) : seasonGames && seasonGames.length > 0 ? (
+              <div className="max-h-[360px] space-y-1.5 overflow-y-auto pr-1">
+                {seasonGames.map((game) => {
+                  const date = game.gameDate ? new Date(new Date(game.gameDate).toISOString().split("T")[0] + "T12:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "—";
+                  return (
+                    <article key={game.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 rounded-lg border border-white/[0.05] bg-black/20 px-3 py-2" data-testid={`game-overview-${game.id}`}>
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-semibold text-zinc-200">{game.isHome ? "vs" : "@"} {game.opponent || "TBD"}</p>
+                        <p className="mt-0.5 text-[10px] text-zinc-600">{date}{game.result ? ` · ${game.result} ${game.teamScore}-${game.opponentScore}` : ""}</p>
+                      </div>
+                      <p className="text-right text-[10px] font-bold tabular-nums text-zinc-300 sm:text-xs"><span className="text-orange-300">{game.points}</span> PTS<span className="ml-1.5 text-zinc-500">{game.rebounds} REB · {game.assists} AST · {game.steals} STL · {game.blocks} BLK</span></p>
+                      <div className="col-span-2 flex justify-end gap-1">
+                        <Button type="button" size="icon" variant="ghost" className="h-7 w-7 text-zinc-500 hover:text-zinc-100" aria-label={`Share stats for ${game.opponent || "game"} on ${date}`} title="Share game stats" onClick={() => onShareGame(game.id)} data-testid={`button-share-game-overview-${game.id}`}><Share2 className="h-3.5 w-3.5" /></Button>
+                        <Button type="button" size="icon" variant="ghost" className="h-7 w-7 text-zinc-500 hover:text-zinc-100" aria-label={`Edit game against ${game.opponent || "opponent"}`} title="Edit game" onClick={() => onEditGame(game)} data-testid={`button-edit-game-overview-${game.id}`}><Pencil className="h-3.5 w-3.5" /></Button>
+                        <Button type="button" size="icon" variant="ghost" className="h-7 w-7 text-zinc-500 hover:text-red-300" aria-label={`Delete game against ${game.opponent || "opponent"}`} title="Delete game" onClick={() => onDeleteGame(game.id)} data-testid={`button-delete-game-overview-${game.id}`}><Trash2 className="h-3.5 w-3.5" /></Button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="rounded-lg border border-dashed border-white/[0.08] px-3 py-4 text-center text-xs text-zinc-500">No games logged yet. Log the first game for this season.</p>
+            )}
+          </section>
+        )}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.07] pt-3">
+          <p className="text-[10px] text-zinc-600">{statsScope === "career" ? "All recorded seasons" : selectedSeason ? `${selectedSeason.year}${selectedSeason.teamName ? ` · ${selectedSeason.teamName}` : ""}` : "Season totals"}</p>
+          <Button type="button" size="sm" variant="outline" onClick={onCreateSeason} className="h-8 border-orange-400/25 bg-orange-400/[0.04] px-3 text-xs text-orange-200 hover:bg-orange-400/10 hover:text-orange-100" data-testid="button-create-season-overview"><Plus className="mr-1.5 h-3.5 w-3.5" />Create Season</Button>
         </div>
       </CardContent>
     </Card>
@@ -2897,6 +2925,8 @@ export function StatsTab() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [selectedSeasonId, setSelectedSeasonId] = useState<string | null>(null);
+  const [statsScope, setStatsScope] = useState<"career" | "season">("career");
+  const [statsSeasonId, setStatsSeasonId] = useState<string>("");
   const [showSeasonDialog, setShowSeasonDialog] = useState(false);
   const [editingSeason, setEditingSeason] = useState<Season | null>(null);
   const [showGameDialog, setShowGameDialog] = useState(false);
@@ -2928,10 +2958,21 @@ export function StatsTab() {
     queryKey: ['/api/stats/career']
   });
 
-  const { data: seasonGames, refetch: refetchSeasonGames } = useQuery<Game[]>({
+  const { data: seasonGames, isLoading: seasonGamesLoading } = useQuery<Game[]>({
     queryKey: [`/api/seasons/${selectedSeasonId}/games`],
     enabled: !!selectedSeasonId
   });
+  const { data: statsSeasonGames, isLoading: statsSeasonGamesLoading } = useQuery<Game[]>({
+    queryKey: [`/api/seasons/${statsSeasonId}/games`],
+    enabled: statsScope === "season" && !!statsSeasonId
+  });
+
+  useEffect(() => {
+    if (statsScope !== "season" || statsSeasonId || seasonsLoading || seasons.length === 0) return;
+    const season = seasons.find((entry) => entry.isActive !== false) ?? seasons[0];
+    setStatsSeasonId(season.id);
+    setSelectedSeasonId(season.id);
+  }, [statsScope, statsSeasonId, seasons, seasonsLoading]);
 
   const seasonForm = useForm<SeasonFormData>({
     resolver: zodResolver(seasonSchema),
@@ -3009,6 +3050,10 @@ export function StatsTab() {
       queryClient.invalidateQueries({ queryKey: ['/api/stats/career'] });
       if (selectedSeasonId === deleteSeasonMutation.variables) {
         setSelectedSeasonId(null);
+      }
+      if (statsSeasonId === deleteSeasonMutation.variables) {
+        setStatsSeasonId("");
+        setStatsScope("career");
       }
       toast({ title: "Season deleted" });
     }
@@ -3181,16 +3226,59 @@ export function StatsTab() {
           </CardContent>
         </Card>
       )}
-      <StatsOverviewCard careerStats={careerStats} seasons={seasons} />
+      <StatsOverviewCard
+        careerStats={careerStats}
+        seasons={seasons}
+        statsScope={statsScope}
+        selectedSeasonId={statsSeasonId}
+        onScopeChange={(scope) => {
+          setStatsScope(scope);
+          if (scope === "season" && !statsSeasonId) {
+            const season = seasons.find((entry) => entry.isActive !== false) ?? seasons[0];
+            if (season) {
+              setStatsSeasonId(season.id);
+              setSelectedSeasonId(season.id);
+            }
+          }
+        }}
+        onSeasonChange={(seasonId) => {
+          setStatsSeasonId(seasonId);
+          setSelectedSeasonId(seasonId);
+        }}
+        seasonGames={statsSeasonGames}
+        seasonGamesLoading={statsSeasonGamesLoading}
+        onCreateSeason={() => openSeasonDialog()}
+        onLogGame={() => {
+          if (!statsSeasonId) return;
+          setSelectedSeasonId(statsSeasonId);
+          openGameDialog();
+        }}
+        onShareGame={setShareGameId}
+        onEditGame={(game) => {
+          if (statsSeasonId) setSelectedSeasonId(statsSeasonId);
+          openGameDialog(game);
+        }}
+        onDeleteGame={(gameId) => {
+          if (confirm('Delete this game?')) {
+            if (statsSeasonId) setSelectedSeasonId(statsSeasonId);
+            deleteGameMutation.mutate(gameId);
+          }
+        }}
+      />
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-4">
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="w-5 h-5" />
-            Seasons
-          </CardTitle>
+      <details className="group overflow-hidden rounded-xl border border-white/[0.08] bg-[#141414]" data-testid="details-season-management">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-xs font-semibold text-zinc-400 transition hover:text-zinc-200 [&::-webkit-details-marker]:hidden">
+          <span className="flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-orange-400" />
+            Season &amp; game management
+            <span className="text-[10px] font-medium text-zinc-600">({seasons.length})</span>
+          </span>
+          <ChevronDown className="h-4 w-4 shrink-0 text-zinc-500 transition-transform group-open:rotate-180" />
+        </summary>
+        <Card className="rounded-none border-0 border-t border-white/[0.07] bg-transparent text-zinc-100 shadow-none">
+        <CardHeader className="flex flex-row items-center justify-end gap-4">
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={() => setShowCsvImport(true)} data-testid="button-import-csv">
+            <Button size="sm" variant="outline" onClick={() => setShowCsvImport(true)} aria-label="Import stats from CSV" data-testid="button-import-csv">
               <Upload className="w-4 h-4 sm:mr-1" />
               <span className="hidden sm:inline">Import CSV</span>
             </Button>
@@ -3199,7 +3287,7 @@ export function StatsTab() {
               if (!open) { setEditingSeason(null); seasonForm.reset(); }
             }}>
             <DialogTrigger asChild>
-              <Button size="sm" onClick={() => openSeasonDialog()} data-testid="button-create-season">
+              <Button size="sm" onClick={() => openSeasonDialog()} aria-label="Add season" data-testid="button-create-season">
                 <Plus className="w-4 h-4 sm:mr-1" />
                 <span className="hidden sm:inline">Add Season</span>
               </Button>
@@ -3350,12 +3438,18 @@ export function StatsTab() {
                 
                 return (
                   <div key={season.id} className={`border rounded-lg ${!isActive ? "opacity-70" : ""}`} data-testid={`season-item-${season.id}`}>
-                    <div 
-                      className="p-4 cursor-pointer hover-elevate"
-                      onClick={() => toggleSeasonExpand(season.id)}
-                    >
+                    <div className="p-4 hover-elevate">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="font-medium truncate">{season.name}</p>
+                        <button
+                          type="button"
+                          className="flex min-w-0 flex-1 items-center gap-2 rounded text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                          onClick={() => toggleSeasonExpand(season.id)}
+                          aria-expanded={isExpanded}
+                          aria-label={`${isExpanded ? "Collapse" : "Expand"} ${season.name}`}
+                        >
+                          <span className="truncate font-medium">{season.name}</span>
+                          {isExpanded ? <ChevronUp className="h-4 w-4 shrink-0 text-zinc-500" /> : <ChevronDown className="h-4 w-4 shrink-0 text-zinc-500" />}
+                        </button>
                         <div className="flex items-center gap-1 shrink-0">
                           <Button
                             size="icon"
@@ -3365,6 +3459,7 @@ export function StatsTab() {
                               toggleSeasonActiveMutation.mutate({ id: season.id, isActive: !isActive });
                             }}
                             title={isActive ? "Mark as Completed" : "Mark as Active"}
+                            aria-label={isActive ? `Mark ${season.name} as completed` : `Mark ${season.name} as active`}
                             data-testid={`button-toggle-season-${season.id}`}
                           >
                             {isActive ? <CheckCircle className="w-4 h-4 text-green-500" /> : <Circle className="w-4 h-4 text-muted-foreground" />}
@@ -3377,6 +3472,7 @@ export function StatsTab() {
                               openSeasonDialog(season);
                             }}
                             title="Edit season"
+                            aria-label={`Edit ${season.name}`}
                             data-testid={`button-edit-season-${season.id}`}
                           >
                             <Pencil className="w-4 h-4 text-muted-foreground" />
@@ -3390,6 +3486,7 @@ export function StatsTab() {
                               setShowSeasonShareDialog(true);
                             }}
                             title="Share season stats"
+                            aria-label={`Share ${season.name} stats`}
                             data-testid={`button-share-season-${season.id}`}
                           >
                             <Share2 className="w-4 h-4 text-muted-foreground" />
@@ -3403,15 +3500,12 @@ export function StatsTab() {
                                 deleteSeasonMutation.mutate(season.id);
                               }
                             }}
+                            title="Delete season"
+                            aria-label={`Delete ${season.name}`}
                             data-testid={`button-delete-season-${season.id}`}
                           >
                             <Trash2 className="w-4 h-4 text-muted-foreground" />
                           </Button>
-                          {isExpanded ? (
-                            <ChevronUp className="w-5 h-5 text-muted-foreground" />
-                          ) : (
-                            <ChevronDown className="w-5 h-5 text-muted-foreground" />
-                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1 flex-wrap">
@@ -3529,6 +3623,8 @@ export function StatsTab() {
                                           size="icon" 
                                           variant="ghost"
                                           onClick={() => setShareGameId(game.id)}
+                                          aria-label={`Share stats for ${game.opponent || "game"}`}
+                                          title="Share game stats"
                                           data-testid={`button-share-game-${game.id}`}
                                         >
                                           <Share2 className="w-3 h-3" />
@@ -3537,6 +3633,8 @@ export function StatsTab() {
                                           size="icon" 
                                           variant="ghost"
                                           onClick={() => openGameDialog(game)}
+                                          aria-label={`Edit game against ${game.opponent || "opponent"}`}
+                                          title="Edit game"
                                           data-testid={`button-edit-game-${game.id}`}
                                         >
                                           <Pencil className="w-3 h-3" />
@@ -3549,6 +3647,8 @@ export function StatsTab() {
                                               deleteGameMutation.mutate(game.id);
                                             }
                                           }}
+                                          aria-label={`Delete game against ${game.opponent || "opponent"}`}
+                                          title="Delete game"
                                           data-testid={`button-delete-game-${game.id}`}
                                         >
                                           <Trash2 className="w-3 h-3" />
@@ -3573,7 +3673,8 @@ export function StatsTab() {
             </div>
           )}
         </CardContent>
-      </Card>
+        </Card>
+      </details>
 
       <Dialog open={showGameDialog} onOpenChange={(open) => {
         setShowGameDialog(open);

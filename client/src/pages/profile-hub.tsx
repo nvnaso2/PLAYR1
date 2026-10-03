@@ -6,7 +6,7 @@ import { BaseballCard, StatsTab, TrophyRoomTab } from "@/pages/career";
 import { useProUpgrade } from "@/components/pro-upgrade-dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Fingerprint, Target, Trophy, Settings, Pencil, Crown, ChevronDown, ChartNoAxesCombined, Medal, Award, Sparkles } from "lucide-react";
+import { Fingerprint, Target, Trophy, Settings, Pencil, Crown, ChevronDown, Medal, Award, Sparkles } from "lucide-react";
 import type { CareerProfile } from "@shared/schema";
 
 type CareerNumbers = {
@@ -35,21 +35,6 @@ type CareerNumbers = {
 function numeric(value: unknown): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function average(value: unknown): string {
-  return numeric(value).toFixed(1);
-}
-
-function Metric({ label, value, accent = false }: { label: string; value: string | number; accent?: boolean }) {
-  return (
-    <div className="min-w-0 rounded-lg border border-white/[0.06] bg-black/20 px-2 py-3 text-center sm:px-3">
-      <p className={`truncate font-display text-2xl font-black leading-none tracking-tight sm:text-[2rem] ${accent ? "text-orange-400" : "text-zinc-100"}`}>
-        {value}
-      </p>
-      <p className="mt-2 text-[9px] font-bold uppercase tracking-[0.16em] text-zinc-500 sm:text-[10px]">{label}</p>
-    </div>
-  );
 }
 
 function TrophyHighlight({ eyebrow, title, detail, icon: Icon, tone = "orange" }: {
@@ -82,7 +67,6 @@ export default function ProfileHubPage() {
   const [, navigate] = useLocation();
   const { user } = useAuth();
   const { openProOffer } = useProUpgrade();
-  const [hasOpenedSeasonManagement, setHasOpenedSeasonManagement] = useState(false);
   const [hasOpenedTrophyManagement, setHasOpenedTrophyManagement] = useState(false);
 
   const { data: profile, isLoading: profileLoading } = useQuery<any>({
@@ -106,8 +90,6 @@ export default function ProfileHubPage() {
   const { data: teamAwards } = useQuery<any[]>({ queryKey: ["/api/team-awards"], enabled: !!user });
 
   const loadingCard = profileLoading || careerLoading || careerStatsLoading;
-  const hasCareerGames = numeric(careerStats?.totalGames) > 0;
-  const record = hasCareerGames ? `${numeric(careerStats?.wins)}–${numeric(careerStats?.losses)}` : "—";
   const activeChallenges = (userChallenges ?? []).filter((entry) => !entry?.isCompleted && entry?.challenge);
   const unlocked = (achievements ?? [])
     .map((entry) => entry?.achievement ?? entry)
@@ -138,9 +120,6 @@ export default function ProfileHubPage() {
       tone: "ice" as const,
     })),
   ].slice(0, 3);
-  const seasons = careerStats?.seasonBreakdown ?? [];
-  const latestSeason = [...seasons].sort((a, b) => String(b.year ?? "").localeCompare(String(a.year ?? "")))[0];
-
   return (
     <main className="mx-auto min-h-[100dvh] max-w-6xl space-y-8 px-4 pb-12 pt-5 text-zinc-100 sm:px-6 sm:pt-8">
       <header className="flex flex-wrap items-center justify-between gap-x-5 gap-y-3">
@@ -219,66 +198,14 @@ export default function ProfileHubPage() {
             {numeric(careerStats?.totalGames)} games logged
           </span>
         </div>
-
         {careerStatsLoading ? (
-          <Skeleton className="h-32 w-full rounded-2xl bg-zinc-900" />
-        ) : (
-          <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#141414]">
-            <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-3 sm:px-5">
-              <div className="flex items-center gap-2">
-                <ChartNoAxesCombined className="h-4 w-4 text-orange-400" />
-                <span className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-400">Career averages</span>
-              </div>
-              <span className="text-[10px] font-semibold text-zinc-600">Per game</span>
-            </div>
-            <div className="grid grid-cols-3 gap-y-5 px-4 py-5 sm:grid-cols-6 sm:px-5">
-              <Metric label="Points" value={hasCareerGames ? average(careerStats?.avgPoints) : "—"} accent />
-              <Metric label="Rebounds" value={hasCareerGames ? average(careerStats?.avgRebounds) : "—"} />
-              <Metric label="Assists" value={hasCareerGames ? average(careerStats?.avgAssists) : "—"} />
-              <Metric label="Steals" value={hasCareerGames ? average(careerStats?.avgSteals) : "—"} />
-              <Metric label="Blocks" value={hasCareerGames ? average(careerStats?.avgBlocks) : "—"} />
-              <Metric label="Record" value={record} />
-            </div>
-            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-white/[0.07] bg-black/20 px-4 py-3 sm:px-5">
-              {latestSeason ? (
-                <>
-                  <div className="min-w-0">
-                    <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-zinc-600">Latest season</p>
-                    <p className="mt-0.5 truncate text-xs font-semibold text-zinc-300">{latestSeason.seasonName || latestSeason.year || "Season"}</p>
-                  </div>
-                  <div className="flex gap-4 text-xs">
-                    <span className="text-zinc-500"><b className="text-zinc-200">{average(latestSeason.avgPoints)}</b> PPG</span>
-                    <span className="text-zinc-500"><b className="text-zinc-200">{average(latestSeason.avgRebounds)}</b> RPG</span>
-                    <span className="text-zinc-500"><b className="text-zinc-200">{average(latestSeason.avgAssists)}</b> APG</span>
-                  </div>
-                </>
-              ) : (
-                <p className="text-xs text-zinc-500">Log a season to build your career record.</p>
-              )}
-            </div>
+          <div className="space-y-3">
+            <Skeleton className="h-11 w-full rounded-xl bg-zinc-900" />
+            <Skeleton className="h-36 w-full rounded-xl bg-zinc-900" />
           </div>
+        ) : (
+          <StatsTab />
         )}
-
-        <details
-          className="group overflow-hidden rounded-xl border border-white/[0.07] bg-zinc-950/50"
-          data-testid="details-season-management"
-          onToggle={(event) => {
-            if (event.currentTarget.open) setHasOpenedSeasonManagement(true);
-          }}
-        >
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-xs font-semibold text-zinc-400 transition hover:text-zinc-200 [&::-webkit-details-marker]:hidden">
-            <span>Season &amp; game management</span>
-            <span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-zinc-600">
-              Import · Share · Edit
-              <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
-            </span>
-          </summary>
-          {hasOpenedSeasonManagement && (
-            <div className="border-t border-white/[0.07] p-3 sm:p-4">
-              <StatsTab />
-            </div>
-          )}
-        </details>
       </section>
 
       <section aria-labelledby="profile-trophies-heading" className="space-y-4" data-testid="section-profile-trophy-room">

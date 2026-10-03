@@ -7,6 +7,12 @@ Keep My Season, My PLAYR1 Project, and Game Day out of the Profile and Hub entry
 
 The Profile tab is the player’s main career view: lead with the existing sports trading card, then concise Career Stats and Trophy Room summaries. Keep season/game and trophy management reachable in expandable sections, and place Player Development after the two summaries. Preserve career/profile records; `/career` remains a compatibility route to the main Profile view.
 
+For Career Stats, use a Career/Season switcher, defaulting to Career. Season mode shows the selected season’s summary and game log; keep the existing season and game management actions available in a disclosure.
+
+**Why:** the user chose a switcher to separate career and seasonal stats compactly while retaining season creation and game logging.
+
+**How to apply:** make the career view the default, keep per-season stats and game logs accessible by selecting a season, and preserve every existing season/game action.
+
 Keep the card on the page background without a separate frame or instruction line. Style Edit Profile black with an orange glow and outline, and use the same brighter glowing orange on the card accents.
 
 Keep basketball details, About, Location, Physical Attributes, and Academics together in one compact “Player Profile Information” card with small controls and one save action; do not split these into large cards. Do not show skill ratings, the account avatar/name/email block, or an editable profile URL slug there; keep the existing slug for public-profile routes. Keep school under Academics and synchronize it to both career and player-profile records. Leave social links, highlight video, and season availability where they are until the user chooses their destination.
