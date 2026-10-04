@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import WelcomePageInner from "./welcome";
+import AppOnboardingPage from "./app-onboarding";
 import { Button } from "@/components/ui/button";
 import { Eye, X, RotateCcw, CheckCircle2 } from "lucide-react";
 
@@ -63,7 +63,7 @@ export default function OnboardingPreviewPage() {
           </div>
         </div>
       ) : (
-        <WelcomePageInner key={key} previewMode onPreviewComplete={() => setDone(true)} />
+        <AppOnboardingPage key={key} previewMode onComplete={() => setDone(true)} />
       )}
     </div>
   );

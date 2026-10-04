@@ -266,11 +266,23 @@ function TextField({
   );
 }
 
-export default function AppOnboardingPage({ onComplete }: { onComplete?: () => void }) {
-  const { user, isLoading: isAuthLoading } = useAuth();
+export default function AppOnboardingPage({
+  onComplete,
+  previewMode = false,
+}: {
+  onComplete?: () => void;
+  previewMode?: boolean;
+}) {
+  const { user: authUser, isLoading: authLoading } = useAuth();
+  const user = previewMode
+    ? { firstName: "Jordan", lastName: "Reyes", email: "jordan.reyes@example.com" }
+    : authUser;
+  const isAuthLoading = previewMode ? false : authLoading;
   const [, setLocation] = useLocation();
   const { data, isLoading, isError, refetch } = useQuery<SetupResponse>({
-    queryKey: SETUP_KEY,
+    queryKey: previewMode ? [...SETUP_KEY, "preview"] : SETUP_KEY,
+    enabled: !previewMode,
+    initialData: previewMode ? { answers: {}, completed: false } : undefined,
   });
   const [answers, setAnswers] = useState<AppOnboardingAnswers>({
     ...emptyAnswers,
@@ -340,10 +352,12 @@ export default function AppOnboardingPage({ onComplete }: { onComplete?: () => v
           : step === 3
             ? { primaryGoal: answers.primaryGoal, seriousness: answers.seriousness, trainingFrequency: answers.trainingFrequency, experienceYears: answers.experienceYears }
             : { teamType: answers.teamType, positions: answers.positions };
-      const response = await apiRequest("PUT", "/api/player-setup", { answers: screenAnswers });
-      const merged = await response.json() as SetupResponse;
-      queryClient.setQueryData(SETUP_KEY, merged);
-      await queryClient.invalidateQueries({ queryKey: SETUP_KEY });
+      if (!previewMode) {
+        const response = await apiRequest("PUT", "/api/player-setup", { answers: screenAnswers });
+        const merged = await response.json() as SetupResponse;
+        queryClient.setQueryData(SETUP_KEY, merged);
+        await queryClient.invalidateQueries({ queryKey: SETUP_KEY });
+      }
       setStep((current) => Math.min(current + 1, 5));
       setAttempted(false);
     } catch (error) {
@@ -366,6 +380,11 @@ export default function AppOnboardingPage({ onComplete }: { onComplete?: () => v
         lastName: answers.lastName.trim(),
         customDrillEmail: answers.customDrillEmail.trim(),
       };
+      if (previewMode) {
+        if (onComplete) onComplete();
+        else setLocation("/hub");
+        return;
+      }
       await apiRequest("PUT", "/api/player-setup", {
         answers: { customDrillEmail: completeAnswers.customDrillEmail },
       });
@@ -432,7 +451,7 @@ export default function AppOnboardingPage({ onComplete }: { onComplete?: () => v
   const progress = (step / 5) * 100;
 
   return (
-    <main className="relative min-h-[100dvh] overflow-hidden bg-[#090909] px-4 pb-8 pt-5 text-zinc-100 sm:px-6 sm:pt-8">
+    <main className={`relative min-h-[100dvh] overflow-hidden bg-[#090909] px-4 pb-8 text-zinc-100 sm:px-6 ${previewMode ? "pt-14 sm:pt-16" : "pt-5 sm:pt-8"}`}>
       <div className="pointer-events-none absolute -right-24 top-44 h-72 w-72 rounded-full border border-orange-500/[0.07]" aria-hidden="true" />
       <div className="pointer-events-none absolute -right-12 top-56 h-48 w-48 rounded-full border border-orange-500/[0.06]" aria-hidden="true" />
       <div className="relative mx-auto w-full max-w-xl">
