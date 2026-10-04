@@ -156,7 +156,7 @@ export default function ProfilePage() {
             <StatsTab />
           </section>
 
-          <section aria-labelledby="profile-development-heading" className="w-full max-w-xl space-y-3">
+          <section aria-labelledby="profile-development-heading" className="w-full max-w-xl space-y-3" hidden>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-600">Build your next level</p>
               <h2 id="profile-development-heading" className="mt-1 text-lg font-black tracking-tight text-zinc-100">Player development</h2>

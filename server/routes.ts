@@ -33,7 +33,7 @@ import {
 } from "./push";
 import { ensureOnboardingSchema, getDiagnosticSummary, getFixCategory, validateMicroQuizPayload } from "./onboarding";
 import { getMicroQuiz } from "@shared/micro-quizzes";
-import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, PROFILE_DISPLAY_STAT_KEYS, PLAYER_CARD_CAREER_STAT_KEYS, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, personalRecords, teamAwards, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, playerProfiles, drills, trainingLogs, trainingLogMetrics, feedbackComments, insertProgramSchema, insertProgramItemSchema, insertEventSchema, events, insertStatChallengeSchema, programEnrollments, coachPUsage, friendships, userFollows, analyticsEvents, leadMagnetSubmissions, streakChallengeParticipants, FRIEND_ACTIVITY_TYPES, type FriendActivityType, CUSTOM_WORKOUT_REQUEST_STATUSES } from "@shared/schema";
+import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, PROFILE_DISPLAY_STAT_KEYS, PLAYER_CARD_CAREER_STAT_KEYS, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, personalRecords, teamAwards, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, playerProfiles, playerSetupProfiles, drills, trainingLogs, trainingLogMetrics, feedbackComments, insertProgramSchema, insertProgramItemSchema, insertEventSchema, events, insertStatChallengeSchema, programEnrollments, coachPUsage, friendships, userFollows, analyticsEvents, leadMagnetSubmissions, streakChallengeParticipants, FRIEND_ACTIVITY_TYPES, type FriendActivityType, CUSTOM_WORKOUT_REQUEST_STATUSES } from "@shared/schema";
 import { getUncachableStripeClient } from "./stripeClient";
 import { WebhookHandlers } from "./webhookHandlers";
 import { JOURNAL_PROMPTS } from "@shared/journalPrompts";
@@ -232,6 +232,84 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   await ensureOnboardingSchema();
+
+  const playerSetupSituations = [
+    "Elementary School",
+    "Middle School",
+    "Freshman / JV",
+    "Varsity",
+    "College Basketball",
+    "Intramural League",
+    "Adult Rec League",
+    "Just Playing For Fun",
+  ] as const;
+  const playerSetupSkills = [
+    "Ball Handling",
+    "Shooting",
+    "Finishing",
+    "Passing",
+    "Defense",
+    "Basketball IQ",
+    "Athleticism",
+    "Rebounding",
+  ] as const;
+  const playerSetupGoals = [
+    "Make a team I'm trying out for",
+    "Earn more playing time / a bigger role",
+    "Play at the next level (high school, college, etc.)",
+    "Become the best version of my game, for myself",
+    "Compete at the highest level I possibly can",
+  ] as const;
+  const playerSetupSeriousness = ["Casual Hobby", "Serious Hobby", "Major Priority", "My Biggest Goal"] as const;
+  const playerSetupTrainingFrequency = [
+    "Never", "Rarely", "1 to 2 Times a Week", "3 to 4 Times a Week", "5 to 6 Times a Week", "Daily",
+  ] as const;
+  const playerSetupExperience = ["0", "1 to 3", "4 to 6", "7 to 10", "10+"] as const;
+  const playerSetupTeamTypes = ["School", "Club / AAU", "Recreation", "Intramural", "No current team"] as const;
+  const playerSetupGrades = [
+    "Elementary School", "6th Grade", "7th Grade", "8th Grade", "Freshman", "Sophomore", "Junior",
+    "Senior", "College Freshman", "College Sophomore", "College Junior", "College Senior", "Post-college",
+    "Not in school / not applicable",
+  ] as const;
+  const playerSetupPositions = ["PG", "SG", "SF", "PF", "C"] as const;
+  const playerSetupDraftSchema = z.object({
+    firstName: z.string().trim().min(1).max(80).optional(),
+    lastName: z.string().trim().min(1).max(80).optional(),
+    gradeLevel: z.enum(playerSetupGrades).optional(),
+    currentSituation: z.enum(playerSetupSituations).optional(),
+    skillRoles: z.array(z.enum(playerSetupSkills)).length(4)
+      .refine((values) => new Set(values).size === values.length).optional(),
+    primaryGoal: z.enum(playerSetupGoals).optional(),
+    seriousness: z.enum(playerSetupSeriousness).optional(),
+    trainingFrequency: z.enum(playerSetupTrainingFrequency).optional(),
+    experienceYears: z.enum(playerSetupExperience).optional(),
+    teamType: z.enum(playerSetupTeamTypes).optional(),
+    positions: z.array(z.enum(playerSetupPositions)).max(5).refine((values) => new Set(values).size === values.length).optional(),
+    customDrillEmail: z.string().trim().email().max(254).optional(),
+  }).strict();
+  const playerSetupCompleteSchema = z.object({
+    firstName: z.string().trim().min(1).max(80),
+    lastName: z.string().trim().min(1).max(80),
+    gradeLevel: z.enum(playerSetupGrades),
+    currentSituation: z.enum(playerSetupSituations),
+    skillRoles: z.array(z.enum(playerSetupSkills)).length(4)
+      .refine((values) => new Set(values).size === values.length),
+    primaryGoal: z.enum(playerSetupGoals),
+    seriousness: z.enum(playerSetupSeriousness),
+    trainingFrequency: z.enum(playerSetupTrainingFrequency),
+    experienceYears: z.enum(playerSetupExperience),
+    teamType: z.enum(playerSetupTeamTypes),
+    positions: z.array(z.enum(playerSetupPositions)).max(5).refine((values) => new Set(values).size === values.length),
+    customDrillEmail: z.string().trim().email().max(254),
+  }).strict().superRefine((answers, ctx) => {
+    if (answers.teamType !== "No current team" && answers.positions.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["positions"],
+        message: "Select at least one position for your current team.",
+      });
+    }
+  });
 
   // ─── Friend Activity Helper ───────────────────────────────────────────────────
   // Fire-and-forget: logs an activity event so a user's friends see it in the feed.
@@ -3985,6 +4063,151 @@ ${JSON.stringify(catalogForPrompt)}
     } catch (error) {
       console.error("Error deleting training log:", error);
       res.status(500).json({ message: "Failed to delete training log" });
+    }
+  });
+
+  // ===== FIRST-RUN PLAYER SETUP =====
+
+  app.get("/api/player-setup", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const [setup] = await db
+        .select()
+        .from(playerSetupProfiles)
+        .where(eq(playerSetupProfiles.userId, userId))
+        .limit(1);
+      const answers: Record<string, unknown> = { ...(setup?.answers ?? {}) };
+
+      // Offer matching legacy profile/quiz answers as editable prefill only.
+      // The saved quiz and career records themselves are never changed here.
+      if (!setup?.completedAt) {
+        const career = await storage.getCareerProfile(userId);
+        const rawAssessment = career?.assessmentAnswers as unknown;
+        const assessmentContainer = rawAssessment && typeof rawAssessment === "object"
+          ? (rawAssessment as Record<string, unknown>).answers ?? rawAssessment
+          : rawAssessment;
+        const readAnswer = (questionId: string): unknown => {
+          if (Array.isArray(assessmentContainer)) {
+            const item = assessmentContainer.find((entry) => {
+              if (!entry || typeof entry !== "object") return false;
+              const record = entry as Record<string, unknown>;
+              return record.questionId === questionId || record.id === questionId;
+            });
+            if (item && typeof item === "object") {
+              const record = item as Record<string, unknown>;
+              return record.answer ?? record.value ?? record.response;
+            }
+            return undefined;
+          }
+          if (assessmentContainer && typeof assessmentContainer === "object") {
+            const record = assessmentContainer as Record<string, unknown>;
+            const value = record[questionId];
+            if (value && typeof value === "object" && !Array.isArray(value)) {
+              const nested = value as Record<string, unknown>;
+              return nested.answer ?? nested.value ?? nested.response;
+            }
+            return value;
+          }
+          return undefined;
+        };
+        const copyMatchingAnswer = (target: string, questionId: string, allowed: readonly string[]) => {
+          const value = readAnswer(questionId);
+          if (
+            (answers[target] === undefined || answers[target] === "") &&
+            typeof value === "string" &&
+            allowed.includes(value)
+          ) {
+            answers[target] = value;
+          }
+        };
+        copyMatchingAnswer("currentSituation", "Q3", playerSetupSituations);
+        copyMatchingAnswer("seriousness", "Q9", playerSetupSeriousness);
+        copyMatchingAnswer("trainingFrequency", "Q10", playerSetupTrainingFrequency);
+        copyMatchingAnswer("experienceYears", "Q12", playerSetupExperience);
+        copyMatchingAnswer("primaryGoal", "Q17", playerSetupGoals);
+
+        const gradeLabels: Record<string, string> = {
+          elementary: "Elementary School",
+          "6th": "6th Grade",
+          "7th": "7th Grade",
+          "8th": "8th Grade",
+          freshman: "Freshman",
+          sophomore: "Sophomore",
+          junior: "Junior",
+          senior: "Senior",
+          "college-freshman": "College Freshman",
+          "college-sophomore": "College Sophomore",
+          "college-junior": "College Junior",
+          "college-senior": "College Senior",
+          "post-college": "Post-college",
+        };
+        const savedGrade = career?.gradeLevel ? gradeLabels[career.gradeLevel] : undefined;
+        if (
+          (answers.gradeLevel === undefined || answers.gradeLevel === "") &&
+          savedGrade &&
+          playerSetupGrades.includes(savedGrade as typeof playerSetupGrades[number])
+        ) {
+          answers.gradeLevel = savedGrade;
+        }
+      }
+
+      res.json({ answers, completed: Boolean(setup?.completedAt) });
+    } catch (error) {
+      console.error("Error fetching player setup:", error);
+      res.status(500).json({ message: "Failed to load player setup" });
+    }
+  });
+
+  app.put("/api/player-setup", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { answers } = z.object({ answers: playerSetupDraftSchema }).strict().parse(req.body);
+      const [saved] = await db
+        .insert(playerSetupProfiles)
+        .values({ userId, answers, updatedAt: new Date() })
+        .onConflictDoUpdate({
+          target: playerSetupProfiles.userId,
+          set: {
+            answers: sql`coalesce(${playerSetupProfiles.answers}, '{}'::jsonb) || ${JSON.stringify(answers)}::jsonb`,
+            updatedAt: new Date(),
+          },
+        })
+        .returning();
+      res.json({ answers: saved.answers, completed: Boolean(saved.completedAt) });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid player setup answers", errors: error.errors });
+      }
+      console.error("Error saving player setup:", error);
+      res.status(500).json({ message: "Failed to save player setup" });
+    }
+  });
+
+  app.post("/api/player-setup/complete", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { answers } = z.object({ answers: playerSetupCompleteSchema }).strict().parse(req.body);
+      const completedAt = new Date();
+      await db.transaction(async (tx) => {
+        await tx
+          .insert(playerSetupProfiles)
+          .values({ userId, answers, completedAt, updatedAt: completedAt })
+          .onConflictDoUpdate({
+            target: playerSetupProfiles.userId,
+            set: { answers, completedAt, updatedAt: completedAt },
+          });
+        await tx
+          .update(users)
+          .set({ firstName: answers.firstName, lastName: answers.lastName, updatedAt: completedAt })
+          .where(eq(users.id, userId));
+      });
+      res.json({ ok: true });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Complete each player setup section before continuing", errors: error.errors });
+      }
+      console.error("Error completing player setup:", error);
+      res.status(500).json({ message: "Failed to complete player setup" });
     }
   });
 

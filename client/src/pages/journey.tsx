@@ -200,7 +200,7 @@ export default function JourneyPage() {
         </section>
 
         {/* ARCHETYPE / IDENTITY */}
-        <section data-testid="section-archetype">
+        <section data-testid="section-archetype" hidden>
           <SectionHeader
             label="My Archetype"
             action="View Identity"

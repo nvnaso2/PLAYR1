@@ -37,6 +37,7 @@ import MicroQuizPage from "@/pages/micro-quiz";
 // the blank skeleton on first tab visit.
 const Drills = lazy(pageLoaders.drills);
 const DrillPage = lazy(pageLoaders.drill);
+const AppOnboardingPage = lazy(() => import("@/pages/app-onboarding"));
 const TrainingLog = lazy(pageLoaders.trainingLog);
 const Dashboard = lazy(pageLoaders.dashboard);
 const Videos = lazy(pageLoaders.videos);
@@ -216,9 +217,68 @@ function LoadingScreen() {
   );
 }
 
+function PlayerSetupGate({ children }: { children: React.ReactNode }) {
+  const role = useRole();
+  const { data: setup, isLoading: setupLoading } = useQuery<{ completed: boolean }>({
+    queryKey: ["/api/player-setup"],
+    retry: false,
+  });
+  const { data: parentChildren, isLoading: parentLoading } = useQuery<any[]>({
+    queryKey: ["/api/parent/children"],
+  });
+  const { data: careerProfile, isLoading: careerLoading } = useQuery<any>({
+    queryKey: ["/api/career"],
+    retry: false,
+  });
+
+  if (role.isLoading || setupLoading || parentLoading || careerLoading) return <LoadingScreen />;
+  const isParentOnlyAccount =
+    (parentChildren?.length || 0) > 0 && (!careerProfile || !careerProfile.onboardingCompleted);
+  if (!role.isPlayer || role.activeView === "trainer" || isParentOnlyAccount || setup?.completed) {
+    return <>{children}</>;
+  }
+  return <Redirect to="/app-setup" />;
+}
+
+function SetupAwareLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <PlayerSetupGate>
+      <AuthenticatedLayout>{children}</AuthenticatedLayout>
+    </PlayerSetupGate>
+  );
+}
+
+function PlayerSetupRoute() {
+  const role = useRole();
+  const { data: setup, isLoading: setupLoading } = useQuery<{ completed: boolean }>({
+    queryKey: ["/api/player-setup"],
+    retry: false,
+  });
+  const { data: parentChildren, isLoading: parentLoading } = useQuery<any[]>({
+    queryKey: ["/api/parent/children"],
+  });
+  const { data: careerProfile, isLoading: careerLoading } = useQuery<any>({
+    queryKey: ["/api/career"],
+    retry: false,
+  });
+
+  if (role.isLoading || setupLoading || parentLoading || careerLoading) return <LoadingScreen />;
+  const isParentOnlyAccount =
+    (parentChildren?.length || 0) > 0 && (!careerProfile || !careerProfile.onboardingCompleted);
+  if (isParentOnlyAccount) return <Redirect to="/parent" />;
+  if (!role.isPlayer || role.activeView === "trainer") return <Redirect to="/trainer" />;
+  if (setup?.completed) return <Redirect to="/" />;
+
+  return (
+    <Suspense fallback={<LoadingScreen />}>
+      <AppOnboardingPage />
+    </Suspense>
+  );
+}
+
 function HomeRedirect() {
   const { activeView, isLoading: roleLoading } = useRole();
-  const { data: careerProfile, isLoading: careerLoading, isError } = useQuery<any>({
+  const { data: careerProfile, isLoading: careerLoading } = useQuery<any>({
     queryKey: ['/api/career'],
     retry: false,
   });
@@ -229,10 +289,6 @@ function HomeRedirect() {
 
   const isParentOnlyAccount = (parentChildren?.length || 0) > 0 && (!careerProfile || !careerProfile.onboardingCompleted);
   if (isParentOnlyAccount) return <Redirect to="/parent" />;
-
-  if (!isError && (!careerProfile || !careerProfile.onboardingCompleted)) {
-    return <Redirect to="/career" />;
-  }
   if (activeView === "trainer") return <Redirect to="/hub" />;
   return <Redirect to="/hub" />;
 }
@@ -279,7 +335,7 @@ function Router() {
 
   if (isLeadMagnetDeepLink) {
     return isAuthenticated
-      ? <AuthenticatedLayout><LeadMagnets /></AuthenticatedLayout>
+      ? <SetupAwareLayout><LeadMagnets /></SetupAwareLayout>
       : <Suspense fallback={<LoadingScreen />}><LeadMagnets /></Suspense>;
   }
 
@@ -300,6 +356,9 @@ function Router() {
       <Route path="/teams/:slug">{() => <Suspense fallback={<LoadingScreen />}><TeamProfile /></Suspense>}</Route>
       <Route path="/leagues/:slug">{() => <Suspense fallback={<LoadingScreen />}><LeagueProfile /></Suspense>}</Route>
       <Route path="/auth">{() => isAuthenticated ? <Redirect to="/" /> : <AuthPage />}</Route>
+      <Route path="/app-setup">{() => isAuthenticated
+        ? <PlayerSetupRoute />
+        : <Redirect to="/auth?returnTo=/app-setup" />}</Route>
       <Route path="/quiz/:quizId" component={MicroQuizPage} />
       <Route path="/quiz" component={MicroQuizPage} />
       <Route path="/assessment">{() => isAuthenticated
@@ -314,16 +373,16 @@ function Router() {
       <Route path="/finder">{() => <Redirect to="/teams" />}</Route>
       <Route path="/parent-invite/:code" component={ParentInvite} />
       <Route path="/events">{() => isAuthenticated
-        ? <AuthenticatedLayout><Events /></AuthenticatedLayout>
+        ? <SetupAwareLayout><Events /></SetupAwareLayout>
         : <Suspense fallback={<LoadingScreen />}><Events /></Suspense>}</Route>
       <Route path="/events/:slug">{() => isAuthenticated
-        ? <AuthenticatedLayout><EventDetail /></AuthenticatedLayout>
+        ? <SetupAwareLayout><EventDetail /></SetupAwareLayout>
         : <Suspense fallback={<LoadingScreen />}><EventDetail /></Suspense>}</Route>
       <Route path="/compete/challenges/:slug">{() => isAuthenticated
-        ? <AuthenticatedLayout><StatChallengePage /></AuthenticatedLayout>
+        ? <SetupAwareLayout><StatChallengePage /></SetupAwareLayout>
         : <Suspense fallback={<LoadingScreen />}><StatChallengePage /></Suspense>}</Route>
       <Route path="/streak-challenges/:slug">{() => isAuthenticated
-        ? <AuthenticatedLayout><StreakChallengePage /></AuthenticatedLayout>
+        ? <SetupAwareLayout><StreakChallengePage /></SetupAwareLayout>
         : <Suspense fallback={<LoadingScreen />}><StreakChallengePage /></Suspense>}</Route>
       <Route>
         {() => {
@@ -331,7 +390,7 @@ function Router() {
             return <Redirect to="/welcome" />;
           }
           return (
-            <AuthenticatedLayout>
+            <SetupAwareLayout>
               <Switch>
                 <Route path="/" component={HomeRedirect} />
                 <Route path="/drills" component={Drills} />
@@ -405,7 +464,7 @@ function Router() {
                 <Route path="/progress" component={Dashboard} />
                 <Route component={NotFound} />
               </Switch>
-            </AuthenticatedLayout>
+            </SetupAwareLayout>
           );
         }}
       </Route>

@@ -4782,7 +4782,7 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
       <div className="flex flex-col items-center gap-4 text-center">
         <h1 className="text-2xl sm:text-3xl font-bold">My Career</h1>
         <BaseballCard profile={profile} careerStats={careerStats} userName={playerName} onPhotoUpdated={() => queryClient.invalidateQueries({ queryKey: ["/api/career"] })} />
-         <div className="w-full max-w-xl">
+         <div className="w-full max-w-xl" hidden>
            <p className="text-xs text-muted-foreground uppercase tracking-[0.18em] font-semibold mb-2">Player Development</p>
            <div className="grid grid-cols-2 gap-3">
              <Link

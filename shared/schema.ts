@@ -354,6 +354,16 @@ export const userProfiles = pgTable("user_profiles", {
   updatedAt: timestamp("updated_at").defaultNow()
 });
 
+// First-run player setup is stored separately from the legacy assessment and
+// career onboarding records so those saved answers remain unchanged.
+export const playerSetupProfiles = pgTable("player_setup_profiles", {
+  userId: varchar("user_id").primaryKey(),
+  answers: jsonb("answers").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+
 // Drills table
 export const drills = pgTable("drills", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

@@ -30,6 +30,32 @@ export async function runApplicationMigrations(): Promise<void> {
        ALTER TABLE games ADD COLUMN IF NOT EXISTS tipoff_time varchar;
        ALTER TABLE games ADD COLUMN IF NOT EXISTS event_type varchar DEFAULT 'game';
        ALTER TABLE career_profiles ADD COLUMN IF NOT EXISTS competitive_basketball boolean;
+      CREATE TABLE IF NOT EXISTS player_setup_profiles (
+        user_id varchar PRIMARY KEY,
+        answers jsonb NOT NULL DEFAULT '{}'::jsonb,
+        completed_at timestamp,
+        created_at timestamp DEFAULT now(),
+        updated_at timestamp DEFAULT now()
+      );
+      CREATE TABLE IF NOT EXISTS application_migration_flags (
+        migration_key varchar PRIMARY KEY,
+        applied_at timestamp DEFAULT now()
+      );
+      WITH first_player_setup_backfill AS (
+        INSERT INTO application_migration_flags (migration_key)
+        VALUES ('player_setup_profiles_grandfather_existing_users')
+        ON CONFLICT DO NOTHING
+        RETURNING migration_key
+      )
+      INSERT INTO player_setup_profiles (user_id, answers, completed_at)
+      SELECT legacy_users.user_id, '{}'::jsonb, now()
+      FROM (
+        SELECT user_id FROM career_profiles WHERE onboarding_completed = true
+        UNION
+        SELECT user_id FROM user_profiles WHERE full_profile_completed = true
+      ) AS legacy_users
+      CROSS JOIN first_player_setup_backfill
+      ON CONFLICT (user_id) DO NOTHING;
       CREATE TABLE IF NOT EXISTS friend_favorites (
         id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id varchar NOT NULL,

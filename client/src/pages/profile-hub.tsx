@@ -181,7 +181,7 @@ export default function ProfileHubPage() {
         )}
       </section>
 
-      <section aria-labelledby="profile-development-heading" className="space-y-3">
+      <section aria-labelledby="profile-development-heading" className="space-y-3" hidden>
         <div className="flex items-end justify-between gap-3">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-600">Build your next level</p>
