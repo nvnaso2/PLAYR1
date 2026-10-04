@@ -175,7 +175,7 @@ export default function ProfilePage() {
 
           <section aria-labelledby="profile-stats-heading" className="w-full max-w-xl space-y-3" data-testid="section-profile-career-stats">
             <h2 id="profile-stats-heading" className="mt-1 text-lg font-black tracking-tight text-zinc-100">Career &amp; Season Stats</h2>
-            <StatsTab readOnly showManagementAtBottom />
+            <StatsTab />
           </section>
 
           <section aria-labelledby="profile-trophies-heading" className="w-full max-w-xl space-y-3" data-testid="section-profile-trophy-room">

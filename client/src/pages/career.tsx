@@ -2720,7 +2720,6 @@ function StatsOverviewCard({
   seasons,
   statsScope,
   selectedSeasonId,
-  canManage,
   isManaging,
   onToggleManagement,
   onScopeChange,
@@ -2742,7 +2741,6 @@ function StatsOverviewCard({
   seasons: Season[];
   statsScope: "career" | "season";
   selectedSeasonId: string;
-  canManage: boolean;
   isManaging: boolean;
   onToggleManagement: () => void;
   onScopeChange: (scope: "career" | "season") => void;
@@ -2890,29 +2888,121 @@ function StatsOverviewCard({
             ))}
           </div>
         )}
-        {totals.games === 0 && (
+        {totals.games === 0 && statsScope === "season" && (
           <p className="rounded-lg border border-dashed border-white/[0.08] bg-black/10 px-3 py-2 text-center text-xs text-zinc-500">
-            {statsScope === "season" && !selectedSeason
+            {!selectedSeason
               ? seasons.length > 0
                 ? "Choose a season to see its stats."
-                : "No season stats available yet."
-              : readOnly
-                ? "No games logged yet."
-                : "No games logged yet. Create a season and log your first game."}
+                : "No seasons yet. Add a season to start tracking games."
+              : "No games logged yet for this season."}
           </p>
+        )}
+        {statsScope === "career" && (
+          <section aria-labelledby="stats-season-log-heading" className="border-t border-white/[0.07] pt-3">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 id="stats-season-log-heading" className="text-xs font-bold text-zinc-200">Season log</h3>
+                <p className="mt-0.5 text-[10px] text-zinc-600">{seasons.length} {seasons.length === 1 ? "season" : "seasons"}</p>
+              </div>
+              <div className="flex items-center gap-1.5">
+                {isManaging && (
+                  <Button type="button" size="sm" variant="outline" onClick={onImportStats} className="h-8 border-white/10 px-2.5 text-[11px] text-zinc-300 hover:text-white" data-testid="button-import-csv-overview">
+                    <Upload className="mr-1 h-3.5 w-3.5" />Import
+                  </Button>
+                )}
+                <Button type="button" size="sm" variant="outline" onClick={onToggleManagement} className="h-8 border-white/10 px-2.5 text-[11px] text-zinc-300 hover:text-white" aria-pressed={isManaging} data-testid="button-toggle-stats-management">
+                  {isManaging ? "Done" : "Manage"}
+                </Button>
+                <Button type="button" size="sm" onClick={onCreateSeason} className="h-8 bg-orange-500 px-2.5 text-[11px] font-bold text-zinc-950 hover:bg-orange-400" data-testid="button-add-season-log">
+                  <Plus className="mr-1 h-3.5 w-3.5" />Add Season
+                </Button>
+              </div>
+            </div>
+            {seasonLog.length > 0 ? (
+              <div className="space-y-1.5">
+                {seasonLog.map((season) => {
+                  const seasonSummary = careerStats?.seasonBreakdown?.find((entry) => entry.seasonId === season.id);
+                  const isActive = season.isActive !== false;
+                  return (
+                    <article key={season.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/[0.05] bg-black/20 px-3 py-2" data-testid={`season-log-${season.id}`}>
+                      <button
+                        type="button"
+                        className="min-w-0 flex-1 text-left"
+                        onClick={() => onSeasonChange(season.id)}
+                        aria-label={`View ${season.name} game log`}
+                        data-testid={`button-view-season-${season.id}`}
+                      >
+                        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <span className="truncate text-xs font-semibold text-zinc-200">{season.name}</span>
+                          <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold ${isActive ? "bg-emerald-400/10 text-emerald-300" : "bg-white/[0.06] text-zinc-500"}`}>{isActive ? "Active" : "Completed"}</span>
+                        </span>
+                        <span className="mt-0.5 block truncate text-[10px] text-zinc-600">
+                          {season.year}{season.teamName ? ` · ${season.teamName}` : ""} · {seasonSummary?.gamesPlayed ?? 0} games
+                        </span>
+                      </button>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <Button type="button" size="sm" variant="ghost" onClick={() => onSeasonChange(season.id)} className="h-7 px-2 text-[10px] text-orange-300 hover:text-orange-200" data-testid={`button-open-season-${season.id}`}>
+                          View <ChevronRight className="ml-0.5 h-3 w-3" />
+                        </Button>
+                        {isManaging && (
+                          <>
+                            <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => onToggleSeasonActive(season)} title={isActive ? "Mark as completed" : "Mark as active"} aria-label={isActive ? `Mark ${season.name} as completed` : `Mark ${season.name} as active`} data-testid={`button-toggle-season-${season.id}`}>
+                              {isActive ? <CheckCircle className="h-4 w-4 text-emerald-400" /> : <Circle className="h-4 w-4 text-zinc-500" />}
+                            </Button>
+                            <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => onEditSeason(season)} title="Edit season" aria-label={`Edit ${season.name}`} data-testid={`button-edit-season-${season.id}`}>
+                              <Pencil className="h-3.5 w-3.5 text-zinc-400" />
+                            </Button>
+                            <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => onShareSeason(season.id)} title="Share season stats" aria-label={`Share ${season.name} stats`} data-testid={`button-share-season-${season.id}`}>
+                              <Share2 className="h-3.5 w-3.5 text-zinc-400" />
+                            </Button>
+                            <Button type="button" size="icon" variant="ghost" className="h-7 w-7 hover:text-red-300" onClick={() => onDeleteSeason(season.id)} title="Delete season" aria-label={`Delete ${season.name}`} data-testid={`button-delete-season-${season.id}`}>
+                              <Trash2 className="h-3.5 w-3.5 text-zinc-400" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="rounded-lg border border-dashed border-white/[0.08] px-3 py-5 text-center text-xs text-zinc-500">
+                No seasons yet. Add a season to start your log.
+              </p>
+            )}
+          </section>
         )}
         {statsScope === "season" && selectedSeason && (
           <section aria-labelledby="stats-game-log-heading" className="border-t border-white/[0.07] pt-3">
-            <div className="mb-2 flex items-center justify-between gap-3">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h3 id="stats-game-log-heading" className="text-xs font-bold text-zinc-200">Game log</h3>
                 <p className="mt-0.5 text-[10px] text-zinc-600">{selectedSeason.name} · {seasonGames?.length ?? 0} games</p>
               </div>
-              {!readOnly && (
-                <Button type="button" size="sm" onClick={onLogGame} className="h-8 bg-orange-500 px-3 text-xs font-bold text-zinc-950 hover:bg-orange-400" data-testid="button-add-game-overview">
-                  <Plus className="mr-1.5 h-3.5 w-3.5" />Log Game
+              <div className="flex items-center gap-1.5">
+                <Button type="button" size="sm" variant="outline" onClick={onToggleManagement} className="h-8 border-white/10 px-2.5 text-[11px] text-zinc-300 hover:text-white" aria-pressed={isManaging} data-testid="button-toggle-stats-management">
+                  {isManaging ? "Done" : "Manage"}
                 </Button>
-              )}
+                <Button type="button" size="sm" onClick={onLogGame} className="h-8 bg-orange-500 px-2.5 text-[11px] font-bold text-zinc-950 hover:bg-orange-400" data-testid="button-add-game-overview">
+                  <Plus className="mr-1 h-3.5 w-3.5" />Add Game
+                </Button>
+                {isManaging && (
+                  <div className="flex items-center gap-0.5 border-l border-white/[0.08] pl-1">
+                    <Button type="button" size="icon" variant="ghost" className="h-8 w-8" onClick={() => onToggleSeasonActive(selectedSeason)} title={selectedSeason.isActive === false ? "Mark as active" : "Mark as completed"} aria-label={selectedSeason.isActive === false ? "Mark this season as active" : "Mark this season as completed"} data-testid={`button-toggle-season-${selectedSeason.id}`}>
+                      {selectedSeason.isActive === false ? <Circle className="h-4 w-4 text-zinc-500" /> : <CheckCircle className="h-4 w-4 text-emerald-400" />}
+                    </Button>
+                    <Button type="button" size="icon" variant="ghost" className="h-8 w-8" onClick={() => onEditSeason(selectedSeason)} title="Edit season" aria-label={`Edit ${selectedSeason.name}`} data-testid={`button-edit-season-${selectedSeason.id}`}>
+                      <Pencil className="h-3.5 w-3.5 text-zinc-400" />
+                    </Button>
+                    <Button type="button" size="icon" variant="ghost" className="h-8 w-8" onClick={() => onShareSeason(selectedSeason.id)} title="Share season stats" aria-label={`Share ${selectedSeason.name} stats`} data-testid={`button-share-season-${selectedSeason.id}`}>
+                      <Share2 className="h-3.5 w-3.5 text-zinc-400" />
+                    </Button>
+                    <Button type="button" size="icon" variant="ghost" className="h-8 w-8 hover:text-red-300" onClick={() => onDeleteSeason(selectedSeason.id)} title="Delete season" aria-label={`Delete ${selectedSeason.name}`} data-testid={`button-delete-season-${selectedSeason.id}`}>
+                      <Trash2 className="h-3.5 w-3.5 text-zinc-400" />
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
             {seasonGamesLoading ? (
               <div className="space-y-2" aria-label="Loading game log">
@@ -2932,7 +3022,7 @@ function StatsOverviewCard({
                       <p className="text-right text-[10px] font-bold tabular-nums text-zinc-300 sm:text-xs"><span className="text-orange-300">{game.points}</span> PTS<span className="ml-1.5 text-zinc-500">{game.rebounds} REB · {game.assists} AST · {game.steals} STL · {game.blocks} BLK</span></p>
                       <div className="col-span-2 flex justify-end gap-1">
                         <Button type="button" size="icon" variant="ghost" className="h-7 w-7 text-zinc-500 hover:text-zinc-100" aria-label={`Share stats for ${game.opponent || "game"} on ${date}`} title="Share game stats" onClick={() => onShareGame(game.id)} data-testid={`button-share-game-overview-${game.id}`}><Share2 className="h-3.5 w-3.5" /></Button>
-                        {!readOnly && (
+                        {isManaging && (
                           <>
                             <Button type="button" size="icon" variant="ghost" className="h-7 w-7 text-zinc-500 hover:text-zinc-100" aria-label={`Edit game against ${game.opponent || "opponent"}`} title="Edit game" onClick={() => onEditGame(game)} data-testid={`button-edit-game-overview-${game.id}`}><Pencil className="h-3.5 w-3.5" /></Button>
                             <Button type="button" size="icon" variant="ghost" className="h-7 w-7 text-zinc-500 hover:text-red-300" aria-label={`Delete game against ${game.opponent || "opponent"}`} title="Delete game" onClick={() => onDeleteGame(game.id)} data-testid={`button-delete-game-overview-${game.id}`}><Trash2 className="h-3.5 w-3.5" /></Button>
@@ -2945,35 +3035,32 @@ function StatsOverviewCard({
               </div>
             ) : (
               <p className="rounded-lg border border-dashed border-white/[0.08] px-3 py-4 text-center text-xs text-zinc-500">
-                {readOnly ? "No games logged for this season yet." : "No games logged yet. Log the first game for this season."}
+                No games logged yet. Add the first game for this season.
               </p>
             )}
           </section>
         )}
-        <div className={`flex flex-wrap items-center gap-2 border-t border-white/[0.07] pt-3 ${readOnly ? "justify-start" : "justify-between"}`}>
+        {statsScope === "season" && !selectedSeason && seasons.length === 0 && (
+          <div className="border-t border-white/[0.07] pt-3 text-center">
+            <Button type="button" size="sm" onClick={onCreateSeason} className="h-8 bg-orange-500 px-3 text-xs font-bold text-zinc-950 hover:bg-orange-400" data-testid="button-add-first-season">
+              <Plus className="mr-1.5 h-3.5 w-3.5" />Add Season
+            </Button>
+          </div>
+        )}
+        <div className="flex flex-wrap items-center gap-2 border-t border-white/[0.07] pt-3">
           <p className="text-[10px] text-zinc-600">{statsScope === "career" ? "All recorded seasons" : selectedSeason ? `${selectedSeason.year}${selectedSeason.teamName ? ` · ${selectedSeason.teamName}` : ""}` : "Season totals"}</p>
-          {!readOnly && (
-            <Button type="button" size="sm" variant="outline" onClick={onCreateSeason} className="h-8 border-orange-400/25 bg-orange-400/[0.04] px-3 text-xs text-orange-200 hover:bg-orange-400/10 hover:text-orange-100" data-testid="button-create-season-overview"><Plus className="mr-1.5 h-3.5 w-3.5" />Create Season</Button>
-          )}
         </div>
       </CardContent>
     </Card>
   );
 }
 
-export function StatsTab({
-  readOnly = false,
-  showManagementAtBottom = false,
-}: {
-  readOnly?: boolean;
-  showManagementAtBottom?: boolean;
-} = {}) {
-  const canManage = !readOnly || showManagementAtBottom;
-  const overviewReadOnly = readOnly || showManagementAtBottom;
+export function StatsTab() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [statsScope, setStatsScope] = useState<"career" | "season">("career");
   const [statsSeasonId, setStatsSeasonId] = useState<string>("");
+  const [isManaging, setIsManaging] = useState(false);
   const [showSeasonDialog, setShowSeasonDialog] = useState(false);
   const [editingSeason, setEditingSeason] = useState<Season | null>(null);
   const [showGameDialog, setShowGameDialog] = useState(false);
@@ -3250,7 +3337,8 @@ export function StatsTab({
         seasons={seasons}
         statsScope={statsScope}
         selectedSeasonId={statsSeasonId}
-        readOnly={overviewReadOnly}
+        isManaging={isManaging}
+        onToggleManagement={() => setIsManaging((current) => !current)}
         onScopeChange={(scope) => {
           setStatsScope(scope);
           if (scope === "season" && !statsSeasonId) {
@@ -3262,6 +3350,7 @@ export function StatsTab({
         }}
         onSeasonChange={(seasonId) => {
           setStatsSeasonId(seasonId);
+          setStatsScope("season");
         }}
         seasonGames={statsSeasonGames}
         seasonGamesLoading={statsSeasonGamesLoading}
@@ -3270,6 +3359,7 @@ export function StatsTab({
           if (!statsSeasonId) return;
           openGameDialog();
         }}
+        onImportStats={() => setShowCsvImport(true)}
         onShareGame={setShareGameId}
         onEditGame={(game) => openGameDialog(game)}
         onDeleteGame={(gameId) => {
@@ -3277,34 +3367,23 @@ export function StatsTab({
             deleteGameMutation.mutate(gameId);
           }
         }}
+        onToggleSeasonActive={(season) => toggleSeasonActiveMutation.mutate({ id: season.id, isActive: season.isActive === false })}
+        onEditSeason={(season) => openSeasonDialog(season)}
+        onShareSeason={(seasonId) => {
+          setShareSeasonId(seasonId);
+          setShowSeasonShareDialog(true);
+        }}
+        onDeleteSeason={(seasonId) => {
+          if (confirm("Delete this season and all its games?")) {
+            deleteSeasonMutation.mutate(seasonId);
+          }
+        }}
       />
 
-      {canManage && <details className="group overflow-hidden rounded-xl border border-white/[0.08] bg-[#141414]" data-testid="details-season-management">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-xs font-semibold text-zinc-400 transition hover:text-zinc-200 [&::-webkit-details-marker]:hidden">
-          <span className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-orange-400" />
-            Season &amp; game management
-            <span className="text-[10px] font-medium text-zinc-600">({seasons.length})</span>
-          </span>
-          <ChevronDown className="h-4 w-4 shrink-0 text-zinc-500 transition-transform group-open:rotate-180" />
-        </summary>
-        <Card className="rounded-none border-0 border-t border-white/[0.07] bg-transparent text-zinc-100 shadow-none">
-        <CardHeader className="flex flex-row items-center justify-end gap-4">
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={() => setShowCsvImport(true)} aria-label="Import stats from CSV" data-testid="button-import-csv">
-              <Upload className="w-4 h-4 sm:mr-1" />
-              <span className="hidden sm:inline">Import CSV</span>
-            </Button>
-            <Dialog open={showSeasonDialog} onOpenChange={(open) => {
-              setShowSeasonDialog(open);
-              if (!open) { setEditingSeason(null); seasonForm.reset(); }
-            }}>
-            <DialogTrigger asChild>
-              <Button size="sm" onClick={() => openSeasonDialog()} aria-label="Add season" data-testid="button-create-season">
-                <Plus className="w-4 h-4 sm:mr-1" />
-                <span className="hidden sm:inline">Add Season</span>
-              </Button>
-            </DialogTrigger>
+      <Dialog open={showSeasonDialog} onOpenChange={(open) => {
+        setShowSeasonDialog(open);
+        if (!open) { setEditingSeason(null); seasonForm.reset(); }
+      }}>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>{editingSeason ? "Edit Season" : "Create New Season"}</DialogTitle>
@@ -3433,137 +3512,8 @@ export function StatsTab({
                 </form>
               </Form>
             </DialogContent>
-          </Dialog>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-xs leading-relaxed text-zinc-500">
-            Add seasons and log games here. Select a season above to view its stats and read-only game log.
-          </p>
-          {seasons.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-white/[0.08] px-4 py-6 text-center">
-              <Calendar className="mx-auto mb-2 h-8 w-8 text-zinc-700" />
-              <p className="text-sm font-semibold text-zinc-300">No seasons yet</p>
-              <p className="mt-1 text-xs text-zinc-500">Create a season to start tracking game stats.</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {[...seasons]
-                .sort((a, b) => (a.isActive === false ? 1 : 0) - (b.isActive === false ? 1 : 0))
-                .map((season) => {
-                  const isActive = season.isActive !== false;
-                  return (
-                    <article
-                      key={season.id}
-                      className={`flex flex-col gap-3 rounded-lg border border-white/[0.07] bg-black/15 p-3 sm:flex-row sm:items-center sm:justify-between ${!isActive ? "opacity-75" : ""}`}
-                      data-testid={`season-item-${season.id}`}
-                    >
-                      <div className="min-w-0">
-                        <button
-                          type="button"
-                          className="truncate text-left text-sm font-bold text-zinc-100 transition hover:text-orange-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
-                          onClick={() => {
-                            setStatsSeasonId(season.id);
-                            setStatsScope("season");
-                          }}
-                          aria-label={`View ${season.name} stats`}
-                        >
-                          {season.name}
-                        </button>
-                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-zinc-500">
-                          <Badge variant="outline" className="h-5 border-white/10 px-1.5 text-[10px]">
-                            {SEASON_TYPE_LABELS[season.seasonType]}
-                          </Badge>
-                          <Badge variant={isActive ? "default" : "secondary"} className="h-5 px-1.5 text-[10px]">
-                            {isActive ? "Active" : "Completed"}
-                          </Badge>
-                          <span>{season.year}</span>
-                          {season.teamName && <span>· {season.teamName}</span>}
-                          {season.startDate && season.endDate && (
-                            <span>
-                              · {new Date(season.startDate).toLocaleDateString()} – {new Date(season.endDate).toLocaleDateString()}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex shrink-0 flex-wrap items-center justify-end gap-1 self-end sm:self-auto">
-                        {showManagementAtBottom && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="h-8 border-orange-400/20 px-2 text-[11px] text-orange-200 hover:bg-orange-400/10 hover:text-orange-100"
-                            onClick={() => openGameDialog(undefined, season.id)}
-                            aria-label={`Add game to ${season.name}`}
-                            data-testid={`button-add-game-to-season-${season.id}`}
-                          >
-                            <Plus className="mr-1 h-3.5 w-3.5" />
-                            Add Game
-                          </Button>
-                        )}
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8"
-                          onClick={() => toggleSeasonActiveMutation.mutate({ id: season.id, isActive: !isActive })}
-                          title={isActive ? "Mark as Completed" : "Mark as Active"}
-                          aria-label={isActive ? `Mark ${season.name} as completed` : `Mark ${season.name} as active`}
-                          data-testid={`button-toggle-season-${season.id}`}
-                        >
-                          {isActive ? <CheckCircle className="h-4 w-4 text-green-500" /> : <Circle className="h-4 w-4 text-zinc-500" />}
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8"
-                          onClick={() => openSeasonDialog(season)}
-                          title="Edit season"
-                          aria-label={`Edit ${season.name}`}
-                          data-testid={`button-edit-season-${season.id}`}
-                        >
-                          <Pencil className="h-4 w-4 text-zinc-400" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8"
-                          onClick={() => {
-                            setShareSeasonId(season.id);
-                            setShowSeasonShareDialog(true);
-                          }}
-                          title="Share season stats"
-                          aria-label={`Share ${season.name} stats`}
-                          data-testid={`button-share-season-${season.id}`}
-                        >
-                          <Share2 className="h-4 w-4 text-zinc-400" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8 hover:text-red-300"
-                          onClick={() => {
-                            if (confirm("Delete this season and all its games?")) {
-                              deleteSeasonMutation.mutate(season.id);
-                            }
-                          }}
-                          title="Delete season"
-                          aria-label={`Delete ${season.name}`}
-                          data-testid={`button-delete-season-${season.id}`}
-                        >
-                          <Trash2 className="h-4 w-4 text-zinc-400" />
-                        </Button>
-                      </div>
-                    </article>
-                  );
-                })}
-            </div>
-          )}
-        </CardContent>
-        </Card>
-      </details>}
+      </Dialog>
 
-      {canManage && (
-      <>
       <Dialog open={showGameDialog} onOpenChange={(open) => {
         setShowGameDialog(open);
         if (!open) {
@@ -3911,8 +3861,6 @@ export function StatsTab({
         seasonId={shareSeasonId}
         defaultTab="season"
       />
-      </>
-      )}
 
       {shareGameId && (
         <ShareCardDialog
