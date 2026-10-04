@@ -62,10 +62,8 @@ export default function ProfileHubPage() {
     enabled: !!user,
     staleTime: 30_000,
   });
-  const { data: userChallenges } = useQuery<any[]>({ queryKey: ["/api/challenges/my-challenges"], enabled: !!user });
 
   const loadingCard = profileLoading || careerLoading || careerStatsLoading;
-  const activeChallenges = (userChallenges ?? []).filter((entry) => !entry?.isCompleted && entry?.challenge);
   const displayName =
     profile?.displayName ||
     [user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
@@ -182,32 +180,6 @@ export default function ProfileHubPage() {
           <StatsTab />
         )}
       </section>
-
-      {activeChallenges.length > 0 && (
-        <section aria-labelledby="hub-active-challenges-heading" className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Target className="h-4 w-4 text-orange-400" />
-            <h2 id="hub-active-challenges-heading" className="text-sm font-bold text-zinc-200">Challenges in progress</h2>
-          </div>
-          <div className="space-y-3 rounded-xl border border-white/[0.07] bg-zinc-950/50 p-4">
-            {activeChallenges.slice(0, 2).map((entry) => {
-              const challenge = entry.challenge;
-              const current = numeric(entry.currentValue);
-              const target = Math.max(1, numeric(challenge.targetValue));
-              const progress = Math.min(100, (current / target) * 100);
-              return (
-                <div key={entry.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2">
-                  <p className="truncate text-xs font-semibold text-zinc-300">{challenge.name}</p>
-                  <p className="text-[10px] font-bold tabular-nums text-zinc-500">{current} / {target} {challenge.metric}</p>
-                  <div className="col-span-2 h-1 overflow-hidden rounded-full bg-zinc-800">
-                    <div className="h-full rounded-full bg-orange-500 transition-[width]" style={{ width: `${progress}%` }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
 
       <section aria-labelledby="profile-development-heading" className="space-y-3">
         <div className="flex items-end justify-between gap-3">

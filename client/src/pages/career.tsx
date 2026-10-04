@@ -2716,6 +2716,17 @@ function fmtPct(made: number, attempted: number): string {
   return ((made / attempted) * 100).toFixed(1) + "%";
 }
 
+const SEASON_LOG_EXPANDED_STORAGE_KEY = "playr1:stats:season-log-expanded";
+
+function readSeasonLogExpandedPreference(): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    return window.localStorage.getItem(SEASON_LOG_EXPANDED_STORAGE_KEY) !== "false";
+  } catch {
+    return true;
+  }
+}
+
 function StatsOverviewCard({
   careerStats,
   seasons,
@@ -2760,7 +2771,16 @@ function StatsOverviewCard({
   onDeleteSeason: (seasonId: string) => void;
 }) {
   const [statsView, setStatsView] = useState<"averages" | "totals">("averages");
-  const [seasonLogExpanded, setSeasonLogExpanded] = useState(true);
+  const [seasonLogExpanded, setSeasonLogExpanded] = useState(readSeasonLogExpandedPreference);
+  const toggleSeasonLog = () => {
+    const nextExpanded = !seasonLogExpanded;
+    setSeasonLogExpanded(nextExpanded);
+    try {
+      window.localStorage.setItem(SEASON_LOG_EXPANDED_STORAGE_KEY, String(nextExpanded));
+    } catch {
+      // Keep the toggle usable in browsers that block local storage.
+    }
+  };
   const selectedSeason = seasons.find((season) => season.id === selectedSeasonId);
   const seasonStats = careerStats?.seasonBreakdown?.find((season) => season.seasonId === selectedSeasonId);
   const seasonLog = [...seasons].sort((a, b) => {
@@ -2911,7 +2931,7 @@ function StatsOverviewCard({
                   type="button"
                   size="sm"
                   variant="ghost"
-                  onClick={() => setSeasonLogExpanded((expanded) => !expanded)}
+                  onClick={toggleSeasonLog}
                   className="h-7 px-2 text-[10px] text-zinc-400 hover:text-white"
                   aria-expanded={seasonLogExpanded}
                   aria-controls="stats-season-log-content"
