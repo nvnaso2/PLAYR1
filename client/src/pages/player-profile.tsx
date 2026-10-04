@@ -7,7 +7,6 @@ import { useLocation, useSearch } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ShareMenu } from "@/components/share-menu";
-import { PlayerSetupAnswersEditor } from "@/components/player-setup-answers-editor";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -33,6 +32,17 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { queryClient, apiRequest, getObjectUrl } from "@/lib/queryClient";
+import {
+  experienceValue,
+  makeUniqueRankings,
+  numberValue,
+  PLAYER_SETUP_GOALS,
+  PLAYER_SETUP_RANK_FIELDS,
+  PLAYER_SETUP_SITUATIONS,
+  PLAYER_SETUP_SKILLS,
+  PLAYER_SETUP_TEAM_ROLES,
+} from "@/lib/player-setup-answers";
+import type { PlayerSetupAnswers, PlayerSetupResponse } from "@/lib/player-setup-answers";
 import {
   ArrowLeft,
   Save,
@@ -147,12 +157,12 @@ const cardCareerStatLabels: Record<PlayerCardCareerStatKey, string> = {
 };
 
 const conciseProfileSteps = [
-  { title: "General player information", detail: "The details coaches use to recognize your game." },
-  { title: "Location", detail: "Help teams and trainers find you nearby." },
-  { title: "Physical attributes", detail: "Share your measurements with a recruiting audience." },
-  { title: "Academics", detail: "Add your school, graduation year, and GPA." },
+  { title: "Player", detail: "Your name, current level, and positions." },
+  { title: "Development", detail: "Your skill strengths, goals, and training experience." },
+  { title: "Team & Location", detail: "Your team, pathway, and where you play." },
+  { title: "Physical & Academics", detail: "Your measurements, school, and graduation details." },
   { title: "About", detail: "Introduce yourself and how you play." },
-  { title: "Card stats", detail: "Choose the career numbers shown on your player card." },
+  { title: "Card Stats", detail: "Choose the career numbers shown on your player card." },
 ] as const;
 
 type PlayerProfileFormData = z.infer<typeof playerProfileFormSchema>;
@@ -160,6 +170,14 @@ type PlayerProfileFormData = z.infer<typeof playerProfileFormSchema>;
 function makeProfileSlug(name: string, userId?: string) {
   const base = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "player";
   return `${base}${userId ? `-${userId.slice(-5)}` : ""}`;
+}
+
+function normalizeBasketballPositions(value: unknown): Array<(typeof BASKETBALL_POSITIONS)[number]> {
+  if (!Array.isArray(value)) return [];
+  return value.filter((position): position is (typeof BASKETBALL_POSITIONS)[number] =>
+    typeof position === "string" &&
+    BASKETBALL_POSITIONS.includes(position as (typeof BASKETBALL_POSITIONS)[number])
+  );
 }
 
 export function PlayerProfileSection({
@@ -190,6 +208,23 @@ export function PlayerProfileSection({
     queryKey: ["/api/career"],
     enabled: concise,
   });
+
+  const {
+    data: playerSetupResponse,
+    isLoading: isPlayerSetupLoading,
+    isError: isPlayerSetupError,
+    refetch: refetchPlayerSetup,
+  } = useQuery<PlayerSetupResponse>({
+    queryKey: ["/api/player-setup"],
+    enabled: concise,
+  });
+  const [setupDraft, setSetupDraft] = useState<PlayerSetupAnswers | null>(null);
+  function updateSetupDraft<K extends keyof PlayerSetupAnswers>(
+    key: K,
+    value: PlayerSetupAnswers[K],
+  ) {
+    setSetupDraft((current) => current ? { ...current, [key]: value } : current);
+  }
 
   const { data: userSeasons = [] } = useQuery<Season[]>({
     queryKey: ["/api/seasons"],
@@ -252,6 +287,37 @@ export function PlayerProfileSection({
   });
 
   useEffect(() => {
+    if (!concise || !playerSetupResponse || isCareerProfileLoading) return;
+    const answers = playerSetupResponse.answers ?? {};
+    const positions = answers.positions !== undefined
+      ? normalizeBasketballPositions(answers.positions)
+      : normalizeBasketballPositions(careerProfile?.positions);
+    setSetupDraft({
+      firstName: answers.firstName ?? user?.firstName ?? "",
+      lastName: answers.lastName ?? user?.lastName ?? "",
+      currentSituation: answers.currentSituation ?? PLAYER_SETUP_SITUATIONS[0],
+      skillRankings: makeUniqueRankings(answers.skillRankings),
+      skillRoles: [],
+      primaryGoal: answers.primaryGoal ?? PLAYER_SETUP_GOALS[0],
+      trainingDaysPerUnit: numberValue(answers.trainingDaysPerUnit, 3),
+      trainingPeriodUnit: answers.trainingPeriodUnit === "month" ? "month" : "week",
+      experienceYears: experienceValue(answers.experienceYears),
+      competitiveExperienceYears: numberValue(answers.competitiveExperienceYears, 0),
+      teamName: answers.teamName ?? careerProfile?.teamName ?? "",
+      teamRole: answers.teamRole ?? PLAYER_SETUP_TEAM_ROLES[0],
+      positions,
+      aspiration: careerProfile?.aspiration ?? "",
+    });
+  }, [
+    concise,
+    playerSetupResponse,
+    isCareerProfileLoading,
+    careerProfile,
+    user?.firstName,
+    user?.lastName,
+  ]);
+
+  useEffect(() => {
     form.reset({
       slug: profile?.slug || fallbackSlug,
       headline: profile?.headline || "",
@@ -261,9 +327,13 @@ export function PlayerProfileSection({
       state: userProfile?.state || "",
       zipCode: (userProfile as any)?.zipCode || "",
       jerseyNumber: careerProfile?.jerseyNumber ?? 0,
-      positions: careerProfile?.positions ?? [],
+      positions: concise && playerSetupResponse?.answers?.positions !== undefined
+        ? normalizeBasketballPositions(playerSetupResponse.answers.positions)
+        : normalizeBasketballPositions(careerProfile?.positions),
       gradeLevel: careerProfile?.gradeLevel ?? "",
-      teamName: careerProfile?.teamName ?? "",
+      teamName: concise && typeof playerSetupResponse?.answers?.teamName === "string"
+        ? playerSetupResponse.answers.teamName
+        : careerProfile?.teamName ?? "",
       aspiration: careerProfile?.aspiration ?? "",
       cardCareerStats: profile?.cardCareerStats?.length
         ? profile.cardCareerStats.slice(0, 3)
@@ -287,7 +357,7 @@ export function PlayerProfileSection({
       showPersonalRecords: (profile as any)?.showPersonalRecords ?? false,
       showTrainingLog: profile?.showTrainingLog ?? false,
     });
-  }, [profile, userProfile, careerProfile, form, fallbackSlug]);
+  }, [profile, userProfile, careerProfile, playerSetupResponse, concise, form, fallbackSlug]);
 
   useEffect(() => {
     if (!profile?.slug && !form.getValues("slug")) {
@@ -297,8 +367,8 @@ export function PlayerProfileSection({
 
   const saveMutation = useMutation({
     mutationFn: async (data: PlayerProfileFormData) => {
-      if (concise && !careerProfile) {
-        throw new Error("Player details could not be loaded. Reload the page and try again.");
+      if (concise && !setupDraft) {
+        throw new Error("Player setup answers could not be loaded. Reload the page and try again.");
       }
       const {
         city,
@@ -327,6 +397,25 @@ export function PlayerProfileSection({
       if (payload.socialInstagram === "") payload.socialInstagram = null;
       if (payload.socialTiktok === "") payload.socialTiktok = null;
       if (payload.socialYoutube === "") payload.socialYoutube = null;
+      if (concise && setupDraft) {
+        await apiRequest("PUT", "/api/player-setup", {
+          answers: {
+            firstName: setupDraft.firstName.trim(),
+            lastName: setupDraft.lastName.trim(),
+            currentSituation: setupDraft.currentSituation,
+            skillRankings: setupDraft.skillRankings,
+            skillRoles: PLAYER_SETUP_RANK_FIELDS.map(({ key }) => setupDraft.skillRankings[key]),
+            primaryGoal: setupDraft.primaryGoal,
+            trainingDaysPerUnit: setupDraft.trainingDaysPerUnit,
+            trainingPeriodUnit: setupDraft.trainingPeriodUnit,
+            experienceYears: setupDraft.experienceYears,
+            competitiveExperienceYears: setupDraft.competitiveExperienceYears,
+            teamName: teamName?.trim() || "",
+            teamRole: setupDraft.teamRole,
+            positions,
+          },
+        });
+      }
       await apiRequest("PUT", "/api/profile", {
         ...(userProfile || {}),
         country: country || "USA",
@@ -351,7 +440,7 @@ export function PlayerProfileSection({
       queryClient.setQueryData(["/api/player-profile"], savedPlayerProfile);
       const keysToRefresh = ["/api/player-profile", "/api/profile", "/api/user/location"];
       if (concise) {
-        keysToRefresh.push("/api/career", "/api/stats/career");
+        keysToRefresh.push("/api/career", "/api/stats/career", "/api/player-setup", "/api/auth/user");
       }
       if (profile?.slug) {
         queryClient.invalidateQueries({ queryKey: ["/api/player", profile.slug] });
@@ -429,6 +518,62 @@ export function PlayerProfileSection({
   };
 
   const onSubmit = (data: PlayerProfileFormData) => {
+    if (concise) {
+      if (!setupDraft) {
+        toast({
+          title: "Player setup still loading",
+          description: "Wait for your setup answers to load, then try saving again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!setupDraft.firstName.trim() || !setupDraft.lastName.trim()) {
+        toast({
+          title: "Add your name",
+          description: "First and last name are required.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (new Set(Object.values(setupDraft.skillRankings)).size !== 4) {
+        toast({
+          title: "Choose four different skills",
+          description: "Each skill rank must be unique.",
+          variant: "destructive",
+        });
+        return;
+      }
+      const maxTrainingDays = setupDraft.trainingPeriodUnit === "week" ? 7 : 31;
+      if (
+        !Number.isInteger(setupDraft.trainingDaysPerUnit) ||
+        setupDraft.trainingDaysPerUnit < 0 ||
+        setupDraft.trainingDaysPerUnit > maxTrainingDays
+      ) {
+        toast({
+          title: "Check your training schedule",
+          description: `Training days must be a whole number from 0 to ${maxTrainingDays} per ${setupDraft.trainingPeriodUnit}.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      const experience = String(setupDraft.experienceYears).trim();
+      const isExperienceRange = ["0", "1 to 3", "4 to 6", "7 to 10", "10+"].includes(experience);
+      const numericExperience = Number(experience);
+      if (
+        !experience ||
+        (!isExperienceRange && (!Number.isFinite(numericExperience) || numericExperience < 0 || numericExperience > 100)) ||
+        !Number.isFinite(setupDraft.competitiveExperienceYears) ||
+        setupDraft.competitiveExperienceYears < 0 ||
+        setupDraft.competitiveExperienceYears > 100
+      ) {
+        toast({
+          title: "Check your playing experience",
+          description: "Enter years from 0 to 100 for both experience fields.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
     saveMutation.mutate(data);
   };
 
@@ -436,7 +581,29 @@ export function PlayerProfileSection({
   const isPublicValue = form.watch("isPublic");
   const profileUrl = slugValue ? `${window.location.origin}/player/${slugValue}` : "";
 
-  if (isLoading || isUserProfileLoading || (concise && isCareerProfileLoading)) {
+  if (concise && isPlayerSetupError) {
+    return (
+      <div className="rounded-xl border border-red-900/60 bg-zinc-950 p-4" role="alert">
+        <p className="text-sm font-semibold text-zinc-100">Player setup answers could not be loaded.</p>
+        <p className="mt-1 text-xs text-zinc-400">Retry before editing so your saved answers are not overwritten.</p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="mt-3"
+          onClick={() => void refetchPlayerSetup()}
+        >
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
+  if (
+    isLoading ||
+    isUserProfileLoading ||
+    (concise && (isCareerProfileLoading || isPlayerSetupLoading || !setupDraft))
+  ) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-10 w-full" />
@@ -655,68 +822,262 @@ export function PlayerProfileSection({
               {concise && (
                 <>
                   {wizardStep === 0 && <section className="space-y-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500">Player</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <FormField
-                        control={form.control}
-                        name="gradeLevel"
-                        render={({ field }) => (
-                          <FormItem className="space-y-1">
-                            <FormLabel className="text-[11px] text-zinc-400">Grade</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value || ""}>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500">Player basics</p>
+                    {setupDraft && (
+                      <div className="grid grid-cols-2 gap-2">
+                        <label className="space-y-1">
+                          <span className="text-[11px] text-zinc-400">First name</span>
+                          <Input
+                            className="h-8 text-xs"
+                            value={setupDraft.firstName}
+                            onChange={(event) => updateSetupDraft("firstName", event.target.value)}
+                            maxLength={80}
+                            autoComplete="given-name"
+                            data-testid="input-setup-first-name"
+                          />
+                        </label>
+                        <label className="space-y-1">
+                          <span className="text-[11px] text-zinc-400">Last name</span>
+                          <Input
+                            className="h-8 text-xs"
+                            value={setupDraft.lastName}
+                            onChange={(event) => updateSetupDraft("lastName", event.target.value)}
+                            maxLength={80}
+                            autoComplete="family-name"
+                            data-testid="input-setup-last-name"
+                          />
+                        </label>
+                        <label className="space-y-1">
+                          <span className="text-[11px] text-zinc-400">Where are you in basketball?</span>
+                          <Select
+                            value={setupDraft.currentSituation}
+                            onValueChange={(value) => updateSetupDraft("currentSituation", value)}
+                          >
+                            <SelectTrigger className="h-8 text-xs" data-testid="select-current-situation">
+                              <SelectValue placeholder="Select your level" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {PLAYER_SETUP_SITUATIONS.map((situation) => (
+                                <SelectItem key={situation} value={situation}>{situation}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </label>
+                        <FormField
+                          control={form.control}
+                          name="jerseyNumber"
+                          render={({ field }) => (
+                            <FormItem className="space-y-1">
+                              <FormLabel className="text-[11px] text-zinc-400">Jersey #</FormLabel>
                               <FormControl>
-                                <SelectTrigger className="h-8 text-xs" data-testid="select-grade-level">
-                                  <SelectValue placeholder="Select" />
-                                </SelectTrigger>
+                                <Input
+                                  className="h-8 text-xs"
+                                  type="number"
+                                  min={0}
+                                  max={99}
+                                  placeholder="0"
+                                  data-testid="input-jersey-number"
+                                  {...field}
+                                  onChange={(event) => field.onChange(Number(event.target.value) || 0)}
+                                />
                               </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    )}
+                    <div className="space-y-1">
+                      <p className="text-[11px] font-medium text-zinc-400">Position(s)</p>
+                      <div className="flex flex-wrap gap-1">
+                        {BASKETBALL_POSITIONS.map((position) => {
+                          const selected = form.watch("positions").includes(position);
+                          return (
+                            <button
+                              key={position}
+                              type="button"
+                              aria-pressed={selected}
+                              onClick={() => {
+                                const positions = form.getValues("positions");
+                                const nextPositions = positions.includes(position)
+                                  ? positions.filter((item) => item !== position)
+                                  : [...positions, position];
+                                form.setValue("positions", nextPositions, { shouldDirty: true });
+                                updateSetupDraft("positions", nextPositions);
+                              }}
+                              className={`rounded-md border px-2 py-1 text-[11px] font-semibold transition ${
+                                selected
+                                  ? "border-orange-400 bg-orange-500/15 text-orange-200"
+                                  : "border-zinc-700 bg-zinc-950 text-zinc-400 hover:border-zinc-500"
+                              }`}
+                              data-testid={`button-setup-position-${position.toLowerCase()}`}
+                            >
+                              {position}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </section>}
+                  {wizardStep === 1 && setupDraft && <section className="space-y-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500">Skills & goals</p>
+                    <fieldset className="space-y-2">
+                      <legend className="text-[11px] font-medium text-zinc-400">Rank your skills</legend>
+                      <div className="grid grid-cols-2 gap-2">
+                        {PLAYER_SETUP_RANK_FIELDS.map(({ key, label }) => (
+                          <label key={key} className="min-w-0 space-y-1">
+                            <span className="text-[10px] text-zinc-500">{label}</span>
+                            <Select
+                              value={setupDraft.skillRankings[key]}
+                              onValueChange={(value) => updateSetupDraft("skillRankings", {
+                                ...setupDraft.skillRankings,
+                                [key]: value,
+                              })}
+                            >
+                              <SelectTrigger className="h-8 text-xs" data-testid={`select-skill-${key}`}>
+                                <SelectValue />
+                              </SelectTrigger>
                               <SelectContent>
-                                {GRADE_LEVELS.map((grade) => (
-                                  <SelectItem key={grade} value={grade}>{gradeLabels[grade] || grade}</SelectItem>
+                                {PLAYER_SETUP_SKILLS.map((skill) => (
+                                  <SelectItem
+                                    key={skill}
+                                    value={skill}
+                                    disabled={Object.entries(setupDraft.skillRankings).some(([otherKey, otherValue]) =>
+                                      otherKey !== key && otherValue === skill
+                                    )}
+                                  >
+                                    {skill}
+                                  </SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="jerseyNumber"
-                        render={({ field }) => (
-                          <FormItem className="space-y-1">
-                            <FormLabel className="text-[11px] text-zinc-400">Jersey #</FormLabel>
-                            <FormControl>
-                              <Input
-                                className="h-8 text-xs"
-                                type="number"
-                                min={0}
-                                max={99}
-                                placeholder="0"
-                                data-testid="input-jersey-number"
-                                {...field}
-                                onChange={(event) => field.onChange(Number(event.target.value) || 0)}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
+                          </label>
+                        ))}
+                      </div>
+                    </fieldset>
+                    <div className="grid grid-cols-2 gap-2">
+                      <label className="min-w-0 space-y-1">
+                        <span className="text-[11px] text-zinc-400">Main goal</span>
+                        <Select
+                          value={setupDraft.primaryGoal}
+                          onValueChange={(value) => updateSetupDraft("primaryGoal", value)}
+                        >
+                          <SelectTrigger className="h-8 text-xs" data-testid="select-primary-goal">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {PLAYER_SETUP_GOALS.map((goal) => (
+                              <SelectItem key={goal} value={goal}>{goal}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </label>
+                      <label className="min-w-0 space-y-1">
+                        <span className="text-[11px] text-zinc-400">Training days per</span>
+                        <div className="flex gap-1">
+                          <Input
+                            className="h-8 min-w-0 text-xs"
+                            type="number"
+                            min={0}
+                            max={setupDraft.trainingPeriodUnit === "week" ? 7 : 31}
+                            step={1}
+                            value={setupDraft.trainingDaysPerUnit}
+                            onChange={(event) => updateSetupDraft("trainingDaysPerUnit", Number(event.target.value))}
+                            data-testid="input-training-days"
+                          />
+                          <Select
+                            value={setupDraft.trainingPeriodUnit}
+                            onValueChange={(value: "week" | "month") => updateSetupDraft("trainingPeriodUnit", value)}
+                          >
+                            <SelectTrigger className="h-8 w-[88px] shrink-0 px-2 text-[10px]" data-testid="select-training-period">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="week">week</SelectItem>
+                              <SelectItem value="month">month</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </label>
+                      <label className="min-w-0 space-y-1">
+                        <span className="text-[11px] text-zinc-400">Years playing basketball</span>
+                        <Input
+                          className="h-8 text-xs"
+                          type="text"
+                          inputMode="numeric"
+                          value={String(setupDraft.experienceYears)}
+                          onChange={(event) => {
+                            const value = event.target.value;
+                            const numeric = Number(value);
+                            updateSetupDraft(
+                              "experienceYears",
+                              value !== "" && Number.isFinite(numeric) ? numeric : value,
+                            );
+                          }}
+                          data-testid="input-experience-years"
+                        />
+                      </label>
+                      <label className="min-w-0 space-y-1">
+                        <span className="text-[11px] text-zinc-400">Years playing competitively</span>
+                        <Input
+                          className="h-8 text-xs"
+                          type="number"
+                          min={0}
+                          max={100}
+                          step={1}
+                          value={setupDraft.competitiveExperienceYears}
+                          onChange={(event) => updateSetupDraft("competitiveExperienceYears", Number(event.target.value))}
+                          data-testid="input-competitive-experience-years"
+                        />
+                      </label>
+                    </div>
+                  </section>}
+                  {wizardStep === 2 && setupDraft && <section className="space-y-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500">Team & pathway</p>
+                    <div className="grid grid-cols-2 gap-2">
                       <FormField
                         control={form.control}
                         name="teamName"
                         render={({ field }) => (
                           <FormItem className="space-y-1">
-                            <FormLabel className="text-[11px] text-zinc-400">Team</FormLabel>
+                            <FormLabel className="text-[11px] text-zinc-400">Team name</FormLabel>
                             <FormControl>
-                              <Input className="h-8 text-xs" placeholder="Team name" {...field} />
+                              <Input
+                                className="h-8 text-xs"
+                                placeholder="Team name"
+                                maxLength={120}
+                                {...field}
+                                onChange={(event) => {
+                                  field.onChange(event);
+                                  updateSetupDraft("teamName", event.target.value);
+                                }}
+                                data-testid="input-setup-team-name"
+                              />
                             </FormControl>
                           </FormItem>
                         )}
                       />
+                      <label className="min-w-0 space-y-1">
+                        <span className="text-[11px] text-zinc-400">Current team role</span>
+                        <Select
+                          value={setupDraft.teamRole}
+                          onValueChange={(value) => updateSetupDraft("teamRole", value)}
+                        >
+                          <SelectTrigger className="h-8 text-xs" data-testid="select-team-role">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {PLAYER_SETUP_TEAM_ROLES.map((role) => (
+                              <SelectItem key={role} value={role}>{role}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </label>
                       <FormField
                         control={form.control}
                         name="aspiration"
                         render={({ field }) => (
                           <FormItem className="space-y-1">
-                            <FormLabel className="text-[11px] text-zinc-400">Goal</FormLabel>
+                            <FormLabel className="text-[11px] text-zinc-400">Basketball pathway</FormLabel>
                             <Select onValueChange={field.onChange} value={field.value || ""}>
                               <FormControl>
                                 <SelectTrigger className="h-8 text-xs" data-testid="select-basketball-goal">
@@ -732,38 +1093,6 @@ export function PlayerProfileSection({
                           </FormItem>
                         )}
                       />
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[11px] font-medium text-zinc-400">Position(s)</p>
-                      <div className="flex flex-wrap gap-1">
-                        {BASKETBALL_POSITIONS.map((position) => {
-                          const selected = form.watch("positions").includes(position);
-                          return (
-                            <button
-                              key={position}
-                              type="button"
-                              aria-pressed={selected}
-                              onClick={() => {
-                                const positions = form.getValues("positions");
-                                form.setValue(
-                                  "positions",
-                                  positions.includes(position)
-                                    ? positions.filter((item) => item !== position)
-                                    : [...positions, position],
-                                  { shouldDirty: true },
-                                );
-                              }}
-                              className={`rounded-md border px-2 py-1 text-[11px] font-semibold transition ${
-                                selected
-                                  ? "border-orange-400 bg-orange-500/15 text-orange-200"
-                                  : "border-zinc-700 bg-zinc-950 text-zinc-400 hover:border-zinc-500"
-                              }`}
-                            >
-                              {position}
-                            </button>
-                          );
-                        })}
-                      </div>
                     </div>
                   </section>}
                   {wizardStep === 4 && <section className="space-y-2">
@@ -842,7 +1171,7 @@ export function PlayerProfileSection({
                 </>
               )}
 
-          {(!concise || wizardStep === 1) && <Card className={concise ? "contents" : undefined}>
+          {(!concise || wizardStep === 2) && <Card className={concise ? "contents" : undefined}>
             <CardHeader className={concise ? "px-0 pb-0 pt-0" : undefined}>
               <CardTitle className={`flex items-center gap-2 ${concise ? "text-xs" : "text-lg"}`}>
                 <MapPin className={concise ? "h-4 w-4 text-orange-400" : "h-5 w-5"} />
@@ -936,7 +1265,7 @@ export function PlayerProfileSection({
             </CardContent>
           </Card>}
 
-          {(!concise || wizardStep === 2) && <Card className={concise ? "contents" : undefined}>
+          {(!concise || wizardStep === 3) && <Card className={concise ? "contents" : undefined}>
             <CardHeader className={concise ? "px-0 pb-0 pt-0" : undefined}>
               <CardTitle className={`flex items-center gap-2 ${concise ? "text-xs" : "text-lg"}`}>
                 <Ruler className={concise ? "h-4 w-4 text-orange-400" : "h-5 w-5"} />
@@ -1052,6 +1381,28 @@ export function PlayerProfileSection({
               </CardTitle>
             </CardHeader>
             <CardContent className={concise ? "space-y-2 p-0" : "space-y-4"}>
+              <FormField
+                control={form.control}
+                name="gradeLevel"
+                render={({ field }) => (
+                  <FormItem className={concise ? "space-y-1" : undefined}>
+                    <FormLabel className={concise ? "text-[11px] text-zinc-400" : undefined}>Grade / year</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || ""}>
+                      <FormControl>
+                        <SelectTrigger className={concise ? "h-8 text-xs" : undefined} data-testid="select-grade-level">
+                          <SelectValue placeholder="Select grade" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {GRADE_LEVELS.map((grade) => (
+                          <SelectItem key={grade} value={grade}>{gradeLabels[grade] || grade}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <FormField
                 control={form.control}
                 name="schoolName"
@@ -1470,11 +1821,10 @@ export default function PlayerProfilePage() {
           Edit Profile
         </h1>
         <p className="text-sm text-muted-foreground">
-          Update your five-step setup, player pathway, and recruiting profile
+          Update your player details and profile card in one six-step flow.
         </p>
       </header>
-      <PlayerSetupAnswersEditor />
-      <PlayerProfileSection />
+      <PlayerProfileSection concise onSaved={() => setLocation(returnTo)} />
     </div>
   );
 }
