@@ -2760,6 +2760,7 @@ function StatsOverviewCard({
   onDeleteSeason: (seasonId: string) => void;
 }) {
   const [statsView, setStatsView] = useState<"averages" | "totals">("averages");
+  const [seasonLogExpanded, setSeasonLogExpanded] = useState(true);
   const selectedSeason = seasons.find((season) => season.id === selectedSeasonId);
   const seasonStats = careerStats?.seasonBreakdown?.find((season) => season.seasonId === selectedSeasonId);
   const seasonLog = [...seasons].sort((a, b) => {
@@ -2817,22 +2818,22 @@ function StatsOverviewCard({
     <Card className="overflow-hidden border-white/[0.08] bg-[#141414] text-zinc-100">
       <CardContent className="space-y-4 p-3 sm:p-4">
         <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-orange-400/20 bg-orange-400/[0.08] text-orange-300">
               <BarChart className="h-4 w-4" />
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Stats</p>
-              <p className="text-xs font-semibold capitalize text-zinc-300">
+              <p className="max-w-[180px] truncate text-xs font-semibold capitalize text-zinc-300 sm:max-w-[220px]">
                 {statsScope === "career" ? `Career ${statsView}` : `${selectedSeason?.name || "Season"} ${statsView}`}
               </p>
             </div>
           </div>
-          <div className="flex w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-2 sm:w-auto sm:justify-end">
-            <div className="w-[88px] min-w-0 shrink-0 sm:w-48">
+          <div className="flex w-full min-w-0 flex-nowrap items-center justify-between gap-1 sm:w-auto sm:shrink-0 sm:justify-end sm:gap-2">
+            <div className="w-[72px] min-w-0 shrink-0 sm:w-32">
               {statsScope === "season" ? (
                 <Select value={selectedSeasonId} onValueChange={onSeasonChange} disabled={seasons.length === 0}>
-                  <SelectTrigger className="h-9 w-full min-w-0 border-white/10 bg-black/25 px-2 text-[11px] text-zinc-200 sm:px-3 sm:text-xs" data-testid="select-stats-season" aria-label="Choose season stats">
+                  <SelectTrigger className="h-8 w-full min-w-0 border-white/10 bg-black/25 px-1.5 text-[10px] text-zinc-200 sm:px-2 sm:text-[11px]" data-testid="select-stats-season" aria-label="Choose season stats">
                     <SelectValue className="truncate" placeholder="Season" />
                   </SelectTrigger>
                   <SelectContent>
@@ -2844,12 +2845,12 @@ function StatsOverviewCard({
               )}
             </div>
             <div className="grid shrink-0 grid-cols-2 rounded-lg border border-white/[0.08] bg-black/30 p-0.5" role="group" aria-label="Choose stats period">
-              <Button type="button" size="sm" variant="ghost" aria-pressed={statsScope === "career"} className={`h-8 px-2 text-[11px] sm:px-1.5 sm:text-xs ${statsScope === "career" ? "bg-orange-500 font-bold text-zinc-950 hover:bg-orange-400 hover:text-zinc-950" : "text-zinc-400 hover:text-white"}`} onClick={() => onScopeChange("career")} data-testid="button-stats-career">Career</Button>
-              <Button type="button" size="sm" variant="ghost" aria-pressed={statsScope === "season"} className={`h-8 px-2 text-[11px] sm:px-1.5 sm:text-xs ${statsScope === "season" ? "bg-orange-500 font-bold text-zinc-950 hover:bg-orange-400 hover:text-zinc-950" : "text-zinc-400 hover:text-white"}`} onClick={() => onScopeChange("season")} data-testid="button-stats-season">Season</Button>
+              <Button type="button" size="sm" variant="ghost" aria-pressed={statsScope === "career"} className={`h-8 px-1 text-[10px] sm:px-1.5 sm:text-[11px] ${statsScope === "career" ? "bg-orange-500 font-bold text-zinc-950 hover:bg-orange-400 hover:text-zinc-950" : "text-zinc-400 hover:text-white"}`} onClick={() => onScopeChange("career")} data-testid="button-stats-career">Career</Button>
+              <Button type="button" size="sm" variant="ghost" aria-pressed={statsScope === "season"} className={`h-8 px-1 text-[10px] sm:px-1.5 sm:text-[11px] ${statsScope === "season" ? "bg-orange-500 font-bold text-zinc-950 hover:bg-orange-400 hover:text-zinc-950" : "text-zinc-400 hover:text-white"}`} onClick={() => onScopeChange("season")} data-testid="button-stats-season">Season</Button>
             </div>
             <div className="flex shrink-0 gap-0" role="group" aria-label="Choose stat display">
-              <Button type="button" size="sm" variant="ghost" onClick={() => setStatsView("averages")} aria-pressed={statsView === "averages"} className={`h-8 px-1.5 text-[10px] sm:text-[11px] ${statsView === "averages" ? "text-orange-300" : "text-zinc-500"}`} data-testid="btn-stats-averages">Averages</Button>
-              <Button type="button" size="sm" variant="ghost" onClick={() => setStatsView("totals")} aria-pressed={statsView === "totals"} className={`h-8 px-1.5 text-[10px] sm:text-[11px] ${statsView === "totals" ? "text-orange-300" : "text-zinc-500"}`} data-testid="btn-stats-totals">Totals</Button>
+              <Button type="button" size="sm" variant="ghost" onClick={() => setStatsView("averages")} aria-pressed={statsView === "averages"} className={`h-8 px-1 text-[10px] sm:px-1.5 sm:text-[11px] ${statsView === "averages" ? "text-orange-300" : "text-zinc-500"}`} data-testid="btn-stats-averages">Averages</Button>
+              <Button type="button" size="sm" variant="ghost" onClick={() => setStatsView("totals")} aria-pressed={statsView === "totals"} className={`h-8 px-1 text-[10px] sm:px-1.5 sm:text-[11px] ${statsView === "totals" ? "text-orange-300" : "text-zinc-500"}`} data-testid="btn-stats-totals">Totals</Button>
             </div>
           </div>
         </div>
@@ -2901,9 +2902,25 @@ function StatsOverviewCard({
         {statsScope === "career" && (
           <section aria-labelledby="stats-season-log-heading" className="border-t border-white/[0.07] pt-3">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h3 id="stats-season-log-heading" className="text-xs font-bold text-zinc-200">Season log</h3>
-                <p className="mt-0.5 text-[10px] text-zinc-600">{seasons.length} {seasons.length === 1 ? "season" : "seasons"}</p>
+              <div className="flex items-center gap-2">
+                <div>
+                  <h3 id="stats-season-log-heading" className="text-xs font-bold text-zinc-200">Season log</h3>
+                  <p className="mt-0.5 text-[10px] text-zinc-600">{seasons.length} {seasons.length === 1 ? "season" : "seasons"}</p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setSeasonLogExpanded((expanded) => !expanded)}
+                  className="h-7 px-2 text-[10px] text-zinc-400 hover:text-white"
+                  aria-expanded={seasonLogExpanded}
+                  aria-controls="stats-season-log-content"
+                  aria-label={`${seasonLogExpanded ? "Hide" : "Show"} season log`}
+                  data-testid="button-toggle-season-log"
+                >
+                  {seasonLogExpanded ? "Hide" : "Show"}
+                  <ChevronDown className={`ml-1 h-3 w-3 transition-transform ${seasonLogExpanded ? "rotate-180" : ""}`} />
+                </Button>
               </div>
               <div className="flex items-center gap-1.5">
                 {isManaging && (
@@ -2919,6 +2936,7 @@ function StatsOverviewCard({
                 </Button>
               </div>
             </div>
+            <div id="stats-season-log-content" hidden={!seasonLogExpanded}>
             {seasonLog.length > 0 ? (
               <div className="space-y-1.5">
                 {seasonLog.map((season) => {
@@ -2971,6 +2989,7 @@ function StatsOverviewCard({
                 No seasons yet. Add a season to start your log.
               </p>
             )}
+            </div>
           </section>
         )}
         {statsScope === "season" && selectedSeason && (

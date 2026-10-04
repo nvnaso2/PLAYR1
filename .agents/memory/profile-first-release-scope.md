@@ -13,11 +13,11 @@ For Career Stats, use a Career/Season switcher, defaulting to Career. In Career 
 
 **How to apply:** render the Season Log in Career mode and the selected season’s Game Log in Season mode inside the same stats card on both Profile and Profile Hub. Keep Career as the default, put the season selector in its fixed toolbar slot only in Season mode, and keep Averages/Totals in the same top toolbar row. Do not delete stored seasons or games.
 
-On Profile, place the compact gold-glow Trophy Room button beside Share. Keep the orange “Your Milestones” eyebrow without a feature banner. Group saved personal records, custom records, and player-entered bests in one gold-accented Personal Records area with prominent scores; keep calculated game and season highs separate. Let Stats use the available Profile width, and wrap its top-toolbar controls inside the card rather than letting Averages or Totals overflow.
+On Profile, place the compact gold-glow Trophy Room button beside Share. Keep the orange “Your Milestones” eyebrow without a feature banner. Group saved personal records, custom records, and player-entered bests in one gold-accented Personal Records area with prominent scores; keep calculated Game & Season Bests separate and orange. Let Stats use the available Profile width, keep Averages and Totals in the top controls on one row, and make the Career-mode Season Log collapsible.
 
-**Why:** the user wants Profile to link directly to the milestone space and to scan all saved personal records as one medal-themed collection, while keeping Stats controls usable at narrow widths.
+**Why:** the user wants Profile to link directly to the milestone space and scan saved personal records as one medal-themed collection, with calculated highs distinguished in orange. The Season Log should be hideable, and changing Career/Season must not displace the Averages/Totals controls.
 
-**How to apply:** preserve the existing record queries, forms, and CRUD behavior. Keep Averages/Totals with the top Stats controls; allow wrapping when needed instead of placing them in a separate toolbar or allowing horizontal overflow.
+**How to apply:** preserve the existing record queries, forms, and CRUD behavior. Use orange for calculated game/season highs and gold for personal records. Keep Averages/Totals with the top Stats controls on one row, size and constrain the selected-season label/selector to prevent movement, and preserve the Season Log's existing management actions while adding its show/hide control.
 
 Keep the card on the page background without a separate frame or instruction line. Style Edit Profile black with an orange glow and outline, and use the same brighter glowing orange on the card accents.
 

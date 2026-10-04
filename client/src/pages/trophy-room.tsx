@@ -154,17 +154,17 @@ function RecordCard({
 }) {
   const date = formatDate(achievedAt);
   return (
-    <article className="rounded-xl border border-amber-300/15 bg-[radial-gradient(ellipse_at_top_left,rgba(245,190,65,0.08),transparent_64%),#15130f] p-3.5" data-testid={`automatic-record-${kind}-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}>
+    <article className="rounded-xl border border-orange-400/20 bg-[radial-gradient(ellipse_at_top_left,rgba(249,115,22,0.09),transparent_64%),#15130f] p-3.5" data-testid={`automatic-record-${kind}-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}>
       <div className="flex items-start justify-between gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-300/20 bg-amber-300/[0.08] text-amber-200">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-orange-400/25 bg-orange-400/[0.08] text-orange-200">
           {kind === "game" ? <Medal className="h-4 w-4" /> : <CalendarDays className="h-4 w-4" />}
         </div>
-        <Badge variant="outline" className="border-amber-300/15 bg-amber-300/[0.04] text-[9px] uppercase tracking-wider text-amber-100/65">
+        <Badge variant="outline" className="border-orange-400/20 bg-orange-400/[0.04] text-[9px] uppercase tracking-wider text-orange-100/70">
           {kind === "game" ? "Game" : "Season"}
         </Badge>
       </div>
-      <p className="mt-3 font-display text-3xl font-black tabular-nums tracking-tight text-amber-100">
-        {formatValue(value)} <span className="text-xs font-bold text-amber-300">{unit}</span>
+      <p className="mt-3 font-display text-3xl font-black tabular-nums tracking-tight text-orange-100">
+        {formatValue(value)} <span className="text-xs font-bold text-orange-300">{unit}</span>
       </p>
       <p className="mt-1 text-xs font-semibold text-zinc-100">{title}</p>
       <p className="mt-1 truncate text-[10px] text-zinc-500">{detail}</p>
@@ -424,10 +424,10 @@ export default function TrophyRoomPage() {
         </div>
 
         <div className="space-y-3">
-          <div className="rounded-2xl border border-amber-300/10 bg-[radial-gradient(ellipse_at_top_left,rgba(245,190,65,0.07),transparent_60%),#12110e] p-4 sm:p-5">
+          <div className="rounded-2xl border border-orange-400/15 bg-[radial-gradient(ellipse_at_top_left,rgba(249,115,22,0.07),transparent_60%),#12100e] p-4 sm:p-5">
             <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1">
-              <ChartNoAxesCombined className="h-4 w-4 text-amber-300" />
-              <h3 className="text-xs font-bold uppercase tracking-[0.14em] text-amber-100/80">Game &amp; Season Bests</h3>
+              <ChartNoAxesCombined className="h-4 w-4 text-orange-300" />
+              <h3 className="text-xs font-bold uppercase tracking-[0.14em] text-orange-100/85">Game &amp; Season Bests</h3>
               <span className="text-[9px] text-zinc-600">Calculated from your game logs</span>
             </div>
             {automaticRecordsLoading ? (
@@ -448,7 +448,7 @@ export default function TrophyRoomPage() {
                 ))}
               </div>
             ) : (
-              <p className="rounded-xl border border-dashed border-amber-300/10 bg-black/15 p-4 text-xs text-zinc-500">
+              <p className="rounded-xl border border-dashed border-orange-300/15 bg-black/15 p-4 text-xs text-zinc-500">
                 Log games in Stats to build automatic game and season records.
               </p>
             )}
