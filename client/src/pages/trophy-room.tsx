@@ -8,7 +8,6 @@ import {
   Medal,
   Pencil,
   Plus,
-  Sparkles,
   Trash2,
   Trophy,
 } from "lucide-react";
@@ -155,19 +154,19 @@ function RecordCard({
 }) {
   const date = formatDate(achievedAt);
   return (
-    <article className="rounded-xl border border-white/[0.07] bg-[#151515] p-3.5" data-testid={`automatic-record-${kind}-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}>
+    <article className="rounded-xl border border-amber-300/15 bg-[radial-gradient(ellipse_at_top_left,rgba(245,190,65,0.08),transparent_64%),#15130f] p-3.5" data-testid={`automatic-record-${kind}-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}>
       <div className="flex items-start justify-between gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-orange-400/15 bg-orange-400/[0.06] text-orange-300">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-300/20 bg-amber-300/[0.08] text-amber-200">
           {kind === "game" ? <Medal className="h-4 w-4" /> : <CalendarDays className="h-4 w-4" />}
         </div>
-        <Badge variant="outline" className="border-white/10 text-[9px] uppercase tracking-wider text-zinc-500">
+        <Badge variant="outline" className="border-amber-300/15 bg-amber-300/[0.04] text-[9px] uppercase tracking-wider text-amber-100/65">
           {kind === "game" ? "Game" : "Season"}
         </Badge>
       </div>
-      <p className="mt-3 font-display text-2xl font-black tabular-nums text-zinc-50">
-        {formatValue(value)} <span className="text-xs font-bold text-orange-300">{unit}</span>
+      <p className="mt-3 font-display text-3xl font-black tabular-nums tracking-tight text-amber-100">
+        {formatValue(value)} <span className="text-xs font-bold text-amber-300">{unit}</span>
       </p>
-      <p className="mt-1 text-xs font-semibold text-zinc-200">{title}</p>
+      <p className="mt-1 text-xs font-semibold text-zinc-100">{title}</p>
       <p className="mt-1 truncate text-[10px] text-zinc-500">{detail}</p>
       {date && <p className="mt-2 text-[9px] uppercase tracking-wider text-zinc-600">{date}</p>}
     </article>
@@ -316,7 +315,7 @@ export default function TrophyRoomPage() {
             <Link href="/profile"><ArrowLeft className="h-4 w-4" /></Link>
           </Button>
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-400">Your milestones, made tangible</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-400">Your Milestones</p>
             <h1 className="font-display text-2xl font-black tracking-tight sm:text-3xl" data-testid="text-trophy-room-title">Trophy Room</h1>
           </div>
         </div>
@@ -324,22 +323,6 @@ export default function TrophyRoomPage() {
           <Plus className="mr-1.5 h-4 w-4" /> Add Award
         </Button>
       </header>
-
-      <section className="relative overflow-hidden rounded-2xl border border-orange-300/15 bg-[radial-gradient(ellipse_at_top,rgba(249,115,22,0.12),transparent_58%),linear-gradient(145deg,#181512,#111111_60%)] p-5 sm:p-7">
-        <div className="pointer-events-none absolute -right-12 -top-16 h-48 w-48 rounded-full border border-orange-200/[0.06]" />
-        <div className="pointer-events-none absolute -right-5 -top-9 h-32 w-32 rounded-full border border-orange-200/[0.08]" />
-        <div className="relative flex items-start gap-4 sm:gap-6">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-orange-300/20 bg-orange-400/[0.08] text-orange-200 shadow-[0_0_36px_rgba(249,115,22,0.13)]">
-            <Trophy className="h-7 w-7" />
-          </div>
-          <div className="max-w-2xl">
-            <h2 className="text-lg font-black text-zinc-50 sm:text-xl">A place for the work that stands out.</h2>
-            <p className="mt-1.5 text-xs leading-relaxed text-zinc-400 sm:text-sm">
-              Keep the honors you earn, see your best game and season performances, and set the records you want to chase next.
-            </p>
-          </div>
-        </div>
-      </section>
 
       <section aria-labelledby="trophy-awards-heading" className="space-y-3">
         <div className="flex flex-wrap items-end justify-between gap-3">
@@ -440,140 +423,118 @@ export default function TrophyRoomPage() {
           </Button>
         </div>
 
-        {automaticRecordsLoading ? (
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            <Skeleton className="h-32 rounded-xl bg-zinc-900" />
-            <Skeleton className="h-32 rounded-xl bg-zinc-900" />
-            <Skeleton className="h-32 rounded-xl bg-zinc-900" />
-          </div>
-        ) : automaticRecordsError ? (
-          <p className="rounded-xl border border-red-400/15 bg-red-400/[0.04] p-4 text-sm text-red-200">Game and season records couldn’t load. Refresh to try again.</p>
-        ) : (
-          <div className="space-y-4">
-            <div>
-              <div className="mb-2 flex items-center gap-2">
-                <ChartNoAxesCombined className="h-4 w-4 text-orange-300" />
-                <h3 className="text-xs font-bold uppercase tracking-[0.14em] text-zinc-400">Game &amp; Season Bests</h3>
-                <span className="text-[9px] text-zinc-600">Calculated from your game logs</span>
-              </div>
-              {automaticRecords && [...automaticRecords.gameRecords, ...automaticRecords.seasonRecords].length > 0 ? (
-                <>
-                  {automaticRecords.gameRecords.length > 0 && (
-                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                      {automaticRecords.gameRecords.map((record) => (
-                        <RecordCard key={record.title} {...record} kind="game" />
-                      ))}
-                    </div>
-                  )}
-                  {automaticRecords.seasonRecords.length > 0 && (
-                    <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                      {automaticRecords.seasonRecords.map((record) => (
-                        <RecordCard key={record.title} {...record} kind="season" />
-                      ))}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <p className="rounded-xl border border-dashed border-white/10 bg-[#121212] p-4 text-xs text-zinc-500">
-                  Log games in Stats to build automatic game and season records.
-                </p>
-              )}
+        <div className="space-y-3">
+          <div className="rounded-2xl border border-amber-300/10 bg-[radial-gradient(ellipse_at_top_left,rgba(245,190,65,0.07),transparent_60%),#12110e] p-4 sm:p-5">
+            <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1">
+              <ChartNoAxesCombined className="h-4 w-4 text-amber-300" />
+              <h3 className="text-xs font-bold uppercase tracking-[0.14em] text-amber-100/80">Game &amp; Season Bests</h3>
+              <span className="text-[9px] text-zinc-600">Calculated from your game logs</span>
             </div>
+            {automaticRecordsLoading ? (
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                <Skeleton className="h-32 rounded-xl bg-zinc-900" />
+                <Skeleton className="h-32 rounded-xl bg-zinc-900" />
+                <Skeleton className="h-32 rounded-xl bg-zinc-900" />
+              </div>
+            ) : automaticRecordsError ? (
+              <p className="rounded-xl border border-red-400/15 bg-red-400/[0.04] p-4 text-sm text-red-200">Game and season records couldn’t load. Refresh to try again.</p>
+            ) : automaticRecords && [...automaticRecords.gameRecords, ...automaticRecords.seasonRecords].length > 0 ? (
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {automaticRecords.gameRecords.map((record) => (
+                  <RecordCard key={`game-${record.title}`} {...record} kind="game" />
+                ))}
+                {automaticRecords.seasonRecords.map((record) => (
+                  <RecordCard key={`season-${record.title}`} {...record} kind="season" />
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-xl border border-dashed border-amber-300/10 bg-black/15 p-4 text-xs text-zinc-500">
+                Log games in Stats to build automatic game and season records.
+              </p>
+            )}
+          </div>
 
-            {savedPersonalRecords.length > 0 && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Medal className="h-4 w-4 text-sky-300" />
-                  <h3 className="text-xs font-bold uppercase tracking-[0.14em] text-zinc-400">Saved Personal Records</h3>
-                </div>
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                  {savedPersonalRecords.map((record) => {
-                    const sourceLabel = record.source === "game" ? "Game" : record.source === "season" ? "Season" : "Training";
-                    const date = formatDate(record.achievedAt);
-                    return (
-                      <article key={record.id} className="rounded-xl border border-white/[0.07] bg-[#151515] p-3" data-testid={`saved-personal-record-${record.id}`}>
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="min-w-0 truncate text-xs font-semibold text-zinc-200">{record.metricName}</p>
-                          <Badge variant="outline" className="shrink-0 border-white/10 text-[9px] uppercase tracking-wider text-zinc-500">{sourceLabel}</Badge>
-                        </div>
-                        <p className="mt-2 font-display text-xl font-black tabular-nums text-sky-200">{formatValue(record.newValue)}</p>
-                        {date && <p className="mt-1 text-[9px] text-zinc-600">{date}</p>}
-                      </article>
-                    );
-                  })}
-                </div>
+          <div className="rounded-2xl border border-amber-300/10 bg-[radial-gradient(ellipse_at_top_left,rgba(245,190,65,0.06),transparent_62%),#12110e] p-4 sm:p-5">
+            <div className="mb-3 flex items-center gap-2">
+              <Medal className="h-4 w-4 text-amber-300" />
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-[0.14em] text-amber-100/80">Personal Records</h3>
+                <p className="mt-0.5 text-[10px] text-zinc-600">Personal bests, training milestones, and records you set yourself.</p>
+              </div>
+            </div>
+            {recordsLoading && (
+              <div className="mb-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                <Skeleton className="h-28 rounded-xl bg-zinc-900" />
+                <Skeleton className="h-28 rounded-xl bg-zinc-900" />
+                <Skeleton className="h-28 rounded-xl bg-zinc-900" />
               </div>
             )}
-
-            <div className="grid gap-3 lg:grid-cols-2">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Medal className="h-4 w-4 text-amber-300" />
-                  <h3 className="text-xs font-bold uppercase tracking-[0.14em] text-zinc-400">Personal Bests</h3>
-                  <span className="text-[9px] text-zinc-600">Enter your streaks</span>
-                </div>
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
-                  {DEFAULT_RECORDS.map((record) => {
-                    const saved = defaultRecordMap.get(record.metricName);
-                    return (
-                      <article key={record.key} className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.07] bg-[#151515] p-3" data-testid={`default-record-${record.key}`}>
-                        <div className="min-w-0">
-                          <p className="text-xs font-semibold text-zinc-200">{record.title}</p>
-                          <p className="mt-1 text-[9px] uppercase tracking-wider text-zinc-600">
-                            {saved ? `${formatValue(saved.newValue)} ${record.unit}` : "Not set yet"}
-                          </p>
-                        </div>
-                        <Button type="button" size="sm" variant="outline" className="h-8 shrink-0 border-white/10 text-[10px] text-zinc-300" onClick={() => openDefaultRecord(record.key, record.title)} data-testid={`button-update-default-record-${record.key}`}>
+            {recordsError && (
+              <p className="mb-3 rounded-xl border border-red-400/15 bg-red-400/[0.04] p-3 text-xs text-red-200">Saved personal records couldn’t load. You can still set a new personal best or create a record.</p>
+            )}
+            {!recordsLoading && (
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {DEFAULT_RECORDS.map((record) => {
+                  const saved = defaultRecordMap.get(record.metricName);
+                  return (
+                    <article key={record.key} className="rounded-xl border border-amber-300/15 bg-[radial-gradient(ellipse_at_top_left,rgba(245,190,65,0.08),transparent_68%),#17150f] p-3.5" data-testid={`default-record-${record.key}`}>
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="min-w-0 text-xs font-semibold leading-relaxed text-zinc-100">{record.title}</p>
+                        <Badge variant="outline" className="shrink-0 border-amber-300/15 bg-amber-300/[0.04] text-[8px] uppercase tracking-wider text-amber-100/60">Best</Badge>
+                      </div>
+                      <div className="mt-2 flex items-end justify-between gap-2">
+                        <p className="font-display text-2xl font-black tabular-nums tracking-tight text-amber-100">
+                          {saved ? formatValue(saved.newValue) : <span className="text-sm font-semibold text-zinc-600">Not set</span>}
+                          {saved && <span className="ml-1 text-[10px] font-bold text-amber-300">{record.unit}</span>}
+                        </p>
+                        <Button type="button" size="sm" variant="outline" className="h-8 shrink-0 border-amber-300/20 px-2.5 text-[10px] text-amber-100 hover:bg-amber-300/10" onClick={() => openDefaultRecord(record.key, record.title)} data-testid={`button-update-default-record-${record.key}`}>
                           {saved ? "Update" : "Set record"}
                         </Button>
-                      </article>
-                    );
-                  })}
-                </div>
-              </div>
+                      </div>
+                    </article>
+                  );
+                })}
 
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-orange-300" />
-                  <h3 className="text-xs font-bold uppercase tracking-[0.14em] text-zinc-400">Custom Records</h3>
-                </div>
-                {recordsLoading ? (
-                  <Skeleton className="h-24 rounded-xl bg-zinc-900" />
-                ) : recordsError ? (
-                  <p className="rounded-xl border border-red-400/15 bg-red-400/[0.04] p-3 text-xs text-red-200">Personal records couldn’t load.</p>
-                ) : customRecords.length > 0 ? (
-                  <div className="space-y-2">
-                    {customRecords.map((record) => (
-                      <article key={record.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.07] bg-[#151515] p-3" data-testid={`custom-record-${record.id}`}>
-                        <div className="min-w-0">
-                          <p className="truncate text-xs font-semibold text-zinc-200">{record.metricName}</p>
-                          <p className="mt-1 font-display text-lg font-black tabular-nums text-orange-300">{formatValue(record.newValue)}</p>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-1">
-                          <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-zinc-500 hover:text-white" onClick={() => setRecordEditor({ kind: "custom", id: record.id, title: record.metricName, value: String(Number(record.newValue)) })} aria-label={`Edit ${record.metricName}`} data-testid={`button-edit-custom-record-${record.id}`}>
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-zinc-500 hover:text-red-300" onClick={() => {
-                            if (window.confirm(`Delete the custom record “${record.metricName}”?`)) deleteRecordMutation.mutate(record.id);
-                          }} aria-label={`Delete ${record.metricName}`} data-testid={`button-delete-custom-record-${record.id}`}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="rounded-xl border border-dashed border-white/10 bg-[#121212] p-4">
-                    <p className="text-xs text-zinc-500">Make a record that’s yours: a personal goal, streak, or milestone.</p>
-                    <Button type="button" variant="ghost" size="sm" onClick={() => setRecordEditor({ kind: "custom", title: "", value: "" })} className="mt-2 h-7 px-0 text-[10px] text-orange-300 hover:bg-transparent hover:text-orange-200">
-                      <Plus className="mr-1 h-3.5 w-3.5" /> Add a custom record
-                    </Button>
-                  </div>
-                )}
+                {savedPersonalRecords.map((record) => {
+                  const sourceLabel = record.source === "game" ? "Game" : record.source === "season" ? "Season" : "Training";
+                  const date = formatDate(record.achievedAt);
+                  return (
+                    <article key={record.id} className="rounded-xl border border-amber-300/15 bg-[radial-gradient(ellipse_at_top_left,rgba(245,190,65,0.08),transparent_68%),#17150f] p-3.5" data-testid={`saved-personal-record-${record.id}`}>
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="min-w-0 truncate text-xs font-semibold text-zinc-100">{record.metricName}</p>
+                        <Badge variant="outline" className="shrink-0 border-amber-300/15 bg-amber-300/[0.04] text-[8px] uppercase tracking-wider text-amber-100/60">{sourceLabel}</Badge>
+                      </div>
+                      <p className="mt-2 font-display text-2xl font-black tabular-nums tracking-tight text-amber-100">{formatValue(record.newValue)}</p>
+                      {date && <p className="mt-1 text-[9px] uppercase tracking-wider text-zinc-600">{date}</p>}
+                    </article>
+                  );
+                })}
+
+                {customRecords.map((record) => (
+                  <article key={record.id} className="rounded-xl border border-amber-300/15 bg-[radial-gradient(ellipse_at_top_left,rgba(245,190,65,0.08),transparent_68%),#17150f] p-3.5" data-testid={`custom-record-${record.id}`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-semibold text-zinc-100">{record.metricName}</p>
+                        <Badge variant="outline" className="mt-1.5 border-amber-300/15 bg-amber-300/[0.04] text-[8px] uppercase tracking-wider text-amber-100/60">Custom record</Badge>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-0.5">
+                        <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-zinc-500 hover:text-amber-100" onClick={() => setRecordEditor({ kind: "custom", id: record.id, title: record.metricName, value: String(Number(record.newValue)) })} aria-label={`Edit ${record.metricName}`} data-testid={`button-edit-custom-record-${record.id}`}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-zinc-500 hover:text-red-300" onClick={() => {
+                          if (window.confirm(`Delete the custom record “${record.metricName}”?`)) deleteRecordMutation.mutate(record.id);
+                        }} aria-label={`Delete ${record.metricName}`} data-testid={`button-delete-custom-record-${record.id}`}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                    <p className="mt-2 font-display text-2xl font-black tabular-nums tracking-tight text-amber-100">{formatValue(record.newValue)}</p>
+                  </article>
+                ))}
               </div>
-            </div>
+            )}
           </div>
-        )}
+        </div>
       </section>
 
       <Dialog open={awardDialogOpen} onOpenChange={(open) => {

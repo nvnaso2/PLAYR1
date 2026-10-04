@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ChevronRight, Crown, Fingerprint, Pencil, Settings, Target, Trophy } from "lucide-react";
+import { ArrowLeft, Crown, Fingerprint, Pencil, Settings, Target, Trophy } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -130,34 +130,30 @@ export default function ProfilePage() {
               onPhotoUpdated={() => queryClient.invalidateQueries({ queryKey: ["/api/career"] })}
             />
           </div>
-          <ShareMenu
-            url={`/player/${slug}`}
-            title={`${displayName} - PLAYR1 Player Profile`}
-            description="Check out my basketball profile on PLAYR1!"
-            testId="button-share-profile"
-          />
-
-          <section aria-labelledby="profile-stats-heading" className="w-full max-w-xl space-y-3" data-testid="section-profile-career-stats">
-            <h2 id="profile-stats-heading" className="mt-1 text-lg font-black tracking-tight text-zinc-100">Career &amp; Season Stats</h2>
-            <StatsTab />
-          </section>
-
-          <section aria-labelledby="profile-trophies-heading" className="w-full max-w-xl space-y-3" data-testid="section-profile-trophy-room">
-            <h2 id="profile-trophies-heading" className="text-lg font-black tracking-tight text-zinc-100">Trophy room</h2>
-            <Button asChild variant="outline" className="group h-auto w-full justify-between border-amber-300/15 bg-[radial-gradient(ellipse_at_top,rgba(245,190,65,0.08),transparent_72%),#141414] px-4 py-4 text-left text-zinc-100 hover:border-amber-300/30 hover:bg-[#191714]" data-testid="button-open-trophy-room">
-              <Link href="/trophy-room">
-                <span className="flex min-w-0 items-center gap-3">
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-amber-300/20 bg-amber-300/[0.07] text-amber-200">
-                    <Trophy className="h-5 w-5" />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-sm font-bold">Open Trophy Room</span>
-                    <span className="mt-1 block text-xs font-normal text-zinc-500">Awards, game and season bests, and personal records</span>
-                  </span>
-                </span>
-                <ChevronRight className="ml-3 h-4 w-4 shrink-0 text-zinc-500 transition-transform group-hover:translate-x-0.5 group-hover:text-amber-200" />
+          <div className="flex w-full flex-wrap items-center justify-center gap-2">
+            <ShareMenu
+              url={`/player/${slug}`}
+              title={`${displayName} - PLAYR1 Player Profile`}
+              description="Check out my basketball profile on PLAYR1!"
+              testId="button-share-profile"
+              className="h-10 border-zinc-700 bg-zinc-900 px-4 text-zinc-200 hover:bg-zinc-800 hover:text-white"
+            />
+            <Button
+              asChild
+              variant="outline"
+              className="h-10 rounded-full border border-amber-300/60 bg-[radial-gradient(ellipse_at_top,rgba(245,190,65,0.16),transparent_75%),#17140e] px-4 text-xs font-black text-amber-100 shadow-[0_0_18px_rgba(245,190,65,0.2),inset_0_0_0_1px_rgba(245,190,65,0.08)] transition hover:border-amber-200 hover:bg-[#201a0e] hover:text-amber-50 hover:shadow-[0_0_24px_rgba(245,190,65,0.32)]"
+              data-testid="button-open-trophy-room"
+            >
+              <Link href="/trophy-room" className="flex items-center gap-2">
+                <Trophy className="h-4 w-4 text-amber-300" />
+                Trophy Room
               </Link>
             </Button>
+          </div>
+
+          <section aria-labelledby="profile-stats-heading" className="w-full min-w-0 space-y-3" data-testid="section-profile-career-stats">
+            <h2 id="profile-stats-heading" className="mt-1 text-lg font-black tracking-tight text-zinc-100">Career &amp; Season Stats</h2>
+            <StatsTab />
           </section>
 
           <section aria-labelledby="profile-development-heading" className="w-full max-w-xl space-y-3">

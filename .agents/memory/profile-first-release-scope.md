@@ -13,6 +13,12 @@ For Career Stats, use a Career/Season switcher, defaulting to Career. In Career 
 
 **How to apply:** render the Season Log in Career mode and the selected season’s Game Log in Season mode inside the same stats card on both Profile and Profile Hub. Keep Career as the default, put the season selector in its fixed toolbar slot only in Season mode, and keep Averages/Totals in the same top toolbar row. Do not delete stored seasons or games.
 
+On Profile, place the compact gold-glow Trophy Room button beside Share. Keep the orange “Your Milestones” eyebrow without a feature banner. Group saved personal records, custom records, and player-entered bests in one gold-accented Personal Records area with prominent scores; keep calculated game and season highs separate. Let Stats use the available Profile width, and wrap its top-toolbar controls inside the card rather than letting Averages or Totals overflow.
+
+**Why:** the user wants Profile to link directly to the milestone space and to scan all saved personal records as one medal-themed collection, while keeping Stats controls usable at narrow widths.
+
+**How to apply:** preserve the existing record queries, forms, and CRUD behavior. Keep Averages/Totals with the top Stats controls; allow wrapping when needed instead of placing them in a separate toolbar or allowing horizontal overflow.
+
 Keep the card on the page background without a separate frame or instruction line. Style Edit Profile black with an orange glow and outline, and use the same brighter glowing orange on the card accents.
 
 Keep basketball details, About, Location, Physical Attributes, and Academics together in one compact “Player Profile Information” card with small controls and one save action; do not split these into large cards. Do not show skill ratings, the account avatar/name/email block, or an editable profile URL slug there; keep the existing slug for public-profile routes. Keep school under Academics and synchronize it to both career and player-profile records. Leave social links, highlight video, and season availability where they are until the user chooses their destination.
