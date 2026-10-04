@@ -2720,35 +2720,53 @@ function StatsOverviewCard({
   seasons,
   statsScope,
   selectedSeasonId,
-  readOnly,
+  canManage,
+  isManaging,
+  onToggleManagement,
   onScopeChange,
   onSeasonChange,
   seasonGames,
   seasonGamesLoading,
   onCreateSeason,
   onLogGame,
+  onImportStats,
   onShareGame,
   onEditGame,
   onDeleteGame,
+  onToggleSeasonActive,
+  onEditSeason,
+  onShareSeason,
+  onDeleteSeason,
 }: {
   careerStats?: CareerStats;
   seasons: Season[];
   statsScope: "career" | "season";
   selectedSeasonId: string;
-  readOnly: boolean;
+  canManage: boolean;
+  isManaging: boolean;
+  onToggleManagement: () => void;
   onScopeChange: (scope: "career" | "season") => void;
   onSeasonChange: (seasonId: string) => void;
   seasonGames?: Game[];
   seasonGamesLoading: boolean;
   onCreateSeason: () => void;
   onLogGame: () => void;
+  onImportStats: () => void;
   onShareGame: (gameId: string) => void;
   onEditGame: (game: Game) => void;
   onDeleteGame: (gameId: string) => void;
+  onToggleSeasonActive: (season: Season) => void;
+  onEditSeason: (season: Season) => void;
+  onShareSeason: (seasonId: string) => void;
+  onDeleteSeason: (seasonId: string) => void;
 }) {
   const [statsView, setStatsView] = useState<"averages" | "totals">("averages");
   const selectedSeason = seasons.find((season) => season.id === selectedSeasonId);
   const seasonStats = careerStats?.seasonBreakdown?.find((season) => season.seasonId === selectedSeasonId);
+  const seasonLog = [...seasons].sort((a, b) => {
+    const activeDifference = Number(a.isActive === false) - Number(b.isActive === false);
+    return activeDifference || b.year.localeCompare(a.year);
+  });
   const totals = statsScope === "career" ? {
     games: careerStats?.totalGames ?? 0,
     points: careerStats?.totalPoints ?? 0,
