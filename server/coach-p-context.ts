@@ -5,6 +5,29 @@ export interface CoachPLeadMagnetResult {
   createdAt: Date | string;
 }
 
+export function selectRelevantCoachPLeadMagnetResults(
+  submissions: readonly CoachPLeadMagnetResult[],
+  focuses: readonly string[],
+): CoachPLeadMagnetResult[] {
+  if (focuses.length === 0) return [...submissions];
+
+  const selectedFocuses = new Set(focuses);
+  const shootingRelated = selectedFocuses.has("shooting");
+  const footworkRelated = selectedFocuses.has("footwork");
+  const shootingQuizzes = new Set([
+    "shooting-mechanics",
+    "footwork-open-shots",
+    "game-speed-shooting",
+  ]);
+
+  return submissions.filter(({ leadMagnetId }) => {
+    if (leadMagnetId === "confidence-reality-check") return true;
+    if (shootingRelated && shootingQuizzes.has(leadMagnetId)) return true;
+    if (footworkRelated && leadMagnetId === "footwork-open-shots") return true;
+    return false;
+  });
+}
+
 const leadMagnetTitles: Record<string, string> = {
   "shooting-mechanics": "Shooting Mechanics",
   "footwork-open-shots": "Footwork That Leads to Open Shots",

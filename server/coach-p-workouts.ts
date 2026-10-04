@@ -140,7 +140,7 @@ export function createCoachPWorkoutIntake(options: {
       }
       return {
         ...question,
-        question: `Your profile points to ${recommended.label}. Is that your focus for this workout?`,
+        question: `Your player information points to ${recommended.label}. Is that your focus for this workout?`,
         options: [recommended, ...question.options.filter((option) => option.value !== recommended.value)],
       };
     }),

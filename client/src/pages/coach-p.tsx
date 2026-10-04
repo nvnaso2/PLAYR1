@@ -1034,11 +1034,24 @@ export default function CoachPPage() {
     const params = new URLSearchParams(search);
     const conversationId = params.get("conversationId");
     const prompt = params.get("prompt");
-    const linkKey = conversationId ? `conversation:${conversationId}` : prompt ? `prompt:${prompt}` : "";
+    const welcomeWorkout = params.get("welcomeWorkout") === "1";
+    const linkKey = conversationId
+      ? `conversation:${conversationId}`
+      : welcomeWorkout
+        ? "welcome-workout"
+        : prompt
+          ? `prompt:${prompt}`
+          : "";
     if (!linkKey || handledDeepLinkRef.current === linkKey) return;
     handledDeepLinkRef.current = linkKey;
     if (conversationId) {
       void openConversation(conversationId);
+    } else if (welcomeWorkout) {
+      startNewConversation();
+      sendMessage("Build my first workout", {
+        workoutBuilder: true,
+        displayContent: "Build my first workout",
+      });
     } else if (prompt) {
       startNewConversation();
       setDraft(prompt);

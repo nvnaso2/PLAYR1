@@ -47,7 +47,10 @@ import {
   type CoachPWorkoutAnswers,
   type CoachPWorkoutPreview,
 } from "./coach-p-workouts";
-import { formatCoachPLeadMagnetResults } from "./coach-p-context";
+import {
+  formatCoachPLeadMagnetResults,
+  selectRelevantCoachPLeadMagnetResults,
+} from "./coach-p-context";
 import {
   classifyCoachPQuestion,
   getActiveCoachPFlow,
@@ -1752,9 +1755,17 @@ Start now with a warm one-line greeting that briefly references something specif
       const needsAssessmentAnswers = ["profile", "goal", "opportunity", "workout"].includes(contextMode) || isJournalCoach;
       const needsPrograms = contextMode === "workout" || isJournalCoach;
       const needsLeadMagnetResults = contextMode !== "general" || isJournalCoach;
+      const needsPlayerSetupAnswers = contextMode === "workout";
       const contextStartedAt = Date.now();
-      const [userProfile, career, playerProfile, userArchetypes, activeGoal, journalEntries, trainingLogs, principles, userStats, weeklyStats, categoryStats, dashboardStats, progressTrends, shotStats, careerStats, drillProgress, availableDrills, availablePrograms, activeEnrollments, playerLeadMagnetSubmissions] = await Promise.all([
+      const [userProfile, playerSetupAnswers, career, playerProfile, userArchetypes, activeGoal, journalEntries, trainingLogs, principles, userStats, weeklyStats, categoryStats, dashboardStats, progressTrends, shotStats, careerStats, drillProgress, availableDrills, availablePrograms, activeEnrollments, playerLeadMagnetSubmissions] = await Promise.all([
         storage.getUserProfile(userId),
+        needsPlayerSetupAnswers
+          ? db.select({ answers: playerSetupProfiles.answers })
+              .from(playerSetupProfiles)
+              .where(eq(playerSetupProfiles.userId, userId))
+              .limit(1)
+              .then((rows) => rows[0]?.answers ?? null)
+          : Promise.resolve(null),
         storage.getCareerProfile(userId),
         storage.getPlayerProfile(userId),
         storage.getUserArchetypes(userId),
@@ -1820,9 +1831,62 @@ Start now with a warm one-line greeting that briefly references something specif
       const assessmentAnswers = needsAssessmentAnswers && career?.assessmentAnswers
         ? JSON.stringify(career.assessmentAnswers).slice(0, 10000)
         : "Assessment answers were not needed for this question.";
+      const setupAnswers = playerSetupAnswers && typeof playerSetupAnswers === "object" && !Array.isArray(playerSetupAnswers)
+        ? playerSetupAnswers as Record<string, unknown>
+        : {};
+      const setupString = (value: unknown) => typeof value === "string" ? value : null;
+      const setupSkillRankings = setupAnswers.skillRankings
+        && typeof setupAnswers.skillRankings === "object"
+        && !Array.isArray(setupAnswers.skillRankings)
+        ? setupAnswers.skillRankings as Record<string, unknown>
+        : {};
+      const setupFocus = recommendCoachPWorkoutFocus([
+        setupString(setupSkillRankings.improveMost),
+        setupString(setupAnswers.primaryGoal),
+      ]);
+      const profileFocus = recommendCoachPWorkoutFocus([
+        career?.assessmentBottleneck,
+        career?.focusSkill,
+        career?.assessmentPrimaryGoal,
+        ...userArchetypes.map((entry: any) => entry.archetype?.name),
+      ]);
+      const setupContext = needsPlayerSetupAnswers ? {
+        firstName: setupString(setupAnswers.firstName),
+        currentSituation: setupString(setupAnswers.currentSituation),
+        skillRoles: setupAnswers.skillRoles ?? null,
+        skillRankings: {
+          best: setupString(setupSkillRankings.best),
+          secondBest: setupString(setupSkillRankings.secondBest),
+          worst: setupString(setupSkillRankings.worst),
+          improveMost: setupString(setupSkillRankings.improveMost),
+        },
+        primaryGoal: setupString(setupAnswers.primaryGoal),
+        trainingDaysPerUnit: setupAnswers.trainingDaysPerUnit ?? null,
+        trainingPeriodUnit: setupString(setupAnswers.trainingPeriodUnit),
+        experienceYears: setupAnswers.experienceYears ?? null,
+        competitiveExperienceYears: setupAnswers.competitiveExperienceYears ?? null,
+        teamName: setupString(setupAnswers.teamName),
+        teamRole: setupString(setupAnswers.teamRole),
+        positions: Array.isArray(setupAnswers.positions)
+          ? setupAnswers.positions.filter((position): position is string => typeof position === "string")
+          : [],
+      } : null;
+      const leadMagnetFocuses = workoutAnswers
+        ? [workoutAnswers.primaryFocus, ...workoutAnswers.secondaryFocuses]
+        : setupFocus
+          ? [setupFocus]
+          : profileFocus
+            ? [profileFocus]
+            : [];
+      const relevantLeadMagnetSubmissions = contextMode === "workout"
+        ? selectRelevantCoachPLeadMagnetResults(playerLeadMagnetSubmissions, leadMagnetFocuses)
+        : playerLeadMagnetSubmissions;
       const leadMagnetResultsText = needsLeadMagnetResults
-        ? formatCoachPLeadMagnetResults(playerLeadMagnetSubmissions)
+        ? formatCoachPLeadMagnetResults(relevantLeadMagnetSubmissions)
         : "Not loaded because quiz results are not relevant to this question.";
+      const setupContextText = needsPlayerSetupAnswers
+        ? JSON.stringify(setupContext).slice(0, 6000)
+        : "Not loaded because completed setup answers are not relevant to this question.";
       const recentJournal = journalEntries.slice(0, 5).map((entry: any) => {
         const answers = (entry.responses ?? []).map((response: any) => `${response.question}: ${response.answer}`).join(" | ");
         return `${entry.createdAt ? new Date(entry.createdAt).toLocaleDateString() : "unknown date"}${entry.mood ? `, mood ${entry.mood}/5` : ""}: ${answers.slice(0, 500)}${entry.thoughts ? ` | Thoughts: ${entry.thoughts.slice(0, 500)}` : ""}`;
@@ -1920,6 +1984,9 @@ PLAYER IDENTITY
 - Location: ${[userProfile?.city, userProfile?.state].filter(Boolean).join(", ") || "not specified"}
 - Skill level: ${userProfile?.skillLevel || "not specified"}
 
+COMPLETED FIVE-STEP PLAYER SETUP
+${setupContextText}
+
 MY CAREER
 - Position(s): ${(career?.positions ?? []).join(", ") || "not specified"}
 - Grade: ${career?.gradeLevel || "not specified"}
@@ -1943,8 +2010,8 @@ ASSESSMENT RESULTS
 - Experience: ${career?.assessmentExperienceScore ?? "?"}/100 (${career?.assessmentExperienceBand || "not scored"})
 - Raw assessment answers: ${assessmentAnswers}
 
-LEAD MAGNET QUIZ RESULTS
-All saved quiz attempts for this player, newest first. These are self-reported diagnostic answers, not objective performance measurements. Refer to them when relevant.
+SAVED LEAD MAGNET QUIZ RESULTS
+Saved quiz attempts relevant to this request, newest first. These are self-reported diagnostic answers, not objective performance measurements.
 ${leadMagnetResultsText}
 
 SELECTED ARCHETYPES
@@ -1985,12 +2052,6 @@ PLAYER PROFILE DETAILS
 `.trim();
 
       if (isWorkoutIntakeStart && conversation) {
-        const textualFocus = recommendCoachPWorkoutFocus([
-          career?.assessmentBottleneck,
-          career?.focusSkill,
-          career?.assessmentPrimaryGoal,
-          ...userArchetypes.map((entry: any) => entry.archetype?.name),
-        ]);
         const selfRatedSkills: Array<{ focus: string; score: unknown }> = [
           { focus: "ball-handling", score: career?.skillBallHandling },
           { focus: "shooting", score: career?.skillShooting },
@@ -2008,19 +2069,48 @@ PLAYER PROFILE DETAILS
             || Number(sortedSelfRatedSkills[0].score) < Number(sortedSelfRatedSkills[1].score))
           ? sortedSelfRatedSkills[0].focus
           : null;
-        const recommendedFocus = textualFocus ?? lowestSelfRatedSkill;
+        const recommendedFocus = setupFocus ?? profileFocus ?? lowestSelfRatedSkill;
+        const setupPositions = Array.isArray(setupAnswers.positions)
+          ? setupAnswers.positions.filter((position): position is string => typeof position === "string")
+          : [];
+        const setupFacts = [
+          setupString(setupAnswers.currentSituation)
+            ? `current situation: ${setupString(setupAnswers.currentSituation)}`
+            : null,
+          setupPositions.length ? `positions: ${setupPositions.join(" / ")}` : null,
+          setupString(setupAnswers.primaryGoal) ? `goal: ${setupString(setupAnswers.primaryGoal)}` : null,
+          setupString(setupSkillRankings.best) ? `strongest skill: ${setupString(setupSkillRankings.best)}` : null,
+          setupString(setupSkillRankings.improveMost)
+            ? `top improvement focus: ${setupString(setupSkillRankings.improveMost)}`
+            : null,
+          setupAnswers.trainingDaysPerUnit !== undefined && setupAnswers.trainingDaysPerUnit !== null
+            ? `training plan: ${String(setupAnswers.trainingDaysPerUnit)} days per ${setupString(setupAnswers.trainingPeriodUnit) || "week"}`
+            : null,
+          setupString(setupAnswers.teamRole) ? `team role: ${setupString(setupAnswers.teamRole)}` : null,
+          setupString(setupAnswers.teamName) ? `team: ${setupString(setupAnswers.teamName)}` : null,
+        ].filter((fact): fact is string => Boolean(fact));
+        const setupSummary = setupFacts.length
+          ? `I reviewed your setup: ${setupFacts.join("; ")}.`
+          : "I reviewed the player and profile details saved on your account.";
+        const playerFirstName = setupString(setupAnswers.firstName)
+          ?? userProfile?.displayName?.split(/\s+/)[0]
+          ?? null;
+        const savedQuizNote = relevantLeadMagnetSubmissions.length
+          ? "I’ll also use your saved diagnostic answers when they match this workout."
+          : null;
         const intake = createCoachPWorkoutIntake({
           recommendedFocus,
           intro: [
-            "I reviewed your player profile and training history.",
+            `${playerFirstName ? `Hey ${playerFirstName}.` : "Hey."} ${setupSummary}`,
             recommendedFocus
-              ? `Your profile points to ${recommendedFocus.replaceAll("-", " ")} as one area to consider.`
-              : "I’ll use the profile details available on your account to guide the drill choices.",
+              ? `Your setup and profile point to ${recommendedFocus.replaceAll("-", " ")} as a starting focus; confirm it or choose another.`
+              : "We’ll use your goal and profile to choose a focus for this session.",
+            savedQuizNote,
             trainingLogs[0]
               ? `Your latest logged work was ${trainingLogs[0].drillId ? drillNameById.get(trainingLogs[0].drillId) || "a saved drill" : "a free training session"}${trainingLogs[0].completedAt ? ` on ${new Date(trainingLogs[0].completedAt).toLocaleDateString()}` : ""}${trainingLogs[0].duration ? ` for ${trainingLogs[0].duration} minutes` : ""}.`
               : "There are no saved training sessions yet, so I’ll start with your profile and the focus you choose.",
-            "Tell me what you specifically want to work on, then choose the session length, setting, and two supporting focuses.",
-          ].join(" "),
+            "Choose your primary focus, session length, setting, and two supporting focuses below.",
+          ].filter(Boolean).join(" "),
         });
         const intakeMessage = intake.intro;
         const storedIntakeMessage = formatCoachPWorkoutIntake(intake);
@@ -2170,6 +2260,7 @@ Return JSON only with this shape:
   }
 }
 Build exactly one focused workout session, never a multi-day plan or weekly program. If one important constraint is missing (especially the skill, game situation, or weakness the player wants to work on, available time, equipment/access, or desired intensity), return "workout": null and ask exactly one focused followUpQuestion. When asking about focus, ask what the player specifically wants to work on in this workout. Do not ask multiple questions. Once the constraint is clear, return the complete workout. The response must explain how the workout connects to the player's stated focus, selectionRationale must explain why the drills were chosen as a group, and every drill's coachingNotes must explain why that drill was chosen and what it will help the player improve. Never invent a drill ID: use only the catalog below. Use 1 to 8 catalog drills in the requested order. Use either sets or reps when the drill calls for it, and always include durationMinutes.
+Use the completed five-step setup, player profile and career details, training history, and relevant saved lead-magnet answers above. Do not ask the player to repeat setup facts they have already provided. Treat lead-magnet answers as self-reported context, and use them only when they relate to the selected workout focus.
 The player has already answered the required workout intake:
 ${JSON.stringify(workoutAnswers)}
 Use those answers exactly: honor the duration, tailor the plan to solo/partner/group setting, make the primary focus the central objective, and use both secondary focuses as supporting objectives. Do not ask another follow-up question.

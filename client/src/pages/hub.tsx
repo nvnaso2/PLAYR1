@@ -100,7 +100,7 @@ function formatDate() {
 export default function HubPage() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
-  const [testHubView, setTestHubView] = useState<"auto" | "onboarding" | "everyday">("auto");
+  const [testHubView, setTestHubView] = useState<"onboarding" | "everyday" | null>(null);
   const [trailerDismissed, setTrailerDismissed] = useState(() =>
     localStorage.getItem("playr1_intro_trailer_dismissed") === "1"
   );
@@ -178,7 +178,7 @@ export default function HubPage() {
     refetchOnWindowFocus: true,
   });
   const profileIncomplete = !user?.lastName || !careerData?.positions?.length || !careerData?.aspiration;
-  const showProfileSetup = import.meta.env.DEV && testHubView !== "auto"
+  const showProfileSetup = import.meta.env.DEV && testHubView !== null
     ? testHubView === "onboarding"
     : profileIncomplete;
   const { data: setupData } = useQuery<{ answers?: Record<string, any> }>({
@@ -559,33 +559,36 @@ export default function HubPage() {
               <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-300">Test tools · development only</span>
               <button
                 type="button"
-                onClick={() => navigate("/welcome-workout")}
+                onClick={() => navigate("/coach-p?welcomeWorkout=1")}
                 className="inline-flex items-center gap-1.5 rounded-md border border-amber-400/30 bg-amber-400/10 px-2.5 py-1.5 text-[10px] font-bold text-amber-200 transition hover:bg-amber-400/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
                 data-testid="button-test-welcome-workout"
               >
                 <PlayCircle className="h-3.5 w-3.5" />
-                Test AI welcome workout
+                Test welcome chat
               </button>
             </div>
             <div className="inline-flex rounded-lg border border-white/10 bg-black/30 p-0.5" role="group" aria-label="Hub view for testing">
               {([
-                ["auto", "Profile state"],
                 ["onboarding", "Onboarding"],
                 ["everyday", "Everyday"],
-              ] as const).map(([view, label]) => (
-                <button
-                  key={view}
-                  type="button"
-                  onClick={() => setTestHubView(view)}
-                  aria-pressed={testHubView === view}
-                  className={`rounded-md px-2.5 py-1.5 text-[10px] font-bold transition ${
-                    testHubView === view ? "bg-orange-500 text-black" : "text-zinc-400 hover:text-white"
-                  }`}
-                  data-testid={`button-hub-test-view-${view}`}
-                >
-                  {label}
-                </button>
-              ))}
+              ] as const).map(([view, label]) => {
+                const isSelected = testHubView === view
+                  || (testHubView === null && profileIncomplete === (view === "onboarding"));
+                return (
+                  <button
+                    key={view}
+                    type="button"
+                    onClick={() => setTestHubView(view)}
+                    aria-pressed={isSelected}
+                    className={`rounded-md px-2.5 py-1.5 text-[10px] font-bold transition ${
+                      isSelected ? "bg-orange-500 text-black" : "text-zinc-400 hover:text-white"
+                    }`}
+                    data-testid={`button-hub-test-view-${view}`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
