@@ -100,6 +100,7 @@ function formatDate() {
 export default function HubPage() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
+  const [testHubView, setTestHubView] = useState<"auto" | "onboarding" | "everyday">("auto");
   const [trailerDismissed, setTrailerDismissed] = useState(() =>
     localStorage.getItem("playr1_intro_trailer_dismissed") === "1"
   );
@@ -177,7 +178,9 @@ export default function HubPage() {
     refetchOnWindowFocus: true,
   });
   const profileIncomplete = !user?.lastName || !careerData?.positions?.length || !careerData?.aspiration;
-  const showProfileSetup = profileIncomplete;
+  const showProfileSetup = import.meta.env.DEV && testHubView !== "auto"
+    ? testHubView === "onboarding"
+    : profileIncomplete;
   const { data: setupData } = useQuery<{ answers?: Record<string, any> }>({
     queryKey: ["/api/player-setup"],
     enabled: !!user && !showProfileSetup,
@@ -550,6 +553,31 @@ export default function HubPage() {
     <div className="min-h-full bg-background pb-6">
       {/* Greeting Header */}
       <div className="px-5 pt-6 pb-2">
+        {import.meta.env.DEV && (
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed border-amber-500/35 bg-amber-500/[0.06] px-3 py-2" data-testid="hub-test-view-toggle">
+            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-300">Test Hub view · development only</span>
+            <div className="inline-flex rounded-lg border border-white/10 bg-black/30 p-0.5" role="group" aria-label="Hub view for testing">
+              {([
+                ["auto", "Profile state"],
+                ["onboarding", "Onboarding"],
+                ["everyday", "Everyday"],
+              ] as const).map(([view, label]) => (
+                <button
+                  key={view}
+                  type="button"
+                  onClick={() => setTestHubView(view)}
+                  aria-pressed={testHubView === view}
+                  className={`rounded-md px-2.5 py-1.5 text-[10px] font-bold transition ${
+                    testHubView === view ? "bg-orange-500 text-black" : "text-zinc-400 hover:text-white"
+                  }`}
+                  data-testid={`button-hub-test-view-${view}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="flex items-start justify-between">
           <div>
             <p className="text-zinc-400 text-sm">{formatDate()}</p>
