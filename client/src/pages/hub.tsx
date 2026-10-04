@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation, useSearch } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DrillCard } from "@/components/drill-card";
 import { nativeFetch, statsUrl } from "@/lib/queryClient";
 import {
   HUB_STAT_DEFINITIONS,
@@ -386,24 +387,20 @@ export default function HubPage() {
   const activeRecap = activePage[activeStatIndex] ?? activePage[0] ?? "streak";
   const activeRecapMetric = recapMetrics[activeRecap] ?? recapMetrics.streak;
   const ActiveRecapIcon = activeRecapMetric.icon;
-  const selectGroup = (groupIndex: number) => {
-    setActiveGroup(groupIndex);
-  };
-  const cycleRecapStat = (direction: 1 | -1) => {
-    const nextStat = (activeStatIndex + direction + activePage.length) % activePage.length;
+  const selectStat = (statIndex: number) => {
     setActiveStatIndexes((current) => {
       const next = [...current] as [number, number, number];
-      next[activeGroup] = nextStat;
+      next[activeGroup] = statIndex;
       return next;
     });
+  };
+  const cycleRecapGroup = (direction: 1 | -1) => {
+    setActiveGroup((current) => (current + direction + statPages.length) % statPages.length);
   };
 
   const weeklyRecapSection = (
     <section className="space-y-3" data-testid="card-progress-preview">
       <div className="flex items-end justify-between">
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500 font-bold">TRAINING SNAPSHOT</p>
-        </div>
         <button
             type="button"
             onClick={() => navigate("/progress?from=hub")}
@@ -413,9 +410,6 @@ export default function HubPage() {
             Full dashboard
             <ChevronRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
           </button>
-      </div>
-      <div className="flex justify-end">
-        <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-600">Past month</p>
       </div>
       {overviewLoading || weeklyStatsLoading || monthlyStatsLoading || dashboardTrainingLoading || monthlyCategoryStatsLoading || monthlyTrendsLoading ? (
         <div className="space-y-2.5" aria-label="Loading weekly recap">
@@ -455,18 +449,18 @@ export default function HubPage() {
               <div className="flex shrink-0 items-center gap-1">
                 <button
                   type="button"
-                  onClick={() => cycleRecapStat(-1)}
+                  onClick={() => cycleRecapGroup(-1)}
                   className="flex h-8 w-8 items-center justify-center rounded-full border border-zinc-700 bg-zinc-950/60 text-zinc-400 transition hover:border-zinc-500 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
-                  aria-label={`Show previous stat in category ${activeGroup + 1}`}
+                  aria-label="Show previous stat group"
                   data-testid="button-previous-weekly-recap"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
                 <button
                   type="button"
-                  onClick={() => cycleRecapStat(1)}
+                  onClick={() => cycleRecapGroup(1)}
                   className="flex h-8 w-8 items-center justify-center rounded-full border border-zinc-700 bg-zinc-950/60 text-zinc-400 transition hover:border-zinc-500 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
-                  aria-label={`Show next stat in category ${activeGroup + 1}`}
+                  aria-label="Show next stat group"
                   data-testid="button-next-weekly-recap"
                 >
                   <ChevronRight className="h-4 w-4" />
@@ -478,7 +472,7 @@ export default function HubPage() {
                 <p className="text-4xl font-black leading-none text-white">
                   {activeRecapMetric.valueLabel}
                 </p>
-                <p className="mt-2 text-[11px] font-medium text-zinc-500">Use the arrows to browse this group.</p>
+                <p className="mt-2 text-[11px] font-medium text-zinc-500">Choose a stat below or switch groups with the arrows.</p>
               </div>
               <div className="flex h-11 items-end gap-1" aria-label="Seven day activity">
                 {(weeklyStats ?? []).map((day) => (
@@ -493,30 +487,34 @@ export default function HubPage() {
             </div>
             <div className="relative mt-3 flex items-center justify-between border-t border-white/10 pt-2.5 text-[9px] font-bold uppercase tracking-[0.15em] text-zinc-500">
               <span>{activeRecap === "streak" ? "Keep the run alive" : "7-day activity"}</span>
-              <span>Stat {activeStatIndex + 1} of {activePage.length} in category {activeGroup + 1}</span>
+              <span>Group {activeGroup + 1} of {statPages.length}</span>
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-2" role="group" aria-label="Hub stat groups">
-            {statPages.map((group, groupIndex) => {
-              const groupStatIndex = activeStatIndexes[groupIndex] ?? 0;
-              const groupMetric = recapMetrics[group[groupStatIndex] ?? group[0] ?? "streak"];
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">Training Snapshot</p>
+            <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-600">Past month</p>
+          </div>
+          <div className="grid grid-cols-3 gap-2" role="group" aria-label={`Stats in group ${activeGroup + 1}`}>
+            {activePage.map((statKey, statIndex) => {
+              const groupMetric = recapMetrics[statKey] ?? recapMetrics.streak;
               const GroupMetricIcon = groupMetric.icon;
-              const isActive = groupIndex === activeGroup;
+              const isActive = statIndex === activeStatIndex;
               return (
                 <button
-                    key={groupIndex}
+                    key={statKey}
                     type="button"
-                    onClick={() => selectGroup(groupIndex)}
+                    onClick={() => selectStat(statIndex)}
                     aria-pressed={isActive}
+                    aria-label={`Show ${groupMetric.label}`}
                     className={`min-w-0 rounded-xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 ${
                       isActive ? `${groupMetric.tabClass} border-zinc-500` : "border-zinc-700 bg-zinc-900 text-zinc-400 hover:border-zinc-500"
                     }`}
-                    data-testid={`hub-stat-slot-${groupIndex}`}
+                    data-testid={`hub-stat-slot-${statIndex}`}
                   >
                     <span className="flex items-center justify-between gap-1">
                       <GroupMetricIcon className="h-3.5 w-3.5 shrink-0" />
-                      {isActive && <span className="text-[8px] font-bold uppercase tracking-wider">Active</span>}
+                      {isActive && <span className="text-[8px] font-bold uppercase tracking-wider text-orange-300">Selected</span>}
                     </span>
                     <span className="mt-1.5 block truncate text-base font-black leading-none text-white">{groupMetric.valueLabel}</span>
                     <span className="mt-1 block truncate text-[9px] uppercase tracking-wide text-zinc-500">{groupMetric.label}</span>
@@ -549,9 +547,9 @@ export default function HubPage() {
         <span className="shrink-0 pb-0.5 text-[9px] font-bold uppercase tracking-[0.16em] text-zinc-500">New picks daily</span>
       </div>
       {drillLibraryLoading ? (
-        <div className="space-y-2" aria-label="Loading suggested drills">
+        <div className="grid grid-cols-3 gap-2" aria-label="Loading suggested drills">
           {[0, 1, 2].map((item) => (
-            <Skeleton key={item} className="h-[72px] rounded-xl" data-testid={`suggested-drill-loading-${item}`} />
+            <Skeleton key={item} className="aspect-[11/5] rounded-t-xl" data-testid={`suggested-drill-loading-${item}`} />
           ))}
         </div>
       ) : drillLibraryError ? (
@@ -559,35 +557,12 @@ export default function HubPage() {
           Suggested drills are unavailable right now.
         </p>
       ) : dailyDrillSuggestions.length > 0 ? (
-        <div className="space-y-2">
-          {dailyDrillSuggestions.map((drill, index) => {
-            const duration = drill.duration && drill.duration > 0
-              ? `${Math.max(1, Math.round(drill.duration / 60))} min`
-              : null;
-            const details = [
-              drill.category.replaceAll("-", " "),
-              drill.difficulty,
-              duration,
-            ].filter(Boolean).join(" · ");
-            return (
-              <button
-                key={drill.id}
-                type="button"
-                onClick={() => navigate(`/drill/${drill.id}`)}
-                className="group flex w-full items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900/70 p-3 text-left transition hover:border-orange-500/40 hover:bg-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
-                data-testid={`button-suggested-drill-${index + 1}`}
-              >
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-orange-500/25 bg-orange-500/10 text-orange-300">
-                  <Dumbbell className="h-4 w-4" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-bold text-zinc-100">{drill.title}</span>
-                  <span className="mt-0.5 block truncate text-[10px] capitalize text-zinc-500">{details}</span>
-                </span>
-                <ChevronRight className="h-4 w-4 shrink-0 text-zinc-600 transition group-hover:translate-x-0.5 group-hover:text-orange-300" />
-              </button>
-            );
-          })}
+        <div className="grid grid-cols-3 gap-2" data-testid="suggested-drills-row">
+          {dailyDrillSuggestions.slice(0, 3).map((drill, index) => (
+            <div key={drill.id} className="min-w-0" data-testid={`button-suggested-drill-${index + 1}`}>
+              <DrillCard drill={drill} viewMode="grid" />
+            </div>
+          ))}
         </div>
       ) : (
         <p className="rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-3 text-sm text-zinc-400" role="status">
@@ -749,13 +724,20 @@ export default function HubPage() {
               <button
                 type="button"
                 onClick={() => navigate("/profile/edit?returnTo=%2Fhub")}
-                className="group flex min-h-[104px] w-full cursor-pointer flex-col gap-3 rounded-xl border border-zinc-700 bg-zinc-900 p-4 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
+                className="group flex min-h-[88px] w-full cursor-pointer items-center gap-3 rounded-xl border border-zinc-800 bg-black p-3.5 text-left text-zinc-100 transition hover:border-zinc-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
                 data-testid="button-complete-profile"
               >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 text-orange-400">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-orange-500/25 bg-orange-500/10 text-orange-400">
                   <UserRound className="h-4 w-4" />
                 </span>
-                <span className="font-heading text-sm uppercase leading-tight tracking-wide">Complete Your Profile</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-heading text-sm uppercase leading-tight tracking-wide">Complete Your Profile</span>
+                  <span className="mt-1 block text-[11px] text-zinc-500">Add the details that make your Hub yours.</span>
+                </span>
+                <span className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-orange-500 px-3 py-2 text-[10px] font-black uppercase tracking-[0.08em] text-zinc-950 transition group-hover:bg-orange-400">
+                  Complete Profile
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </span>
               </button>
             </section>
           </>
@@ -791,17 +773,25 @@ export default function HubPage() {
                 key={path}
                 type="button"
                 onClick={() => navigate(path)}
-                className="group flex min-h-[104px] cursor-pointer flex-col gap-3 rounded-xl border border-zinc-700 bg-zinc-900 p-4 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
+                className={`group flex cursor-pointer rounded-xl border text-left text-zinc-100 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98] ${
+                  isCoachPrompt
+                    ? "h-fit min-h-[78px] self-start flex-row items-center gap-2.5 border-orange-500/25 bg-gradient-to-br from-zinc-900 to-zinc-950 p-3 hover:border-orange-400/55"
+                    : "min-h-[104px] flex-col gap-3 border-zinc-700 bg-zinc-900 p-4 hover:border-zinc-500 hover:bg-zinc-800"
+                }`}
                 data-testid={testId}
               >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 text-orange-400">
+                <span className={`flex shrink-0 items-center justify-center rounded-lg ${
+                  isCoachPrompt
+                    ? "h-8 w-8 border border-orange-400/30 bg-orange-500/10 text-orange-300"
+                    : "h-9 w-9 border border-zinc-700 bg-zinc-950 text-orange-400"
+                }`}>
                   <Icon className="h-4 w-4" />
                 </span>
-                <span>
-                  <span className="block font-heading text-sm uppercase tracking-wide leading-tight">{label}</span>
+                <span className={isCoachPrompt ? "min-w-0 flex-1" : ""}>
+                  <span className={`block font-heading uppercase tracking-wide leading-tight ${isCoachPrompt ? "text-xs" : "text-sm"}`}>{label}</span>
                   {isCoachPrompt ? (
-                    <span className="mt-1.5 flex items-start gap-1.5 rounded-lg border border-orange-500/20 bg-zinc-950/80 px-2 py-1.5 text-[10px] leading-snug text-zinc-300">
-                      <MessageCircle className="mt-0.5 h-3 w-3 shrink-0 text-orange-300" />
+                    <span className="mt-1 flex items-start gap-1 rounded-md text-[9px] leading-snug text-zinc-400">
+                      <span className="sr-only">Personalized question: </span>
                       <span className="line-clamp-2">“{detail}”</span>
                     </span>
                   ) : (

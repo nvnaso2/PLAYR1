@@ -41,11 +41,18 @@ export function RequestedOnboarding() {
         <button
           type="button"
           onClick={() => navigate("/profile/edit")}
-          className="group mt-3 flex min-h-[104px] w-full flex-col gap-3 rounded-xl border border-zinc-700 bg-zinc-900 p-4 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+          className="group mt-3 flex min-h-[88px] w-full items-center gap-3 rounded-xl border border-zinc-800 bg-black p-3.5 text-left text-zinc-100 transition hover:border-zinc-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
           data-testid="button-complete-profile"
         >
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 text-orange-400"><UserRound className="h-4 w-4" /></span>
-          <span className="font-heading text-sm uppercase leading-tight tracking-wide">Complete Your Profile</span>
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-orange-500/25 bg-orange-500/10 text-orange-400"><UserRound className="h-4 w-4" /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-heading text-sm uppercase leading-tight tracking-wide">Complete Your Profile</span>
+            <span className="mt-1 block text-[11px] text-zinc-500">Add the details that make your Hub yours.</span>
+          </span>
+          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-orange-500 px-3 py-2 text-[10px] font-black uppercase tracking-[0.08em] text-zinc-950 transition group-hover:bg-orange-400">
+            Complete Profile
+            <ChevronRight className="h-3.5 w-3.5" />
+          </span>
         </button>
 
         <section className="mt-7 space-y-3" aria-labelledby="start-training-title" data-testid="section-start-training">
@@ -60,11 +67,11 @@ export function RequestedOnboarding() {
                 <span><span className="block font-heading text-sm uppercase leading-tight tracking-wide">{label}</span><span className="mt-0.5 block text-[11px] text-zinc-500">{detail}</span></span>
               </button>
             ))}
-            <button type="button" onClick={() => navigate(`/coach-p?prompt=${encodeURIComponent(coachPrompt)}`)} className="group flex min-h-[104px] flex-col gap-3 rounded-xl border border-zinc-700 bg-zinc-900 p-4 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800" data-testid="button-start-coach-p-prompt">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 text-orange-400"><MessageCircle className="h-4 w-4" /></span>
-              <span>
-                <span className="block font-heading text-sm uppercase leading-tight tracking-wide">A question for Coach P</span>
-                <span className="mt-1.5 flex items-start gap-1.5 rounded-lg border border-orange-500/20 bg-zinc-950/80 px-2 py-1.5 text-[10px] leading-snug text-zinc-300"><MessageCircle className="mt-0.5 h-3 w-3 shrink-0 text-orange-300" /><span className="line-clamp-2">“{coachPrompt}”</span></span>
+            <button type="button" onClick={() => navigate(`/coach-p?prompt=${encodeURIComponent(coachPrompt)}`)} className="group flex h-fit min-h-[78px] self-start flex-row items-center gap-2.5 rounded-xl border border-orange-500/25 bg-gradient-to-br from-zinc-900 to-zinc-950 p-3 text-left text-zinc-100 transition hover:border-orange-400/55" data-testid="button-start-coach-p-prompt">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-orange-400/30 bg-orange-500/10 text-orange-300"><MessageCircle className="h-4 w-4" /></span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-heading text-xs uppercase leading-tight tracking-wide">A question for Coach P</span>
+                <span className="mt-1 flex items-start gap-1 text-[9px] leading-snug text-zinc-400"><span className="sr-only">Personalized question: </span><span className="line-clamp-2">“{coachPrompt}”</span></span>
               </span>
             </button>
           </div>
