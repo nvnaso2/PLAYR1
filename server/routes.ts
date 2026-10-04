@@ -4208,6 +4208,23 @@ ${JSON.stringify(catalogForPrompt)}
           },
         })
         .returning();
+
+      const userUpdate: Record<string, string | Date> = { updatedAt: new Date() };
+      if (answers.firstName !== undefined) userUpdate.firstName = answers.firstName;
+      if (answers.lastName !== undefined) userUpdate.lastName = answers.lastName;
+      if (Object.keys(userUpdate).length > 1) {
+        await db.update(users).set(userUpdate as any).where(eq(users.id, userId));
+      }
+
+      const careerUpdate: Record<string, unknown> = {};
+      if (answers.teamName !== undefined) careerUpdate.teamName = answers.teamName;
+      if (answers.positions !== undefined) careerUpdate.positions = answers.positions;
+      if (Object.keys(careerUpdate).length > 0) {
+        const career = await storage.updateCareerProfile(userId, careerUpdate as any);
+        if (!career) {
+          await storage.createCareerProfile({ userId, ...careerUpdate } as any);
+        }
+      }
       res.json({ answers: saved.answers, completed: Boolean(saved.completedAt) });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -4243,6 +4260,11 @@ ${JSON.stringify(catalogForPrompt)}
           .set({ firstName: answers.firstName, lastName: answers.lastName, updatedAt: completedAt })
           .where(eq(users.id, userId));
       });
+      const careerUpdate = { teamName: answers.teamName, positions: answers.positions };
+      const career = await storage.updateCareerProfile(userId, careerUpdate as any);
+      if (!career) {
+        await storage.createCareerProfile({ userId, ...careerUpdate } as any);
+      }
       res.json({ ok: true });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -4250,6 +4272,459 @@ ${JSON.stringify(catalogForPrompt)}
       }
       console.error("Error completing player setup:", error);
       res.status(500).json({ message: "Failed to complete player setup" });
+    }
+  });
+
+  app.post("/api/player-setup/welcome-workout", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    const userId = req.user.claims.sub;
+    const requestStartedAt = Date.now();
+    const model = "gpt-5-mini";
+    let claimId: string | null = null;
+    let tokenUsage: {
+      prompt_tokens?: number;
+      prompt_tokens_details?: { cached_tokens?: number };
+      completion_tokens?: number;
+      total_tokens?: number;
+    } | null = null;
+
+    const loadSetup = async () => {
+      const [setup] = await db
+        .select()
+        .from(playerSetupProfiles)
+        .where(eq(playerSetupProfiles.userId, userId))
+        .limit(1);
+      return setup;
+    };
+
+    const toWelcomeResponse = async (answers: Record<string, unknown>) => {
+      const workoutId = typeof answers.welcomeWorkoutId === "string" ? answers.welcomeWorkoutId : "";
+      const details = workoutId ? await storage.getWorkoutWithDrills(workoutId) : undefined;
+      if (!details || details.workout.userId !== userId) return null;
+
+      const savedPreview = answers.welcomeWorkoutPreview as CoachPWorkoutPreview | undefined;
+      const preview: CoachPWorkoutPreview = savedPreview ?? {
+        name: details.workout.name,
+        purpose: details.workout.description ?? "A personalized first workout.",
+        selectionRationale: "Built from your player setup and available PLAYR1 drills.",
+        successMeasure: "Complete the session with focused effort and consistent technique.",
+        estimatedDuration: details.workout.estimatedDuration ?? 30,
+        drills: details.drills.map((entry) => ({
+          drillId: entry.drillId,
+          title: entry.drill.title,
+          durationMinutes: entry.defaultDuration ?? 1,
+          sets: entry.defaultSets,
+          reps: entry.defaultReps,
+          coachingNotes: entry.coachingNotes ?? "",
+        })),
+      };
+      const recap = typeof answers.welcomeCoachResponse === "string"
+        ? answers.welcomeCoachResponse
+        : "Your first Coach P workout is ready.";
+      let conversationId = typeof answers.welcomeConversationId === "string"
+        ? answers.welcomeConversationId
+        : null;
+
+      if (!conversationId) {
+        const conversation = await storage.createCoachPConversation({
+          userId,
+          title: "Your first Coach P workout",
+          messageCount: 2,
+        });
+        conversationId = conversation.id;
+        await storage.createCoachPMessage({
+          conversationId,
+          role: "user",
+          content: "Build my personalized welcome workout.",
+          model: null,
+          contextMode: "workout",
+          promptTokens: null,
+          completionTokens: null,
+          totalTokens: null,
+          latencyMs: null,
+        });
+        await storage.createCoachPMessage({
+          conversationId,
+          role: "assistant",
+          content: `${recap}\n\n${formatCoachPWorkoutConversation(preview)}`,
+          model,
+          contextMode: "workout",
+          promptTokens: null,
+          completionTokens: null,
+          totalTokens: null,
+          latencyMs: null,
+        });
+        await db.update(playerSetupProfiles)
+          .set({
+            answers: sql`coalesce(${playerSetupProfiles.answers}, '{}'::jsonb) || ${JSON.stringify({
+              welcomeConversationId: conversationId,
+              welcomeWorkoutStatus: "ready",
+            })}::jsonb`,
+            updatedAt: new Date(),
+          })
+          .where(eq(playerSetupProfiles.userId, userId));
+      }
+
+      return {
+        status: "ready" as const,
+        snapshot: {
+          firstName: typeof answers.firstName === "string" ? answers.firstName : "",
+          currentSituation: typeof answers.currentSituation === "string" ? answers.currentSituation : "",
+          primaryGoal: typeof answers.primaryGoal === "string" ? answers.primaryGoal : "",
+          trainingDaysPerUnit: typeof answers.trainingDaysPerUnit === "number" ? answers.trainingDaysPerUnit : null,
+          trainingPeriodUnit: typeof answers.trainingPeriodUnit === "string" ? answers.trainingPeriodUnit : "",
+          teamName: typeof answers.teamName === "string" ? answers.teamName : "",
+          teamRole: typeof answers.teamRole === "string" ? answers.teamRole : "",
+          positions: Array.isArray(answers.positions) ? answers.positions : [],
+          skillRankings: answers.skillRankings && typeof answers.skillRankings === "object"
+            ? answers.skillRankings
+            : null,
+        },
+        recap,
+        conversationId,
+        workout: {
+          id: details.workout.id,
+          ...preview,
+        },
+      };
+    };
+
+    try {
+      const setup = await loadSetup();
+      if (!setup?.completedAt) {
+        return res.status(409).json({ message: "Complete player setup before building your welcome workout." });
+      }
+      const setupAnswers = { ...(setup.answers ?? {}) } as Record<string, unknown>;
+      const existing = await toWelcomeResponse(setupAnswers);
+      if (existing) return res.json(existing);
+      if (typeof setupAnswers.welcomeWorkoutId === "string" && setupAnswers.welcomeWorkoutId) {
+        return res.status(409).json({
+          message: "Your saved welcome workout is no longer available. Open Coach P to build a replacement.",
+        });
+      }
+
+      const now = Date.now();
+      const candidateClaimId = crypto.randomUUID();
+      const staleBefore = now - 5 * 60 * 1000;
+      const [claimed] = await db.update(playerSetupProfiles)
+        .set({
+          answers: sql`coalesce(${playerSetupProfiles.answers}, '{}'::jsonb) || ${JSON.stringify({
+            welcomeWorkoutStatus: "generating",
+            welcomeWorkoutClaim: candidateClaimId,
+            welcomeWorkoutStartedAt: now,
+          })}::jsonb`,
+          updatedAt: new Date(),
+        })
+        .where(and(
+          eq(playerSetupProfiles.userId, userId),
+          sql`coalesce(${playerSetupProfiles.answers}->>'welcomeWorkoutId', '') = ''`,
+          sql`(
+            coalesce(${playerSetupProfiles.answers}->>'welcomeWorkoutStatus', '') <> 'generating'
+            OR coalesce((${playerSetupProfiles.answers}->>'welcomeWorkoutStartedAt')::bigint, 0) < ${staleBefore}
+          )`,
+        ))
+        .returning({ userId: playerSetupProfiles.userId });
+
+      if (!claimed) {
+        const latest = await loadSetup();
+        const ready = latest
+          ? await toWelcomeResponse({ ...(latest.answers ?? {}) } as Record<string, unknown>)
+          : null;
+        if (ready) return res.json(ready);
+        return res.status(202).json({ status: "generating", retryAfterMs: 1500 });
+      }
+      claimId = candidateClaimId;
+
+      const answers = setupAnswers;
+      const rankings = answers.skillRankings && typeof answers.skillRankings === "object"
+        ? answers.skillRankings as Record<string, unknown>
+        : {};
+      const skillToFocus = (skill: unknown): string | null => {
+        if (typeof skill !== "string") return null;
+        const value = skill.toLowerCase();
+        if (/shoot/.test(value)) return "shooting";
+        if (/handle|dribbl/.test(value)) return "ball-handling";
+        if (/pass|playmak/.test(value)) return "playmaking";
+        if (/finish|rim/.test(value)) return "finishing";
+        if (/defen/.test(value)) return "perimeter-defense";
+        if (/footwork/.test(value)) return "footwork";
+        if (/athletic|speed|rebound/.test(value)) return "athleticism";
+        if (/basketball iq|decision|read/.test(value)) return "decision-making";
+        return null;
+      };
+      const primaryFocus = skillToFocus(rankings.improveMost)
+        ?? recommendCoachPWorkoutFocus([typeof answers.primaryGoal === "string" ? answers.primaryGoal : null])
+        ?? "decision-making";
+      const secondaryFocuses: string[] = [];
+      for (const skill of [rankings.best, rankings.secondBest, rankings.worst, ...(Array.isArray(answers.skillRoles) ? answers.skillRoles : [])]) {
+        const focus = skillToFocus(skill);
+        if (focus && focus !== primaryFocus && !secondaryFocuses.includes(focus)) secondaryFocuses.push(focus);
+        if (secondaryFocuses.length === 2) break;
+      }
+      for (const focus of ["footwork", "decision-making", "athleticism", "playmaking", "finishing", "shooting", "ball-handling", "perimeter-defense"]) {
+        if (secondaryFocuses.length === 2) break;
+        if (focus !== primaryFocus && !secondaryFocuses.includes(focus)) secondaryFocuses.push(focus);
+      }
+      const workoutAnswers = normalizeCoachPWorkoutAnswers({
+        durationMinutes: 30,
+        setting: "solo",
+        primaryFocus,
+        secondaryFocuses,
+      });
+
+      const career = await storage.getCareerProfile(userId);
+      const [account] = await db.select({
+        firstName: users.firstName,
+        lastName: users.lastName,
+      }).from(users).where(eq(users.id, userId)).limit(1);
+      const leadMagnetResults = await db.select({
+        leadMagnetId: leadMagnetSubmissions.leadMagnetId,
+        answers: leadMagnetSubmissions.answers,
+        resultId: leadMagnetSubmissions.resultId,
+        createdAt: leadMagnetSubmissions.createdAt,
+      })
+        .from(leadMagnetSubmissions)
+        .where(eq(leadMagnetSubmissions.userId, userId))
+        .orderBy(desc(leadMagnetSubmissions.createdAt));
+      const relevantLeadMagnetResults = leadMagnetResults.filter(({ leadMagnetId }) => {
+        if (leadMagnetId === "confidence-reality-check") return true;
+        if (primaryFocus === "shooting") {
+          return ["shooting-mechanics", "footwork-open-shots", "game-speed-shooting"].includes(leadMagnetId);
+        }
+        if (primaryFocus === "footwork") return leadMagnetId === "footwork-open-shots";
+        return false;
+      });
+      const leadMagnetContext = relevantLeadMagnetResults.length
+        ? formatCoachPLeadMagnetResults(relevantLeadMagnetResults)
+        : "No saved lead-magnet answers match this workout focus.";
+      const brandPrinciples = await storage.getBrandPrinciples();
+      const principlesText = brandPrinciples ? [
+        brandPrinciples.mission && `MISSION:\n${brandPrinciples.mission}`,
+        brandPrinciples.trainingPhilosophy && `TRAINING PHILOSOPHY:\n${brandPrinciples.trainingPhilosophy}`,
+        brandPrinciples.basketballIntelligence && `BASKETBALL INTELLIGENCE:\n${brandPrinciples.basketballIntelligence}`,
+        brandPrinciples.toneReferences && `TONE:\n${brandPrinciples.toneReferences}`,
+      ].filter(Boolean).join("\n\n") : "";
+      const availableDrills = await storage.getDrillsForUser(userId);
+      if (availableDrills.length === 0) {
+        const error = new Error("The Drill Library is unavailable right now.");
+        (error as Error & { status?: number }).status = 503;
+        throw error;
+      }
+      const catalogForPrompt = availableDrills.map((drill: any) => ({
+        id: drill.id,
+        title: drill.title,
+        category: drill.category,
+        difficulty: drill.difficulty,
+        durationMinutes: drill.duration ? Math.max(1, Math.round(drill.duration / 60)) : null,
+      }));
+      const playerContext = {
+        playerName: [account?.firstName ?? answers.firstName, account?.lastName ?? answers.lastName].filter(Boolean).join(" "),
+        setup: {
+          currentSituation: answers.currentSituation,
+          skillRankings: answers.skillRankings,
+          primaryGoal: answers.primaryGoal,
+          trainingDaysPerUnit: answers.trainingDaysPerUnit,
+          trainingPeriodUnit: answers.trainingPeriodUnit,
+          experienceYears: answers.experienceYears,
+          competitiveExperienceYears: answers.competitiveExperienceYears,
+          teamName: answers.teamName,
+          teamRole: answers.teamRole,
+          positions: answers.positions,
+        },
+        playerProfile: {
+          aspiration: career?.aspiration ?? null,
+          positions: career?.positions ?? [],
+          gradeLevel: career?.gradeLevel ?? null,
+          teamName: career?.teamName ?? null,
+        },
+        savedLeadMagnetResults: leadMagnetContext,
+      };
+      const workoutInstructions = `
+You are Coach P, the PLAYR1 basketball coach. Build one focused welcome workout using only the exact IDs in the available Drill Library catalog below.
+Return JSON only:
+{"response":"2-3 concise sentences: welcome the player by first name, reflect their profile and most important development focus, connect any relevant saved lead-magnet answer/result without listing quiz history, then explain why this workout fits.","followUpQuestion":null,"workout":{"name":"short name","purpose":"specific training outcome","selectionRationale":"why the chosen real drills work together for this player","estimatedDuration":30,"successMeasure":"a measurable success check","drills":[{"drillId":"exact catalog id","durationMinutes":8,"sets":3,"reps":10,"coachingNotes":"specific coaching cue"}]}}
+The player has completed onboarding; do not ask a follow-up question. Use the workout preferences exactly: ${JSON.stringify(workoutAnswers)}. Use the provided setup, player profile, and saved lead-magnet results when they are relevant to the workout. Never invent catalog IDs. Include 1-8 drills, all with durationMinutes and a useful coachingNotes value. Keep the total duration close to the requested 30 minutes.
+PLAYER CONTEXT:
+${JSON.stringify(playerContext)}
+AVAILABLE DRILL LIBRARY:
+${JSON.stringify(catalogForPrompt)}
+${principlesText ? `\nPLAYR1 BRAND PRINCIPLES:\n${principlesText}` : ""}
+`;
+      const OpenAI = (await import("openai")).default;
+      const openai = new OpenAI({
+        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+      });
+      const createCompletion = (retry = false) => openai.chat.completions.create({
+        model,
+        messages: [{
+          role: "system",
+          content: `${workoutInstructions}${retry ? "\nThe previous JSON was invalid or incomplete. Return a complete workout and use only exact catalog drill IDs." : ""}`,
+        }],
+        max_completion_tokens: 3200,
+        reasoning_effort: "low",
+        response_format: { type: "json_object" },
+      });
+      const modelStartedAt = Date.now();
+      let completion = await createCompletion();
+      tokenUsage = completion.usage ? {
+        prompt_tokens: completion.usage.prompt_tokens,
+        prompt_tokens_details: completion.usage.prompt_tokens_details
+          ? { cached_tokens: completion.usage.prompt_tokens_details.cached_tokens }
+          : undefined,
+        completion_tokens: completion.usage.completion_tokens,
+        total_tokens: completion.usage.total_tokens,
+      } : null;
+      let structuredWorkout: ReturnType<typeof normalizeCoachPWorkoutResponse>;
+      try {
+        structuredWorkout = normalizeCoachPWorkoutResponse(
+          completion.choices[0]?.message?.content ?? "",
+          availableDrills.map((drill: any) => ({ id: drill.id, title: drill.title })),
+        );
+        if (!structuredWorkout.workout) throw new Error("Coach P did not return a workout.");
+      } catch (firstError) {
+        console.warn("[Coach P welcome workout] Retrying invalid structured output", {
+          userId,
+          error: firstError instanceof Error ? firstError.message : "invalid output",
+        });
+        completion = await createCompletion(true);
+        tokenUsage = completion.usage ? {
+          prompt_tokens: completion.usage.prompt_tokens,
+          prompt_tokens_details: completion.usage.prompt_tokens_details
+            ? { cached_tokens: completion.usage.prompt_tokens_details.cached_tokens }
+            : undefined,
+          completion_tokens: completion.usage.completion_tokens,
+          total_tokens: completion.usage.total_tokens,
+        } : tokenUsage;
+        structuredWorkout = normalizeCoachPWorkoutResponse(
+          completion.choices[0]?.message?.content ?? "",
+          availableDrills.map((drill: any) => ({ id: drill.id, title: drill.title })),
+        );
+        if (!structuredWorkout.workout) throw new Error("Coach P did not return a complete workout.");
+      }
+
+      const preview = structuredWorkout.workout;
+      const saved = await storage.createUserWorkoutWithLimit(
+        userId,
+        {
+          name: preview.name,
+          description: `${preview.purpose}\n\n${preview.selectionRationale}\n\nSuccess check: ${preview.successMeasure}`,
+          category: "custom",
+          estimatedDuration: preview.estimatedDuration,
+          userId,
+          isFavorite: false,
+        } as any,
+        preview.drills.map((drill, index) => ({
+          drillId: drill.drillId,
+          sortOrder: index,
+          defaultDuration: drill.durationMinutes,
+          defaultSets: drill.sets,
+          defaultReps: drill.reps,
+          coachingNotes: drill.coachingNotes,
+        })),
+        await hasProAccess(userId) ? null : FREE_SAVED_WORKOUT_LIMIT,
+      );
+      if (saved.limitReached || !saved.workout) {
+        const error = new Error("Your saved workout limit has been reached.");
+        (error as Error & { status?: number }).status = 403;
+        throw error;
+      }
+
+      await db.update(playerSetupProfiles)
+        .set({
+          answers: sql`coalesce(${playerSetupProfiles.answers}, '{}'::jsonb) || ${JSON.stringify({
+            welcomeWorkoutId: saved.workout.id,
+            welcomeCoachResponse: structuredWorkout.response,
+            welcomeWorkoutPreview: preview,
+            welcomeWorkoutStatus: "saving",
+          })}::jsonb`,
+          updatedAt: new Date(),
+        })
+        .where(and(
+          eq(playerSetupProfiles.userId, userId),
+          sql`${playerSetupProfiles.answers}->>'welcomeWorkoutClaim' = ${claimId}`,
+        ));
+
+      const conversation = await storage.createCoachPConversation({
+        userId,
+        title: "Your first Coach P workout",
+        messageCount: 2,
+      });
+      await storage.createCoachPMessage({
+        conversationId: conversation.id,
+        role: "user",
+        content: "Build my personalized welcome workout.",
+        model: null,
+        contextMode: "workout",
+        promptTokens: null,
+        completionTokens: null,
+        totalTokens: null,
+        latencyMs: null,
+      });
+      await storage.createCoachPMessage({
+        conversationId: conversation.id,
+        role: "assistant",
+        content: `${structuredWorkout.response}\n\n${formatCoachPWorkoutConversation(preview)}`,
+        model,
+        contextMode: "workout",
+        promptTokens: tokenUsage?.prompt_tokens ?? null,
+        completionTokens: tokenUsage?.completion_tokens ?? null,
+        totalTokens: tokenUsage?.total_tokens ?? null,
+        latencyMs: Date.now() - modelStartedAt,
+      });
+      await db.update(playerSetupProfiles)
+        .set({
+          answers: sql`coalesce(${playerSetupProfiles.answers}, '{}'::jsonb) || ${JSON.stringify({
+            welcomeConversationId: conversation.id,
+            welcomeWorkoutStatus: "ready",
+          })}::jsonb`,
+          updatedAt: new Date(),
+        })
+        .where(eq(playerSetupProfiles.userId, userId));
+      const costs = getCoachPCost(model, tokenUsage);
+      await storage.recordCoachPRequest({
+        userId,
+        conversationId: conversation.id,
+        operation: "welcome_workout",
+        status: "completed",
+        model,
+        contextMode: "workout",
+        promptTokens: tokenUsage?.prompt_tokens ?? null,
+        cachedPromptTokens: tokenUsage?.prompt_tokens_details?.cached_tokens ?? null,
+        completionTokens: tokenUsage?.completion_tokens ?? null,
+        totalTokens: tokenUsage?.total_tokens ?? null,
+        ...costs,
+        contextMs: 0,
+        promptMs: 0,
+        modelMs: Date.now() - modelStartedAt,
+        totalMs: Date.now() - requestStartedAt,
+      }).catch((analyticsError) => console.error("Coach P welcome-workout analytics failed:", analyticsError));
+
+      const finalSetup = await loadSetup();
+      const payload = await toWelcomeResponse({ ...(finalSetup?.answers ?? {}) } as Record<string, unknown>);
+      if (!payload) throw new Error("Saved welcome workout could not be loaded.");
+      return res.status(201).json(payload);
+    } catch (error) {
+      if (claimId) {
+        await db.update(playerSetupProfiles)
+          .set({
+            answers: sql`coalesce(${playerSetupProfiles.answers}, '{}'::jsonb) || ${JSON.stringify({
+              welcomeWorkoutStatus: "failed",
+            })}::jsonb`,
+            updatedAt: new Date(),
+          })
+          .where(and(
+            eq(playerSetupProfiles.userId, userId),
+            sql`${playerSetupProfiles.answers}->>'welcomeWorkoutClaim' = ${claimId}`,
+          ))
+          .catch((saveError) => console.error("Failed to update welcome workout status:", saveError));
+      }
+      const status = (error as Error & { status?: number }).status ?? 500;
+      console.error("Error creating Coach P welcome workout:", error);
+      return res.status(status).json({
+        message: status === 403
+          ? "Your saved workout limit has been reached. Open Coach P to manage saved workouts."
+          : "Coach P could not build your workout right now. You can retry from this page.",
+      });
     }
   });
 

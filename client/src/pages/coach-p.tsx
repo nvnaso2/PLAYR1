@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useProUpgrade } from "@/components/pro-upgrade-dialog";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowLeft, ArrowUp, CalendarDays, Check, ChevronLeft, ChevronRight, Dumbbell, GraduationCap, History, Loader2, Menu, MessageSquarePlus, Pencil, Pin, PinOff, Target, Trash2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -625,6 +625,8 @@ function MessageBubble({ message }: { message: ChatMessage }) {
 }
 
 export default function CoachPPage() {
+  const search = useSearch();
+  const handledDeepLinkRef = useRef("");
   const [, navigate] = useLocation();
   const { openProOffer } = useProUpgrade();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -1027,6 +1029,21 @@ export default function CoachPPage() {
       setLoadingConversation(false);
     }
   };
+
+  useEffect(() => {
+    const params = new URLSearchParams(search);
+    const conversationId = params.get("conversationId");
+    const prompt = params.get("prompt");
+    const linkKey = conversationId ? `conversation:${conversationId}` : prompt ? `prompt:${prompt}` : "";
+    if (!linkKey || handledDeepLinkRef.current === linkKey) return;
+    handledDeepLinkRef.current = linkKey;
+    if (conversationId) {
+      void openConversation(conversationId);
+    } else if (prompt) {
+      startNewConversation();
+      setDraft(prompt);
+    }
+  }, [search]);
 
   const deleteConversation = async (id: string) => {
     if (chatMutation.isPending) return;

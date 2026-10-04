@@ -7,6 +7,7 @@ import { useLocation, useSearch } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ShareMenu } from "@/components/share-menu";
+import { PlayerSetupAnswersEditor } from "@/components/player-setup-answers-editor";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -1459,12 +1460,13 @@ export default function PlayerProfilePage() {
     <div className="p-4 sm:p-6 max-w-3xl mx-auto pb-24">
       <div className="mb-6">
         <h1 className="text-xl sm:text-2xl font-bold" data-testid="text-page-title">
-          Player Profile
+          Edit Profile
         </h1>
         <p className="text-sm text-muted-foreground">
-          Manage your profile photo, location, and public recruiting profile
+          Update your five-step setup, player pathway, and recruiting profile
         </p>
       </div>
+      <PlayerSetupAnswersEditor />
       <PlayerProfileSection />
     </div>
   );

@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
 import { nativeFetch, statsUrl } from "@/lib/queryClient";
 import {
   HUB_STAT_DEFINITIONS,
@@ -29,15 +28,10 @@ import {
   BookOpen,
   BookMarked,
   Layers3,
-  CheckCircle2,
-  Users,
-  Trophy,
   Radar,
 } from "lucide-react";
 import introTrailer from "@assets/Welcome_To_PLAYR1_1781991119550.mp4";
-import type { HubRecommendation, HubRecommendationResponse } from "@shared/hub-recommendations";
 
-type HubMode = "onboarding" | "everyday";
 type WeeklyStatPoint = { date: string; minutes: number; sessions: number };
 type WeeklyTrendPoint = {
   shotsMade: number;
@@ -52,15 +46,6 @@ type WeeklyTrendPoint = {
   midRangeAttempted: number;
 };
 type CategoryStatPoint = { category: string; minutes: number; sessions: number };
-
-const recommendationSourceLabels: Record<HubRecommendation["source"], string> = {
-  active_program: "Active program",
-  human_assignment: "Coach assignment",
-  coach_p_workout: "Coach P workout",
-  assessment_focus: "Your assessment focus",
-  personalized_drill: "Personalized focus",
-  library_fallback: "PLAYR1 library",
-};
 
 const HUB_STAT_GLOW_COLORS: Partial<Record<HubStatKey, string>> = {
   totalDrills: "#38bdf8",
@@ -104,9 +89,8 @@ const HUB_STAT_GLOW_COLORS: Partial<Record<HubStatKey, string>> = {
 
 function greeting(firstName?: string | null) {
   const h = new Date().getHours();
-  const emoji = h < 12 ? "🌅" : h < 17 ? "☀️" : "🌙";
   const word = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
-  return { text: `${word}${firstName ? `, ${firstName}` : ""}`, emoji };
+  return `${word}${firstName ? `, ${firstName}` : ""}`;
 }
 
 function formatDate() {
@@ -129,7 +113,6 @@ export default function HubPage() {
     localStorage.removeItem("playr1_intro_trailer_dismissed");
   }
 
-  const { data: profile } = useQuery<any>({ queryKey: ["/api/profile"] });
   const { data: careerData } = useQuery<any>({ queryKey: ["/api/career"] });
   const { data: overview, isLoading: overviewLoading } = useQuery<any>({
     queryKey: ["/api/stats/overview", "hub-monthly"],
@@ -179,10 +162,6 @@ export default function HubPage() {
       return res.json();
     },
   });
-  const { data: fixData } = useQuery<any>({
-    queryKey: ["/api/onboarding/fix-drills"],
-    enabled: !!user,
-  });
   const { data: supportUnread } = useQuery<{ available: boolean; unreadCount: number }>({
     queryKey: ["/api/support/unread", user?.id],
     queryFn: async () => {
@@ -197,31 +176,16 @@ export default function HubPage() {
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
   });
-  const profileIncomplete = !profile?.lastName || !careerData?.positions?.length || !careerData?.aspiration;
-  const fullOnboardingComplete = Boolean(careerData?.onboardingCompleted || fixData?.fullProfileCompleted);
-  const showProfileSetup = profileIncomplete || !fullOnboardingComplete;
-  const [hubModeOverride, setHubModeOverride] = useState<HubMode | null>(null);
-  const defaultHubMode: HubMode = showProfileSetup ? "onboarding" : "everyday";
-  const hubMode = hubModeOverride ?? defaultHubMode;
-  const {
-    data: hubRecommendation,
-    isLoading: hubRecommendationLoading,
-    isError: hubRecommendationError,
-  } = useQuery<HubRecommendationResponse>({
-    queryKey: ["/api/hub/recommendation", user?.id],
-    queryFn: async () => {
-      const response = await nativeFetch("/api/hub/recommendation", { cache: "no-store" });
-      if (!response.ok) throw new Error("Failed to load training recommendation");
-      return response.json();
-    },
-    enabled: !!user && hubMode === "everyday",
-    staleTime: 30_000,
-    refetchOnMount: "always",
-    refetchOnWindowFocus: true,
+  const profileIncomplete = !user?.lastName || !careerData?.positions?.length || !careerData?.aspiration;
+  const showProfileSetup = profileIncomplete;
+  const { data: setupData } = useQuery<{ answers?: Record<string, any> }>({
+    queryKey: ["/api/player-setup"],
+    enabled: !!user && !showProfileSetup,
+    staleTime: 60_000,
   });
 
-  const firstName = profile?.firstName ?? user?.firstName;
-  const { text: greetText, emoji } = greeting(firstName);
+  const firstName = user?.firstName;
+  const greetText = greeting(firstName);
   const streak = overview?.streak ?? 0;
   const totalSessions = overview?.totalSessions ?? 0;
   const totalMinutes = overview?.totalMinutes ?? 0;
@@ -523,65 +487,63 @@ export default function HubPage() {
     </section>
   );
 
-  const recommendationCard = hubMode === "everyday" && (
-    hubRecommendationLoading ? (
-      <section data-testid="card-hub-recommendation-loading" className="rounded-2xl border border-orange-500/20 bg-zinc-900/80 p-4">
-        <div className="flex items-center gap-3">
-          <Skeleton className="h-11 w-11 rounded-xl bg-zinc-800" />
-          <div className="flex-1 space-y-2">
-            <Skeleton className="h-3 w-24 bg-zinc-800" />
-            <Skeleton className="h-5 w-3/4 bg-zinc-800" />
-            <Skeleton className="h-3 w-1/2 bg-zinc-800" />
+  const improvementFocus = typeof setupData?.answers?.skillRankings?.improveMost === "string"
+    ? setupData.answers.skillRankings.improveMost
+    : null;
+  const coachPrompt = improvementFocus
+    ? `What is one adjustment I can make to show my ${improvementFocus.toLowerCase()} when the game speeds up?`
+    : "What is the one adjustment that would make the biggest difference in my next game?";
+
+  const customDrillsSection = (
+    <section
+      className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 sm:p-5"
+      data-testid="section-custom-drills"
+    >
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-orange-500/25 bg-orange-500/10 text-orange-300">
+            <Dumbbell className="h-5 w-5" />
+          </span>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-300">Custom Drills</p>
+            <h2 className="mt-1 text-lg font-black text-white">Your drills, your way.</h2>
+            <p className="mt-1 text-sm text-zinc-400">Find and manage the drills you have created for your training.</p>
           </div>
         </div>
-      </section>
-    ) : hubRecommendationError || !hubRecommendation?.recommendation ? null : (
-      <section
-        className="rounded-2xl border border-orange-500/35 bg-gradient-to-br from-orange-500/20 via-zinc-900 to-zinc-950 p-4 shadow-[0_12px_36px_rgba(249,115,22,0.10)] sm:p-5"
-        data-testid="card-hub-recommendation"
-      >
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-orange-400/30 bg-orange-500/15 text-orange-300">
-              <Dumbbell className="h-5 w-5" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-300">
-                  Your next training action
-                </p>
-                <Badge className="border-orange-500/25 bg-orange-500/10 text-[10px] text-orange-200" data-testid="badge-recommendation-source">
-                  {recommendationSourceLabels[hubRecommendation.recommendation.source]}
-                </Badge>
-              </div>
-              <h2 className="mt-1 truncate text-lg font-black text-white sm:text-xl" data-testid="text-recommendation-title">
-                {hubRecommendation.recommendation.title}
-              </h2>
-              <p className="mt-1 text-sm text-zinc-300" data-testid="text-recommendation-reason">
-                {hubRecommendation.recommendation.reason}
-              </p>
-              <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-zinc-500">
-                {hubRecommendation.recommendation.durationMinutes != null && (
-                  <span data-testid="text-recommendation-duration">
-                    About {hubRecommendation.recommendation.durationMinutes} min
-                  </span>
-                )}
-                <span className="text-zinc-400">{hubRecommendation.recommendation.description}</span>
-              </div>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => navigate(hubRecommendation.recommendation.route)}
-            className="flex w-full shrink-0 items-center justify-center gap-1.5 rounded-xl bg-orange-500 px-4 py-2.5 text-sm font-black text-black transition hover:bg-orange-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 sm:w-auto"
-            data-testid="button-hub-recommendation"
-          >
-            {hubRecommendation.recommendation.actionLabel}
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
-      </section>
-    )
+        <button
+          type="button"
+          onClick={() => navigate("/drills?tab=my-drills")}
+          className="flex w-full shrink-0 items-center justify-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-2.5 text-sm font-bold text-white transition hover:border-orange-400/50 sm:w-auto"
+          data-testid="button-hub-custom-drills"
+        >
+          Open Custom Drills
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+    </section>
+  );
+
+  const coachPromptSection = (
+    <button
+      type="button"
+      onClick={() => navigate(`/coach-p?prompt=${encodeURIComponent(coachPrompt)}`)}
+      className="group w-full rounded-2xl border border-orange-500/30 bg-gradient-to-br from-orange-500/15 via-zinc-900 to-zinc-950 p-4 text-left transition hover:border-orange-400/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 sm:p-5"
+      data-testid="button-hub-coach-p-prompt"
+    >
+      <div className="flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-orange-500/30 bg-orange-500/15 text-orange-300">
+          <MessageCircle className="h-5 w-5" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[10px] font-bold uppercase tracking-[0.2em] text-orange-300">A question for Coach P</span>
+          <span className="mt-1 block text-base font-bold leading-snug text-white sm:text-lg">{coachPrompt}</span>
+          <span className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-orange-300">
+            Explore this with Coach P
+            <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
+          </span>
+        </span>
+      </div>
+    </button>
   );
 
   return (
@@ -592,10 +554,10 @@ export default function HubPage() {
           <div>
             <p className="text-zinc-400 text-sm">{formatDate()}</p>
             <h1 className="text-2xl font-bold text-white mt-0.5">
-              {greetText} {emoji}
+              {greetText}
             </h1>
           </div>
-          {streak > 0 && (() => {
+          {!showProfileSetup && streak > 0 && (() => {
               const sa = streak >= 30
                 ? { bg: "bg-red-500/20", border: "border-red-400/50", color: "text-red-200", flames: 3, pulse: true, scale: "scale-125", glow: "shadow-[0_0_24px_rgba(248,113,113,0.55)]" }
                 : streak >= 14
@@ -623,34 +585,10 @@ export default function HubPage() {
               );
             })()}
         </div>
-        <div className="mt-4 flex items-center justify-between gap-3 border-t border-zinc-800/80 pt-3" data-testid="hub-mode-toggle">
-          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-600">Hub view</span>
-          <div className="flex rounded-lg border border-zinc-700 bg-zinc-900 p-0.5" role="group" aria-label="Choose Hub view">
-            {([
-              { value: "onboarding" as const, label: "Onboarding" },
-              { value: "everyday" as const, label: "Everyday" },
-            ]).map(({ value, label }) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setHubModeOverride(value)}
-                aria-pressed={hubMode === value}
-                data-testid={`button-hub-mode-${value}`}
-                className={`rounded-md px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 ${
-                  hubMode === value
-                    ? "bg-orange-500 text-black"
-                    : "text-zinc-500 hover:text-zinc-200"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
 
       <div className="px-4 space-y-4 mt-4">
-        {hubMode === "onboarding" && (
+        {showProfileSetup && (
           <>
             {!trailerDismissed && (
               <div className="relative rounded-2xl overflow-hidden border border-zinc-800 bg-black" data-testid="card-intro-trailer">
@@ -684,102 +622,50 @@ export default function HubPage() {
               </div>
             )}
 
-            {/* Post-onboarding path */}
             <section className="space-y-3" data-testid="section-post-onboarding">
-          <div>
-            <h2 className="text-xl font-black text-white mt-1">Your next steps are ready.</h2>
-            <p className="text-sm text-zinc-500 mt-1">Finish your setup, meet your coach, then get to work.</p>
-          </div>
+              {trailerDismissed && (
+                <button
+                  onClick={replayTrailer}
+                  className="w-full text-left rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 flex items-center gap-3 hover:border-orange-500/40 transition-colors"
+                  data-testid="button-replay-trailer"
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-500/15">
+                    <PlayCircle className="h-5 w-5 text-orange-400" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-bold text-white">PLAYR1 App Trailer</span>
+                    <span className="mt-0.5 block text-xs text-zinc-500">Watch the intro again.</span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-zinc-600" />
+                </button>
+              )}
 
-          {trailerDismissed && (
-            <button
-              onClick={replayTrailer}
-              className="w-full text-left rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 flex items-center gap-3 hover:border-orange-500/40 transition-colors"
-              data-testid="button-replay-trailer"
-            >
-              <div className="w-10 h-10 rounded-xl bg-orange-500/15 flex items-center justify-center shrink-0">
-                <PlayCircle className="w-5 h-5 text-orange-400" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-white font-bold text-sm">PLAYR1 App Trailer</p>
-                <p className="text-zinc-500 text-xs mt-0.5">Watch the intro again whenever you need it.</p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-zinc-600 shrink-0" />
-            </button>
-          )}
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <button
-              onClick={() => navigate("/assessment")}
-              className="w-full text-left rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 hover:border-orange-500/40 transition-colors"
-              data-testid="button-regular-onboarding"
-            >
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-zinc-950 flex items-center justify-center shrink-0">
-                  {fullOnboardingComplete
-                    ? <CheckCircle2 className="w-5 h-5 text-white" />
-                    : <ClipboardCheck className="w-5 h-5 text-white" />}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-white font-bold text-sm">Tell Us More About Your Basketball Story</p>
-                  <p className="text-zinc-500 text-xs mt-0.5">Answer a few quick questions</p>
-                </div>
-              </div>
-              <div className="mt-3 flex items-center gap-1 text-orange-400 text-xs font-bold">
-                Build Your PLAYR1 Profile
-                <ChevronRight className="w-3.5 h-3.5" />
-              </div>
-            </button>
-
-            <button
-              onClick={() => navigate("/career")}
-              className="w-full text-left rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 hover:border-orange-500/40 transition-colors"
-              data-testid="button-complete-profile"
-            >
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-zinc-950 flex items-center justify-center shrink-0">
-                  {showProfileSetup
-                    ? <UserRound className="w-5 h-5 text-white" />
-                    : <CheckCircle2 className="w-5 h-5 text-white" />}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-white font-bold text-sm">Complete your profile</p>
-                  <p className="text-zinc-500 text-xs mt-0.5">
-                    {showProfileSetup ? "Add the details to customize your PLAYR1 Experience." : "Your player profile is looking good."}
-                  </p>
-                </div>
-              </div>
-              <div className="mt-3 flex items-center gap-1 text-orange-400 text-xs font-bold">
-                {showProfileSetup ? "Finish profile" : "View profile"}
-                <ChevronRight className="w-3.5 h-3.5" />
-              </div>
-            </button>
-          </div>
-
-          <button
-            onClick={() => navigate("/coach-p")}
-            className="w-full text-left rounded-2xl border border-orange-500/25 bg-gradient-to-r from-orange-500/15 via-orange-500/8 to-transparent p-4 flex items-center gap-3 hover:border-orange-500/50 transition-colors"
-            data-testid="button-try-coach-p"
-          >
-            <div className="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center shrink-0">
-              <MessageCircle className="w-5 h-5 text-orange-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <p className="text-white font-bold text-sm">Try Coach P</p>
-                <Badge className="bg-orange-500/15 text-orange-300 border-orange-500/20 text-[10px]">AI COACH</Badge>
-              </div>
-              <p className="text-zinc-400 text-xs mt-0.5">Ask questions, build workouts, and work on your goals.</p>
-            </div>
-            <ChevronRight className="w-4 h-4 text-orange-400/70 shrink-0" />
-          </button>
+              <button
+                type="button"
+                onClick={() => navigate("/profile")}
+                className="w-full rounded-2xl border border-orange-500/30 bg-gradient-to-br from-orange-500/15 via-zinc-900 to-zinc-950 p-4 text-left transition hover:border-orange-400/60"
+                data-testid="button-complete-profile"
+              >
+                <span className="flex items-start gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-orange-500/25 bg-orange-500/10 text-orange-300">
+                    <UserRound className="h-5 w-5" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-base font-black text-white">Complete Your Profile</span>
+                    <span className="mt-1 block text-sm text-zinc-400">Add the player details that make your training plan yours.</span>
+                    <span className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-orange-300">
+                      Edit Profile
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </span>
+                  </span>
+                </span>
+              </button>
             </section>
           </>
         )}
 
-        {hubMode === "everyday" && weeklyRecapSection}
-
-        {recommendationCard}
+        {!showProfileSetup && weeklyRecapSection}
+        {!showProfileSetup && customDrillsSection}
 
         {/* Start training */}
         <section className="space-y-3" data-testid="section-start-training">
@@ -815,8 +701,9 @@ export default function HubPage() {
           </div>
         </section>
 
+        {!showProfileSetup && (
         <section className="space-y-3" aria-label="Player shortcuts" data-testid="section-hub-player-tools">
-          <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">PLAYER TOOLS</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">PLAYR1 TOOLS</p>
           <div className="grid grid-cols-4 gap-2.5 sm:gap-3">
             <button
               type="button"
@@ -878,54 +765,9 @@ export default function HubPage() {
             </button>
           </div>
         </section>
-
-        {hubMode !== "everyday" && weeklyRecapSection}
-
-        {hubMode === "everyday" && (
-          <section className="space-y-3" data-testid="section-everyday-connections">
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500 font-bold">STAY CONNECTED</p>
-              <h2 className="text-lg font-black text-white mt-1">Your people, your support.</h2>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              <button
-                type="button"
-                onClick={() => navigate("/community")}
-                className="group flex min-h-[88px] items-center gap-3 rounded-xl border border-zinc-700 bg-zinc-900 p-4 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.99]"
-                data-testid="button-hub-community"
-              >
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 text-orange-400">
-                  <Users className="h-4 w-4" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block font-heading text-sm uppercase tracking-wide leading-tight">Community</span>
-                  <span className="mt-1 block text-[11px] text-zinc-500">Find players, friends, and challenges</span>
-                </span>
-                <ChevronRight className="h-4 w-4 shrink-0 text-zinc-500 transition group-hover:translate-x-1 group-hover:text-orange-400" />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => navigate("/coach-p")}
-                className="group flex min-h-[88px] items-center gap-3 rounded-xl border border-orange-500/30 bg-gradient-to-r from-orange-500/15 via-orange-500/8 to-transparent p-4 text-left text-zinc-100 transition hover:border-orange-500/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.99]"
-                data-testid="button-hub-coach-p"
-              >
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-orange-500/30 bg-orange-500/15 text-orange-400">
-                  <MessageCircle className="h-4 w-4" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-2">
-                    <span className="block font-heading text-sm uppercase tracking-wide leading-tight">Coach P</span>
-                    <Badge className="border-orange-500/20 bg-orange-500/15 text-[10px] text-orange-300">AI COACH</Badge>
-                  </span>
-                  <span className="mt-1 block text-[11px] text-zinc-400">Get your next question answered</span>
-                </span>
-                <ChevronRight className="h-4 w-4 shrink-0 text-orange-400/70 transition group-hover:translate-x-1" />
-              </button>
-
-            </div>
-          </section>
         )}
+
+        {!showProfileSetup && coachPromptSection}
 
       </div>
     </div>

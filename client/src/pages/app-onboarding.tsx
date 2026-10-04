@@ -581,7 +581,7 @@ export default function AppOnboardingPage({
       queryClient.setQueryData(SETUP_KEY, { answers: completeAnswers, completed: true });
       if (signupMode && userForCache) queryClient.setQueryData(["/api/auth/user"], userForCache);
       if (onComplete) onComplete();
-      else setLocation("/hub");
+      else setLocation("/welcome-workout");
     } catch (error) {
       setActionError(errorMessage(error, "We couldn't finish setting up your profile. Try again."));
     } finally {
