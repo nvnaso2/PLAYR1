@@ -555,7 +555,18 @@ export default function HubPage() {
       <div className="px-5 pt-6 pb-2">
         {import.meta.env.DEV && (
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed border-amber-500/35 bg-amber-500/[0.06] px-3 py-2" data-testid="hub-test-view-toggle">
-            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-300">Test Hub view · development only</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-300">Test tools · development only</span>
+              <button
+                type="button"
+                onClick={() => navigate("/welcome-workout")}
+                className="inline-flex items-center gap-1.5 rounded-md border border-amber-400/30 bg-amber-400/10 px-2.5 py-1.5 text-[10px] font-bold text-amber-200 transition hover:bg-amber-400/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
+                data-testid="button-test-welcome-workout"
+              >
+                <PlayCircle className="h-3.5 w-3.5" />
+                Test AI welcome workout
+              </button>
+            </div>
             <div className="inline-flex rounded-lg border border-white/10 bg-black/30 p-0.5" role="group" aria-label="Hub view for testing">
               {([
                 ["auto", "Profile state"],
