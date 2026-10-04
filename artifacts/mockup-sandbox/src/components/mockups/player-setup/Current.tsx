@@ -1,31 +1,64 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, ChevronDown, CircleAlert, LoaderCircle, LockKeyhole } from "lucide-react";
-import './_group.css';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  ChevronDown,
+  CircleAlert,
+  GripVertical,
+  LoaderCircle,
+  Medal,
+  Star,
+  Target,
+  TrendingDown,
+  Trophy,
+  type LucideIcon,
+} from "lucide-react";
+import "./_group.css";
+
+const DEMO_USER = { firstName: "Jordan", lastName: "Reyes", email: "jordan.reyes@example.com" };
+function useAuth() { return { user: DEMO_USER, isLoading: false }; }
+function useLocation(): [string, (path: string) => void] { return ["/app-setup", () => {}]; }
+const queryClient = { setQueryData: (..._args: unknown[]) => {}, invalidateQueries: async (..._args: unknown[]) => {} };
+const storeAuthToken = (_token: string) => {};
+async function apiRequest(_method: string, _url: string, _body?: unknown): Promise<{ json: () => Promise<any> }> {
+  return { json: async (): Promise<any> => ({}) };
+}
+function useQuery<T>(options: { initialData?: T; [key: string]: unknown }): { data: T | undefined; isLoading: boolean; isError: boolean; refetch: () => Promise<void> } {
+  return { data: options.initialData ?? ({ answers: {}, completed: false } as T), isLoading: false, isError: false, refetch: async () => {} };
+}
+
+type SkillRankKey = "best" | "secondBest" | "worst" | "improveMost";
+type SkillRankings = Record<SkillRankKey, string>;
 
 export interface AppOnboardingAnswers {
   firstName: string;
   lastName: string;
-  gradeLevel: string;
   currentSituation: string;
   skillRoles: string[];
+  skillRankings: SkillRankings;
   primaryGoal: string;
-  seriousness: string;
-  trainingFrequency: string;
+  trainingDaysPerUnit: string;
+  trainingPeriodUnit: "week" | "month";
   experienceYears: string;
-  teamType: string;
+  competitiveExperienceYears: string;
+  teamName: string;
+  teamRole: string;
   positions: string[];
+  /** Legacy saved value; the current setup flow no longer collects it. */
   customDrillEmail: string;
 }
 
-type PartialAnswers = Partial<AppOnboardingAnswers>;
-type SetupResponse = { answers: PartialAnswers; completed: boolean };
-const apiRequest = async (_method: string, _url: string, body?: { answers?: PartialAnswers }) => ({
-  json: async () => ({ answers: body?.answers ?? {}, completed: false }),
-});
-const queryClient = {
-  setQueryData: (..._args: unknown[]) => {},
-  invalidateQueries: async (..._args: unknown[]) => {},
+type PartialAnswers = Omit<
+  Partial<AppOnboardingAnswers>,
+  "skillRankings" | "trainingDaysPerUnit" | "experienceYears" | "competitiveExperienceYears"
+> & {
+  skillRankings?: Partial<SkillRankings>;
+  trainingDaysPerUnit?: string | number;
+  experienceYears?: string | number;
+  competitiveExperienceYears?: string | number;
 };
+type SetupResponse = { answers: PartialAnswers; completed: boolean };
 
 const SETUP_KEY = ["/api/player-setup"];
 const SITUATIONS = [
@@ -51,73 +84,158 @@ const SKILLS = [
 const GOALS = [
   "Make a team I'm trying out for",
   "Earn more playing time / a bigger role",
-  "Play at the next level (high school, college, etc.)",
-  "Become the best version of my game, for myself",
-  "Compete at the highest level I possibly can",
+  "Play at the next level",
+  "Just looking to improve in general",
+  "Play for fun",
 ];
-const SERIOUSNESS = ["Casual Hobby", "Serious Hobby", "Major Priority", "My Biggest Goal"];
-const FREQUENCIES = ["Never", "Rarely", "1 to 2 Times a Week", "3 to 4 Times a Week", "5 to 6 Times a Week", "Daily"];
-const EXPERIENCE = ["0", "1 to 3", "4 to 6", "7 to 10", "10+"];
-const TEAM_TYPES = ["School", "Club / AAU", "Recreation", "Intramural", "No current team"];
+const SKILL_RANKS: { key: SkillRankKey; label: string; icon: LucideIcon }[] = [
+  { key: "best", label: "Best", icon: Trophy },
+  { key: "secondBest", label: "2nd Best", icon: Medal },
+  { key: "worst", label: "Worst", icon: TrendingDown },
+  { key: "improveMost", label: "Want to improve the most", icon: Target },
+];
+const TEAM_ROLES = [
+  "Not On A Team / Learning the game",
+  "Limited Minutes / Looking to Make a Team",
+  "Rotation Player",
+  "Starter / 6th Man",
+  "Key Player",
+  "Team Leader",
+];
 const POSITIONS = ["PG", "SG", "SF", "PF", "C"];
-const GRADES = [
-  "Elementary School",
-  "6th Grade",
-  "7th Grade",
-  "8th Grade",
-  "Freshman",
-  "Sophomore",
-  "Junior",
-  "Senior",
-  "College Freshman",
-  "College Sophomore",
-  "College Junior",
-  "College Senior",
-  "Post-college",
-  "Not in school / not applicable",
-];
 
 const emptyAnswers: AppOnboardingAnswers = {
   firstName: "",
   lastName: "",
-  gradeLevel: "",
   currentSituation: "",
   skillRoles: [],
+  skillRankings: { best: "", secondBest: "", worst: "", improveMost: "" },
   primaryGoal: "",
-  seriousness: "",
-  trainingFrequency: "",
+  trainingDaysPerUnit: "",
+  trainingPeriodUnit: "week",
   experienceYears: "",
-  teamType: "",
+  competitiveExperienceYears: "",
+  teamName: "",
+  teamRole: "",
   positions: [],
   customDrillEmail: "",
 };
 
+function normalizeNumericAnswer(value: unknown): string {
+  if (typeof value === "number" && Number.isFinite(value) && value >= 0) return String(value);
+  if (typeof value === "string" && value.trim() && Number.isFinite(Number(value)) && Number(value) >= 0) {
+    return value.trim();
+  }
+  return "";
+}
+
+function normalizeAnswers(source: PartialAnswers): AppOnboardingAnswers {
+  const rawRankings = source.skillRankings ?? {};
+  const skillRankings = Object.fromEntries(
+    SKILL_RANKS.map(({ key }) => [
+      key,
+      typeof rawRankings[key] === "string" && SKILLS.includes(rawRankings[key]) ? rawRankings[key] : "",
+    ]),
+  ) as SkillRankings;
+  const rankedSkills = SKILL_RANKS.map(({ key }) => skillRankings[key]).filter(Boolean);
+  const rankingsComplete =
+    rankedSkills.length === SKILL_RANKS.length && new Set(rankedSkills).size === SKILL_RANKS.length;
+
+  return {
+    firstName: typeof source.firstName === "string" ? source.firstName : "",
+    lastName: typeof source.lastName === "string" ? source.lastName : "",
+    currentSituation: typeof source.currentSituation === "string" && SITUATIONS.includes(source.currentSituation)
+      ? source.currentSituation
+      : "",
+    skillRoles: rankingsComplete ? rankedSkills : [],
+    skillRankings,
+    primaryGoal: typeof source.primaryGoal === "string" && GOALS.includes(source.primaryGoal)
+      ? source.primaryGoal
+      : "",
+    trainingDaysPerUnit: normalizeNumericAnswer(source.trainingDaysPerUnit),
+    trainingPeriodUnit: source.trainingPeriodUnit === "month" ? "month" : "week",
+    experienceYears: normalizeNumericAnswer(source.experienceYears),
+    competitiveExperienceYears: normalizeNumericAnswer(source.competitiveExperienceYears),
+    teamName: typeof source.teamName === "string" ? source.teamName : "",
+    teamRole: typeof source.teamRole === "string" && TEAM_ROLES.includes(source.teamRole)
+      ? source.teamRole
+      : "",
+    positions: Array.isArray(source.positions)
+      ? source.positions.filter((position) => POSITIONS.includes(position))
+      : [],
+    customDrillEmail: typeof source.customDrillEmail === "string" ? source.customDrillEmail : "",
+  };
+}
+
+function hasCompleteSkillRankings(answers: PartialAnswers): boolean {
+  const values = SKILL_RANKS.map(({ key }) => answers.skillRankings?.[key] || "");
+  return values.every((skill) => SKILLS.includes(skill)) && new Set(values).size === SKILL_RANKS.length;
+}
+
+function errorMessage(error: unknown, fallback: string): string {
+  if (!(error instanceof Error)) return fallback;
+  const raw = error.message.replace(/^\d+:\s*/, "");
+  try {
+    const parsed = JSON.parse(raw);
+    if (typeof parsed?.message === "string") return parsed.message;
+  } catch {
+    // Preserve plain-text API errors.
+  }
+  return raw || fallback;
+}
+
 function getStartingStep(answers: PartialAnswers): number {
-  if (!answers.firstName?.trim() || !answers.lastName?.trim() || !answers.gradeLevel || !answers.currentSituation) return 1;
-  if (answers.skillRoles?.length !== 4) return 2;
-  if (!answers.primaryGoal || !answers.seriousness || !answers.trainingFrequency || !answers.experienceYears) return 3;
-  if (!answers.teamType || (answers.teamType !== "No current team" && !answers.positions?.length)) return 4;
+  if (!answers.firstName?.trim() || !answers.lastName?.trim() || !answers.currentSituation) return 1;
+  if (answers.skillRoles?.length !== 4 || !hasCompleteSkillRankings(answers)) return 2;
+  if (
+    !answers.primaryGoal ||
+    !answers.trainingDaysPerUnit ||
+    !answers.trainingPeriodUnit ||
+    !answers.experienceYears ||
+    !answers.competitiveExperienceYears
+  ) return 3;
+  if (!answers.teamRole) return 4;
   return 5;
 }
 
-function validateStep(step: number, answers: AppOnboardingAnswers): string | null {
+function validateStep(
+  step: number,
+  answers: AppOnboardingAnswers,
+  credentialsRequired = false,
+  accountEmail = "",
+  password = "",
+): string | null {
   if (step === 1) {
     if (!answers.firstName.trim() || !answers.lastName.trim()) return "Add your first and last name to continue.";
-    if (!answers.gradeLevel) return "Choose your school grade.";
     if (!answers.currentSituation) return "Choose the option that best describes your basketball situation.";
   }
-  if (step === 2 && answers.skillRoles.length !== 4) return "Choose exactly four skills to focus on.";
-  if (step === 3) {
-    if (!answers.primaryGoal || !answers.seriousness || !answers.trainingFrequency || !answers.experienceYears) {
-      return "Choose an answer for each question to continue.";
+  if (step === 2) {
+    if (answers.skillRoles.length !== 4 || !hasCompleteSkillRankings(answers)) {
+      return "Assign a different skill to each of the four labels.";
+    }
+    const ranked = SKILL_RANKS.map(({ key }) => answers.skillRankings[key]);
+    if (new Set(answers.skillRoles).size !== 4 || ranked.some((skill) => !answers.skillRoles.includes(skill))) {
+      return "Assign a different skill to each of the four labels.";
     }
   }
-  if (step === 4) {
-    if (!answers.teamType) return "Choose your current team type.";
-    if (answers.teamType !== "No current team" && !answers.positions.length) return "Choose at least one position.";
+  if (step === 3) {
+    if (!answers.primaryGoal) return "Choose your primary basketball goal.";
+    const maxDays = answers.trainingPeriodUnit === "month" ? 31 : 7;
+    const trainingDays = Number(answers.trainingDaysPerUnit);
+    if (!/^\d+$/.test(answers.trainingDaysPerUnit) || trainingDays < 0 || trainingDays > maxDays) {
+      return `Enter 0 to ${maxDays} training days per ${answers.trainingPeriodUnit}.`;
+    }
+    const validYears = (value: string) => /^\d+(\.\d+)?$/.test(value) && Number(value) <= 100;
+    if (!validYears(answers.experienceYears) || !validYears(answers.competitiveExperienceYears)) {
+      return "Enter a number of years for both experience questions.";
+    }
   }
-  if (step === 5 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(answers.customDrillEmail.trim())) {
-    return "Enter a valid email address for your customized drills.";
+  if (step === 4 && !answers.teamRole) return "Choose the role that best describes you on your team.";
+  if (step === 5) {
+    if (credentialsRequired) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(accountEmail.trim())) return "Enter a valid email for your PLAYR1 account.";
+      if (password.length < 8) return "Your password must be at least 8 characters.";
+    }
   }
   return null;
 }
@@ -243,6 +361,10 @@ function TextField({
   type = "text",
   autoComplete,
   hint,
+  min,
+  max,
+  step,
+  disabled = false,
 }: {
   id: string;
   label: string;
@@ -252,6 +374,10 @@ function TextField({
   type?: string;
   autoComplete?: string;
   hint?: string;
+  min?: number;
+  max?: number;
+  step?: number;
+  disabled?: boolean;
 }) {
   return (
     <div className="space-y-2">
@@ -263,28 +389,53 @@ function TextField({
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         autoComplete={autoComplete}
-        className="h-12 w-full rounded-xl border border-zinc-800 bg-[#111110] px-4 text-[15px] text-zinc-100 outline-none placeholder:text-zinc-600 transition focus:border-orange-400/70 focus:ring-2 focus:ring-orange-500/15"
+        min={min}
+        max={max}
+        step={step}
+        disabled={disabled}
+        className="h-12 w-full rounded-xl border border-zinc-800 bg-[#111110] px-4 text-[15px] text-zinc-100 outline-none placeholder:text-zinc-600 transition focus:border-orange-400/70 focus:ring-2 focus:ring-orange-500/15 disabled:cursor-not-allowed disabled:opacity-55"
       />
       {hint && <p className="text-xs leading-relaxed text-zinc-500">{hint}</p>}
     </div>
   );
 }
 
-export default function AppOnboardingPage({ onComplete }: { onComplete?: () => void }) {
-  const user = { firstName: "Jordan", lastName: "Reyes", email: "jordan.reyes@example.com" };
-  const isAuthLoading = false;
-  const [, setLocation] = useState("");
-  const data: SetupResponse = { answers: {}, completed: false };
-  const isLoading = false;
-  const isError = false;
-  const refetch = async () => {};
-  const [answers, setAnswers] = useState<AppOnboardingAnswers>({
+function AppOnboardingPage({
+  onComplete,
+  previewMode = false,
+  signupMode = false,
+  initialStep = 2,
+}: {
+  onComplete?: () => void;
+  previewMode?: boolean;
+  signupMode?: boolean;
+  initialStep?: number;
+}) {
+  const { user: authUser, isLoading: authLoading } = useAuth();
+  const user = previewMode
+    ? { firstName: "Jordan", lastName: "Reyes", email: "jordan.reyes@example.com" }
+    : authUser;
+  const isAuthLoading = previewMode || signupMode ? false : authLoading;
+  const [, setLocation] = useLocation();
+  const setupKey = previewMode ? [...SETUP_KEY, "preview"] : signupMode ? [...SETUP_KEY, "signup"] : SETUP_KEY;
+  const { data, isLoading, isError, refetch } = useQuery<SetupResponse>({
+    queryKey: setupKey,
+    enabled: !previewMode && !signupMode,
+    initialData: previewMode || signupMode ? { answers: {}, completed: false } : undefined,
+  });
+  const [answers, setAnswers] = useState<AppOnboardingAnswers>(() => ({
     ...emptyAnswers,
     firstName: user?.firstName || "",
     lastName: user?.lastName || "",
-    customDrillEmail: user?.email || "",
-  });
-  const [step, setStep] = useState(1);
+  }));
+  const [accountEmail, setAccountEmail] = useState(() => user?.email || "");
+  const [password, setPassword] = useState("");
+  const [accountCreated, setAccountCreated] = useState(false);
+  const [registeredUser, setRegisteredUser] = useState<Record<string, unknown> | null>(null);
+  const [step, setStep] = useState(initialStep);
+  const [activeSkillRank, setActiveSkillRank] = useState<SkillRankKey>("best");
+  const [draggingSkillRank, setDraggingSkillRank] = useState<SkillRankKey | null>(null);
+  const [dropTargetSkill, setDropTargetSkill] = useState<string | null>(null);
   const [attempted, setAttempted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState("");
@@ -292,16 +443,15 @@ export default function AppOnboardingPage({ onComplete }: { onComplete?: () => v
 
   useEffect(() => {
     if (!data || isAuthLoading || initialized.current) return;
-    const loaded = { ...emptyAnswers, ...data.answers };
-    setAnswers({
+    const loaded = normalizeAnswers(data.answers);
+    const merged = {
       ...loaded,
       firstName: loaded.firstName || user?.firstName || "",
       lastName: loaded.lastName || user?.lastName || "",
-      customDrillEmail: loaded.customDrillEmail || user?.email || "",
-      skillRoles: Array.isArray(loaded.skillRoles) ? loaded.skillRoles : [],
-      positions: Array.isArray(loaded.positions) ? loaded.positions : [],
-    });
-    setStep(getStartingStep(loaded));
+    };
+    setAnswers(merged);
+    setAccountEmail(user?.email || "");
+    setStep(previewMode ? initialStep : getStartingStep(merged));
     initialized.current = true;
   }, [data, isAuthLoading, user?.email, user?.firstName, user?.lastName]);
 
@@ -310,12 +460,29 @@ export default function AppOnboardingPage({ onComplete }: { onComplete?: () => v
     setActionError("");
   };
 
-  const skillsToggle = (skill: string) => {
+  const updateAccountEmail = (value: string) => {
+    setAccountEmail(value);
+    setActionError("");
+  };
+
+  const assignSkill = (skill: string, rankKey: SkillRankKey = activeSkillRank) => {
     setAnswers((current) => {
-      const selected = current.skillRoles.includes(skill);
-      if (selected) return { ...current, skillRoles: current.skillRoles.filter((item) => item !== skill) };
-      if (current.skillRoles.length >= 4) return current;
-      return { ...current, skillRoles: [...current.skillRoles, skill] };
+      const nextRankings = { ...current.skillRankings };
+      if (nextRankings[rankKey] === skill) {
+        nextRankings[rankKey] = "";
+      } else {
+        for (const rank of SKILL_RANKS) {
+          if (rank.key !== rankKey && nextRankings[rank.key] === skill) {
+            nextRankings[rank.key] = "";
+          }
+        }
+        nextRankings[rankKey] = skill;
+      }
+      return {
+        ...current,
+        skillRankings: nextRankings,
+        skillRoles: SKILL_RANKS.map(({ key }) => nextRankings[key]).filter(Boolean),
+      };
     });
     setActionError("");
   };
@@ -330,7 +497,10 @@ export default function AppOnboardingPage({ onComplete }: { onComplete?: () => v
     setActionError("");
   };
 
-  const validationError = attempted ? validateStep(step, answers) : null;
+  const credentialsRequired = signupMode && !previewMode && !accountCreated;
+  const validationError = attempted
+    ? validateStep(step, answers, credentialsRequired, accountEmail, password)
+    : null;
 
   const saveStep = async () => {
     const error = validateStep(step, answers);
@@ -340,47 +510,92 @@ export default function AppOnboardingPage({ onComplete }: { onComplete?: () => v
     setActionError("");
     try {
       const screenAnswers: PartialAnswers = step === 1
-        ? { firstName: answers.firstName.trim(), lastName: answers.lastName.trim(), gradeLevel: answers.gradeLevel, currentSituation: answers.currentSituation }
+        ? {
+            firstName: answers.firstName.trim(),
+            lastName: answers.lastName.trim(),
+            currentSituation: answers.currentSituation,
+            positions: answers.positions,
+          }
         : step === 2
-          ? { skillRoles: answers.skillRoles }
+          ? { skillRoles: answers.skillRoles, skillRankings: answers.skillRankings }
           : step === 3
-            ? { primaryGoal: answers.primaryGoal, seriousness: answers.seriousness, trainingFrequency: answers.trainingFrequency, experienceYears: answers.experienceYears }
-            : { teamType: answers.teamType, positions: answers.positions };
-      const response = await apiRequest("PUT", "/api/player-setup", { answers: screenAnswers });
-      const merged = await response.json() as SetupResponse;
-      queryClient.setQueryData(SETUP_KEY, merged);
-      await queryClient.invalidateQueries({ queryKey: SETUP_KEY });
+            ? {
+                primaryGoal: answers.primaryGoal,
+                trainingDaysPerUnit: Number(answers.trainingDaysPerUnit),
+                trainingPeriodUnit: answers.trainingPeriodUnit,
+                experienceYears: Number(answers.experienceYears),
+                competitiveExperienceYears: Number(answers.competitiveExperienceYears),
+              }
+            : { teamName: answers.teamName.trim(), teamRole: answers.teamRole };
+      if (!previewMode && !signupMode) {
+        const response = await apiRequest("PUT", "/api/player-setup", { answers: screenAnswers });
+        const merged = await response.json() as SetupResponse;
+        queryClient.setQueryData(SETUP_KEY, merged);
+        await queryClient.invalidateQueries({ queryKey: SETUP_KEY });
+      }
       setStep((current) => Math.min(current + 1, 5));
       setAttempted(false);
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : "We couldn't save that just yet. Try again.");
+      setActionError(errorMessage(error, "We couldn't save that just yet. Try again."));
     } finally {
       setBusy(false);
     }
   };
 
   const finishSetup = async () => {
-    const error = validateStep(5, answers);
+    const error = validateStep(5, answers, credentialsRequired, accountEmail, password);
     setAttempted(true);
     if (error) return;
     setBusy(true);
     setActionError("");
     try {
-      const completeAnswers: AppOnboardingAnswers = {
-        ...answers,
+      const completeAnswers = {
         firstName: answers.firstName.trim(),
         lastName: answers.lastName.trim(),
-        customDrillEmail: answers.customDrillEmail.trim(),
+        currentSituation: answers.currentSituation,
+        skillRoles: answers.skillRoles,
+        skillRankings: answers.skillRankings,
+        primaryGoal: answers.primaryGoal,
+        trainingDaysPerUnit: Number(answers.trainingDaysPerUnit),
+        trainingPeriodUnit: answers.trainingPeriodUnit,
+        experienceYears: Number(answers.experienceYears),
+        competitiveExperienceYears: Number(answers.competitiveExperienceYears),
+        teamName: answers.teamName.trim(),
+        teamRole: answers.teamRole,
+        positions: answers.positions,
       };
-      await apiRequest("PUT", "/api/player-setup", {
-        answers: { customDrillEmail: completeAnswers.customDrillEmail },
-      });
+      let userForCache = registeredUser;
+      if (previewMode) {
+        await new Promise((resolve) => window.setTimeout(resolve, 850));
+        if (onComplete) onComplete();
+        else setLocation("/hub");
+        return;
+      }
+      if (signupMode && !accountCreated) {
+        const registerResponse = await apiRequest("POST", "/api/auth/register", {
+          firstName: completeAnswers.firstName,
+          lastName: completeAnswers.lastName,
+          email: accountEmail.trim().toLowerCase(),
+          password,
+        });
+        const registrationData = await registerResponse.json();
+        if (registrationData?.token) storeAuthToken(registrationData.token);
+        const { token: _token, ...userData } = registrationData;
+        userForCache = userData;
+        setRegisteredUser(userData);
+        setAccountCreated(true);
+        setPassword("");
+      }
+      if (signupMode) {
+        await apiRequest("PUT", "/api/player-setup", { answers: completeAnswers });
+      }
       await apiRequest("POST", "/api/player-setup/complete", { answers: completeAnswers });
-      await queryClient.invalidateQueries({ queryKey: SETUP_KEY });
+      queryClient.setQueryData(SETUP_KEY, { answers: completeAnswers, completed: true });
+      if (signupMode && userForCache) queryClient.setQueryData(["/api/auth/user"], userForCache);
       if (onComplete) onComplete();
       else setLocation("/hub");
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : "We couldn't finish setting up your profile. Try again.");
+      setActionError(errorMessage(error, "We couldn't finish setting up your profile. Try again."));
     } finally {
       setBusy(false);
     }
@@ -403,10 +618,10 @@ export default function AppOnboardingPage({ onComplete }: { onComplete?: () => v
 
   const stepCopy = [
     { eyebrow: "YOUR FOUNDATION", title: "First, the basics.", description: "Let’s get to know the player behind the work." },
-    { eyebrow: "YOUR GAME", title: "Where do you want to grow?", description: "Pick the four skills you want your training to build." },
-    { eyebrow: "YOUR DRIVE", title: "What’s pushing you?", description: "A little context helps us meet you at your level." },
-    { eyebrow: "YOUR COURT", title: "Tell us about your team.", description: "We’ll shape your experience around where you play." },
-    { eyebrow: "YOUR TRAINING", title: "Your drills, your inbox.", description: "We’ll send customized drill ideas to the email you choose." },
+    { eyebrow: "YOUR GAME", title: "Rank your skills.", description: "Give each label a different skill so we can focus training where it matters." },
+    { eyebrow: "YOUR DRIVE", title: "Your goal and training rhythm.", description: "A few numbers help us match the plan to your experience." },
+    { eyebrow: "YOUR COURT", title: "Name your team and role.", description: "Tell us which team you play for and how you contribute." },
+    { eyebrow: "YOUR ACCOUNT", title: signupMode ? "Create your PLAYR1 profile." : "Finish your player setup.", description: signupMode ? "" : "Your customized drills will be built in your PLAYR1 profile." },
   ][step - 1];
 
   if (isLoading || isAuthLoading) {
@@ -438,7 +653,7 @@ export default function AppOnboardingPage({ onComplete }: { onComplete?: () => v
   const progress = (step / 5) * 100;
 
   return (
-    <main className="relative min-h-[100dvh] overflow-hidden bg-[#090909] px-4 pb-8 pt-5 text-zinc-100 sm:px-6 sm:pt-8">
+    <main className={`relative min-h-[100dvh] overflow-hidden bg-[#090909] px-4 pb-8 text-zinc-100 sm:px-6 ${previewMode ? "pt-14 sm:pt-16" : "pt-5 sm:pt-8"}`}>
       <div className="pointer-events-none absolute -right-24 top-44 h-72 w-72 rounded-full border border-orange-500/[0.07]" aria-hidden="true" />
       <div className="pointer-events-none absolute -right-12 top-56 h-48 w-48 rounded-full border border-orange-500/[0.06]" aria-hidden="true" />
       <div className="relative mx-auto w-full max-w-xl">
@@ -458,6 +673,16 @@ export default function AppOnboardingPage({ onComplete }: { onComplete?: () => v
             <ArrowLeft className="h-4 w-4" />
             <span className="hidden sm:inline">Back</span>
           </button>
+          {signupMode && step === 1 && !previewMode && (
+            <button
+              type="button"
+              onClick={() => setLocation("/auth")}
+              className="ml-auto mr-2 rounded-lg px-2 py-2 text-xs font-semibold text-zinc-400 transition hover:text-orange-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+              data-testid="button-existing-account-signin"
+            >
+              Already have an account? Sign in
+            </button>
+          )}
         </header>
 
         <section aria-label={`Setup step ${step} of 5`} className="mb-9">
@@ -479,7 +704,7 @@ export default function AppOnboardingPage({ onComplete }: { onComplete?: () => v
           <div className="mb-7">
             <p className="mb-2 text-[10px] font-extrabold tracking-[0.22em] text-orange-400">{stepCopy.eyebrow}</p>
             <h1 className="text-[30px] font-black leading-[1.08] tracking-[-0.04em] text-zinc-50 sm:text-[38px]" data-testid="text-setup-title">{stepCopy.title}</h1>
-            <p className="mt-3 max-w-md text-sm leading-relaxed text-zinc-400">{stepCopy.description}</p>
+            {stepCopy.description && <p className="mt-3 max-w-md text-sm leading-relaxed text-zinc-400">{stepCopy.description}</p>}
           </div>
 
           <section className="space-y-6 rounded-2xl border border-zinc-800/90 bg-[#0e0e0d] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.24)] sm:p-6" aria-label={`Step ${step} questions`}>
@@ -489,55 +714,10 @@ export default function AppOnboardingPage({ onComplete }: { onComplete?: () => v
                   <TextField id="first-name" label="First name" value={answers.firstName} onChange={(value) => update("firstName", value)} placeholder="First name" autoComplete="given-name" />
                   <TextField id="last-name" label="Last name" value={answers.lastName} onChange={(value) => update("lastName", value)} placeholder="Last name" autoComplete="family-name" />
                 </div>
-                <SelectField id="grade-level" label="School grade" value={answers.gradeLevel} onChange={(value) => update("gradeLevel", value)} options={GRADES} placeholder="Choose your grade" />
                 <ChoiceGroup title="What best describes your current basketball situation?" options={SITUATIONS} value={answers.currentSituation} onChange={(value) => update("currentSituation", value)} testPrefix="situation" columns={2} />
-              </>
-            )}
-
-            {step === 2 && (
-              <>
-                <div className="flex items-center justify-between gap-4 rounded-xl border border-orange-500/20 bg-orange-500/[0.06] px-4 py-3">
-                  <div>
-                    <p className="text-sm font-bold text-orange-50">Choose four focus skills</p>
-                    <p className="mt-0.5 text-xs text-zinc-500">Make your next reps count.</p>
-                  </div>
-                  <span className={`shrink-0 font-mono text-sm font-bold ${answers.skillRoles.length === 4 ? "text-orange-300" : "text-zinc-400"}`} aria-live="polite">{answers.skillRoles.length}<span className="text-zinc-600">/4</span></span>
-                </div>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {SKILLS.map((skill) => (
-                    <ChoiceButton
-                      key={skill}
-                      label={skill}
-                      selected={answers.skillRoles.includes(skill)}
-                      onClick={() => skillsToggle(skill)}
-                      disabled={answers.skillRoles.length >= 4 && !answers.skillRoles.includes(skill)}
-                      testId={`skill-option-${skill.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
-                    />
-                  ))}
-                </div>
-                {answers.skillRoles.length === 4 && (
-                  <p className="flex items-center gap-2 text-xs font-semibold text-orange-300"><Check className="h-3.5 w-3.5" />Your focus is set. You can change it before continuing.</p>
-                )}
-              </>
-            )}
-
-            {step === 3 && (
-              <>
-                <ChoiceGroup title="What's your primary basketball goal right now?" options={GOALS} value={answers.primaryGoal} onChange={(value) => update("primaryGoal", value)} testPrefix="goal" />
-                <ChoiceGroup title="How serious is basketball in your life right now?" options={SERIOUSNESS} value={answers.seriousness} onChange={(value) => update("seriousness", value)} testPrefix="seriousness" columns={2} />
-                <ChoiceGroup title="How often do you train outside of team practice?" options={FREQUENCIES} value={answers.trainingFrequency} onChange={(value) => update("trainingFrequency", value)} testPrefix="frequency" columns={2} />
-                <ChoiceGroup title="How many years have you played basketball in general?" options={EXPERIENCE} value={answers.experienceYears} onChange={(value) => update("experienceYears", value)} testPrefix="experience" columns={2} />
-              </>
-            )}
-
-            {step === 4 && (
-              <>
-                <ChoiceGroup title="What type of team are you part of?" options={TEAM_TYPES} value={answers.teamType} onChange={(value) => update("teamType", value)} testPrefix="team-type" columns={2} />
                 <fieldset className="space-y-2.5">
-                  <legend className="text-sm font-bold text-zinc-200">
-                    Current position{answers.teamType === "No current team" ? "s (optional)" : "s"}
-                  </legend>
-                  <p className="text-xs text-zinc-500">Select every position you play.</p>
+                  <legend className="text-sm font-bold text-zinc-200">Which positions do you play?</legend>
+                  <p className="text-xs text-zinc-500">Select all that fit.</p>
                   <div className="grid grid-cols-5 gap-2">
                     {POSITIONS.map((position) => (
                       <button
@@ -560,29 +740,211 @@ export default function AppOnboardingPage({ onComplete }: { onComplete?: () => v
               </>
             )}
 
-            {step === 5 && (
+            {step === 2 && (
               <>
-                <div className="rounded-xl border border-zinc-800 bg-[#111110] p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-500/10 text-orange-300">
-                      <LockKeyhole className="h-4 w-4" aria-hidden="true" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-zinc-100">A better fit starts with you.</p>
-                      <p className="mt-1 text-xs leading-relaxed text-zinc-500">We’ll use this address for personalized basketball drills. It won’t change the email on your PLAYR1 account.</p>
-                    </div>
+                <div className="rounded-xl border border-orange-500/20 bg-orange-500/[0.06] px-4 py-3">
+                  <p className="text-sm font-bold text-orange-50">Choose one skill for each label</p>
+                  <p className="mt-1 text-xs leading-relaxed text-zinc-400">Drag a label onto a skill. On touch or keyboard, select a label, then select a skill. Each skill can only be used once.</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {SKILL_RANKS.map((rank) => (
+                    <button
+                      key={rank.key}
+                      type="button"
+                      draggable
+                      aria-pressed={activeSkillRank === rank.key}
+                      aria-label={`${rank.label}${answers.skillRankings[rank.key] ? `, assigned to ${answers.skillRankings[rank.key]}` : ""}. Drag onto a skill or select to choose one.`}
+                      onClick={() => setActiveSkillRank(rank.key)}
+                      onDragStart={(event) => {
+                        event.dataTransfer.setData("text/plain", rank.key);
+                        event.dataTransfer.effectAllowed = "move";
+                        setActiveSkillRank(rank.key);
+                        setDraggingSkillRank(rank.key);
+                      }}
+                      onDragEnd={() => {
+                        setDraggingSkillRank(null);
+                        setDropTargetSkill(null);
+                      }}
+                      data-testid={`skill-rank-${rank.key}`}
+                      className={`min-h-[76px] rounded-xl border px-3 py-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 ${
+                        draggingSkillRank === rank.key
+                          ? "border-orange-300 bg-orange-500/[0.18] opacity-70"
+                          : activeSkillRank === rank.key
+                          ? "border-orange-400/70 bg-orange-500/[0.12] shadow-[0_0_0_1px_rgba(251,146,60,0.15)]"
+                          : "border-zinc-800 bg-[#111110] hover:border-zinc-700"
+                      }`}
+                    >
+                      <span className="flex items-center gap-2.5">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-orange-400/20 bg-orange-500/10 text-orange-300">
+                          <rank.icon className="h-4 w-4" aria-hidden="true" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-xs font-extrabold leading-snug text-zinc-100">{rank.label}</span>
+                          <span className={`mt-1 block truncate text-[11px] ${answers.skillRankings[rank.key] ? "text-orange-200" : "text-zinc-600"}`}>
+                            {answers.skillRankings[rank.key] || "Drop on a skill"}
+                          </span>
+                        </span>
+                        <GripVertical className="h-4 w-4 shrink-0 text-zinc-600" aria-hidden="true" />
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {SKILLS.map((skill) => (
+                    <button
+                      key={skill}
+                      type="button"
+                      aria-pressed={answers.skillRoles.includes(skill)}
+                      onClick={() => assignSkill(skill)}
+                      onDragOver={(event) => {
+                        event.preventDefault();
+                        event.dataTransfer.dropEffect = "move";
+                        setDropTargetSkill(skill);
+                      }}
+                      onDragLeave={(event) => {
+                        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                          setDropTargetSkill(null);
+                        }
+                      }}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        const droppedRank = SKILL_RANKS.find(({ key }) => key === event.dataTransfer.getData("text/plain"))?.key;
+                        const rankKey = droppedRank ?? draggingSkillRank ?? activeSkillRank;
+                        assignSkill(skill, rankKey);
+                        setActiveSkillRank(rankKey);
+                        setDraggingSkillRank(null);
+                        setDropTargetSkill(null);
+                      }}
+                      data-testid={`skill-option-${skill.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+                      className={`flex min-h-[58px] flex-col items-start justify-center rounded-xl border px-3 py-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 ${
+                        dropTargetSkill === skill
+                          ? "border-orange-300 bg-orange-500/[0.18] text-orange-50 shadow-[0_0_0_1px_rgba(251,146,60,0.18)]"
+                          : answers.skillRoles.includes(skill)
+                          ? "border-orange-400/60 bg-orange-500/[0.09] text-orange-50"
+                          : "border-zinc-800 bg-[#111110] text-zinc-300 hover:border-zinc-700 hover:text-white"
+                      }`}
+                    >
+                      <span className="text-sm font-bold">{skill}</span>
+                      {answers.skillRoles.includes(skill) && (
+                        <span className="mt-1 text-[10px] font-bold uppercase tracking-wide text-orange-300">
+                          {SKILL_RANKS.find((rank) => answers.skillRankings[rank.key] === skill)?.label}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+                {hasCompleteSkillRankings(answers) && (
+                  <p className="flex items-center gap-2 text-xs font-semibold text-orange-300"><Check className="h-3.5 w-3.5" />All four labels have a unique skill.</p>
+                )}
+              </>
+            )}
+
+            {step === 3 && (
+              <>
+                <SelectField id="primary-goal" label="What is your primary basketball goal?" value={answers.primaryGoal} onChange={(value) => update("primaryGoal", value)} options={GOALS} placeholder="Choose your goal" />
+                <div className="space-y-2">
+                  <label htmlFor="training-days" className="block text-sm font-bold text-zinc-200">How often do you train?</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="training-days"
+                      type="number"
+                      min={0}
+                      max={answers.trainingPeriodUnit === "month" ? 31 : 7}
+                      step={1}
+                      value={answers.trainingDaysPerUnit}
+                      onChange={(event) => update("trainingDaysPerUnit", event.target.value)}
+                      placeholder="0"
+                      className="h-12 w-24 rounded-xl border border-zinc-800 bg-[#111110] px-4 text-[15px] text-zinc-100 outline-none placeholder:text-zinc-600 transition focus:border-orange-400/70 focus:ring-2 focus:ring-orange-500/15"
+                      data-testid="input-training-days"
+                    />
+                    <span className="text-sm text-zinc-400">days per</span>
+                    <select
+                      value={answers.trainingPeriodUnit}
+                      onChange={(event) => update("trainingPeriodUnit", event.target.value)}
+                      className="h-12 flex-1 rounded-xl border border-zinc-800 bg-[#111110] px-3 text-sm font-semibold text-zinc-100 outline-none focus:border-orange-400/70 focus:ring-2 focus:ring-orange-500/15"
+                      aria-label="Training frequency period"
+                      data-testid="select-training-period"
+                    >
+                      <option value="week">week</option>
+                      <option value="month">month</option>
+                    </select>
                   </div>
                 </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <TextField
+                    id="experience-years"
+                    label="Years playing basketball"
+                    value={answers.experienceYears}
+                    onChange={(value) => update("experienceYears", value)}
+                    placeholder="e.g., 5"
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={0.5}
+                  />
+                  <TextField
+                    id="competitive-experience-years"
+                    label="Years on a competitive team"
+                    value={answers.competitiveExperienceYears}
+                    onChange={(value) => update("competitiveExperienceYears", value)}
+                    placeholder="e.g., 3"
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={0.5}
+                  />
+                </div>
+              </>
+            )}
+
+            {step === 4 && (
+              <>
                 <TextField
-                  id="custom-drill-email"
-                  label="Email for customized drills"
-                  value={answers.customDrillEmail}
-                  onChange={(value) => update("customDrillEmail", value)}
-                  placeholder="you@example.com"
-                  type="email"
-                  autoComplete="email"
-                  hint={user?.email ? `Your account email is ${user.email}. Change this if you’d like drills sent somewhere else.` : "Choose the inbox where you want to receive drill recommendations."}
+                  id="team-name"
+                  label="Team name"
+                  value={answers.teamName}
+                  onChange={(value) => update("teamName", value)}
+                  placeholder="Enter your current team"
+                  autoComplete="organization"
                 />
+                <ChoiceGroup
+                  title="How would you describe your current role on your team?"
+                  options={TEAM_ROLES}
+                  value={answers.teamRole}
+                  onChange={(value) => update("teamRole", value)}
+                  testPrefix="team-role"
+                  columns={2}
+                />
+              </>
+            )}
+
+            {step === 5 && (
+              <>
+                {signupMode && (
+                  <>
+                    <TextField
+                      id="account-email"
+                      label="Account email"
+                      value={accountEmail}
+                      onChange={updateAccountEmail}
+                      placeholder="you@example.com"
+                      type="email"
+                      autoComplete="email"
+                      disabled={accountCreated}
+                    />
+                    <TextField
+                      id="account-password"
+                      label="Password"
+                      value={password}
+                      onChange={setPassword}
+                      placeholder="At least 8 characters"
+                      type="password"
+                      autoComplete="new-password"
+                      disabled={accountCreated}
+                    />
+                    <p className="text-sm leading-relaxed text-zinc-400">Access Customized Drills For Profile</p>
+                  </>
+                )}
               </>
             )}
 
@@ -595,7 +957,9 @@ export default function AppOnboardingPage({ onComplete }: { onComplete?: () => v
           </section>
 
           <footer className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="px-1 text-xs text-zinc-600">Your answers help tune training to your game.</p>
+            {step < 5 && <p className="px-1 text-xs text-zinc-600">
+                {signupMode ? "Your account is created after your player details are ready." : "Your answers help tune training to your game."}
+            </p>}
             <button
               type="button"
               onClick={handleContinue}
@@ -603,11 +967,19 @@ export default function AppOnboardingPage({ onComplete }: { onComplete?: () => v
               data-testid={step === 5 ? "button-finish-setup" : "button-next"}
               className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-orange-300/60 bg-gradient-to-br from-orange-300 via-orange-500 to-orange-600 px-6 text-sm font-black text-[#17100b] shadow-[0_8px_28px_rgba(249,115,22,0.12)] transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[#090909] disabled:cursor-wait disabled:opacity-70 sm:w-auto sm:min-w-44"
             >
-              {busy ? <><LoaderCircle className="h-4 w-4 animate-spin" />{step === 5 ? "Finishing setup…" : "Saving…"}</> : <>{step === 5 ? "Finish setup" : "Continue"}<ArrowRight className="h-4 w-4" /></>}
+              {busy
+                ? <><LoaderCircle className="h-4 w-4 animate-spin" />{step === 5 ? signupMode ? "Creating profile…" : "Finishing setup…" : "Saving…"}</>
+                : <>{step === 5 ? signupMode ? "Create Profile" : "Finish Setup" : "Continue"}{step !== 5 && <ArrowRight className="h-4 w-4" />}</>}
             </button>
           </footer>
         </div>
       </div>
     </main>
   );
+}
+
+export default function Current() {
+  const requestedStep = Number(new URLSearchParams(window.location.search).get("step"));
+  const initialStep = requestedStep >= 1 && requestedStep <= 5 ? requestedStep : 2;
+  return <AppOnboardingPage previewMode signupMode initialStep={initialStep} />;
 }

@@ -325,7 +325,6 @@ export async function registerRoutes(
     teamName: z.string().trim().max(120),
     teamRole: z.enum(playerSetupTeamRoles),
     positions: z.array(z.enum(playerSetupPositions)).max(5).refine((values) => new Set(values).size === values.length),
-    customDrillEmail: z.string().trim().email().max(254),
   }).strict().superRefine((answers, ctx) => {
     if (answers.trainingDaysPerUnit > (answers.trainingPeriodUnit === "week" ? 7 : 31)) {
       ctx.addIssue({
@@ -4230,8 +4229,7 @@ ${JSON.stringify(catalogForPrompt)}
           .from(playerSetupProfiles)
           .where(eq(playerSetupProfiles.userId, userId))
           .limit(1);
-        // Keep legacy setup fields (such as gradeLevel) intact when the new
-        // onboarding no longer asks for them.
+        // Keep previously saved setup answers that the current onboarding no longer collects.
         const persistedAnswers = { ...(existingSetup?.answers ?? {}), ...answers };
         await tx
           .insert(playerSetupProfiles)

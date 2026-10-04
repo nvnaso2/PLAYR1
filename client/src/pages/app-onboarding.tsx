@@ -1,6 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, Check, ChevronDown, CircleAlert, LoaderCircle, LockKeyhole, Mail } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  ChevronDown,
+  CircleAlert,
+  GripVertical,
+  LoaderCircle,
+  Medal,
+  Star,
+  Target,
+  TrendingDown,
+  Trophy,
+  type LucideIcon,
+} from "lucide-react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient, storeAuthToken } from "@/lib/queryClient";
@@ -22,6 +36,7 @@ export interface AppOnboardingAnswers {
   teamName: string;
   teamRole: string;
   positions: string[];
+  /** Legacy saved value; the current setup flow no longer collects it. */
   customDrillEmail: string;
 }
 
@@ -64,11 +79,11 @@ const GOALS = [
   "Just looking to improve in general",
   "Play for fun",
 ];
-const SKILL_RANKS: { key: SkillRankKey; label: string }[] = [
-  { key: "best", label: "Best" },
-  { key: "secondBest", label: "2nd Best" },
-  { key: "worst", label: "Worst" },
-  { key: "improveMost", label: "Want to improve the most" },
+const SKILL_RANKS: { key: SkillRankKey; label: string; icon: LucideIcon }[] = [
+  { key: "best", label: "Best", icon: Trophy },
+  { key: "secondBest", label: "2nd Best", icon: Medal },
+  { key: "worst", label: "Worst", icon: TrendingDown },
+  { key: "improveMost", label: "Want to improve the most", icon: Target },
 ];
 const TEAM_ROLES = [
   "Not On A Team / Learning the game",
@@ -208,9 +223,6 @@ function validateStep(
   }
   if (step === 4 && !answers.teamRole) return "Choose the role that best describes you on your team.";
   if (step === 5) {
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(answers.customDrillEmail.trim())) {
-      return "Enter a valid email address for your customized drills.";
-    }
     if (credentialsRequired) {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(accountEmail.trim())) return "Enter a valid email for your PLAYR1 account.";
       if (password.length < 8) return "Your password must be at least 8 characters.";
@@ -404,7 +416,6 @@ export default function AppOnboardingPage({
     ...emptyAnswers,
     firstName: user?.firstName || "",
     lastName: user?.lastName || "",
-    customDrillEmail: user?.email || "",
   }));
   const [accountEmail, setAccountEmail] = useState(() => user?.email || "");
   const [password, setPassword] = useState("");
@@ -412,6 +423,8 @@ export default function AppOnboardingPage({
   const [registeredUser, setRegisteredUser] = useState<Record<string, unknown> | null>(null);
   const [step, setStep] = useState(1);
   const [activeSkillRank, setActiveSkillRank] = useState<SkillRankKey>("best");
+  const [draggingSkillRank, setDraggingSkillRank] = useState<SkillRankKey | null>(null);
+  const [dropTargetSkill, setDropTargetSkill] = useState<string | null>(null);
   const [attempted, setAttempted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState("");
@@ -424,7 +437,6 @@ export default function AppOnboardingPage({
       ...loaded,
       firstName: loaded.firstName || user?.firstName || "",
       lastName: loaded.lastName || user?.lastName || "",
-      customDrillEmail: loaded.customDrillEmail || user?.email || "",
     };
     setAnswers(merged);
     setAccountEmail(user?.email || "");
@@ -438,29 +450,22 @@ export default function AppOnboardingPage({
   };
 
   const updateAccountEmail = (value: string) => {
-    const previousEmail = accountEmail.trim();
     setAccountEmail(value);
-    setAnswers((current) => {
-      const followsAccountEmail =
-        !current.customDrillEmail.trim() ||
-        current.customDrillEmail.trim().toLowerCase() === previousEmail.toLowerCase();
-      return followsAccountEmail ? { ...current, customDrillEmail: value } : current;
-    });
     setActionError("");
   };
 
-  const assignSkill = (skill: string) => {
+  const assignSkill = (skill: string, rankKey: SkillRankKey = activeSkillRank) => {
     setAnswers((current) => {
       const nextRankings = { ...current.skillRankings };
-      if (nextRankings[activeSkillRank] === skill) {
-        nextRankings[activeSkillRank] = "";
+      if (nextRankings[rankKey] === skill) {
+        nextRankings[rankKey] = "";
       } else {
         for (const rank of SKILL_RANKS) {
-          if (rank.key !== activeSkillRank && nextRankings[rank.key] === skill) {
+          if (rank.key !== rankKey && nextRankings[rank.key] === skill) {
             nextRankings[rank.key] = "";
           }
         }
-        nextRankings[activeSkillRank] = skill;
+        nextRankings[rankKey] = skill;
       }
       return {
         ...current,
@@ -547,7 +552,6 @@ export default function AppOnboardingPage({
         teamName: answers.teamName.trim(),
         teamRole: answers.teamRole,
         positions: answers.positions,
-        customDrillEmail: answers.customDrillEmail.trim(),
       };
       let userForCache = registeredUser;
       if (previewMode) {
@@ -571,11 +575,7 @@ export default function AppOnboardingPage({
         setAccountCreated(true);
         setPassword("");
       }
-      if (!signupMode) {
-        await apiRequest("PUT", "/api/player-setup", {
-          answers: { customDrillEmail: completeAnswers.customDrillEmail },
-        });
-      } else {
+      if (signupMode) {
         await apiRequest("PUT", "/api/player-setup", { answers: completeAnswers });
       }
       await apiRequest("POST", "/api/player-setup/complete", { answers: completeAnswers });
@@ -610,7 +610,7 @@ export default function AppOnboardingPage({
     { eyebrow: "YOUR GAME", title: "Rank your skills.", description: "Give each label a different skill so we can focus training where it matters." },
     { eyebrow: "YOUR DRIVE", title: "Your goal and training rhythm.", description: "A few numbers help us match the plan to your experience." },
     { eyebrow: "YOUR COURT", title: "Name your team and role.", description: "Tell us which team you play for and how you contribute." },
-    { eyebrow: "YOUR ACCOUNT", title: signupMode ? "Create your PLAYR1 account." : "Your custom drills, your inbox.", description: signupMode ? "Set your sign-in details and choose where customized drills should go." : "Choose the inbox where you want your customized drills sent." },
+    { eyebrow: "YOUR ACCOUNT", title: signupMode ? "Create your PLAYR1 profile." : "Finish your player setup.", description: signupMode ? "" : "Your customized drills will be built in your PLAYR1 profile." },
   ][step - 1];
 
   if (isLoading || isAuthLoading) {
@@ -693,7 +693,7 @@ export default function AppOnboardingPage({
           <div className="mb-7">
             <p className="mb-2 text-[10px] font-extrabold tracking-[0.22em] text-orange-400">{stepCopy.eyebrow}</p>
             <h1 className="text-[30px] font-black leading-[1.08] tracking-[-0.04em] text-zinc-50 sm:text-[38px]" data-testid="text-setup-title">{stepCopy.title}</h1>
-            <p className="mt-3 max-w-md text-sm leading-relaxed text-zinc-400">{stepCopy.description}</p>
+            {stepCopy.description && <p className="mt-3 max-w-md text-sm leading-relaxed text-zinc-400">{stepCopy.description}</p>}
           </div>
 
           <section className="space-y-6 rounded-2xl border border-zinc-800/90 bg-[#0e0e0d] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.24)] sm:p-6" aria-label={`Step ${step} questions`}>
@@ -733,25 +733,47 @@ export default function AppOnboardingPage({
               <>
                 <div className="rounded-xl border border-orange-500/20 bg-orange-500/[0.06] px-4 py-3">
                   <p className="text-sm font-bold text-orange-50">Choose one skill for each label</p>
-                  <p className="mt-1 text-xs leading-relaxed text-zinc-400">Tap a label, then tap a skill. Each skill can only be used once.</p>
+                  <p className="mt-1 text-xs leading-relaxed text-zinc-400">Drag a label onto a skill. On touch or keyboard, select a label, then select a skill. Each skill can only be used once.</p>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {SKILL_RANKS.map((rank) => (
                     <button
                       key={rank.key}
                       type="button"
+                      draggable
                       aria-pressed={activeSkillRank === rank.key}
+                      aria-label={`${rank.label}${answers.skillRankings[rank.key] ? `, assigned to ${answers.skillRankings[rank.key]}` : ""}. Drag onto a skill or select to choose one.`}
                       onClick={() => setActiveSkillRank(rank.key)}
+                      onDragStart={(event) => {
+                        event.dataTransfer.setData("text/plain", rank.key);
+                        event.dataTransfer.effectAllowed = "move";
+                        setActiveSkillRank(rank.key);
+                        setDraggingSkillRank(rank.key);
+                      }}
+                      onDragEnd={() => {
+                        setDraggingSkillRank(null);
+                        setDropTargetSkill(null);
+                      }}
                       data-testid={`skill-rank-${rank.key}`}
-                      className={`min-h-[72px] rounded-xl border px-3 py-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 ${
-                        activeSkillRank === rank.key
+                      className={`min-h-[76px] rounded-xl border px-3 py-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 ${
+                        draggingSkillRank === rank.key
+                          ? "border-orange-300 bg-orange-500/[0.18] opacity-70"
+                          : activeSkillRank === rank.key
                           ? "border-orange-400/70 bg-orange-500/[0.12] shadow-[0_0_0_1px_rgba(251,146,60,0.15)]"
                           : "border-zinc-800 bg-[#111110] hover:border-zinc-700"
                       }`}
                     >
-                      <span className="block text-xs font-extrabold text-zinc-100">{rank.label}</span>
-                      <span className={`mt-1 block truncate text-[11px] ${answers.skillRankings[rank.key] ? "text-orange-200" : "text-zinc-600"}`}>
-                        {answers.skillRankings[rank.key] || "Select a skill"}
+                      <span className="flex items-center gap-2.5">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-orange-400/20 bg-orange-500/10 text-orange-300">
+                          <rank.icon className="h-4 w-4" aria-hidden="true" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-xs font-extrabold leading-snug text-zinc-100">{rank.label}</span>
+                          <span className={`mt-1 block truncate text-[11px] ${answers.skillRankings[rank.key] ? "text-orange-200" : "text-zinc-600"}`}>
+                            {answers.skillRankings[rank.key] || "Drop on a skill"}
+                          </span>
+                        </span>
+                        <GripVertical className="h-4 w-4 shrink-0 text-zinc-600" aria-hidden="true" />
                       </span>
                     </button>
                   ))}
@@ -763,9 +785,30 @@ export default function AppOnboardingPage({
                       type="button"
                       aria-pressed={answers.skillRoles.includes(skill)}
                       onClick={() => assignSkill(skill)}
+                      onDragOver={(event) => {
+                        event.preventDefault();
+                        event.dataTransfer.dropEffect = "move";
+                        setDropTargetSkill(skill);
+                      }}
+                      onDragLeave={(event) => {
+                        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                          setDropTargetSkill(null);
+                        }
+                      }}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        const droppedRank = SKILL_RANKS.find(({ key }) => key === event.dataTransfer.getData("text/plain"))?.key;
+                        const rankKey = droppedRank ?? draggingSkillRank ?? activeSkillRank;
+                        assignSkill(skill, rankKey);
+                        setActiveSkillRank(rankKey);
+                        setDraggingSkillRank(null);
+                        setDropTargetSkill(null);
+                      }}
                       data-testid={`skill-option-${skill.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
                       className={`flex min-h-[58px] flex-col items-start justify-center rounded-xl border px-3 py-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 ${
-                        answers.skillRoles.includes(skill)
+                        dropTargetSkill === skill
+                          ? "border-orange-300 bg-orange-500/[0.18] text-orange-50 shadow-[0_0_0_1px_rgba(251,146,60,0.18)]"
+                          : answers.skillRoles.includes(skill)
                           ? "border-orange-400/60 bg-orange-500/[0.09] text-orange-50"
                           : "border-zinc-800 bg-[#111110] text-zinc-300 hover:border-zinc-700 hover:text-white"
                       }`}
@@ -867,65 +910,29 @@ export default function AppOnboardingPage({
             {step === 5 && (
               <>
                 {signupMode && (
-                  <div className="rounded-2xl border border-zinc-800 bg-gradient-to-br from-[#17120f] via-[#111110] to-[#111110] p-4 sm:p-5">
-                    <div className="mb-4 flex items-center gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-orange-400/25 bg-orange-500/10 text-orange-300">
-                        <LockKeyhole className="h-4 w-4" aria-hidden="true" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-extrabold text-zinc-100">Your sign-in details</p>
-                        <p className="mt-0.5 text-xs text-zinc-500">Use these to access your PLAYR1 profile.</p>
-                      </div>
-                    </div>
-                    <div className="space-y-4">
-                      <TextField
-                        id="account-email"
-                        label="Account email"
-                        value={accountEmail}
-                        onChange={updateAccountEmail}
-                        placeholder="you@example.com"
-                        type="email"
-                        autoComplete="email"
-                        disabled={accountCreated}
-                      />
-                      <TextField
-                        id="account-password"
-                        label="Password"
-                        value={password}
-                        onChange={setPassword}
-                        placeholder="At least 8 characters"
-                        type="password"
-                        autoComplete="new-password"
-                        disabled={accountCreated}
-                      />
-                    </div>
-                  </div>
-                )}
-                <div className="rounded-2xl border border-orange-500/20 bg-[#111110] p-4 sm:p-5">
-                  <div className="mb-4 flex items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-orange-400/25 bg-orange-500/10 text-orange-300">
-                      <Mail className="h-4 w-4" aria-hidden="true" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-extrabold text-zinc-100">Customized drill delivery</p>
-                      <p className="mt-0.5 text-xs text-zinc-500">Choose the inbox for your drill recommendations.</p>
-                    </div>
-                  </div>
-                <TextField
-                  id="custom-drill-email"
-                  label="Email for customized drills"
-                  value={answers.customDrillEmail}
-                  onChange={(value) => update("customDrillEmail", value)}
-                  placeholder="you@example.com"
-                  type="email"
-                  autoComplete="email"
-                />
-                </div>
-                {busy && (
-                  <div role="status" aria-live="polite" className="flex items-center gap-3 rounded-xl border border-orange-400/25 bg-orange-500/[0.07] px-4 py-3">
-                    <LoaderCircle className="h-5 w-5 shrink-0 animate-spin text-orange-300" aria-hidden="true" />
-                    <span className="text-sm font-semibold text-orange-100">Putting Together Custom Drills Now</span>
-                  </div>
+                  <>
+                    <TextField
+                      id="account-email"
+                      label="Account email"
+                      value={accountEmail}
+                      onChange={updateAccountEmail}
+                      placeholder="you@example.com"
+                      type="email"
+                      autoComplete="email"
+                      disabled={accountCreated}
+                    />
+                    <TextField
+                      id="account-password"
+                      label="Password"
+                      value={password}
+                      onChange={setPassword}
+                      placeholder="At least 8 characters"
+                      type="password"
+                      autoComplete="new-password"
+                      disabled={accountCreated}
+                    />
+                    <p className="text-sm leading-relaxed text-zinc-400">Access Customized Drills For Profile</p>
+                  </>
                 )}
               </>
             )}
@@ -939,9 +946,9 @@ export default function AppOnboardingPage({
           </section>
 
           <footer className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="px-1 text-xs text-zinc-600">
+            {step < 5 && <p className="px-1 text-xs text-zinc-600">
                 {signupMode ? "Your account is created after your player details are ready." : "Your answers help tune training to your game."}
-              </p>
+            </p>}
             <button
               type="button"
               onClick={handleContinue}
@@ -949,7 +956,9 @@ export default function AppOnboardingPage({
               data-testid={step === 5 ? "button-finish-setup" : "button-next"}
               className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-orange-300/60 bg-gradient-to-br from-orange-300 via-orange-500 to-orange-600 px-6 text-sm font-black text-[#17100b] shadow-[0_8px_28px_rgba(249,115,22,0.12)] transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[#090909] disabled:cursor-wait disabled:opacity-70 sm:w-auto sm:min-w-44"
             >
-              {busy ? <><LoaderCircle className="h-4 w-4 animate-spin" />{step === 5 ? "Finishing setup…" : "Saving…"}</> : <>{step === 5 ? "Access Customized Drills For Profile" : "Continue"}<ArrowRight className="h-4 w-4" /></>}
+              {busy
+                ? <><LoaderCircle className="h-4 w-4 animate-spin" />{step === 5 ? signupMode ? "Creating profile…" : "Finishing setup…" : "Saving…"}</>
+                : <>{step === 5 ? signupMode ? "Create Profile" : "Finish Setup" : "Continue"}{step !== 5 && <ArrowRight className="h-4 w-4" />}</>}
             </button>
           </footer>
         </div>
