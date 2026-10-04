@@ -1409,6 +1409,7 @@ Start now with a warm one-line greeting that briefly references something specif
   // Context is assembled server-side so the client cannot spoof or omit player data.
   app.post("/api/coach-p/chat", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     const userId = req.user!.claims.sub;
+    const welcomeWorkoutConversationTitle = "My first Coach P workout";
     let charged = false;
     let projectBuilderRequest = false;
     let conversationId: string | null = null;
@@ -1434,6 +1435,7 @@ Start now with a warm one-line greeting that briefly references something specif
         projectBuilder: z.boolean().optional(),
         projectBuilderAction: z.enum(["start", "answer"]).optional(),
         workoutBuilder: z.boolean().optional(),
+        welcomeWorkout: z.boolean().optional(),
         workoutAnswers: z.object({
           durationMinutes: z.coerce.number().int(),
           setting: z.string(),
@@ -1456,6 +1458,7 @@ Start now with a warm one-line greeting that briefly references something specif
       const journalMessages = parsed.data.messages || (parsed.data.message ? [{ role: "user" as const, content: parsed.data.message }] : []);
       const lastUserMessage = [...journalMessages].reverse().find((message) => message.role === "user");
       if (!lastUserMessage) return res.status(400).json({ message: "Coach P needs a player question." });
+      const welcomeWorkoutStartRequest = parsed.data.welcomeWorkout === true && parsed.data.workoutBuilder === true;
       let workoutBuilderRequest = parsed.data.projectBuilder !== true
         && (parsed.data.workoutBuilder === true || isCoachPWorkoutBuilderRequest(lastUserMessage.content));
 
@@ -1697,12 +1700,16 @@ Start now with a warm one-line greeting that briefly references something specif
       if (!conversation && !journalEntry) {
         conversation = await storage.createCoachPConversation({
           userId,
-          title: lastUserMessage.content.slice(0, 80).trim() || "New Coach P conversation",
+          title: welcomeWorkoutStartRequest
+            ? welcomeWorkoutConversationTitle
+            : lastUserMessage.content.slice(0, 80).trim() || "New Coach P conversation",
           messageCount: 0,
         });
         conversationId = conversation.id;
       }
       const previousMessages = conversation ? await storage.getCoachPMessages(conversation.id) : [];
+      const isWelcomeWorkoutConversation = welcomeWorkoutStartRequest
+        || conversation?.title === welcomeWorkoutConversationTitle;
       const rollingContext = journalEntry
         ? journalMessages
         : [
@@ -1748,14 +1755,20 @@ Start now with a warm one-line greeting that briefly references something specif
       requestContextMode = contextMode;
       sendSse("status", { stage: "Checking your player profile..." });
       const isJournalCoach = !!journalEntry;
-      const needsTraining = ["training", "workout", "game", "goal", "opportunity", "training-review"].includes(contextMode) || isJournalCoach;
+      const needsTraining = ["training", "workout", "game", "goal", "opportunity", "training-review"].includes(contextMode)
+        || isJournalCoach
+        || isWelcomeWorkoutConversation;
       const needsWorkoutCatalog = ["workout", "opportunity", "training-review"].includes(contextMode) || isJournalCoach;
-      const needsGameData = ["game", "workout", "opportunity", "training-review"].includes(contextMode) || !!journalEntry?.gameId;
+      const needsGameData = ["game", "workout", "opportunity", "training-review"].includes(contextMode)
+        || !!journalEntry?.gameId
+        || isWelcomeWorkoutConversation;
       const needsJournal = contextMode === "goal" || isJournalCoach;
-      const needsAssessmentAnswers = ["profile", "goal", "opportunity", "workout"].includes(contextMode) || isJournalCoach;
+      const needsAssessmentAnswers = ["profile", "goal", "opportunity", "workout"].includes(contextMode)
+        || isJournalCoach
+        || isWelcomeWorkoutConversation;
       const needsPrograms = contextMode === "workout" || isJournalCoach;
-      const needsLeadMagnetResults = contextMode !== "general" || isJournalCoach;
-      const needsPlayerSetupAnswers = contextMode === "workout";
+      const needsLeadMagnetResults = contextMode !== "general" || isJournalCoach || isWelcomeWorkoutConversation;
+      const needsPlayerSetupAnswers = contextMode === "workout" || isWelcomeWorkoutConversation;
       const contextStartedAt = Date.now();
       const [userProfile, playerSetupAnswers, career, playerProfile, userArchetypes, activeGoal, journalEntries, trainingLogs, principles, userStats, weeklyStats, categoryStats, dashboardStats, progressTrends, shotStats, careerStats, drillProgress, availableDrills, availablePrograms, activeEnrollments, playerLeadMagnetSubmissions] = await Promise.all([
         storage.getUserProfile(userId),
@@ -1884,6 +1897,9 @@ Start now with a warm one-line greeting that briefly references something specif
       const leadMagnetResultsText = needsLeadMagnetResults
         ? formatCoachPLeadMagnetResults(relevantLeadMagnetSubmissions)
         : "Not loaded because quiz results are not relevant to this question.";
+      const allSavedLeadMagnetResultsText = needsLeadMagnetResults
+        ? formatCoachPLeadMagnetResults(playerLeadMagnetSubmissions)
+        : "Not loaded because quiz results are not relevant to this question.";
       const setupContextText = needsPlayerSetupAnswers
         ? JSON.stringify(setupContext).slice(0, 6000)
         : "Not loaded because completed setup answers are not relevant to this question.";
@@ -2011,8 +2027,14 @@ ASSESSMENT RESULTS
 - Raw assessment answers: ${assessmentAnswers}
 
 SAVED LEAD MAGNET QUIZ RESULTS
-Saved quiz attempts relevant to this request, newest first. These are self-reported diagnostic answers, not objective performance measurements.
-${leadMagnetResultsText}
+${isWelcomeWorkoutConversation
+  ? `All prior saved quiz attempts for the welcome snapshot, newest first. These are self-reported diagnostic answers, not objective performance measurements:
+${allSavedLeadMagnetResultsText}
+
+Attempts that match the current workout focus:
+${leadMagnetResultsText}`
+  : `Saved quiz attempts relevant to this request, newest first. These are self-reported diagnostic answers, not objective performance measurements.
+${leadMagnetResultsText}`}
 
 SELECTED ARCHETYPES
 ${archetypeText}
@@ -2051,7 +2073,7 @@ PLAYER PROFILE DETAILS
 }).slice(0, 2000)}
 `.trim();
 
-      if (isWorkoutIntakeStart && conversation) {
+      if (isWorkoutIntakeStart && conversation && !welcomeWorkoutStartRequest) {
         const selfRatedSkills: Array<{ focus: string; score: unknown }> = [
           { focus: "ball-handling", score: career?.skillBallHandling },
           { focus: "shooting", score: career?.skillShooting },
@@ -2240,13 +2262,13 @@ COACHING RULES:
 You are producing a server-validated Coach P workout response.
 Return JSON only with this shape:
 {
-  "response": "brief coaching explanation",
+  "response": "brief coaching explanation, or a personalized onboarding snapshot for the welcome flow",
   "followUpQuestion": null,
   "workout": {
     "name": "short workout name",
     "purpose": "what this workout is designed to improve",
     "selectionRationale": "why these specific drills were chosen for the player's focus and what they will help improve",
-    "estimatedDuration": 45,
+    "estimatedDuration": ${welcomeWorkoutStartRequest ? 30 : 45},
     "successMeasure": "specific way the player will know it worked",
     "drills": [
       {
@@ -2259,11 +2281,21 @@ Return JSON only with this shape:
     ]
   }
 }
-Build exactly one focused workout session, never a multi-day plan or weekly program. If one important constraint is missing (especially the skill, game situation, or weakness the player wants to work on, available time, equipment/access, or desired intensity), return "workout": null and ask exactly one focused followUpQuestion. When asking about focus, ask what the player specifically wants to work on in this workout. Do not ask multiple questions. Once the constraint is clear, return the complete workout. The response must explain how the workout connects to the player's stated focus, selectionRationale must explain why the drills were chosen as a group, and every drill's coachingNotes must explain why that drill was chosen and what it will help the player improve. Never invent a drill ID: use only the catalog below. Use 1 to 8 catalog drills in the requested order. Use either sets or reps when the drill calls for it, and always include durationMinutes.
+Build exactly one focused workout session, never a multi-day plan or weekly program. ${
+          welcomeWorkoutStartRequest
+            ? `This is the player's first Coach P conversation after completing setup. Do not return a null workout or ask another intake question. Use a 30-minute solo session as a clearly stated starter assumption because setup does not capture session length or training setting. Choose the primary focus from the completed setup's "top improvement focus" first, then the assessment bottleneck or strongest supported profile signal. Use skill rankings, relevant saved quiz answers, and player context to shape supporting work. Select catalog drills that do not require specialized equipment; never claim an unknown facility or piece of equipment is available.`
+            : `If one important constraint is missing (especially the skill, game situation, or weakness the player wants to work on, available time, equipment/access, or desired intensity), return "workout": null and ask exactly one focused followUpQuestion. When asking about focus, ask what the player specifically wants to work on in this workout. Do not ask multiple questions. Once the constraint is clear, return the complete workout.`
+        } The response must explain how the workout connects to the player's stated focus, selectionRationale must explain why the drills were chosen as a group, and every drill's coachingNotes must explain why that drill was chosen and what it will help the player improve. Never invent a drill ID: use only the catalog below. Use 1 to 8 catalog drills in the requested order. Use either sets or reps when the drill calls for it, and always include durationMinutes.
 Use the completed five-step setup, player profile and career details, training history, and relevant saved lead-magnet answers above. Do not ask the player to repeat setup facts they have already provided. Treat lead-magnet answers as self-reported context, and use them only when they relate to the selected workout focus.
-The player has already answered the required workout intake:
+${welcomeWorkoutStartRequest
+  ? `WELCOME CONVERSATION RESPONSE REQUIREMENTS:
+- In "response", first write a concise, warm profile snapshot (about 90–140 words) that makes this player feel understood by connecting the specific facts they shared: basketball situation/role, goal, ranked strengths and growth edge, assessment/archetype, recent training, and any relevant saved lead-magnet answers.
+- Use the player's first name when available. Use any saved lead-magnet answers as self-reported clues, not proven performance facts; connect the ones that meaningfully fit the player's game instead of listing raw answers. Mention only details present in context; do not guess, flatter generically, or claim certainty the data does not support.
+- Explain how those details shape this first workout. State that the 30-minute solo session is a starter assumption because setup did not capture duration or setting. Keep the drill durations aligned with the 30-minute estimate. Do not repeat onboarding questions.
+- Keep "followUpQuestion" null and return a complete catalog-backed workout preview in this same response.`
+  : `The player has already answered the required workout intake:
 ${JSON.stringify(workoutAnswers)}
-Use those answers exactly: honor the duration, tailor the plan to solo/partner/group setting, make the primary focus the central objective, and use both secondary focuses as supporting objectives. Do not ask another follow-up question.
+Use those answers exactly: honor the duration, tailor the plan to solo/partner/group setting, make the primary focus the central objective, and use both secondary focuses as supporting objectives. Do not ask another follow-up question.`}
 AVAILABLE CATALOG DRILLS:
 ${JSON.stringify(catalogForPrompt)}
 `;

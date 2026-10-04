@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { nativeFetch, statsUrl } from "@/lib/queryClient";
@@ -100,6 +100,8 @@ function formatDate() {
 export default function HubPage() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
+  const search = useSearch();
+  const onboardingPreview = new URLSearchParams(search).get("preview") === "onboarding";
   const [testHubView, setTestHubView] = useState<"onboarding" | "everyday" | null>(null);
   const [trailerDismissed, setTrailerDismissed] = useState(() =>
     localStorage.getItem("playr1_intro_trailer_dismissed") === "1"
@@ -178,9 +180,9 @@ export default function HubPage() {
     refetchOnWindowFocus: true,
   });
   const profileIncomplete = !user?.lastName || !careerData?.positions?.length || !careerData?.aspiration;
-  const showProfileSetup = import.meta.env.DEV && testHubView !== null
+  const showProfileSetup = onboardingPreview || (import.meta.env.DEV && testHubView !== null
     ? testHubView === "onboarding"
-    : profileIncomplete;
+    : profileIncomplete);
   const { data: setupData } = useQuery<{ answers?: Record<string, any> }>({
     queryKey: ["/api/player-setup"],
     enabled: !!user && !showProfileSetup,
@@ -553,6 +555,22 @@ export default function HubPage() {
     <div className="min-h-full bg-background pb-6">
       {/* Greeting Header */}
       <div className="px-5 pt-6 pb-2">
+        {onboardingPreview && (
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-orange-400/25 bg-orange-400/[0.06] px-3 py-2.5" data-testid="hub-onboarding-preview-banner">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange-300">Onboarding Hub preview</p>
+              <p className="mt-0.5 text-xs text-zinc-300">This preview does not change your saved profile or normal Hub view.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate("/hub")}
+              className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-zinc-200 transition hover:bg-white/[0.08]"
+              data-testid="button-hub-exit-onboarding-preview"
+            >
+              My normal Hub
+            </button>
+          </div>
+        )}
         {import.meta.env.DEV && (
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed border-amber-500/35 bg-amber-500/[0.06] px-3 py-2" data-testid="hub-test-view-toggle">
             <div className="flex flex-wrap items-center gap-2">

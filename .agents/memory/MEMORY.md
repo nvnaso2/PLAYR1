@@ -1,12 +1,12 @@
 - [Player profile DB columns](player-profile-columns.md) — ALTER TABLE used for new columns (not drizzle push) to avoid interactive slug_unique conflict
 - [Type-check compatibility boundaries](typecheck-compatibility.md) — contain schema drift at stale adapters and persistence boundaries without excluding active app code
 - [Stripe connector credential shape](stripe-connector-credentials.md) — accept both legacy and installed connector secret field names without persisting credentials
-- [Hub onboarding path](hub-onboarding-path.md) — keep production Hub states automatic; confine state overrides and welcome-workout testing to development
+- [Hub onboarding path](hub-onboarding-path.md) — keep the normal Hub profile-derived; only the welcome-chat action opens a temporary onboarding preview
 - [Profile and Hub scope](profile-first-release-scope.md) — lead Profile with the unframed trading card and concise stats/trophy summaries; preserve its black-and-orange accents
 - [Archetype content source](archetype-content-source.md) — descriptions and four core characteristics come from database definitions with explicit assessment-label mapping
 - [Coach P model budget](coach-p-model-budget.md) — leave enough completion budget for reasoning and visible coaching text
 - [Coach P context routing](coach-p-context-routing.md) — load only question-relevant context and invalidate cached Coach P catalogs after edits
-- [Coach P starter flows](coach-p-starter-flows.md) — keep each starter prompt aligned with its player context, clarification steps, and save path
+- [Coach P starter flows](coach-p-starter-flows.md) — include all saved lead magnets in welcome context; keep the workout itself focus-relevant
 - [Journal Coach P entitlement](journal-coach-entitlement.md) — Journal coaching is a separate Pro entitlement and never spends the standalone free allowance
 - [Onboarding copy and scoring maps](onboarding-copy-score-maps.md) — visible answer text is also used as client-side scoring keys
 - [Coach P conversation memory](coach-p-conversation-memory.md) — persist full chats, send a rolling summary plus recent messages, and keep request cost records separate from content

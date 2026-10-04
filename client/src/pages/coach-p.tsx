@@ -155,6 +155,9 @@ function WorkoutPreviewCard({
   onUpgrade,
   onStart,
   onAdjustAnswers,
+  showAdjustAnswers = true,
+  showHubAction = false,
+  onOpenHub,
 }: {
   preview: CoachPWorkoutPreview;
   answers: CoachPWorkoutAnswers | null;
@@ -166,6 +169,9 @@ function WorkoutPreviewCard({
   onUpgrade: () => void;
   onStart: () => void;
   onAdjustAnswers: () => void;
+  showAdjustAnswers?: boolean;
+  showHubAction?: boolean;
+  onOpenHub?: () => void;
 }) {
   const [showFullRationale, setShowFullRationale] = useState(false);
   const settingLabel = answers?.setting === "partner"
@@ -252,15 +258,22 @@ function WorkoutPreviewCard({
           <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-300">Today’s win</p>
           <p className="mt-0.5 line-clamp-2 text-xs leading-4 text-zinc-300">{preview.successMeasure}</p>
         </div>
+        {showHubAction && (
+          <p className="mt-4 text-xs leading-5 text-zinc-400">
+            Keep chatting with Coach P, save this workout to train, or preview your onboarding Hub.
+          </p>
+        )}
         <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-          <button
-            type="button"
-            onClick={onAdjustAnswers}
-            className="text-xs font-medium text-zinc-500 transition-colors hover:text-zinc-200"
-            data-testid="button-coach-p-adjust-workout"
-          >
-            Adjust answers
-          </button>
+          {showAdjustAnswers ? (
+            <button
+              type="button"
+              onClick={onAdjustAnswers}
+              className="text-xs font-medium text-zinc-500 transition-colors hover:text-zinc-200"
+              data-testid="button-coach-p-adjust-workout"
+            >
+              Adjust answers
+            </button>
+          ) : <span />}
           {savedWorkoutId ? (
             <Button size="sm" onClick={onStart} className="h-8 bg-orange-500 px-3 text-xs font-semibold text-black shadow-[0_8px_20px_rgba(249,115,22,0.2)] hover:bg-orange-400" data-testid="button-coach-p-start-workout">
               Start workout <ChevronRight className="ml-1.5 h-4 w-4" />
@@ -275,6 +288,17 @@ function WorkoutPreviewCard({
             </Button>
           )}
         </div>
+        {showHubAction && onOpenHub && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onOpenHub}
+            className="mt-2 h-9 w-full border-white/10 bg-white/[0.03] text-xs text-zinc-200 hover:bg-white/[0.07] hover:text-white"
+            data-testid="button-coach-p-open-onboarding-hub"
+          >
+            Preview your onboarding Hub <ChevronRight className="ml-1.5 h-4 w-4" />
+          </Button>
+        )}
         {savedWorkoutId && (
           <p className="mt-3 text-xs text-emerald-300" role="status" data-testid="status-coach-p-workout-saved">
             Saved to Training Log · Saved Workouts.
@@ -644,6 +668,7 @@ export default function CoachPPage() {
   const [projectBuilderMode, setProjectBuilderMode] = useState(false);
   const [projectPrompt, setProjectPrompt] = useState<ProjectBuilderPrompt | null>(null);
   const [workoutBuilderMode, setWorkoutBuilderMode] = useState(false);
+  const [welcomeWorkoutMode, setWelcomeWorkoutMode] = useState(false);
   const [workoutIntake, setWorkoutIntake] = useState<CoachPWorkoutIntake | null>(null);
   const [workoutAnswers, setWorkoutAnswers] = useState<CoachPWorkoutAnswers | null>(null);
   const [workoutPreview, setWorkoutPreview] = useState<CoachPWorkoutPreview | null>(null);
@@ -731,6 +756,7 @@ export default function CoachPPage() {
       projectBuilder?: boolean;
       projectBuilderAction?: "start" | "answer";
       workoutBuilder?: boolean;
+      welcomeWorkout?: boolean;
       workoutAnswers?: CoachPWorkoutAnswers;
     }): Promise<CoachPStreamResult> => {
       const response = await apiRequest("POST", "/api/coach-p/chat", request);
@@ -820,11 +846,6 @@ export default function CoachPPage() {
       } else if (data.workoutPreview) {
         setWorkoutPreview(data.workoutPreview);
         setSavedWorkoutId(null);
-      } else {
-        setWorkoutIntake(null);
-        setWorkoutAnswers(null);
-        setWorkoutPreview(null);
-        setSavedWorkoutId(null);
       }
       if (data.workoutIntake) setWorkoutBuilderMode(true);
       else if (data.workoutPreview) setWorkoutBuilderMode(false);
@@ -905,6 +926,7 @@ export default function CoachPPage() {
       projectBuilder?: boolean;
       projectBuilderAction?: "start" | "answer";
       workoutBuilder?: boolean;
+      welcomeWorkout?: boolean;
       workoutAnswers?: CoachPWorkoutAnswers;
       displayContent?: string;
     },
@@ -912,7 +934,7 @@ export default function CoachPPage() {
     const content = value.trim();
     const displayContent = options?.displayContent?.trim() || content;
     const isProjectBuilder = options?.projectBuilder ?? projectBuilderMode;
-    const isWorkoutBuilder = options?.workoutBuilder ?? (workoutBuilderMode || Boolean(workoutPreview));
+    const isWorkoutBuilder = options?.workoutBuilder ?? workoutBuilderMode;
     if (!content || chatMutation.isPending || (!isProjectBuilder && !canSend)) return;
     const nextHistory = [...messages, { role: "user" as const, content: displayContent }];
     setMessages(nextHistory);
@@ -932,6 +954,7 @@ export default function CoachPPage() {
       projectBuilder: isProjectBuilder,
       projectBuilderAction: options?.projectBuilderAction ?? (isProjectBuilder ? "answer" : undefined),
       workoutBuilder: isWorkoutBuilder,
+      welcomeWorkout: options?.welcomeWorkout,
       workoutAnswers: options?.workoutAnswers,
     });
     requestAnimationFrame(() => scrollToBottom("smooth"));
@@ -965,6 +988,7 @@ export default function CoachPPage() {
     setProjectBuilderMode(false);
     setProjectPrompt(null);
     setWorkoutBuilderMode(false);
+    setWelcomeWorkoutMode(false);
     setWorkoutIntake(null);
     setWorkoutAnswers(null);
     setWorkoutPreview(null);
@@ -984,6 +1008,7 @@ export default function CoachPPage() {
       const savedProjectReady = isProjectConversation && data.messages.some((message) => message.content.includes("Your PLAYR1 Project is ready"));
       setProjectBuilderMode(isProjectConversation && !savedProjectReady);
       setWorkoutBuilderMode(false);
+      setWelcomeWorkoutMode(data.conversation.title === "My first Coach P workout");
       setWorkoutIntake(null);
       setWorkoutAnswers(null);
       setWorkoutPreview(null);
@@ -1048,9 +1073,12 @@ export default function CoachPPage() {
       void openConversation(conversationId);
     } else if (welcomeWorkout) {
       startNewConversation();
-      sendMessage("Build my first workout", {
+      setWelcomeWorkoutMode(true);
+      const onboardingPrompt = "I just finished setting up my PLAYR1 profile. Use what I shared to show me what you understand about my game and build my first workout.";
+      sendMessage(onboardingPrompt, {
         workoutBuilder: true,
-        displayContent: "Build my first workout",
+        welcomeWorkout: true,
+        displayContent: onboardingPrompt,
       });
     } else if (prompt) {
       startNewConversation();
@@ -1366,6 +1394,9 @@ export default function CoachPPage() {
                     saveLimitReached={savedWorkoutLimitReached}
                     onSave={() => saveWorkoutMutation.mutate(workoutPreview)}
                     onUpgrade={() => openProOffer("unlimited saved workouts")}
+                    showAdjustAnswers={!welcomeWorkoutMode}
+                    showHubAction={welcomeWorkoutMode}
+                    onOpenHub={() => navigate("/hub?preview=onboarding")}
                     onAdjustAnswers={() => {
                       setWorkoutPreview(null);
                       setSavedWorkoutId(null);
