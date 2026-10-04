@@ -11,7 +11,7 @@ import {
   type HubStatKey,
   type HubStatOrder,
 } from "@/lib/dashboard-stats";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Flame,
   ChevronRight,
@@ -22,7 +22,6 @@ import {
   X,
   Play,
   PlayCircle,
-  ClipboardCheck,
   UserRound,
   MessageCircle,
   BookOpen,
@@ -31,6 +30,8 @@ import {
   Radar,
 } from "lucide-react";
 import introTrailer from "@assets/Welcome_To_PLAYR1_1781991119550.mp4";
+import type { Drill } from "@shared/schema";
+import { selectDailyDrillSuggestions } from "@shared/daily-drill-recommendations";
 
 type WeeklyStatPoint = { date: string; minutes: number; sessions: number };
 type WeeklyTrendPoint = {
@@ -97,15 +98,33 @@ function formatDate() {
   return new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 }
 
+function localDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export default function HubPage() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
   const search = useSearch();
   const onboardingPreview = new URLSearchParams(search).get("preview") === "onboarding";
   const [testHubView, setTestHubView] = useState<"onboarding" | "everyday" | null>(null);
+  const [recommendationDay, setRecommendationDay] = useState(() => localDateKey(new Date()));
   const [trailerDismissed, setTrailerDismissed] = useState(() =>
     localStorage.getItem("playr1_intro_trailer_dismissed") === "1"
   );
+  useEffect(() => {
+    const now = new Date();
+    const nextLocalDay = new Date(now);
+    nextLocalDay.setHours(24, 0, 0, 0);
+    const timeout = window.setTimeout(
+      () => setRecommendationDay(localDateKey(new Date())),
+      Math.max(1, nextLocalDay.getTime() - now.getTime() + 100),
+    );
+    return () => window.clearTimeout(timeout);
+  }, [recommendationDay]);
   function dismissTrailer() {
     setTrailerDismissed(true);
     localStorage.setItem("playr1_intro_trailer_dismissed", "1");
@@ -179,15 +198,35 @@ export default function HubPage() {
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
   });
-  const profileIncomplete = !user?.lastName || !careerData?.positions?.length || !careerData?.aspiration;
+  const profileIncomplete = !user?.lastName || !careerData?.positions?.length;
   const showProfileSetup = onboardingPreview || (import.meta.env.DEV && testHubView !== null
     ? testHubView === "onboarding"
     : profileIncomplete);
   const { data: setupData } = useQuery<{ answers?: Record<string, any> }>({
     queryKey: ["/api/player-setup"],
-    enabled: !!user && !showProfileSetup,
+    enabled: !!user,
     staleTime: 60_000,
   });
+  const {
+    data: drillLibrary = [],
+    isLoading: drillLibraryLoading,
+    isError: drillLibraryError,
+  } = useQuery<Drill[]>({
+    queryKey: ["/api/drills"],
+    enabled: !!user && !showProfileSetup,
+    staleTime: 5 * 60_000,
+  });
+  const dailyDrillSuggestions = useMemo(() => selectDailyDrillSuggestions(
+    drillLibrary,
+    {
+      userId: user?.id,
+      positions: careerData?.positions ?? setupData?.answers?.positions,
+      currentSituation: setupData?.answers?.currentSituation,
+      experienceYears: setupData?.answers?.experienceYears,
+      skillRankings: setupData?.answers?.skillRankings,
+    },
+    recommendationDay,
+  ), [drillLibrary, user?.id, careerData?.positions, setupData, recommendationDay]);
 
   const firstName = user?.firstName;
   const greetText = greeting(firstName);
@@ -364,7 +403,6 @@ export default function HubPage() {
       <div className="flex items-end justify-between">
         <div>
           <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500 font-bold">TRAINING SNAPSHOT</p>
-          <h2 className="text-lg font-black text-white mt-1">See your work add up.</h2>
         </div>
         <button
             type="button"
@@ -376,9 +414,8 @@ export default function HubPage() {
             <ChevronRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
           </button>
       </div>
-      <div className="flex items-center justify-between">
-         <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-600">Past month</p>
-        <span className="text-[11px] text-zinc-600">Category {activeGroup + 1} of 3 · {activeDays} active {activeDays === 1 ? "day" : "days"}</span>
+      <div className="flex justify-end">
+        <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-600">Past month</p>
       </div>
       {overviewLoading || weeklyStatsLoading || monthlyStatsLoading || dashboardTrainingLoading || monthlyCategoryStatsLoading || monthlyTrendsLoading ? (
         <div className="space-y-2.5" aria-label="Loading weekly recap">
@@ -501,54 +538,63 @@ export default function HubPage() {
 
   const customDrillsSection = (
     <section
-      className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 sm:p-5"
+      className="space-y-3"
       data-testid="section-custom-drills"
     >
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-orange-500/25 bg-orange-500/10 text-orange-300">
-            <Dumbbell className="h-5 w-5" />
-          </span>
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-300">Custom Drills</p>
-            <h2 className="mt-1 text-lg font-black text-white">Your drills, your way.</h2>
-            <p className="mt-1 text-sm text-zinc-400">Find and manage the drills you have created for your training.</p>
-          </div>
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-300">Custom Drills</p>
+          <h2 className="mt-1 text-lg font-black text-white">Today’s picks for you.</h2>
         </div>
-        <button
-          type="button"
-          onClick={() => navigate("/drills?tab=my-drills")}
-          className="flex w-full shrink-0 items-center justify-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-2.5 text-sm font-bold text-white transition hover:border-orange-400/50 sm:w-auto"
-          data-testid="button-hub-custom-drills"
-        >
-          Open Custom Drills
-          <ChevronRight className="h-4 w-4" />
-        </button>
+        <span className="shrink-0 pb-0.5 text-[9px] font-bold uppercase tracking-[0.16em] text-zinc-500">New picks daily</span>
       </div>
+      {drillLibraryLoading ? (
+        <div className="space-y-2" aria-label="Loading suggested drills">
+          {[0, 1, 2].map((item) => (
+            <Skeleton key={item} className="h-[72px] rounded-xl" data-testid={`suggested-drill-loading-${item}`} />
+          ))}
+        </div>
+      ) : drillLibraryError ? (
+        <p className="rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-3 text-sm text-zinc-400" role="status">
+          Suggested drills are unavailable right now.
+        </p>
+      ) : dailyDrillSuggestions.length > 0 ? (
+        <div className="space-y-2">
+          {dailyDrillSuggestions.map((drill, index) => {
+            const duration = drill.duration && drill.duration > 0
+              ? `${Math.max(1, Math.round(drill.duration / 60))} min`
+              : null;
+            const details = [
+              drill.category.replaceAll("-", " "),
+              drill.difficulty,
+              duration,
+            ].filter(Boolean).join(" · ");
+            return (
+              <button
+                key={drill.id}
+                type="button"
+                onClick={() => navigate(`/drill/${drill.id}`)}
+                className="group flex w-full items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900/70 p-3 text-left transition hover:border-orange-500/40 hover:bg-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                data-testid={`button-suggested-drill-${index + 1}`}
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-orange-500/25 bg-orange-500/10 text-orange-300">
+                  <Dumbbell className="h-4 w-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-bold text-zinc-100">{drill.title}</span>
+                  <span className="mt-0.5 block truncate text-[10px] capitalize text-zinc-500">{details}</span>
+                </span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-zinc-600 transition group-hover:translate-x-0.5 group-hover:text-orange-300" />
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-3 text-sm text-zinc-400" role="status">
+          No drills are available to suggest yet.
+        </p>
+      )}
     </section>
-  );
-
-  const coachPromptSection = (
-    <button
-      type="button"
-      onClick={() => navigate(`/coach-p?prompt=${encodeURIComponent(coachPrompt)}`)}
-      className="group w-full rounded-2xl border border-orange-500/30 bg-gradient-to-br from-orange-500/15 via-zinc-900 to-zinc-950 p-4 text-left transition hover:border-orange-400/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 sm:p-5"
-      data-testid="button-hub-coach-p-prompt"
-    >
-      <div className="flex items-start gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-orange-500/30 bg-orange-500/15 text-orange-300">
-          <MessageCircle className="h-5 w-5" />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-[10px] font-bold uppercase tracking-[0.2em] text-orange-300">A question for Coach P</span>
-          <span className="mt-1 block text-base font-bold leading-snug text-white sm:text-lg">{coachPrompt}</span>
-          <span className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-orange-300">
-            Explore this with Coach P
-            <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
-          </span>
-        </span>
-      </div>
-    </button>
   );
 
   return (
@@ -703,24 +749,13 @@ export default function HubPage() {
               <button
                 type="button"
                 onClick={() => navigate("/profile/edit?returnTo=%2Fhub")}
-                className="group relative isolate w-full overflow-hidden rounded-2xl border border-orange-400/25 bg-gradient-to-r from-orange-500/10 via-zinc-900 to-zinc-950 p-4 text-left shadow-[0_10px_30px_rgba(0,0,0,0.22)] transition duration-200 hover:-translate-y-0.5 hover:border-orange-400/60 hover:shadow-[0_16px_36px_rgba(249,115,22,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+                className="group flex min-h-[104px] w-full cursor-pointer flex-col gap-3 rounded-xl border border-zinc-700 bg-zinc-900 p-4 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
                 data-testid="button-complete-profile"
               >
-                <span
-                  aria-hidden="true"
-                  className="pointer-events-none absolute -right-5 -top-7 h-24 w-24 rounded-full bg-orange-500/10 blur-2xl transition-colors group-hover:bg-orange-400/15"
-                />
-                <span className="relative flex items-center gap-3">
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-orange-400/30 bg-gradient-to-br from-orange-400/20 to-orange-600/10 text-orange-200 shadow-inner shadow-orange-200/5">
-                    <UserRound className="h-5 w-5" />
-                  </span>
-                  <span className="flex min-w-0 flex-1 items-center justify-between gap-3">
-                    <span className="block text-base font-black text-white">Complete Your Profile</span>
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-700/80 bg-zinc-950/60 text-orange-300 transition group-hover:border-orange-400/40 group-hover:translate-x-0.5">
-                      <ChevronRight className="h-4 w-4" />
-                    </span>
-                  </span>
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 text-orange-400">
+                  <UserRound className="h-4 w-4" />
                 </span>
+                <span className="font-heading text-sm uppercase leading-tight tracking-wide">Complete Your Profile</span>
               </button>
             </section>
           </>
@@ -743,10 +778,18 @@ export default function HubPage() {
               { label: "Log a session", detail: "Track today's work", path: "/log", icon: Dumbbell, testId: "button-start-log" },
               { label: "Start a program", detail: "Follow a plan", path: "/programs", icon: Layers3, testId: "button-start-program" },
               { label: "Drill library", detail: "Find your next drill", path: "/drills", icon: BookOpen, testId: "button-start-drills" },
-              { label: "Custom workout", detail: "Request a session built for you", path: "/custom-workouts", icon: ClipboardCheck, testId: "button-start-custom-workout" },
-            ].map(({ label, detail, path, icon: Icon, testId }) => (
+              {
+                label: "A question for Coach P",
+                detail: coachPrompt,
+                path: `/coach-p?prompt=${encodeURIComponent(coachPrompt)}`,
+                icon: MessageCircle,
+                testId: "button-start-coach-p-prompt",
+                isCoachPrompt: true,
+              },
+            ].map(({ label, detail, path, icon: Icon, testId, isCoachPrompt }) => (
               <button
                 key={path}
+                type="button"
                 onClick={() => navigate(path)}
                 className="group flex min-h-[104px] cursor-pointer flex-col gap-3 rounded-xl border border-zinc-700 bg-zinc-900 p-4 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
                 data-testid={testId}
@@ -756,7 +799,14 @@ export default function HubPage() {
                 </span>
                 <span>
                   <span className="block font-heading text-sm uppercase tracking-wide leading-tight">{label}</span>
-                  <span className="mt-0.5 block text-[11px] text-zinc-500">{detail}</span>
+                  {isCoachPrompt ? (
+                    <span className="mt-1.5 flex items-start gap-1.5 rounded-lg border border-orange-500/20 bg-zinc-950/80 px-2 py-1.5 text-[10px] leading-snug text-zinc-300">
+                      <MessageCircle className="mt-0.5 h-3 w-3 shrink-0 text-orange-300" />
+                      <span className="line-clamp-2">“{detail}”</span>
+                    </span>
+                  ) : (
+                    <span className="mt-0.5 block text-[11px] text-zinc-500">{detail}</span>
+                  )}
                 </span>
               </button>
             ))}
@@ -828,8 +878,6 @@ export default function HubPage() {
           </div>
         </section>
         )}
-
-        {!showProfileSetup && coachPromptSection}
 
       </div>
     </div>

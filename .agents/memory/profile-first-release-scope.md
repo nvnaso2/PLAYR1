@@ -21,7 +21,11 @@ On the Profile tab, keep Share and the compact gold-glow Trophy Room button toge
 
 Keep the player's trading card on the page background without a separate frame or instruction line. Keep the Hub's “Complete Your Profile” action title-only, with polished charcoal-and-orange styling and no supporting copy.
 
-Use the compact six-step editor for Profile edits: Player; Development; Team & Location; Physical & Academics; About; Card Stats. Fold editable onboarding answers into those steps instead of adding a separate stacked form. Keep account credentials separate from profile answers, and omit profile URL, social links, highlight video, season visibility, and ZIP/postal input from this flow while preserving existing stored ZIP values. Keep school under Academics and synchronize it to both career and player-profile records.
+Use the compact six-step editor for Profile edits: Player; Development; Team & Location; Physical & Academics; About; Card Stats. Fold editable onboarding answers into those steps instead of adding a separate stacked form. Omit Basketball Pathway from the editor without clearing stored values or requiring it to complete the profile. Keep account credentials separate from profile answers, and omit profile URL, social links, highlight video, season visibility, and ZIP/postal input from this flow while preserving existing stored ZIP values. Keep school under Academics and synchronize it to both career and player-profile records.
+
+**Why:** The user removed Basketball Pathway from profile editing; existing career values should remain intact, and the profile must not require a field that can no longer be edited there.
+
+**How to apply:** Preserve any stored pathway value when saving other profile fields, but do not display the field in the six-step editor or use it as a profile-completion prerequisite.
 
 Keep the four compact, icon-led shortcuts on Hub: 3 Point Challenge, Journal, Talk Through Your Game, and Game Insights. Do not also show the Challenge or Talk Through Your Game as separate Hub cards. Keep Game Insights linked to the four-tool library and avoid "diagnostic" in its tile and library copy.
 

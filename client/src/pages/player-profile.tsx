@@ -63,7 +63,6 @@ import {
   UserRound,
 } from "lucide-react";
 import {
-  BASKETBALL_ASPIRATIONS,
   BASKETBALL_POSITIONS,
   CANADIAN_PROVINCES,
   COUNTRIES,
@@ -135,17 +134,6 @@ const gradeLabels: Record<string, string> = {
   "post-college": "Post-college",
 };
 
-const aspirationLabels: Record<string, string> = {
-  recreational: "Recreational",
-  "feeder-team": "Feeder team",
-  aau: "AAU",
-  "middle-school": "Middle school",
-  "high-school": "High school",
-  college: "College",
-  "professional-non-nba": "Professional",
-  nba: "NBA",
-};
-
 const cardCareerStatLabels: Record<PlayerCardCareerStatKey, string> = {
   ppg: "PPG",
   rpg: "RPG",
@@ -159,7 +147,7 @@ const cardCareerStatLabels: Record<PlayerCardCareerStatKey, string> = {
 const conciseProfileSteps = [
   { title: "Player", detail: "Your name, current level, and positions." },
   { title: "Development", detail: "Your skill strengths, goals, and training experience." },
-  { title: "Team & Location", detail: "Your team, pathway, and where you play." },
+  { title: "Team & Location", detail: "Your team, role, and where you play." },
   { title: "Physical & Academics", detail: "Your measurements, school, and graduation details." },
   { title: "About", detail: "Introduce yourself and how you play." },
   { title: "Card Stats", detail: "Choose the career numbers shown on your player card." },
@@ -714,14 +702,8 @@ export function PlayerProfileSection({
         <form
           onSubmit={(event) => {
             if (concise) {
-              const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLElement | null;
-              if (
-                wizardStep !== conciseProfileSteps.length - 1 ||
-                submitter?.dataset.testid !== "button-save-profile"
-              ) {
-                event.preventDefault();
-                return;
-              }
+              event.preventDefault();
+              return;
             }
             void form.handleSubmit(onSubmit)(event);
           }}
@@ -1032,7 +1014,7 @@ export function PlayerProfileSection({
                     </div>
                   </section>}
                   {wizardStep === 2 && setupDraft && <section className="space-y-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500">Team & pathway</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500">Team details</p>
                     <div className="grid grid-cols-2 gap-2">
                       <FormField
                         control={form.control}
@@ -1072,27 +1054,6 @@ export function PlayerProfileSection({
                           </SelectContent>
                         </Select>
                       </label>
-                      <FormField
-                        control={form.control}
-                        name="aspiration"
-                        render={({ field }) => (
-                          <FormItem className="space-y-1">
-                            <FormLabel className="text-[11px] text-zinc-400">Basketball pathway</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value || ""}>
-                              <FormControl>
-                                <SelectTrigger className="h-8 text-xs" data-testid="select-basketball-goal">
-                                  <SelectValue placeholder="Select" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {BASKETBALL_ASPIRATIONS.map((goal) => (
-                                  <SelectItem key={goal} value={goal}>{aspirationLabels[goal] || goal}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </FormItem>
-                        )}
-                      />
                     </div>
                   </section>}
                   {wizardStep === 4 && <section className="space-y-2">
@@ -1766,8 +1727,10 @@ export function PlayerProfileSection({
                 )}
               </div>
               <Button
-                type={wizardStep === conciseProfileSteps.length - 1 ? "submit" : "button"}
-                onClick={wizardStep < conciseProfileSteps.length - 1 ? () => setWizardStep(wizardStep + 1) : undefined}
+                type="button"
+                onClick={wizardStep < conciseProfileSteps.length - 1
+                  ? () => setWizardStep(wizardStep + 1)
+                  : () => void form.handleSubmit(onSubmit)()}
                 disabled={saveMutation.isPending || isCareerProfileLoading}
                 className="bg-orange-500 font-bold text-white shadow-[0_0_18px_rgba(249,115,22,0.2)] hover:bg-orange-600"
                 data-testid={wizardStep === conciseProfileSteps.length - 1 ? "button-save-profile" : "button-profile-step-next"}

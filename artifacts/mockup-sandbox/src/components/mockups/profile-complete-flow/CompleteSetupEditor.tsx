@@ -5,7 +5,7 @@ import "./_group.css";
 const steps = [
   { title: "Player", detail: "Your name, current level, and positions." },
   { title: "Development", detail: "Your skill strengths, goals, and training experience." },
-  { title: "Team & Location", detail: "Your team, pathway, and where you play." },
+  { title: "Team & Location", detail: "Your team, role, and where you play." },
   { title: "Physical & Academics", detail: "Your measurements, school, and graduation details." },
   { title: "About", detail: "Introduce yourself and how you play." },
   { title: "Card Stats", detail: "Choose the career numbers shown on your player card." },
@@ -51,7 +51,6 @@ type Draft = {
   competitiveExperience: string;
   teamName: string;
   teamRole: string;
-  pathway: string;
   city: string;
   state: string;
   heightFeet: string;
@@ -147,7 +146,6 @@ export function CompleteSetupEditor() {
     competitiveExperience: "4",
     teamName: "Northside Eagles",
     teamRole: "Starter / 6th Man",
-    pathway: "College",
     city: "Atlanta",
     state: "Georgia",
     heightFeet: "6",
@@ -308,12 +306,6 @@ export function CompleteSetupEditor() {
                 <div className="grid grid-cols-2 gap-2">
                   <InputField label="Team name" value={draft.teamName} onChange={(value) => update("teamName", value)} />
                   <SelectField label="Current team role" value={draft.teamRole} options={teamRoles} onChange={(value) => update("teamRole", value)} />
-                  <SelectField
-                    label="Basketball pathway"
-                    value={draft.pathway}
-                    options={["Recreational", "Feeder team", "AAU", "Middle school", "High school", "College", "Professional", "NBA"]}
-                    onChange={(value) => update("pathway", value)}
-                  />
                   <InputField label="City" value={draft.city} onChange={(value) => update("city", value)} />
                   <InputField label="State / region" value={draft.state} onChange={(value) => update("state", value)} />
                 </div>
@@ -410,7 +402,7 @@ export function CompleteSetupEditor() {
                     className="inline-flex h-8 items-center gap-1 rounded-md bg-orange-500 px-3 text-xs font-bold text-zinc-950 hover:bg-orange-400"
                   >
                     <Save className="h-3.5 w-3.5" />
-                    Save Profile
+                    Save
                   </button>
                 )}
               </div>
