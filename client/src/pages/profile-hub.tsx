@@ -5,7 +5,8 @@ import { BaseballCard, StatsTab } from "@/pages/career";
 import { useProUpgrade } from "@/components/pro-upgrade-dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Fingerprint, Target, Trophy, Settings, Pencil, Crown, ChevronRight } from "lucide-react";
+import { Fingerprint, Target, Trophy, Settings, Pencil, Crown } from "lucide-react";
+import { ShareMenu } from "@/components/share-menu";
 import type { CareerProfile } from "@shared/schema";
 
 type CareerNumbers = {
@@ -56,10 +57,23 @@ export default function ProfileHubPage() {
     enabled: !!user,
     staleTime: 30_000,
   });
+  const { data: playerProfile } = useQuery<any>({
+    queryKey: ["/api/player-profile"],
+    enabled: !!user,
+    staleTime: 30_000,
+  });
   const { data: userChallenges } = useQuery<any[]>({ queryKey: ["/api/challenges/my-challenges"], enabled: !!user });
 
   const loadingCard = profileLoading || careerLoading || careerStatsLoading;
   const activeChallenges = (userChallenges ?? []).filter((entry) => !entry?.isCompleted && entry?.challenge);
+  const displayName =
+    profile?.displayName ||
+    [user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
+    user?.email?.split("@")[0] ||
+    "Player";
+  const slug =
+    playerProfile?.slug ||
+    `${displayName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "player"}${user?.id ? `-${user.id.slice(-5)}` : ""}`;
   return (
     <main className="mx-auto min-h-[100dvh] max-w-6xl space-y-8 px-4 pb-12 pt-5 text-zinc-100 sm:px-6 sm:pt-8">
       <header className="flex flex-wrap items-center justify-between gap-x-5 gap-y-3">
@@ -113,7 +127,7 @@ export default function ProfileHubPage() {
               <BaseballCard
                 profile={career}
                 careerStats={careerStats as any}
-                userName={profile?.displayName || [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.email?.split("@")[0] || "Player"}
+                userName={displayName}
               />
             </>
           ) : (
@@ -127,6 +141,27 @@ export default function ProfileHubPage() {
             </div>
           )}
         </div>
+      </section>
+
+      <section className="flex w-full flex-wrap items-center justify-center gap-2" aria-label="Profile actions" data-testid="section-profile-actions">
+        <ShareMenu
+          url={`/player/${slug}`}
+          title={`${displayName} - PLAYR1 Player Profile`}
+          description="Check out my basketball profile on PLAYR1!"
+          testId="button-share-profile"
+          className="h-10 border-zinc-700 bg-zinc-900 px-4 text-zinc-200 hover:bg-zinc-800 hover:text-white"
+        />
+        <Button
+          asChild
+          variant="outline"
+          className="h-10 rounded-full border border-amber-300/60 bg-[radial-gradient(ellipse_at_top,rgba(245,190,65,0.16),transparent_75%),#17140e] px-4 text-xs font-black text-amber-100 shadow-[0_0_18px_rgba(245,190,65,0.2),inset_0_0_0_1px_rgba(245,190,65,0.08)] transition hover:border-amber-200 hover:bg-[#201a0e] hover:text-amber-50 hover:shadow-[0_0_24px_rgba(245,190,65,0.32)]"
+          data-testid="button-open-trophy-room-hub"
+        >
+          <Link href="/trophy-room" className="flex items-center gap-2">
+            <Trophy className="h-4 w-4 text-amber-300" />
+            Trophy Room
+          </Link>
+        </Button>
       </section>
 
       <section aria-labelledby="profile-stats-heading" className="space-y-4" data-testid="section-profile-career-stats">
@@ -146,29 +181,6 @@ export default function ProfileHubPage() {
         ) : (
           <StatsTab />
         )}
-      </section>
-
-      <section aria-labelledby="profile-trophies-heading" className="space-y-4" data-testid="section-profile-trophy-room">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-400">Awards &amp; records</p>
-            <h2 id="profile-trophies-heading" className="mt-1 font-display text-xl font-black tracking-tight sm:text-2xl">Trophy room</h2>
-          </div>
-        </div>
-        <Button asChild variant="outline" className="group h-auto w-full justify-between border-amber-300/15 bg-[radial-gradient(ellipse_at_top,rgba(245,190,65,0.08),transparent_72%),#141414] px-4 py-4 text-left text-zinc-100 hover:border-amber-300/30 hover:bg-[#191714]" data-testid="button-open-trophy-room-hub">
-          <Link href="/trophy-room">
-            <span className="flex min-w-0 items-center gap-3">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-amber-300/20 bg-amber-300/[0.07] text-amber-200">
-                <Trophy className="h-5 w-5" />
-              </span>
-              <span className="min-w-0">
-                <span className="block text-sm font-bold">Open Trophy Room</span>
-                <span className="mt-1 block text-xs font-normal text-zinc-500">Custom awards, game and season bests, and personal records</span>
-              </span>
-            </span>
-            <ChevronRight className="ml-3 h-4 w-4 shrink-0 text-zinc-500 transition-transform group-hover:translate-x-0.5 group-hover:text-amber-200" />
-          </Link>
-        </Button>
       </section>
 
       {activeChallenges.length > 0 && (
