@@ -6,7 +6,6 @@ import {
   Check,
   ChevronDown,
   CircleAlert,
-  GripVertical,
   LoaderCircle,
   Medal,
   Star,
@@ -79,11 +78,11 @@ const GOALS = [
   "Just looking to improve in general",
   "Play for fun",
 ];
-const SKILL_RANKS: { key: SkillRankKey; label: string; icon: LucideIcon }[] = [
-  { key: "best", label: "Best", icon: Trophy },
-  { key: "secondBest", label: "2nd Best", icon: Medal },
-  { key: "worst", label: "Worst", icon: TrendingDown },
-  { key: "improveMost", label: "Want to improve the most", icon: Target },
+const SKILL_RANKS: { key: SkillRankKey; label: string; shortLabel: string; icon: LucideIcon }[] = [
+  { key: "best", label: "Best", shortLabel: "Best", icon: Trophy },
+  { key: "secondBest", label: "2nd Best", shortLabel: "2nd Best", icon: Medal },
+  { key: "worst", label: "Worst", shortLabel: "Worst", icon: TrendingDown },
+  { key: "improveMost", label: "Want to improve the most", shortLabel: "Improve most", icon: Target },
 ];
 const TEAM_ROLES = [
   "Not On A Team / Learning the game",
@@ -730,12 +729,12 @@ export default function AppOnboardingPage({
             )}
 
             {step === 2 && (
-              <>
-                <div className="rounded-xl border border-orange-500/20 bg-orange-500/[0.06] px-4 py-3">
-                  <p className="text-sm font-bold text-orange-50">Choose one skill for each label</p>
-                  <p className="mt-1 text-xs leading-relaxed text-zinc-400">Drag a label onto a skill. On touch or keyboard, select a label, then select a skill. Each skill can only be used once.</p>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-3">
+                <p id="skill-rank-instructions" className="text-xs leading-relaxed text-zinc-400">
+                  Drag one label to the skill that best fits the description.
+                  <span className="sr-only"> On touch or keyboard, select a label, then select a skill. Each skill can only be used once.</span>
+                </p>
+                <div className="grid grid-cols-4 gap-1.5">
                   {SKILL_RANKS.map((rank) => (
                     <button
                       key={rank.key}
@@ -743,6 +742,8 @@ export default function AppOnboardingPage({
                       draggable
                       aria-pressed={activeSkillRank === rank.key}
                       aria-label={`${rank.label}${answers.skillRankings[rank.key] ? `, assigned to ${answers.skillRankings[rank.key]}` : ""}. Drag onto a skill or select to choose one.`}
+                      aria-describedby="skill-rank-instructions"
+                      title={rank.label}
                       onClick={() => setActiveSkillRank(rank.key)}
                       onDragStart={(event) => {
                         event.dataTransfer.setData("text/plain", rank.key);
@@ -755,7 +756,7 @@ export default function AppOnboardingPage({
                         setDropTargetSkill(null);
                       }}
                       data-testid={`skill-rank-${rank.key}`}
-                      className={`min-h-[76px] rounded-xl border px-3 py-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 ${
+                      className={`group flex min-h-[66px] min-w-0 flex-col items-center justify-center gap-1 rounded-lg border px-1.5 py-1.5 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 ${
                         draggingSkillRank === rank.key
                           ? "border-orange-300 bg-orange-500/[0.18] opacity-70"
                           : activeSkillRank === rank.key
@@ -763,17 +764,12 @@ export default function AppOnboardingPage({
                           : "border-zinc-800 bg-[#111110] hover:border-zinc-700"
                       }`}
                     >
-                      <span className="flex items-center gap-2.5">
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-orange-400/20 bg-orange-500/10 text-orange-300">
-                          <rank.icon className="h-4 w-4" aria-hidden="true" />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block text-xs font-extrabold leading-snug text-zinc-100">{rank.label}</span>
-                          <span className={`mt-1 block truncate text-[11px] ${answers.skillRankings[rank.key] ? "text-orange-200" : "text-zinc-600"}`}>
-                            {answers.skillRankings[rank.key] || "Drop on a skill"}
-                          </span>
-                        </span>
-                        <GripVertical className="h-4 w-4 shrink-0 text-zinc-600" aria-hidden="true" />
+                      <span className="flex h-6 w-6 items-center justify-center rounded-md border border-orange-400/20 bg-orange-500/10 text-orange-300">
+                        <rank.icon className="h-3.5 w-3.5" aria-hidden="true" />
+                      </span>
+                      <span className="block max-w-full text-[10px] font-extrabold leading-tight text-zinc-100">{rank.shortLabel}</span>
+                      <span className={`block max-w-full truncate text-[9px] leading-none ${answers.skillRankings[rank.key] ? "text-orange-200" : "text-zinc-600"}`}>
+                        {answers.skillRankings[rank.key] || "Unassigned"}
                       </span>
                     </button>
                   ))}
@@ -816,7 +812,7 @@ export default function AppOnboardingPage({
                       <span className="text-sm font-bold">{skill}</span>
                       {answers.skillRoles.includes(skill) && (
                         <span className="mt-1 text-[10px] font-bold uppercase tracking-wide text-orange-300">
-                          {SKILL_RANKS.find((rank) => answers.skillRankings[rank.key] === skill)?.label}
+                          {SKILL_RANKS.find((rank) => answers.skillRankings[rank.key] === skill)?.shortLabel}
                         </span>
                       )}
                     </button>
@@ -825,7 +821,7 @@ export default function AppOnboardingPage({
                 {hasCompleteSkillRankings(answers) && (
                   <p className="flex items-center gap-2 text-xs font-semibold text-orange-300"><Check className="h-3.5 w-3.5" />All four labels have a unique skill.</p>
                 )}
-              </>
+              </div>
             )}
 
             {step === 3 && (
@@ -907,34 +903,49 @@ export default function AppOnboardingPage({
               </>
             )}
 
-            {step === 5 && (
-              <>
-                {signupMode && (
-                  <>
-                    <TextField
-                      id="account-email"
-                      label="Account email"
-                      value={accountEmail}
-                      onChange={updateAccountEmail}
-                      placeholder="you@example.com"
-                      type="email"
-                      autoComplete="email"
-                      disabled={accountCreated}
-                    />
-                    <TextField
-                      id="account-password"
-                      label="Password"
-                      value={password}
-                      onChange={setPassword}
-                      placeholder="At least 8 characters"
-                      type="password"
-                      autoComplete="new-password"
-                      disabled={accountCreated}
-                    />
-                    <p className="text-sm leading-relaxed text-zinc-400">Access Customized Drills For Profile</p>
-                  </>
-                )}
-              </>
+            {step === 5 && signupMode && (
+              <form
+                noValidate
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  handleContinue();
+                }}
+                className="space-y-4"
+              >
+                <TextField
+                  id="account-email"
+                  label="Account email"
+                  value={accountEmail}
+                  onChange={updateAccountEmail}
+                  placeholder="you@example.com"
+                  type="email"
+                  autoComplete="email"
+                  disabled={accountCreated}
+                />
+                <TextField
+                  id="account-password"
+                  label="Password"
+                  value={password}
+                  onChange={setPassword}
+                  placeholder="At least 8 characters"
+                  type="password"
+                  autoComplete="new-password"
+                  disabled={accountCreated}
+                />
+                <p className="rounded-lg border border-orange-500/20 bg-orange-500/[0.06] px-3.5 py-3 text-sm font-bold leading-snug text-white">
+                  Access Customized Drills Based on Your Profile
+                </p>
+                <button
+                  type="submit"
+                  disabled={busy}
+                  data-testid="button-finish-setup"
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-orange-300/60 bg-gradient-to-br from-orange-300 via-orange-500 to-orange-600 px-6 text-sm font-black text-[#17100b] shadow-[0_8px_28px_rgba(249,115,22,0.12)] transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[#090909] disabled:cursor-wait disabled:opacity-70"
+                >
+                  {busy
+                    ? <><LoaderCircle className="h-4 w-4 animate-spin" />Creating profile…</>
+                    : "Create Profile"}
+                </button>
+              </form>
             )}
 
             {(validationError || actionError) && (
@@ -945,7 +956,8 @@ export default function AppOnboardingPage({
             )}
           </section>
 
-          <footer className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+          {!(step === 5 && signupMode) && (
+            <footer className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
             {step < 5 && <p className="px-1 text-xs text-zinc-600">
                 {signupMode ? "Your account is created after your player details are ready." : "Your answers help tune training to your game."}
             </p>}
@@ -960,7 +972,8 @@ export default function AppOnboardingPage({
                 ? <><LoaderCircle className="h-4 w-4 animate-spin" />{step === 5 ? signupMode ? "Creating profile…" : "Finishing setup…" : "Saving…"}</>
                 : <>{step === 5 ? signupMode ? "Create Profile" : "Finish Setup" : "Continue"}{step !== 5 && <ArrowRight className="h-4 w-4" />}</>}
             </button>
-          </footer>
+            </footer>
+          )}
         </div>
       </div>
     </main>
