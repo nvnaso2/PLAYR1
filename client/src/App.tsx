@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { Playr1Logo } from "@/components/playr1-logo";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAdmin } from "@/hooks/use-admin";
 import { useRole, RoleProvider } from "@/hooks/use-role";
 import { pageLoaders, preloadCommonPages } from "@/lib/pageLoaders";
 import { usePageViewTracking } from "@/lib/track";
@@ -219,6 +220,7 @@ function LoadingScreen() {
 
 function PlayerSetupGate({ children }: { children: React.ReactNode }) {
   const role = useRole();
+  const { isAdmin, isLoading: adminLoading } = useAdmin();
   const { data: setup, isLoading: setupLoading } = useQuery<{ completed: boolean }>({
     queryKey: ["/api/player-setup"],
     retry: false,
@@ -231,10 +233,10 @@ function PlayerSetupGate({ children }: { children: React.ReactNode }) {
     retry: false,
   });
 
-  if (role.isLoading || setupLoading || parentLoading || careerLoading) return <LoadingScreen />;
+  if (role.isLoading || adminLoading || setupLoading || parentLoading || careerLoading) return <LoadingScreen />;
   const isParentOnlyAccount =
     (parentChildren?.length || 0) > 0 && (!careerProfile || !careerProfile.onboardingCompleted);
-  if (!role.isPlayer || role.activeView === "trainer" || isParentOnlyAccount || setup?.completed) {
+  if (isAdmin || !role.isPlayer || role.activeView === "trainer" || isParentOnlyAccount || setup?.completed) {
     return <>{children}</>;
   }
   return <Redirect to="/app-setup" />;
@@ -250,6 +252,7 @@ function SetupAwareLayout({ children }: { children: React.ReactNode }) {
 
 function PlayerSetupRoute() {
   const role = useRole();
+  const { isAdmin, isLoading: adminLoading } = useAdmin();
   const { data: setup, isLoading: setupLoading } = useQuery<{ completed: boolean }>({
     queryKey: ["/api/player-setup"],
     retry: false,
@@ -262,7 +265,8 @@ function PlayerSetupRoute() {
     retry: false,
   });
 
-  if (role.isLoading || setupLoading || parentLoading || careerLoading) return <LoadingScreen />;
+  if (role.isLoading || adminLoading || setupLoading || parentLoading || careerLoading) return <LoadingScreen />;
+  if (isAdmin) return <Redirect to="/admin" />;
   const isParentOnlyAccount =
     (parentChildren?.length || 0) > 0 && (!careerProfile || !careerProfile.onboardingCompleted);
   if (isParentOnlyAccount) return <Redirect to="/parent" />;
