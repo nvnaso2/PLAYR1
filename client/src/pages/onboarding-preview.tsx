@@ -63,7 +63,7 @@ export default function OnboardingPreviewPage() {
           </div>
         </div>
       ) : (
-        <AppOnboardingPage key={key} previewMode onComplete={() => setDone(true)} />
+        <AppOnboardingPage key={key} previewMode signupMode onComplete={() => setDone(true)} />
       )}
     </div>
   );

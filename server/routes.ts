@@ -256,9 +256,9 @@ export async function registerRoutes(
   const playerSetupGoals = [
     "Make a team I'm trying out for",
     "Earn more playing time / a bigger role",
-    "Play at the next level (high school, college, etc.)",
-    "Become the best version of my game, for myself",
-    "Compete at the highest level I possibly can",
+    "Play at the next level",
+    "Just looking to improve in general",
+    "Play for fun",
   ] as const;
   const playerSetupSeriousness = ["Casual Hobby", "Serious Hobby", "Major Priority", "My Biggest Goal"] as const;
   const playerSetupTrainingFrequency = [
@@ -266,6 +266,23 @@ export async function registerRoutes(
   ] as const;
   const playerSetupExperience = ["0", "1 to 3", "4 to 6", "7 to 10", "10+"] as const;
   const playerSetupTeamTypes = ["School", "Club / AAU", "Recreation", "Intramural", "No current team"] as const;
+  const playerSetupTeamRoles = [
+    "Not On A Team / Learning the game",
+    "Limited Minutes / Looking to Make a Team",
+    "Rotation Player",
+    "Starter / 6th Man",
+    "Key Player",
+    "Team Leader",
+  ] as const;
+  const playerSetupSkillRankingsSchema = z.object({
+    best: z.enum(playerSetupSkills),
+    secondBest: z.enum(playerSetupSkills),
+    worst: z.enum(playerSetupSkills),
+    improveMost: z.enum(playerSetupSkills),
+  }).strict().refine(
+    (rankings) => new Set(Object.values(rankings)).size === 4,
+    { message: "Each skill rank must use a different skill." },
+  );
   const playerSetupGrades = [
     "Elementary School", "6th Grade", "7th Grade", "8th Grade", "Freshman", "Sophomore", "Junior",
     "Senior", "College Freshman", "College Sophomore", "College Junior", "College Senior", "Post-college",
@@ -279,34 +296,52 @@ export async function registerRoutes(
     currentSituation: z.enum(playerSetupSituations).optional(),
     skillRoles: z.array(z.enum(playerSetupSkills)).length(4)
       .refine((values) => new Set(values).size === values.length).optional(),
+    skillRankings: playerSetupSkillRankingsSchema.optional(),
     primaryGoal: z.enum(playerSetupGoals).optional(),
     seriousness: z.enum(playerSetupSeriousness).optional(),
     trainingFrequency: z.enum(playerSetupTrainingFrequency).optional(),
-    experienceYears: z.enum(playerSetupExperience).optional(),
+    trainingDaysPerUnit: z.number().int().min(0).max(31).optional(),
+    trainingPeriodUnit: z.enum(["week", "month"]).optional(),
+    experienceYears: z.union([z.number().min(0).max(100), z.enum(playerSetupExperience)]).optional(),
+    competitiveExperienceYears: z.number().min(0).max(100).optional(),
     teamType: z.enum(playerSetupTeamTypes).optional(),
+    teamName: z.string().trim().max(120).optional(),
+    teamRole: z.enum(playerSetupTeamRoles).optional(),
     positions: z.array(z.enum(playerSetupPositions)).max(5).refine((values) => new Set(values).size === values.length).optional(),
     customDrillEmail: z.string().trim().email().max(254).optional(),
   }).strict();
   const playerSetupCompleteSchema = z.object({
     firstName: z.string().trim().min(1).max(80),
     lastName: z.string().trim().min(1).max(80),
-    gradeLevel: z.enum(playerSetupGrades),
     currentSituation: z.enum(playerSetupSituations),
     skillRoles: z.array(z.enum(playerSetupSkills)).length(4)
       .refine((values) => new Set(values).size === values.length),
+    skillRankings: playerSetupSkillRankingsSchema,
     primaryGoal: z.enum(playerSetupGoals),
-    seriousness: z.enum(playerSetupSeriousness),
-    trainingFrequency: z.enum(playerSetupTrainingFrequency),
-    experienceYears: z.enum(playerSetupExperience),
-    teamType: z.enum(playerSetupTeamTypes),
+    trainingDaysPerUnit: z.number().int().min(0).max(31),
+    trainingPeriodUnit: z.enum(["week", "month"]),
+    experienceYears: z.number().min(0).max(100),
+    competitiveExperienceYears: z.number().min(0).max(100),
+    teamName: z.string().trim().max(120),
+    teamRole: z.enum(playerSetupTeamRoles),
     positions: z.array(z.enum(playerSetupPositions)).max(5).refine((values) => new Set(values).size === values.length),
     customDrillEmail: z.string().trim().email().max(254),
   }).strict().superRefine((answers, ctx) => {
-    if (answers.teamType !== "No current team" && answers.positions.length === 0) {
+    if (answers.trainingDaysPerUnit > (answers.trainingPeriodUnit === "week" ? 7 : 31)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["positions"],
-        message: "Select at least one position for your current team.",
+        path: ["trainingDaysPerUnit"],
+        message: `Training days cannot exceed the days in the selected ${answers.trainingPeriodUnit}.`,
+      });
+    }
+    if (
+      new Set(answers.skillRoles).size !== 4 ||
+      answers.skillRoles.some((skill) => !Object.values(answers.skillRankings).includes(skill))
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["skillRankings"],
+        message: "The selected skills must match the four unique skill ranks.",
       });
     }
   });
@@ -4121,6 +4156,7 @@ ${JSON.stringify(catalogForPrompt)}
           }
         };
         copyMatchingAnswer("currentSituation", "Q3", playerSetupSituations);
+        copyMatchingAnswer("teamRole", "Q4", playerSetupTeamRoles);
         copyMatchingAnswer("seriousness", "Q9", playerSetupSeriousness);
         copyMatchingAnswer("trainingFrequency", "Q10", playerSetupTrainingFrequency);
         copyMatchingAnswer("experienceYears", "Q12", playerSetupExperience);
@@ -4189,12 +4225,20 @@ ${JSON.stringify(catalogForPrompt)}
       const { answers } = z.object({ answers: playerSetupCompleteSchema }).strict().parse(req.body);
       const completedAt = new Date();
       await db.transaction(async (tx) => {
+        const [existingSetup] = await tx
+          .select({ answers: playerSetupProfiles.answers })
+          .from(playerSetupProfiles)
+          .where(eq(playerSetupProfiles.userId, userId))
+          .limit(1);
+        // Keep legacy setup fields (such as gradeLevel) intact when the new
+        // onboarding no longer asks for them.
+        const persistedAnswers = { ...(existingSetup?.answers ?? {}), ...answers };
         await tx
           .insert(playerSetupProfiles)
-          .values({ userId, answers, completedAt, updatedAt: completedAt })
+          .values({ userId, answers: persistedAnswers, completedAt, updatedAt: completedAt })
           .onConflictDoUpdate({
             target: playerSetupProfiles.userId,
-            set: { answers, completedAt, updatedAt: completedAt },
+            set: { answers: persistedAnswers, completedAt, updatedAt: completedAt },
           });
         await tx
           .update(users)

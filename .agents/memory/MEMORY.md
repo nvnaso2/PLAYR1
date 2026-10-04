@@ -29,7 +29,7 @@
 - [My Season eligibility](my-season-eligibility.md) — ask whether the player competes before introducing season management; fun-only players can skip it
 - [Confidence quiz routing](confidence-reality-check-routing.md) — Q1 is self-reflection; both answers continue to the reps question
 - [Game-speed shooting diagnostic](game-speed-shooting-diagnostic.md) — score the leading conversion leak but keep one drill for every answer; a 1-1-1 split stays mixed
-- [First-run setup and lead-magnet quiz](first-run-setup-lead-magnet.md) — the public quiz remains outside the app; first app login still requires its own setup
+- [First-run setup and lead-magnet quiz](first-run-setup-lead-magnet.md) — keep the public quiz separate; create app accounts only on step 5
 - [Journal design direction](journal-design-direction.md) — keep Journal focused on new reflections, saved entries, and Coach P review with PLAYR1 charcoal/orange styling
 - [Lead magnet result privacy](lead-magnet-result-privacy.md) — keep submissions stored for Coach P while hiding saved-result history from players
 - [Settings family controls](settings-family-controls.md) — remove family and parent-invite controls from Settings only; retain related routes, stored data, and backend flows

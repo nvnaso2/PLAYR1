@@ -283,6 +283,7 @@ export default function AuthPage() {
   const [mode, setMode] = useState<"login" | "register">(() =>
     new URLSearchParams(window.location.search).get("mode") === "register" ? "register" : "login"
   );
+  const [, navigate] = useLocation();
 
   return (
     <div className="min-h-screen flex safe-area-top" data-testid="page-auth">
@@ -293,7 +294,7 @@ export default function AuthPage() {
               <img src={logoLandscape} alt="PLAYR1" className="h-28 w-[280px] max-w-full object-contain invert hue-rotate-180 dark:invert-0 dark:hue-rotate-0" data-testid="img-auth-logo" />
             </div>
             {mode === "login" ? (
-              <LoginForm onSwitch={() => setMode("register")} />
+              <LoginForm onSwitch={() => navigate("/app-setup")} />
             ) : (
               <RegisterForm onSwitch={() => setMode("login")} />
             )}

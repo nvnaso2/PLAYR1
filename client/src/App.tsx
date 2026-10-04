@@ -359,16 +359,22 @@ function Router() {
       <Route path="/t/:id">{() => <Suspense fallback={<LoadingScreen />}><TrainerPublic /></Suspense>}</Route>
       <Route path="/teams/:slug">{() => <Suspense fallback={<LoadingScreen />}><TeamProfile /></Suspense>}</Route>
       <Route path="/leagues/:slug">{() => <Suspense fallback={<LoadingScreen />}><LeagueProfile /></Suspense>}</Route>
-      <Route path="/auth">{() => isAuthenticated ? <Redirect to="/" /> : <AuthPage />}</Route>
+      <Route path="/auth">{() => {
+        if (isAuthenticated) return <Redirect to="/" />;
+        if (new URLSearchParams(window.location.search).get("mode") === "register") {
+          return <Redirect to="/app-setup" />;
+        }
+        return <AuthPage />;
+      }}</Route>
       <Route path="/app-setup">{() => isAuthenticated
         ? <PlayerSetupRoute />
-        : <Redirect to="/auth?returnTo=/app-setup" />}</Route>
+        : <Suspense fallback={<LoadingScreen />}><AppOnboardingPage signupMode /></Suspense>}</Route>
       <Route path="/quiz/:quizId" component={MicroQuizPage} />
       <Route path="/quiz" component={MicroQuizPage} />
       <Route path="/assessment">{() => isAuthenticated
         ? <WelcomePage authenticatedMode />
         : <Redirect to="/auth?returnTo=/assessment" />}</Route>
-      <Route path="/welcome">{() => isAuthenticated ? <Redirect to="/" /> : <WelcomePage />}</Route>
+      <Route path="/welcome">{() => <Redirect to={isAuthenticated ? "/" : "/app-setup"} />}</Route>
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password" component={ResetPassword} />
       <Route path="/privacy" component={Privacy} />
@@ -391,7 +397,7 @@ function Router() {
       <Route>
         {() => {
           if (!isAuthenticated) {
-            return <Redirect to="/welcome" />;
+            return <Redirect to="/app-setup" />;
           }
           return (
             <SetupAwareLayout>
