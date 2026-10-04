@@ -82,7 +82,7 @@ export default function ProfileHubPage() {
           <Button
             type="button"
             size="sm"
-            onClick={() => navigate("/profile?tab=player-details")}
+            onClick={() => navigate("/profile/edit?returnTo=%2Fprofile-hub")}
             className="h-9 border border-orange-400/80 bg-[#11100f] px-3.5 text-xs font-extrabold text-orange-100 shadow-[0_0_12px_rgba(249,115,22,0.18),inset_0_0_0_1px_rgba(249,115,22,0.08)] transition hover:border-orange-300 hover:bg-[#1b1510] hover:text-white hover:shadow-[0_0_18px_rgba(249,115,22,0.3)]"
             data-testid="button-edit-profile"
           >
@@ -133,7 +133,7 @@ export default function ProfileHubPage() {
               <Trophy className="h-8 w-8 text-orange-400" />
               <p className="mt-3 font-display text-lg font-bold">Your player card is waiting</p>
               <p className="mt-1 max-w-xs text-sm text-zinc-500">Add your player details to put your identity on the court.</p>
-              <Button onClick={() => navigate("/profile?tab=player-details")} className="mt-4 bg-orange-500 font-bold text-zinc-950 hover:bg-orange-400">
+              <Button onClick={() => navigate("/profile/edit?returnTo=%2Fprofile-hub")} className="mt-4 bg-orange-500 font-bold text-zinc-950 hover:bg-orange-400">
                 Set up player profile
               </Button>
             </div>

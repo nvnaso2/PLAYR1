@@ -702,7 +702,7 @@ export default function HubPage() {
 
               <button
                 type="button"
-                onClick={() => navigate("/profile")}
+                onClick={() => navigate("/profile/edit?returnTo=%2Fhub")}
                 className="w-full rounded-2xl border border-orange-500/30 bg-gradient-to-br from-orange-500/15 via-zinc-900 to-zinc-950 p-4 text-left transition hover:border-orange-400/60"
                 data-testid="button-complete-profile"
               >
@@ -710,13 +710,9 @@ export default function HubPage() {
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-orange-500/25 bg-orange-500/10 text-orange-300">
                     <UserRound className="h-5 w-5" />
                   </span>
-                  <span className="min-w-0 flex-1">
+                  <span className="flex min-w-0 flex-1 items-center justify-between gap-3">
                     <span className="block text-base font-black text-white">Complete Your Profile</span>
-                    <span className="mt-1 block text-sm text-zinc-400">Add the player details that make your training plan yours.</span>
-                    <span className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-orange-300">
-                      Edit Profile
-                      <ChevronRight className="h-3.5 w-3.5" />
-                    </span>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-orange-300" />
                   </span>
                 </span>
               </button>

@@ -34,6 +34,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { queryClient, apiRequest, getObjectUrl } from "@/lib/queryClient";
 import {
+  ArrowLeft,
   Save,
   ExternalLink,
   Eye,
@@ -163,11 +164,9 @@ function makeProfileSlug(name: string, userId?: string) {
 
 export function PlayerProfileSection({
   concise = false,
-  onCancel,
   onSaved,
 }: {
   concise?: boolean;
-  onCancel?: () => void;
   onSaved?: () => void;
 } = {}) {
   const { user } = useAuth();
@@ -1414,16 +1413,6 @@ export function PlayerProfileSection({
                     Back
                   </Button>
                 )}
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="border-zinc-700 bg-zinc-950 text-zinc-300 hover:bg-zinc-800"
-                  onClick={onCancel}
-                  disabled={saveMutation.isPending}
-                  data-testid="button-exit-profile-editor"
-                >
-                  Exit
-                </Button>
               </div>
               <Button
                 type={wizardStep === conciseProfileSteps.length - 1 ? "submit" : "button"}
@@ -1456,16 +1445,34 @@ export function PlayerProfileSection({
 }
 
 export default function PlayerProfilePage() {
+  const [, setLocation] = useLocation();
+  const search = useSearch();
+  const searchParams = new URLSearchParams(search.replace(/^\?/, ""));
+  const requestedReturnTo = searchParams.get("returnTo");
+  const returnTo = ["/hub", "/profile", "/profile-hub"].includes(requestedReturnTo ?? "")
+    ? requestedReturnTo!
+    : "/hub";
+
   return (
     <div className="p-4 sm:p-6 max-w-3xl mx-auto pb-24">
-      <div className="mb-6">
+      <header className="mb-6">
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => setLocation(returnTo)}
+          className="-ml-2 mb-2 gap-2 text-zinc-400 hover:bg-zinc-900 hover:text-white"
+          data-testid="button-back-edit-profile"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </Button>
         <h1 className="text-xl sm:text-2xl font-bold" data-testid="text-page-title">
           Edit Profile
         </h1>
         <p className="text-sm text-muted-foreground">
           Update your five-step setup, player pathway, and recruiting profile
         </p>
-      </div>
+      </header>
       <PlayerSetupAnswersEditor />
       <PlayerProfileSection />
     </div>

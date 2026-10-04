@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Crown, Fingerprint, Pencil, Settings, Target, Trophy } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
@@ -8,15 +8,12 @@ import { ShareMenu } from "@/components/share-menu";
 import { useProUpgrade } from "@/components/pro-upgrade-dialog";
 import { queryClient } from "@/lib/queryClient";
 import { BaseballCard, StatsTab } from "@/pages/career";
-import { PlayerProfileSection } from "@/pages/player-profile";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 
 export default function ProfilePage() {
   const { user } = useAuth();
   const { openProOffer } = useProUpgrade();
-  const [editing, setEditing] = useState(
-    () => new URLSearchParams(window.location.search).get("tab") === "player-details",
-  );
+  const [, setLocation] = useLocation();
 
   const { data: userProfile } = useQuery<any>({ queryKey: ["/api/profile"] });
   const { data: playerProfile, isLoading: isPlayerProfileLoading } = useQuery<any>({
@@ -30,17 +27,11 @@ export default function ProfilePage() {
     [user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
     user?.email?.split("@")[0] ||
     "Player";
-  const returnToCard = () => {
-    setEditing(false);
-    const params = new URLSearchParams(window.location.search);
-    params.delete("tab");
-    const search = params.toString();
-    window.history.replaceState(
-      window.history.state,
-      "",
-      `${window.location.pathname}${search ? `?${search}` : ""}${window.location.hash}`,
-    );
-  };
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("tab") === "player-details") {
+      setLocation("/profile/edit?returnTo=%2Fprofile");
+    }
+  }, [setLocation]);
   const slug =
     playerProfile?.slug ||
     `${displayName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "player"}${user?.id ? `-${user.id.slice(-5)}` : ""}`;
@@ -58,46 +49,41 @@ export default function ProfilePage() {
     <main className="mx-auto min-h-screen max-w-2xl px-4 pb-24 pt-5">
       <header className="mb-5 flex flex-wrap items-center justify-between gap-x-5 gap-y-3">
         <div className="flex items-start gap-3">
-          {!editing && (
-            <button
-              type="button"
-              onClick={() => window.history.back()}
-              className="mt-1 rounded-lg p-1.5 text-zinc-500 transition-colors hover:bg-zinc-900 hover:text-zinc-200"
-              aria-label="Go back"
-              data-testid="button-back"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => window.history.back()}
+            className="mt-1 rounded-lg p-1.5 text-zinc-500 transition-colors hover:bg-zinc-900 hover:text-zinc-200"
+            aria-label="Go back"
+            data-testid="button-back"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
           <div>
             <h1 className="text-2xl font-black tracking-tight sm:text-3xl" data-testid="text-page-title">My Profile</h1>
           </div>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          {!editing && (
-            <>
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => setEditing(true)}
-                className="h-9 border border-orange-400/80 bg-[#11100f] px-3.5 text-xs font-extrabold text-orange-100 shadow-[0_0_12px_rgba(249,115,22,0.18),inset_0_0_0_1px_rgba(249,115,22,0.08)] transition hover:border-orange-300 hover:bg-[#1b1510] hover:text-white hover:shadow-[0_0_18px_rgba(249,115,22,0.3)]"
-                data-testid="button-edit-profile"
-              >
-                <Pencil className="mr-1.5 h-3.5 w-3.5" />
-                Edit Profile
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => openProOffer()}
-                className="h-9 rounded-full border border-orange-200/60 bg-gradient-to-br from-orange-300 via-orange-500 to-orange-700 px-3 text-[11px] font-black text-zinc-950 shadow-[0_0_16px_rgba(249,115,22,0.28)] transition hover:brightness-110"
-                data-testid="button-playr1-pro"
-              >
-                <Crown className="mr-1.5 h-3.5 w-3.5" />
-                PLAYR1 Pro
-              </Button>
-            </>
-          )}
+          <Button
+            asChild
+            size="sm"
+            className="h-9 border border-orange-400/80 bg-[#11100f] px-3.5 text-xs font-extrabold text-orange-100 shadow-[0_0_12px_rgba(249,115,22,0.18),inset_0_0_0_1px_rgba(249,115,22,0.08)] transition hover:border-orange-300 hover:bg-[#1b1510] hover:text-white hover:shadow-[0_0_18px_rgba(249,115,22,0.3)]"
+            data-testid="button-edit-profile"
+          >
+            <Link href="/profile/edit?returnTo=%2Fprofile">
+              <Pencil className="mr-1.5 h-3.5 w-3.5" />
+              Edit Profile
+            </Link>
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => openProOffer()}
+            className="h-9 rounded-full border border-orange-200/60 bg-gradient-to-br from-orange-300 via-orange-500 to-orange-700 px-3 text-[11px] font-black text-zinc-950 shadow-[0_0_16px_rgba(249,115,22,0.28)] transition hover:brightness-110"
+            data-testid="button-playr1-pro"
+          >
+            <Crown className="mr-1.5 h-3.5 w-3.5" />
+            PLAYR1 Pro
+          </Button>
           <Button
             asChild
             size="icon"
@@ -113,13 +99,7 @@ export default function ProfilePage() {
         </div>
       </header>
 
-      {editing ? (
-        <PlayerProfileSection
-          concise
-          onCancel={returnToCard}
-        />
-      ) : (
-        <section className="flex flex-col items-center gap-5">
+      <section className="flex flex-col items-center gap-5">
           <div className="flex w-full justify-center">
             <BaseballCard
               profile={career || { cardPhotoUrl: null, jerseyNumber: null, positions: [], teamName: null, schoolName: null }}
@@ -170,8 +150,7 @@ export default function ProfilePage() {
               </Button>
             </div>
           </section>
-        </section>
-      )}
+      </section>
     </main>
   );
 }

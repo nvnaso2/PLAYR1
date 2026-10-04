@@ -47,6 +47,7 @@ const TrophyRoom = lazy(() => import("@/pages/trophy-room"));
 const MySeason = lazy(pageLoaders.mySeason);
 const Development = lazy(pageLoaders.development);
 const PlayerPublic = lazy(pageLoaders.playerPublic);
+const PlayerProfile = lazy(() => import("@/pages/player-profile"));
 const TrainerPublic = lazy(pageLoaders.trainerPublic);
 const Admin = lazy(pageLoaders.admin);
 const AdminBrandPrinciples = lazy(pageLoaders.adminBrandPrinciples);
@@ -420,6 +421,7 @@ function Router() {
                 <Route path="/career">{() => <Redirect to="/profile-hub" />}</Route>
                 <Route path="/my-season" component={MySeason} />
                 <Route path="/development" component={Development} />
+                <Route path="/profile/edit" component={PlayerProfile} />
                 <Route path="/profile" component={Profile} />
                 <Route path="/welcome-workout" component={WelcomeWorkout} />
                 <Route path="/trophy-room" component={TrophyRoom} />
