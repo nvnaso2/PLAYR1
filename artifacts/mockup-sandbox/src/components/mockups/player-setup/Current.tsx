@@ -943,7 +943,7 @@ function AppOnboardingPage({
                   autoComplete="new-password"
                   disabled={accountCreated}
                 />
-                <p className="rounded-lg border border-orange-500/20 bg-orange-500/[0.06] px-3.5 py-3 text-sm font-bold leading-snug text-white">
+                <p className="text-center text-sm font-bold leading-snug text-white">
                   Access Customized Drills Based on Your Profile
                 </p>
                 <button
