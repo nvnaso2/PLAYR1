@@ -1,4 +1,4 @@
-import { ArrowUpRight, BookOpen, ChevronLeft, ChevronRight, Clock, Dumbbell, Flame, HandMetal, Layers3, MessageCircle, Play, Star, Target } from "lucide-react";
+import { ArrowUp, ArrowUpRight, BookOpen, ChevronLeft, ChevronRight, Clock, Dumbbell, Flame, HandMetal, Layers3, MessageCircle, Play, Star, Target } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -230,16 +230,16 @@ export function RequestedHubUpdate() {
             <button
               type="button"
               onClick={() => navigate(`/coach-p?prompt=${encodeURIComponent(coachPrompt)}`)}
-              className="group flex h-fit min-h-[78px] self-start flex-row items-center gap-2.5 rounded-xl border border-orange-500/25 bg-gradient-to-br from-zinc-900 to-zinc-950 p-3 text-left text-zinc-100 transition hover:border-orange-400/55"
+              aria-label={`Open Coach P with prompt: ${coachPrompt}`}
+              className="group flex min-h-[104px] w-full flex-row items-center gap-3 rounded-xl border border-zinc-700 bg-zinc-900 p-4 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800"
               data-testid="button-start-coach-p-prompt"
             >
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-orange-400/30 bg-orange-500/10 text-orange-300"><MessageCircle className="h-4 w-4" /></span>
-              <span className="min-w-0 flex-1">
-                <span className="block font-heading text-xs uppercase leading-tight tracking-wide">A question for Coach P</span>
-                <span className="mt-1 flex items-start gap-1 text-[9px] leading-snug text-zinc-400">
-                  <span className="line-clamp-2">“{coachPrompt}”</span>
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 text-orange-400"><MessageCircle className="h-4 w-4" /></span>
+              <span className="shrink-0 font-heading text-sm uppercase leading-tight tracking-wide text-white">Coach P</span>
+              <span className="flex min-h-[48px] min-w-0 flex-1 items-center gap-2 rounded-full border border-orange-400/20 bg-zinc-950/95 py-1.5 pl-3 pr-1.5 shadow-[0_12px_44px_rgba(0,0,0,0.42),0_0_30px_rgba(249,115,22,0.08)]" aria-hidden="true">
+                  <span className="line-clamp-2 min-w-0 flex-1 text-[10px] leading-snug text-zinc-400">{coachPrompt}</span>
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-500 text-black shadow-[0_0_20px_rgba(249,115,22,0.22)]"><ArrowUp className="h-4 w-4" /></span>
                 </span>
-              </span>
             </button>
           </div>
         </section>

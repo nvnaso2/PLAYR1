@@ -15,9 +15,8 @@ export function CompleteProfileAction() {
           </span>
           <span className="min-w-0 flex-1">
             <span className="block font-heading text-sm uppercase leading-tight tracking-wide text-zinc-100">Complete Your Profile</span>
-            <span className="mt-1 block text-[11px] text-zinc-500">Add the details that make your Hub yours.</span>
           </span>
-          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-orange-500 px-3 py-2 text-[10px] font-black uppercase tracking-[0.08em] text-zinc-950 transition group-hover:bg-orange-400">
+          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-orange-200/60 bg-gradient-to-br from-orange-300 via-orange-500 to-orange-700 px-3 py-2 text-[10px] font-black uppercase tracking-[0.08em] text-zinc-950 shadow-[0_0_16px_rgba(249,115,22,0.28)] transition group-hover:brightness-110 group-active:brightness-95">
             Complete Profile
             <ChevronRight className="h-3.5 w-3.5" />
           </span>

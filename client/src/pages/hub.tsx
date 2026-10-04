@@ -17,6 +17,7 @@ import {
   Flame,
   ChevronRight,
   ChevronLeft,
+  ArrowUp,
   Target,
   Dumbbell,
   Clock3,
@@ -732,9 +733,8 @@ export default function HubPage() {
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block font-heading text-sm uppercase leading-tight tracking-wide">Complete Your Profile</span>
-                  <span className="mt-1 block text-[11px] text-zinc-500">Add the details that make your Hub yours.</span>
                 </span>
-                <span className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-orange-500 px-3 py-2 text-[10px] font-black uppercase tracking-[0.08em] text-zinc-950 transition group-hover:bg-orange-400">
+                <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-orange-200/60 bg-gradient-to-br from-orange-300 via-orange-500 to-orange-700 px-3 py-2 text-[10px] font-black uppercase tracking-[0.08em] text-zinc-950 shadow-[0_0_16px_rgba(249,115,22,0.28)] transition hover:brightness-110 group-active:brightness-95">
                   Complete Profile
                   <ChevronRight className="h-3.5 w-3.5" />
                 </span>
@@ -761,7 +761,7 @@ export default function HubPage() {
               { label: "Start a program", detail: "Follow a plan", path: "/programs", icon: Layers3, testId: "button-start-program" },
               { label: "Drill library", detail: "Find your next drill", path: "/drills", icon: BookOpen, testId: "button-start-drills" },
               {
-                label: "A question for Coach P",
+                label: "Coach P",
                 detail: coachPrompt,
                 path: `/coach-p?prompt=${encodeURIComponent(coachPrompt)}`,
                 icon: MessageCircle,
@@ -773,31 +773,38 @@ export default function HubPage() {
                 key={path}
                 type="button"
                 onClick={() => navigate(path)}
-                className={`group flex cursor-pointer rounded-xl border text-left text-zinc-100 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98] ${
+                className={`group flex min-h-[104px] w-full cursor-pointer rounded-xl border border-zinc-700 bg-zinc-900 p-4 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98] ${
                   isCoachPrompt
-                    ? "h-fit min-h-[78px] self-start flex-row items-center gap-2.5 border-orange-500/25 bg-gradient-to-br from-zinc-900 to-zinc-950 p-3 hover:border-orange-400/55"
-                    : "min-h-[104px] flex-col gap-3 border-zinc-700 bg-zinc-900 p-4 hover:border-zinc-500 hover:bg-zinc-800"
+                    ? "flex-row items-center gap-3"
+                    : "flex-col gap-3"
                 }`}
+                aria-label={isCoachPrompt ? `Open Coach P with prompt: ${detail}` : undefined}
                 data-testid={testId}
               >
-                <span className={`flex shrink-0 items-center justify-center rounded-lg ${
-                  isCoachPrompt
-                    ? "h-8 w-8 border border-orange-400/30 bg-orange-500/10 text-orange-300"
-                    : "h-9 w-9 border border-zinc-700 bg-zinc-950 text-orange-400"
-                }`}>
-                  <Icon className="h-4 w-4" />
-                </span>
-                <span className={isCoachPrompt ? "min-w-0 flex-1" : ""}>
-                  <span className={`block font-heading uppercase tracking-wide leading-tight ${isCoachPrompt ? "text-xs" : "text-sm"}`}>{label}</span>
-                  {isCoachPrompt ? (
-                    <span className="mt-1 flex items-start gap-1 rounded-md text-[9px] leading-snug text-zinc-400">
-                      <span className="sr-only">Personalized question: </span>
-                      <span className="line-clamp-2">“{detail}”</span>
+                {isCoachPrompt ? (
+                  <>
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 text-orange-400">
+                      <Icon className="h-4 w-4" />
                     </span>
-                  ) : (
-                    <span className="mt-0.5 block text-[11px] text-zinc-500">{detail}</span>
-                  )}
-                </span>
+                    <span className="shrink-0 font-heading text-sm uppercase leading-tight tracking-wide text-white">{label}</span>
+                    <span className="flex min-h-[48px] min-w-0 flex-1 items-center gap-2 rounded-full border border-orange-400/20 bg-zinc-950/95 py-1.5 pl-3 pr-1.5 shadow-[0_12px_44px_rgba(0,0,0,0.42),0_0_30px_rgba(249,115,22,0.08)]" aria-hidden="true">
+                      <span className="line-clamp-2 min-w-0 flex-1 text-[10px] leading-snug text-zinc-400">{detail}</span>
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-500 text-black shadow-[0_0_20px_rgba(249,115,22,0.22)]">
+                        <ArrowUp className="h-4 w-4" />
+                      </span>
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 text-orange-400">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <span>
+                      <span className="block font-heading text-sm uppercase leading-tight tracking-wide">{label}</span>
+                      <span className="mt-0.5 block text-[11px] text-zinc-500">{detail}</span>
+                    </span>
+                  </>
+                )}
               </button>
             ))}
           </div>
