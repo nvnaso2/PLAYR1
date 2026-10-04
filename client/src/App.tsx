@@ -41,6 +41,7 @@ const TrainingLog = lazy(pageLoaders.trainingLog);
 const Dashboard = lazy(pageLoaders.dashboard);
 const Videos = lazy(pageLoaders.videos);
 const Profile = lazy(pageLoaders.profile);
+const TrophyRoom = lazy(() => import("@/pages/trophy-room"));
 const MySeason = lazy(pageLoaders.mySeason);
 const Development = lazy(pageLoaders.development);
 const PlayerPublic = lazy(pageLoaders.playerPublic);
@@ -350,6 +351,7 @@ function Router() {
                 <Route path="/my-season" component={MySeason} />
                 <Route path="/development" component={Development} />
                 <Route path="/profile" component={Profile} />
+                <Route path="/trophy-room" component={TrophyRoom} />
                 <Route path="/subscription" component={SubscriptionPage} />
                 <Route path="/settings">{() => <Suspense fallback={<LoadingScreen />}><SettingsPage /></Suspense>}</Route>
                 <Route path="/admin/onboarding-preview">{() => <AdminRoute><OnboardingPreview /></AdminRoute>}</Route>

@@ -113,6 +113,7 @@ import {
 import { ShareCardDialog } from "@/components/share-card";
 import { WorkoutShareDialog } from "@/components/workout-share-dialog";
 import CsvImportDialog from "@/components/csv-import-dialog";
+import TrophyRoomPage from "@/pages/trophy-room";
 import { PlayerProfileSection } from "@/pages/player-profile";
 import { Link, useLocation } from "wouter";
 
@@ -4647,22 +4648,6 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
     queryKey: ['/api/stats/career']
   });
 
-  const { data: achievements } = useQuery<Array<UserAchievement & { achievement: CareerAchievement }>>({
-    queryKey: ['/api/achievements/unlocked']
-  });
-
-  const { data: userChallenges } = useQuery<Array<UserChallenge & { challenge: Challenge }>>({
-    queryKey: ['/api/challenges/my-challenges']
-  });
-
-  const { data: personalRecords } = useQuery<Array<PersonalRecord & { drill: { title: string } }>>({
-    queryKey: ['/api/personal-records']
-  });
-
-  const { data: teamAwards } = useQuery<TeamAward[]>({
-    queryKey: ['/api/team-awards']
-  });
-
   const updateProfileMutation = useMutation({
     mutationFn: async (data: typeof editFormData) => {
       const { city: _city, state: _state, zipCode: _zipCode, ...careerData } = data;
@@ -4987,13 +4972,7 @@ function CareerDashboard({ profile }: { profile: CareerProfile }) {
         </TabsContent>
 
         <TabsContent value="trophy-room" className="space-y-6">
-          <TrophyRoomTab 
-            achievements={achievements}
-            userChallenges={userChallenges}
-            personalRecords={personalRecords}
-            teamAwards={teamAwards}
-            profile={profile}
-          />
+          <TrophyRoomPage />
         </TabsContent>
 
         <TabsContent value="stats" className="space-y-6">

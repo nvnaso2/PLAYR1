@@ -1,12 +1,11 @@
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { BaseballCard, StatsTab, TrophyRoomTab } from "@/pages/career";
+import { BaseballCard, StatsTab } from "@/pages/career";
 import { useProUpgrade } from "@/components/pro-upgrade-dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Fingerprint, Target, Trophy, Settings, Pencil, Crown, ChevronDown, Medal, Award, Sparkles } from "lucide-react";
+import { Fingerprint, Target, Trophy, Settings, Pencil, Crown, ChevronRight } from "lucide-react";
 import type { CareerProfile } from "@shared/schema";
 
 type CareerNumbers = {
@@ -37,37 +36,10 @@ function numeric(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function TrophyHighlight({ eyebrow, title, detail, icon: Icon, tone = "orange" }: {
-  eyebrow: string;
-  title: string;
-  detail?: string;
-  icon: typeof Trophy;
-  tone?: "orange" | "gold" | "ice";
-}) {
-  const tones = {
-    orange: "border-orange-400/20 bg-orange-400/[0.07] text-orange-300",
-    gold: "border-amber-300/20 bg-amber-300/[0.07] text-amber-200",
-    ice: "border-sky-300/20 bg-sky-300/[0.07] text-sky-200",
-  };
-  return (
-    <article className="group flex min-w-0 items-start gap-3 rounded-xl border border-white/[0.07] bg-[#171717] p-3.5 transition-colors hover:border-white/[0.14] sm:p-4">
-      <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${tones[tone]}`}>
-        <Icon className="h-4 w-4" />
-      </div>
-      <div className="min-w-0">
-        <p className="text-[9px] font-bold uppercase tracking-[0.17em] text-zinc-500">{eyebrow}</p>
-        <p className="mt-1 truncate text-sm font-bold text-zinc-100">{title}</p>
-        {detail && <p className="mt-1 line-clamp-1 text-xs text-zinc-500">{detail}</p>}
-      </div>
-    </article>
-  );
-}
-
 export default function ProfileHubPage() {
   const [, navigate] = useLocation();
   const { user } = useAuth();
   const { openProOffer } = useProUpgrade();
-  const [hasOpenedTrophyManagement, setHasOpenedTrophyManagement] = useState(false);
 
   const { data: profile, isLoading: profileLoading } = useQuery<any>({
     queryKey: ["/api/profile"],
@@ -84,42 +56,10 @@ export default function ProfileHubPage() {
     enabled: !!user,
     staleTime: 30_000,
   });
-  const { data: achievements } = useQuery<any[]>({ queryKey: ["/api/achievements/unlocked"], enabled: !!user });
   const { data: userChallenges } = useQuery<any[]>({ queryKey: ["/api/challenges/my-challenges"], enabled: !!user });
-  const { data: personalRecords } = useQuery<any[]>({ queryKey: ["/api/personal-records"], enabled: !!user });
-  const { data: teamAwards } = useQuery<any[]>({ queryKey: ["/api/team-awards"], enabled: !!user });
 
   const loadingCard = profileLoading || careerLoading || careerStatsLoading;
   const activeChallenges = (userChallenges ?? []).filter((entry) => !entry?.isCompleted && entry?.challenge);
-  const unlocked = (achievements ?? [])
-    .map((entry) => entry?.achievement ?? entry)
-    .filter((entry) => entry && (entry.name || entry.title));
-  const recentRecords = [...(personalRecords ?? [])]
-    .sort((a, b) => new Date(b?.achievedAt ?? 0).getTime() - new Date(a?.achievedAt ?? 0).getTime())
-    .slice(0, 2);
-  const featuredItems = [
-    ...unlocked.slice(0, 2).map((item) => ({
-      eyebrow: item.tier ? `${item.tier} achievement` : "Achievement unlocked",
-      title: item.name || item.title,
-      detail: item.description || "A milestone in your development",
-      icon: Sparkles,
-      tone: "gold" as const,
-    })),
-    ...(teamAwards ?? []).slice(0, Math.max(0, 2 - Math.min(unlocked.length, 2))).map((item) => ({
-      eyebrow: item.season ? `Team honor · ${item.season}` : "Team honor",
-      title: item.awardName,
-      detail: item.teamName,
-      icon: Trophy,
-      tone: "orange" as const,
-    })),
-    ...recentRecords.slice(0, 1).map((item) => ({
-      eyebrow: "Personal record",
-      title: `${item.newValue}${item.metricName ? ` ${item.metricName}` : ""}`,
-      detail: item.achievedAt ? `Set ${new Date(item.achievedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}` : "A new best",
-      icon: Medal,
-      tone: "ice" as const,
-    })),
-  ].slice(0, 3);
   return (
     <main className="mx-auto min-h-[100dvh] max-w-6xl space-y-8 px-4 pb-12 pt-5 text-zinc-100 sm:px-6 sm:pt-8">
       <header className="flex flex-wrap items-center justify-between gap-x-5 gap-y-3">
@@ -211,97 +151,51 @@ export default function ProfileHubPage() {
       <section aria-labelledby="profile-trophies-heading" className="space-y-4" data-testid="section-profile-trophy-room">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-400">Every rep leaves a mark</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-400">Awards &amp; records</p>
             <h2 id="profile-trophies-heading" className="mt-1 font-display text-xl font-black tracking-tight sm:text-2xl">Trophy room</h2>
           </div>
-          <div className="flex gap-2">
-            <span className="rounded-full border border-amber-300/15 bg-amber-300/[0.05] px-2.5 py-1 text-[10px] font-bold text-amber-100/70">{unlocked.length} unlocked</span>
-            <span className="rounded-full border border-orange-300/15 bg-orange-300/[0.05] px-2.5 py-1 text-[10px] font-bold text-orange-100/70">{activeChallenges.length} active</span>
-          </div>
         </div>
-
-        <div className="rounded-2xl border border-white/[0.08] bg-[#141414] p-4 sm:p-5">
-          {featuredItems.length > 0 ? (
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {featuredItems.map((item, index) => (
-                <TrophyHighlight key={`${item.eyebrow}-${item.title}-${index}`} {...item} />
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-orange-400/20 bg-orange-400/[0.07] text-orange-300">
-                  <Award className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-zinc-100">The first one is still out there.</p>
-                  <p className="mt-1 text-xs text-zinc-500">Train, set a new personal best, and make it yours.</p>
-                </div>
-              </div>
-              <Button asChild size="sm" variant="outline" className="border-orange-500/30 text-orange-200 hover:bg-orange-500/10">
-                <Link href="/training-log">Go to training</Link>
-              </Button>
-            </div>
-          )}
-
-          {activeChallenges.length > 0 && (
-            <div className="mt-4 border-t border-white/[0.07] pt-4">
-              <div className="mb-3 flex items-center gap-2">
-                <Target className="h-3.5 w-3.5 text-orange-400" />
-                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-zinc-500">In progress</p>
-              </div>
-              <div className="space-y-3">
-                {activeChallenges.slice(0, 2).map((entry) => {
-                  const challenge = entry.challenge;
-                  const current = numeric(entry.currentValue);
-                  const target = Math.max(1, numeric(challenge.targetValue));
-                  const progress = Math.min(100, (current / target) * 100);
-                  return (
-                    <div key={entry.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2">
-                      <p className="truncate text-xs font-semibold text-zinc-300">{challenge.name}</p>
-                      <p className="text-[10px] font-bold tabular-nums text-zinc-500">{current} / {target} {challenge.metric}</p>
-                      <div className="col-span-2 h-1 overflow-hidden rounded-full bg-zinc-800">
-                        <div className="h-full rounded-full bg-orange-500 transition-[width]" style={{ width: `${progress}%` }} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <details
-          className="group overflow-hidden rounded-xl border border-white/[0.07] bg-zinc-950/50"
-          data-testid="details-trophy-management"
-          onToggle={(event) => {
-            if (event.currentTarget.open) setHasOpenedTrophyManagement(true);
-          }}
-        >
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-xs font-semibold text-zinc-400 transition hover:text-zinc-200 [&::-webkit-details-marker]:hidden">
-            <span>Manage challenges, records &amp; awards</span>
-            <span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-zinc-600">
-              Reorder · Add · Edit
-              <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
+        <Button asChild variant="outline" className="group h-auto w-full justify-between border-amber-300/15 bg-[radial-gradient(ellipse_at_top,rgba(245,190,65,0.08),transparent_72%),#141414] px-4 py-4 text-left text-zinc-100 hover:border-amber-300/30 hover:bg-[#191714]" data-testid="button-open-trophy-room-hub">
+          <Link href="/trophy-room">
+            <span className="flex min-w-0 items-center gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-amber-300/20 bg-amber-300/[0.07] text-amber-200">
+                <Trophy className="h-5 w-5" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-bold">Open Trophy Room</span>
+                <span className="mt-1 block text-xs font-normal text-zinc-500">Custom awards, game and season bests, and personal records</span>
+              </span>
             </span>
-          </summary>
-          {hasOpenedTrophyManagement && (
-            <div className="border-t border-white/[0.07] p-3 sm:p-4">
-              {careerLoading || !career ? (
-                <Skeleton className="h-48 w-full rounded-xl bg-zinc-900" />
-              ) : (
-                <TrophyRoomTab
-                  achievements={achievements}
-                  userChallenges={userChallenges}
-                  personalRecords={personalRecords}
-                  teamAwards={teamAwards}
-                  profile={career}
-                />
-              )}
-            </div>
-          )}
-        </details>
+            <ChevronRight className="ml-3 h-4 w-4 shrink-0 text-zinc-500 transition-transform group-hover:translate-x-0.5 group-hover:text-amber-200" />
+          </Link>
+        </Button>
       </section>
+
+      {activeChallenges.length > 0 && (
+        <section aria-labelledby="hub-active-challenges-heading" className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Target className="h-4 w-4 text-orange-400" />
+            <h2 id="hub-active-challenges-heading" className="text-sm font-bold text-zinc-200">Challenges in progress</h2>
+          </div>
+          <div className="space-y-3 rounded-xl border border-white/[0.07] bg-zinc-950/50 p-4">
+            {activeChallenges.slice(0, 2).map((entry) => {
+              const challenge = entry.challenge;
+              const current = numeric(entry.currentValue);
+              const target = Math.max(1, numeric(challenge.targetValue));
+              const progress = Math.min(100, (current / target) * 100);
+              return (
+                <div key={entry.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2">
+                  <p className="truncate text-xs font-semibold text-zinc-300">{challenge.name}</p>
+                  <p className="text-[10px] font-bold tabular-nums text-zinc-500">{current} / {target} {challenge.metric}</p>
+                  <div className="col-span-2 h-1 overflow-hidden rounded-full bg-zinc-800">
+                    <div className="h-full rounded-full bg-orange-500 transition-[width]" style={{ width: `${progress}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       <section aria-labelledby="profile-development-heading" className="space-y-3">
         <div className="flex items-end justify-between gap-3">

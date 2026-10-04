@@ -33,7 +33,7 @@ import {
 } from "./push";
 import { ensureOnboardingSchema, getDiagnosticSummary, getFixCategory, validateMicroQuizPayload } from "./onboarding";
 import { getMicroQuiz } from "@shared/micro-quizzes";
-import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, PROFILE_DISPLAY_STAT_KEYS, PLAYER_CARD_CAREER_STAT_KEYS, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, playerProfiles, drills, trainingLogs, trainingLogMetrics, feedbackComments, insertProgramSchema, insertProgramItemSchema, insertEventSchema, events, insertStatChallengeSchema, programEnrollments, coachPUsage, friendships, userFollows, analyticsEvents, leadMagnetSubmissions, streakChallengeParticipants, FRIEND_ACTIVITY_TYPES, type FriendActivityType, CUSTOM_WORKOUT_REQUEST_STATUSES } from "@shared/schema";
+import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, PROFILE_DISPLAY_STAT_KEYS, PLAYER_CARD_CAREER_STAT_KEYS, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, personalRecords, teamAwards, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, playerProfiles, drills, trainingLogs, trainingLogMetrics, feedbackComments, insertProgramSchema, insertProgramItemSchema, insertEventSchema, events, insertStatChallengeSchema, programEnrollments, coachPUsage, friendships, userFollows, analyticsEvents, leadMagnetSubmissions, streakChallengeParticipants, FRIEND_ACTIVITY_TYPES, type FriendActivityType, CUSTOM_WORKOUT_REQUEST_STATUSES } from "@shared/schema";
 import { getUncachableStripeClient } from "./stripeClient";
 import { WebhookHandlers } from "./webhookHandlers";
 import { JOURNAL_PROMPTS } from "@shared/journalPrompts";
@@ -4725,6 +4725,183 @@ ${JSON.stringify(catalogForPrompt)}
     }
   });
 
+  // ===== TROPHY ROOM RECORDS =====
+
+  const trophyDefaultRecordNames: Record<string, string> = {
+    "threes-in-a-row": "Consecutive 3-Pointers",
+    "free-throws-in-a-row": "Consecutive Free Throws",
+  };
+
+  app.get("/api/trophy-room/automatic-records", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const statDefinitions = [
+        { key: "points", gameKey: "points", label: "Points", unit: "PTS" },
+        { key: "rebounds", gameKey: "rebounds", label: "Rebounds", unit: "REB" },
+        { key: "assists", gameKey: "assists", label: "Assists", unit: "AST" },
+        { key: "steals", gameKey: "steals", label: "Steals", unit: "STL" },
+        { key: "blocks", gameKey: "blocks", label: "Blocks", unit: "BLK" },
+        { key: "threes", gameKey: "threePtMade", label: "3-Pointers", unit: "3PM" },
+        { key: "freeThrows", gameKey: "ftMade", label: "Free Throws", unit: "FTM" },
+      ];
+      const bestGameRecords = new Map<string, any>();
+      const bestSeasonRecords = new Map<string, any>();
+      const userSeasons = await storage.getUserSeasons(userId);
+
+      for (const season of userSeasons) {
+        const seasonGames = (await storage.getSeasonGames(season.id))
+          .filter((game) => game.userId === userId && (!game.eventType || game.eventType === "game"))
+          .sort((a, b) => new Date(a.gameDate).getTime() - new Date(b.gameDate).getTime());
+        const seasonTotals: Record<string, number> = Object.fromEntries(statDefinitions.map((stat) => [stat.key, 0]));
+
+        for (const game of seasonGames) {
+          for (const stat of statDefinitions) {
+            const value = Number((game as any)[stat.gameKey] ?? 0);
+            seasonTotals[stat.key] += value;
+            const current = bestGameRecords.get(stat.key);
+            if (value > 0 && (!current || value > current.value)) {
+              bestGameRecords.set(stat.key, {
+                title: `Most ${stat.label} in a Game`,
+                value,
+                unit: stat.unit,
+                detail: [game.opponent ? `${game.isHome ? "vs" : "@"} ${game.opponent}` : null, season.name].filter(Boolean).join(" · "),
+                achievedAt: game.gameDate,
+              });
+            }
+          }
+        }
+
+        for (const stat of statDefinitions) {
+          const value = seasonTotals[stat.key];
+          const current = bestSeasonRecords.get(stat.key);
+          if (value > 0 && (!current || value > current.value)) {
+            bestSeasonRecords.set(stat.key, {
+              title: `Most ${stat.label} in a Season`,
+              value,
+              unit: stat.unit,
+              detail: `${season.name} · ${season.year}`,
+              achievedAt: season.endDate || season.startDate || null,
+            });
+          }
+        }
+      }
+
+      res.json({
+        gameRecords: statDefinitions.flatMap((stat) => bestGameRecords.has(stat.key) ? [bestGameRecords.get(stat.key)] : []),
+        seasonRecords: statDefinitions.flatMap((stat) => bestSeasonRecords.has(stat.key) ? [bestSeasonRecords.get(stat.key)] : []),
+      });
+    } catch (error) {
+      console.error("Error building Trophy Room records:", error);
+      res.status(500).json({ message: "Failed to load Trophy Room records" });
+    }
+  });
+
+  app.put("/api/trophy-room/default-records/:key", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const metricName = trophyDefaultRecordNames[req.params.key];
+      if (!metricName) return res.status(404).json({ message: "Default record not found" });
+      const parsed = z.object({ value: z.coerce.number().int().min(1).max(1000000) }).safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Enter a whole-number record greater than zero" });
+
+      const matchingRecords = await db.select().from(personalRecords).where(and(
+        eq(personalRecords.userId, userId),
+        eq(personalRecords.metricName, metricName),
+      )).limit(20);
+      const existing = matchingRecords.find((record) => record.source !== "trophy_custom");
+      const values = {
+        previousValue: existing?.newValue ?? "0",
+        newValue: parsed.data.value.toFixed(2),
+        achievedAt: new Date(),
+        source: "trophy_default",
+      };
+      const [record] = existing
+        ? await db.update(personalRecords).set(values).where(and(
+            eq(personalRecords.id, existing.id),
+            eq(personalRecords.userId, userId),
+          )).returning()
+        : await db.insert(personalRecords).values({
+            userId,
+            metricName,
+            previousValue: "0",
+            newValue: parsed.data.value.toFixed(2),
+            source: "trophy_default",
+          }).returning();
+      res.json(record);
+    } catch (error) {
+      console.error("Error updating default Trophy Room record:", error);
+      res.status(500).json({ message: "Failed to update record" });
+    }
+  });
+
+  app.post("/api/trophy-room/custom-records", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const parsed = z.object({
+        name: z.string().trim().min(2).max(80),
+        value: z.coerce.number().min(0.01).max(1000000),
+      }).safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Enter a record name and value" });
+      const [record] = await db.insert(personalRecords).values({
+        userId,
+        metricName: parsed.data.name,
+        previousValue: "0",
+        newValue: parsed.data.value.toFixed(2),
+        source: "trophy_custom",
+      }).returning();
+      res.status(201).json(record);
+    } catch (error) {
+      console.error("Error creating custom Trophy Room record:", error);
+      res.status(500).json({ message: "Failed to create record" });
+    }
+  });
+
+  app.put("/api/trophy-room/custom-records/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const parsed = z.object({
+        name: z.string().trim().min(2).max(80),
+        value: z.coerce.number().min(0.01).max(1000000),
+      }).safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Enter a record name and value" });
+      const [existing] = await db.select().from(personalRecords).where(and(
+        eq(personalRecords.id, req.params.id),
+        eq(personalRecords.userId, userId),
+        eq(personalRecords.source, "trophy_custom"),
+      )).limit(1);
+      if (!existing) return res.status(404).json({ message: "Custom record not found" });
+      const [record] = await db.update(personalRecords).set({
+        metricName: parsed.data.name,
+        previousValue: existing.newValue,
+        newValue: parsed.data.value.toFixed(2),
+        achievedAt: new Date(),
+      }).where(and(
+        eq(personalRecords.id, existing.id),
+        eq(personalRecords.userId, userId),
+      )).returning();
+      res.json(record);
+    } catch (error) {
+      console.error("Error updating custom Trophy Room record:", error);
+      res.status(500).json({ message: "Failed to update record" });
+    }
+  });
+
+  app.delete("/api/trophy-room/custom-records/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const [deleted] = await db.delete(personalRecords).where(and(
+        eq(personalRecords.id, req.params.id),
+        eq(personalRecords.userId, userId),
+        eq(personalRecords.source, "trophy_custom"),
+      )).returning({ id: personalRecords.id });
+      if (!deleted) return res.status(404).json({ message: "Custom record not found" });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting custom Trophy Room record:", error);
+      res.status(500).json({ message: "Failed to delete record" });
+    }
+  });
+
   // ===== PERSONAL RECORDS =====
 
   // Get user's personal records
@@ -4817,9 +4994,13 @@ ${JSON.stringify(catalogForPrompt)}
   app.post("/api/team-awards", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
+      const awardInput = { ...req.body, userId };
+      if (typeof awardInput.awardedAt === "string") {
+        awardInput.awardedAt = awardInput.awardedAt ? new Date(awardInput.awardedAt) : null;
+      }
       const validatedData = insertTeamAwardSchema.parse({
-        ...req.body,
-        userId
+        ...awardInput,
+        teamName: typeof awardInput.teamName === "string" ? awardInput.teamName : "",
       });
       const award = await storage.createTeamAward(validatedData);
       res.status(201).json(award);
@@ -4835,12 +5016,28 @@ ${JSON.stringify(catalogForPrompt)}
   // Update a team award
   app.put("/api/team-awards/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const updated = await storage.updateTeamAward(req.params.id, req.body);
+      const userId = req.user.claims.sub;
+      const [existing] = await db.select().from(teamAwards).where(and(
+        eq(teamAwards.id, req.params.id),
+        eq(teamAwards.userId, userId),
+      )).limit(1);
+      if (!existing) return res.status(404).json({ message: "Team award not found" });
+
+      const awardChanges = { ...req.body };
+      delete awardChanges.userId;
+      if (typeof awardChanges.awardedAt === "string") {
+        awardChanges.awardedAt = awardChanges.awardedAt ? new Date(awardChanges.awardedAt) : null;
+      }
+      const validatedChanges = insertTeamAwardSchema.partial().omit({ userId: true }).parse(awardChanges);
+      const updated = await storage.updateTeamAward(req.params.id, validatedChanges);
       if (!updated) {
         return res.status(404).json({ message: "Team award not found" });
       }
       res.json(updated);
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid award data", errors: error.errors });
+      }
       console.error("Error updating team award:", error);
       res.status(500).json({ message: "Failed to update team award" });
     }
@@ -4849,6 +5046,12 @@ ${JSON.stringify(catalogForPrompt)}
   // Delete a team award
   app.delete("/api/team-awards/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
+      const userId = req.user.claims.sub;
+      const [existing] = await db.select().from(teamAwards).where(and(
+        eq(teamAwards.id, req.params.id),
+        eq(teamAwards.userId, userId),
+      )).limit(1);
+      if (!existing) return res.status(404).json({ message: "Team award not found" });
       await storage.deleteTeamAward(req.params.id);
       res.json({ success: true });
     } catch (error) {
