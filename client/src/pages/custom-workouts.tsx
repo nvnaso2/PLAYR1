@@ -87,6 +87,9 @@ export default function CustomWorkoutsPage() {
   });
   const { data, isLoading } = useQuery<{ eligible: boolean; requests: CustomRequest[]; assignments?: DirectAssignment[] }>({
     queryKey: ["/api/custom-workout-requests"],
+    refetchInterval: 30000,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
   const createRequest = useMutation({
     mutationFn: async () => {

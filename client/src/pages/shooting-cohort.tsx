@@ -1,0 +1,423 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "wouter";
+import {
+  ArrowRight, BadgeCheck, CalendarDays, Check, ChevronRight, CircleHelp, Clock3,
+  LockKeyhole, MessageCircle, Send, ShieldCheck, Target, Trophy, X,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
+import {
+  getAssessmentTotals,
+  SHOOTING_COHORT_FOCUS_AREAS,
+  SHOOTING_COHORT_FOCUS_LABELS,
+  type ShootingCohortApplicationAnswers,
+  type ShootingCohortAssessmentInput,
+} from "@shared/shooting-cohort";
+import {
+  useRespondToShootingCohortInvitation,
+  useSendShootingCohortMessage,
+  useShootingCohortAssessmentsQuery,
+  useShootingCohortMessagesQuery,
+  useShootingCohortQuery,
+  useSubmitShootingCohortApplication,
+  useSubmitShootingCohortAssessment,
+  type ShootingCohortAssessmentRecord,
+} from "@/lib/shooting-cohort-api";
+
+const practiceDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
+const spotLocations = [
+  ["leftCorner", "Left corner"], ["leftWing", "Left wing"], ["top", "Top"],
+  ["rightWing", "Right wing"], ["rightCorner", "Right corner"],
+] as const;
+const dribbleLocations = [["left", "Left"], ["center", "Center"], ["right", "Right"]] as const;
+
+type ApplicationDraft = {
+  practiceDays: ShootingCohortApplicationAnswers["practiceDays"];
+  sessionMinutes: string;
+  hoopAccess: ShootingCohortApplicationAnswers["hoopAccess"] | "";
+  weeklyShots: string;
+  focusAreas: ShootingCohortApplicationAnswers["focusAreas"];
+  confidence: number | null;
+  goal: string;
+  currentRoutine: string;
+};
+
+const initialAnswers: ApplicationDraft = {
+  practiceDays: [],
+  sessionMinutes: "",
+  hoopAccess: "",
+  weeklyShots: "",
+  focusAreas: [],
+  confidence: null,
+  goal: "",
+  currentRoutine: "",
+};
+
+const statusCopy: Record<string, { label: string; detail: string; tone: string }> = {
+  active: { label: "You’re in", detail: "Your place is active. Start with your baseline and meet the cohort.", tone: "border-emerald-300/20 bg-emerald-300/[0.07] text-emerald-200" },
+  waitlisted: { label: "On the waitlist", detail: "The Founder invites players in application order when a place opens. Your portal will update if you’re invited.", tone: "border-amber-300/20 bg-amber-300/[0.07] text-amber-100" },
+  invited: { label: "Your seat is held", detail: "An invitation is waiting for you. Accept to join, or decline to release your place.", tone: "border-orange-300/25 bg-orange-300/[0.08] text-orange-100" },
+  withdrawn: { label: "Application withdrawn", detail: "This application is no longer active.", tone: "border-zinc-700 bg-zinc-900 text-zinc-300" },
+  declined: { label: "Invitation declined", detail: "Your invitation was declined and the reserved seat released.", tone: "border-zinc-700 bg-zinc-900 text-zinc-300" },
+  removed: { label: "Membership ended", detail: "This application is no longer active.", tone: "border-zinc-700 bg-zinc-900 text-zinc-300" },
+};
+
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function AssessmentCard({ assessment, index }: { assessment: ShootingCohortAssessmentRecord; index: number }) {
+  const totals = getAssessmentTotals({
+    freeThrowsMade: assessment.freeThrowsMade,
+    spotUp: assessment.spotUpResults,
+    offDribble: assessment.offDribbleResults,
+  });
+  return (
+    <article className="rounded-2xl border border-[#41372d] bg-[#181511] p-4 sm:p-5" data-testid={`cohort-assessment-${assessment.id}`}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#d4a47a]">{assessment.type === "baseline" ? "Baseline" : `Retest ${index}`}</p>
+          <p className="mt-1 text-sm text-[#9d9387]">{formatDate(assessment.createdAt)} <span className="px-1 text-[#5d554c]">/</span> {assessment.distanceFeet} ft</p>
+        </div>
+        <div className="text-right">
+          <p className="font-heading text-3xl leading-none text-[#fff1de]">{totals.total.made}<span className="text-lg text-[#877b6e">/{totals.total.attempted}</span></p>
+          <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.15em] text-[#8f8274]">total makes</p>
+        </div>
+      </div>
+      <div className="mt-4 grid gap-4 border-t border-[#342c24] pt-4 sm:grid-cols-3">
+        <ResultGroup title="Free throws" made={totals.freeThrows.made} attempted={totals.freeThrows.attempted} />
+        <div>
+          <ResultGroup title="Spot-up" made={totals.spotUp.made} attempted={totals.spotUp.attempted} />
+          <div className="mt-2 grid grid-cols-2 gap-x-2 gap-y-1">
+            {spotLocations.map(([key, label]) => <ResultLine key={key} label={label} value={`${assessment.spotUpResults[key]}/5`} />)}
+          </div>
+        </div>
+        <div>
+          <ResultGroup title="Off the dribble" made={totals.offDribble.made} attempted={totals.offDribble.attempted} />
+          <div className="mt-2 space-y-1">
+            {dribbleLocations.map(([key, label]) => <ResultLine key={key} label={label} value={`${assessment.offDribbleResults[key]}/5`} />)}
+          </div>
+        </div>
+      </div>
+      {assessment.notes && <p className="mt-4 border-t border-[#342c24] pt-3 text-sm leading-6 text-[#b8ab9c]">{assessment.notes}</p>}
+    </article>
+  );
+}
+
+function ResultGroup({ title, made, attempted }: { title: string; made: number; attempted: number }) {
+  return <div className="flex items-baseline justify-between gap-2"><span className="text-xs text-[#c9bba9]">{title}</span><span className="font-mono text-xs font-bold text-[#f0a05c]">{made}<span className="text-[#75695c]">/{attempted}</span></span></div>;
+}
+
+function ResultLine({ label, value }: { label: string; value: string }) {
+  return <div className="flex justify-between gap-2 text-[10px] text-[#877b6e]"><span>{label}</span><span className="font-mono text-[#b8ab9c]">{value}</span></div>;
+}
+
+function AssessmentForm({ type, pending, onCancel, onSubmit }: {
+  type: "baseline" | "retest";
+  pending: boolean;
+  onCancel: () => void;
+  onSubmit: (value: ShootingCohortAssessmentInput) => void;
+}) {
+  const [distanceFeet, setDistanceFeet] = useState("");
+  const [freeThrowsMade, setFreeThrowsMade] = useState("");
+  const [spotUp, setSpotUp] = useState<Record<string, string>>({});
+  const [offDribble, setOffDribble] = useState<Record<string, string>>({});
+  const [notes, setNotes] = useState("");
+  const allEntered = freeThrowsMade !== "" &&
+    spotLocations.every(([key]) => spotUp[key] !== undefined && spotUp[key] !== "") &&
+    dribbleLocations.every(([key]) => offDribble[key] !== undefined && offDribble[key] !== "");
+  const valid = allEntered &&
+    Number.isInteger(Number(freeThrowsMade)) && Number(freeThrowsMade) >= 0 && Number(freeThrowsMade) <= 20 &&
+    spotLocations.every(([key]) => Number.isInteger(Number(spotUp[key])) && Number(spotUp[key]) >= 0 && Number(spotUp[key]) <= 5) &&
+    dribbleLocations.every(([key]) => Number.isInteger(Number(offDribble[key])) && Number(offDribble[key]) >= 0 && Number(offDribble[key]) <= 5) &&
+    Number.isInteger(Number(distanceFeet)) && Number(distanceFeet) >= 3 && Number(distanceFeet) <= 40;
+  const save = () => {
+    if (!valid) return;
+    onSubmit({
+      type,
+      distanceFeet: Number(distanceFeet),
+      freeThrowsMade: Number(freeThrowsMade),
+      spotUp: Object.fromEntries(spotLocations.map(([key]) => [key, Number(spotUp[key])])) as ShootingCohortAssessmentInput["spotUp"],
+      offDribble: Object.fromEntries(dribbleLocations.map(([key]) => [key, Number(offDribble[key])])) as ShootingCohortAssessmentInput["offDribble"],
+      notes: notes.trim(),
+    });
+  };
+  const CountField = ({ label, value, max, onChange }: { label: string; value: string; max: number; onChange: (next: string) => void }) => (
+    <label className="flex items-center justify-between gap-3 border-b border-[#342c24] py-2 last:border-0">
+      <span className="text-sm text-[#c9bba9]">{label} <span className="font-mono text-[10px] text-[#74695d]">/{max}</span></span>
+      <Input aria-label={`${label} makes`} type="number" min="0" max={max} value={value} onChange={(event) => onChange(event.target.value)} className="h-9 w-[78px] border-[#493e32] bg-[#100e0b] text-center font-mono text-[#fff1de]" />
+    </label>
+  );
+  return (
+    <section className="rounded-[22px] border border-[#df7e39]/40 bg-[#211810] p-4 sm:p-6" aria-label={`${type} assessment form`}>
+      <div className="flex items-start justify-between gap-4">
+        <div><p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#e89a5a]">Shooting check-in</p><h3 className="mt-1 font-heading text-2xl uppercase text-[#fff1de]">{type === "baseline" ? "Set your baseline" : "Log a retest"}</h3></div>
+        <button type="button" onClick={onCancel} aria-label="Close assessment form" className="rounded-full p-2 text-[#9c8d7b] transition hover:bg-white/5 hover:text-white"><X className="h-4 w-4" /></button>
+      </div>
+      <p className="mt-2 max-w-2xl text-sm leading-6 text-[#a99b89]">Use five attempts at each marked spot, then 20 free throws. Results are visible only to you and PLAYR1 admins.</p>
+      <div className="mt-5 grid gap-4 sm:grid-cols-2">
+        <div className="rounded-xl border border-[#3e3329] bg-[#17120e] p-4">
+          <Label className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#d2c2ae]">Distance used</Label>
+          <div className="mt-2 flex items-center gap-2"><Input aria-label="Distance in feet" type="number" min="3" max="40" value={distanceFeet} onChange={(event) => setDistanceFeet(event.target.value)} className="h-10 max-w-28 border-[#493e32] bg-[#100e0b] font-mono text-white" /><span className="text-xs text-[#837668]">feet</span></div>
+          <div className="mt-5"><CountField label="Free throws" value={freeThrowsMade} max={20} onChange={setFreeThrowsMade} /></div>
+        </div>
+        <div className="rounded-xl border border-[#3e3329] bg-[#17120e] p-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#d2c2ae]">Spot-up · 5 attempts each</p>
+          <div className="mt-2">{spotLocations.map(([key, label]) => <CountField key={key} label={label} value={spotUp[key] ?? ""} max={5} onChange={(next) => setSpotUp((current) => ({ ...current, [key]: next }))} />)}</div>
+        </div>
+        <div className="rounded-xl border border-[#3e3329] bg-[#17120e] p-4 sm:col-span-2">
+          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#d2c2ae]">Off the dribble · 5 attempts each</p>
+          <div className="mt-2 grid gap-x-6 sm:grid-cols-3">{dribbleLocations.map(([key, label]) => <CountField key={key} label={label} value={offDribble[key] ?? ""} max={5} onChange={(next) => setOffDribble((current) => ({ ...current, [key]: next }))} />)}</div>
+        </div>
+        <div className="space-y-2 sm:col-span-2"><Label className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#d2c2ae]">Notes <span className="font-normal normal-case tracking-normal text-[#837668]">optional</span></Label><Textarea maxLength={1000} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="What felt different today?" className="min-h-20 border-[#493e32] bg-[#100e0b] text-[#f3e6d5] placeholder:text-[#675d51]" /></div>
+      </div>
+      {!allEntered && <p className="mt-3 text-xs text-[#d4a47a]">Enter makes for every section to save all 60 attempts.</p>}
+      <div className="mt-5 flex flex-wrap justify-end gap-2"><Button variant="ghost" onClick={onCancel} className="text-[#a99b89] hover:text-white">Cancel</Button><Button onClick={save} disabled={!valid || pending} className="bg-[#ef8a43] font-bold text-[#1b120a] hover:bg-[#ff9e5b]">{pending ? "Saving assessment…" : "Save results"} <Check className="ml-2 h-4 w-4" /></Button></div>
+    </section>
+  );
+}
+
+function ApplicationForm({ onSubmit, pending, isOpen }: {
+  onSubmit: (answers: ShootingCohortApplicationAnswers) => void;
+  pending: boolean;
+  isOpen: boolean;
+}) {
+  const [answers, setAnswers] = useState<ApplicationDraft>(initialAnswers);
+  const toggleDay = (day: typeof practiceDays[number]) => setAnswers((current) => ({
+    ...current,
+    practiceDays: current.practiceDays.includes(day) ? current.practiceDays.filter((item) => item !== day) : [...current.practiceDays, day],
+  }));
+  const toggleFocus = (focus: typeof SHOOTING_COHORT_FOCUS_AREAS[number]) => setAnswers((current) => ({
+    ...current,
+    focusAreas: current.focusAreas.includes(focus)
+      ? current.focusAreas.filter((item) => item !== focus)
+      : current.focusAreas.length < 2 ? [...current.focusAreas, focus] : current.focusAreas,
+  }));
+  const canSubmit = answers.practiceDays.length > 0 &&
+    answers.focusAreas.length > 0 &&
+    answers.goal.trim().length >= 8 &&
+    answers.sessionMinutes !== "" &&
+    answers.hoopAccess !== "" &&
+    answers.confidence !== null &&
+    answers.weeklyShots !== "" &&
+    Number.isInteger(Number(answers.weeklyShots)) &&
+    Number(answers.weeklyShots) >= 0 &&
+    Number(answers.weeklyShots) <= 10000;
+  return (
+    <section className="overflow-hidden rounded-[26px] border border-[#493a2c] bg-[#17130f]">
+      <div className="border-b border-[#382e24] px-5 py-5 sm:px-7">
+        <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[#df965c]">Player interest survey · 3 minutes</p>
+        <h2 className="mt-2 font-heading text-3xl uppercase leading-none text-[#fff1de]">Tell us how you train.</h2>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-[#a99b89]">This helps the founder coach your shot, not sort players by a number. Every player can apply.</p>
+      </div>
+      <div className="grid gap-x-7 gap-y-6 p-5 sm:grid-cols-2 sm:p-7">
+        <fieldset className="space-y-3 sm:col-span-2">
+          <legend className="mb-3 text-[10px] font-bold uppercase tracking-[0.16em] text-[#d2c2ae]">When do you usually practice?</legend>
+          <div className="flex flex-wrap gap-2">{practiceDays.map((day) => <button key={day} type="button" aria-pressed={answers.practiceDays.includes(day)} onClick={() => toggleDay(day)} className={`rounded-full border px-3 py-2 text-xs font-semibold transition ${answers.practiceDays.includes(day) ? "border-[#ef8a43] bg-[#ef8a43] text-[#21150c]" : "border-[#473b30] bg-[#100e0b] text-[#b8ab9c] hover:border-[#ad7449]"}`}>{day.slice(0, 3)}</button>)}</div>
+        </fieldset>
+        <div className="space-y-2"><Label className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#d2c2ae]">Typical session length</Label><select value={answers.sessionMinutes} onChange={(event) => setAnswers({ ...answers, sessionMinutes: event.target.value })} className="h-11 w-full rounded-md border border-[#493e32] bg-[#100e0b] px-3 text-sm text-[#f3e6d5] focus:outline-none focus:ring-2 focus:ring-[#ef8a43]"><option value="" disabled>Choose a length</option>{[20, 30, 45, 60, 75, 90, 120].map((minute) => <option key={minute} value={minute}>{minute} minutes</option>)}</select></div>
+        <div className="space-y-2"><Label className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#d2c2ae]">Hoop access</Label><select value={answers.hoopAccess} onChange={(event) => setAnswers({ ...answers, hoopAccess: event.target.value as ApplicationDraft["hoopAccess"] })} className="h-11 w-full rounded-md border border-[#493e32] bg-[#100e0b] px-3 text-sm text-[#f3e6d5] focus:outline-none focus:ring-2 focus:ring-[#ef8a43]"><option value="" disabled>Choose access</option><option value="indoor">Indoor</option><option value="outdoor">Outdoor</option><option value="both">Both</option><option value="limited">Limited / shared access</option></select></div>
+        <div className="space-y-2"><Label htmlFor="weekly-shots" className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#d2c2ae]">Approx. shots per week</Label><Input id="weekly-shots" type="number" min="0" max="10000" value={answers.weeklyShots} onChange={(event) => setAnswers({ ...answers, weeklyShots: event.target.value })} className="h-11 border-[#493e32] bg-[#100e0b] text-[#f3e6d5]" /></div>
+        <fieldset className="space-y-3">
+          <legend className="mb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[#d2c2ae]">What do you want to work on? <span className="normal-case tracking-normal text-[#817567]">choose 1 or 2</span></legend>
+          <div className="grid gap-2">{SHOOTING_COHORT_FOCUS_AREAS.map((focus) => <button key={focus} type="button" aria-pressed={answers.focusAreas.includes(focus)} onClick={() => toggleFocus(focus)} className={`flex items-center justify-between rounded-lg border px-3 py-2.5 text-left text-xs transition ${answers.focusAreas.includes(focus) ? "border-[#b86c35]/70 bg-[#b86c35]/10 text-[#f4b27c]" : "border-[#3c332a] bg-[#100e0b] text-[#b8ab9c] hover:border-[#70533d]"}`}>{SHOOTING_COHORT_FOCUS_LABELS[focus]}{answers.focusAreas.includes(focus) && <Check className="h-3.5 w-3.5" />}</button>)}</div>
+        </fieldset>
+        <fieldset className="space-y-3">
+          <legend className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#d2c2ae]">How confident are you in your shot today?</legend>
+          <div className="mt-2 flex gap-2">{[1, 2, 3, 4, 5].map((value) => <button key={value} type="button" aria-label={`Confidence ${value} out of 5`} aria-pressed={answers.confidence === value} onClick={() => setAnswers({ ...answers, confidence: value })} className={`flex h-11 flex-1 items-center justify-center rounded-lg border font-mono text-sm transition ${answers.confidence === value ? "border-[#ef8a43] bg-[#ef8a43] font-bold text-[#21150c]" : "border-[#473b30] bg-[#100e0b] text-[#b8ab9c] hover:border-[#ad7449]"}`}>{value}</button>)}</div>
+          <p className="text-[10px] text-[#817567]">1 · still finding it <span className="float-right">5 · ready to let it fly</span></p>
+        </fieldset>
+        <div className="space-y-2 sm:col-span-2"><Label htmlFor="cohort-goal" className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#d2c2ae]">What’s one shooting goal you care about?</Label><Textarea id="cohort-goal" maxLength={1000} value={answers.goal} onChange={(event) => setAnswers({ ...answers, goal: event.target.value })} placeholder="Be specific about what you want to change in your game." className="min-h-24 border-[#493e32] bg-[#100e0b] text-[#f3e6d5] placeholder:text-[#675d51]" /><p className="text-right font-mono text-[10px] text-[#74695d]">{answers.goal.length}/1000</p></div>
+        <div className="space-y-2 sm:col-span-2"><Label htmlFor="routine" className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#d2c2ae]">What does your current routine look like? <span className="normal-case tracking-normal text-[#817567]">optional</span></Label><Textarea id="routine" maxLength={1000} value={answers.currentRoutine ?? ""} onChange={(event) => setAnswers({ ...answers, currentRoutine: event.target.value })} placeholder="Any details about drills, feedback, or what you have tried." className="min-h-20 border-[#493e32] bg-[#100e0b] text-[#f3e6d5] placeholder:text-[#675d51]" /></div>
+        <div className="flex flex-col gap-3 border-t border-[#382e24] pt-5 sm:col-span-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="max-w-xl text-xs leading-5 text-[#8f8274]">Initial applications become active until capacity is full; remaining players join the waitlist in application order. No age or guardian check is required.</p>
+          <Button onClick={() => {
+            if (!canSubmit || answers.confidence === null || answers.hoopAccess === "") return;
+            onSubmit({
+              ...answers,
+              sessionMinutes: Number(answers.sessionMinutes),
+              hoopAccess: answers.hoopAccess,
+              weeklyShots: Number(answers.weeklyShots),
+              confidence: answers.confidence,
+            });
+          }} disabled={!canSubmit || !isOpen || pending} className="shrink-0 bg-[#ef8a43] px-5 font-bold text-[#21150c] hover:bg-[#ff9e5b]">{pending ? "Sending application…" : "Apply to the cohort"} <ArrowRight className="ml-2 h-4 w-4" /></Button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function MemberChat({ isAdmin = false }: { isAdmin?: boolean }) {
+  const { toast } = useToast();
+  const query = useShootingCohortMessagesQuery(true);
+  const sendMessage = useSendShootingCohortMessage();
+  const [text, setText] = useState("");
+  const endRef = useRef<HTMLDivElement>(null);
+  const messages = query.data ?? [];
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages.length]);
+  const send = async () => {
+    const content = text.trim();
+    if (!content || sendMessage.isPending) return;
+    try {
+      await sendMessage.mutateAsync(content);
+      setText("");
+    } catch (error) {
+      toast({ title: "Message not sent", description: error instanceof Error ? error.message : "Try again.", variant: "destructive" });
+    }
+  };
+  return (
+    <section className="overflow-hidden rounded-[24px] border border-[#46382b] bg-[#17130f]">
+      <div className="flex items-center justify-between gap-3 border-b border-[#382e24] px-4 py-4 sm:px-5">
+        <div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#d77e3d]/30 bg-[#d77e3d]/10 text-[#f0a367]"><MessageCircle className="h-4 w-4" /></span><div><h2 className="font-heading text-xl uppercase leading-none text-[#fff1de]">The shooting room</h2><p className="mt-1 text-[11px] text-[#8f8274]">Shared conversation · member-only</p></div></div>
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300/20 bg-emerald-300/[0.06] px-2.5 py-1 font-mono text-[9px] uppercase tracking-[0.14em] text-emerald-200"><span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />Private group</span>
+      </div>
+      <div className="h-[310px] space-y-3 overflow-y-auto p-4 sm:h-[360px] sm:p-5">
+        {query.isLoading ? <div className="space-y-3" aria-label="Loading cohort conversation"><Skeleton className="h-14 w-3/4 rounded-2xl bg-[#2a241e]" /><Skeleton className="ml-auto h-16 w-2/3 rounded-2xl bg-[#2a241e]" /><Skeleton className="h-12 w-1/2 rounded-2xl bg-[#2a241e]" /></div>
+          : query.isError ? <div className="flex h-full flex-col items-center justify-center text-center"><MessageCircle className="mb-3 h-6 w-6 text-[#d78b52]" /><p className="text-sm text-[#ded0bd]">The room could not load.</p><Button variant="ghost" onClick={() => query.refetch()} className="mt-2 text-[#e79a5c]">Try again</Button></div>
+            : messages.length === 0 ? <div className="flex h-full flex-col items-center justify-center text-center"><span className="flex h-11 w-11 items-center justify-center rounded-full border border-[#4e3e2e] bg-[#211a13] text-[#d88a50]"><MessageCircle className="h-5 w-5" /></span><p className="mt-3 text-sm font-semibold text-[#e8dccb]">Set the tone for the room.</p><p className="mt-1 text-xs text-[#887c6e]">Share a win, a question, or something you’re working through.</p></div>
+              : messages.map((message) => <article key={message.id} className="group max-w-[92%] rounded-2xl rounded-tl-sm border border-[#3c332a] bg-[#211c17] px-3.5 py-3 sm:max-w-[78%]"><div className="flex items-center justify-between gap-4"><p className="truncate text-[10px] font-bold uppercase tracking-[0.12em] text-[#e9a16a]">{message.displayName}{isAdmin && <span className="ml-2 font-normal text-[#85796b]">· {message.senderId.slice(0, 6)}</span>}</p><time className="shrink-0 font-mono text-[9px] text-[#756b60]">{new Date(message.createdAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</time></div><p className="mt-1.5 whitespace-pre-wrap break-words text-sm leading-5 text-[#e2d6c7]">{message.content}</p></article>)}
+        <div ref={endRef} />
+      </div>
+      <div className="border-t border-[#382e24] p-3 sm:p-4">
+        <div className="flex items-end gap-2 rounded-2xl border border-[#4b3b2b] bg-[#100e0b] p-2 focus-within:border-[#c9783e]/70">
+          <Textarea value={text} onChange={(event) => setText(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void send(); } }} maxLength={2000} placeholder="Add to the conversation…" className="min-h-10 max-h-28 resize-none border-0 bg-transparent text-sm text-[#f3e6d5] placeholder:text-[#6c6256] focus-visible:ring-0" aria-label="Message to shooting cohort" />
+          <Button onClick={() => void send()} disabled={!text.trim() || sendMessage.isPending} size="icon" aria-label="Send message" className="h-9 w-9 shrink-0 rounded-xl bg-[#ef8a43] text-[#21150c] hover:bg-[#ff9e5b]"><Send className="h-4 w-4" /></Button>
+        </div>
+        <p className="mt-2 text-center font-mono text-[9px] uppercase tracking-[0.12em] text-[#6e6357]">Enter to send · Shift + Enter for a new line</p>
+      </div>
+    </section>
+  );
+}
+
+export default function ShootingCohortPage() {
+  const [, navigate] = useLocation();
+  const { toast } = useToast();
+  const playerQuery = useShootingCohortQuery();
+  const assessmentQuery = useShootingCohortAssessmentsQuery();
+  const submitApplication = useSubmitShootingCohortApplication();
+  const respondInvitation = useRespondToShootingCohortInvitation();
+  const submitAssessment = useSubmitShootingCohortAssessment();
+  const [showAssessmentForm, setShowAssessmentForm] = useState(false);
+  const [reapply, setReapply] = useState(false);
+  const application = playerQuery.data?.application;
+  const closedApplicationStatus = ["withdrawn", "declined", "removed"].includes(application?.status ?? "");
+  const ownAssessments = assessmentQuery.data ?? playerQuery.data?.assessments ?? [];
+  const orderedAssessments = useMemo(() => [...ownAssessments].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [ownAssessments]);
+  const latestAssessment = orderedAssessments[0];
+  const isMember = application?.status === "active";
+  const nextRetest = latestAssessment ? new Date(new Date(latestAssessment.createdAt).getTime() + 28 * 24 * 60 * 60 * 1000) : null;
+  const retestDue = nextRetest ? nextRetest <= new Date() : false;
+  const invitationBusy = respondInvitation.isPending;
+  const apply = async (answers: ShootingCohortApplicationAnswers) => {
+    try {
+      await submitApplication.mutateAsync(answers);
+      toast({ title: "Application received", description: "Your place is now reflected in your cohort status." });
+    } catch (error) {
+      toast({ title: "Application not sent", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
+    }
+  };
+  const respond = async (response: "accept" | "decline") => {
+    try {
+      await respondInvitation.mutateAsync(response);
+      toast({ title: response === "accept" ? "Welcome to the cohort" : "Invitation declined", description: response === "accept" ? "Your seat is active. Start with your baseline." : "The reserved seat has been released." });
+    } catch (error) {
+      toast({ title: "Could not update invitation", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
+    }
+  };
+  const saveAssessment = async (assessment: ShootingCohortAssessmentInput) => {
+    try {
+      await submitAssessment.mutateAsync(assessment);
+      setShowAssessmentForm(false);
+      toast({ title: assessment.type === "baseline" ? "Baseline saved" : "Retest saved", description: "Your private shooting history has been updated." });
+    } catch (error) {
+      toast({ title: "Assessment not saved", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
+    }
+  };
+  if (playerQuery.isLoading) return <main className="shooting-cohort-page min-h-full bg-[#100e0b] px-4 py-8 sm:px-8"><div className="mx-auto max-w-6xl space-y-5"><Skeleton className="h-8 w-32 bg-[#29231c]" /><Skeleton className="h-44 rounded-[28px] bg-[#29231c]" /><Skeleton className="h-72 rounded-[28px] bg-[#29231c]" /></div></main>;
+  if (playerQuery.isError || !playerQuery.data) return <main className="shooting-cohort-page min-h-full bg-[#100e0b] px-4 py-12 sm:px-8"><section className="mx-auto max-w-xl rounded-3xl border border-[#493a2c] bg-[#17130f] p-8 text-center"><CircleHelp className="mx-auto h-8 w-8 text-[#e09457]" /><h1 className="mt-4 font-heading text-3xl uppercase text-[#fff1de]">Couldn’t load your cohort</h1><p className="mt-2 text-sm text-[#a99b89]">Your application and member access are still safe. Try loading them again.</p><Button onClick={() => playerQuery.refetch()} className="mt-5 bg-[#ef8a43] font-bold text-[#21150c] hover:bg-[#ff9e5b]">Retry</Button></section></main>;
+  const status = application ? statusCopy[application.status] : null;
+  const retestLabel = latestAssessment?.type === "baseline" ? "Record a retest" : "Record another retest";
+  return (
+    <main className="shooting-cohort-page min-h-full bg-[#100e0b] px-4 pb-12 pt-5 text-[#fff1de] sm:px-7 sm:pt-8">
+      <div className="mx-auto max-w-6xl">
+        <header className="mb-5 flex items-center justify-between gap-4">
+          <button type="button" onClick={() => navigate("/hub")} className="flex items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ef8a43]">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#cb7840]/40 bg-[#cb7840]/10 font-heading text-sm text-[#f3a56b]">P1</span>
+            <span><span className="block font-mono text-[9px] uppercase tracking-[0.2em] text-[#c58a5e]">PLAYR1 / Founder-led</span><span className="block text-xs font-semibold text-[#e4d8c8]">Shooting cohort</span></span>
+          </button>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" onClick={() => navigate("/contact")} className="text-[#c6a98a] hover:bg-white/[0.04] hover:text-white"><MessageCircle className="mr-1.5 h-4 w-4" />Message Founder</Button>
+            <Button variant="ghost" onClick={() => navigate("/hub")} className="text-[#918577] hover:bg-white/[0.04] hover:text-white">Hub <ChevronRight className="ml-1 h-4 w-4" /></Button>
+          </div>
+        </header>
+        <section className="relative isolate overflow-hidden rounded-[28px] border border-[#493729] bg-[#21180f] px-5 py-7 sm:px-9 sm:py-10">
+          <div className="absolute inset-y-0 right-0 -z-10 hidden w-[48%] bg-[radial-gradient(ellipse_at_80%_40%,rgba(221,119,54,0.24),transparent_58%),linear-gradient(115deg,transparent,rgba(16,14,11,0.25))] sm:block" />
+          <div className="absolute right-8 top-8 hidden h-44 w-44 rotate-12 rounded-[38px] border border-[#d89a66]/15 sm:block" />
+          <div className="absolute right-[72px] top-[68px] hidden h-36 w-36 rotate-12 rounded-[30px] border border-[#d89a66]/10 sm:block" />
+          <div className="relative max-w-2xl">
+            <p className="flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.23em] text-[#e4a06a]"><Target className="h-3.5 w-3.5" /> PLAYR1 Shooting Cohort</p>
+            <h1 className="mt-4 font-heading text-5xl uppercase leading-[0.89] tracking-wide text-[#fff3e2] sm:text-7xl">Build a shot<br /><span className="text-[#ee9652]">you trust.</span></h1>
+            <p className="mt-5 max-w-lg text-sm leading-6 text-[#c0ae99] sm:text-base">Individual shooting coaching from the founder. Track your own work, find a shared rhythm, and keep every score private.</p>
+            <div className="mt-6 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-[0.12em]">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#594331] bg-[#17120e]/70 px-3 py-2 text-[#e5c9ac]"><LockKeyhole className="h-3 w-3 text-[#ed9b5f]" /> Private results</span>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#594331] bg-[#17120e]/70 px-3 py-2 text-[#e5c9ac]"><MessageCircle className="h-3 w-3 text-[#ed9b5f]" /> Real cohort</span>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#594331] bg-[#17120e]/70 px-3 py-2 text-[#e5c9ac]"><BadgeCheck className="h-3 w-3 text-[#ed9b5f]" /> Founder-led</span>
+            </div>
+          </div>
+          <div className="relative mt-7 flex items-center gap-3 border-t border-[#58402e] pt-4 sm:mt-0 sm:absolute sm:bottom-8 sm:right-9 sm:border-0 sm:pt-0">
+            <span className="font-heading text-4xl text-[#f2a365]">{playerQuery.data.settings.activeCount ?? "—"}</span>
+            <span className="max-w-[110px] font-mono text-[9px] uppercase leading-4 tracking-[0.15em] text-[#a99179]">players on the floor<br />capacity {playerQuery.data.settings.capacity}</span>
+          </div>
+        </section>
+
+        {!application || (closedApplicationStatus && reapply) ? (
+          <div className="mt-5 space-y-4">
+            {!playerQuery.data.settings.applicationsOpen && <div className="flex items-start gap-3 rounded-2xl border border-[#5b4934] bg-[#211a13] p-4"><Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-[#e9a05e]" /><div><p className="text-sm font-semibold text-[#f0e1ce]">Applications are paused</p><p className="mt-1 text-xs leading-5 text-[#9d8f7e]">The survey stays here; you can submit when applications reopen.</p></div></div>}
+            <ApplicationForm onSubmit={(answers) => void apply(answers)} pending={submitApplication.isPending} isOpen={playerQuery.data.settings.applicationsOpen} />
+          </div>
+        ) : (
+          <div className="mt-5">
+            <section className={`flex flex-col gap-4 rounded-[22px] border p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5 ${status?.tone ?? "border-zinc-700 bg-zinc-900"}`}>
+              <div className="flex items-start gap-3"><span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-black/20"><ShieldCheck className="h-4 w-4" /></span><div><p className="font-heading text-2xl uppercase leading-none">{status?.label}</p><p className="mt-1.5 max-w-xl text-sm leading-5 opacity-80">{status?.detail}</p>{application.appliedAt && <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.14em] opacity-60">Applied {formatDate(application.appliedAt)} · status updates in your portal</p>}</div></div>
+              {application.status === "invited" && <div className="flex gap-2"><Button variant="outline" onClick={() => void respond("decline")} disabled={invitationBusy} className="border-current/30 bg-black/10 text-current hover:bg-black/20">Decline</Button><Button onClick={() => void respond("accept")} disabled={invitationBusy} className="bg-[#ef8a43] font-bold text-[#21150c] hover:bg-[#ff9e5b]">{invitationBusy ? "Updating…" : "Accept invitation"} <Check className="ml-2 h-4 w-4" /></Button></div>}
+              {closedApplicationStatus && <Button onClick={() => setReapply(true)} disabled={!playerQuery.data.settings.applicationsOpen} className="bg-[#ef8a43] font-bold text-[#21150c] hover:bg-[#ff9e5b]">{playerQuery.data.settings.applicationsOpen ? "Apply again" : "Applications paused"} <ArrowRight className="ml-2 h-4 w-4" /></Button>}
+            </section>
+          </div>
+        )}
+
+        {isMember && (
+          <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1.12fr)_minmax(330px,0.88fr)]">
+            <div className="space-y-5">
+              <section className="rounded-[24px] border border-[#493a2c] bg-[#17130f] p-4 sm:p-5">
+                <div className="flex flex-wrap items-end justify-between gap-4">
+                  <div><p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#df965c]">Your shooting log</p><h2 className="mt-1 font-heading text-3xl uppercase leading-none text-[#fff1de]">Progress, kept personal.</h2><p className="mt-2 max-w-xl text-xs leading-5 text-[#8f8274]">Your results are visible only to you and PLAYR1 admins. No leaderboard, no public scores.</p></div>
+                  <div className="flex flex-wrap gap-2">{!orderedAssessments.length ? <Button onClick={() => setShowAssessmentForm(true)} className="bg-[#ef8a43] font-bold text-[#21150c] hover:bg-[#ff9e5b]"><Target className="mr-2 h-4 w-4" />Set baseline</Button> : <Button variant="outline" onClick={() => setShowAssessmentForm(true)} className="border-[#68482e] bg-[#21180f] text-[#f0b17d] hover:bg-[#352416]"><Target className="mr-2 h-4 w-4" />{retestLabel}</Button>}</div>
+                </div>
+                {latestAssessment && <div className={`mt-4 flex items-center gap-2 rounded-xl border px-3 py-2.5 text-xs ${retestDue ? "border-[#df965c]/30 bg-[#df965c]/[0.08] text-[#f1bd8c]" : "border-[#3a3329] bg-[#100e0b] text-[#958878]"}`}><CalendarDays className="h-3.5 w-3.5 shrink-0" />{retestDue ? "A four-week retest is due. Put your progress on paper." : `Next suggested retest ${nextRetest?.toLocaleDateString(undefined, { month: "short", day: "numeric" })}. Retest every four weeks.`}</div>}
+                {showAssessmentForm && <div className="mt-4"><AssessmentForm type={orderedAssessments.length ? "retest" : "baseline"} pending={submitAssessment.isPending} onCancel={() => setShowAssessmentForm(false)} onSubmit={(assessment) => void saveAssessment(assessment)} /></div>}
+                {assessmentQuery.isLoading && <div className="mt-4 space-y-3"><Skeleton className="h-36 rounded-2xl bg-[#29231c]" /><Skeleton className="h-36 rounded-2xl bg-[#29231c]" /></div>}
+                {assessmentQuery.isError && <div className="mt-4 rounded-xl border border-red-300/20 bg-red-300/[0.05] p-4 text-sm text-red-200"><p>Private test history could not load.</p><Button variant="ghost" onClick={() => assessmentQuery.refetch()} className="mt-1 px-0 text-red-200 hover:text-white">Retry</Button></div>}
+                {!assessmentQuery.isLoading && !assessmentQuery.isError && orderedAssessments.length === 0 && !showAssessmentForm && <div className="mt-4 flex flex-col items-center rounded-2xl border border-dashed border-[#514333] bg-[#100e0b] px-5 py-8 text-center"><Trophy className="h-6 w-6 text-[#8e6847]" /><p className="mt-3 text-sm font-semibold text-[#dfd0bd]">Your first mark is still ahead.</p><p className="mt-1 max-w-sm text-xs leading-5 text-[#817567]">Save a baseline to make your progress visible to you, not the room.</p></div>}
+                <div className="mt-4 space-y-3">{orderedAssessments.map((assessment, index) => <AssessmentCard key={assessment.id} assessment={assessment} index={orderedAssessments.length - index - 1} />)}</div>
+              </section>
+              <div className="grid gap-3">
+                <button type="button" onClick={() => navigate("/custom-workouts")} className="group flex w-full items-center gap-3 rounded-2xl border border-[#493a2c] bg-[#17130f] p-4 text-left transition hover:-translate-y-0.5 hover:border-[#a96537] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ef8a43]">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#bf753f]/25 bg-[#bf753f]/10 text-[#e79960]"><Target className="h-4 w-4" /></span><span className="min-w-0 flex-1"><span className="block font-heading text-xl uppercase text-[#f2e2ce]">Custom workouts</span><span className="mt-0.5 block text-[11px] text-[#85796a]">Training shaped around your shot</span></span><ArrowRight className="h-4 w-4 text-[#b78257] transition group-hover:translate-x-1" />
+                </button>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <div className="rounded-[22px] border border-[#46382b] bg-[#21180f] p-4 sm:p-5"><p className="font-mono text-[9px] uppercase tracking-[0.2em] text-[#d89156]">The assessment</p><h2 className="mt-1 font-heading text-2xl uppercase text-[#fff1de]">60 shots. One honest snapshot.</h2><div className="mt-4 grid grid-cols-3 divide-x divide-[#4b3928] rounded-xl border border-[#503b28] bg-[#17120e] py-3 text-center"><div><p className="font-heading text-2xl text-[#f4b27c]">20</p><p className="font-mono text-[8px] uppercase tracking-[0.1em] text-[#958574]">free throws</p></div><div><p className="font-heading text-2xl text-[#f4b27c]">25</p><p className="font-mono text-[8px] uppercase tracking-[0.1em] text-[#958574]">spot-up</p></div><div><p className="font-heading text-2xl text-[#f4b27c]">15</p><p className="font-mono text-[8px] uppercase tracking-[0.1em] text-[#958574]">off-dribble</p></div></div><p className="mt-3 text-xs leading-5 text-[#9d8f7e]">Record your makes at five spots and three dribble locations. Revisit the same test every four weeks.</p></div>
+              <MemberChat />
+            </div>
+          </div>
+        )}
+        {application?.status === "waitlisted" && <section className="mt-5 rounded-2xl border border-[#4a3d2e] bg-[#17130f] p-5"><p className="font-heading text-2xl uppercase text-[#f1e3d2]">Your application is in order.</p><p className="mt-1 max-w-2xl text-sm leading-6 text-[#9d8f7e]">There are {playerQuery.data.waitlistCount} {playerQuery.data.waitlistCount === 1 ? "player" : "players"} on the waitlist. Invitations are sent as seats open; accept or decline here when yours arrives.</p></section>}
+      </div>
+    </main>
+  );
+}

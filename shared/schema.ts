@@ -3,6 +3,13 @@ import { pgTable, text, varchar, integer, timestamp, boolean, decimal, doublePre
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { users } from "./models/auth";
+import type {
+  ShootingCohortApplicationAnswers,
+  ShootingCohortAssessmentType,
+  ShootingCohortOffDribbleResults,
+  ShootingCohortSpotUpResults,
+  ShootingCohortStatus,
+} from "./shooting-cohort";
 
 // Re-export auth models
 export * from "./models/auth";
@@ -618,6 +625,52 @@ export const customWorkoutAssignments = pgTable("custom_workout_assignments", {
   byWorkout: index("custom_workout_assignments_workout_idx").on(table.workoutId),
 }));
 
+export const shootingCohortSettings = pgTable("shooting_cohort_settings", {
+  id: integer("id").primaryKey().default(1),
+  capacity: integer("capacity").notNull().default(10),
+  applicationsOpen: boolean("applications_open").notNull().default(true),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  updatedBy: varchar("updated_by"),
+});
+
+export const shootingCohortApplications = pgTable("shooting_cohort_applications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique(),
+  status: varchar("status").$type<ShootingCohortStatus>().notNull().default("waitlisted"),
+  answers: jsonb("answers").$type<ShootingCohortApplicationAnswers>().notNull(),
+  appliedAt: timestamp("applied_at").notNull().defaultNow(),
+  invitedAt: timestamp("invited_at"),
+  acceptedAt: timestamp("accepted_at"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  byStatusAndAppliedAt: index("shooting_cohort_applications_status_applied_idx").on(table.status, table.appliedAt),
+}));
+
+export const shootingCohortAssessments = pgTable("shooting_cohort_assessments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  type: varchar("type").$type<ShootingCohortAssessmentType>().notNull(),
+  distanceFeet: integer("distance_feet").notNull(),
+  freeThrowsMade: integer("free_throws_made").notNull(),
+  spotUpResults: jsonb("spot_up_results").$type<ShootingCohortSpotUpResults>().notNull(),
+  offDribbleResults: jsonb("off_dribble_results").$type<ShootingCohortOffDribbleResults>().notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  byPlayerAndCreatedAt: index("shooting_cohort_assessments_player_created_idx").on(table.userId, table.createdAt),
+}));
+
+export const shootingCohortMessages = pgTable("shooting_cohort_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  senderId: varchar("sender_id").notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  deletedAt: timestamp("deleted_at"),
+  deletedBy: varchar("deleted_by"),
+}, (table) => ({
+  byCreatedAt: index("shooting_cohort_messages_created_idx").on(table.createdAt),
+}));
+
 // Training logs - users track their drill practice
 export const trainingLogs = pgTable("training_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1089,6 +1142,10 @@ export type InsertCustomWorkoutRequest = z.infer<typeof insertCustomWorkoutReque
 export type CustomWorkoutRequest = typeof customWorkoutRequests.$inferSelect;
 export type InsertCustomWorkoutAssignment = z.infer<typeof insertCustomWorkoutAssignmentSchema>;
 export type CustomWorkoutAssignment = typeof customWorkoutAssignments.$inferSelect;
+export type ShootingCohortSettings = typeof shootingCohortSettings.$inferSelect;
+export type ShootingCohortApplication = typeof shootingCohortApplications.$inferSelect;
+export type ShootingCohortAssessment = typeof shootingCohortAssessments.$inferSelect;
+export type ShootingCohortMessage = typeof shootingCohortMessages.$inferSelect;
 export type InsertCareerProfile = z.infer<typeof insertCareerProfileSchema>;
 export type CareerProfile = typeof careerProfiles.$inferSelect;
 export type InsertCareerAchievement = z.infer<typeof insertCareerAchievementSchema>;

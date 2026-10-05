@@ -14,6 +14,7 @@ import { apiRequest, getObjectUrl, nativeFetch, queryClient } from "@/lib/queryC
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AdminCustomWorkoutRequests } from "@/components/admin-custom-workout-requests";
 import { AdminCommunity3Pointers } from "@/components/admin-community-3-pointers";
+import AdminShootingCohort from "@/components/admin-shooting-cohort";
 
 type SupportRecipient = {
   displayName: string;
@@ -399,9 +400,11 @@ export function AdminSupportMessagesPage() {
           <TabsTrigger value="player-help" className="gap-2 rounded-xl px-3 py-2 text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-black sm:text-sm"><MessageCircle className="h-4 w-4" />Player Inbox{supportUnreadCount > 0 && <Badge variant="destructive" className="h-5 min-w-5 rounded-full px-1.5 text-[10px]">{supportUnreadCount}</Badge>}</TabsTrigger>
           <TabsTrigger value="community" className="gap-2 rounded-xl px-3 py-2 text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-black sm:text-sm"><Flame className="h-4 w-4" />Community 3 Pointers{communityCount > 0 && <Badge className="h-5 min-w-5 rounded-full bg-orange-500 px-1.5 text-[10px] text-black">{communityCount}</Badge>}</TabsTrigger>
           <TabsTrigger value="custom" className="gap-2 rounded-xl px-3 py-2 text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-black sm:text-sm"><ClipboardList className="h-4 w-4" />Custom Requests{customRequestCount > 0 && <Badge className="h-5 min-w-5 rounded-full bg-orange-500 px-1.5 text-[10px] text-black">{customRequestCount}</Badge>}</TabsTrigger>
+          <TabsTrigger value="shooting-cohort" className="gap-2 rounded-xl px-3 py-2 text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-black sm:text-sm"><Flame className="h-4 w-4" />Shooting Cohort</TabsTrigger>
         </TabsList>
         <TabsContent value="community" className="mt-0"><AdminCommunity3Pointers /></TabsContent>
         <TabsContent value="custom" className="mt-0"><AdminCustomWorkoutRequests /></TabsContent>
+        <TabsContent value="shooting-cohort" className="mt-0"><AdminShootingCohort /></TabsContent>
         <TabsContent value="player-help" className="mt-0">
         {inboxQuery.isLoading ? (
         <div className="space-y-3">{[1, 2, 3].map((item) => <Skeleton key={item} className="h-24 rounded-xl" />)}</div>
