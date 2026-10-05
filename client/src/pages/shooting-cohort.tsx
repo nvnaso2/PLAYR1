@@ -3,8 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import {
   Activity, ArrowRight, BadgeCheck, CalendarDays, Check, ChevronRight, CircleHelp,
-  ClipboardList, Clock3, Dumbbell, LockKeyhole, MessageCircle, Send, ShieldCheck,
-  Target, Trophy, X,
+  ClipboardList, Clock3, Dumbbell, Film, LockKeyhole, MessageCircle, Send,
+  ShieldCheck, Target, Trophy, X,
 } from "lucide-react";
 import {
   CartesianGrid,
@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ShootingCohortVideos } from "@/components/shooting-cohort-videos";
 import { useToast } from "@/hooks/use-toast";
